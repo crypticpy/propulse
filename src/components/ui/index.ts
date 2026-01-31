@@ -30,3 +30,6 @@ export {
   type LoadingSpinnerProps,
   type SpinnerSize,
 } from "./LoadingSpinner";
+
+// DetailModal Component
+export { DetailModal, type DetailModalProps } from "./DetailModal";

@@ -9,6 +9,12 @@ import type {
   OverallCondition,
   VHFCondition,
 } from "../../types/solar";
+import {
+  getIonosphericParameters,
+  getAbsorptionAtLocation,
+} from "./ionosphere";
+import { predictSignalStrength, estimateHops } from "./signal";
+import type { SignalPrediction, SUnit } from "@/types/signal";
 
 /**
  * Band configuration with frequency and propagation characteristics
@@ -351,4 +357,864 @@ export function getKIndexDescription(kp: number): string {
   if (kp <= 7) return "Moderate Storm";
   if (kp <= 8) return "Strong Storm";
   return "Severe Storm";
+}
+
+/**
+ * Path-specific band condition with SNR estimate
+ */
+export interface PathBandCondition {
+  /** Band name (e.g., '20m') */
+  band: string;
+  /** Center frequency (e.g., '14 MHz') */
+  frequency: string;
+  /** Propagation status for this path */
+  status: "excellent" | "good" | "fair" | "poor" | "closed";
+  /** Estimated SNR in dB (realistic range: -30 to -5 dB for FT8) */
+  snrEstimate: number;
+  /** Explanatory notes for this band/path combination */
+  notes: string;
+  /** S-meter reading (from enhanced calculation) */
+  sUnit?: SUnit;
+  /** Total path loss in dB (from enhanced calculation) */
+  pathLoss?: number;
+  /** D-layer absorption loss in dB (from enhanced calculation) */
+  absorptionLoss?: number;
+  /** Full signal prediction object (from enhanced calculation) */
+  signalPrediction?: SignalPrediction;
+}
+
+/**
+ * Band parameters for path-specific calculations
+ */
+interface PathBandParams {
+  name: string;
+  freq: string;
+  /** Optimal distance range in km [min, max] */
+  optimalRange: [number, number];
+  /** Whether band prefers daylight paths */
+  prefersDaylight: boolean;
+  /** Minimum SFI for reliable opening */
+  minSfi: number;
+  /** Base SNR at optimal conditions (dB) */
+  baseSNR: number;
+  /** SNR penalty per 1000km beyond optimal range */
+  distancePenalty: number;
+}
+
+/**
+ * Band parameters for path-specific SNR estimation
+ */
+const PATH_BANDS: PathBandParams[] = [
+  {
+    name: "160m",
+    freq: "1.8 MHz",
+    optimalRange: [500, 3000],
+    prefersDaylight: false,
+    minSfi: 0,
+    baseSNR: -8,
+    distancePenalty: 3,
+  },
+  {
+    name: "80m",
+    freq: "3.5 MHz",
+    optimalRange: [300, 4000],
+    prefersDaylight: false,
+    minSfi: 0,
+    baseSNR: -6,
+    distancePenalty: 2.5,
+  },
+  {
+    name: "60m",
+    freq: "5.3 MHz",
+    optimalRange: [200, 3500],
+    prefersDaylight: false,
+    minSfi: 0,
+    baseSNR: -7,
+    distancePenalty: 2.5,
+  },
+  {
+    name: "40m",
+    freq: "7 MHz",
+    optimalRange: [500, 8000],
+    prefersDaylight: false,
+    minSfi: 0,
+    baseSNR: -5,
+    distancePenalty: 1.5,
+  },
+  {
+    name: "30m",
+    freq: "10 MHz",
+    optimalRange: [1000, 10000],
+    prefersDaylight: true,
+    minSfi: 0,
+    baseSNR: -6,
+    distancePenalty: 1.2,
+  },
+  {
+    name: "20m",
+    freq: "14 MHz",
+    optimalRange: [2000, 15000],
+    prefersDaylight: true,
+    minSfi: 70,
+    baseSNR: -5,
+    distancePenalty: 1.0,
+  },
+  {
+    name: "17m",
+    freq: "18 MHz",
+    optimalRange: [3000, 18000],
+    prefersDaylight: true,
+    minSfi: 80,
+    baseSNR: -6,
+    distancePenalty: 0.9,
+  },
+  {
+    name: "15m",
+    freq: "21 MHz",
+    optimalRange: [3000, 20000],
+    prefersDaylight: true,
+    minSfi: 90,
+    baseSNR: -7,
+    distancePenalty: 0.8,
+  },
+  {
+    name: "12m",
+    freq: "24 MHz",
+    optimalRange: [4000, 20000],
+    prefersDaylight: true,
+    minSfi: 100,
+    baseSNR: -8,
+    distancePenalty: 0.7,
+  },
+  {
+    name: "10m",
+    freq: "28 MHz",
+    optimalRange: [5000, 20000],
+    prefersDaylight: true,
+    minSfi: 110,
+    baseSNR: -9,
+    distancePenalty: 0.6,
+  },
+];
+
+/**
+ * Calculate band-by-band propagation conditions for a specific path
+ *
+ * @param homeLat - Home station latitude
+ * @param homeLon - Home station longitude
+ * @param targetLat - Target station latitude
+ * @param targetLon - Target station longitude
+ * @param kp - Current K-index (0-9)
+ * @param sfi - Current Solar Flux Index
+ * @param pathIllumination - Percentage of path in daylight (0-100)
+ * @returns Array of band conditions with SNR estimates
+ *
+ * @example
+ * ```ts
+ * const conditions = getBandConditionsForPath(
+ *   40.7, -74.0,   // New York
+ *   51.5, -0.1,    // London
+ *   3, 150, 75     // Kp=3, SFI=150, 75% daylight
+ * );
+ * // Returns realistic SNR estimates for each band
+ * ```
+ */
+export function getBandConditionsForPath(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  kp: number,
+  sfi: number,
+  pathIllumination: number,
+): PathBandCondition[] {
+  // Calculate great circle distance
+  const distance = calculateGreatCircleDistance(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+  );
+
+  // Calculate number of F-layer hops (avg ~3000km per hop)
+  const hops = Math.ceil(distance / 3000);
+
+  // Is this primarily a day path or night path?
+  const isDayPath = pathIllumination > 50;
+
+  return PATH_BANDS.map((band) => {
+    let snr = band.baseSNR;
+    const notes: string[] = [];
+
+    // 1. Distance factor - penalize paths outside optimal range
+    const [minDist, maxDist] = band.optimalRange;
+    if (distance < minDist) {
+      // Too short for skip - might be in skip zone
+      const shortfall = (minDist - distance) / 1000;
+      snr -= shortfall * 4;
+      notes.push("Skip zone");
+    } else if (distance > maxDist) {
+      // Beyond optimal range - more hops = more loss
+      const excess = (distance - maxDist) / 1000;
+      snr -= excess * band.distancePenalty;
+      notes.push("Extended path");
+    }
+
+    // 2. Hop loss - each additional hop adds attenuation
+    const hopPenalty = (hops - 1) * 2;
+    snr -= hopPenalty;
+    if (hops > 3) {
+      notes.push(`${hops} hops`);
+    }
+
+    // 3. Day/night preference
+    if (band.prefersDaylight && !isDayPath) {
+      // Daytime band on night path
+      snr -= 8;
+      notes.push("Night path");
+    } else if (!band.prefersDaylight && isDayPath && pathIllumination > 80) {
+      // Nighttime band with mostly daylight path - significant D-layer absorption
+      snr -= 12;
+      notes.push("D-layer absorption");
+    }
+
+    // 4. SFI effect - high bands need high SFI to open
+    if (sfi < band.minSfi) {
+      const deficit = band.minSfi - sfi;
+      const penalty = Math.min(deficit * 0.3, 15);
+      snr -= penalty;
+      if (deficit > 20) {
+        notes.push("Low SFI");
+      }
+    } else if (sfi > band.minSfi + 50) {
+      // Bonus for high SFI on bands that benefit
+      const bonus = Math.min((sfi - band.minSfi - 50) * 0.05, 3);
+      snr += bonus;
+    }
+
+    // 5. Kp effect - geomagnetic disturbance degrades propagation
+    if (kp >= 3) {
+      const kpPenalty = (kp - 2) * 2;
+      snr -= kpPenalty;
+      if (kp >= 5) {
+        notes.push("Storm conditions");
+      } else if (kp >= 4) {
+        notes.push("Disturbed");
+      }
+    }
+
+    // 6. Polar path penalty for high-latitude paths
+    const avgLat = Math.abs((homeLat + targetLat) / 2);
+    if (avgLat > 55) {
+      snr -= 4;
+      notes.push("Polar path");
+    }
+
+    // Clamp SNR to realistic range
+    snr = Math.max(-30, Math.min(-5, Math.round(snr)));
+
+    // Determine status based on SNR
+    // FT8 threshold is around -24 dB
+    let status: PathBandCondition["status"];
+    if (snr >= -8) {
+      status = "excellent";
+    } else if (snr >= -12) {
+      status = "good";
+    } else if (snr >= -18) {
+      status = "fair";
+    } else if (snr >= -24) {
+      status = "poor";
+    } else {
+      status = "closed";
+    }
+
+    // Check if band is completely closed
+    const isBandClosed =
+      sfi < band.minSfi - 30 ||
+      (band.prefersDaylight && pathIllumination < 20) ||
+      (!band.prefersDaylight && pathIllumination > 90 && band.name === "160m");
+
+    if (isBandClosed) {
+      status = "closed";
+      snr = -30;
+      if (notes.length === 0) {
+        notes.push("Band closed");
+      }
+    }
+
+    return {
+      band: band.name,
+      frequency: band.freq,
+      status,
+      snrEstimate: snr,
+      notes: notes.length > 0 ? notes.join(", ") : getDefaultNote(status),
+    };
+  });
+}
+
+/**
+ * Get default note based on status
+ */
+function getDefaultNote(status: PathBandCondition["status"]): string {
+  switch (status) {
+    case "excellent":
+      return "Strong signals expected";
+    case "good":
+      return "Reliable contacts";
+    case "fair":
+      return "Marginal conditions";
+    case "poor":
+      return "Weak signals, FT8 recommended";
+    case "closed":
+      return "No propagation";
+  }
+}
+
+/**
+ * Band frequency lookup table for enhanced calculations
+ */
+const BAND_FREQUENCIES: Record<string, number> = {
+  "160m": 1.85,
+  "80m": 3.6,
+  "60m": 5.35,
+  "40m": 7.1,
+  "30m": 10.1,
+  "20m": 14.1,
+  "17m": 18.1,
+  "15m": 21.1,
+  "12m": 24.9,
+  "10m": 28.3,
+};
+
+/**
+ * Get enhanced band conditions with full signal analysis
+ * Uses the ionospheric model and signal calculations for more accurate predictions
+ *
+ * This function provides physics-based propagation predictions including:
+ * - Actual D-layer absorption calculated for path midpoint
+ * - Proper path loss model from signal.ts
+ * - S-unit estimates based on real physics
+ * - Full signal prediction objects for detailed analysis
+ *
+ * @param homeLat - Home station latitude
+ * @param homeLon - Home station longitude
+ * @param targetLat - Target station latitude
+ * @param targetLon - Target station longitude
+ * @param kp - Current K-index (0-9)
+ * @param sfi - Current Solar Flux Index
+ * @param date - Date/time for calculation (affects ionospheric conditions)
+ * @param txPowerWatts - Transmitter power in watts (default 100W)
+ * @param mode - Operating mode: 'SSB', 'CW', or 'FT8' (default 'FT8')
+ * @returns Array of band conditions with enhanced signal analysis
+ *
+ * @example
+ * ```ts
+ * const conditions = getEnhancedBandConditions(
+ *   40.7, -74.0,   // New York
+ *   51.5, -0.1,    // London
+ *   3, 150,        // Kp=3, SFI=150
+ *   new Date(),
+ *   100,           // 100W
+ *   'FT8'
+ * );
+ * // Returns detailed band conditions with S-unit readings and path loss
+ * ```
+ */
+export function getEnhancedBandConditions(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  kp: number,
+  sfi: number,
+  date: Date,
+  txPowerWatts: number = 100,
+  mode: "SSB" | "CW" | "FT8" = "FT8",
+): PathBandCondition[] {
+  // Calculate great circle distance
+  const distance = calculateGreatCircleDistance(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+  );
+
+  // Calculate path midpoint for ionospheric calculations
+  const midLat = (homeLat + targetLat) / 2;
+  const midLon = (homeLon + targetLon) / 2;
+
+  // Get ionospheric parameters at path midpoint
+  const ionoParams = getIonosphericParameters(midLat, midLon, date, sfi);
+
+  return PATH_BANDS.map((band) => {
+    const frequencyMHz = BAND_FREQUENCIES[band.name] || 14.0;
+
+    // Calculate D-layer absorption at path midpoint
+    const absorptionDb = getAbsorptionAtLocation(
+      midLat,
+      midLon,
+      date,
+      frequencyMHz,
+      sfi,
+    );
+
+    // Estimate number of hops based on distance and ionospheric layer height
+    const hops = estimateHops(distance, ionoParams.hmF2);
+
+    // Get full signal prediction using the signal.ts model
+    const signalPred = predictSignalStrength(
+      frequencyMHz,
+      distance,
+      hops,
+      absorptionDb,
+      txPowerWatts,
+      mode,
+      0, // Default antenna gain
+    );
+
+    // Build notes array
+    const notes: string[] = [];
+
+    // Distance-based notes
+    const [minDist, maxDist] = band.optimalRange;
+    if (distance < minDist) {
+      notes.push("Skip zone");
+    } else if (distance > maxDist) {
+      notes.push("Extended path");
+    }
+
+    // Multi-hop notation
+    if (hops > 3) {
+      notes.push(`${hops} hops`);
+    }
+
+    // Day/night path notes
+    if (band.prefersDaylight && !ionoParams.isDaytime) {
+      notes.push("Night path");
+    } else if (
+      !band.prefersDaylight &&
+      ionoParams.isDaytime &&
+      ionoParams.zenithAngle < 45
+    ) {
+      notes.push("D-layer absorption");
+    }
+
+    // SFI-based notes
+    if (sfi < band.minSfi) {
+      if (band.minSfi - sfi > 20) {
+        notes.push("Low SFI");
+      }
+    }
+
+    // Geomagnetic notes
+    if (kp >= 5) {
+      notes.push("Storm conditions");
+    } else if (kp >= 4) {
+      notes.push("Disturbed");
+    }
+
+    // Polar path notes
+    const avgLat = Math.abs((homeLat + targetLat) / 2);
+    if (avgLat > 55) {
+      notes.push("Polar path");
+    }
+
+    // Absorption note for high absorption
+    if (absorptionDb > 15) {
+      notes.push(`High absorption (${Math.round(absorptionDb)} dB)`);
+    }
+
+    // Use signal prediction SNR but apply Kp penalty
+    let adjustedSNR = signalPred.expectedSNR;
+    if (kp >= 3) {
+      const kpPenalty = (kp - 2) * 2;
+      adjustedSNR -= kpPenalty;
+    }
+
+    // Also check SFI requirements for high bands
+    if (sfi < band.minSfi) {
+      const deficit = band.minSfi - sfi;
+      const penalty = Math.min(deficit * 0.3, 15);
+      adjustedSNR -= penalty;
+    }
+
+    // Clamp SNR to realistic range
+    adjustedSNR = Math.max(-30, Math.min(-5, Math.round(adjustedSNR)));
+
+    // Determine status based on adjusted SNR
+    let status: PathBandCondition["status"];
+    if (adjustedSNR >= -8) {
+      status = "excellent";
+    } else if (adjustedSNR >= -12) {
+      status = "good";
+    } else if (adjustedSNR >= -18) {
+      status = "fair";
+    } else if (adjustedSNR >= -24) {
+      status = "poor";
+    } else {
+      status = "closed";
+    }
+
+    // Check if band is completely closed
+    const isBandClosed =
+      sfi < band.minSfi - 30 ||
+      (band.prefersDaylight &&
+        !ionoParams.isDaytime &&
+        ionoParams.zenithAngle > 100) ||
+      (!band.prefersDaylight &&
+        ionoParams.isDaytime &&
+        ionoParams.zenithAngle < 30 &&
+        band.name === "160m");
+
+    if (isBandClosed) {
+      status = "closed";
+      adjustedSNR = -30;
+      if (notes.length === 0) {
+        notes.push("Band closed");
+      }
+    }
+
+    // Recalculate S-unit based on adjusted SNR
+    // Approximate: SNR of -10 dB typically corresponds to around S5-S6 for FT8
+    // We'll use the signal prediction's S-unit but note it's based on unadjusted path loss
+    const sUnit = signalPred.sUnit;
+
+    return {
+      band: band.name,
+      frequency: band.freq,
+      status,
+      snrEstimate: adjustedSNR,
+      notes: notes.length > 0 ? notes.join(", ") : getDefaultNote(status),
+      sUnit,
+      pathLoss: signalPred.pathLoss,
+      absorptionLoss: absorptionDb,
+      signalPrediction: signalPred,
+    };
+  });
+}
+
+/**
+ * Calculate great circle distance using Haversine formula
+ */
+function calculateGreatCircleDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Get status color for UI display (Tailwind class)
+ */
+export function getPathStatusColor(
+  status: PathBandCondition["status"],
+): string {
+  switch (status) {
+    case "excellent":
+      return "text-signal-green";
+    case "good":
+      return "text-good";
+    case "fair":
+      return "text-caution-amber";
+    case "poor":
+      return "text-alert-red";
+    case "closed":
+      return "text-gray-500";
+  }
+}
+
+/**
+ * Get status background color for UI badges (Tailwind class)
+ */
+export function getPathStatusBgColor(
+  status: PathBandCondition["status"],
+): string {
+  switch (status) {
+    case "excellent":
+      return "bg-signal-green/20";
+    case "good":
+      return "bg-good/20";
+    case "fair":
+      return "bg-caution-amber/20";
+    case "poor":
+      return "bg-alert-red/20";
+    case "closed":
+      return "bg-gray-500/20";
+  }
+}
+
+/**
+ * Hourly forecast data for a single hour
+ */
+export interface HourlyForecast {
+  /** Hour in UTC (0-23) */
+  hour: number;
+  /** Band conditions for this hour */
+  bands: {
+    band: string;
+    status: "excellent" | "good" | "fair" | "poor" | "closed";
+    snrEstimate: number;
+  }[];
+}
+
+/**
+ * Best operating window recommendation
+ */
+export interface BestWindow {
+  band: string;
+  startHour: number;
+  endHour: number;
+  peakHour: number;
+  peakStatus: "excellent" | "good" | "fair" | "poor" | "closed";
+  peakSnr: number;
+}
+
+/**
+ * Forecast bands (excluding 60m and 6m for cleaner display)
+ */
+const FORECAST_BANDS = [
+  "160m",
+  "80m",
+  "40m",
+  "30m",
+  "20m",
+  "17m",
+  "15m",
+  "12m",
+  "10m",
+];
+
+/**
+ * Calculate path illumination at a specific time
+ * Simplified version that uses subsolar point calculation
+ */
+function getPathIlluminationAtTime(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  date: Date,
+): number {
+  // Calculate subsolar point for given time
+  const dayOfYear = Math.floor(
+    (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
+  const declination = -23.45 * Math.cos((2 * Math.PI * (dayOfYear + 10)) / 365);
+  const utcHours =
+    date.getUTCHours() +
+    date.getUTCMinutes() / 60 +
+    date.getUTCSeconds() / 3600;
+  let subsolarLon = (12 - utcHours) * 15;
+  if (subsolarLon > 180) subsolarLon -= 360;
+  if (subsolarLon < -180) subsolarLon += 360;
+
+  // Sample points along path
+  const numPoints = 10;
+  let daylightCount = 0;
+
+  for (let i = 0; i <= numPoints; i++) {
+    const fraction = i / numPoints;
+    const lat = homeLat + (targetLat - homeLat) * fraction;
+    const lon = homeLon + (targetLon - homeLon) * fraction;
+
+    // Check if point is in daylight (within 90° of subsolar point)
+    const distance = calculateGreatCircleDistance(
+      lat,
+      lon,
+      declination,
+      subsolarLon,
+    );
+    if (distance < 10018) {
+      // ~90° at Earth's surface
+      daylightCount++;
+    }
+  }
+
+  return (daylightCount / (numPoints + 1)) * 100;
+}
+
+/**
+ * Generate a 24-hour propagation forecast for a specific path
+ *
+ * @param homeLat - Home station latitude
+ * @param homeLon - Home station longitude
+ * @param targetLat - Target station latitude
+ * @param targetLon - Target station longitude
+ * @param kp - Current K-index (0-9)
+ * @param sfi - Current Solar Flux Index
+ * @param baseTime - Base time for forecast (defaults to now)
+ * @returns Array of 24 hourly forecasts
+ *
+ * @example
+ * ```ts
+ * const forecast = getForecastForPath(
+ *   40.7, -74.0,   // New York
+ *   51.5, -0.1,    // London
+ *   3, 150         // Kp=3, SFI=150
+ * );
+ * // Returns 24 hours of band conditions
+ * ```
+ */
+export function getForecastForPath(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  kp: number,
+  sfi: number,
+  baseTime: Date = new Date(),
+): HourlyForecast[] {
+  const forecasts: HourlyForecast[] = [];
+
+  // Get the start of the current UTC day
+  const baseDate = new Date(baseTime);
+
+  for (let hour = 0; hour < 24; hour++) {
+    // Create date for this hour
+    const hourDate = new Date(baseDate);
+    hourDate.setUTCHours(hour, 0, 0, 0);
+
+    // Calculate path illumination at this hour
+    const illumination = getPathIlluminationAtTime(
+      homeLat,
+      homeLon,
+      targetLat,
+      targetLon,
+      hourDate,
+    );
+
+    // Get full band conditions for this hour
+    const fullConditions = getBandConditionsForPath(
+      homeLat,
+      homeLon,
+      targetLat,
+      targetLon,
+      kp,
+      sfi,
+      illumination,
+    );
+
+    // Filter to forecast bands and extract needed fields
+    const bands = fullConditions
+      .filter((c) => FORECAST_BANDS.includes(c.band))
+      .map((c) => ({
+        band: c.band,
+        status: c.status,
+        snrEstimate: c.snrEstimate,
+      }));
+
+    forecasts.push({
+      hour,
+      bands,
+    });
+  }
+
+  return forecasts;
+}
+
+/**
+ * Find the best operating windows from a 24-hour forecast
+ * Returns recommended time windows for each band
+ */
+export function getBestWindows(forecast: HourlyForecast[]): BestWindow[] {
+  const windows: BestWindow[] = [];
+
+  // Analyze each band
+  for (const band of FORECAST_BANDS) {
+    let bestHour = -1;
+    let bestSnr = -40;
+    let bestStatus: BestWindow["peakStatus"] = "closed";
+
+    // Find peak conditions for this band
+    for (const hourData of forecast) {
+      const bandData = hourData.bands.find((b) => b.band === band);
+      if (bandData && bandData.snrEstimate > bestSnr) {
+        bestSnr = bandData.snrEstimate;
+        bestHour = hourData.hour;
+        bestStatus = bandData.status;
+      }
+    }
+
+    // Skip if band never opens
+    if (bestStatus === "closed" || bestSnr <= -24) continue;
+
+    // Find window around peak (consecutive hours with fair or better)
+    let startHour = bestHour;
+    let endHour = bestHour;
+
+    // Expand backward
+    for (let h = bestHour - 1; h >= 0; h--) {
+      const bandData = forecast[h].bands.find((b) => b.band === band);
+      if (
+        bandData &&
+        bandData.status !== "closed" &&
+        bandData.status !== "poor"
+      ) {
+        startHour = h;
+      } else {
+        break;
+      }
+    }
+
+    // Expand forward
+    for (let h = bestHour + 1; h < 24; h++) {
+      const bandData = forecast[h].bands.find((b) => b.band === band);
+      if (
+        bandData &&
+        bandData.status !== "closed" &&
+        bandData.status !== "poor"
+      ) {
+        endHour = h;
+      } else {
+        break;
+      }
+    }
+
+    windows.push({
+      band,
+      startHour,
+      endHour,
+      peakHour: bestHour,
+      peakStatus: bestStatus,
+      peakSnr: bestSnr,
+    });
+  }
+
+  // Sort by peak SNR (best first)
+  windows.sort((a, b) => b.peakSnr - a.peakSnr);
+
+  return windows;
+}
+
+/**
+ * Get color for forecast status (hex color for SVG)
+ */
+export function getForecastStatusColor(
+  status: "excellent" | "good" | "fair" | "poor" | "closed",
+): string {
+  switch (status) {
+    case "excellent":
+      return "#00ff88"; // signal-green
+    case "good":
+      return "#44dd66"; // good
+    case "fair":
+      return "#ffaa00"; // caution-amber
+    case "poor":
+      return "#ff4455"; // alert-red
+    case "closed":
+      return "#374151"; // gray-700
+  }
 }

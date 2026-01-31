@@ -12,6 +12,8 @@ export interface KIndexChartProps {
   data: KIndexDataPoint[];
   /** Show loading state */
   loading?: boolean;
+  /** Callback when expand button is clicked */
+  onExpand?: () => void;
 }
 
 /**
@@ -48,11 +50,12 @@ function getSeverityLabel(kp: number): string {
 export const KIndexChart: React.FC<KIndexChartProps> = ({
   data,
   loading = false,
+  onExpand,
 }) => {
-  // Chart dimensions
-  const chartWidth = 100; // viewBox percentage
+  // Chart dimensions - use wider aspect ratio like SolarFluxChart
+  const chartWidth = 400;
   const chartHeight = 200;
-  const padding = { top: 20, right: 10, bottom: 30, left: 35 };
+  const padding = { top: 20, right: 20, bottom: 30, left: 45 };
   const innerWidth = chartWidth - padding.left - padding.right;
   const innerHeight = chartHeight - padding.top - padding.bottom;
 
@@ -112,11 +115,37 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
         <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
           K-INDEX (Last 24 Hours)
         </h2>
-        {loading && <LoadingSpinner size="sm" />}
+        <div className="flex items-center gap-2">
+          {loading && <LoadingSpinner size="sm" />}
+          {onExpand && (
+            <button
+              onClick={onExpand}
+              className="p-1 text-gray-500 hover:text-white transition-colors"
+              aria-label="Expand chart"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Chart */}
-      <div className="relative w-full" style={{ height: `${chartHeight}px` }}>
+      <div
+        className="relative w-full"
+        style={{ aspectRatio: `${chartWidth}/${chartHeight}` }}
+      >
         <svg
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           preserveAspectRatio="xMidYMid meet"
@@ -131,25 +160,25 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
             x2={padding.left}
             y2={padding.top + innerHeight}
             stroke="rgba(255,255,255,0.2)"
-            strokeWidth="0.5"
+            strokeWidth="1"
           />
 
           {/* Y-axis tick marks and labels */}
           {yTicks.map((tick) => (
             <g key={tick}>
               <line
-                x1={padding.left - 3}
+                x1={padding.left - 8}
                 y1={yScale(tick)}
                 x2={padding.left}
                 y2={yScale(tick)}
                 stroke="rgba(255,255,255,0.3)"
-                strokeWidth="0.5"
+                strokeWidth="1"
               />
               <text
-                x={padding.left - 5}
+                x={padding.left - 12}
                 y={yScale(tick)}
                 fill="rgba(255,255,255,0.5)"
-                fontSize="3"
+                fontSize="11"
                 fontFamily="monospace"
                 textAnchor="end"
                 dominantBaseline="middle"
@@ -163,7 +192,7 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
                 x2={padding.left + innerWidth}
                 y2={yScale(tick)}
                 stroke="rgba(255,255,255,0.05)"
-                strokeWidth="0.5"
+                strokeWidth="1"
               />
             </g>
           ))}
@@ -175,15 +204,15 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
             x2={padding.left + innerWidth}
             y2={yScale(5)}
             stroke="#ff4455"
-            strokeWidth="0.5"
-            strokeDasharray="2,2"
+            strokeWidth="1"
+            strokeDasharray="6,4"
             opacity="0.6"
           />
           <text
-            x={padding.left + innerWidth + 1}
+            x={padding.left + innerWidth + 4}
             y={yScale(5)}
             fill="#ff4455"
-            fontSize="2.5"
+            fontSize="10"
             fontFamily="sans-serif"
             dominantBaseline="middle"
             opacity="0.8"
@@ -198,7 +227,7 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
             x2={padding.left + innerWidth}
             y2={padding.top + innerHeight}
             stroke="rgba(255,255,255,0.2)"
-            strokeWidth="0.5"
+            strokeWidth="1"
           />
 
           {/* Bars */}
@@ -216,7 +245,7 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
                   width={barWidth}
                   height={barHeight}
                   fill={getBarColor(point.kp_index)}
-                  rx="0.5"
+                  rx="2"
                   opacity="0.85"
                   className="transition-all duration-300"
                 >
@@ -229,9 +258,9 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
                 {/* X-axis label */}
                 <text
                   x={x + barWidth / 2}
-                  y={padding.top + innerHeight + 8}
+                  y={padding.top + innerHeight + 18}
                   fill="rgba(255,255,255,0.5)"
-                  fontSize="2.5"
+                  fontSize="10"
                   fontFamily="monospace"
                   textAnchor="middle"
                 >
@@ -244,15 +273,15 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
           {/* Current time marker - last bar highlight */}
           {chartData.length > 0 && (
             <rect
-              x={xPosition(chartData.length - 1) - 0.5}
+              x={xPosition(chartData.length - 1) - 2}
               y={padding.top}
-              width={barWidth + 1}
+              width={barWidth + 4}
               height={innerHeight}
               fill="none"
               stroke="rgba(255,255,255,0.3)"
-              strokeWidth="0.3"
-              strokeDasharray="1,1"
-              rx="0.5"
+              strokeWidth="1"
+              strokeDasharray="4,4"
+              rx="2"
             />
           )}
         </svg>

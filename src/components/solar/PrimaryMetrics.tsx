@@ -1,6 +1,19 @@
-import React from "react";
+import React, { useState } from "react";
 import { MetricCard } from "./MetricCard";
 import { getKIndexColor, getKIndexDescription } from "@/lib/utils/bands";
+import {
+  SolarFluxModal,
+  KIndexModal,
+  SunspotModal,
+  AIndexModal,
+  BzModal,
+  type BzDataPoint,
+} from "./modals";
+
+export interface SolarFluxDataPoint {
+  time_tag: string;
+  flux: number;
+}
 
 export interface PrimaryMetricsProps {
   /** Current K-index value (0-9) */
@@ -11,8 +24,14 @@ export interface PrimaryMetricsProps {
   sunspotNumber: number;
   /** A-index (24-hour geomagnetic activity) */
   aIndex?: number;
+  /** IMF Bz component in nT (null if unavailable) */
+  bz?: number | null;
+  /** Bz historical data for the modal chart */
+  bzData?: BzDataPoint[];
   /** Show loading state */
   loading?: boolean;
+  /** Solar flux historical data for the modal chart */
+  solarFluxData?: SolarFluxDataPoint[];
 }
 
 /**
@@ -88,6 +107,33 @@ function getSSNColor(ssn: number): string {
 }
 
 /**
+ * Get color for IMF Bz value
+ * Northward (positive) is quiet, southward (negative) is active
+ *
+ * @param bz - Bz component in nT
+ * @returns Hex color code
+ */
+function getBzColor(bz: number | null): string {
+  if (bz === null) return "#888899"; // No data
+  if (bz > 0) return "#00ff88"; // Northward - quiet - signal-green
+  if (bz > -5) return "#ffaa00"; // Weakly south - caution-amber
+  return "#ff4455"; // Strongly south - alert-red
+}
+
+/**
+ * Get description for IMF Bz value
+ *
+ * @param bz - Bz component in nT
+ * @returns Human-readable description
+ */
+function getBzDescription(bz: number | null): string {
+  if (bz === null) return "No Data";
+  if (bz > 0) return "Northward";
+  if (bz > -5) return "Weakly South";
+  return "Southward";
+}
+
+/**
  * Get description for Sunspot Number
  *
  * @param ssn - Sunspot Number
@@ -105,6 +151,7 @@ function getSSNDescription(ssn: number): string {
  *
  * Displays a grid of 4 primary solar metrics: SFI, K-Index, SSN, and A-Index.
  * Responsive layout: 4 columns on desktop, 2 on tablet, 1 on mobile.
+ * Each metric card can be clicked to open a detailed modal.
  *
  * @example
  * ```tsx
@@ -113,6 +160,7 @@ function getSSNDescription(ssn: number): string {
  *   solarFlux={145}
  *   sunspotNumber={120}
  *   aIndex={8}
+ *   solarFluxData={[{ time_tag: '2024-01-01', flux: 120 }, ...]}
  * />
  * ```
  */
@@ -121,60 +169,123 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
   solarFlux,
   sunspotNumber,
   aIndex = 0,
+  bz = null,
+  bzData = [],
   loading = false,
+  solarFluxData = [],
 }) => {
+  // Modal state for each metric
+  const [solarFluxModalOpen, setSolarFluxModalOpen] = useState(false);
+  const [kIndexModalOpen, setKIndexModalOpen] = useState(false);
+  const [sunspotModalOpen, setSunspotModalOpen] = useState(false);
+  const [aIndexModalOpen, setAIndexModalOpen] = useState(false);
+  const [bzModalOpen, setBzModalOpen] = useState(false);
+
   // Format values for display
   const formattedKIndex = kIndex.toFixed(1);
   const formattedSFI = Math.round(solarFlux);
   const formattedSSN = Math.round(sunspotNumber);
   const formattedAIndex = Math.round(aIndex);
+  const formattedBz = bz !== null ? bz.toFixed(1) : "N/A";
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Solar Flux Index */}
-      <MetricCard
-        label="SOLAR FLUX"
-        value={formattedSFI}
-        unit="sfu"
-        description={getSFIDescription(solarFlux)}
-        color={getSFIColor(solarFlux)}
-        delay={0}
-        loading={loading}
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Solar Flux Index */}
+        <MetricCard
+          label="SOLAR FLUX"
+          value={formattedSFI}
+          unit="sfu"
+          description={getSFIDescription(solarFlux)}
+          color={getSFIColor(solarFlux)}
+          delay={0}
+          loading={loading}
+          onClick={() => setSolarFluxModalOpen(true)}
+        />
+
+        {/* K-Index */}
+        <MetricCard
+          label="K-INDEX"
+          value={formattedKIndex}
+          unit="Kp"
+          description={getKIndexDescription(kIndex)}
+          color={getKIndexColor(kIndex)}
+          delay={100}
+          loading={loading}
+          onClick={() => setKIndexModalOpen(true)}
+        />
+
+        {/* Sunspot Number */}
+        <MetricCard
+          label="SUNSPOT NUMBER"
+          value={formattedSSN}
+          unit="SSN"
+          description={getSSNDescription(sunspotNumber)}
+          color={getSSNColor(sunspotNumber)}
+          delay={200}
+          loading={loading}
+          onClick={() => setSunspotModalOpen(true)}
+        />
+
+        {/* A-Index */}
+        <MetricCard
+          label="A-INDEX"
+          value={formattedAIndex}
+          unit="A"
+          description={getAIndexDescription(aIndex)}
+          color={getAIndexColor(aIndex)}
+          delay={300}
+          loading={loading}
+          onClick={() => setAIndexModalOpen(true)}
+        />
+
+        {/* IMF Bz */}
+        <MetricCard
+          label="IMF Bz"
+          value={formattedBz}
+          unit="nT"
+          description={getBzDescription(bz)}
+          color={getBzColor(bz)}
+          delay={400}
+          loading={loading}
+          onClick={() => setBzModalOpen(true)}
+        />
+      </div>
+
+      {/* Modals */}
+      <SolarFluxModal
+        isOpen={solarFluxModalOpen}
+        onClose={() => setSolarFluxModalOpen(false)}
+        currentValue={Math.round(solarFlux)}
+        data={solarFluxData}
       />
 
-      {/* K-Index */}
-      <MetricCard
-        label="K-INDEX"
-        value={formattedKIndex}
-        unit="Kp"
-        description={getKIndexDescription(kIndex)}
-        color={getKIndexColor(kIndex)}
-        delay={100}
-        loading={loading}
+      <KIndexModal
+        isOpen={kIndexModalOpen}
+        onClose={() => setKIndexModalOpen(false)}
+        currentValue={kIndex}
       />
 
-      {/* Sunspot Number */}
-      <MetricCard
-        label="SUNSPOT NUMBER"
-        value={formattedSSN}
-        unit="SSN"
-        description={getSSNDescription(sunspotNumber)}
-        color={getSSNColor(sunspotNumber)}
-        delay={200}
-        loading={loading}
+      <SunspotModal
+        isOpen={sunspotModalOpen}
+        onClose={() => setSunspotModalOpen(false)}
+        currentValue={Math.round(sunspotNumber)}
       />
 
-      {/* A-Index */}
-      <MetricCard
-        label="A-INDEX"
-        value={formattedAIndex}
-        unit="A"
-        description={getAIndexDescription(aIndex)}
-        color={getAIndexColor(aIndex)}
-        delay={300}
-        loading={loading}
+      <AIndexModal
+        isOpen={aIndexModalOpen}
+        onClose={() => setAIndexModalOpen(false)}
+        currentValue={aIndex}
+        kIndex={kIndex}
       />
-    </div>
+
+      <BzModal
+        isOpen={bzModalOpen}
+        onClose={() => setBzModalOpen(false)}
+        currentValue={bz}
+        data={bzData}
+      />
+    </>
   );
 };
 

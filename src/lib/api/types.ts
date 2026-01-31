@@ -80,3 +80,19 @@ export interface ApiError {
   status?: number;
   endpoint?: string;
 }
+
+/**
+ * Magnetometer data from NOAA solar wind magnetometer endpoint
+ * The IMF (Interplanetary Magnetic Field) Bz component is critical for storm prediction
+ * Negative Bz values indicate southward IMF which couples with Earth's magnetosphere
+ */
+export interface MagnetometerData {
+  /** ISO 8601 timestamp of the measurement */
+  time_tag: string;
+  /** IMF Bz component in GSM coordinates (nT) - critical for storm prediction */
+  bz_gsm: number | null;
+  /** IMF By component in GSM coordinates (nT) */
+  by_gsm: number | null;
+  /** Total magnetic field magnitude (nT) */
+  bt: number | null;
+}

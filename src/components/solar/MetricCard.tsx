@@ -19,6 +19,8 @@ export interface MetricCardProps {
   delay?: number;
   /** Show loading state */
   loading?: boolean;
+  /** Click handler for expanding the card to show detailed modal */
+  onClick?: () => void;
 }
 
 /**
@@ -49,6 +51,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   color = "#ffffff",
   delay = 0,
   loading = false,
+  onClick,
 }) => {
   /**
    * Get the trend arrow icon based on direction
@@ -85,9 +88,41 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   return (
     <Card
       animate
-      className="relative overflow-hidden"
+      className={`relative overflow-hidden ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""}`}
       style={{ animationDelay: `${delay}ms` }}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
+      {/* Expand icon - shown when onClick is provided */}
+      {onClick && (
+        <div className="absolute top-3 right-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
+          </svg>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center min-h-[120px]">
           <LoadingSpinner size="md" />

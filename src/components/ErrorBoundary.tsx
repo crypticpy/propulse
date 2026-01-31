@@ -27,6 +27,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+
+    // Check for IndexedDB-specific errors and provide helpful message
+    if (
+      error.message.includes("IndexedDB") ||
+      error.message.includes("database") ||
+      error.name === "QuotaExceededError" ||
+      error.name === "InvalidStateError" ||
+      error.name === "AbortError"
+    ) {
+      this.setState({
+        error: new Error(
+          "Database error. Your data may still be safe. Try refreshing the page or clearing site data.",
+        ),
+      });
+    }
   }
 
   private handleRetry = () => {

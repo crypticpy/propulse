@@ -9,12 +9,14 @@ import {
   fetchSolarFlux,
   fetchProbabilities,
   fetchSunspots,
+  fetchMagnetometer,
 } from "../lib/api/noaa";
 import type {
   KIndexData,
   SolarFluxData,
   SolarProbabilities,
   SunspotData,
+  MagnetometerData,
 } from "../lib/api/types";
 
 // Query key constants for cache management
@@ -23,6 +25,7 @@ export const QUERY_KEYS = {
   solarFlux: ["solar", "flux"] as const,
   probabilities: ["solar", "probabilities"] as const,
   sunspots: ["solar", "sunspots"] as const,
+  magnetometer: ["solar", "magnetometer"] as const,
 } as const;
 
 // Time constants in milliseconds
@@ -56,6 +59,16 @@ const DEMO_SUNSPOTS: SunspotData[] = Array.from({ length: 12 }, (_, i) => ({
   ssn: 100 + Math.floor(Math.random() * 80),
   smoothed_ssn: 110 + Math.floor(Math.random() * 40),
 })).reverse();
+
+const DEMO_MAGNETOMETER: MagnetometerData[] = Array.from(
+  { length: 60 },
+  (_, i) => ({
+    time_tag: new Date(Date.now() - i * MINUTE).toISOString(),
+    bz_gsm: Math.random() * 10 - 5, // -5 to +5 nT typical quiet conditions
+    by_gsm: Math.random() * 10 - 5,
+    bt: 5 + Math.random() * 5, // 5-10 nT typical
+  }),
+).reverse();
 
 /**
  * Hook to fetch K-index data
@@ -128,6 +141,27 @@ export function useSunspots() {
     staleTime: 6 * HOUR,
     refetchInterval: 6 * HOUR,
     placeholderData: DEMO_SUNSPOTS,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+/**
+ * Hook to fetch solar wind magnetometer data
+ * Returns last 60 entries (1 hour of data), refetches every 1 minute
+ * Bz is critical for storm prediction - negative values indicate southward IMF
+ */
+export function useMagnetometer() {
+  return useQuery({
+    queryKey: QUERY_KEYS.magnetometer,
+    queryFn: async () => {
+      const data = await fetchMagnetometer();
+      // Return last 60 entries (approximately 1 hour of 1-minute data)
+      return data.slice(-60);
+    },
+    staleTime: 1 * MINUTE,
+    refetchInterval: 1 * MINUTE,
+    placeholderData: DEMO_MAGNETOMETER,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });

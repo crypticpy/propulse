@@ -94,8 +94,8 @@ export function latLonToGrid(
   }
 
   // Normalize longitude to 0-360 range for calculation
-  let adjustedLon = lon + 180;
-  let adjustedLat = lat + 90;
+  const adjustedLon = lon + 180;
+  const adjustedLat = lat + 90;
 
   const grid: string[] = [];
 

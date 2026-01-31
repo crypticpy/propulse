@@ -22,7 +22,7 @@ export function Header() {
   const navItems = [
     { path: "/", label: "Home", icon: "🏠" },
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
-    // Future: { path: "/map", label: "PropSphere", icon: "🌍" },
+    { path: "/map", label: "PropSphere", icon: "🌍" },
     // Future: { path: "/log", label: "LogBook", icon: "📝" },
   ];
 

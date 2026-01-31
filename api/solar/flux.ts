@@ -10,6 +10,14 @@ export const config = {
   runtime: "edge",
 };
 
+/**
+ * Get the allowed CORS origin based on environment
+ * Never returns wildcard "*" to prevent security issues
+ */
+function getAllowedOrigin(): string {
+  return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
+}
+
 const NOAA_URL = "https://services.swpc.noaa.gov/json/f107_cm_flux.json";
 
 export default async function handler(_request: Request): Promise<Response> {
@@ -31,6 +39,7 @@ export default async function handler(_request: Request): Promise<Response> {
           headers: {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",
+            "Access-Control-Allow-Origin": getAllowedOrigin(),
           },
         },
       );
@@ -43,7 +52,7 @@ export default async function handler(_request: Request): Promise<Response> {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "s-maxage=14400, stale-while-revalidate=86400",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": getAllowedOrigin(),
         "Access-Control-Allow-Methods": "GET, OPTIONS",
       },
     });
@@ -59,6 +68,7 @@ export default async function handler(_request: Request): Promise<Response> {
         headers: {
           "Content-Type": "application/json",
           "Cache-Control": "no-cache",
+          "Access-Control-Allow-Origin": getAllowedOrigin(),
         },
       },
     );

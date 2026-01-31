@@ -23,6 +23,23 @@ export interface UserStation {
 }
 
 /**
+ * ITU radio region identifier
+ * The world is divided into three regions for radio frequency allocation
+ */
+export type ITURegion = "ITU1" | "ITU2" | "ITU3";
+
+/**
+ * Amateur radio license class (US-based, extensible for other countries)
+ * Determines frequency privileges and power limits
+ */
+export type LicenseClass =
+  | "NOVICE"
+  | "TECHNICIAN"
+  | "GENERAL"
+  | "ADVANCED"
+  | "EXTRA";
+
+/**
  * User application preferences
  */
 export interface UserPreferences {
@@ -34,4 +51,8 @@ export interface UserPreferences {
   timeFormat: "12h" | "24h";
   /** Application color theme */
   theme: "dark" | "light";
+  /** ITU region for band plan compliance */
+  ituRegion?: ITURegion;
+  /** Amateur license class for privilege checks */
+  licenseClass?: LicenseClass;
 }

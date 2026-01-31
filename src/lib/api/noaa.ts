@@ -9,6 +9,7 @@ import type {
   SolarFluxData,
   SolarProbabilities,
   SunspotData,
+  MagnetometerData,
   ApiError,
 } from "./types";
 
@@ -69,6 +70,17 @@ export async function fetchSolarFlux(): Promise<SolarFluxData[]> {
 }
 
 /**
+ * Raw NOAA probability response (different field names from our interface)
+ */
+interface NOAAProbabilityResponse {
+  date: string;
+  c_class_1_day: number;
+  m_class_1_day: number;
+  x_class_1_day: number;
+  "10mev_protons_1_day": number;
+}
+
+/**
  * Fetch solar event probability forecast
  * Returns probabilities for C, M, X-class flares and proton events
  *
@@ -76,15 +88,31 @@ export async function fetchSolarFlux(): Promise<SolarFluxData[]> {
  * @throws ApiError if the request fails
  */
 export async function fetchProbabilities(): Promise<SolarProbabilities> {
-  const data = await fetchFromProxy<SolarProbabilities[]>("probabilities");
+  const data = await fetchFromProxy<NOAAProbabilityResponse[]>("probabilities");
   // The API returns an array, we want the most recent forecast
   if (Array.isArray(data) && data.length > 0) {
-    return data[data.length - 1];
+    const latest = data[data.length - 1];
+    // Map NOAA field names to our interface
+    return {
+      time_tag: latest.date,
+      c_prob: latest.c_class_1_day,
+      m_prob: latest.m_class_1_day,
+      x_prob: latest.x_class_1_day,
+      proton_prob: latest["10mev_protons_1_day"],
+    };
   }
   throw {
     message: "No probability data available",
     endpoint: "probabilities",
   } as ApiError;
+}
+
+/**
+ * Raw NOAA sunspot response (uses hyphenated field name)
+ */
+interface NOAASunspotResponse {
+  "time-tag": string;
+  ssn: number;
 }
 
 /**
@@ -95,5 +123,22 @@ export async function fetchProbabilities(): Promise<SolarProbabilities> {
  * @throws ApiError if the request fails
  */
 export async function fetchSunspots(): Promise<SunspotData[]> {
-  return fetchFromProxy<SunspotData[]>("sunspots");
+  const data = await fetchFromProxy<NOAASunspotResponse[]>("sunspots");
+  // Map NOAA field names to our interface
+  return data.map((item) => ({
+    time_tag: item["time-tag"],
+    ssn: item.ssn,
+  }));
+}
+
+/**
+ * Fetch solar wind magnetometer data
+ * Returns IMF Bz, By, and total field (Bt) measurements
+ * Bz is critical for predicting geomagnetic storm impacts
+ *
+ * @returns Promise<MagnetometerData[]> - Array of magnetometer measurements (1-minute resolution)
+ * @throws ApiError if the request fails
+ */
+export async function fetchMagnetometer(): Promise<MagnetometerData[]> {
+  return fetchFromProxy<MagnetometerData[]>("magnetometer");
 }

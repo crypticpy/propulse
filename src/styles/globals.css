@@ -84,3 +84,72 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Live indicator pulse */
+@keyframes livePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-live-pulse {
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+/* Card entrance animation */
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-card-entrance {
+  animation: cardEntrance 0.5s ease-out forwards;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.03) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Focus styles for accessibility */
+@layer base {
+  *:focus-visible {
+    @apply outline-none ring-2 ring-plasma-orange ring-offset-2 ring-offset-deep-space;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

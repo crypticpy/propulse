@@ -6,7 +6,7 @@
  * greyline, and path analysis tools.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { addHours } from "date-fns";
 import {
   GlobeView,
@@ -19,7 +19,9 @@ import {
   QuickTargets,
   MUFLegend,
   FullscreenPropSphere,
+  RecommendationsPanel,
 } from "@/components/map";
+import { DXSpotList } from "@/components/dx/DXSpotList";
 import { Card } from "@/components/ui/Card";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -66,6 +68,7 @@ export function PropSphere() {
   const {
     viewMode,
     timeOffset,
+    target,
     setTarget,
     layers,
     toggleLayer,
@@ -75,6 +78,7 @@ export function PropSphere() {
     setFullscreen,
   } = useMapStore();
   const { station } = useUserStore();
+  const [isDXSpotListExpanded, setIsDXSpotListExpanded] = useState(false);
 
   // Calculate display time with offset
   const displayTime = useMemo(() => {
@@ -209,6 +213,16 @@ export function PropSphere() {
                   />
                   <span className="text-sm text-gray-400">MUF</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={layers.spots}
+                    onChange={() => toggleLayer("spots")}
+                    className="w-4 h-4 rounded bg-white/10 border-white/20
+                      text-cyan-400 focus:ring-cyan-400"
+                  />
+                  <span className="text-sm text-gray-400">Live Spots</span>
+                </label>
               </div>
 
               {/* Divider */}
@@ -281,11 +295,65 @@ export function PropSphere() {
             {/* Path Analysis */}
             <PathAnalysis displayTime={displayTime} />
 
+            {/* Recommendations Panel - only show when target is selected */}
+            {target && station && (
+              <RecommendationsPanel
+                homeLat={station.lat}
+                homeLon={station.lon}
+                targetLat={target.lat}
+                targetLon={target.lon}
+                displayTime={displayTime}
+              />
+            )}
+
             {/* 24-Hour Propagation Forecast */}
             <PropagationForecast displayTime={displayTime} />
 
             {/* Quick Targets */}
             <QuickTargets />
+
+            {/* DX Spot List - Collapsible */}
+            <Card className="p-0 overflow-hidden">
+              <button
+                onClick={() => setIsDXSpotListExpanded(!isDXSpotListExpanded)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="text-sm font-medium text-white">
+                    Live DX Spots
+                  </span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${
+                    isDXSpotListExpanded ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              {isDXSpotListExpanded && (
+                <div
+                  className="border-t border-white/10"
+                  style={{ maxHeight: "400px", overflowY: "auto" }}
+                >
+                  <DXSpotList
+                    maxHeight="350px"
+                    showFilters={true}
+                    showHeader={false}
+                    className="border-0 rounded-none"
+                  />
+                </div>
+              )}
+            </Card>
           </div>
         </div>
 

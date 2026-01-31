@@ -5,7 +5,7 @@
  * and terminator/greyline overlays.
  */
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
@@ -13,6 +13,13 @@ import { getPathPoints } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { estimateMUF, getMUFColor } from "@/lib/api/muf";
+import { useLiveSpots } from "@/hooks/useLiveSpots";
+import {
+  resolveSpotLocations,
+  getGreatCirclePoints,
+  getModeColor,
+  type ResolvedSpot,
+} from "./LiveSpotArcs";
 import type { AuroraData } from "@/lib/api/aurora";
 
 interface FlatMapViewProps {
@@ -451,6 +458,115 @@ function drawMUF(
   ctx.restore();
 }
 
+/**
+ * Calculate age-based opacity (newer spots are more visible)
+ */
+function getSpotAgeOpacity(spotTime: Date, maxAgeMinutes: number = 15): number {
+  const ageMs = Date.now() - spotTime.getTime();
+  const ageMinutes = ageMs / 60000;
+  return Math.max(0.3, 1 - ageMinutes / maxAgeMinutes);
+}
+
+/**
+ * Draw a curved arc between two points using bezier curves
+ * Creates a visually pleasing arc that curves away from the map surface
+ */
+function drawSpotArc(ctx: CanvasRenderingContext2D, spot: ResolvedSpot) {
+  const color = getModeColor(spot.mode);
+  const opacity = getSpotAgeOpacity(spot.time);
+
+  // Get start and end points
+  const start = latLonToCanvas(spot.spotterLat, spot.spotterLon);
+  const end = latLonToCanvas(spot.dxLat, spot.dxLon);
+
+  // Calculate control point for bezier curve
+  // The arc height is based on distance between points
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  // Handle wrap-around at date line
+  let wrapAround = false;
+  if (Math.abs(dx) > MAP_WIDTH / 2) {
+    wrapAround = true;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 3;
+
+  if (wrapAround) {
+    // Draw two segments for wrap-around paths
+    // Use great circle points for more accurate path
+    const points = getGreatCirclePoints(
+      spot.spotterLat,
+      spot.spotterLon,
+      spot.dxLat,
+      spot.dxLon,
+      50,
+    );
+
+    ctx.beginPath();
+    let lastX = -1;
+
+    for (const point of points) {
+      const { x, y } = latLonToCanvas(point.lat, point.lon);
+
+      if (lastX >= 0 && Math.abs(x - lastX) > MAP_WIDTH / 2) {
+        // Break at wrap point
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      } else if (lastX < 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+      lastX = x;
+    }
+    ctx.stroke();
+  } else {
+    // Draw a curved bezier arc for non-wrapping paths
+    const midX = (start.x + end.x) / 2;
+    const midY = (start.y + end.y) / 2;
+
+    // Arc curves upward (toward poles) - height based on distance
+    const arcHeight = Math.min(distance * 0.3, 80);
+    const controlY = midY - arcHeight;
+
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.quadraticCurveTo(midX, controlY, end.x, end.y);
+    ctx.stroke();
+  }
+
+  // Draw endpoint dots
+  // Spotter location (smaller)
+  ctx.beginPath();
+  ctx.fillStyle = color;
+  ctx.arc(start.x, start.y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // DX location (larger)
+  ctx.beginPath();
+  ctx.arc(end.x, end.y, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/**
+ * Draw all spot arcs on the 2D map
+ */
+function drawSpotArcs(ctx: CanvasRenderingContext2D, spots: ResolvedSpot[]) {
+  for (const spot of spots) {
+    drawSpotArc(ctx, spot);
+  }
+}
+
 export function FlatMapView({
   displayTime,
   onLocationClick,
@@ -461,6 +577,19 @@ export function FlatMapView({
   const { station } = useUserStore();
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
+
+  // Fetch live spots when spots layer is enabled
+  const { spots } = useLiveSpots({
+    grid: station?.grid,
+    enabled: layers.spots,
+    refetchInterval: 60000,
+  });
+
+  // Resolve spot locations and limit to 50 for performance
+  const resolvedSpots = useMemo(() => {
+    if (!layers.spots) return [];
+    return resolveSpotLocations(spots).slice(0, 50);
+  }, [spots, layers.spots]);
 
   // Load map image
   useEffect(() => {
@@ -523,6 +652,11 @@ export function FlatMapView({
     // Draw grid
     drawGrid(ctx);
 
+    // Draw live spot arcs
+    if (layers.spots && resolvedSpots.length > 0) {
+      drawSpotArcs(ctx, resolvedSpots);
+    }
+
     // Draw path if both home and target exist
     if (station && target) {
       drawPath(ctx, station.lat, station.lon, target.lat, target.lon);
@@ -549,7 +683,16 @@ export function FlatMapView({
         target.name || target.grid,
       );
     }
-  }, [displayTime, layers, station, target, mapImage, auroraData, currentSFI]);
+  }, [
+    displayTime,
+    layers,
+    station,
+    target,
+    mapImage,
+    auroraData,
+    currentSFI,
+    resolvedSpots,
+  ]);
 
   return (
     <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative">

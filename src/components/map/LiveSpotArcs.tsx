@@ -4,20 +4,187 @@
  * Renders arcs on the globe showing live spot paths from
  * PSKReporter, RBN, and other sources.
  *
- * Source filtering is integrated with dxStore to allow users
- * to filter which sources appear on the globe.
+ * Arcs are colored by operating mode (FT8, CW, SSB, etc.)
+ * for quick visual identification of activity.
  */
 
 import { useMemo } from "react";
 import { Line } from "@react-three/drei";
 import { getPathPoints } from "@/lib/utils/path";
+import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXStore } from "@/stores/dxStore";
 import {
-  SPOT_SOURCE_COLORS,
-  type LiveSpot,
-  type SpotSource,
-} from "@/types/livespot";
+  extractPrefixFromCallsign,
+  getLocationFromPrefix,
+} from "@/lib/data/prefixLocations";
+import type { LiveSpot, SpotSource } from "@/types/livespot";
+
+// ==========================================================================
+// Mode Colors - for visual identification of operating modes
+// ==========================================================================
+export const MODE_COLORS: Record<string, string> = {
+  FT8: "#44DDFF", // Cosmic cyan
+  FT4: "#44DDFF", // Cosmic cyan
+  CW: "#FFD23F", // Caution amber
+  SSB: "#00FF88", // Signal green
+  RTTY: "#AA44FF", // Aurora purple
+  DIGI: "#44DDFF", // Cosmic cyan (generic digital)
+  DATA: "#44DDFF", // Cosmic cyan (generic data)
+  default: "#888888", // Gray fallback
+};
+
+/**
+ * Get color for a given mode
+ */
+export function getModeColor(mode: string | undefined): string {
+  if (!mode) return MODE_COLORS.default;
+  const upperMode = mode.toUpperCase();
+
+  // Direct match
+  if (MODE_COLORS[upperMode]) {
+    return MODE_COLORS[upperMode];
+  }
+
+  // Partial matches for common mode variations
+  if (upperMode.includes("FT8") || upperMode.includes("FT4")) {
+    return MODE_COLORS.FT8;
+  }
+  if (upperMode.includes("CW")) {
+    return MODE_COLORS.CW;
+  }
+  if (
+    upperMode.includes("SSB") ||
+    upperMode.includes("USB") ||
+    upperMode.includes("LSB")
+  ) {
+    return MODE_COLORS.SSB;
+  }
+  if (upperMode.includes("RTTY") || upperMode.includes("PSK")) {
+    return MODE_COLORS.RTTY;
+  }
+  if (upperMode.includes("DIGI") || upperMode.includes("DATA")) {
+    return MODE_COLORS.DIGI;
+  }
+
+  return MODE_COLORS.default;
+}
+
+// ==========================================================================
+// Great Circle Path Utilities
+// ==========================================================================
+
+/**
+ * Calculate great circle points between two coordinates
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param numPoints - Number of points along the path (default: 30)
+ * @returns Array of lat/lon points along the great circle
+ */
+export function getGreatCirclePoints(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  numPoints: number = 30,
+): Array<{ lat: number; lon: number }> {
+  return getPathPoints(lat1, lon1, lat2, lon2, numPoints).map((p) => ({
+    lat: p.lat,
+    lon: p.lon,
+  }));
+}
+
+// ==========================================================================
+// Spot Location Resolution
+// ==========================================================================
+
+export interface ResolvedSpot {
+  id: string;
+  spotterLat: number;
+  spotterLon: number;
+  dxLat: number;
+  dxLon: number;
+  mode: string;
+  frequency: number;
+  time: Date;
+  callsign: string;
+  source: SpotSource;
+}
+
+/**
+ * Try to get location from a grid locator
+ */
+function getLocationFromGrid(
+  grid: string | undefined,
+): { lat: number; lon: number } | null {
+  if (!grid || !isValidGrid(grid)) return null;
+  try {
+    return gridToLatLon(grid);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Try to get location from a callsign using prefix lookup
+ */
+function getLocationFromCallsign(
+  callsign: string,
+): { lat: number; lon: number } | null {
+  const prefix = extractPrefixFromCallsign(callsign);
+  const location = getLocationFromPrefix(prefix);
+  if (location) {
+    return { lat: location.lat, lon: location.lon };
+  }
+  return null;
+}
+
+/**
+ * Resolve spot locations from grid/callsign with fallback chain
+ * Priority: grid locator > callsign prefix > continent
+ */
+export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
+  const resolved: ResolvedSpot[] = [];
+
+  for (const spot of spots) {
+    // Try to resolve spotter location
+    const spotterLoc =
+      spot.spotterLat !== undefined && spot.spotterLon !== undefined
+        ? { lat: spot.spotterLat, lon: spot.spotterLon }
+        : getLocationFromGrid(spot.spotterGrid) ||
+          getLocationFromCallsign(spot.spotter);
+
+    // Try to resolve DX location
+    const dxLoc =
+      spot.dxLat !== undefined && spot.dxLon !== undefined
+        ? { lat: spot.dxLat, lon: spot.dxLon }
+        : getLocationFromGrid(spot.dxGrid) || getLocationFromCallsign(spot.dx);
+
+    // Skip if we couldn't resolve both locations
+    if (!spotterLoc || !dxLoc) continue;
+
+    resolved.push({
+      id: spot.id,
+      spotterLat: spotterLoc.lat,
+      spotterLon: spotterLoc.lon,
+      dxLat: dxLoc.lat,
+      dxLon: dxLoc.lon,
+      mode: spot.mode || "UNKNOWN",
+      frequency: spot.frequency,
+      time: spot.time,
+      callsign: spot.dx,
+      source: spot.source,
+    });
+  }
+
+  return resolved;
+}
+
+// ==========================================================================
+// 3D Rendering Utilities (for Globe View)
+// ==========================================================================
 
 interface LiveSpotArcsProps {
   /** User's grid locator for fetching relevant spots */
@@ -56,25 +223,16 @@ function getAgeOpacity(spotTime: Date, maxAgeMinutes: number = 15): number {
 }
 
 /**
- * Individual spot arc component
+ * Individual spot arc component for 3D globe
  */
 function SpotArc({
   spot,
   segments = 30,
 }: {
-  spot: LiveSpot;
+  spot: ResolvedSpot;
   segments?: number;
 }) {
   const points = useMemo(() => {
-    if (
-      spot.spotterLat === undefined ||
-      spot.spotterLon === undefined ||
-      spot.dxLat === undefined ||
-      spot.dxLon === undefined
-    ) {
-      return [];
-    }
-
     const pathPoints = getPathPoints(
       spot.spotterLat,
       spot.spotterLon,
@@ -87,7 +245,7 @@ function SpotArc({
     >;
   }, [spot, segments]);
 
-  const color = SPOT_SOURCE_COLORS[spot.source].color;
+  const color = getModeColor(spot.mode);
   const opacity = getAgeOpacity(spot.time);
 
   if (points.length < 2) return null;
@@ -103,7 +261,36 @@ function SpotArc({
   );
 }
 
-export function LiveSpotArcs({ grid, maxArcs = 25 }: LiveSpotArcsProps) {
+/**
+ * Endpoint marker for spot arcs (small sphere at each end)
+ */
+function SpotEndpoint({
+  lat,
+  lon,
+  color,
+  size = 0.008,
+}: {
+  lat: number;
+  lon: number;
+  color: string;
+  size?: number;
+}) {
+  const position = useMemo(() => latLonTo3D(lat, lon, 1.006), [lat, lon]);
+
+  return (
+    <mesh position={position}>
+      <sphereGeometry args={[size, 8, 8]} />
+      <meshBasicMaterial color={color} transparent opacity={0.8} />
+    </mesh>
+  );
+}
+
+/**
+ * LiveSpotArcs Component for Globe View
+ *
+ * Fetches live spots and renders them as 3D arcs on the globe
+ */
+export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
   // Get source filter from dxStore - shared with DXSpotList
   const filters = useDXStore((state) => state.filters);
   const sourcesFilter = filters.sources as SpotSource[] | undefined;
@@ -117,28 +304,38 @@ export function LiveSpotArcs({ grid, maxArcs = 25 }: LiveSpotArcsProps) {
       sourcesFilter && sourcesFilter.length > 0 ? sourcesFilter : undefined,
   });
 
-  // Filter to spots that have both endpoints and limit count
-  const renderableSpots = useMemo(() => {
-    return spots
-      .filter(
-        (spot) =>
-          spot.spotterLat !== undefined &&
-          spot.spotterLon !== undefined &&
-          spot.dxLat !== undefined &&
-          spot.dxLon !== undefined,
-      )
-      .slice(0, maxArcs);
+  // Resolve locations and limit count
+  const resolvedSpots = useMemo(() => {
+    return resolveSpotLocations(spots).slice(0, maxArcs);
   }, [spots, maxArcs]);
 
-  if (isLoading || renderableSpots.length === 0) {
+  if (isLoading || resolvedSpots.length === 0) {
     return null;
   }
 
   return (
     <group name="live-spot-arcs">
-      {renderableSpots.map((spot) => (
-        <SpotArc key={spot.id} spot={spot} />
-      ))}
+      {resolvedSpots.map((spot) => {
+        const color = getModeColor(spot.mode);
+        return (
+          <group key={spot.id}>
+            <SpotArc spot={spot} />
+            {/* Endpoint markers */}
+            <SpotEndpoint
+              lat={spot.spotterLat}
+              lon={spot.spotterLon}
+              color={color}
+              size={0.006}
+            />
+            <SpotEndpoint
+              lat={spot.dxLat}
+              lon={spot.dxLon}
+              color={color}
+              size={0.008}
+            />
+          </group>
+        );
+      })}
     </group>
   );
 }

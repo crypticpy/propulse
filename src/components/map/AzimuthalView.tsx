@@ -15,6 +15,12 @@ import {
   azimuthalUnproject,
   type AzimuthalPoint,
 } from "@/lib/utils/azimuthal";
+import { useLiveSpots } from "@/hooks/useLiveSpots";
+import {
+  resolveSpotLocations,
+  getModeColor,
+  type ResolvedSpot,
+} from "./LiveSpotArcs";
 
 // Simplified world coastline data (major landmass outlines)
 // Each array is a continuous coastline segment [lat, lon, lat, lon, ...]
@@ -507,6 +513,89 @@ function drawNoQTHMessage(ctx: CanvasRenderingContext2D) {
   ctx.fillText("(Click the gear icon)", CENTER, CENTER + 40);
 }
 
+/**
+ * Calculate age-based opacity (newer spots are more visible)
+ */
+function getSpotAgeOpacity(spotTime: Date, maxAgeMinutes: number = 15): number {
+  const ageMs = Date.now() - spotTime.getTime();
+  const ageMinutes = ageMs / 60000;
+  return Math.max(0.3, 1 - ageMinutes / maxAgeMinutes);
+}
+
+/**
+ * Draw live spot arcs on the azimuthal projection
+ * In azimuthal equidistant projection, great circles appear as straight lines!
+ */
+function drawSpotArcs(
+  ctx: CanvasRenderingContext2D,
+  spots: ResolvedSpot[],
+  centerLat: number,
+  centerLon: number,
+) {
+  for (const spot of spots) {
+    const color = getModeColor(spot.mode);
+    const opacity = getSpotAgeOpacity(spot.time);
+
+    // Project both endpoints
+    const spotterProj = azimuthalProject(
+      spot.spotterLat,
+      spot.spotterLon,
+      centerLat,
+      centerLon,
+    );
+    const dxProj = azimuthalProject(
+      spot.dxLat,
+      spot.dxLon,
+      centerLat,
+      centerLon,
+    );
+
+    // Check if both points are within the map circle
+    const spotterDist = Math.sqrt(
+      spotterProj.x * spotterProj.x + spotterProj.y * spotterProj.y,
+    );
+    const dxDist = Math.sqrt(dxProj.x * dxProj.x + dxProj.y * dxProj.y);
+
+    // Skip if both points are outside the circle
+    if (spotterDist > 1 && dxDist > 1) continue;
+
+    const spotterCanvas = projToCanvas(spotterProj);
+    const dxCanvas = projToCanvas(dxProj);
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 3;
+
+    // In azimuthal projection, great circles are straight lines!
+    ctx.beginPath();
+    ctx.moveTo(spotterCanvas.x, spotterCanvas.y);
+    ctx.lineTo(dxCanvas.x, dxCanvas.y);
+    ctx.stroke();
+
+    // Draw endpoint dots
+    ctx.fillStyle = color;
+
+    // Spotter location (smaller, only if inside circle)
+    if (spotterDist <= 1) {
+      ctx.beginPath();
+      ctx.arc(spotterCanvas.x, spotterCanvas.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // DX location (larger, only if inside circle)
+    if (dxDist <= 1) {
+      ctx.beginPath();
+      ctx.arc(dxCanvas.x, dxCanvas.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
 export function AzimuthalView({
   displayTime,
   onLocationClick,
@@ -520,6 +609,19 @@ export function AzimuthalView({
     if (!station) return null;
     return { lat: station.lat, lon: station.lon };
   }, [station]);
+
+  // Fetch live spots when spots layer is enabled
+  const { spots } = useLiveSpots({
+    grid: station?.grid,
+    enabled: layers.spots,
+    refetchInterval: 60000,
+  });
+
+  // Resolve spot locations and limit to 50 for performance
+  const resolvedSpots = useMemo(() => {
+    if (!layers.spots) return [];
+    return resolveSpotLocations(spots).slice(0, 50);
+  }, [spots, layers.spots]);
 
   // Handle canvas click
   const handleClick = useCallback(
@@ -587,6 +689,11 @@ export function AzimuthalView({
     // Draw bearing labels
     drawBearingLabels(ctx);
 
+    // Draw live spot arcs (straight lines in azimuthal projection)
+    if (layers.spots && resolvedSpots.length > 0) {
+      drawSpotArcs(ctx, resolvedSpots, center.lat, center.lon);
+    }
+
     // Draw target and path if set
     if (target) {
       drawTargetAndPath(
@@ -601,7 +708,7 @@ export function AzimuthalView({
 
     // Draw home marker at center (always last so it's on top)
     drawHomeMarker(ctx, station?.callsign);
-  }, [displayTime, layers, station, target, center]);
+  }, [displayTime, layers, station, target, center, resolvedSpots]);
 
   return (
     <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center">

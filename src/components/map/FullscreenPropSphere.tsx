@@ -2,7 +2,8 @@
  * FullscreenPropSphere Component
  *
  * Immersive full-screen view for PropSphere map visualization.
- * Includes all controls and PathAnalysis panel.
+ * Includes all controls, PathAnalysis panel, DXSpotList panel,
+ * and RecommendationsPanel overlay.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -14,7 +15,10 @@ import {
   AzimuthalView,
   TimeControl,
   PathAnalysis,
+  RecommendationsPanel,
 } from "@/components/map";
+import { DXSpotList } from "@/components/dx/DXSpotList";
+import { useLiveSpots } from "@/hooks/useLiveSpots";
 
 interface FullscreenPropSphereProps {
   displayTime: Date;
@@ -44,11 +48,19 @@ export function FullscreenPropSphere({
     activePreset,
     applyPreset,
     setFullscreen,
+    target,
   } = useMapStore();
   const { station } = useUserStore();
 
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [isSpotsPanelCollapsed, setIsSpotsPanelCollapsed] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
+
+  // Get live spots for the count indicator
+  const { spots } = useLiveSpots({
+    grid: station?.grid,
+    enabled: true,
+  });
 
   // Handle escape key to exit fullscreen
   useEffect(() => {
@@ -238,7 +250,7 @@ export function FullscreenPropSphere({
         </div>
       </div>
 
-      {/* Station info (top-left) */}
+      {/* Station info (top-left) with spot count */}
       {station && (
         <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/20 rounded-lg p-3">
           <div className="flex items-center gap-2">
@@ -250,8 +262,64 @@ export function FullscreenPropSphere({
               <div className="text-xs text-gray-500">{station.grid}</div>
             </div>
           </div>
+          {/* Live spot count indicator */}
+          <div className="mt-2 pt-2 border-t border-white/10 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="text-xs text-cyan-400 font-medium">
+              {spots.length} live spot{spots.length !== 1 ? "s" : ""}
+            </span>
+          </div>
         </div>
       )}
+
+      {/* Collapsible DXSpotList panel (left side) */}
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 left-4 transition-all duration-300
+          hidden lg:flex ${isSpotsPanelCollapsed ? "-translate-x-[calc(100%-40px)]" : "translate-x-0"}`}
+        style={{ marginTop: "60px" }}
+      >
+        <div className="flex items-stretch">
+          {/* DXSpotList content */}
+          <div
+            className="w-96 max-h-[500px] overflow-hidden bg-black/60 backdrop-blur-md
+            border border-white/20 rounded-l-lg"
+          >
+            <DXSpotList
+              maxHeight="460px"
+              showFilters={true}
+              showHeader={true}
+              className="!bg-transparent !border-0"
+            />
+          </div>
+
+          {/* Collapse toggle */}
+          <button
+            onClick={() => setIsSpotsPanelCollapsed(!isSpotsPanelCollapsed)}
+            className="bg-black/60 backdrop-blur-md border border-l-0 border-white/20
+              rounded-r-lg px-1 py-4 hover:bg-white/10 transition-colors
+              text-gray-400 hover:text-white"
+            aria-label={
+              isSpotsPanelCollapsed
+                ? "Expand spots panel"
+                : "Collapse spots panel"
+            }
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${isSpotsPanelCollapsed ? "" : "rotate-180"}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
 
       {/* Collapsible PathAnalysis panel (right side) */}
       <div
@@ -295,6 +363,22 @@ export function FullscreenPropSphere({
           </div>
         </div>
       </div>
+
+      {/* RecommendationsPanel (bottom-left overlay) - shown when target is selected */}
+      {target && station && (
+        <div className="absolute bottom-16 left-4 max-w-xs overflow-hidden">
+          <div className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg">
+            <RecommendationsPanel
+              homeLat={station.lat}
+              homeLon={station.lon}
+              targetLat={target.lat}
+              targetLon={target.lon}
+              displayTime={displayTime}
+              className="!bg-transparent !border-0"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Keyboard hint (bottom-left) */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-600">

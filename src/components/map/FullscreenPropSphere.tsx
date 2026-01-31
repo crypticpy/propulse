@@ -8,6 +8,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
+import { PRESET_CONFIG } from "@/constants/mapPresets";
 import { useUserStore } from "@/stores/userStore";
 import {
   GlobeView,
@@ -24,17 +25,6 @@ interface FullscreenPropSphereProps {
   displayTime: Date;
   onLocationClick: (lat: number, lon: number) => void;
 }
-
-// Preset display configuration
-const PRESET_CONFIG: Record<
-  PresetName,
-  { label: string; description: string }
-> = {
-  "dx-hunter": { label: "DX Hunter", description: "Full visibility for DX" },
-  contest: { label: "Contest", description: "Quick day/night reference" },
-  vhf: { label: "VHF", description: "Terminator + Aurora for VHF ops" },
-  emergency: { label: "Emergency", description: "All layers active" },
-};
 
 export function FullscreenPropSphere({
   displayTime,

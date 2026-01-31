@@ -5,7 +5,13 @@
  * Provides camera controls, lighting, and click-to-select functionality.
  */
 
-import { Suspense, useCallback, useMemo } from "react";
+import {
+  Component,
+  Suspense,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import { getSubsolarPoint } from "@/lib/utils/sun";
@@ -28,6 +34,34 @@ interface GlobeViewProps {
   displayTime: Date;
   /** Callback when a location is clicked */
   onLocationClick?: (lat: number, lon: number) => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+/**
+ * Error boundary for catching WebGL/Three.js errors in the Canvas
+ */
+class GlobeErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
 }
 
 /**
@@ -147,7 +181,7 @@ function GlobeScene({
       )}
 
       {/* Live spot arcs */}
-      {layers.spots && <LiveSpotArcs grid={station?.grid} maxArcs={30} />}
+      {layers.spots && <LiveSpotArcs grid={station?.grid} maxArcs={50} />}
 
       {/* Home station marker */}
       {station && (
@@ -203,21 +237,34 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
 
   return (
     <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden">
-      <Canvas>
-        <PerspectiveCamera
-          makeDefault
-          position={[0, 0, 2.5 / zoom]}
-          fov={45}
-          near={0.1}
-          far={1000}
-        />
-        <Suspense fallback={<GlobeLoader />}>
-          <GlobeScene
-            displayTime={displayTime}
-            onLocationClick={onLocationClick}
+      <GlobeErrorBoundary
+        fallback={
+          <div className="w-full h-full flex items-center justify-center bg-deep-space text-gray-500">
+            <div className="text-center">
+              <p>3D globe unavailable</p>
+              <p className="text-sm mt-1">
+                Try switching to Flat or Azimuthal view
+              </p>
+            </div>
+          </div>
+        }
+      >
+        <Canvas>
+          <PerspectiveCamera
+            makeDefault
+            position={[0, 0, 2.5 / zoom]}
+            fov={45}
+            near={0.1}
+            far={1000}
           />
-        </Suspense>
-      </Canvas>
+          <Suspense fallback={<GlobeLoader />}>
+            <GlobeScene
+              displayTime={displayTime}
+              onLocationClick={onLocationClick}
+            />
+          </Suspense>
+        </Canvas>
+      </GlobeErrorBoundary>
     </div>
   );
 }

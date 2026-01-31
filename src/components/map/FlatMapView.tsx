@@ -20,6 +20,7 @@ import {
   getModeColor,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
+import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import type { AuroraData } from "@/lib/api/aurora";
 
 interface FlatMapViewProps {
@@ -459,15 +460,6 @@ function drawMUF(
 }
 
 /**
- * Calculate age-based opacity (newer spots are more visible)
- */
-function getSpotAgeOpacity(spotTime: Date, maxAgeMinutes: number = 15): number {
-  const ageMs = Date.now() - spotTime.getTime();
-  const ageMinutes = ageMs / 60000;
-  return Math.max(0.3, 1 - ageMinutes / maxAgeMinutes);
-}
-
-/**
  * Draw a curved arc between two points using bezier curves
  * Creates a visually pleasing arc that curves away from the map surface
  */
@@ -697,8 +689,11 @@ export function FlatMapView({
   return (
     <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative">
       {!mapImage && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-gray-500">Loading map...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-deep-space">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-plasma-orange border-t-transparent rounded-full animate-spin" />
+            <span className="text-gray-500 text-sm">Loading map...</span>
+          </div>
         </div>
       )}
       <canvas
@@ -707,6 +702,8 @@ export function FlatMapView({
         height={MAP_HEIGHT}
         onClick={handleClick}
         className="w-full h-full cursor-crosshair"
+        aria-label="Interactive propagation map - click to select target location"
+        role="img"
         style={{ imageRendering: "auto" }}
       />
     </div>

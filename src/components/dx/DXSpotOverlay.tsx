@@ -9,11 +9,11 @@ import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { getBandColor } from "@/lib/api/dxcluster";
+import { latLonToCanvas } from "@/lib/utils/canvas";
 import type { DXSpot } from "@/types/dxcluster";
 
-// Map dimensions (must match FlatMapView)
+// Map dimensions (must match FlatMapView) - used for date line wrap-around
 const MAP_WIDTH = 1024;
-const MAP_HEIGHT = 512;
 
 /**
  * Convert lat/lon to 3D position on sphere
@@ -31,15 +31,6 @@ function latLonToVector3(
     radius * Math.cos(phi),
     radius * Math.sin(phi) * Math.sin(theta),
   );
-}
-
-/**
- * Convert lat/lon to canvas coordinates
- */
-function latLonToCanvas(lat: number, lon: number): { x: number; y: number } {
-  const x = ((lon + 180) / 360) * MAP_WIDTH;
-  const y = ((90 - lat) / 180) * MAP_HEIGHT;
-  return { x, y };
 }
 
 // ============================================================================

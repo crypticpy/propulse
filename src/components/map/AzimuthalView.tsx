@@ -21,6 +21,7 @@ import {
   getModeColor,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
+import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 
 // Simplified world coastline data (major landmass outlines)
 // Each array is a continuous coastline segment [lat, lon, lat, lon, ...]
@@ -514,15 +515,6 @@ function drawNoQTHMessage(ctx: CanvasRenderingContext2D) {
 }
 
 /**
- * Calculate age-based opacity (newer spots are more visible)
- */
-function getSpotAgeOpacity(spotTime: Date, maxAgeMinutes: number = 15): number {
-  const ageMs = Date.now() - spotTime.getTime();
-  const ageMinutes = ageMs / 60000;
-  return Math.max(0.3, 1 - ageMinutes / maxAgeMinutes);
-}
-
-/**
  * Draw live spot arcs on the azimuthal projection
  * In azimuthal equidistant projection, great circles appear as straight lines!
  */
@@ -718,6 +710,8 @@ export function AzimuthalView({
         height={CANVAS_SIZE}
         onClick={handleClick}
         className="max-w-full max-h-full cursor-crosshair"
+        aria-label="Azimuthal projection map centered on your location - click to select target"
+        role="img"
         style={{ imageRendering: "auto" }}
       />
       {/* Legend overlay */}

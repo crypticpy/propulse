@@ -216,7 +216,10 @@ function latLonTo3D(
 /**
  * Calculate age-based opacity (newer spots are more visible)
  */
-function getAgeOpacity(spotTime: Date, maxAgeMinutes: number = 15): number {
+export function getAgeOpacity(
+  spotTime: Date,
+  maxAgeMinutes: number = 15,
+): number {
   const ageMs = Date.now() - spotTime.getTime();
   const ageMinutes = ageMs / 60000;
   return Math.max(0.2, 1 - ageMinutes / maxAgeMinutes);

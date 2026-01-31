@@ -1,0 +1,186 @@
+import React from "react";
+import { Card } from "@/components/ui/Card";
+import { Badge, type BadgeStatus } from "@/components/ui/Badge";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import {
+  getOverallCondition,
+  calculateBandConditions,
+} from "@/lib/utils/bands";
+import type { BandCondition } from "@/types/solar";
+
+export interface SolarSummaryProps {
+  /** Current K-index value (0-9) */
+  kIndex: number;
+  /** Solar Flux Index (typically 70-300 sfu) */
+  solarFlux: number;
+  /** Show loading state */
+  loading?: boolean;
+}
+
+/**
+ * Map condition to badge status
+ */
+function conditionToBadgeStatus(condition: BandCondition): BadgeStatus {
+  switch (condition) {
+    case "Excellent":
+      return "excellent";
+    case "Good":
+      return "good";
+    case "Fair":
+      return "fair";
+    case "Poor":
+      return "poor";
+    default:
+      return "fair";
+  }
+}
+
+/**
+ * Generate detailed plain-language summary based on conditions
+ */
+function getDetailedSummary(kIndex: number, solarFlux: number): string {
+  const parts: string[] = [];
+
+  // Solar activity level
+  if (solarFlux >= 150) {
+    parts.push(
+      "The sun is very active today with excellent HF propagation expected.",
+    );
+  } else if (solarFlux >= 100) {
+    parts.push(
+      "Solar activity is moderate with good propagation on most HF bands.",
+    );
+  } else if (solarFlux >= 80) {
+    parts.push(
+      "Solar activity is low. Focus on lower frequency bands for best results.",
+    );
+  } else {
+    parts.push(
+      "Solar activity is very low. HF propagation may be challenging.",
+    );
+  }
+
+  // Band recommendations based on SFI and time
+  if (solarFlux >= 120) {
+    parts.push("Higher bands (15m-10m) should be open during daylight hours.");
+  } else if (solarFlux >= 90) {
+    parts.push("Mid-range bands (17m-20m) are your best bet for DX.");
+  } else {
+    parts.push("Lower bands (30m-40m) will provide the most reliable paths.");
+  }
+
+  // Geomagnetic warnings
+  if (kIndex >= 5) {
+    parts.push(
+      "Warning: A geomagnetic storm is in progress. Expect signal degradation and polar path disruption.",
+    );
+  } else if (kIndex >= 4) {
+    parts.push("Note: Elevated geomagnetic activity may affect polar paths.");
+  } else if (kIndex <= 1) {
+    parts.push("Geomagnetic conditions are very quiet - ideal for DX.");
+  }
+
+  return parts.join(" ");
+}
+
+/**
+ * Get best bands based on current conditions
+ */
+function getBestBands(kIndex: number, solarFlux: number): string[] {
+  const bands = calculateBandConditions(kIndex, solarFlux);
+  const now = new Date();
+  const hour = now.getHours();
+  const isDaytime = hour >= 6 && hour < 18;
+
+  // Filter bands with Good or Excellent conditions for current time
+  const goodBands = bands.filter((band) => {
+    const condition = isDaytime ? band.dayCondition : band.nightCondition;
+    return condition === "Excellent" || condition === "Good";
+  });
+
+  // Return band names, prioritizing by frequency
+  return goodBands.map((band) => band.name).slice(0, 4);
+}
+
+/**
+ * SolarSummary Component
+ *
+ * Displays a plain-language summary of current solar/propagation conditions.
+ * Shows overall condition rating, detailed summary text, and recommended bands.
+ *
+ * @example
+ * ```tsx
+ * <SolarSummary kIndex={2} solarFlux={145} />
+ * ```
+ */
+export const SolarSummary: React.FC<SolarSummaryProps> = ({
+  kIndex,
+  solarFlux,
+  loading = false,
+}) => {
+  if (loading) {
+    return (
+      <Card animate className="min-h-[180px]">
+        <div className="flex items-center justify-center h-full min-h-[140px]">
+          <LoadingSpinner size="md" text="Analyzing conditions..." />
+        </div>
+      </Card>
+    );
+  }
+
+  const overall = getOverallCondition(kIndex, solarFlux);
+  const detailedSummary = getDetailedSummary(kIndex, solarFlux);
+  const bestBands = getBestBands(kIndex, solarFlux);
+  const badgeStatus = conditionToBadgeStatus(overall.hf);
+
+  return (
+    <Card animate>
+      <div className="flex flex-col gap-4">
+        {/* Header with title and condition badge */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-mono uppercase tracking-wider text-gray-400">
+            PROPAGATION SUMMARY
+          </h3>
+          <Badge status={badgeStatus}>{overall.hf.toUpperCase()}</Badge>
+        </div>
+
+        {/* Summary text */}
+        <p className="text-base font-sans text-gray-200 leading-relaxed">
+          {detailedSummary}
+        </p>
+
+        {/* Best bands section */}
+        {bestBands.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-mono uppercase tracking-wider text-gray-500">
+              Best bands now
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {bestBands.map((band) => (
+                <span
+                  key={band}
+                  className="px-3 py-1 text-sm font-mono text-signal-green bg-signal-green/10 border border-signal-green/20 rounded-lg"
+                >
+                  {band}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* VHF note if aurora possible */}
+        {overall.vhf === "Aurora" && (
+          <div className="mt-2 px-3 py-2 bg-aurora-purple/10 border border-aurora-purple/20 rounded-lg">
+            <span className="text-sm font-sans text-aurora-purple">
+              Aurora propagation possible on 6m - check for flutter signals!
+            </span>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+SolarSummary.displayName = "SolarSummary";
+
+export default SolarSummary;

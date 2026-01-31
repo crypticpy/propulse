@@ -1,0 +1,140 @@
+import React from "react";
+import { Card, ProgressBar, Tooltip, LoadingSpinner } from "@/components/ui";
+
+export interface FlareProbabilityProps {
+  /** C-class flare probability (0-100) */
+  cProb: number;
+  /** M-class flare probability (0-100) */
+  mProb: number;
+  /** X-class flare probability (0-100) */
+  xProb: number;
+  /** Proton event probability (0-100) */
+  protonProb: number;
+  /** Show loading state */
+  loading?: boolean;
+}
+
+/** Flare class descriptions for tooltips */
+const FLARE_DESCRIPTIONS = {
+  C: "Minor flares with minimal radio impact. Common during active periods.",
+  M: "Moderate flares that can cause brief HF radio blackouts, especially on the sunlit side of Earth.",
+  X: "Major flares causing significant HF radio disruption. Can affect navigation and communication systems.",
+  Proton:
+    "Solar radiation storms affecting polar HF communications and potentially hazardous to astronauts and high-altitude aircraft.",
+};
+
+/**
+ * Info icon component for tooltips
+ */
+const InfoIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    className="w-4 h-4 text-gray-500 hover:text-gray-300 transition-colors cursor-help"
+    aria-hidden="true"
+  >
+    <path
+      fillRule="evenodd"
+      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
+/**
+ * FlareProbability Component
+ *
+ * Displays solar flare probability forecasts for the next 24 hours.
+ * Shows C, M, X class flare probabilities and proton event probability
+ * using color-coded progress bars.
+ *
+ * @example
+ * ```tsx
+ * <FlareProbability
+ *   cProb={75}
+ *   mProb={25}
+ *   xProb={5}
+ *   protonProb={1}
+ * />
+ * ```
+ */
+export const FlareProbability: React.FC<FlareProbabilityProps> = ({
+  cProb,
+  mProb,
+  xProb,
+  protonProb,
+  loading = false,
+}) => {
+  const probabilities = [
+    {
+      label: "C-Class",
+      value: cProb,
+      color: "amber" as const,
+      description: FLARE_DESCRIPTIONS.C,
+    },
+    {
+      label: "M-Class",
+      value: mProb,
+      color: "orange" as const,
+      description: FLARE_DESCRIPTIONS.M,
+    },
+    {
+      label: "X-Class",
+      value: xProb,
+      color: "red" as const,
+      description: FLARE_DESCRIPTIONS.X,
+    },
+    {
+      label: "Proton Event",
+      value: protonProb,
+      color: "purple" as const,
+      description: FLARE_DESCRIPTIONS.Proton,
+    },
+  ];
+
+  return (
+    <Card animate className="h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xs font-mono uppercase tracking-wider text-gray-400">
+          Flare Probability (Next 24 Hours)
+        </h3>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[160px]">
+          <LoadingSpinner size="md" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {probabilities.map(({ label, value, color, description }) => (
+            <div key={label} className="space-y-1">
+              {/* Label row with tooltip */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-gray-300 font-sans">
+                    {label}
+                  </span>
+                  <Tooltip content={description}>
+                    <InfoIcon />
+                  </Tooltip>
+                </div>
+                <span className="text-sm font-mono text-gray-200">
+                  {Math.round(value)}%
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <ProgressBar value={value} color={color} />
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+};
+
+FlareProbability.displayName = "FlareProbability";
+
+export default FlareProbability;

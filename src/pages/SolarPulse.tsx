@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   PrimaryMetrics,
   SolarSummary,
@@ -16,11 +15,8 @@ import {
   useSunspots,
 } from "@/hooks/useSolarData";
 import { useSolarStore } from "@/stores/solarStore";
-import { formatUTC } from "@/lib/utils/time";
 
 export function SolarPulse() {
-  const [currentTime, setCurrentTime] = useState(new Date());
-
   // Fetch all solar data
   const {
     data: kIndexData,
@@ -33,12 +29,6 @@ export function SolarPulse() {
 
   // Store state
   const { setLastUpdate, setIsLive } = useSolarStore();
-
-  // Update current time every second
-  useEffect(() => {
-    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Update store when data changes
   useEffect(() => {
@@ -59,33 +49,6 @@ export function SolarPulse() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="glass-panel sticky top-0 z-50 px-4 md:px-8 py-4 md:py-5">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3 md:gap-4">
-            <Link to="/" className="text-3xl md:text-4xl animate-pulse-glow">
-              ☀️
-            </Link>
-            <div>
-              <h1 className="font-orbitron text-xl md:text-2xl font-black text-gradient-orange tracking-wider">
-                SOLAR PULSE
-              </h1>
-              <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-wider">
-                Real-time solar conditions
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-base md:text-lg text-signal-green font-semibold">
-              {formatUTC(currentTime)}
-            </div>
-            <div className="text-[10px] md:text-xs text-gray-500">
-              {kError ? "Demo data" : "Live updates"}
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main content */}
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         {/* Event Alert (conditional) */}
@@ -147,19 +110,12 @@ export function SolarPulse() {
             loading={probLoading}
           />
 
-          {/* Band Conditions - takes more space on larger screens */}
-          <div className="lg:col-span-1">
-            <BandConditions
-              kIndex={currentKp}
-              solarFlux={currentFlux}
-              loading={isLoading}
-            />
-          </div>
-        </div>
-
-        {/* Full-width band conditions on desktop for better readability */}
-        <div className="hidden xl:block">
-          {/* Reserved for future expanded view */}
+          {/* Band Conditions */}
+          <BandConditions
+            kIndex={currentKp}
+            solarFlux={currentFlux}
+            loading={isLoading}
+          />
         </div>
       </main>
 

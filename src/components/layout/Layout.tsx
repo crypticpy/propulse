@@ -1,5 +1,9 @@
 import { Outlet } from "react-router-dom";
+import { Header } from "./Header";
 
+/**
+ * Layout - Root layout component with header and background effects
+ */
 export function Layout() {
   return (
     <div className="min-h-screen bg-cosmic-gradient">
@@ -11,6 +15,7 @@ export function Layout() {
 
       {/* Main content */}
       <div className="relative z-10">
+        <Header />
         <Outlet />
       </div>
     </div>

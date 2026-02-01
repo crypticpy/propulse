@@ -18,6 +18,8 @@ import {
   type MultiplierType,
 } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
+import { getDXCCEntity } from "@/lib/utils/multipliers";
+import { useUserStore } from "@/stores/userStore";
 
 /**
  * Map contest multiplier type to store multiplier type
@@ -111,6 +113,9 @@ export function Contest() {
   const [currentBand, setCurrentBand] = useState("20m");
   const [currentMode, setCurrentMode] = useState("CW");
 
+  // Get user station for zone-based scoring
+  const station = useUserStore((state) => state.station);
+
   // Get contest definition for the active session
   const contestDefinition = useMemo(() => {
     if (!activeSession) return null;
@@ -196,10 +201,30 @@ export function Contest() {
           points = contestDefinition.scoring.digitalPoints || 2;
         }
       }
-      // For zone-based scoring, we'd need to know the station's location
-      // For now, default to diff continent points
+      // Zone-based scoring: compare continents/countries
       else if (contestDefinition.scoring.mode === "zone") {
-        points = contestDefinition.scoring.diffContinent || 3;
+        // Get DXCC info for worked station
+        const workedEntity = getDXCCEntity(qsoData.callsign);
+        // Get operator's DXCC info from station callsign
+        const myEntity = station?.callsign
+          ? getDXCCEntity(station.callsign)
+          : null;
+
+        if (workedEntity && myEntity) {
+          if (workedEntity.entity === myEntity.entity) {
+            // Same country - typically 0 or low points
+            points = contestDefinition.scoring.sameCountry || 0;
+          } else if (workedEntity.continent === myEntity.continent) {
+            // Same continent - medium points
+            points = contestDefinition.scoring.sameContinent || 1;
+          } else {
+            // Different continent - maximum points
+            points = contestDefinition.scoring.diffContinent || 3;
+          }
+        } else {
+          // Fallback if we can't determine location
+          points = contestDefinition.scoring.diffContinent || 3;
+        }
       }
 
       // Get serial number

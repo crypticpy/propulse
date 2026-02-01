@@ -27,6 +27,8 @@ export interface DXCCEntity {
   prefix: string;
   /** ADIF entity number if known */
   adif?: number;
+  /** Continent code (NA, SA, EU, AF, AS, OC) */
+  continent?: Continent;
 }
 
 /**
@@ -1658,6 +1660,7 @@ export function getDXCCEntity(callsign: string): DXCCEntity | null {
         entity: dxcc.entity,
         prefix: tryPrefix,
         adif: dxcc.adif,
+        continent: dxcc.continent,
       };
     }
   }

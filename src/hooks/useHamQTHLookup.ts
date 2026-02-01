@@ -3,11 +3,10 @@
  * Provides callsign information from HamQTH API merged with local QSO records
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchHamQTH, isHamQTHError } from "../lib/api/hamqth";
 import { getLogEntriesByCallsign } from "../lib/db/logStore";
-import type { LogEntry } from "../lib/db/types";
 
 // Time constants
 const MINUTE = 60 * 1000;
@@ -86,95 +85,6 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 }
 
 /**
- * Hook for looking up local log entries for a callsign
- */
-function useLocalLookup(callsign: string) {
-  const [entries, setEntries] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const normalized = normalizeCallsign(callsign);
-
-    if (!normalized || normalized.length < 3) {
-      setEntries([]);
-      setError(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function lookup() {
-      try {
-        setLoading(true);
-        setError(null);
-        const results = await getLogEntriesByCallsign(normalized);
-        if (!cancelled) {
-          // Sort by date descending (newest first)
-          results.sort((a, b) => {
-            const dateCompare = b.date.localeCompare(a.date);
-            if (dateCompare !== 0) return dateCompare;
-            return b.timeOn.localeCompare(a.timeOn);
-          });
-          setEntries(results);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message =
-            err instanceof Error ? err.message : "Failed to lookup callsign";
-          setError(message);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    lookup();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [callsign]);
-
-  // Derive local data from entries
-  const localData = useMemo((): LocalCallsignData | undefined => {
-    if (entries.length === 0) {
-      return undefined;
-    }
-
-    const lastEntry = entries[0];
-    const workedBands = Array.from(new Set(entries.map((e) => e.band))).filter(
-      Boolean,
-    );
-    const workedModes = Array.from(new Set(entries.map((e) => e.mode))).filter(
-      Boolean,
-    );
-
-    return {
-      isWorked: true,
-      qsoCount: entries.length,
-      lastQSO: {
-        date: lastEntry.date,
-        band: lastEntry.band,
-        mode: lastEntry.mode,
-        name: lastEntry.name,
-        grid: lastEntry.grid,
-      },
-      workedBands,
-      workedModes,
-    };
-  }, [entries]);
-
-  return {
-    data: localData,
-    loading,
-    error,
-  };
-}
-
-/**
  * Hook for combined HamQTH external lookup and local log history
  *
  * @param callsign - The callsign to look up
@@ -235,39 +145,69 @@ export function useHamQTHLookup(callsign: string): CallsignLookupResult {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
-  // Local lookup (uses debounced callsign)
-  const localLookup = useLocalLookup(shouldQuery ? normalizedCallsign : "");
+  // Local lookup via TanStack Query (consistent with external)
+  const localQuery = useQuery({
+    queryKey: ["localLog", normalizedCallsign],
+    queryFn: async () => {
+      const results = await getLogEntriesByCallsign(normalizedCallsign);
+
+      // Sort by date descending (newest first)
+      results.sort((a, b) => {
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return b.timeOn.localeCompare(a.timeOn);
+      });
+
+      return results;
+    },
+    enabled: shouldQuery,
+    staleTime: 5 * MINUTE,
+    select: (entries): LocalCallsignData | undefined => {
+      if (entries.length === 0) return undefined;
+
+      const lastEntry = entries[0];
+      const workedBands = Array.from(
+        new Set(entries.map((e) => e.band)),
+      ).filter(Boolean);
+      const workedModes = Array.from(
+        new Set(entries.map((e) => e.mode)),
+      ).filter(Boolean);
+
+      return {
+        isWorked: true,
+        qsoCount: entries.length,
+        lastQSO: {
+          date: lastEntry.date,
+          band: lastEntry.band,
+          mode: lastEntry.mode,
+          name: lastEntry.name,
+          grid: lastEntry.grid,
+        },
+        workedBands,
+        workedModes,
+      };
+    },
+  });
 
   // Combine loading states
-  const loading = externalQuery.isLoading || localLookup.loading;
+  const loading = externalQuery.isLoading || localQuery.isLoading;
 
   // Build the result
   const result: CallsignLookupResult = {
     loading,
-  };
-
-  // Add external data if available
-  if (externalQuery.data) {
-    result.external = externalQuery.data;
-  }
-
-  // Add external error if present
-  if (externalQuery.error) {
-    result.externalError =
-      externalQuery.error instanceof Error
+    external: externalQuery.data,
+    local: localQuery.data,
+    externalError: externalQuery.error
+      ? externalQuery.error instanceof Error
         ? externalQuery.error.message
-        : "External lookup failed";
-  }
-
-  // Add local data if available
-  if (localLookup.data) {
-    result.local = localLookup.data;
-  }
-
-  // Add local error if present
-  if (localLookup.error) {
-    result.localError = localLookup.error;
-  }
+        : "External lookup failed"
+      : undefined,
+    localError: localQuery.error
+      ? localQuery.error instanceof Error
+        ? localQuery.error.message
+        : "Local lookup failed"
+      : undefined,
+  };
 
   return result;
 }

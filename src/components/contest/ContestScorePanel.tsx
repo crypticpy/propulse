@@ -3,7 +3,7 @@
  * Compact horizontal layout showing contest stats at a glance
  */
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui";
 import type { ContestSession } from "@/stores/contestStore";
 
@@ -87,7 +87,21 @@ function StatDisplay({
 }
 
 export function ContestScorePanel({ session }: ContestScorePanelProps) {
-  // Calculate derived values
+  // Tick state to force re-render every second for elapsed time
+  const [, setTick] = useState(0);
+
+  // Update elapsed time every second
+  useEffect(() => {
+    if (!session) return;
+
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [session]);
+
+  // Calculate derived values (recalculates when session changes or tick updates)
   const { elapsedTime, qsoRate } = useMemo(() => {
     if (!session) {
       return { elapsedTime: "00:00:00", qsoRate: 0 };
@@ -96,16 +110,6 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
       elapsedTime: formatElapsedTime(session.startTime),
       qsoRate: calculateRate(session.qsos.length, session.startTime),
     };
-  }, [session]);
-
-  // Update elapsed time every second
-  useMemo(() => {
-    if (!session) return;
-    const interval = setInterval(() => {
-      // Force re-render by returning new object
-      // This is handled by the parent re-rendering
-    }, 1000);
-    return () => clearInterval(interval);
   }, [session]);
 
   if (!session) {

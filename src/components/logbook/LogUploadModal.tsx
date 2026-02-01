@@ -39,48 +39,6 @@ interface UploadProgress {
 }
 
 /**
- * Check if service credentials are configured in the user store
- * Returns the credentials if configured, null otherwise
- */
-function getServiceCredentials(service: UploadService): {
-  eqsl?: { username: string; password: string };
-  clublog?: { email: string; password: string; callsign: string };
-} | null {
-  // Get credentials from localStorage (userStore persists here)
-  const stored = localStorage.getItem("propulse-user");
-  if (!stored) return null;
-
-  try {
-    const data = JSON.parse(stored);
-    const credentials = data.state?.serviceCredentials;
-    if (!credentials) return null;
-
-    switch (service) {
-      case "eqsl":
-        return credentials.eqsl?.username && credentials.eqsl?.password
-          ? { eqsl: credentials.eqsl }
-          : null;
-      case "clublog":
-        return credentials.clublog?.email &&
-          credentials.clublog?.password &&
-          credentials.clublog?.callsign
-          ? { clublog: credentials.clublog }
-          : null;
-      default:
-        return null;
-    }
-  } catch {
-    return null;
-  }
-}
-
-function isServiceConfigured(service: UploadService): boolean {
-  if (service === "lotw") return true; // LoTW is always available (export only)
-  if (service === "qrz") return false; // QRZ not implemented yet
-  return getServiceCredentials(service) !== null;
-}
-
-/**
  * Filter entries by date range
  */
 function filterEntriesByDateRange(
@@ -196,8 +154,34 @@ export function LogUploadModal({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<UploadProgress[]>([]);
 
-  // Get station callsign for Club Log uploads
+  // Get credentials and station from store (reactive)
+  const serviceCredentials = useUserStore((state) => state.serviceCredentials);
   const station = useUserStore((state) => state.station);
+
+  // Check if a service is configured based on store credentials
+  const isServiceConfigured = useCallback(
+    (service: UploadService): boolean => {
+      if (service === "lotw") return true; // LoTW is always available (export only)
+      if (service === "qrz") return false; // QRZ not implemented yet
+
+      switch (service) {
+        case "eqsl":
+          return Boolean(
+            serviceCredentials?.eqsl?.username &&
+            serviceCredentials?.eqsl?.password,
+          );
+        case "clublog":
+          return Boolean(
+            serviceCredentials?.clublog?.email &&
+            serviceCredentials?.clublog?.password &&
+            (serviceCredentials?.clublog?.callsign || station?.callsign),
+          );
+        default:
+          return false;
+      }
+    },
+    [serviceCredentials, station],
+  );
 
   const services: ServiceConfig[] = useMemo(
     () => [
@@ -228,7 +212,7 @@ export function LogUploadModal({
         exportOnly: true,
       },
     ],
-    [],
+    [isServiceConfigured],
   );
 
   const filteredEntries = useMemo(
@@ -277,8 +261,8 @@ export function LogUploadModal({
       try {
         switch (service) {
           case "eqsl": {
-            const creds = getServiceCredentials("eqsl");
-            if (!creds?.eqsl) {
+            const creds = serviceCredentials?.eqsl;
+            if (!creds?.username || !creds?.password) {
               result = {
                 success: false,
                 service: "eqsl",
@@ -286,13 +270,14 @@ export function LogUploadModal({
                   "eQSL credentials not configured. Please add them in Settings.",
               };
             } else {
-              result = await uploadEntriesToEqsl(filteredEntries, creds.eqsl);
+              result = await uploadEntriesToEqsl(filteredEntries, creds);
             }
             break;
           }
           case "clublog": {
-            const creds = getServiceCredentials("clublog");
-            if (!creds?.clublog) {
+            const creds = serviceCredentials?.clublog;
+            const callsign = creds?.callsign || station?.callsign || "";
+            if (!creds?.email || !creds?.password || !callsign) {
               result = {
                 success: false,
                 service: "clublog",
@@ -300,15 +285,10 @@ export function LogUploadModal({
                   "Club Log credentials not configured. Please add them in Settings.",
               };
             } else {
-              // Use station callsign if not in credentials
-              const clublogCreds = {
-                ...creds.clublog,
-                callsign: creds.clublog.callsign || station?.callsign || "",
-              };
-              result = await uploadEntriesToClublog(
-                filteredEntries,
-                clublogCreds,
-              );
+              result = await uploadEntriesToClublog(filteredEntries, {
+                ...creds,
+                callsign,
+              });
             }
             break;
           }
@@ -344,7 +324,7 @@ export function LogUploadModal({
 
     await Promise.all(uploadPromises);
     setUploading(false);
-  }, [filteredEntries, selectedServices, station]);
+  }, [filteredEntries, selectedServices, serviceCredentials, station]);
 
   const handleLoTWExport = useCallback(() => {
     const adif = generateADIF(filteredEntries);

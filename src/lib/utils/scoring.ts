@@ -17,23 +17,13 @@ import {
   getContinent,
   type Continent,
 } from "./multipliers";
+import { normalizeMultiplierType, type MultiplierType } from "@/types/contest";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-/**
- * Multiplier types used in various contests
- */
-export type MultiplierType =
-  | "DXCC" // DXCC entities (CQ WW, ARRL DX)
-  | "CQ_ZONE" // CQ zones 1-40 (CQ WW, CQ WPX)
-  | "ITU_ZONE" // ITU zones 1-90 (IARU)
-  | "WPX_PREFIX" // WPX-style prefixes (CQ WPX)
-  | "STATE" // US states (ARRL contests)
-  | "SECTION" // ARRL/RAC sections (Field Day, Sweepstakes)
-  | "GRID" // Grid squares (VHF contests)
-  | "PROVINCE"; // Canadian provinces
+// MultiplierType is canonicalized in src/types/contest.ts
 
 /**
  * Contest QSO record
@@ -367,6 +357,7 @@ export function calculateContestScore(session: ContestSession): ScoreSummary {
     SECTION: new Set(),
     GRID: new Set(),
     PROVINCE: new Set(),
+    NONE: new Set(),
   };
 
   const bandBreakdown: Record<string, { qsos: number; points: number }> = {};
@@ -431,6 +422,7 @@ export function calculateContestScore(session: ContestSession): ScoreSummary {
     SECTION: 0,
     GRID: 0,
     PROVINCE: 0,
+    NONE: 0,
   };
 
   for (const multType of contest.multiplierTypes) {
@@ -821,6 +813,7 @@ export function createContestSession(
       SECTION: new Set(),
       GRID: new Set(),
       PROVINCE: new Set(),
+      NONE: new Set(),
     },
     workedCallsigns: new Map(),
   };
@@ -907,6 +900,7 @@ export function getNewMultipliers(
     SECTION: false,
     GRID: false,
     PROVINCE: false,
+    NONE: false,
   };
 
   const band = normalizeBand(qso.band);
@@ -990,7 +984,7 @@ export function evaluateQSOValue(
   const newMultipliers: MultiplierType[] = [];
   for (const [type, isNew] of Object.entries(newMults)) {
     if (isNew) {
-      newMultipliers.push(type as MultiplierType);
+      newMultipliers.push(normalizeMultiplierType(type));
     }
   }
 

@@ -4,7 +4,7 @@
  */
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   UserStation,
   UserPreferences,
@@ -141,9 +141,29 @@ export const useUserStore = create<UserStore>()(
       setStation: (station) => set({ station }),
 
       setServiceCredentials: (creds) =>
-        set((state) => ({
-          serviceCredentials: { ...state.serviceCredentials, ...creds },
-        })),
+        set((state) => {
+          const serviceCredentials: ServiceCredentials = {
+            ...state.serviceCredentials,
+          };
+
+          for (const key of Object.keys(creds) as Array<
+            keyof ServiceCredentials
+          >) {
+            const incoming = creds[key];
+            if (incoming === undefined) {
+              serviceCredentials[key] = undefined;
+              continue;
+            }
+
+            const previous = state.serviceCredentials[key];
+            serviceCredentials[key] = {
+              ...(previous ? (previous as Record<string, unknown>) : {}),
+              ...(incoming as Record<string, unknown>),
+            } as never;
+          }
+
+          return { serviceCredentials };
+        }),
 
       updatePreferences: (prefs) =>
         set((state) => ({
@@ -374,6 +394,7 @@ export const useUserStore = create<UserStore>()(
     {
       name: "propulse-user",
       version: 6,
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
         preferences: state.preferences,
@@ -381,6 +402,11 @@ export const useUserStore = create<UserStore>()(
         // NOTE: serviceCredentials intentionally NOT persisted for security
         // Credentials remain in-memory only and must be re-entered each session
       }),
+      migrate: (persistedState, _version) =>
+        persistedState as Pick<
+          UserStore,
+          "station" | "preferences" | "savedTargets"
+        >,
     },
   ),
 );

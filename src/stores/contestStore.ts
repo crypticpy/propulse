@@ -5,20 +5,12 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { normalizeMultiplierType, type MultiplierType } from "@/types/contest";
+
+export type { MultiplierType } from "@/types/contest";
 
 /** Maximum number of sessions to keep in history */
 const MAX_SESSION_HISTORY = 10;
-
-/**
- * Multiplier types supported by contests
- */
-export type MultiplierType =
-  | "state"
-  | "country"
-  | "dxcc"
-  | "zone"
-  | "grid"
-  | "prefix";
 
 /**
  * Contest category configuration
@@ -309,7 +301,8 @@ export const useContestStore = create<ContestStore>()(
         const state = get();
         if (!state.activeSession) return false;
 
-        const key = makeMultiplierKey(type, value, band);
+        const normalizedType = normalizeMultiplierType(type);
+        const key = makeMultiplierKey(normalizedType, value, band);
         const existing = state.activeSession.multipliers.find(
           (m) => makeMultiplierKey(m.type, m.value, m.band) === key,
         );
@@ -317,7 +310,7 @@ export const useContestStore = create<ContestStore>()(
         if (existing) return false;
 
         const newMultiplier: MultiplierEntry = {
-          type,
+          type: normalizedType,
           value: value.toUpperCase(),
           band: band?.toUpperCase(),
           timestamp: new Date().toISOString(),
@@ -350,7 +343,8 @@ export const useContestStore = create<ContestStore>()(
         const state = get();
         if (!state.activeSession) return false;
 
-        const key = makeMultiplierKey(type, value, band);
+        const normalizedType = normalizeMultiplierType(type);
+        const key = makeMultiplierKey(normalizedType, value, band);
         return state.activeSession.multipliers.some(
           (m) => makeMultiplierKey(m.type, m.value, m.band) === key,
         );
@@ -412,12 +406,39 @@ export const useContestStore = create<ContestStore>()(
     }),
     {
       name: "propulse-contest",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeSession: state.activeSession,
         sessionHistory: state.sessionHistory,
       }),
+      migrate: (persistedState) => {
+        const state = persistedState as {
+          activeSession: ContestSession | null;
+          sessionHistory: ContestSession[];
+        };
+
+        const normalizeSession = (
+          session: ContestSession | null,
+        ): ContestSession | null => {
+          if (!session) return null;
+          return {
+            ...session,
+            multipliers: session.multipliers.map((m) => ({
+              ...m,
+              type: normalizeMultiplierType(String(m.type)),
+            })),
+          };
+        };
+
+        return {
+          ...state,
+          activeSession: normalizeSession(state.activeSession),
+          sessionHistory: state.sessionHistory.map((s) =>
+            normalizeSession(s) as ContestSession,
+          ),
+        };
+      },
     },
   ),
 );

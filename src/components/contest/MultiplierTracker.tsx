@@ -10,6 +10,9 @@ import type { MultiplierEntry, MultiplierType } from "@/stores/contestStore";
 /** CQ zones are numbered 1-40 */
 const CQ_ZONES = Array.from({ length: 40 }, (_, i) => i + 1);
 
+/** ITU zones are numbered 1-90 */
+const ITU_ZONES = Array.from({ length: 90 }, (_, i) => i + 1);
+
 /** US States and common territories */
 const US_STATES = [
   "AL",
@@ -79,6 +82,37 @@ function CQZoneGrid({ workedZones }: { workedZones: Set<string> }) {
   return (
     <div className="grid grid-cols-8 gap-1">
       {CQ_ZONES.map((zone) => {
+        const zoneStr = zone.toString();
+        const isWorked = workedZones.has(zoneStr);
+        return (
+          <div
+            key={zone}
+            className={`
+              w-8 h-8 flex items-center justify-center rounded text-xs font-mono font-bold
+              transition-all duration-200
+              ${
+                isWorked
+                  ? "bg-signal-green/30 border border-signal-green/50 text-signal-green"
+                  : "bg-white/5 border border-white/10 text-gray-500"
+              }
+            `}
+            title={`Zone ${zone}${isWorked ? " - Worked" : ""}`}
+          >
+            {zone}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Grid display for ITU zones (1-90)
+ */
+function ITUZoneGrid({ workedZones }: { workedZones: Set<string> }) {
+  return (
+    <div className="grid grid-cols-10 gap-1">
+      {ITU_ZONES.map((zone) => {
         const zoneStr = zone.toString();
         const isWorked = workedZones.has(zoneStr);
         return (
@@ -207,17 +241,23 @@ export function MultiplierTracker({
   // Get title based on multiplier type
   const getTitle = () => {
     switch (type) {
-      case "zone":
+      case "CQ_ZONE":
         return "CQ Zones";
-      case "state":
-        return "States/Provinces";
-      case "dxcc":
-      case "country":
+      case "ITU_ZONE":
+        return "ITU Zones";
+      case "STATE":
+        return "States";
+      case "PROVINCE":
+        return "Provinces";
+      case "DXCC":
         return "DXCC Countries";
-      case "prefix":
+      case "WPX_PREFIX":
         return "WPX Prefixes";
-      case "grid":
+      case "SECTION":
+        return "ARRL/RAC Sections";
+      case "GRID":
         return "Grid Squares";
+      case "NONE":
       default:
         return "Multipliers";
     }
@@ -226,17 +266,23 @@ export function MultiplierTracker({
   // Get empty message based on type
   const getEmptyMessage = () => {
     switch (type) {
-      case "zone":
+      case "CQ_ZONE":
         return "No zones worked yet";
-      case "state":
+      case "ITU_ZONE":
+        return "No zones worked yet";
+      case "STATE":
         return "No states worked yet";
-      case "dxcc":
-      case "country":
+      case "PROVINCE":
+        return "No provinces worked yet";
+      case "DXCC":
         return "No countries worked yet";
-      case "prefix":
+      case "WPX_PREFIX":
         return "No prefixes worked yet";
-      case "grid":
+      case "SECTION":
+        return "No sections worked yet";
+      case "GRID":
         return "No grids worked yet";
+      case "NONE":
       default:
         return "No multipliers worked yet";
     }
@@ -254,9 +300,11 @@ export function MultiplierTracker({
       </div>
 
       {/* Render appropriate display based on type */}
-      {type === "zone" ? (
+      {type === "CQ_ZONE" ? (
         <CQZoneGrid workedZones={workedValues} />
-      ) : type === "state" ? (
+      ) : type === "ITU_ZONE" ? (
+        <ITUZoneGrid workedZones={workedValues} />
+      ) : type === "STATE" ? (
         <StateGrid workedStates={workedValues} />
       ) : (
         <MultiplierList

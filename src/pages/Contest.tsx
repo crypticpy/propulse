@@ -22,38 +22,14 @@ import { getDXCCEntity } from "@/lib/utils/multipliers";
 import { useUserStore } from "@/stores/userStore";
 
 /**
- * Map contest multiplier type to store multiplier type
- */
-function mapMultiplierType(
-  contestMultType: string | undefined,
-): MultiplierType {
-  switch (contestMultType) {
-    case "cqzone":
-    case "ituzone":
-      return "zone";
-    case "dxcc":
-      return "country";
-    case "state":
-    case "section":
-      return "state";
-    case "prefix":
-      return "prefix";
-    case "grid":
-      return "grid";
-    default:
-      return "zone";
-  }
-}
-
-/**
  * Extract multiplier value from exchange based on contest type
  * Uses token-based parsing to handle exchanges like "599 05" correctly
  */
 function extractMultiplierValue(
   exchange: string,
-  multiplierType: string | undefined,
+  multiplierType: MultiplierType | undefined,
 ): string | null {
-  if (!exchange || !multiplierType || multiplierType === "none") {
+  if (!exchange || !multiplierType || multiplierType === "NONE") {
     return null;
   }
 
@@ -61,7 +37,7 @@ function extractMultiplierValue(
   const tokens = exchange.trim().split(/\s+/);
 
   // For zone-based contests, extract the LAST numeric token (zone number)
-  if (multiplierType === "cqzone" || multiplierType === "ituzone") {
+  if (multiplierType === "CQ_ZONE" || multiplierType === "ITU_ZONE") {
     // Find last token that's purely numeric
     for (let i = tokens.length - 1; i >= 0; i--) {
       if (/^\d+$/.test(tokens[i])) {
@@ -74,7 +50,7 @@ function extractMultiplierValue(
   }
 
   // For state-based contests, look for LAST 2-3 letter token (state/section)
-  if (multiplierType === "state" || multiplierType === "section") {
+  if (multiplierType === "STATE" || multiplierType === "SECTION") {
     // Find last token that's 2-3 letters
     for (let i = tokens.length - 1; i >= 0; i--) {
       if (/^[A-Z]{2,3}$/i.test(tokens[i])) {
@@ -87,7 +63,7 @@ function extractMultiplierValue(
   }
 
   // For prefix-based contests (WPX), extract from callsign (handled separately)
-  if (multiplierType === "prefix") {
+  if (multiplierType === "WPX_PREFIX") {
     return null; // Prefix is extracted from callsign, not exchange
   }
 
@@ -184,7 +160,7 @@ export function Contest() {
       let multiplierValue: string | null = null;
       const multType = contestDefinition.multiplierType;
 
-      if (multType === "prefix") {
+      if (multType === "WPX_PREFIX") {
         // WPX-style: extract prefix from callsign
         multiplierValue = extractCallsignPrefix(qsoData.callsign);
       } else {
@@ -196,12 +172,11 @@ export function Contest() {
       }
 
       // Add multiplier if we found one
-      if (multiplierValue && multType !== "none") {
-        const storeMultType = mapMultiplierType(multType);
+      if (multiplierValue && multType !== "NONE") {
         const band = contestDefinition.multiplierPerBand
           ? qsoData.band
           : undefined;
-        isNewMultiplier = addMultiplier(storeMultType, multiplierValue, band);
+        isNewMultiplier = addMultiplier(multType, multiplierValue, band);
       }
 
       // Calculate points based on contest scoring
@@ -289,8 +264,8 @@ export function Contest() {
 
   // Get multiplier type for tracker
   const multiplierType = useMemo(() => {
-    if (!contestDefinition) return "zone" as MultiplierType;
-    return mapMultiplierType(contestDefinition.multiplierType);
+    if (!contestDefinition) return "NONE" as MultiplierType;
+    return contestDefinition.multiplierType;
   }, [contestDefinition]);
 
   // Render no contest active state

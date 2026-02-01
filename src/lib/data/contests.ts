@@ -52,7 +52,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [11],
     durationHours: 48,
-    multiplierType: "cqzone",
+    multiplierType: "CQ_ZONE",
     multiplierPerBand: true,
     scoring: {
       mode: "zone",
@@ -83,7 +83,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [10],
     durationHours: 48,
-    multiplierType: "cqzone",
+    multiplierType: "CQ_ZONE",
     multiplierPerBand: true,
     scoring: {
       mode: "zone",
@@ -114,7 +114,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [5],
     durationHours: 48,
-    multiplierType: "prefix",
+    multiplierType: "WPX_PREFIX",
     multiplierPerBand: false,
     scoring: {
       mode: "zone",
@@ -145,7 +145,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [3],
     durationHours: 48,
-    multiplierType: "prefix",
+    multiplierType: "WPX_PREFIX",
     multiplierPerBand: false,
     scoring: {
       mode: "zone",
@@ -178,7 +178,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [2],
     durationHours: 48,
-    multiplierType: "state", // W/VE stations count DXCC as mult; DX counts states/provinces
+    multiplierType: "STATE", // W/VE stations count DXCC as mult; DX counts states/provinces
     multiplierPerBand: true,
     scoring: {
       mode: "fixed",
@@ -219,7 +219,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [3],
     durationHours: 48,
-    multiplierType: "state",
+    multiplierType: "STATE",
     multiplierPerBand: true,
     scoring: {
       mode: "fixed",
@@ -260,7 +260,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [11],
     durationHours: 24, // 24 hours of operating in 30-hour window
-    multiplierType: "section",
+    multiplierType: "SECTION",
     multiplierPerBand: false,
     scoring: {
       mode: "fixed",
@@ -295,7 +295,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [11],
     durationHours: 24,
-    multiplierType: "section",
+    multiplierType: "SECTION",
     multiplierPerBand: false,
     scoring: {
       mode: "fixed",
@@ -330,7 +330,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [6],
     durationHours: 24, // 24 hours, 4th full weekend of June
-    multiplierType: "none",
+    multiplierType: "NONE",
     multiplierPerBand: false,
     scoring: {
       mode: "mixed",
@@ -369,7 +369,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "IARU",
     months: [7],
     durationHours: 24,
-    multiplierType: "ituzone",
+    multiplierType: "ITU_ZONE",
     multiplierPerBand: true,
     scoring: {
       mode: "zone",
@@ -408,7 +408,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [9],
     durationHours: 48,
-    multiplierType: "cqzone",
+    multiplierType: "CQ_ZONE",
     multiplierPerBand: true,
     scoring: {
       mode: "zone",
@@ -451,7 +451,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [1],
     durationHours: 24, // First full weekend of January
-    multiplierType: "state",
+    multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
       mode: "fixed",
@@ -488,7 +488,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "NCJ",
     months: [1, 8],
     durationHours: 12,
-    multiplierType: "state",
+    multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
       mode: "fixed",
@@ -523,7 +523,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "NCJ",
     months: [1, 8],
     durationHours: 12,
-    multiplierType: "state",
+    multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
       mode: "fixed",
@@ -558,7 +558,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [1],
     durationHours: 42,
-    multiplierType: "state",
+    multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
       mode: "zone",
@@ -595,7 +595,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [2],
     durationHours: 42,
-    multiplierType: "state",
+    multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
       mode: "zone",
@@ -632,7 +632,7 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [12],
     durationHours: 48,
-    multiplierType: "state",
+    multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
       mode: "mixed",

@@ -7,14 +7,47 @@
  * Types of multipliers used in ham radio contests
  */
 export type MultiplierType =
-  | "dxcc" // DXCC entities (countries)
-  | "cqzone" // CQ zones (1-40)
-  | "ituzone" // ITU zones (1-90)
-  | "state" // US States
-  | "prefix" // WPX-style callsign prefixes
-  | "grid" // Maidenhead grid squares
-  | "section" // ARRL/RAC sections
-  | "none"; // No multipliers
+  | "DXCC" // DXCC entities (countries)
+  | "CQ_ZONE" // CQ zones (1-40)
+  | "ITU_ZONE" // ITU zones (1-90)
+  | "STATE" // US states
+  | "WPX_PREFIX" // WPX-style callsign prefixes
+  | "GRID" // Maidenhead grid squares
+  | "SECTION" // ARRL/RAC sections
+  | "PROVINCE" // Canadian provinces
+  | "NONE"; // No multipliers
+
+export function normalizeMultiplierType(value: string): MultiplierType {
+  const normalized = value.trim().toUpperCase();
+  switch (normalized) {
+    case "DXCC":
+    case "COUNTRY":
+      return "DXCC";
+    case "CQ_ZONE":
+    case "CQZONE":
+    case "ZONE":
+      return "CQ_ZONE";
+    case "ITU_ZONE":
+    case "ITUZONE":
+      return "ITU_ZONE";
+    case "WPX_PREFIX":
+    case "WPX":
+    case "PREFIX":
+      return "WPX_PREFIX";
+    case "STATE":
+      return "STATE";
+    case "SECTION":
+      return "SECTION";
+    case "GRID":
+      return "GRID";
+    case "PROVINCE":
+      return "PROVINCE";
+    case "NONE":
+      return "NONE";
+    default:
+      return "NONE";
+  }
+}
 
 /**
  * Scoring mode for QSO points

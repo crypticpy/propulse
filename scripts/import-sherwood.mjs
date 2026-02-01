@@ -12,17 +12,33 @@ const OUTPUT_FILE = path.resolve(
   "../src/lib/data/sherwood.generated.ts",
 );
 
-function parseFirstNumber(text) {
+function parseNumbers(text) {
   const cleaned = String(text)
     .replace(/\u00a0/g, " ")
     .replace(/>/g, " ")
     .replace(/</g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const match = cleaned.match(/-?\d+(\.\d+)?/);
-  if (!match) return undefined;
-  const num = Number(match[0]);
-  return Number.isFinite(num) ? num : undefined;
+  const matches = cleaned.match(/-?\d+(\.\d+)?/g) ?? [];
+  return matches.map((m) => Number(m)).filter((n) => Number.isFinite(n));
+}
+
+function pickMin(samples) {
+  const finite = samples.filter((n) => Number.isFinite(n));
+  if (finite.length === 0) return undefined;
+  return Math.min(...finite);
+}
+
+function pickMax(samples) {
+  const finite = samples.filter((n) => Number.isFinite(n));
+  if (finite.length === 0) return undefined;
+  return Math.max(...finite);
+}
+
+function pickMinPositive(samples) {
+  const finite = samples.filter((n) => Number.isFinite(n) && n > 0);
+  if (finite.length === 0) return undefined;
+  return Math.min(...finite);
 }
 
 function pickManufacturerModel(cellText) {
@@ -83,32 +99,59 @@ async function main() {
   if (!receiverTable) throw new Error("Could not find Sherwood receiver table");
 
   const rows = $(receiverTable).find("tr").toArray();
-  const seen = new Map(); // key -> entry
+  const entries = [];
 
-  for (const row of rows) {
+  for (const [rowIndex, row] of rows.entries()) {
     const cells = $(row).find("td").toArray();
-    if (cells.length < 10) continue;
+    if (cells.length < 14) continue;
 
     const deviceText = $(cells[0]).text();
     const { manufacturer, model } = pickManufacturerModel(deviceText);
     if (!manufacturer || !model) continue;
 
-    const key = `${manufacturer}::${model}`.toLowerCase();
+    const noiseFloorDbmSamples = parseNumbers($(cells[1]).text());
+    const sensitivityUvSamples = parseNumbers($(cells[5]).text());
+    const blockingDbSamples = parseNumbers($(cells[4]).text());
+    const dynamicRangeWideDbSamples = parseNumbers($(cells[10]).text());
+    const wideSpacingKhzSamples = parseNumbers($(cells[11]).text());
+    const dynamicRangeNarrowDbSamples = parseNumbers($(cells[12]).text());
+    const narrowSpacingKhzSamples = parseNumbers($(cells[13]).text());
+
     const entry = {
-      key,
+      key: `${manufacturer}::${model}::${rowIndex}`.toLowerCase(),
+      rowIndex,
       manufacturer,
       model,
       addedDate: parseAddedDate(deviceText),
-      noiseFloorDbm: parseFirstNumber($(cells[1]).text()),
-      sensitivityUv: parseFirstNumber($(cells[5]).text()),
-      blockingDb: parseFirstNumber($(cells[4]).text()),
-      dynamicRangeWideDb: parseFirstNumber($(cells[10]).text()),
-      wideSpacingKhz: parseFirstNumber($(cells[11]).text()),
-      dynamicRangeNarrowDb: parseFirstNumber($(cells[12]).text()),
-      narrowSpacingKhz: parseFirstNumber($(cells[13]).text()),
+      rawDeviceText: deviceText.trim() || undefined,
+      noiseFloorDbm: pickMin(noiseFloorDbmSamples),
+      noiseFloorDbmSamples: noiseFloorDbmSamples.length
+        ? noiseFloorDbmSamples
+        : undefined,
+      sensitivityUv: pickMin(sensitivityUvSamples),
+      sensitivityUvSamples: sensitivityUvSamples.length
+        ? sensitivityUvSamples
+        : undefined,
+      blockingDb: pickMax(blockingDbSamples),
+      blockingDbSamples: blockingDbSamples.length ? blockingDbSamples : undefined,
+      dynamicRangeWideDb: pickMax(dynamicRangeWideDbSamples),
+      dynamicRangeWideDbSamples: dynamicRangeWideDbSamples.length
+        ? dynamicRangeWideDbSamples
+        : undefined,
+      wideSpacingKhz: pickMinPositive(wideSpacingKhzSamples),
+      wideSpacingKhzSamples: wideSpacingKhzSamples.length
+        ? wideSpacingKhzSamples
+        : undefined,
+      dynamicRangeNarrowDb: pickMax(dynamicRangeNarrowDbSamples),
+      dynamicRangeNarrowDbSamples: dynamicRangeNarrowDbSamples.length
+        ? dynamicRangeNarrowDbSamples
+        : undefined,
+      narrowSpacingKhz: pickMinPositive(narrowSpacingKhzSamples),
+      narrowSpacingKhzSamples: narrowSpacingKhzSamples.length
+        ? narrowSpacingKhzSamples
+        : undefined,
     };
 
-    // Skip rows with no usable receiver numbers.
     if (
       entry.dynamicRangeNarrowDb === undefined &&
       entry.dynamicRangeWideDb === undefined &&
@@ -117,24 +160,10 @@ async function main() {
       continue;
     }
 
-    const existing = seen.get(key);
-    if (!existing) {
-      seen.set(key, entry);
-      continue;
-    }
-
-    // Keep the “best” row for duplicate model names: prefer higher narrow DR,
-    // then higher wide DR, then higher blocking.
-    const score = (r) =>
-      (r.dynamicRangeNarrowDb ?? 0) * 4 +
-      (r.dynamicRangeWideDb ?? 0) * 2 +
-      (r.blockingDb ?? 0);
-    if (score(entry) > score(existing)) {
-      seen.set(key, entry);
-    }
+    entries.push(entry);
   }
 
-  const entries = Array.from(seen.values()).sort((a, b) => {
+  entries.sort((a, b) => {
     const m = a.manufacturer.localeCompare(b.manufacturer);
     if (m !== 0) return m;
     return a.model.localeCompare(b.model);
@@ -145,8 +174,6 @@ async function main() {
 /**
  * Generated from ${SHERWOOD_URL}
  * Retrieved: ${new Date().toISOString()}
- *
- * WARNING: Verify redistribution/usage rights before committing generated data.
  */
 export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = ${JSON.stringify(
     entries,

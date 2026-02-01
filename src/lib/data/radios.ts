@@ -9,6 +9,7 @@
  */
 
 import type { RadioDataSource, RadioEquipment } from "@/types/radio";
+import { SHERWOOD_RECEIVERS } from "@/lib/data/sherwood";
 
 const SOURCE_SHERWOOD: RadioDataSource = {
   name: "Sherwood Engineering Receiver Test Data",
@@ -35,6 +36,14 @@ const SHERWOOD_MANUFACTURERS = new Set([
   "Elecraft",
   "FlexRadio",
 ]);
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 
 /**
  * Common HF amateur bands
@@ -498,8 +507,89 @@ const RAW_RADIO_DATABASE: RadioEquipment[] = [
   },
 ];
 
-export const RADIO_DATABASE: RadioEquipment[] = RAW_RADIO_DATABASE.map(
-  (radio) => ({
+const sherwoodBestByModel = (() => {
+  const best = new Map<string, (typeof SHERWOOD_RECEIVERS)[number]>();
+
+  for (const entry of SHERWOOD_RECEIVERS) {
+    // Only include entries with enough receiver metrics to map into our schema.
+    if (
+      entry.dynamicRangeNarrowDb === undefined ||
+      entry.dynamicRangeWideDb === undefined ||
+      entry.blockingDb === undefined ||
+      entry.sensitivityUv === undefined
+    ) {
+      continue;
+    }
+
+    const key = `${entry.manufacturer}::${entry.model}`.toLowerCase();
+    const existing = best.get(key);
+    if (!existing) {
+      best.set(key, entry);
+      continue;
+    }
+
+    const score = (r: (typeof SHERWOOD_RECEIVERS)[number]) =>
+      (r.dynamicRangeNarrowDb ?? 0) * 4 +
+      (r.dynamicRangeWideDb ?? 0) * 2 +
+      (r.blockingDb ?? 0);
+
+    if (score(entry) > score(existing)) best.set(key, entry);
+  }
+
+  return best;
+})();
+
+const sherwoodRadioAdditions: RadioEquipment[] = (() => {
+  const existingKeys = new Set(
+    RAW_RADIO_DATABASE.map((r) => `${r.manufacturer}::${r.model}`.toLowerCase()),
+  );
+
+  const additions: RadioEquipment[] = [];
+  for (const entry of sherwoodBestByModel.values()) {
+    const key = `${entry.manufacturer}::${entry.model}`.toLowerCase();
+    if (existingKeys.has(key)) continue;
+
+    additions.push({
+      id: `sherwood-${slugify(entry.manufacturer)}-${slugify(entry.model)}`,
+      manufacturer: entry.manufacturer,
+      model: entry.model,
+      receiver: {
+        // Mapping note:
+        // - `rmdr` is populated from Sherwood "Dynamic Range Narrow Spaced"
+        // - `imdr3` is populated from Sherwood "Dynamic Range Wide Spaced"
+        // - `blockingGain` is populated from Sherwood "100kHz Blocking"
+        // - `sensitivity` is populated from Sherwood "Sensitivity (uV)"
+        rmdr: entry.dynamicRangeNarrowDb!,
+        imdr3: entry.dynamicRangeWideDb!,
+        blockingGain: entry.blockingDb!,
+        sensitivity: entry.sensitivityUv!,
+        noiseFloorDbm: entry.noiseFloorDbm,
+      },
+      transmit: {
+        notes:
+          "TX metrics not available in Sherwood dataset. Defaulted to a generic 100W transceiver profile; adjust via Custom Radios if needed.",
+      },
+      sources: [SOURCE_SHERWOOD],
+      maxPower: 100,
+      minPower: 5,
+      modes: FULL_MODES,
+      bands: HF_VHF_BANDS,
+      tier: "midrange",
+    });
+  }
+
+  // Sort additions so the database stays stable/diff-friendly.
+  additions.sort((a, b) => {
+    const m = a.manufacturer.localeCompare(b.manufacturer);
+    if (m !== 0) return m;
+    return a.model.localeCompare(b.model);
+  });
+
+  return additions;
+})();
+
+const normalizedRadioDatabase: RadioEquipment[] = RAW_RADIO_DATABASE.map(
+  (radio): RadioEquipment => ({
     ...radio,
     sources:
       radio.sources && radio.sources.length > 0
@@ -509,6 +599,11 @@ export const RADIO_DATABASE: RadioEquipment[] = RAW_RADIO_DATABASE.map(
           : DEFAULT_SOURCES,
   }),
 );
+
+export const RADIO_DATABASE: RadioEquipment[] = [
+  ...normalizedRadioDatabase,
+  ...sherwoodRadioAdditions,
+];
 
 /**
  * Get a radio by ID

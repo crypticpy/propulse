@@ -21,9 +21,11 @@ import { useSolarFlux } from "@/hooks/useSolarData";
 import { Card } from "@/components/ui/Card";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { RadioPickerModal } from "@/components/radio/RadioPickerModal";
 import { calculateReceiverScore } from "@/types/radio";
 import type { FrequencyLimits } from "@/types/propagation";
 import type { RadioEquipment } from "@/types/radio";
+import { getRadioById } from "@/lib/data/radios";
 
 interface PathAnalysisProps {
   /** Current display time for illumination calculation */
@@ -94,11 +96,39 @@ export function PathAnalysis({
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const activeRadio = useActiveRadio();
   const useImperial = preferences.units === "imperial";
+  const customRadios = preferences.customRadios;
 
   // Save target modal state
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [targetName, setTargetName] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const [showRadioPicker, setShowRadioPicker] = useState(false);
+  const [analysisRadioId, setAnalysisRadioId] = useState<string | null>(null);
+
+  const analysisRadio = useMemo(() => {
+    if (analysisRadioId === null) return activeRadio;
+    return (
+      customRadios?.find((r) => r.id === analysisRadioId) ||
+      getRadioById(analysisRadioId) ||
+      null
+    );
+  }, [activeRadio, analysisRadioId, customRadios]);
+
+  const analysisRadioLabel = useMemo(() => {
+    if (analysisRadioId === null) {
+      if (!activeRadio) return "No active profile radio";
+      return (
+        activeRadio.displayName?.trim() ||
+        `${activeRadio.manufacturer} ${activeRadio.model}`
+      );
+    }
+
+    if (!analysisRadio) return `Unknown (${analysisRadioId})`;
+    return (
+      analysisRadio.displayName?.trim() ||
+      `${analysisRadio.manufacturer} ${analysisRadio.model}`
+    );
+  }, [activeRadio, analysisRadio, analysisRadioId]);
 
   // Fetch current solar data for frequency limits
   const { data: solarFluxData } = useSolarFlux();
@@ -185,6 +215,19 @@ export function PathAnalysis({
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
             </div>
+            <div className="pt-3">
+              <RadioProfileBlock
+                label={analysisRadioLabel}
+                maxPower={analysisRadio?.maxPower}
+                isOverride={analysisRadioId !== null}
+                onChange={() => setShowRadioPicker(true)}
+                onUseProfile={
+                  analysisRadioId !== null
+                    ? () => setAnalysisRadioId(null)
+                    : undefined
+                }
+              />
+            </div>
             <div className="flex-1 flex items-center justify-center text-gray-500">
               <p className="text-sm text-center px-4">
                 Set your QTH in settings to see path analysis
@@ -198,6 +241,14 @@ export function PathAnalysis({
           onClose={() => setShowHelp(false)}
           title={HELP_CONTENT.pathAnalysis.title}
           sections={HELP_CONTENT.pathAnalysis.sections}
+        />
+
+        <RadioPickerModal
+          isOpen={showRadioPicker}
+          onClose={() => setShowRadioPicker(false)}
+          value={{ radioId: analysisRadioId }}
+          onChange={(next) => setAnalysisRadioId(next.radioId)}
+          title="Path Analysis Radio Profile"
         />
       </>
     );
@@ -217,6 +268,19 @@ export function PathAnalysis({
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
             </div>
+            <div className="pt-3">
+              <RadioProfileBlock
+                label={analysisRadioLabel}
+                maxPower={analysisRadio?.maxPower}
+                isOverride={analysisRadioId !== null}
+                onChange={() => setShowRadioPicker(true)}
+                onUseProfile={
+                  analysisRadioId !== null
+                    ? () => setAnalysisRadioId(null)
+                    : undefined
+                }
+              />
+            </div>
             <div className="flex-1 flex items-center justify-center text-gray-500">
               <p className="text-sm text-center px-4">
                 Click on the map to select a target location
@@ -230,6 +294,14 @@ export function PathAnalysis({
           onClose={() => setShowHelp(false)}
           title={HELP_CONTENT.pathAnalysis.title}
           sections={HELP_CONTENT.pathAnalysis.sections}
+        />
+
+        <RadioPickerModal
+          isOpen={showRadioPicker}
+          onClose={() => setShowRadioPicker(false)}
+          value={{ radioId: analysisRadioId }}
+          onChange={(next) => setAnalysisRadioId(next.radioId)}
+          title="Path Analysis Radio Profile"
         />
       </>
     );
@@ -356,10 +428,21 @@ export function PathAnalysis({
         {/* Frequency Limits Section */}
         <FrequencyLimitsDisplay limits={frequencyLimits} />
 
+        {/* Radio Profile Section */}
+        <RadioProfileBlock
+          label={analysisRadioLabel}
+          maxPower={analysisRadio?.maxPower}
+          isOverride={analysisRadioId !== null}
+          onChange={() => setShowRadioPicker(true)}
+          onUseProfile={
+            analysisRadioId !== null ? () => setAnalysisRadioId(null) : undefined
+          }
+        />
+
         {/* Radio Suggestions Section */}
-        {activeRadio && (
+        {analysisRadio && (
           <RadioSuggestions
-            radio={activeRadio}
+            radio={analysisRadio}
             difficulty={metrics.difficulty}
             distance={metrics.shortPath.distance}
           />
@@ -437,7 +520,72 @@ export function PathAnalysis({
         title={HELP_CONTENT.pathAnalysis.title}
         sections={HELP_CONTENT.pathAnalysis.sections}
       />
+
+      <RadioPickerModal
+        isOpen={showRadioPicker}
+        onClose={() => setShowRadioPicker(false)}
+        value={{ radioId: analysisRadioId }}
+        onChange={(next) => setAnalysisRadioId(next.radioId)}
+        title="Path Analysis Radio Profile"
+      />
     </Card>
+  );
+}
+
+function RadioProfileBlock({
+  label,
+  maxPower,
+  isOverride,
+  onChange,
+  onUseProfile,
+}: {
+  label: string;
+  maxPower?: number;
+  isOverride: boolean;
+  onChange: () => void;
+  onUseProfile?: () => void;
+}) {
+  return (
+    <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-medium text-gray-400">Radio Profile</h4>
+        <div className="flex items-center gap-2">
+          {onUseProfile && (
+            <button
+              type="button"
+              onClick={onUseProfile}
+              className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+              title="Use active profile radio"
+            >
+              Use profile
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onChange}
+            className="px-2 py-1 text-[10px] rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+          >
+            Change
+          </button>
+        </div>
+      </div>
+
+      <div className="p-2 rounded-lg border border-white/10 bg-white/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-white truncate">
+              {label}
+            </div>
+            <div className="text-[10px] text-gray-300">
+              {isOverride ? "Override for this panel" : "Using active profile"}
+            </div>
+          </div>
+          <div className="text-[10px] text-gray-300 font-mono flex-shrink-0">
+            {typeof maxPower === "number" ? `${Math.round(maxPower)}W` : "—"}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

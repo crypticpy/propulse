@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { useUserStore, useUserRadios } from "@/stores/userStore";
+import { useActiveRadio, useUserStore, useUserRadios } from "@/stores/userStore";
 import { isValidGrid, gridToLatLon, latLonToGrid } from "@/lib/utils/grid";
 import { geocodeAddress, parseCoordinateString } from "@/lib/api/geocoding";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getEnhancedBandConditions, getPathStatusColor } from "@/lib/utils/bands";
 import { getAvailableSegments } from "@/lib/data/bandplans";
+import { RADIO_DATABASE } from "@/lib/data/radios";
+import { RadioPickerModal } from "@/components/radio/RadioPickerModal";
 import type { ITURegion, LicenseClass, BandMode } from "@/types/bandplan";
 import type { RadioEquipment } from "@/types/radio";
 
@@ -115,7 +117,7 @@ async function lookupCallsign(callsign: string): Promise<CallsignLookupResult> {
 }
 
 function getRadioLabel(radio: RadioEquipment, nickname?: string) {
-  const base = `${radio.manufacturer} ${radio.model}`;
+  const base = radio.displayName?.trim() || `${radio.manufacturer} ${radio.model}`;
   return nickname?.trim() ? `${nickname} — ${base}` : base;
 }
 
@@ -158,6 +160,8 @@ export function DXWizard() {
   const station = useUserStore((s) => s.station);
   const preferences = useUserStore((s) => s.preferences);
   const userRadios = useUserRadios();
+  const activeRadio = useActiveRadio();
+  const customRadios = useUserStore((s) => s.preferences.customRadios || []);
 
   const [targetQuery, setTargetQuery] = useState("");
   const [targetError, setTargetError] = useState<string | null>(null);
@@ -176,9 +180,8 @@ export function DXWizard() {
     (preferences.ituRegion ?? "ITU2") as ITURegion,
   );
 
-  const [selectedRadioId, setSelectedRadioId] = useState<string | null>(
-    preferences.activeRadioId ?? null,
-  );
+  const [selectedRadioId, setSelectedRadioId] = useState<string | null>(null);
+  const [showRadioPicker, setShowRadioPicker] = useState(false);
   const [txPowerCeilingWatts, setTxPowerCeilingWatts] = useState<number>(100);
 
   const { data: kIndexData, isError: kIndexError } = useKIndex();
@@ -195,10 +198,16 @@ export function DXWizard() {
   }, [solarFluxData]);
 
   const selectedRadio = useMemo(() => {
-    if (!selectedRadioId) return null;
-    const entry = userRadios.find((r) => r.userRadio.radioId === selectedRadioId);
-    return entry?.equipment ?? null;
-  }, [selectedRadioId, userRadios]);
+    if (selectedRadioId === null) return activeRadio;
+    const fromProfile =
+      userRadios.find((r) => r.userRadio.radioId === selectedRadioId)
+        ?.equipment ?? null;
+    const fromCustom =
+      customRadios.find((r) => r.id === selectedRadioId) ?? null;
+    const fromDb =
+      RADIO_DATABASE.find((r) => r.id === selectedRadioId) ?? null;
+    return fromProfile ?? fromCustom ?? fromDb;
+  }, [activeRadio, customRadios, selectedRadioId, userRadios]);
 
   const resolveTarget = useCallback(async () => {
     const raw = targetQuery.trim();
@@ -569,21 +578,20 @@ export function DXWizard() {
                   <label className="block text-xs text-gray-300 mb-1">
                     Radio Profile
                   </label>
-                  <select
-                    value={selectedRadioId ?? ""}
-                    onChange={(e) => setSelectedRadioId(e.target.value || null)}
+                  <button
+                    type="button"
+                    onClick={() => setShowRadioPicker(true)}
                     className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+                               text-left text-white text-sm hover:border-white/20
+                               focus:outline-none focus:border-plasma-orange/50 transition-colors"
                   >
-                    <option value="">No radio selected</option>
-                    {userRadios
-                      .filter((r) => r.equipment)
-                      .map((r) => (
-                        <option key={r.userRadio.radioId} value={r.userRadio.radioId}>
-                          {getRadioLabel(r.equipment!, r.userRadio.nickname)}
-                        </option>
-                      ))}
-                  </select>
+                    {selectedRadio ? getRadioLabel(selectedRadio) : "Select a radio…"}
+                    {selectedRadioId === null && (
+                      <span className="ml-2 text-[10px] text-gray-400">
+                        (active)
+                      </span>
+                    )}
+                  </button>
                   {selectedRadio && (
                     <div className="text-[10px] text-gray-400 mt-1">
                       Max power: {selectedRadio.maxPower}W • Modes:{" "}
@@ -751,6 +759,14 @@ export function DXWizard() {
             </Card>
           </div>
         </div>
+
+        <RadioPickerModal
+          isOpen={showRadioPicker}
+          onClose={() => setShowRadioPicker(false)}
+          value={{ radioId: selectedRadioId }}
+          onChange={(next) => setSelectedRadioId(next.radioId)}
+          title="DX Wizard Radio Profile"
+        />
       </div>
     </div>
   );

@@ -1,15 +1,40 @@
 /**
  * Predefined Radio Equipment Database
  *
- * Performance data is representative/approximated based on:
- * - Sherwood Engineering receiver test data (http://www.sherweng.com/table.html)
- * - Manufacturer specifications
- * - Community benchmarks
+ * Performance data is representative/approximated and intended for comparative use.
+ * When you add or update radios, include `sources` so downstream features can
+ * communicate confidence/limitations.
  *
  * Note: Actual performance may vary between individual units and conditions.
  */
 
-import type { RadioEquipment } from "@/types/radio";
+import type { RadioDataSource, RadioEquipment } from "@/types/radio";
+
+const SOURCE_SHERWOOD: RadioDataSource = {
+  name: "Sherwood Engineering Receiver Test Data",
+  url: "http://www.sherweng.com/table.html",
+  notes:
+    "Primary source for receiver metrics when a specific model is present in the Sherwood table.",
+};
+
+const SOURCE_MANUFACTURER: RadioDataSource = {
+  name: "Manufacturer specifications",
+};
+
+const SOURCE_COMMUNITY: RadioDataSource = {
+  name: "Community benchmarks",
+  notes: "Used only when lab-grade measurement data is unavailable.",
+};
+
+const DEFAULT_SOURCES: RadioDataSource[] = [SOURCE_MANUFACTURER, SOURCE_COMMUNITY];
+
+const SHERWOOD_MANUFACTURERS = new Set([
+  "Icom",
+  "Yaesu",
+  "Kenwood",
+  "Elecraft",
+  "FlexRadio",
+]);
 
 /**
  * Common HF amateur bands
@@ -49,7 +74,7 @@ const FULL_MODES: RadioEquipment["modes"] = [
  * Predefined radio equipment database
  * Organized by manufacturer, sorted by tier within each
  */
-export const RADIO_DATABASE: RadioEquipment[] = [
+const RAW_RADIO_DATABASE: RadioEquipment[] = [
   // ============ ICOM ============
   {
     id: "icom-ic7300",
@@ -473,6 +498,18 @@ export const RADIO_DATABASE: RadioEquipment[] = [
   },
 ];
 
+export const RADIO_DATABASE: RadioEquipment[] = RAW_RADIO_DATABASE.map(
+  (radio) => ({
+    ...radio,
+    sources:
+      radio.sources && radio.sources.length > 0
+        ? radio.sources
+        : SHERWOOD_MANUFACTURERS.has(radio.manufacturer)
+          ? [SOURCE_SHERWOOD, SOURCE_MANUFACTURER]
+          : DEFAULT_SOURCES,
+  }),
+);
+
 /**
  * Get a radio by ID
  */
@@ -528,6 +565,7 @@ export function searchRadios(query: string): RadioEquipment[] {
   return RADIO_DATABASE.filter(
     (radio) =>
       radio.manufacturer.toLowerCase().includes(lower) ||
-      radio.model.toLowerCase().includes(lower),
+      radio.model.toLowerCase().includes(lower) ||
+      (radio.displayName || "").toLowerCase().includes(lower),
   );
 }

@@ -3,7 +3,7 @@
  * Types for user station configuration and preferences
  */
 
-import type { UserRadio } from "./radio";
+import type { UserRadio, RadioEquipment } from "./radio";
 
 /**
  * Ham radio station configuration
@@ -59,6 +59,8 @@ export interface UserPreferences {
   licenseClass?: LicenseClass;
   /** User's radio equipment collection */
   radios?: UserRadio[];
+  /** User-defined custom radio equipment definitions */
+  customRadios?: RadioEquipment[];
   /** Currently active radio ID */
   activeRadioId?: string | null;
 }

@@ -16,6 +16,44 @@ export interface ReceiverPerformance {
   blockingGain: number;
   /** Sensitivity in microvolts (lower is better) */
   sensitivity: number;
+  /**
+   * Optional receive noise floor in dBm (bandwidth/conditions dependent).
+   * When present, treat as a relative indicator rather than an absolute value.
+   */
+  noiseFloorDbm?: number;
+  /**
+   * Optional phase noise measurements (dBc/Hz) at common offsets.
+   * Example keys: `"2kHz"`, `"10kHz"`, `"20kHz"`.
+   */
+  phaseNoiseDbcHz?: Record<string, number>;
+  /** Optional 3rd-order intercept point in dBm (higher is better) */
+  ip3Dbm?: number;
+}
+
+/**
+ * Optional transmit performance metrics (when measured data is available)
+ */
+export interface TransmitPerformance {
+  /**
+   * Typical SSB/2-tone IMD3 (dB). More negative is better.
+   * Example: -30 dB (good), -40 dB (excellent).
+   */
+  imd3Db?: number;
+  /** Spurious/harmonic suppression in dBc (higher is better) */
+  spuriousDbc?: number;
+  /** Notes about ALC/compression behavior and clean TX setup */
+  notes?: string;
+}
+
+/**
+ * Radio data source attribution
+ */
+export interface RadioDataSource {
+  name: string;
+  url?: string;
+  retrievedAt?: string;
+  license?: string;
+  notes?: string;
 }
 
 /**
@@ -24,12 +62,21 @@ export interface ReceiverPerformance {
 export interface RadioEquipment {
   /** Unique identifier for the radio */
   id: string;
+  /**
+   * Optional user-facing label for custom radios (e.g., "My Portable 100W HF Rig").
+   * When absent, UI should fall back to `${manufacturer} ${model}`.
+   */
+  displayName?: string;
   /** Manufacturer name (e.g., 'Icom', 'Yaesu', 'Kenwood', 'Elecraft') */
   manufacturer: string;
   /** Model number/name (e.g., 'IC-7300', 'FT-991A', 'TS-890S') */
   model: string;
   /** Receiver performance metrics */
   receiver: ReceiverPerformance;
+  /** Optional transmit performance metrics */
+  transmit?: TransmitPerformance;
+  /** Optional data source attribution */
+  sources?: RadioDataSource[];
   /** Maximum transmit power in watts */
   maxPower: number;
   /** Minimum transmit power in watts (for QRP operation) */

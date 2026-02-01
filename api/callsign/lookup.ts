@@ -63,23 +63,50 @@ export default async function handler(request: Request): Promise<Response> {
       );
     }
 
-    const data = (await upstream.json()) as any;
+    const data = (await upstream.json()) as unknown;
 
-    if (!data || data.status !== "VALID") {
+    type CallookAddress = {
+      latitude?: unknown;
+      longitude?: unknown;
+      gridsquare?: unknown;
+    };
+
+    type CallookResponse = {
+      status?: unknown;
+      name?: unknown;
+      address?: CallookAddress;
+      current?: {
+        name?: unknown;
+        address?: CallookAddress;
+        trustee?: { name?: unknown };
+      };
+      previous?: { address?: CallookAddress };
+    };
+
+    const payload: CallookResponse =
+      typeof data === "object" && data !== null ? (data as CallookResponse) : {};
+
+    if (payload.status !== "VALID") {
       return jsonResponse(
         { error: "Callsign not found", provider: "callook" },
         404,
       );
     }
 
-    const address = data.address ?? data.current?.address ?? data.previous?.address;
-    const latitude = address?.latitude ? Number(address.latitude) : undefined;
-    const longitude = address?.longitude ? Number(address.longitude) : undefined;
-    const grid = address?.gridsquare ? String(address.gridsquare) : undefined;
+    const address =
+      payload.address ?? payload.current?.address ?? payload.previous?.address;
+    const latitude =
+      address?.latitude !== undefined ? Number(address.latitude) : undefined;
+    const longitude =
+      address?.longitude !== undefined ? Number(address.longitude) : undefined;
+    const grid =
+      address?.gridsquare !== undefined ? String(address.gridsquare) : undefined;
     const name =
-      data.name ??
-      data.current?.name ??
-      data.current?.trustee?.name ??
+      (typeof payload.name === "string" ? payload.name : undefined) ??
+      (typeof payload.current?.name === "string" ? payload.current.name : undefined) ??
+      (typeof payload.current?.trustee?.name === "string"
+        ? payload.current.trustee.name
+        : undefined) ??
       undefined;
 
     return jsonResponse(
@@ -101,4 +128,3 @@ export default async function handler(request: Request): Promise<Response> {
     );
   }
 }
-

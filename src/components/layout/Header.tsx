@@ -26,6 +26,7 @@ export function Header() {
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
     { path: "/map", label: "PropSphere", icon: "🌍" },
     { path: "/dx", label: "DX Wizard", icon: "🧙" },
+    { path: "/planner", label: "Band Planner", icon: "📡" },
     { path: "/log", label: "LogBook", icon: "📝" },
     { path: "/contest", label: "Contest", icon: "🏆" },
   ];

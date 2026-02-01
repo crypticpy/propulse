@@ -159,9 +159,15 @@ function getMaxAllowedPowerWatts(params: {
 export function DXWizard() {
   const station = useUserStore((s) => s.station);
   const preferences = useUserStore((s) => s.preferences);
+  const activeUserRadio = useUserStore((s) => {
+    const id = s.preferences.activeRadioId;
+    if (!id) return null;
+    return (s.preferences.radios || []).find((r) => r.id === id) ?? null;
+  });
   const userRadios = useUserRadios();
   const activeRadio = useActiveRadio();
   const customRadios = useUserStore((s) => s.preferences.customRadios || []);
+  const radioInstances = useUserStore((s) => s.preferences.radios || []);
 
   const [targetQuery, setTargetQuery] = useState("");
   const [targetError, setTargetError] = useState<string | null>(null);
@@ -199,15 +205,32 @@ export function DXWizard() {
 
   const selectedRadio = useMemo(() => {
     if (selectedRadioId === null) return activeRadio;
+    const fromInstance =
+      radioInstances.find((r) => r.id === selectedRadioId) ?? null;
+    const selectedEquipmentId = fromInstance?.equipmentId ?? selectedRadioId;
     const fromProfile =
-      userRadios.find((r) => r.userRadio.radioId === selectedRadioId)
+      userRadios.find((r) => r.userRadio.equipmentId === selectedEquipmentId)
         ?.equipment ?? null;
     const fromCustom =
-      customRadios.find((r) => r.id === selectedRadioId) ?? null;
+      customRadios.find((r) => r.id === selectedEquipmentId) ?? null;
     const fromDb =
-      RADIO_DATABASE.find((r) => r.id === selectedRadioId) ?? null;
+      RADIO_DATABASE.find((r) => r.id === selectedEquipmentId) ?? null;
     return fromProfile ?? fromCustom ?? fromDb;
-  }, [activeRadio, customRadios, selectedRadioId, userRadios]);
+  }, [activeRadio, customRadios, radioInstances, selectedRadioId, userRadios]);
+
+  const selectedRadioInstance = useMemo(() => {
+    if (selectedRadioId === null) return null;
+    return radioInstances.find((r) => r.id === selectedRadioId) ?? null;
+  }, [radioInstances, selectedRadioId]);
+
+  const effectiveMaxPower = useMemo(() => {
+    const max = selectedRadio?.maxPower ?? 1500;
+    const limit = selectedRadioInstance?.customPowerLimit;
+    if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
+      return Math.max(1, Math.min(max, Math.round(limit)));
+    }
+    return max;
+  }, [selectedRadio?.maxPower, selectedRadioInstance?.customPowerLimit]);
 
   const resolveTarget = useCallback(async () => {
     const raw = targetQuery.trim();
@@ -585,7 +608,14 @@ export function DXWizard() {
                                text-left text-white text-sm hover:border-white/20
                                focus:outline-none focus:border-plasma-orange/50 transition-colors"
                   >
-                    {selectedRadio ? getRadioLabel(selectedRadio) : "Select a radio…"}
+                    {selectedRadio
+                      ? getRadioLabel(
+                          selectedRadio,
+                          selectedRadioId === null
+                            ? activeUserRadio?.nickname
+                            : selectedRadioInstance?.nickname,
+                        )
+                      : "Select a radio…"}
                     {selectedRadioId === null && (
                       <span className="ml-2 text-[10px] text-gray-400">
                         (active)
@@ -609,7 +639,7 @@ export function DXWizard() {
                     <input
                       type="range"
                       min={1}
-                      max={selectedRadio?.maxPower ?? 1500}
+                      max={effectiveMaxPower}
                       value={txPowerCeilingWatts}
                       onChange={(e) => setTxPowerCeilingWatts(Number(e.target.value))}
                       className="flex-1"

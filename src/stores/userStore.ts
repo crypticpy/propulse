@@ -11,7 +11,7 @@ import type {
   ITURegion,
   LicenseClass,
 } from "../types/user";
-import type { UserRadio, RadioEquipment } from "../types/radio";
+import type { UserRadio, LegacyUserRadio, RadioEquipment } from "../types/radio";
 import { getRadioById } from "../lib/data/radios";
 
 /**
@@ -72,8 +72,21 @@ interface UserStore {
   setITURegion: (region: ITURegion) => void;
   /** Set license class for privilege checks */
   setLicenseClass: (licenseClass: LicenseClass) => void;
-  /** Add a radio to the user's collection */
-  addRadio: (radioId: string, nickname?: string) => void;
+  /**
+   * Add a radio equipment item to the user's collection.
+   * Returns the user radio instance ID (existing or newly created), or null if not added.
+   */
+  addRadio: (radioId: string, nickname?: string) => string | null;
+  /**
+   * Add a new user-owned radio instance (allows multiple of the same model).
+   * Returns the new instance ID, or null if not added.
+   */
+  addRadioInstance: (radioId: string, nickname?: string) => string | null;
+  /** Update a user-owned radio instance */
+  updateRadioInstance: (
+    id: string,
+    updates: Partial<Omit<UserRadio, "id" | "equipmentId" | "addedAt">>,
+  ) => { ok: true } | { ok: false; error: string };
   /** Add a custom radio equipment definition (returns false if duplicate name) */
   addCustomRadio: (radio: Omit<RadioEquipment, "id">) =>
     | {
@@ -110,6 +123,41 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   activeRadioId: null,
   preferTestedSpecs: true, // Default to tested/Sherwood specs when available
 };
+
+function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "radioId" in value &&
+    typeof (value as { radioId: unknown }).radioId === "string"
+  );
+}
+
+function isUserRadio(value: unknown): value is UserRadio {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "equipmentId" in value &&
+    typeof (value as { id: unknown }).id === "string" &&
+    typeof (value as { equipmentId: unknown }).equipmentId === "string"
+  );
+}
+
+function createUserRadioInstance(params: {
+  equipmentId: string;
+  nickname?: string;
+  customPowerLimit?: number;
+  addedAt?: string;
+}): UserRadio {
+  return {
+    id: crypto.randomUUID(),
+    equipmentId: params.equipmentId,
+    nickname: params.nickname,
+    customPowerLimit: params.customPowerLimit,
+    addedAt: params.addedAt ?? new Date().toISOString(),
+  };
+}
 
 /**
  * User preferences store with localStorage persistence
@@ -210,27 +258,34 @@ export const useUserStore = create<UserStore>()(
           preferences: { ...state.preferences, licenseClass },
         })),
 
-      addRadio: (radioId, nickname) =>
+      addRadio: (radioId, nickname) => {
+        let instanceId: string | null = null;
+
         set((state) => {
           const currentRadios = state.preferences.radios || [];
-          // Check if already added
-          if (currentRadios.some((r) => r.radioId === radioId)) {
+          const existing = currentRadios.find((r) => r.equipmentId === radioId);
+          if (existing) {
+            instanceId = existing.id;
             return state;
           }
+
           // Enforce max limit
           if (currentRadios.length >= MAX_RADIOS) {
             return state;
           }
-          const newRadio: UserRadio = {
-            radioId,
+
+          const newRadio = createUserRadioInstance({
+            equipmentId: radioId,
             nickname,
-            addedAt: new Date().toISOString(),
-          };
+          });
+          instanceId = newRadio.id;
+
           const updatedRadios = [...currentRadios, newRadio];
           // If this is the first radio, make it active
           const activeRadioId =
             state.preferences.activeRadioId ||
-            (updatedRadios.length === 1 ? radioId : null);
+            (updatedRadios.length === 1 ? newRadio.id : null);
+
           return {
             preferences: {
               ...state.preferences,
@@ -238,7 +293,72 @@ export const useUserStore = create<UserStore>()(
               activeRadioId,
             },
           };
-        }),
+        });
+
+        return instanceId;
+      },
+
+      addRadioInstance: (radioId, nickname) => {
+        let instanceId: string | null = null;
+
+        set((state) => {
+          const currentRadios = state.preferences.radios || [];
+          if (currentRadios.length >= MAX_RADIOS) return state;
+
+          const newRadio = createUserRadioInstance({
+            equipmentId: radioId,
+            nickname,
+          });
+          instanceId = newRadio.id;
+
+          const updatedRadios = [...currentRadios, newRadio];
+          const activeRadioId = state.preferences.activeRadioId || newRadio.id;
+
+          return {
+            preferences: {
+              ...state.preferences,
+              radios: updatedRadios,
+              activeRadioId,
+            },
+          };
+        });
+
+        return instanceId;
+      },
+
+      updateRadioInstance: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+
+        set((state) => {
+          const currentRadios = state.preferences.radios || [];
+          const idx = currentRadios.findIndex((r) => r.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Radio instance not found" };
+            return state;
+          }
+
+          if (
+            typeof updates.customPowerLimit === "number" &&
+            (!Number.isFinite(updates.customPowerLimit) || updates.customPowerLimit <= 0)
+          ) {
+            result = { ok: false, error: "Power limit must be a positive number" };
+            return state;
+          }
+
+          const next = currentRadios.map((r, i) =>
+            i === idx ? { ...r, ...updates } : r,
+          );
+
+          return {
+            preferences: {
+              ...state.preferences,
+              radios: next,
+            },
+          };
+        });
+
+        return result;
+      },
 
       addCustomRadio: (radio) => {
         const id = `custom-${crypto.randomUUID()}`;
@@ -342,13 +462,16 @@ export const useUserStore = create<UserStore>()(
           const nextCustom = existing.filter((r) => r.id !== id);
 
           const currentRadios = state.preferences.radios || [];
-          const updatedRadios = currentRadios.filter((r) => r.radioId !== id);
+          const updatedRadios = currentRadios.filter(
+            (r) => r.equipmentId !== id,
+          );
+          const currentActiveId = state.preferences.activeRadioId;
           const activeRadioId =
-            state.preferences.activeRadioId === id
-              ? updatedRadios.length > 0
-                ? updatedRadios[0].radioId
-                : null
-              : state.preferences.activeRadioId;
+            currentActiveId && updatedRadios.some((r) => r.id === currentActiveId)
+              ? currentActiveId
+              : updatedRadios.length > 0
+                ? updatedRadios[0].id
+                : null;
 
           return {
             preferences: {
@@ -364,13 +487,13 @@ export const useUserStore = create<UserStore>()(
         set((state) => {
           const currentRadios = state.preferences.radios || [];
           const updatedRadios = currentRadios.filter(
-            (r) => r.radioId !== radioId,
+            (r) => r.id !== radioId,
           );
           // If we removed the active radio, select the first available
           const activeRadioId =
             state.preferences.activeRadioId === radioId
               ? updatedRadios.length > 0
-                ? updatedRadios[0].radioId
+                ? updatedRadios[0].id
                 : null
               : state.preferences.activeRadioId;
           return {
@@ -394,7 +517,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: "propulse-user",
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -403,11 +526,132 @@ export const useUserStore = create<UserStore>()(
         // NOTE: serviceCredentials intentionally NOT persisted for security
         // Credentials remain in-memory only and must be re-entered each session
       }),
-      migrate: (persistedState, _version) =>
-        persistedState as Pick<
-          UserStore,
-          "station" | "preferences" | "savedTargets"
-        >,
+      migrate: (persistedState, version) => {
+        const state = persistedState as Partial<
+          Pick<UserStore, "station" | "preferences" | "savedTargets">
+        >;
+
+        const preferencesRaw = (state.preferences || {}) as Partial<
+          Omit<UserPreferences, "station">
+        >;
+
+        const nextPreferences: Omit<UserPreferences, "station"> = {
+          ...defaultPreferences,
+          ...preferencesRaw,
+          radios: Array.isArray(preferencesRaw.radios)
+            ? [...preferencesRaw.radios]
+            : [],
+          customRadios: Array.isArray(preferencesRaw.customRadios)
+            ? [...preferencesRaw.customRadios]
+            : [],
+        };
+
+        if (version <= 6) {
+          // v6 and earlier stored radios as { radioId, ... } (equipment IDs)
+          const incoming = nextPreferences.radios as unknown[];
+          if (incoming.some((r) => isLegacyUserRadio(r))) {
+            const legacy = incoming.filter(isLegacyUserRadio);
+            const uniqueByEquipment = new Map<string, LegacyUserRadio>();
+            for (const r of legacy) {
+              if (!uniqueByEquipment.has(r.radioId)) uniqueByEquipment.set(r.radioId, r);
+            }
+            nextPreferences.radios = Array.from(uniqueByEquipment.values()).map(
+              (r) =>
+                createUserRadioInstance({
+                  equipmentId: r.radioId,
+                  nickname: r.nickname,
+                  customPowerLimit: r.customPowerLimit,
+                  addedAt: r.addedAt,
+                }),
+            );
+          } else if (incoming.every(isUserRadio)) {
+            nextPreferences.radios = incoming as UserRadio[];
+          } else {
+            nextPreferences.radios = [];
+          }
+
+          // Normalize activeRadioId from equipment ID -> instance ID if needed
+          const active = preferencesRaw.activeRadioId;
+          if (typeof active === "string" && active.trim()) {
+            const byId = (nextPreferences.radios as UserRadio[]).find(
+              (r) => r.id === active,
+            );
+            if (byId) {
+              nextPreferences.activeRadioId = byId.id;
+            } else {
+              const byEquipment = (nextPreferences.radios as UserRadio[]).find(
+                (r) => r.equipmentId === active,
+              );
+              if (byEquipment) {
+                nextPreferences.activeRadioId = byEquipment.id;
+              } else {
+                const hasEquipment =
+                  (nextPreferences.customRadios ?? []).some((r) => r.id === active) ||
+                  Boolean(getRadioById(active));
+                if (hasEquipment && (nextPreferences.radios as UserRadio[]).length < MAX_RADIOS) {
+                  const instance = createUserRadioInstance({
+                    equipmentId: active,
+                  });
+                  nextPreferences.radios = [
+                    ...(nextPreferences.radios as UserRadio[]),
+                    instance,
+                  ];
+                  nextPreferences.activeRadioId = instance.id;
+                } else {
+                  nextPreferences.activeRadioId = null;
+                }
+              }
+            }
+          } else {
+            nextPreferences.activeRadioId = null;
+          }
+
+          if (
+            !nextPreferences.activeRadioId &&
+            (nextPreferences.radios as UserRadio[]).length === 1
+          ) {
+            nextPreferences.activeRadioId = (nextPreferences.radios as UserRadio[])[0].id;
+          }
+        }
+
+        // Hardening: ensure radios array matches the current shape, and normalize activeRadioId.
+        let normalizedRadios = Array.isArray(nextPreferences.radios)
+          ? (nextPreferences.radios as unknown[]).filter(isUserRadio)
+          : [];
+        nextPreferences.radios = normalizedRadios;
+
+        if (typeof nextPreferences.activeRadioId === "string" && nextPreferences.activeRadioId.trim()) {
+          const active = nextPreferences.activeRadioId;
+          if (!normalizedRadios.some((r) => r.id === active)) {
+            const byEquipment = normalizedRadios.find((r) => r.equipmentId === active);
+            if (byEquipment) {
+              nextPreferences.activeRadioId = byEquipment.id;
+            } else {
+              const hasEquipment =
+                (nextPreferences.customRadios ?? []).some((r) => r.id === active) ||
+                Boolean(getRadioById(active));
+              if (hasEquipment && normalizedRadios.length < MAX_RADIOS) {
+                const instance = createUserRadioInstance({ equipmentId: active });
+                normalizedRadios = [...normalizedRadios, instance];
+                nextPreferences.radios = normalizedRadios;
+                nextPreferences.activeRadioId = instance.id;
+              } else {
+                nextPreferences.activeRadioId = null;
+              }
+            }
+          }
+        }
+
+        if (!nextPreferences.activeRadioId && normalizedRadios.length === 1) {
+          nextPreferences.activeRadioId = normalizedRadios[0].id;
+        }
+
+        return {
+          station: state.station ?? null,
+          preferences: nextPreferences,
+          savedTargets: Array.isArray(state.savedTargets) ? state.savedTargets : [],
+        };
+      },
     },
   ),
 );
@@ -425,11 +669,15 @@ function resolveEquipmentById(
  * Returns null if no radio is active or the radio isn't found
  */
 export function useActiveRadio(): RadioEquipment | null {
-  const activeRadioId = useUserStore(
-    (state) => state.preferences.activeRadioId,
-  );
+  const activeRadioId = useUserStore((state) => state.preferences.activeRadioId);
+  const radios = useUserStore((state) => state.preferences.radios) || [];
   const customRadios = useUserStore((state) => state.preferences.customRadios);
   if (!activeRadioId) return null;
+  const activeInstance = radios.find((r) => r.id === activeRadioId);
+  if (activeInstance) {
+    return resolveEquipmentById(activeInstance.equipmentId, customRadios) || null;
+  }
+  // Fallback for any legacy callers/data that still stores equipment IDs.
   return resolveEquipmentById(activeRadioId, customRadios) || null;
 }
 
@@ -444,8 +692,18 @@ export function useUserRadios(): Array<{
   const customRadios = useUserStore((state) => state.preferences.customRadios);
   return radios.map((userRadio) => ({
     userRadio,
-    equipment: resolveEquipmentById(userRadio.radioId, customRadios),
+    equipment: resolveEquipmentById(userRadio.equipmentId, customRadios),
   }));
+}
+
+/**
+ * Hook to get the active user radio instance (metadata + per-radio overrides)
+ */
+export function useActiveUserRadio(): UserRadio | null {
+  const activeRadioId = useUserStore((state) => state.preferences.activeRadioId);
+  const radios = useUserStore((state) => state.preferences.radios) || [];
+  if (!activeRadioId) return null;
+  return radios.find((r) => r.id === activeRadioId) ?? null;
 }
 
 /**

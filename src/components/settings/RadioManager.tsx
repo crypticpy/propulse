@@ -17,6 +17,7 @@ import {
   getRadiosByManufacturer,
   searchRadios,
   hasTestedSpecs,
+  getEffectiveReceiverSpecs,
 } from "@/lib/data/radios";
 import { DetailModal } from "@/components/ui/DetailModal";
 import {
@@ -29,6 +30,8 @@ import type { RadioEquipment, RadioMode, RadioTier } from "@/types/radio";
 interface RadioManagerProps {
   /** Compact mode for embedding in other UIs */
   compact?: boolean;
+  /** Optional z-index override for nested modals */
+  modalZIndexClassName?: string;
 }
 
 const CUSTOM_BANDS: string[] = [
@@ -173,14 +176,29 @@ function SpecSourceToggle() {
   );
 }
 
+function getEffectivePreferTested(params: {
+  globalPreferTested: boolean;
+  specPreference?: "global" | "factory" | "tested";
+}): boolean {
+  const { globalPreferTested, specPreference } = params;
+  if (specPreference === "factory") return false;
+  if (specPreference === "tested") return true;
+  return globalPreferTested;
+}
+
 /**
  * Radio Manager - Add, remove, and select radios
  */
-export function RadioManager({ compact = false }: RadioManagerProps) {
+export function RadioManager({
+  compact = false,
+  modalZIndexClassName,
+}: RadioManagerProps) {
   const {
     addRadio,
+    addRadioInstance,
     removeRadio,
     setActiveRadio,
+    updateRadioInstance,
     addCustomRadio,
     updateCustomRadio,
     removeCustomRadio,
@@ -188,6 +206,15 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
   } = useUserStore();
   const userRadios = useUserRadios();
   const activeRadio = useActiveRadio();
+  const activeUserRadio = useUserStore(
+    (s) =>
+      (s.preferences.activeRadioId &&
+        (s.preferences.radios || []).find(
+          (r) => r.id === s.preferences.activeRadioId,
+        )) ||
+      null,
+  );
+  const preferTested = usePreferTestedSpecs();
   const customRadios = preferences.customRadios || [];
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -202,12 +229,38 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
   const [customForm, setCustomForm] = useState<CustomRadioForm>(() =>
     createDefaultCustomForm(),
   );
+  const [customBaseQuery, setCustomBaseQuery] = useState("");
 
-  // Get list of user's radio IDs for checking if already added
-  const userRadioIds = useMemo(
-    () => new Set((preferences.radios || []).map((r) => r.radioId)),
-    [preferences.radios],
-  );
+  const [instanceModalOpen, setInstanceModalOpen] = useState(false);
+  const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
+  const [instanceModalError, setInstanceModalError] = useState<string | null>(null);
+  const [instanceForm, setInstanceForm] = useState<{
+    nickname: string;
+    customPowerLimit: string;
+    purchaseDate: string;
+    purchaseLocation: string;
+    firmwareRevision: string;
+    wiringConfiguration: string;
+    notes: string;
+    specPreference: "global" | "factory" | "tested";
+  }>({
+    nickname: "",
+    customPowerLimit: "",
+    purchaseDate: "",
+    purchaseLocation: "",
+    firmwareRevision: "",
+    wiringConfiguration: "",
+    notes: "",
+    specPreference: "global",
+  });
+
+  const instanceCountByEquipment = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of preferences.radios || []) {
+      counts.set(r.equipmentId, (counts.get(r.equipmentId) ?? 0) + 1);
+    }
+    return counts;
+  }, [preferences.radios]);
 
   // Filtered radios for the add modal
   const filteredRadios = useMemo(() => {
@@ -230,29 +283,105 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
   );
 
   const handleAddRadio = (radio: RadioEquipment) => {
-    addRadio(radio.id);
+    const id = addRadioInstance(radio.id);
+    if (id) {
+      setActiveRadio(id);
+      openEditInstance(id);
+    }
     setShowAddModal(false);
     setSearchQuery("");
     setSelectedManufacturer(null);
   };
 
-  const handleRemoveRadio = (radioId: string) => {
-    removeRadio(radioId);
+  const handleRemoveRadio = (radioInstanceId: string) => {
+    removeRadio(radioInstanceId);
   };
 
-  const handleSetActive = (radioId: string) => {
-    setActiveRadio(radioId);
+  const handleSetActive = (radioInstanceId: string) => {
+    setActiveRadio(radioInstanceId);
+  };
+
+  const handleSetActiveEquipment = (equipmentId: string) => {
+    const existing =
+      (preferences.radios || []).find((r) => r.equipmentId === equipmentId) ??
+      null;
+    if (existing) {
+      setActiveRadio(existing.id);
+      return;
+    }
+    const id = addRadio(equipmentId);
+    if (id) setActiveRadio(id);
+  };
+
+  const openEditInstance = (instanceId: string) => {
+    const instance =
+      (useUserStore.getState().preferences.radios || []).find(
+        (r) => r.id === instanceId,
+      ) ?? null;
+    if (!instance) return;
+    setEditingInstanceId(instanceId);
+    setInstanceModalError(null);
+    setInstanceForm({
+      nickname: instance.nickname ?? "",
+      customPowerLimit:
+        typeof instance.customPowerLimit === "number"
+          ? String(instance.customPowerLimit)
+          : "",
+      purchaseDate: instance.purchaseDate ?? "",
+      purchaseLocation: instance.purchaseLocation ?? "",
+      firmwareRevision: instance.firmwareRevision ?? "",
+      wiringConfiguration: instance.wiringConfiguration ?? "",
+      notes: instance.notes ?? "",
+      specPreference: instance.specPreference ?? "global",
+    });
+    setInstanceModalOpen(true);
+  };
+
+  const saveInstance = () => {
+    if (!editingInstanceId) return;
+    setInstanceModalError(null);
+
+    const limit =
+      instanceForm.customPowerLimit.trim() === ""
+        ? undefined
+        : Number.parseFloat(instanceForm.customPowerLimit);
+    if (
+      typeof limit === "number" &&
+      (!Number.isFinite(limit) || limit <= 0)
+    ) {
+      setInstanceModalError("Power limit must be a positive number");
+      return;
+    }
+
+    const res = updateRadioInstance(editingInstanceId, {
+      nickname: instanceForm.nickname.trim() || undefined,
+      customPowerLimit: limit,
+      purchaseDate: instanceForm.purchaseDate.trim() || undefined,
+      purchaseLocation: instanceForm.purchaseLocation.trim() || undefined,
+      firmwareRevision: instanceForm.firmwareRevision.trim() || undefined,
+      wiringConfiguration: instanceForm.wiringConfiguration.trim() || undefined,
+      notes: instanceForm.notes.trim() || undefined,
+      specPreference: instanceForm.specPreference,
+    });
+    if (!res.ok) {
+      setInstanceModalError(res.error);
+      return;
+    }
+    setInstanceModalOpen(false);
+    setEditingInstanceId(null);
   };
 
   const openNewCustomRadio = () => {
     setEditingCustomId(null);
     setCustomForm(createDefaultCustomForm());
+    setCustomBaseQuery("");
     setCustomModalError(null);
     setCustomModalOpen(true);
   };
 
   const openEditCustomRadio = (radio: RadioEquipment) => {
     setEditingCustomId(radio.id);
+    setCustomBaseQuery("");
     setCustomForm({
       displayName: radio.displayName?.trim() || "",
       manufacturer: radio.manufacturer || "",
@@ -427,6 +556,55 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
     setCustomModalError(null);
   };
 
+  const baseResults = useMemo(() => {
+    if (!customBaseQuery.trim()) return [];
+    return searchRadios(customBaseQuery).slice(0, 8);
+  }, [customBaseQuery]);
+
+  const importFromDatabase = (base: RadioEquipment, mode: "factory" | "tested") => {
+    const receiver =
+      mode === "tested" && base.testedSpecs ? base.testedSpecs : base.receiver;
+    setCustomForm((prev) => ({
+      ...prev,
+      displayName:
+        prev.displayName.trim() ||
+        `${base.manufacturer} ${base.model} (Custom)`,
+      manufacturer: base.manufacturer,
+      model: base.model,
+      tier: base.tier,
+      releaseYear: base.releaseYear ? String(base.releaseYear) : "",
+      maxPower: String(base.maxPower),
+      minPower: String(base.minPower),
+      bands: new Set(base.bands),
+      modes: new Set(base.modes),
+      receiver: {
+        ...prev.receiver,
+        rmdr: String(receiver.rmdr),
+        imdr3: String(receiver.imdr3),
+        blockingGain: String(receiver.blockingGain),
+        sensitivity: String(receiver.sensitivity),
+        noiseFloorDbm:
+          typeof receiver.noiseFloorDbm === "number"
+            ? String(receiver.noiseFloorDbm)
+            : "",
+        ip3Dbm:
+          typeof receiver.ip3Dbm === "number" ? String(receiver.ip3Dbm) : "",
+      },
+      transmit: {
+        ...prev.transmit,
+        imd3Db:
+          typeof base.transmit?.imd3Db === "number"
+            ? String(base.transmit.imd3Db)
+            : prev.transmit.imd3Db,
+        spuriousDbc:
+          typeof base.transmit?.spuriousDbc === "number"
+            ? String(base.transmit.spuriousDbc)
+            : prev.transmit.spuriousDbc,
+        notes: base.transmit?.notes ?? prev.transmit.notes,
+      },
+    }));
+  };
+
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
       {/* Header */}
@@ -452,11 +630,13 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                 Active
               </span>
               <span className="text-white font-medium">
-                {getRadioDisplayLabel(activeRadio)}
+                {getRadioDisplayLabel(activeRadio, activeUserRadio?.nickname)}
               </span>
             </div>
             <div className="text-xs text-gray-400">
-              {activeRadio.maxPower}W max
+              {typeof activeUserRadio?.customPowerLimit === "number"
+                ? `${Math.round(activeUserRadio.customPowerLimit)}W limit`
+                : `${activeRadio.maxPower}W max`}
             </div>
           </div>
           <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
@@ -470,8 +650,24 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
               {getTierLabel(activeRadio.tier)}
             </span>
             <span>
-              RX Score: {calculateReceiverScore(activeRadio.receiver)}
+              RX Score:{" "}
+              {calculateReceiverScore(
+                getEffectiveReceiverSpecs(
+                  activeRadio,
+                  getEffectivePreferTested({
+                    globalPreferTested: preferTested,
+                    specPreference: activeUserRadio?.specPreference,
+                  }),
+                ),
+              )}
             </span>
+            <button
+              type="button"
+              onClick={() => activeUserRadio && openEditInstance(activeUserRadio.id)}
+              className="ml-auto px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+            >
+              Edit
+            </button>
           </div>
         </div>
       )}
@@ -484,11 +680,19 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
         <div className="space-y-2">
           {userRadios.map(({ userRadio, equipment }) => {
             if (!equipment) return null;
-            const isActive = preferences.activeRadioId === userRadio.radioId;
+            const isActive = preferences.activeRadioId === userRadio.id;
             const hasTested = hasTestedSpecs(equipment);
+            const effectivePreferTested = getEffectivePreferTested({
+              globalPreferTested: preferTested,
+              specPreference: userRadio.specPreference,
+            });
+            const effectiveReceiver = getEffectiveReceiverSpecs(
+              equipment,
+              effectivePreferTested,
+            );
             return (
               <div
-                key={userRadio.radioId}
+                key={userRadio.id}
                 className={`
                   p-3 rounded-lg border transition-colors cursor-pointer
                   ${
@@ -497,7 +701,7 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                       : "bg-nebula-blue border-white/10 hover:border-white/20"
                   }
                 `}
-                onClick={() => handleSetActive(userRadio.radioId)}
+                onClick={() => handleSetActive(userRadio.id)}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -513,35 +717,56 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveRadio(userRadio.radioId);
-                    }}
-                    className="p-1 text-gray-500 hover:text-alert-red transition-colors"
-                    title="Remove radio"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditInstance(userRadio.id);
+                      }}
+                      className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveRadio(userRadio.id);
+                      }}
+                      className="p-1 text-gray-500 hover:text-alert-red transition-colors"
+                      title="Remove radio"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
                   <span>{equipment.maxPower}W</span>
                   <span>|</span>
                   <span>{equipment.bands.length} bands</span>
                   <span>|</span>
-                  <span>RX: {calculateReceiverScore(equipment.receiver)}</span>
+                  <span>RX: {calculateReceiverScore(effectiveReceiver)}</span>
+                  {(userRadio.specPreference ?? "global") !== "global" && (
+                    <>
+                      <span>|</span>
+                      <span className="text-[10px] text-gray-500">
+                        Specs: {userRadio.specPreference}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -571,7 +796,12 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
         <div className="mt-2 space-y-2">
           {customRadios.length > 0 ? (
             customRadios.map((radio) => {
-              const isActive = preferences.activeRadioId === radio.id;
+              const activeInstance =
+                (preferences.radios || []).find(
+                  (r) => r.id === preferences.activeRadioId,
+                ) ?? null;
+              const isActive = activeInstance?.equipmentId === radio.id;
+              const count = instanceCountByEquipment.get(radio.id) ?? 0;
               return (
                 <div
                   key={radio.id}
@@ -583,7 +813,7 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                         : "bg-nebula-blue border-white/10 hover:border-white/20"
                     }
                   `}
-                  onClick={() => handleSetActive(radio.id)}
+                  onClick={() => handleSetActiveEquipment(radio.id)}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -594,6 +824,11 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                         <span className="text-white font-medium truncate">
                           {getRadioDisplayLabel(radio)}
                         </span>
+                        {count > 0 && (
+                          <span className="text-[9px] px-1.5 py-0.5 bg-white/5 border border-white/10 text-gray-300 rounded">
+                            x{count}
+                          </span>
+                        )}
                       </div>
                       <div className="mt-0.5 text-xs text-gray-400 truncate">
                         {radio.manufacturer} {radio.model}
@@ -601,6 +836,20 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const id = addRadioInstance(radio.id);
+                          if (id) {
+                            setActiveRadio(id);
+                            openEditInstance(id);
+                          }
+                        }}
+                        className="px-2 py-1 text-[10px] rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+                      >
+                        + Add
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -628,7 +877,18 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                     <span>|</span>
                     <span>{radio.bands.length} bands</span>
                     <span>|</span>
-                    <span>RX: {calculateReceiverScore(radio.receiver)}</span>
+                    <span>
+                      RX:{" "}
+                      {calculateReceiverScore(
+                        getEffectiveReceiverSpecs(
+                          radio,
+                          getEffectivePreferTested({
+                            globalPreferTested: preferTested,
+                            specPreference: undefined,
+                          }),
+                        ),
+                      )}
+                    </span>
                   </div>
                 </div>
               );
@@ -642,150 +902,308 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
       </div>
 
       {/* Add Radio Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => {
-              setShowAddModal(false);
-              setSearchQuery("");
+      <DetailModal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          setSearchQuery("");
+          setSelectedManufacturer(null);
+        }}
+        title="Add Radio"
+        subtitle="Add a radio from the built-in database to your profile."
+        size="lg"
+        zIndexClassName={modalZIndexClassName ?? "z-[450]"}
+      >
+        <div className="space-y-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
               setSelectedManufacturer(null);
             }}
+            placeholder="Search radios..."
+            className="w-full px-3 py-2 bg-nebula-blue border border-white/10 rounded-lg
+                       text-white placeholder-gray-500
+                       focus:outline-none focus:border-plasma-orange/50"
           />
-          <div className="relative z-10 w-full max-w-lg bg-deep-space border border-white/10 rounded-xl p-6 max-h-[80vh] overflow-hidden flex flex-col">
-            {/* Modal header */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-orbitron text-lg font-bold text-gradient-orange">
-                Add Radio
-              </h2>
+
+          {!searchQuery && (
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  setSearchQuery("");
-                  setSelectedManufacturer(null);
-                }}
-                className="p-1 text-gray-400 hover:text-white transition-colors"
+                type="button"
+                onClick={() => setSelectedManufacturer(null)}
+                className={`px-2 py-1 text-xs rounded-lg transition-colors ${
+                  !selectedManufacturer
+                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                    : "bg-nebula-blue text-gray-300 border border-white/10"
+                }`}
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                All
               </button>
-            </div>
-
-            {/* Search */}
-            <div className="mb-4">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setSelectedManufacturer(null);
-                }}
-                placeholder="Search radios..."
-                className="w-full px-3 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                           text-white placeholder-gray-500
-                           focus:outline-none focus:border-plasma-orange/50"
-              />
-            </div>
-
-            {/* Manufacturer filter chips */}
-            {!searchQuery && (
-              <div className="flex flex-wrap gap-2 mb-4">
+              {manufacturers.map((mfr) => (
                 <button
-                  onClick={() => setSelectedManufacturer(null)}
+                  key={mfr}
+                  type="button"
+                  onClick={() => setSelectedManufacturer(mfr)}
                   className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                    !selectedManufacturer
+                    selectedManufacturer === mfr
                       ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
                       : "bg-nebula-blue text-gray-300 border border-white/10"
                   }`}
                 >
-                  All
+                  {mfr}
                 </button>
-                {manufacturers.map((mfr) => (
-                  <button
-                    key={mfr}
-                    onClick={() => setSelectedManufacturer(mfr)}
-                    className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                      selectedManufacturer === mfr
-                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                        : "bg-nebula-blue text-gray-300 border border-white/10"
-                    }`}
-                  >
-                    {mfr}
-                  </button>
-                ))}
+              ))}
+            </div>
+          )}
+
+          <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
+            {filteredRadios.map((radio) => {
+              const count = instanceCountByEquipment.get(radio.id) ?? 0;
+              return (
+                <div
+                  key={radio.id}
+                  className={`
+                    p-3 rounded-lg border transition-colors
+                    bg-nebula-blue border-white/10 hover:border-plasma-orange/50 cursor-pointer
+                  `}
+                  onClick={() => handleAddRadio(radio)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-white font-medium">
+                        {radio.manufacturer} {radio.model}
+                      </span>
+                      {count > 0 && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          ({count} in profile)
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className="px-1.5 py-0.5 rounded text-xs font-medium"
+                      style={{
+                        backgroundColor: getTierColor(radio.tier) + "20",
+                        color: getTierColor(radio.tier),
+                      }}
+                    >
+                      {getTierLabel(radio.tier)}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
+                    <span>{radio.maxPower}W</span>
+                    <span>|</span>
+                    <span>{radio.bands.join(", ")}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {(() => {
+                      const rx = getEffectiveReceiverSpecs(radio, preferTested);
+                      return (
+                        <>
+                          RX Score: {calculateReceiverScore(rx)} | RMDR: {rx.rmdr}dB
+                          {" | "}IMD3: {rx.imdr3}dB
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })}
+            {filteredRadios.length === 0 && (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                No radios found matching "{searchQuery}"
               </div>
             )}
-
-            {/* Radio list */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-              {filteredRadios.map((radio) => {
-                const alreadyAdded = userRadioIds.has(radio.id);
-                return (
-                  <div
-                    key={radio.id}
-                    className={`
-                      p-3 rounded-lg border transition-colors
-                      ${
-                        alreadyAdded
-                          ? "bg-nebula-blue/50 border-white/5 opacity-50 cursor-not-allowed"
-                          : "bg-nebula-blue border-white/10 hover:border-plasma-orange/50 cursor-pointer"
-                      }
-                    `}
-                    onClick={() => !alreadyAdded && handleAddRadio(radio)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-white font-medium">
-                          {radio.manufacturer} {radio.model}
-                        </span>
-                        {alreadyAdded && (
-                          <span className="ml-2 text-xs text-gray-500">
-                            (Added)
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        className="px-1.5 py-0.5 rounded text-xs font-medium"
-                        style={{
-                          backgroundColor: getTierColor(radio.tier) + "20",
-                          color: getTierColor(radio.tier),
-                        }}
-                      >
-                        {getTierLabel(radio.tier)}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
-                      <span>{radio.maxPower}W</span>
-                      <span>|</span>
-                      <span>{radio.bands.join(", ")}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-gray-500">
-                      RX Score: {calculateReceiverScore(radio.receiver)} | RMDR:{" "}
-                      {radio.receiver.rmdr}dB | IMD3: {radio.receiver.imdr3}dB
-                    </div>
-                  </div>
-                );
-              })}
-              {filteredRadios.length === 0 && (
-                <div className="p-4 text-center text-gray-500 text-sm">
-                  No radios found matching "{searchQuery}"
-                </div>
-              )}
-            </div>
           </div>
         </div>
-      )}
+      </DetailModal>
+
+      <DetailModal
+        isOpen={instanceModalOpen}
+        onClose={() => {
+          setInstanceModalOpen(false);
+          setEditingInstanceId(null);
+          setInstanceModalError(null);
+        }}
+        title="Radio Instance"
+        subtitle="Edit details for this specific radio you own."
+        size="lg"
+        zIndexClassName={modalZIndexClassName ?? "z-[450]"}
+      >
+        <div className="space-y-5">
+          {instanceModalError && (
+            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
+              {instanceModalError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Nickname (optional)
+              </label>
+              <input
+                value={instanceForm.nickname}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({ ...prev, nickname: e.target.value }))
+                }
+                placeholder="e.g., Portable, Shack #1"
+                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                TX power limit (W)
+              </label>
+              <input
+                inputMode="decimal"
+                value={instanceForm.customPowerLimit}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    customPowerLimit: e.target.value,
+                  }))
+                }
+                placeholder="(optional)"
+                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Purchase date
+              </label>
+              <input
+                type="date"
+                value={instanceForm.purchaseDate}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({ ...prev, purchaseDate: e.target.value }))
+                }
+                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                           text-white focus:outline-none focus:border-plasma-orange/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Purchase location
+              </label>
+              <input
+                value={instanceForm.purchaseLocation}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    purchaseLocation: e.target.value,
+                  }))
+                }
+                placeholder="e.g., HRO, Hamvention"
+                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Firmware revision
+              </label>
+              <input
+                value={instanceForm.firmwareRevision}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    firmwareRevision: e.target.value,
+                  }))
+                }
+                placeholder="e.g., 1.42"
+                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                           text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Receiver specs source
+              </label>
+              <select
+                value={instanceForm.specPreference}
+                onChange={(e) =>
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    specPreference: e.target.value as "global" | "factory" | "tested",
+                  }))
+                }
+                className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                           text-white focus:outline-none focus:border-plasma-orange/50"
+              >
+                <option value="global">Use global preference</option>
+                <option value="tested">Prefer tested (Sherwood)</option>
+                <option value="factory">Use factory specs</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-1">
+              Wiring configuration
+            </label>
+            <textarea
+              value={instanceForm.wiringConfiguration}
+              onChange={(e) =>
+                setInstanceForm((prev) => ({
+                  ...prev,
+                  wiringConfiguration: e.target.value,
+                }))
+              }
+              rows={3}
+              placeholder="CAT interface, audio chain, PTT, filters, etc."
+              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={instanceForm.notes}
+              onChange={(e) =>
+                setInstanceForm((prev) => ({ ...prev, notes: e.target.value }))
+              }
+              rows={3}
+              placeholder="Maintenance history, mods, quirks..."
+              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setInstanceModalOpen(false);
+                setEditingInstanceId(null);
+              }}
+              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
+                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveInstance}
+              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
+                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </DetailModal>
 
       <DetailModal
         isOpen={customModalOpen}
@@ -793,6 +1211,7 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
         title={editingCustomId ? "Edit Custom Radio" : "New Custom Radio"}
         subtitle="Saved to your profile for use in tools and DX Wizard."
         size="lg"
+        zIndexClassName={modalZIndexClassName ?? "z-[450]"}
       >
         <div className="space-y-6">
           {customModalError && (
@@ -800,6 +1219,65 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
               {customModalError}
             </div>
           )}
+
+          <div className="p-4 rounded-lg border border-white/10 bg-white/5 space-y-3">
+            <div className="text-sm font-semibold text-white">
+              Start from database (optional)
+            </div>
+            <div className="text-xs text-gray-400">
+              Import a base radio from the built-in database, then tweak specs as needed.
+            </div>
+            <input
+              value={customBaseQuery}
+              onChange={(e) => setCustomBaseQuery(e.target.value)}
+              placeholder="Search database (e.g., IC-7300, FT-891, K3S)..."
+              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            />
+            {baseResults.length > 0 && (
+              <div className="space-y-2">
+                {baseResults.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-3 p-2 rounded-lg bg-nebula-blue/40 border border-white/10"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-white truncate">
+                        {r.manufacturer} {r.model}
+                        {hasTestedSpecs(r) && (
+                          <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
+                            Tested
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-400 truncate">
+                        {r.maxPower}W • Tier: {r.tier} • Bands:{" "}
+                        {r.bands.slice(0, 4).join(", ")}
+                        {r.bands.length > 4 ? "…" : ""}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => importFromDatabase(r, "factory")}
+                        className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+                      >
+                        Import factory
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!hasTestedSpecs(r)}
+                        onClick={() => importFromDatabase(r, "tested")}
+                        className="text-[10px] px-2 py-1 rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Import tested
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-4">

@@ -1,0 +1,762 @@
+import { useState, useMemo, useCallback } from "react";
+import { Card, LoadingSpinner } from "@/components/ui";
+import { useUserStore } from "@/stores/userStore";
+import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
+import {
+  getForecastForPath,
+  getBestWindows,
+  getForecastStatusColor,
+  calculateGreatCircleDistance,
+  type HourlyForecast,
+  type BestWindow,
+} from "@/lib/utils/bands";
+import { kpToAp } from "@/lib/utils/solarConversions";
+import { gridToLatLon } from "@/lib/utils/grid";
+
+/**
+ * Band Planner Page
+ *
+ * Comprehensive propagation planning tool that shows:
+ * - 24-hour band-by-band forecast
+ * - Best operating windows
+ * - Mode and power recommendations
+ * - Storm/confidence indicators
+ */
+export function BandPlanner() {
+  // User station
+  const station = useUserStore((s) => s.station);
+
+  // Target location state
+  const [targetGrid, setTargetGrid] = useState("");
+  const [targetCoords, setTargetCoords] = useState<{
+    lat: number;
+    lon: number;
+    grid: string;
+  } | null>(null);
+
+  // Selected band for detailed view
+  const [selectedBand, setSelectedBand] = useState<string | null>(null);
+
+  // Fetch solar data
+  const { data: kIndexData, isLoading: kLoading } = useKIndex();
+  const { data: fluxData, isLoading: fluxLoading } = useSolarFlux();
+  const { data: magnetometerData } = useMagnetometer();
+
+  // Current conditions
+  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? 3;
+  const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? 100;
+  const currentBz =
+    magnetometerData?.[magnetometerData.length - 1]?.bz_gsm ?? null;
+
+  const isLoading = kLoading || fluxLoading;
+
+  // Parse target grid and calculate coordinates
+  const handleTargetChange = useCallback((value: string) => {
+    setTargetGrid(value);
+
+    // Try to parse as grid square
+    const grid = value.toUpperCase().trim();
+    if (grid.length >= 4 && /^[A-R]{2}[0-9]{2}/.test(grid)) {
+      try {
+        const coords = gridToLatLon(grid.slice(0, 6) || grid.slice(0, 4));
+        if (coords) {
+          setTargetCoords({ lat: coords.lat, lon: coords.lon, grid });
+        }
+      } catch {
+        setTargetCoords(null);
+      }
+    } else {
+      setTargetCoords(null);
+    }
+  }, []);
+
+  // Calculate forecast
+  const forecast = useMemo<HourlyForecast[]>(() => {
+    if (!station || !targetCoords) return [];
+
+    return getForecastForPath(
+      station.lat,
+      station.lon,
+      targetCoords.lat,
+      targetCoords.lon,
+      currentKp,
+      currentFlux,
+      new Date(),
+    );
+  }, [station, targetCoords, currentKp, currentFlux]);
+
+  // Calculate best windows
+  const bestWindows = useMemo<BestWindow[]>(() => {
+    if (forecast.length === 0) return [];
+    return getBestWindows(forecast);
+  }, [forecast]);
+
+  // Current UTC hour
+  const currentHour = new Date().getUTCHours();
+
+  // Bands to display
+  const bands = [
+    "160m",
+    "80m",
+    "40m",
+    "30m",
+    "20m",
+    "17m",
+    "15m",
+    "12m",
+    "10m",
+  ];
+
+  // Storm warning
+  const isStormConditions = currentKp >= 5;
+  const isDisturbedConditions = currentKp >= 4;
+  const isSouthwardBz = currentBz !== null && currentBz < -5;
+
+  // Confidence level based on conditions stability
+  const getConfidenceLevel = (): "high" | "medium" | "low" => {
+    if (isStormConditions || isSouthwardBz) return "low";
+    if (isDisturbedConditions || (currentBz !== null && currentBz < 0))
+      return "medium";
+    return "high";
+  };
+
+  const confidenceLevel = getConfidenceLevel();
+
+  return (
+    <div className="min-h-screen">
+      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Band Planner</h1>
+            <p className="text-sm text-gray-400 mt-1">
+              Plan your operating session with 24-hour propagation forecasts
+            </p>
+          </div>
+
+          {/* Current conditions summary */}
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">SFI:</span>
+              <span className="font-mono text-plasma-orange">
+                {currentFlux}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">Kp:</span>
+              <span
+                className="font-mono"
+                style={{
+                  color:
+                    currentKp >= 5
+                      ? "#ff4455"
+                      : currentKp >= 4
+                        ? "#ffaa00"
+                        : "#00ff88",
+                }}
+              >
+                {currentKp}
+              </span>
+            </div>
+            {currentBz !== null && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">Bz:</span>
+                <span
+                  className="font-mono"
+                  style={{ color: currentBz >= 0 ? "#44dd66" : "#ff7700" }}
+                >
+                  {currentBz > 0 ? "+" : ""}
+                  {currentBz.toFixed(1)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Warning banners */}
+        {isStormConditions && (
+          <div className="p-3 bg-alert-red/10 border border-alert-red/30 rounded-lg flex items-center gap-3">
+            <svg
+              className="w-5 h-5 text-alert-red flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div>
+              <div className="font-semibold text-alert-red">
+                Geomagnetic Storm in Progress
+              </div>
+              <p className="text-sm text-gray-300">
+                K-index is {currentKp}. Expect significant HF propagation
+                degradation. Consider lower bands (40m, 80m) and digital modes.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isSouthwardBz && !isStormConditions && (
+          <div className="p-3 bg-caution-amber/10 border border-caution-amber/30 rounded-lg flex items-center gap-3">
+            <svg
+              className="w-5 h-5 text-caution-amber flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div>
+              <div className="font-semibold text-caution-amber">
+                Southward IMF Detected
+              </div>
+              <p className="text-sm text-gray-300">
+                Bz is {currentBz?.toFixed(1)} nT. Geomagnetic activity may
+                increase. Forecasts have reduced confidence.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Station check */}
+        {!station && (
+          <Card>
+            <div className="text-center py-8">
+              <svg
+                className="w-12 h-12 text-gray-500 mx-auto mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                Set Your Station Location
+              </h3>
+              <p className="text-gray-400 text-sm max-w-md mx-auto">
+                To use the Band Planner, please configure your station location
+                in Settings. We need your coordinates to calculate path-specific
+                propagation forecasts.
+              </p>
+            </div>
+          </Card>
+        )}
+
+        {station && (
+          <>
+            {/* Target input */}
+            <Card>
+              <div className="flex flex-col md:flex-row md:items-end gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Target Location
+                  </label>
+                  <input
+                    type="text"
+                    value={targetGrid}
+                    onChange={(e) => handleTargetChange(e.target.value)}
+                    placeholder="Enter grid square (e.g., JN58, FN31pr)"
+                    className="w-full px-4 py-3 bg-void-black/50 border border-white/10 rounded-lg
+                             text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50
+                             font-mono text-lg uppercase"
+                  />
+                  <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+                    <span>
+                      Your QTH:{" "}
+                      <span className="text-white font-mono">
+                        {station.grid}
+                      </span>
+                    </span>
+                    {targetCoords && (
+                      <span>
+                        Target:{" "}
+                        <span className="text-signal-green font-mono">
+                          {targetCoords.grid}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confidence indicator */}
+                <div className="text-right">
+                  <div className="text-xs text-gray-400 mb-1">
+                    Forecast Confidence
+                  </div>
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm"
+                    style={{
+                      backgroundColor:
+                        confidenceLevel === "high"
+                          ? "#00ff8820"
+                          : confidenceLevel === "medium"
+                            ? "#ffaa0020"
+                            : "#ff445520",
+                      color:
+                        confidenceLevel === "high"
+                          ? "#00ff88"
+                          : confidenceLevel === "medium"
+                            ? "#ffaa00"
+                            : "#ff4455",
+                    }}
+                  >
+                    {confidenceLevel === "high" && (
+                      <>
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        High
+                      </>
+                    )}
+                    {confidenceLevel === "medium" && (
+                      <>
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Medium
+                      </>
+                    )}
+                    {confidenceLevel === "low" && (
+                      <>
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Low
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* No target selected */}
+            {!targetCoords && (
+              <Card>
+                <div className="text-center py-12">
+                  <svg
+                    className="w-16 h-16 text-gray-600 mx-auto mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    Enter a Target Location
+                  </h3>
+                  <p className="text-gray-400 text-sm max-w-md mx-auto">
+                    Enter a grid square (like JN58 for central Europe or VK3 for
+                    Melbourne) to see the 24-hour propagation forecast for that
+                    path.
+                  </p>
+                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                    {["JN58", "FN31", "IO91", "PM95", "QF22"].map((grid) => (
+                      <button
+                        key={grid}
+                        onClick={() => handleTargetChange(grid)}
+                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10
+                                 rounded-lg text-sm text-gray-300 font-mono transition-colors"
+                      >
+                        {grid}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Forecast display */}
+            {targetCoords && isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <LoadingSpinner size="lg" />
+              </div>
+            )}
+
+            {targetCoords && !isLoading && forecast.length > 0 && (
+              <>
+                {/* Best Windows */}
+                <Card>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Best Operating Windows
+                  </h3>
+                  {bestWindows.length === 0 ? (
+                    <div className="text-center py-6 text-gray-400">
+                      No favorable windows found for this path in the next 24
+                      hours. Try a different target or wait for conditions to
+                      improve.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {bestWindows.slice(0, 6).map((window, idx) => (
+                        <div
+                          key={window.band}
+                          className={`p-4 rounded-lg border transition-colors cursor-pointer ${
+                            selectedBand === window.band
+                              ? "bg-plasma-orange/10 border-plasma-orange/40"
+                              : "bg-white/5 border-white/10 hover:border-white/20"
+                          }`}
+                          onClick={() =>
+                            setSelectedBand(
+                              selectedBand === window.band ? null : window.band,
+                            )
+                          }
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xl font-mono font-bold text-white">
+                              {window.band}
+                            </span>
+                            <span
+                              className="text-xs px-2 py-0.5 rounded"
+                              style={{
+                                backgroundColor: `${getForecastStatusColor(window.peakStatus)}20`,
+                                color: getForecastStatusColor(
+                                  window.peakStatus,
+                                ),
+                              }}
+                            >
+                              {window.peakStatus}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-300">
+                            {window.startHour.toString().padStart(2, "0")}:00 -{" "}
+                            {window.endHour.toString().padStart(2, "0")}:00 UTC
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            Peak at{" "}
+                            {window.peakHour.toString().padStart(2, "0")}:00 •
+                            SNR {window.peakSnr} dB
+                          </div>
+                          {idx === 0 && (
+                            <div className="mt-2 text-xs text-plasma-orange font-medium">
+                              Recommended
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                {/* 24-Hour Heat Map */}
+                <Card>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-white">
+                      24-Hour Forecast
+                    </h3>
+                    <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="w-3 h-3 rounded"
+                          style={{ backgroundColor: "#00ff88" }}
+                        />
+                        <span className="text-gray-400">Excellent</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="w-3 h-3 rounded"
+                          style={{ backgroundColor: "#44dd66" }}
+                        />
+                        <span className="text-gray-400">Good</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="w-3 h-3 rounded"
+                          style={{ backgroundColor: "#ffaa00" }}
+                        />
+                        <span className="text-gray-400">Fair</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="w-3 h-3 rounded"
+                          style={{ backgroundColor: "#ff4455" }}
+                        />
+                        <span className="text-gray-400">Poor</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className="w-3 h-3 rounded"
+                          style={{ backgroundColor: "#374151" }}
+                        />
+                        <span className="text-gray-400">Closed</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr>
+                          <th className="text-left py-2 pr-4 text-gray-400 font-medium sticky left-0 bg-deep-space/95 z-10">
+                            Band
+                          </th>
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <th
+                              key={i}
+                              className={`px-1 py-2 text-center font-mono ${
+                                i === currentHour
+                                  ? "text-plasma-orange font-bold"
+                                  : "text-gray-400 font-normal"
+                              }`}
+                            >
+                              {i.toString().padStart(2, "0")}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bands.map((band) => {
+                          const bandWindow = bestWindows.find(
+                            (w) => w.band === band,
+                          );
+                          return (
+                            <tr
+                              key={band}
+                              className={`border-t border-white/5 ${
+                                selectedBand === band ? "bg-white/5" : ""
+                              }`}
+                              onClick={() =>
+                                setSelectedBand(
+                                  selectedBand === band ? null : band,
+                                )
+                              }
+                            >
+                              <td
+                                className={`py-2 pr-4 font-mono font-semibold sticky left-0 bg-deep-space/95 z-10 cursor-pointer ${
+                                  bandWindow && bandWindow === bestWindows[0]
+                                    ? "text-plasma-orange"
+                                    : "text-white"
+                                }`}
+                              >
+                                {band}
+                              </td>
+                              {forecast.map((hour) => {
+                                const bandData = hour.bands.find(
+                                  (b) => b.band === band,
+                                );
+                                const color = bandData
+                                  ? getForecastStatusColor(bandData.status)
+                                  : "#374151";
+                                const isCurrentHour = hour.hour === currentHour;
+                                return (
+                                  <td key={hour.hour} className="px-0.5 py-2">
+                                    <div
+                                      className={`w-full h-6 rounded transition-all ${
+                                        isCurrentHour
+                                          ? "ring-2 ring-plasma-orange ring-offset-1 ring-offset-deep-space"
+                                          : ""
+                                      }`}
+                                      style={{ backgroundColor: color }}
+                                      title={`${hour.hour}:00 UTC - ${band}: ${bandData?.status || "unknown"} (SNR: ${bandData?.snrEstimate || "N/A"} dB)`}
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Time labels */}
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                    <span>00:00 UTC</span>
+                    <span className="text-plasma-orange font-medium">
+                      Now: {currentHour.toString().padStart(2, "0")}:00 UTC
+                    </span>
+                    <span>23:00 UTC</span>
+                  </div>
+                </Card>
+
+                {/* Operating Recommendations */}
+                <Card>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Operating Recommendations
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Mode recommendations */}
+                    <div>
+                      <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+                        Suggested Modes
+                      </h4>
+                      <div className="space-y-2">
+                        {bestWindows.length > 0 &&
+                          bestWindows[0].peakStatus === "excellent" && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-signal-green" />
+                              <span className="text-gray-300">
+                                SSB/CW - Strong signals expected
+                              </span>
+                            </div>
+                          )}
+                        {bestWindows.length > 0 &&
+                          (bestWindows[0].peakStatus === "good" ||
+                            bestWindows[0].peakStatus === "fair") && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-caution-amber" />
+                              <span className="text-gray-300">
+                                FT8/FT4 recommended for reliable contacts
+                              </span>
+                            </div>
+                          )}
+                        {(bestWindows.length === 0 ||
+                          bestWindows[0].peakStatus === "poor") && (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-alert-red" />
+                            <span className="text-gray-300">
+                              Digital modes only - marginal conditions
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Power recommendations */}
+                    <div>
+                      <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+                        Power Guidance
+                      </h4>
+                      <div className="space-y-2 text-gray-300">
+                        {bestWindows.length > 0 &&
+                          bestWindows[0].peakSnr >= -10 && (
+                            <p>
+                              50-100W should be sufficient for contacts on{" "}
+                              {bestWindows[0].band}
+                            </p>
+                          )}
+                        {bestWindows.length > 0 &&
+                          bestWindows[0].peakSnr < -10 &&
+                          bestWindows[0].peakSnr >= -18 && (
+                            <p>
+                              100W recommended, higher power may help on
+                              marginal paths
+                            </p>
+                          )}
+                        {bestWindows.length > 0 &&
+                          bestWindows[0].peakSnr < -18 && (
+                            <p>
+                              Maximum legal power recommended - weak signal
+                              conditions
+                            </p>
+                          )}
+                        {bestWindows.length === 0 && (
+                          <p className="text-gray-400">
+                            Conditions unfavorable - save power for better
+                            openings
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Path Details */}
+                <Card>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Path Information
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <div className="text-xs text-gray-400 mb-1">From</div>
+                      <div className="font-mono text-white">{station.grid}</div>
+                      <div className="text-xs text-gray-500">
+                        {station.lat.toFixed(2)}°, {station.lon.toFixed(2)}°
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400 mb-1">To</div>
+                      <div className="font-mono text-signal-green">
+                        {targetCoords.grid}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {targetCoords.lat.toFixed(2)}°,{" "}
+                        {targetCoords.lon.toFixed(2)}°
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400 mb-1">Distance</div>
+                      <div className="font-mono text-white">
+                        {Math.round(
+                          calculateGreatCircleDistance(
+                            station.lat,
+                            station.lon,
+                            targetCoords.lat,
+                            targetCoords.lon,
+                          ),
+                        ).toLocaleString()}{" "}
+                        km
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400 mb-1">A-Index</div>
+                      <div className="font-mono text-white">
+                        {kpToAp(currentKp)}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="max-w-7xl mx-auto px-4 md:px-6 py-8 text-center text-xs text-gray-500">
+        <p>
+          Forecasts based on current solar indices and simplified ionospheric
+          model. Actual conditions may vary.
+        </p>
+        <p className="mt-1">Propulse Band Planner — Plan your DX</p>
+      </footer>
+    </div>
+  );
+}
+
+export default BandPlanner;

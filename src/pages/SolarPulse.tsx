@@ -4,14 +4,20 @@ import {
   SolarSummary,
   BandConditions,
   KIndexChart,
+  AIndexChart,
+  BzChart,
   FlareProbability,
   SolarFluxChart,
   EventAlert,
+  PropagationIndex,
   KIndexChartModal,
+  AIndexChartModal,
+  BzChartModal,
   SolarFluxChartModal,
   SolarSummaryModal,
   FlareProbabilityModal,
   BandConditionsModal,
+  PropagationIndexModal,
 } from "@/components/solar";
 import {
   useKIndex,
@@ -40,7 +46,10 @@ export function SolarPulse() {
 
   // Modal states for chart/summary modals
   const [kIndexChartOpen, setKIndexChartOpen] = useState(false);
+  const [aIndexChartOpen, setAIndexChartOpen] = useState(false);
+  const [bzChartOpen, setBzChartOpen] = useState(false);
   const [solarFluxChartOpen, setSolarFluxChartOpen] = useState(false);
+  const [propagationIndexOpen, setPropagationIndexOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [flareProbOpen, setFlareProbOpen] = useState(false);
   const [bandConditionsOpen, setBandConditionsOpen] = useState(false);
@@ -98,6 +107,15 @@ export function SolarPulse() {
           }
         />
 
+        {/* Propagation Index - Hero Metric */}
+        <PropagationIndex
+          solarFlux={currentFlux}
+          kIndex={currentKp}
+          bz={currentBz}
+          loading={isLoading}
+          onExpand={() => setPropagationIndexOpen(true)}
+        />
+
         {/* Summary */}
         <SolarSummary
           kIndex={currentKp}
@@ -106,7 +124,7 @@ export function SolarPulse() {
           onExpand={() => setSummaryOpen(true)}
         />
 
-        {/* Two-column layout for charts */}
+        {/* Two-column layout for K-index and A-index charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* K-Index Chart */}
           <KIndexChart
@@ -120,6 +138,21 @@ export function SolarPulse() {
             onExpand={() => setKIndexChartOpen(true)}
           />
 
+          {/* A-Index Chart */}
+          <AIndexChart
+            data={
+              kIndexData?.map((d) => ({
+                time_tag: d.time_tag,
+                kp_index: d.kp_index,
+              })) ?? []
+            }
+            loading={kLoading}
+            onExpand={() => setAIndexChartOpen(true)}
+          />
+        </div>
+
+        {/* Two-column layout for Solar Flux and IMF Bz */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Solar Flux Chart */}
           <SolarFluxChart
             data={
@@ -130,6 +163,20 @@ export function SolarPulse() {
             }
             loading={fluxLoading}
             onExpand={() => setSolarFluxChartOpen(true)}
+          />
+
+          {/* IMF Bz Chart */}
+          <BzChart
+            data={
+              magnetometerData
+                ?.filter((d) => d.bz_gsm !== null)
+                .map((d) => ({
+                  time_tag: d.time_tag,
+                  bz_gsm: d.bz_gsm as number,
+                })) ?? []
+            }
+            loading={magLoading}
+            onExpand={() => setBzChartOpen(true)}
           />
         </div>
 
@@ -183,6 +230,30 @@ export function SolarPulse() {
         }
       />
 
+      <AIndexChartModal
+        isOpen={aIndexChartOpen}
+        onClose={() => setAIndexChartOpen(false)}
+        data={
+          kIndexData?.map((d) => ({
+            time_tag: d.time_tag,
+            kp_index: d.kp_index,
+          })) ?? []
+        }
+      />
+
+      <BzChartModal
+        isOpen={bzChartOpen}
+        onClose={() => setBzChartOpen(false)}
+        data={
+          magnetometerData
+            ?.filter((d) => d.bz_gsm !== null)
+            .map((d) => ({
+              time_tag: d.time_tag,
+              bz_gsm: d.bz_gsm as number,
+            })) ?? []
+        }
+      />
+
       <SolarFluxChartModal
         isOpen={solarFluxChartOpen}
         onClose={() => setSolarFluxChartOpen(false)}
@@ -199,6 +270,14 @@ export function SolarPulse() {
         onClose={() => setSummaryOpen(false)}
         kIndex={currentKp}
         solarFlux={currentFlux}
+      />
+
+      <PropagationIndexModal
+        isOpen={propagationIndexOpen}
+        onClose={() => setPropagationIndexOpen(false)}
+        solarFlux={currentFlux}
+        kIndex={currentKp}
+        bz={currentBz}
       />
 
       <FlareProbabilityModal

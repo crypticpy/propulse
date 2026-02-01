@@ -122,16 +122,50 @@ export type RadioTier =
   | "flagship"; // Top-tier / flagship models
 
 /**
- * User's saved radio configuration
+ * User's saved radio instance (a specific owned radio)
+ *
+ * This is intentionally an *instance* type (not just an equipment ID),
+ * so we can support multiple owned radios of the same model and attach
+ * ownership/maintenance metadata (purchase date, firmware, wiring, etc.).
  */
 export interface UserRadio {
-  /** Reference to the base radio equipment ID */
-  radioId: string;
+  /** Unique identifier for this user-owned radio instance */
+  id: string;
+  /** Reference to the base radio equipment ID (DB or custom equipment) */
+  equipmentId: string;
   /** User's nickname for this specific radio instance */
   nickname?: string;
   /** Custom power limit (e.g., for QRP contests or license restrictions) */
   customPowerLimit?: number;
   /** Date added to collection */
+  addedAt: string;
+  /** Optional purchase date (ISO-8601 date or datetime string) */
+  purchaseDate?: string;
+  /** Optional purchase location (freeform) */
+  purchaseLocation?: string;
+  /** Optional firmware revision string */
+  firmwareRevision?: string;
+  /** Optional wiring configuration notes (interfaces, CAT, audio, PTT, etc.) */
+  wiringConfiguration?: string;
+  /** Optional additional notes */
+  notes?: string;
+  /**
+   * Optional per-radio override for receiver spec source.
+   * - "global": use user preference `preferTestedSpecs`
+   * - "factory": always use manufacturer/factory specs
+   * - "tested": always use lab-tested (Sherwood) specs when available
+   */
+  specPreference?: "global" | "factory" | "tested";
+}
+
+/**
+ * Legacy persisted user radio shape (v6 and earlier)
+ * @deprecated Only used for migration.
+ */
+export interface LegacyUserRadio {
+  radioId: string;
+  nickname?: string;
+  customPowerLimit?: number;
   addedAt: string;
 }
 

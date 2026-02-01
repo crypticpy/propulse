@@ -61,7 +61,10 @@ export interface UserPreferences {
   radios?: UserRadio[];
   /** User-defined custom radio equipment definitions */
   customRadios?: RadioEquipment[];
-  /** Currently active radio ID */
+  /**
+   * Currently active user-owned radio instance ID.
+   * (Older persisted data may contain an equipment ID; migration should normalize.)
+   */
   activeRadioId?: string | null;
   /**
    * Prefer tested (Sherwood) specs over factory specs when available.

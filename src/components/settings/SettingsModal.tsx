@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui";
+import { DetailModal } from "@/components/ui/DetailModal";
 import { useUserStore } from "@/stores/userStore";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { RadioManager } from "./RadioManager";
@@ -24,6 +25,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [gridError, setGridError] = useState<string | null>(null);
   const [timeFormat, setTimeFormat] = useState(preferences.timeFormat);
   const [units, setUnits] = useState(preferences.units);
+  const [showFullRadioManager, setShowFullRadioManager] = useState(false);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -149,6 +151,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* Radio Equipment Section */}
           <div className="mb-6">
             <RadioManager compact />
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFullRadioManager(true)}
+                className="px-3 py-1.5 text-xs bg-white/5 border border-white/10
+                           text-gray-200 rounded-lg hover:bg-white/10 hover:text-white transition-colors"
+              >
+                Open full radio manager
+              </button>
+            </div>
           </div>
 
           {/* Preferences Section */}
@@ -249,6 +261,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
       </Card>
+
+      <DetailModal
+        isOpen={showFullRadioManager}
+        onClose={() => setShowFullRadioManager(false)}
+        title="Radio Manager"
+        subtitle="Add radios, track firmware/wiring, and manage multiple instances."
+        size="full"
+        zIndexClassName="z-[500]"
+      >
+        <RadioManager modalZIndexClassName="z-[550]" />
+      </DetailModal>
     </div>
   );
 }

@@ -274,9 +274,17 @@ export const KIndexChartModal: React.FC<KIndexChartModalProps> = ({
 
               {/* Bars */}
               {chartData.map((point, index) => {
-                const barHeight = (point.kp_index / maxY) * innerHeight;
+                // Minimum visual height of 6px for zero values so they're visible
+                const MIN_BAR_HEIGHT = 6;
+                const calculatedHeight = (point.kp_index / maxY) * innerHeight;
+                const barHeight = Math.max(calculatedHeight, MIN_BAR_HEIGHT);
                 const x = xPosition(index);
-                const y = yScale(point.kp_index);
+                // Adjust y position for minimum height bars
+                const y =
+                  point.kp_index === 0
+                    ? padding.top + innerHeight - MIN_BAR_HEIGHT
+                    : yScale(point.kp_index);
+                const isZero = point.kp_index === 0;
 
                 return (
                   <g key={`bar-${index}`}>
@@ -287,7 +295,7 @@ export const KIndexChartModal: React.FC<KIndexChartModalProps> = ({
                       height={barHeight}
                       fill={getBarColor(point.kp_index)}
                       rx="3"
-                      opacity="0.85"
+                      opacity={isZero ? 0.6 : 0.85}
                       className="transition-all duration-300"
                     >
                       <title>
@@ -296,10 +304,19 @@ export const KIndexChartModal: React.FC<KIndexChartModalProps> = ({
                       </title>
                     </rect>
 
+                    {/* Zero indicator - diamond marker to show it's real data */}
+                    {isZero && (
+                      <polygon
+                        points={`${x + barWidth / 2},${padding.top + innerHeight - 12} ${x + barWidth / 2 + 5},${padding.top + innerHeight - 6} ${x + barWidth / 2},${padding.top + innerHeight} ${x + barWidth / 2 - 5},${padding.top + innerHeight - 6}`}
+                        fill="#00ff88"
+                        opacity="0.9"
+                      />
+                    )}
+
                     {/* Value label on bar */}
                     <text
                       x={x + barWidth / 2}
-                      y={y - 8}
+                      y={isZero ? y - 18 : y - 8}
                       fill="rgba(255,255,255,0.8)"
                       fontSize="11"
                       fontFamily="monospace"

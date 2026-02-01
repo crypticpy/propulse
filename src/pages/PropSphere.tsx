@@ -28,7 +28,7 @@ import { Card } from "@/components/ui/Card";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
-import { useActiveRadio, useUserStore } from "@/stores/userStore";
+import { useActiveRadio, useActiveUserRadio, useUserStore } from "@/stores/userStore";
 import { getBandsForRegion, getAvailableSegments } from "@/lib/data/bandplans";
 
 /**
@@ -71,13 +71,7 @@ export function PropSphere() {
   const preferences = useUserStore((state) => state.preferences);
   const activeRadioId = preferences.activeRadioId ?? null;
   const activeRadio = useActiveRadio();
-
-  const activeUserRadio = useMemo(() => {
-    if (!activeRadioId) return null;
-    const radios = preferences.radios;
-    if (!radios || radios.length === 0) return null;
-    return radios.find((r) => r.radioId === activeRadioId) || null;
-  }, [activeRadioId, preferences.radios]);
+  const activeUserRadio = useActiveUserRadio();
 
   const operatorGrid = station?.grid?.trim() ? station.grid.trim() : null;
   const operatorCallsign = station?.callsign?.trim()

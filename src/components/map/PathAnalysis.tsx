@@ -9,7 +9,11 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { useMapStore } from "@/stores/mapStore";
-import { useUserStore, useActiveRadio } from "@/stores/userStore";
+import {
+  useUserStore,
+  useActiveRadio,
+  usePreferTestedSpecs,
+} from "@/stores/userStore";
 import {
   getPathMetrics,
   formatBearing,
@@ -25,7 +29,7 @@ import { RadioPickerModal } from "@/components/radio/RadioPickerModal";
 import { calculateReceiverScore } from "@/types/radio";
 import type { FrequencyLimits } from "@/types/propagation";
 import type { RadioEquipment } from "@/types/radio";
-import { getRadioById } from "@/lib/data/radios";
+import { getRadioById, getEffectiveReceiverSpecs } from "@/lib/data/radios";
 
 interface PathAnalysisProps {
   /** Current display time for illumination calculation */
@@ -95,8 +99,13 @@ export function PathAnalysis({
   const { target } = useMapStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const activeRadio = useActiveRadio();
+  const preferTested = usePreferTestedSpecs();
   const useImperial = preferences.units === "imperial";
   const customRadios = preferences.customRadios;
+  const radioInstances = useMemo(
+    () => preferences.radios || [],
+    [preferences.radios],
+  );
 
   // Save target modal state
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -107,12 +116,14 @@ export function PathAnalysis({
 
   const analysisRadio = useMemo(() => {
     if (analysisRadioId === null) return activeRadio;
+    const instance = radioInstances.find((r) => r.id === analysisRadioId) ?? null;
+    const equipmentId = instance?.equipmentId ?? analysisRadioId;
     return (
-      customRadios?.find((r) => r.id === analysisRadioId) ||
-      getRadioById(analysisRadioId) ||
+      customRadios?.find((r) => r.id === equipmentId) ||
+      getRadioById(equipmentId) ||
       null
     );
-  }, [activeRadio, analysisRadioId, customRadios]);
+  }, [activeRadio, analysisRadioId, customRadios, radioInstances]);
 
   const analysisRadioLabel = useMemo(() => {
     if (analysisRadioId === null) {
@@ -124,11 +135,17 @@ export function PathAnalysis({
     }
 
     if (!analysisRadio) return `Unknown (${analysisRadioId})`;
-    return (
+    const instance = radioInstances.find((r) => r.id === analysisRadioId) ?? null;
+    const base =
       analysisRadio.displayName?.trim() ||
-      `${analysisRadio.manufacturer} ${analysisRadio.model}`
-    );
-  }, [activeRadio, analysisRadio, analysisRadioId]);
+      `${analysisRadio.manufacturer} ${analysisRadio.model}`;
+    return instance?.nickname?.trim() ? `${instance.nickname} — ${base}` : base;
+  }, [activeRadio, analysisRadio, analysisRadioId, radioInstances]);
+
+  const analysisRadioInstance = useMemo(() => {
+    if (!analysisRadioId) return null;
+    return radioInstances.find((r) => r.id === analysisRadioId) ?? null;
+  }, [analysisRadioId, radioInstances]);
 
   // Fetch current solar data for frequency limits
   const { data: solarFluxData } = useSolarFlux();
@@ -443,6 +460,8 @@ export function PathAnalysis({
         {analysisRadio && (
           <RadioSuggestions
             radio={analysisRadio}
+            radioInstance={analysisRadioInstance}
+            preferTested={preferTested}
             difficulty={metrics.difficulty}
             distance={metrics.shortPath.distance}
           />
@@ -722,13 +741,25 @@ function FrequencyWindowBar({ limits }: { limits: FrequencyLimits }) {
  */
 function RadioSuggestions({
   radio,
+  radioInstance,
+  preferTested,
   difficulty,
   distance,
 }: {
   radio: RadioEquipment;
+  radioInstance: { customPowerLimit?: number; specPreference?: "global" | "factory" | "tested" } | null;
+  preferTested: boolean;
   difficulty: number;
   distance: number;
 }) {
+  const effectivePreferTested =
+    radioInstance?.specPreference === "factory"
+      ? false
+      : radioInstance?.specPreference === "tested"
+        ? true
+        : preferTested;
+  const effectiveReceiver = getEffectiveReceiverSpecs(radio, effectivePreferTested);
+
   // Calculate suggested power based on path difficulty
   const suggestedPower = useMemo(() => {
     // Base power increases with difficulty
@@ -740,11 +771,17 @@ function RadioSuggestions({
     const adjusted = Math.round(basePower * distanceFactor);
 
     // Cap at radio's max power
-    return Math.min(adjusted, radio.maxPower);
-  }, [difficulty, distance, radio.maxPower]);
+    const cap =
+      typeof radioInstance?.customPowerLimit === "number" &&
+      Number.isFinite(radioInstance.customPowerLimit) &&
+      radioInstance.customPowerLimit > 0
+        ? Math.min(radio.maxPower, radioInstance.customPowerLimit)
+        : radio.maxPower;
+    return Math.min(adjusted, cap);
+  }, [difficulty, distance, radio.maxPower, radioInstance?.customPowerLimit]);
 
   // Receiver quality assessment
-  const rxScore = calculateReceiverScore(radio.receiver);
+  const rxScore = calculateReceiverScore(effectiveReceiver);
   const rxQuality =
     rxScore >= 80
       ? "Excellent"

@@ -232,9 +232,17 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
 
           {/* Bars */}
           {chartData.map((point, index) => {
-            const barHeight = (point.kp_index / maxY) * innerHeight;
+            // Minimum visual height of 4px for zero values so they're visible
+            const MIN_BAR_HEIGHT = 4;
+            const calculatedHeight = (point.kp_index / maxY) * innerHeight;
+            const barHeight = Math.max(calculatedHeight, MIN_BAR_HEIGHT);
             const x = xPosition(index);
-            const y = yScale(point.kp_index);
+            // Adjust y position for minimum height bars
+            const y =
+              point.kp_index === 0
+                ? padding.top + innerHeight - MIN_BAR_HEIGHT
+                : yScale(point.kp_index);
+            const isZero = point.kp_index === 0;
 
             return (
               <g key={`bar-${index}`}>
@@ -246,7 +254,7 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
                   height={barHeight}
                   fill={getBarColor(point.kp_index)}
                   rx="2"
-                  opacity="0.85"
+                  opacity={isZero ? 0.6 : 0.85}
                   className="transition-all duration-300"
                 >
                   <title>
@@ -254,6 +262,28 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
                     {getSeverityLabel(point.kp_index)})
                   </title>
                 </rect>
+
+                {/* Zero indicator - small diamond at bottom to show it's real data */}
+                {isZero && (
+                  <g>
+                    <polygon
+                      points={`${x + barWidth / 2},${padding.top + innerHeight - 8} ${x + barWidth / 2 + 4},${padding.top + innerHeight - 4} ${x + barWidth / 2},${padding.top + innerHeight} ${x + barWidth / 2 - 4},${padding.top + innerHeight - 4}`}
+                      fill="#00ff88"
+                      opacity="0.9"
+                    />
+                    <text
+                      x={x + barWidth / 2}
+                      y={padding.top + innerHeight - 14}
+                      fill="#00ff88"
+                      fontSize="8"
+                      fontFamily="monospace"
+                      textAnchor="middle"
+                      opacity="0.8"
+                    >
+                      0
+                    </text>
+                  </g>
+                )}
 
                 {/* X-axis label */}
                 <text

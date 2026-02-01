@@ -896,7 +896,7 @@ export function getEnhancedBandConditions(
 /**
  * Calculate great circle distance using Haversine formula
  */
-function calculateGreatCircleDistance(
+export function calculateGreatCircleDistance(
   lat1: number,
   lon1: number,
   lat2: number,

@@ -51,28 +51,57 @@ export function ContestConfigModal({
     [selectedContestId],
   );
 
+  // Map contest category to store-compatible value with validation
+  const mapOperator = (val: string): ContestCategories["operator"] => {
+    const valid: ContestCategories["operator"][] = ["single-op", "multi-op"];
+    return valid.includes(val as ContestCategories["operator"])
+      ? (val as ContestCategories["operator"])
+      : "single-op";
+  };
+  const mapPower = (val: string): ContestCategories["power"] => {
+    const valid: ContestCategories["power"][] = ["high", "low", "qrp"];
+    return valid.includes(val as ContestCategories["power"])
+      ? (val as ContestCategories["power"])
+      : "low";
+  };
+  const mapMode = (val: string): ContestCategories["mode"] => {
+    const valid: ContestCategories["mode"][] = [
+      "cw",
+      "ssb",
+      "mixed",
+      "digital",
+    ];
+    return valid.includes(val as ContestCategories["mode"])
+      ? (val as ContestCategories["mode"])
+      : "mixed";
+  };
+  const mapBand = (val: string): ContestCategories["band"] => {
+    const valid: ContestCategories["band"][] = ["all", "single"];
+    return valid.includes(val as ContestCategories["band"])
+      ? (val as ContestCategories["band"])
+      : "all";
+  };
+
   // Handle contest selection change
   const handleContestChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newContestId = e.target.value;
       setSelectedContestId(newContestId);
 
-      // Reset categories to first available option
+      // Reset categories to first available option with validation
       const contest = getContestById(newContestId);
       if (contest) {
         if (contest.categories.operator[0]) {
-          setOperator(
-            contest.categories.operator[0] as ContestCategories["operator"],
-          );
+          setOperator(mapOperator(contest.categories.operator[0]));
         }
         if (contest.categories.power[0]) {
-          setPower(contest.categories.power[0] as ContestCategories["power"]);
+          setPower(mapPower(contest.categories.power[0]));
         }
         if (contest.categories.mode[0]) {
-          setMode(contest.categories.mode[0] as ContestCategories["mode"]);
+          setMode(mapMode(contest.categories.mode[0]));
         }
         if (contest.categories.band[0]) {
-          setBand(contest.categories.band[0] as ContestCategories["band"]);
+          setBand(mapBand(contest.categories.band[0]));
         }
       }
     },

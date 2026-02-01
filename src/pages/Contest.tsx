@@ -47,6 +47,7 @@ function mapMultiplierType(
 
 /**
  * Extract multiplier value from exchange based on contest type
+ * Uses token-based parsing to handle exchanges like "599 05" correctly
  */
 function extractMultiplierValue(
   exchange: string,
@@ -56,14 +57,31 @@ function extractMultiplierValue(
     return null;
   }
 
-  // For zone-based contests, extract the zone number
+  // Split exchange into tokens
+  const tokens = exchange.trim().split(/\s+/);
+
+  // For zone-based contests, extract the LAST numeric token (zone number)
   if (multiplierType === "cqzone" || multiplierType === "ituzone") {
+    // Find last token that's purely numeric
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      if (/^\d+$/.test(tokens[i])) {
+        return tokens[i];
+      }
+    }
+    // Fallback: try to extract any number
     const match = exchange.match(/\d+/);
     return match ? match[0] : null;
   }
 
-  // For state-based contests, look for a 2-letter state code
+  // For state-based contests, look for LAST 2-3 letter token (state/section)
   if (multiplierType === "state" || multiplierType === "section") {
+    // Find last token that's 2-3 letters
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      if (/^[A-Z]{2,3}$/i.test(tokens[i])) {
+        return tokens[i].toUpperCase();
+      }
+    }
+    // Fallback: try to extract any 2-3 letter sequence
     const match = exchange.match(/[A-Z]{2,3}/i);
     return match ? match[0].toUpperCase() : null;
   }

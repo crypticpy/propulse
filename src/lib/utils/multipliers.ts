@@ -1570,8 +1570,21 @@ const CANADIAN_PROVINCES: Set<string> = new Set([
 // ============================================================================
 
 /**
+ * Check if a prefix is valid by looking it up in DXCC_DATA
+ */
+function isValidPrefix(prefix: string): boolean {
+  if (!prefix) return false;
+  // Try progressively shorter prefixes
+  for (let len = Math.min(prefix.length, 4); len >= 1; len--) {
+    if (DXCC_DATA[prefix.slice(0, len)]) return true;
+  }
+  return false;
+}
+
+/**
  * Extract the operating prefix from a callsign (for determining current location)
  * Handles portable operations like DL/W1ABC (operating from Germany)
+ * and suffix-based calls like W1ABC/DL (also operating from Germany)
  */
 function getOperatingPrefix(callsign: string): string {
   if (!callsign) return "";
@@ -1584,17 +1597,34 @@ function getOperatingPrefix(callsign: string): string {
     return extractPrefixPattern(parts[0]);
   }
 
-  // Check for portable prefix (DL/W1ABC style)
-  // The prefix is typically the shorter part that's a valid prefix
-  const [first] = parts;
+  // For callsigns with slash, check both segments
+  const [first, second] = parts;
 
-  // If first part is 1-3 chars and looks like a prefix, use it
-  if (first.length <= 3 && /^[A-Z0-9]+$/.test(first)) {
-    return first;
+  // Extract prefix candidates from both parts
+  const firstPrefix = extractPrefixPattern(first);
+  const secondPrefix = second ? extractPrefixPattern(second) : "";
+
+  // Check if either is a short modifier (1-3 chars) that's a valid prefix
+  // This handles both DL/W1ABC (first is prefix) and W1ABC/DL (second is prefix)
+  if (second && second.length <= 3 && /^[A-Z0-9]+$/.test(second)) {
+    if (isValidPrefix(second)) {
+      return second;
+    }
   }
 
-  // Otherwise extract from the base callsign
-  return extractPrefixPattern(first);
+  if (first.length <= 3 && /^[A-Z0-9]+$/.test(first)) {
+    if (isValidPrefix(first)) {
+      return first;
+    }
+  }
+
+  // If second part validates as a known prefix, prefer it (suffix portable)
+  if (secondPrefix && isValidPrefix(secondPrefix)) {
+    return secondPrefix;
+  }
+
+  // Otherwise use the first part's prefix
+  return firstPrefix;
 }
 
 /**

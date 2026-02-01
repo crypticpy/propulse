@@ -229,6 +229,15 @@ function recordToLogEntry(
   const freqStr = record.get("FREQ");
   const frequency = freqStr ? freqMHzToKHz(freqStr) : 0;
 
+  // Parse guest logging fields
+  const operatorCallsign = record.get("OPERATOR");
+  const stationCallsign = record.get("STATION_CALLSIGN");
+  const isGuestEntry = !!(
+    operatorCallsign &&
+    stationCallsign &&
+    operatorCallsign.toUpperCase() !== stationCallsign.toUpperCase()
+  );
+
   return {
     callsign: callsign.toUpperCase().trim(),
     frequency,
@@ -255,6 +264,10 @@ function recordToLogEntry(
     eqsl:
       parseADIFBoolean(record.get("EQSL_QSL_SENT")) ||
       parseADIFBoolean(record.get("EQSL_QSL_RCVD")),
+    // Guest logging fields
+    stationCallsign: stationCallsign?.toUpperCase().trim(),
+    operatorCallsign: operatorCallsign?.toUpperCase().trim(),
+    isGuestEntry,
   };
 }
 
@@ -373,6 +386,18 @@ export function generateADIF(entries: LogEntry[]): string {
     if (entry.eqsl !== undefined) {
       const eqslVal = entry.eqsl ? "Y" : "N";
       fields.push(formatField("EQSL_QSL_SENT", eqslVal));
+    }
+
+    // Guest logging fields (ADIF standard fields)
+    if (entry.stationCallsign) {
+      fields.push(
+        formatField("STATION_CALLSIGN", entry.stationCallsign.toUpperCase()),
+      );
+    }
+    if (entry.operatorCallsign) {
+      fields.push(
+        formatField("OPERATOR", entry.operatorCallsign.toUpperCase()),
+      );
     }
 
     // Join fields and add end of record

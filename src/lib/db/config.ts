@@ -11,7 +11,7 @@ export const DB_CONFIG = {
   /** Database name in IndexedDB */
   name: "propulse-db",
   /** Schema version - increment when modifying store structure */
-  version: 2,
+  version: 3,
   /** Object store names */
   stores: {
     logEntries: "logEntries",

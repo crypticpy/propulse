@@ -57,6 +57,14 @@ export interface LogEntry {
   createdAt: string;
   /** Record last update timestamp (ISO) */
   updatedAt: string;
+  /** Station callsign (owner of the log) */
+  stationCallsign?: string;
+  /** Operator callsign (who made the contact) - for guest logging */
+  operatorCallsign?: string;
+  /** Whether this entry was made by a guest operator */
+  isGuestEntry?: boolean;
+  /** Guest session ID for grouping entries */
+  guestSessionId?: string;
 }
 
 /**
@@ -147,6 +155,8 @@ export interface DBSchema {
       "by-callsign": string;
       "by-date": string;
       "by-band": string;
+      "by-operatorCallsign": string;
+      "by-guestSessionId": string;
     };
   };
   alertRules: {

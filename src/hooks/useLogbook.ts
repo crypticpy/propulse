@@ -5,6 +5,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { LogEntry } from "../lib/db/types";
+import { useGuestStore } from "../stores/guestStore";
+import { useUserStore } from "../stores/userStore";
 import {
   getAllLogEntries,
   addLogEntry,
@@ -14,6 +16,21 @@ import {
   addLogEntries,
 } from "../lib/db/logStore";
 import { parseADIF, generateADIF } from "../lib/utils/adifParser";
+
+/**
+ * Guest context for logging entries as a guest operator
+ */
+export interface GuestContext {
+  operatorCallsign: string;
+  sessionId: string;
+}
+
+/**
+ * Options for adding a log entry
+ */
+export interface AddEntryOptions {
+  guestContext?: GuestContext;
+}
 
 /**
  * Return type for the useLogbook hook
@@ -28,6 +45,7 @@ export interface UseLogbookResult {
   /** Add a new log entry */
   addEntry: (
     entry: Omit<LogEntry, "id" | "createdAt" | "updatedAt">,
+    options?: AddEntryOptions,
   ) => Promise<string>;
   /** Update an existing log entry */
   updateEntry: (
@@ -81,6 +99,12 @@ export function useLogbook(): UseLogbookResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Get station and guest store actions
+  const station = useUserStore((state) => state.station);
+  const updateSessionEntryCount = useGuestStore(
+    (state) => state.updateSessionEntryCount,
+  );
+
   // Build lookup maps for efficient callsign queries
   const callsignMap = useMemo(() => {
     const map = new Map<string, LogEntry[]>();
@@ -129,10 +153,30 @@ export function useLogbook(): UseLogbookResult {
   const addEntryFn = useCallback(
     async (
       entry: Omit<LogEntry, "id" | "createdAt" | "updatedAt">,
+      options?: AddEntryOptions,
     ): Promise<string> => {
       try {
         setError(null);
-        const id = await addLogEntry(entry);
+
+        // Build the entry with guest fields if guest context provided
+        let entryWithGuest = { ...entry };
+        if (options?.guestContext) {
+          entryWithGuest = {
+            ...entry,
+            operatorCallsign: options.guestContext.operatorCallsign,
+            isGuestEntry: true,
+            guestSessionId: options.guestContext.sessionId,
+            stationCallsign: station?.callsign,
+          };
+        }
+
+        const id = await addLogEntry(entryWithGuest);
+
+        // Update session entry count if this is a guest entry
+        if (options?.guestContext) {
+          updateSessionEntryCount(options.guestContext.sessionId);
+        }
+
         await loadEntries(); // Refresh to get the new entry
         return id;
       } catch (err) {
@@ -142,7 +186,7 @@ export function useLogbook(): UseLogbookResult {
         throw err;
       }
     },
-    [loadEntries],
+    [loadEntries, station, updateSessionEntryCount],
   );
 
   /**
@@ -353,5 +397,31 @@ export function useCallsignLookup(callsign: string) {
     workedBands,
     workedModes,
     qsoCount: entries.length,
+  };
+}
+
+/**
+ * Hook to get the current guest context if in guest mode
+ * Returns null if not in guest mode or missing required data
+ *
+ * @example
+ * ```tsx
+ * const guestContext = useGuestContext();
+ * if (guestContext) {
+ *   await addEntry(entry, { guestContext });
+ * }
+ * ```
+ */
+export function useGuestContext(): GuestContext | null {
+  const isGuestMode = useGuestStore((state) => state.isGuestMode);
+  const guestInfo = useGuestStore((state) => state.guestInfo);
+
+  if (!isGuestMode || !guestInfo) {
+    return null;
+  }
+
+  return {
+    operatorCallsign: guestInfo.callsign,
+    sessionId: guestInfo.sessionId,
   };
 }

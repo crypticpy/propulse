@@ -5,7 +5,12 @@
 
 import { useState, useCallback, useRef } from "react";
 import { Card } from "@/components/ui";
-import { QSOEntryForm, QSOTable } from "@/components/logbook";
+import {
+  QSOEntryForm,
+  QSOTable,
+  LogUploadModal,
+  AwardsTracker,
+} from "@/components/logbook";
 import {
   GuestModeToggle,
   CreateGuestSessionModal,
@@ -36,6 +41,8 @@ export function Logbook() {
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [showJoinSession, setShowJoinSession] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAwards, setShowAwards] = useState(false);
 
   // Form state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -158,7 +165,7 @@ export function Logbook() {
               onJoinSession={() => setShowJoinSession(true)}
             />
 
-            {/* Import/Export Buttons */}
+            {/* Import/Export/Upload/Awards Buttons */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowImportModal(true)}
@@ -198,6 +205,49 @@ export function Logbook() {
                   />
                 </svg>
                 Export
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                disabled={count === 0}
+                className="px-3 py-2 bg-cosmic-cyan/20 border border-cosmic-cyan/30 rounded-lg text-cosmic-cyan hover:bg-cosmic-cyan/30 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                Upload
+              </button>
+              <button
+                onClick={() => setShowAwards(!showAwards)}
+                className={`px-3 py-2 border rounded-lg transition-colors text-sm font-medium flex items-center gap-2 ${
+                  showAwards
+                    ? "bg-signal-green/20 border-signal-green/50 text-signal-green"
+                    : "bg-nebula-blue border-white/10 text-gray-300 hover:text-white hover:border-white/20"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                  />
+                </svg>
+                Awards
               </button>
             </div>
           </div>
@@ -269,6 +319,11 @@ export function Logbook() {
           isDeleting={isDeleting}
           loading={loading}
         />
+
+        {/* Awards Tracker (toggleable) */}
+        {showAwards && entries.length > 0 && (
+          <AwardsTracker entries={entries} />
+        )}
       </div>
 
       {/* Guest Session Modals */}
@@ -279,6 +334,13 @@ export function Logbook() {
       <JoinGuestSessionModal
         isOpen={showJoinSession}
         onClose={() => setShowJoinSession(false)}
+      />
+
+      {/* Log Upload Modal */}
+      <LogUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        entries={entries}
       />
 
       {/* Import Modal */}

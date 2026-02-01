@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { GuestContext } from "@/hooks/useLogbook";
 import type { LogEntry } from "@/lib/db/types";
 import { Card } from "@/components/ui";
+import { CallsignLookup } from "./CallsignLookup";
 
 /** Available amateur radio bands */
 const BANDS = [
@@ -90,6 +91,16 @@ export function QSOEntryForm({
   const [notes, setNotes] = useState("");
 
   const isGuestMode = !!guestContext;
+
+  // Handle auto-fill from callsign lookup
+  const handleAutoFill = useCallback(
+    (data: { name?: string; grid?: string; qth?: string }) => {
+      if (data.name && !name) setName(data.name);
+      if (data.grid && !grid) setGrid(data.grid.toUpperCase());
+      if (data.qth && !qth) setQth(data.qth);
+    },
+    [name, grid, qth],
+  );
 
   // Update time periodically when form is visible
   useEffect(() => {
@@ -233,6 +244,8 @@ export function QSOEntryForm({
               disabled={isSubmitting}
               className={`${inputClass} font-mono text-lg`}
             />
+            {/* Callsign Lookup - shows external data and local QSO history */}
+            <CallsignLookup callsign={callsign} onAutoFill={handleAutoFill} />
           </div>
           <div>
             <label htmlFor="date" className={labelClass}>

@@ -26,6 +26,16 @@ export interface SavedTarget {
   createdAt: string;
 }
 
+/**
+ * Credentials for QSL confirmation services
+ */
+export interface ServiceCredentials {
+  eqsl?: { username: string; password: string };
+  clublog?: { email: string; password: string; callsign: string };
+  qrz?: { apiKey: string };
+  lotw?: { enabled: boolean };
+}
+
 /** Maximum number of saved targets allowed */
 const MAX_SAVED_TARGETS = 10;
 
@@ -42,8 +52,12 @@ interface UserStore {
   preferences: Omit<UserPreferences, "station">;
   /** Saved target locations for quick access (max 10) */
   savedTargets: SavedTarget[];
+  /** Credentials for QSL services (eQSL, Club Log, etc.) */
+  serviceCredentials: ServiceCredentials;
   /** Set or clear the station configuration */
   setStation: (station: UserStation | null) => void;
+  /** Update service credentials */
+  setServiceCredentials: (creds: Partial<ServiceCredentials>) => void;
   /** Partially update user preferences */
   updatePreferences: (prefs: Partial<Omit<UserPreferences, "station">>) => void;
   /** Reset all preferences to defaults */
@@ -61,10 +75,12 @@ interface UserStore {
   /** Add a radio to the user's collection */
   addRadio: (radioId: string, nickname?: string) => void;
   /** Add a custom radio equipment definition (returns false if duplicate name) */
-  addCustomRadio: (radio: Omit<RadioEquipment, "id">) => {
-    ok: true;
-    id: string;
-  } | { ok: false; error: string };
+  addCustomRadio: (radio: Omit<RadioEquipment, "id">) =>
+    | {
+        ok: true;
+        id: string;
+      }
+    | { ok: false; error: string };
   /** Update a custom radio equipment definition */
   updateCustomRadio: (
     id: string,
@@ -120,8 +136,14 @@ export const useUserStore = create<UserStore>()(
       station: null,
       preferences: defaultPreferences,
       savedTargets: [],
+      serviceCredentials: {},
 
       setStation: (station) => set({ station }),
+
+      setServiceCredentials: (creds) =>
+        set((state) => ({
+          serviceCredentials: { ...state.serviceCredentials, ...creds },
+        })),
 
       updatePreferences: (prefs) =>
         set((state) => ({
@@ -204,9 +226,10 @@ export const useUserStore = create<UserStore>()(
           return { ok: false, error: "Custom radio name is required" };
         }
 
-        let result:
-          | { ok: true; id: string }
-          | { ok: false; error: string } = { ok: true, id };
+        let result: { ok: true; id: string } | { ok: false; error: string } = {
+          ok: true,
+          id,
+        };
 
         set((state) => {
           const existing = state.preferences.customRadios || [];
@@ -350,11 +373,12 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: "propulse-user",
-      version: 4,
+      version: 5,
       partialize: (state) => ({
         station: state.station,
         preferences: state.preferences,
         savedTargets: state.savedTargets,
+        serviceCredentials: state.serviceCredentials,
       }),
     },
   ),
@@ -373,7 +397,9 @@ function resolveEquipmentById(
  * Returns null if no radio is active or the radio isn't found
  */
 export function useActiveRadio(): RadioEquipment | null {
-  const activeRadioId = useUserStore((state) => state.preferences.activeRadioId);
+  const activeRadioId = useUserStore(
+    (state) => state.preferences.activeRadioId,
+  );
   const customRadios = useUserStore((state) => state.preferences.customRadios);
   if (!activeRadioId) return null;
   return resolveEquipmentById(activeRadioId, customRadios) || null;

@@ -146,6 +146,21 @@ type RawMagnetometerRow = [
 ];
 
 /**
+ * Safely parse a numeric string, returning null for invalid/NaN values.
+ * Explicitly checks for null and empty string before parsing.
+ */
+function toNumberOrNull(value: string | undefined | null): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Expected headers for raw magnetometer data validation */
+const EXPECTED_MAG_HEADERS = ["time_tag", "bx_gsm", "by_gsm", "bz_gsm"];
+
+/**
  * Fetch solar wind magnetometer data
  * Returns IMF Bz, By, and total field (Bt) measurements
  * Bz is critical for predicting geomagnetic storm impacts
@@ -163,12 +178,31 @@ export async function fetchMagnetometer(): Promise<MagnetometerData[]> {
   // Raw NOAA format - transform it
   if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
     const rawData = data as RawMagnetometerRow[];
-    return rawData.slice(1).map((row) => ({
-      time_tag: row[0],
-      by_gsm: row[2] ? parseFloat(row[2]) : null,
-      bz_gsm: row[3] ? parseFloat(row[3]) : null,
-      bt: row[6] ? parseFloat(row[6]) : null,
-    }));
+
+    // Validate header row contains expected columns
+    const headerRow = rawData[0];
+    const hasExpectedHeaders = EXPECTED_MAG_HEADERS.every((h) =>
+      headerRow.some((col) => col.toLowerCase().includes(h.toLowerCase())),
+    );
+
+    if (!hasExpectedHeaders) {
+      console.warn(
+        "Magnetometer data headers do not match expected format:",
+        headerRow,
+      );
+      return [];
+    }
+
+    // Transform data rows, filtering out malformed rows
+    return rawData
+      .slice(1)
+      .filter((row) => Array.isArray(row) && row.length >= 7)
+      .map((row) => ({
+        time_tag: row[0],
+        by_gsm: toNumberOrNull(row[2]),
+        bz_gsm: toNumberOrNull(row[3]),
+        bt: toNumberOrNull(row[6]),
+      }));
   }
 
   // Already in processed format

@@ -27,6 +27,7 @@ export function Header() {
     { path: "/map", label: "PropSphere", icon: "🌍" },
     { path: "/dx", label: "DX Wizard", icon: "🧙" },
     { path: "/log", label: "LogBook", icon: "📝" },
+    { path: "/contest", label: "Contest", icon: "🏆" },
   ];
 
   return (

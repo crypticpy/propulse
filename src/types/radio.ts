@@ -75,6 +75,12 @@ export interface RadioEquipment {
   receiver: ReceiverPerformance;
   /** Optional transmit performance metrics */
   transmit?: TransmitPerformance;
+  /**
+   * Optional tested receiver specs from independent lab testing (e.g., Sherwood Engineering).
+   * When present, these measurements supersede factory specs for receiver performance calculations.
+   * The `receiver` field contains factory/claimed specs; `testedSpecs` contains verified measurements.
+   */
+  testedSpecs?: ReceiverPerformance;
   /** Optional data source attribution */
   sources?: RadioDataSource[];
   /** Maximum transmit power in watts */

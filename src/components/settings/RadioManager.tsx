@@ -10,11 +10,13 @@ import {
   useUserStore,
   useUserRadios,
   useActiveRadio,
+  usePreferTestedSpecs,
 } from "@/stores/userStore";
 import {
   RADIO_DATABASE,
   getRadiosByManufacturer,
   searchRadios,
+  hasTestedSpecs,
 } from "@/lib/data/radios";
 import { DetailModal } from "@/components/ui/DetailModal";
 import {
@@ -61,7 +63,10 @@ const CUSTOM_MODES: RadioMode[] = [
 
 const CUSTOM_TIERS: RadioTier[] = ["entry", "midrange", "highend", "flagship"];
 
-function getRadioDisplayLabel(radio: RadioEquipment, nickname?: string): string {
+function getRadioDisplayLabel(
+  radio: RadioEquipment,
+  nickname?: string,
+): string {
   const base =
     radio.displayName?.trim() || `${radio.manufacturer} ${radio.model}`;
   return nickname?.trim() ? `${nickname} — ${base}` : base;
@@ -117,6 +122,55 @@ function createDefaultCustomForm(): CustomRadioForm {
       notes: "",
     },
   };
+}
+
+/**
+ * Spec Source Toggle - Choose between factory and tested specs
+ */
+function SpecSourceToggle() {
+  const preferTested = usePreferTestedSpecs();
+  const updatePreferences = useUserStore((s) => s.updatePreferences);
+
+  return (
+    <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-white">
+            Receiver Specifications
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {preferTested
+              ? "Using lab-tested specs (Sherwood) when available"
+              : "Using manufacturer factory specs"}
+          </div>
+        </div>
+        <div className="flex gap-1 p-0.5 bg-white/5 rounded-md">
+          <button
+            type="button"
+            onClick={() => updatePreferences({ preferTestedSpecs: false })}
+            className={`px-2 py-1 text-xs rounded transition-colors ${
+              !preferTested
+                ? "bg-plasma-orange text-white"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            Factory
+          </button>
+          <button
+            type="button"
+            onClick={() => updatePreferences({ preferTestedSpecs: true })}
+            className={`px-2 py-1 text-xs rounded transition-colors ${
+              preferTested
+                ? "bg-plasma-orange text-white"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            Tested
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -266,8 +320,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
     const imdr3 = Number.parseFloat(customForm.receiver.imdr3);
     const blockingGain = Number.parseFloat(customForm.receiver.blockingGain);
     const sensitivity = Number.parseFloat(customForm.receiver.sensitivity);
-    if (!Number.isFinite(rmdr) || rmdr <= 0) return "RMDR must be a number > 0.";
-    if (!Number.isFinite(imdr3) || imdr3 <= 0) return "IMDR3 must be a number > 0.";
+    if (!Number.isFinite(rmdr) || rmdr <= 0)
+      return "RMDR must be a number > 0.";
+    if (!Number.isFinite(imdr3) || imdr3 <= 0)
+      return "IMDR3 must be a number > 0.";
     if (!Number.isFinite(blockingGain) || blockingGain <= 0) {
       return "Blocking gain must be a number > 0.";
     }
@@ -420,12 +476,16 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
         </div>
       )}
 
+      {/* Spec source toggle */}
+      <SpecSourceToggle />
+
       {/* Radio list */}
       {userRadios.length > 0 ? (
         <div className="space-y-2">
           {userRadios.map(({ userRadio, equipment }) => {
             if (!equipment) return null;
             const isActive = preferences.activeRadioId === userRadio.radioId;
+            const hasTested = hasTestedSpecs(equipment);
             return (
               <div
                 key={userRadio.radioId}
@@ -447,6 +507,11 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                     <span className="text-white font-medium">
                       {getRadioDisplayLabel(equipment, userRadio.nickname)}
                     </span>
+                    {hasTested && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
+                        Tested
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={(e) => {
@@ -781,7 +846,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                   <input
                     value={customForm.model}
                     onChange={(e) =>
-                      setCustomForm((prev) => ({ ...prev, model: e.target.value }))
+                      setCustomForm((prev) => ({
+                        ...prev,
+                        model: e.target.value,
+                      }))
                     }
                     placeholder="IC-7300"
                     className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
@@ -821,7 +889,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                     inputMode="decimal"
                     value={customForm.maxPower}
                     onChange={(e) =>
-                      setCustomForm((prev) => ({ ...prev, maxPower: e.target.value }))
+                      setCustomForm((prev) => ({
+                        ...prev,
+                        maxPower: e.target.value,
+                      }))
                     }
                     className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
                                text-white focus:outline-none focus:border-plasma-orange/50"
@@ -835,7 +906,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                     inputMode="decimal"
                     value={customForm.minPower}
                     onChange={(e) =>
-                      setCustomForm((prev) => ({ ...prev, minPower: e.target.value }))
+                      setCustomForm((prev) => ({
+                        ...prev,
+                        minPower: e.target.value,
+                      }))
                     }
                     className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
                                text-white focus:outline-none focus:border-plasma-orange/50"
@@ -980,7 +1054,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                       onChange={(e) =>
                         setCustomForm((prev) => ({
                           ...prev,
-                          receiver: { ...prev.receiver, noiseFloorDbm: e.target.value },
+                          receiver: {
+                            ...prev.receiver,
+                            noiseFloorDbm: e.target.value,
+                          },
                         }))
                       }
                       className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
@@ -997,7 +1074,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                       onChange={(e) =>
                         setCustomForm((prev) => ({
                           ...prev,
-                          receiver: { ...prev.receiver, ip3Dbm: e.target.value },
+                          receiver: {
+                            ...prev.receiver,
+                            ip3Dbm: e.target.value,
+                          },
                         }))
                       }
                       className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
@@ -1014,7 +1094,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                       onChange={(e) =>
                         setCustomForm((prev) => ({
                           ...prev,
-                          transmit: { ...prev.transmit, imd3Db: e.target.value },
+                          transmit: {
+                            ...prev.transmit,
+                            imd3Db: e.target.value,
+                          },
                         }))
                       }
                       className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
@@ -1031,7 +1114,10 @@ export function RadioManager({ compact = false }: RadioManagerProps) {
                       onChange={(e) =>
                         setCustomForm((prev) => ({
                           ...prev,
-                          transmit: { ...prev.transmit, spuriousDbc: e.target.value },
+                          transmit: {
+                            ...prev.transmit,
+                            spuriousDbc: e.target.value,
+                          },
                         }))
                       }
                       className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg

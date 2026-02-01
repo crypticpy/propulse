@@ -5,8 +5,6 @@ export interface SherwoodReceiverEntry {
   rowIndex: number;
   manufacturer: string;
   model: string;
-  /** Optional row metadata parsed from the table */
-  addedDate?: string;
   /** Raw device cell text (useful for debugging variants and S/N notes) */
   rawDeviceText?: string;
   /** Sherwood table: Noise Floor (dBm) */

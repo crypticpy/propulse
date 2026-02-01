@@ -108,6 +108,7 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   radios: [],
   customRadios: [],
   activeRadioId: null,
+  preferTestedSpecs: true, // Default to tested/Sherwood specs when available
 };
 
 /**
@@ -445,4 +446,11 @@ export function useUserRadios(): Array<{
     userRadio,
     equipment: resolveEquipmentById(userRadio.radioId, customRadios),
   }));
+}
+
+/**
+ * Hook to get whether user prefers tested (Sherwood) specs over factory specs
+ */
+export function usePreferTestedSpecs(): boolean {
+  return useUserStore((state) => state.preferences.preferTestedSpecs ?? true);
 }

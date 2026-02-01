@@ -8,7 +8,11 @@
  * Note: Actual performance may vary between individual units and conditions.
  */
 
-import type { RadioDataSource, RadioEquipment } from "@/types/radio";
+import type {
+  RadioDataSource,
+  RadioEquipment,
+  ReceiverPerformance,
+} from "@/types/radio";
 import { SHERWOOD_RECEIVERS } from "@/lib/data/sherwood";
 
 const SOURCE_SHERWOOD: RadioDataSource = {
@@ -27,7 +31,10 @@ const SOURCE_COMMUNITY: RadioDataSource = {
   notes: "Used only when lab-grade measurement data is unavailable.",
 };
 
-const DEFAULT_SOURCES: RadioDataSource[] = [SOURCE_MANUFACTURER, SOURCE_COMMUNITY];
+const DEFAULT_SOURCES: RadioDataSource[] = [
+  SOURCE_MANUFACTURER,
+  SOURCE_COMMUNITY,
+];
 
 const SHERWOOD_MANUFACTURERS = new Set([
   "Icom",
@@ -507,6 +514,10 @@ const RAW_RADIO_DATABASE: RadioEquipment[] = [
   },
 ];
 
+/**
+ * Build a map of best Sherwood entries by manufacturer::model key.
+ * When multiple samples exist, picks the one with best performance metrics.
+ */
 const sherwoodBestByModel = (() => {
   const best = new Map<string, (typeof SHERWOOD_RECEIVERS)[number]>();
 
@@ -539,32 +550,108 @@ const sherwoodBestByModel = (() => {
   return best;
 })();
 
-const sherwoodRadioAdditions: RadioEquipment[] = (() => {
-  const existingKeys = new Set(
-    RAW_RADIO_DATABASE.map((r) => `${r.manufacturer}::${r.model}`.toLowerCase()),
-  );
+/**
+ * Convert Sherwood entry to ReceiverPerformance
+ */
+function sherwoodToReceiverPerformance(
+  entry: (typeof SHERWOOD_RECEIVERS)[number],
+): ReceiverPerformance {
+  return {
+    rmdr: entry.dynamicRangeNarrowDb!,
+    imdr3: entry.dynamicRangeWideDb!,
+    blockingGain: entry.blockingDb!,
+    sensitivity: entry.sensitivityUv!,
+    noiseFloorDbm: entry.noiseFloorDbm,
+  };
+}
 
-  const additions: RadioEquipment[] = [];
+/**
+ * Normalize model names for matching between our database and Sherwood.
+ * Handles variations like "IC-7300" vs "IC7300", "FTDX101D" vs "FTdx-101D"
+ */
+function normalizeModelForMatch(model: string): string {
+  return model
+    .toLowerCase()
+    .replace(/[-\s]/g, "")
+    .replace(/ftdx/g, "ftdx")
+    .replace(/ic(\d)/g, "ic$1");
+}
+
+/**
+ * Find matching Sherwood entry for a radio
+ */
+function findSherwoodMatch(
+  radio: RadioEquipment,
+): (typeof SHERWOOD_RECEIVERS)[number] | undefined {
+  // Try exact match first
+  const exactKey = `${radio.manufacturer}::${radio.model}`.toLowerCase();
+  const exactMatch = sherwoodBestByModel.get(exactKey);
+  if (exactMatch) return exactMatch;
+
+  // Try normalized match
+  const normalizedModel = normalizeModelForMatch(radio.model);
+  for (const [key, entry] of sherwoodBestByModel.entries()) {
+    const [, entryModel] = key.split("::");
+    if (
+      entry.manufacturer.toLowerCase() === radio.manufacturer.toLowerCase() &&
+      normalizeModelForMatch(entryModel) === normalizedModel
+    ) {
+      return entry;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Build unified radio database:
+ * - For radios in RAW_RADIO_DATABASE with Sherwood match: add testedSpecs
+ * - For Sherwood-only radios: create entries with Sherwood data as both factory and tested
+ */
+const buildRadioDatabase = (): RadioEquipment[] => {
+  const result: RadioEquipment[] = [];
+  const usedSherwoodKeys = new Set<string>();
+
+  // Process curated radios, adding Sherwood testedSpecs where available
+  for (const radio of RAW_RADIO_DATABASE) {
+    const sherwoodMatch = findSherwoodMatch(radio);
+
+    const enhanced: RadioEquipment = {
+      ...radio,
+      sources:
+        radio.sources && radio.sources.length > 0
+          ? radio.sources
+          : sherwoodMatch
+            ? [SOURCE_SHERWOOD, SOURCE_MANUFACTURER]
+            : SHERWOOD_MANUFACTURERS.has(radio.manufacturer)
+              ? [SOURCE_MANUFACTURER]
+              : DEFAULT_SOURCES,
+    };
+
+    if (sherwoodMatch) {
+      enhanced.testedSpecs = sherwoodToReceiverPerformance(sherwoodMatch);
+      usedSherwoodKeys.add(
+        `${sherwoodMatch.manufacturer}::${sherwoodMatch.model}`.toLowerCase(),
+      );
+    }
+
+    result.push(enhanced);
+  }
+
+  // Add Sherwood-only radios (not in our curated database)
   for (const entry of sherwoodBestByModel.values()) {
     const key = `${entry.manufacturer}::${entry.model}`.toLowerCase();
-    if (existingKeys.has(key)) continue;
+    if (usedSherwoodKeys.has(key)) continue;
 
-    additions.push({
+    const sherwoodSpecs = sherwoodToReceiverPerformance(entry);
+
+    result.push({
       id: `sherwood-${slugify(entry.manufacturer)}-${slugify(entry.model)}`,
       manufacturer: entry.manufacturer,
       model: entry.model,
-      receiver: {
-        // Mapping note:
-        // - `rmdr` is populated from Sherwood "Dynamic Range Narrow Spaced"
-        // - `imdr3` is populated from Sherwood "Dynamic Range Wide Spaced"
-        // - `blockingGain` is populated from Sherwood "100kHz Blocking"
-        // - `sensitivity` is populated from Sherwood "Sensitivity (uV)"
-        rmdr: entry.dynamicRangeNarrowDb!,
-        imdr3: entry.dynamicRangeWideDb!,
-        blockingGain: entry.blockingDb!,
-        sensitivity: entry.sensitivityUv!,
-        noiseFloorDbm: entry.noiseFloorDbm,
-      },
+      // For Sherwood-only radios, use tested specs as factory specs too
+      receiver: sherwoodSpecs,
+      testedSpecs: sherwoodSpecs,
       transmit: {
         notes:
           "TX metrics not available in Sherwood dataset. Defaulted to a generic 100W transceiver profile; adjust via Custom Radios if needed.",
@@ -578,32 +665,40 @@ const sherwoodRadioAdditions: RadioEquipment[] = (() => {
     });
   }
 
-  // Sort additions so the database stays stable/diff-friendly.
-  additions.sort((a, b) => {
+  // Sort for stable output
+  result.sort((a, b) => {
     const m = a.manufacturer.localeCompare(b.manufacturer);
     if (m !== 0) return m;
     return a.model.localeCompare(b.model);
   });
 
-  return additions;
-})();
+  return result;
+};
 
-const normalizedRadioDatabase: RadioEquipment[] = RAW_RADIO_DATABASE.map(
-  (radio): RadioEquipment => ({
-    ...radio,
-    sources:
-      radio.sources && radio.sources.length > 0
-        ? radio.sources
-        : SHERWOOD_MANUFACTURERS.has(radio.manufacturer)
-          ? [SOURCE_SHERWOOD, SOURCE_MANUFACTURER]
-          : DEFAULT_SOURCES,
-  }),
-);
+export const RADIO_DATABASE: RadioEquipment[] = buildRadioDatabase();
 
-export const RADIO_DATABASE: RadioEquipment[] = [
-  ...normalizedRadioDatabase,
-  ...sherwoodRadioAdditions,
-];
+/**
+ * Get the effective receiver specs for a radio based on user preference.
+ * @param radio - The radio equipment
+ * @param preferTested - If true, returns testedSpecs when available; otherwise returns factory specs
+ * @returns The appropriate ReceiverPerformance based on preference and availability
+ */
+export function getEffectiveReceiverSpecs(
+  radio: RadioEquipment,
+  preferTested: boolean,
+): ReceiverPerformance {
+  if (preferTested && radio.testedSpecs) {
+    return radio.testedSpecs;
+  }
+  return radio.receiver;
+}
+
+/**
+ * Check if a radio has tested (Sherwood) specs available
+ */
+export function hasTestedSpecs(radio: RadioEquipment): boolean {
+  return radio.testedSpecs !== undefined;
+}
 
 /**
  * Get a radio by ID

@@ -63,4 +63,9 @@ export interface UserPreferences {
   customRadios?: RadioEquipment[];
   /** Currently active radio ID */
   activeRadioId?: string | null;
+  /**
+   * Prefer tested (Sherwood) specs over factory specs when available.
+   * When true, uses lab-tested measurements; when false, uses manufacturer-claimed specs.
+   */
+  preferTestedSpecs?: boolean;
 }

@@ -41,6 +41,23 @@ function pickMinPositive(samples) {
   return Math.min(...finite);
 }
 
+/**
+ * Known radio manufacturers for validation
+ */
+const KNOWN_MANUFACTURERS = new Set([
+  "Alinco", "Apache", "Collins", "Elecraft", "Expert", "FlexRadio", "Flex Radio",
+  "Heathkit", "Hilberling", "Icom", "JRC", "Kenwood", "MFJ", "Motorola",
+  "Palstar", "Racal", "RME", "SDRPlay", "SGC", "SunSDR", "Ten-Tec", "TenTec",
+  "Watkins-Johnson", "Yaesu", "Yeasu", "Xiegu", "Anan", "QRP Labs",
+]);
+
+/**
+ * Check if a string looks like a date (MM/DD/YY or similar)
+ */
+function looksLikeDate(str) {
+  return /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(str.trim());
+}
+
 function pickManufacturerModel(cellText) {
   const lines = String(cellText)
     .split("\n")
@@ -48,15 +65,42 @@ function pickManufacturerModel(cellText) {
     .filter(Boolean)
     .filter(
       (l) =>
+        // Filter out metadata lines
         !/^added/i.test(l) &&
         !/^lo noise/i.test(l) &&
         !/^updated/i.test(l) &&
-        !/^new/i.test(l) &&
+        !/^new\s+(synth|roofing|firmware)/i.test(l) &&
         !/^s\/n/i.test(l) &&
-        !/^sn\b/i.test(l),
+        !/^sn\b/i.test(l) &&
+        !/^second\s+sample/i.test(l) &&
+        !/^sample\s*#?\d/i.test(l) &&
+        // Filter out standalone dates
+        !looksLikeDate(l),
     );
 
   if (lines.length === 0) return { manufacturer: "Unknown", model: "Unknown" };
+
+  // Try to identify manufacturer from known list
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Check if this line starts with a known manufacturer
+    for (const mfr of KNOWN_MANUFACTURERS) {
+      if (line.toLowerCase().startsWith(mfr.toLowerCase())) {
+        // The rest might be the model on the same line
+        const afterMfr = line.slice(mfr.length).trim();
+        if (afterMfr) {
+          return { manufacturer: mfr, model: afterMfr };
+        }
+        // Model is on the next line
+        if (i + 1 < lines.length) {
+          return { manufacturer: mfr, model: lines[i + 1] };
+        }
+        return { manufacturer: mfr, model: "Unknown" };
+      }
+    }
+  }
+
+  // Fallback: first line is manufacturer, second is model
   if (lines.length === 1) {
     // Sometimes manufacturer+model are combined.
     const parts = lines[0].split(/\s{2,}| - |–|—/).map((p) => p.trim());
@@ -66,12 +110,6 @@ function pickManufacturerModel(cellText) {
 
   // Common pattern: [Manufacturer, Model, ...]
   return { manufacturer: lines[0], model: lines[1] };
-}
-
-function parseAddedDate(cellText) {
-  const match = String(cellText).match(/Added\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
-  if (!match) return undefined;
-  return match[1];
 }
 
 async function main() {
@@ -122,7 +160,6 @@ async function main() {
       rowIndex,
       manufacturer,
       model,
-      addedDate: parseAddedDate(deviceText),
       rawDeviceText: deviceText.trim() || undefined,
       noiseFloorDbm: pickMin(noiseFloorDbmSamples),
       noiseFloorDbmSamples: noiseFloorDbmSamples.length

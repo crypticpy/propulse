@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui";
 import { useUserStore } from "@/stores/userStore";
-import { gridToLatLon, latLonToGrid, isValidGrid } from "@/lib/utils/grid";
+import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
+import { RadioManager } from "./RadioManager";
+import { LocationInput } from "./LocationInput";
 import type { UserStation } from "@/types/user";
 
 export interface SettingsModalProps {
@@ -34,22 +36,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   }, [isOpen, station, preferences]);
 
-  // Validate grid square on change
-  const handleGridChange = (value: string) => {
-    const upperValue = value.toUpperCase();
-    setGrid(upperValue);
-
-    if (upperValue.length === 0) {
-      setGridError(null);
-    } else if (upperValue.length >= 4 && !isValidGrid(upperValue)) {
-      setGridError(
-        "Invalid grid format. Use 4 or 6 characters (e.g., EM10 or EM10fp)",
-      );
-    } else {
-      setGridError(null);
-    }
-  };
-
   // Handle save
   const handleSave = () => {
     // Validate grid if provided
@@ -76,26 +62,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     updatePreferences({ timeFormat, units });
 
     onClose();
-  };
-
-  // Handle use current location
-  const handleUseLocation = () => {
-    if (!navigator.geolocation) {
-      setGridError("Geolocation is not supported by your browser");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const gridSquare = latLonToGrid(latitude, longitude);
-        setGrid(gridSquare);
-        setGridError(null);
-      },
-      (error) => {
-        setGridError(`Location error: ${error.message}`);
-      },
-    );
   };
 
   if (!isOpen) return null;
@@ -162,55 +128,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             />
           </div>
 
-          {/* Grid Square */}
+          {/* Location / Grid Square */}
           <div>
-            <label
-              htmlFor="grid"
-              className="block text-sm font-medium text-gray-300 mb-1"
-            >
-              Maidenhead Grid Square
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Station Location
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                id="grid"
-                value={grid}
-                onChange={(e) => handleGridChange(e.target.value)}
-                placeholder="EM10fp"
-                maxLength={6}
-                className={`
-                  flex-1 px-3 py-2 bg-deep-space border rounded-lg
-                  text-white placeholder-gray-500 font-mono uppercase
-                  focus:outline-none
-                  ${
-                    gridError
-                      ? "border-alert-red/50 focus:border-alert-red"
-                      : "border-white/10 focus:border-plasma-orange/50"
-                  }
-                `}
-              />
-              <button
-                onClick={handleUseLocation}
-                className="px-3 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                           text-gray-300 hover:text-white hover:border-white/20
-                           transition-colors text-sm"
-                title="Use current location"
-              >
-                📍
-              </button>
-            </div>
-            {gridError && (
-              <p className="mt-1 text-xs text-alert-red">{gridError}</p>
-            )}
-            {grid && isValidGrid(grid) && !gridError && (
-              <p className="mt-1 text-xs text-gray-500">
-                {(() => {
-                  const coords = gridToLatLon(grid);
-                  return `${coords.lat.toFixed(2)}°N, ${Math.abs(coords.lon).toFixed(2)}°W`;
-                })()}
-              </p>
-            )}
+            <LocationInput
+              value={grid}
+              onChange={setGrid}
+              error={gridError}
+              onError={setGridError}
+            />
           </div>
+        </div>
+
+        {/* Radio Equipment Section */}
+        <div className="mb-6">
+          <RadioManager compact />
         </div>
 
         {/* Preferences Section */}

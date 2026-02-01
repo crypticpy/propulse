@@ -6,7 +6,7 @@
  * Designed for left-side framed layout position.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -19,6 +19,7 @@ import {
   type PathBandCondition,
 } from "@/lib/utils/bands";
 import { Card } from "@/components/ui/Card";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import type { SUnit } from "@/types/signal";
 
 interface BandConditionsPanelProps {
@@ -34,6 +35,7 @@ export function BandConditionsPanel({
 }: BandConditionsPanelProps) {
   const { target } = useMapStore();
   const { station } = useUserStore();
+  const [showHelp, setShowHelp] = useState(false);
 
   // Fetch current solar data
   const { data: kIndexData } = useKIndex();
@@ -135,50 +137,63 @@ export function BandConditionsPanel({
   }
 
   return (
-    <Card className={`${className} h-full flex flex-col`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <h3 className="text-sm font-medium text-white">Band Conditions</h3>
-        <div className="text-xs text-gray-500 font-mono">
-          Kp={currentKp} SFI={currentSfi}
+    <>
+      <Card className={`${className} h-full flex flex-col`}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-white">Band Conditions</h3>
+            <HelpButton onClick={() => setShowHelp(true)} />
+          </div>
+          <div className="text-xs text-gray-500 font-mono">
+            Kp={currentKp} SFI={currentSfi}
+          </div>
         </div>
-      </div>
 
-      {/* Scrollable Table */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-nebula-blue text-gray-400">
-              <th className="px-2 py-1.5 text-left font-medium">Band</th>
-              <th className="px-2 py-1.5 text-center font-medium">Status</th>
-              {!compact && (
-                <>
-                  <th className="px-2 py-1.5 text-center font-medium">
-                    Signal
-                  </th>
-                  <th className="px-2 py-1.5 text-center font-medium">SNR</th>
-                </>
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {bandConditions.map((condition) => (
-              <BandConditionRow
-                key={condition.band}
-                condition={condition}
-                hasEnhancedData={!!enhancedBandConditions}
-                compact={compact}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+        {/* Scrollable Table */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-1">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-nebula-blue text-gray-400">
+                <th className="px-1 py-1 text-left font-medium">Band</th>
+                <th className="px-1 py-1 text-center font-medium">Status</th>
+                {!compact && (
+                  <>
+                    <th className="px-1 py-1 text-center font-medium">
+                      Signal
+                    </th>
+                    <th className="px-1 py-1 text-center font-medium">SNR</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {bandConditions.map((condition) => (
+                <BandConditionRow
+                  key={condition.band}
+                  condition={condition}
+                  hasEnhancedData={!!enhancedBandConditions}
+                  compact={compact}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Footer with path info */}
-      <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5 text-[10px] text-gray-600">
-        Path illumination: {Math.round(illumination)}%
-      </div>
-    </Card>
+        {/* Footer with path info */}
+        <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5 text-[10px] text-gray-400">
+          Path illumination: {Math.round(illumination)}%
+        </div>
+      </Card>
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        title={HELP_CONTENT.bandConditions.title}
+        sections={HELP_CONTENT.bandConditions.sections}
+      />
+    </>
   );
 }
 
@@ -204,38 +219,38 @@ function BandConditionRow({
 
   return (
     <tr className="hover:bg-white/5 transition-colors">
-      <td className="px-2 py-1.5">
+      <td className="px-1 py-1">
         <div className="font-mono text-white text-sm">{condition.band}</div>
-        <div className="text-gray-600 text-[10px]">{condition.frequency}</div>
+        <div className="text-gray-400 text-[10px]">{condition.frequency}</div>
       </td>
-      <td className="px-2 py-1.5 text-center">
+      <td className="px-1 py-1 text-center">
         <span
-          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor} ${statusBgColor}`}
+          className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${statusColor} ${statusBgColor}`}
         >
           {statusLabel}
         </span>
       </td>
       {!compact && (
         <>
-          <td className="px-2 py-1.5 text-center">
-            <div className="flex items-center justify-center gap-1">
+          <td className="px-1 py-1 text-center">
+            <div className="flex items-center justify-center gap-0.5">
               <SMeterIndicator sUnit={condition.sUnit} />
               <span className={`font-mono text-[10px] ${sUnitColor}`}>
                 {sUnitText}
               </span>
             </div>
           </td>
-          <td className="px-2 py-1.5 text-center font-mono">
+          <td className="px-1 py-1 text-center font-mono text-[10px]">
             <span
               className={
                 condition.snrEstimate <= -24 ? "text-gray-500" : "text-white"
               }
             >
-              {condition.snrEstimate} dB
+              {condition.snrEstimate}dB
             </span>
             {hasEnhancedData && condition.pathLoss !== undefined && (
-              <div className="text-[9px] text-gray-600">
-                {Math.round(condition.pathLoss)} dB loss
+              <div className="text-[9px] text-gray-400">
+                {Math.round(condition.pathLoss)}dB loss
               </div>
             )}
           </td>

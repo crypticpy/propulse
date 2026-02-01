@@ -81,7 +81,8 @@ export function AuroraOverlay({
       colors.push(color.r, color.g, color.b);
 
       // Size based on probability - higher probability = larger point
-      const size = 0.01 + (coord.aurora / 100) * 0.02;
+      // Increased base size for better visibility
+      const size = 0.025 + (coord.aurora / 100) * 0.04;
       sizes.push(size);
     });
 
@@ -109,11 +110,12 @@ export function AuroraOverlay({
           vColor = customColor;
 
           // Slight shimmer effect based on position
-          float shimmer = 0.8 + 0.2 * sin(position.x * 20.0 + position.y * 20.0);
+          float shimmer = 0.85 + 0.15 * sin(position.x * 15.0 + position.y * 15.0);
           vAlpha = shimmer;
 
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size * (300.0 / -mvPosition.z);
+          // Increased point size multiplier for better visibility
+          gl_PointSize = size * (600.0 / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -129,11 +131,11 @@ export function AuroraOverlay({
             discard;
           }
 
-          // Soft falloff for glow effect
-          float alpha = (1.0 - dist * 2.0) * vAlpha * 0.6;
+          // Soft falloff for glow effect - increased alpha for visibility
+          float alpha = (1.0 - dist * 2.0) * vAlpha * 0.8;
 
-          // Add slight glow around edges
-          float glow = exp(-dist * 4.0) * 0.3;
+          // Add stronger glow around edges
+          float glow = exp(-dist * 3.0) * 0.5;
 
           gl_FragColor = vec4(vColor, alpha + glow);
         }

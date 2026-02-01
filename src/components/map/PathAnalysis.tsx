@@ -9,7 +9,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { useMapStore } from "@/stores/mapStore";
-import { useUserStore } from "@/stores/userStore";
+import { useUserStore, useActiveRadio } from "@/stores/userStore";
 import {
   getPathMetrics,
   formatBearing,
@@ -19,7 +19,10 @@ import {
 import { getFrequencyLimits } from "@/lib/api/muf";
 import { useSolarFlux } from "@/hooks/useSolarData";
 import { Card } from "@/components/ui/Card";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { calculateReceiverScore } from "@/types/radio";
 import type { FrequencyLimits } from "@/types/propagation";
+import type { RadioEquipment } from "@/types/radio";
 
 interface PathAnalysisProps {
   /** Current display time for illumination calculation */
@@ -44,17 +47,57 @@ const DIFFICULTY_COLORS = [
   "text-alert-red",
 ];
 
+/**
+ * Get color class for distance based on difficulty level
+ * Uses the same color scheme as difficulty ratings
+ */
+const getDistanceColor = (difficulty: number): string => {
+  return DIFFICULTY_COLORS[difficulty] || "text-white";
+};
+
+/**
+ * Get color class for estimated hop count
+ * 1-2 hops = green (easy), 3-4 = amber (moderate), 5+ = red (difficult)
+ */
+const getHopsColor = (hops: number): string => {
+  if (hops <= 2) return "text-signal-green";
+  if (hops <= 4) return "text-caution-amber";
+  return "text-alert-red";
+};
+
+/**
+ * Get color class for path illumination percentage
+ * >60% = green (good daylight), 40-60% = amber (mixed), <40% = red (mostly dark)
+ */
+const getIlluminationColor = (illumination: number): string => {
+  if (illumination > 60) return "text-signal-green";
+  if (illumination >= 40) return "text-caution-amber";
+  return "text-alert-red";
+};
+
+/**
+ * Get color class for long path distance
+ * Long path is inherently more challenging, so we use a shifted scale
+ */
+const getLongPathDistanceColor = (difficulty: number): string => {
+  // Long path adds inherent difficulty, shift the color by 1-2 levels
+  const adjustedDifficulty = Math.min(5, difficulty + 1);
+  return DIFFICULTY_COLORS[adjustedDifficulty] || "text-caution-amber";
+};
+
 export function PathAnalysis({
   displayTime,
   className = "",
 }: PathAnalysisProps) {
   const { target } = useMapStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
+  const activeRadio = useActiveRadio();
   const useImperial = preferences.units === "imperial";
 
   // Save target modal state
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [targetName, setTargetName] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
 
   // Fetch current solar data for frequency limits
   const { data: solarFluxData } = useSolarFlux();
@@ -161,7 +204,12 @@ export function PathAnalysis({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-shrink-0">
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-white">Path Analysis</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">
+                Path Analysis
+              </h3>
+              <HelpButton onClick={() => setShowHelp(true)} />
+            </div>
             <p className="text-xs text-gray-500 truncate">
               {station.callsign} → {target.name || target.grid || "Target"}
             </p>
@@ -205,6 +253,7 @@ export function PathAnalysis({
             <MetricItem
               label="Distance"
               value={formatDistance(metrics.shortPath.distance, useImperial)}
+              valueClassName={getDistanceColor(metrics.difficulty)}
             />
             <MetricItem
               label="Bearing"
@@ -226,6 +275,7 @@ export function PathAnalysis({
             <MetricItem
               label="Distance"
               value={formatDistance(metrics.longPath.distance, useImperial)}
+              valueClassName={getLongPathDistanceColor(metrics.difficulty)}
             />
             <MetricItem
               label="Bearing"
@@ -248,11 +298,13 @@ export function PathAnalysis({
               label="Est. Hops"
               value={`${metrics.hops}`}
               subValue="F-layer"
+              valueClassName={getHopsColor(metrics.hops)}
             />
             <MetricItem
               label="Path Light"
               value={`${Math.round(illumination)}%`}
               subValue={illumination > 50 ? "Day" : "Night"}
+              valueClassName={getIlluminationColor(illumination)}
             />
             <MetricItem
               label="Midpoint"
@@ -265,8 +317,17 @@ export function PathAnalysis({
         {/* Frequency Limits Section */}
         <FrequencyLimitsDisplay limits={frequencyLimits} />
 
+        {/* Radio Suggestions Section */}
+        {activeRadio && (
+          <RadioSuggestions
+            radio={activeRadio}
+            difficulty={metrics.difficulty}
+            distance={metrics.shortPath.distance}
+          />
+        )}
+
         {/* Target coordinates footer */}
-        <div className="mt-auto pt-3 border-t border-white/5 text-[10px] text-gray-600 font-mono flex-shrink-0">
+        <div className="mt-auto pt-3 border-t border-white/5 text-[10px] text-gray-400 font-mono flex-shrink-0">
           {target.lat.toFixed(2)}°, {target.lon.toFixed(2)}°
           {target.grid && <span className="ml-1">({target.grid})</span>}
         </div>
@@ -338,6 +399,14 @@ export function PathAnalysis({
           </Card>
         </div>
       )}
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        title={HELP_CONTENT.pathAnalysis.title}
+        sections={HELP_CONTENT.pathAnalysis.sections}
+      />
     </Card>
   );
 }
@@ -349,15 +418,19 @@ function MetricItem({
   label,
   value,
   subValue,
+  valueClassName,
 }: {
   label: string;
   value: string;
   subValue?: string;
+  valueClassName?: string;
 }) {
   return (
     <div className="text-center">
       <div className="text-[10px] text-gray-500 mb-0.5">{label}</div>
-      <div className="text-sm font-mono text-white">{value}</div>
+      <div className={`text-sm font-mono ${valueClassName || "text-white"}`}>
+        {value}
+      </div>
       {subValue && <div className="text-[10px] text-gray-600">{subValue}</div>}
     </div>
   );
@@ -462,6 +535,98 @@ function FrequencyWindowBar({ limits }: { limits: FrequencyLimits }) {
         className="absolute top-0 h-full w-0.5 bg-caution-amber"
         style={{ left: `${mufPercent}%` }}
       />
+    </div>
+  );
+}
+
+/**
+ * Radio-specific suggestions based on path difficulty and active radio
+ */
+function RadioSuggestions({
+  radio,
+  difficulty,
+  distance,
+}: {
+  radio: RadioEquipment;
+  difficulty: number;
+  distance: number;
+}) {
+  // Calculate suggested power based on path difficulty
+  const suggestedPower = useMemo(() => {
+    // Base power increases with difficulty
+    const basePowers = [10, 25, 50, 75, 100]; // W per difficulty level 1-5
+    const basePower = basePowers[Math.min(difficulty - 1, 4)] || 50;
+
+    // Adjust for distance (longer paths need more power)
+    const distanceFactor = Math.min(2, 1 + distance / 15000);
+    const adjusted = Math.round(basePower * distanceFactor);
+
+    // Cap at radio's max power
+    return Math.min(adjusted, radio.maxPower);
+  }, [difficulty, distance, radio.maxPower]);
+
+  // Receiver quality assessment
+  const rxScore = calculateReceiverScore(radio.receiver);
+  const rxQuality =
+    rxScore >= 80
+      ? "Excellent"
+      : rxScore >= 60
+        ? "Good"
+        : rxScore >= 40
+          ? "Adequate"
+          : "Limited";
+  const rxColor =
+    rxScore >= 80
+      ? "text-signal-green"
+      : rxScore >= 60
+        ? "text-good"
+        : rxScore >= 40
+          ? "text-caution-amber"
+          : "text-alert-red";
+
+  // Difficulty-adjusted receiver assessment
+  const rxAdequate = useMemo(() => {
+    // Higher difficulty paths need better receivers
+    const requiredScore = difficulty * 15; // 15, 30, 45, 60, 75
+    return rxScore >= requiredScore;
+  }, [rxScore, difficulty]);
+
+  return (
+    <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
+      <h4 className="text-xs font-medium text-gray-400">
+        Radio: {radio.manufacturer} {radio.model}
+      </h4>
+      <div className="p-2 rounded-lg border border-white/10 bg-white/5">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[10px]">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Power:</span>
+            <span className="text-plasma-orange">{suggestedPower}W</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Max:</span>
+            <span className="text-white">{radio.maxPower}W</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">RX:</span>
+            <span className={rxColor}>{rxQuality}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">For path:</span>
+            <span
+              className={
+                rxAdequate ? "text-signal-green" : "text-caution-amber"
+              }
+            >
+              {rxAdequate ? "OK" : "Marginal"}
+            </span>
+          </div>
+        </div>
+        {!rxAdequate && (
+          <p className="mt-2 text-[9px] text-caution-amber">
+            Consider narrow filters or quieter bands for this difficult path.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

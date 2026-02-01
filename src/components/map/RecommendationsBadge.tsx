@@ -5,13 +5,14 @@
  * Shows best band, mode, and score.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
   getRecommendations,
   getStatusColorClass,
 } from "@/lib/utils/recommendations";
 import type { PropagationRecommendations } from "@/types/recommendations";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 
 interface RecommendationsBadgeProps {
   homeLat: number;
@@ -38,6 +39,8 @@ export function RecommendationsBadge({
   displayTime,
   className = "",
 }: RecommendationsBadgeProps) {
+  const [showHelp, setShowHelp] = useState(false);
+
   // Fetch solar data
   const { data: kIndexData } = useKIndex();
   const { data: solarFluxData } = useSolarFlux();
@@ -87,67 +90,82 @@ export function RecommendationsBadge({
   const { optimal, mode } = recommendations;
 
   return (
-    <div className={`${className} h-full flex items-center gap-3`}>
-      {/* Best badge */}
-      <div className="flex-shrink-0">
-        <div className="text-[10px] text-gray-500 uppercase tracking-wide">
-          Best
+    <>
+      <div className={`${className} h-full flex items-center gap-3 relative`}>
+        {/* Help button - top right */}
+        <div className="absolute -top-1 -right-1 z-10">
+          <HelpButton onClick={() => setShowHelp(true)} />
         </div>
-        <div className="flex items-baseline gap-1.5">
-          <span
-            className={`text-lg font-bold font-mono ${getStatusColorClass(optimal.status)}`}
-          >
-            {optimal.band}
-          </span>
-          <span
-            className={`text-sm font-semibold ${MODE_COLORS[mode] || "text-white"}`}
-          >
-            {mode}
-          </span>
-        </div>
-      </div>
 
-      {/* Score indicator */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          {/* Score bar */}
-          <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full ${
-                optimal.score >= 80
-                  ? "bg-signal-green"
-                  : optimal.score >= 60
-                    ? "bg-good"
-                    : optimal.score >= 40
-                      ? "bg-caution-amber"
-                      : "bg-alert-red"
-              }`}
-              style={{ width: `${optimal.score}%` }}
-            />
+        {/* Best badge */}
+        <div className="flex-shrink-0">
+          <div className="text-[10px] text-gray-500 uppercase tracking-wide">
+            Best
           </div>
-          <span className="text-xs font-mono text-gray-400">
-            {optimal.score}
-          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span
+              className={`text-lg font-bold font-mono ${getStatusColorClass(optimal.status)}`}
+            >
+              {optimal.band}
+            </span>
+            <span
+              className={`text-sm font-semibold ${MODE_COLORS[mode] || "text-white"}`}
+            >
+              {mode}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center justify-between mt-0.5">
-          <span
-            className={`text-[10px] capitalize ${getStatusColorClass(optimal.status)}`}
-          >
-            {optimal.status}
-          </span>
-          <span className="text-[10px] text-gray-500">
-            {optimal.snr > 0 ? "+" : ""}
-            {optimal.snr} dB
-          </span>
+
+        {/* Score indicator */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            {/* Score bar */}
+            <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${
+                  optimal.score >= 80
+                    ? "bg-signal-green"
+                    : optimal.score >= 60
+                      ? "bg-good"
+                      : optimal.score >= 40
+                        ? "bg-caution-amber"
+                        : "bg-alert-red"
+                }`}
+                style={{ width: `${optimal.score}%` }}
+              />
+            </div>
+            <span className="text-xs font-mono text-gray-400">
+              {optimal.score}
+            </span>
+          </div>
+          <div className="flex items-center justify-between mt-0.5">
+            <span
+              className={`text-[10px] capitalize ${getStatusColorClass(optimal.status)}`}
+            >
+              {optimal.status}
+            </span>
+            <span className="text-[10px] text-gray-500">
+              {optimal.snr > 0 ? "+" : ""}
+              {optimal.snr} dB
+            </span>
+          </div>
+        </div>
+
+        {/* S-Unit */}
+        <div className="flex-shrink-0 text-center">
+          <div className="text-[10px] text-gray-400">Signal</div>
+          <div className="text-xs font-mono text-white">{optimal.sUnit}</div>
         </div>
       </div>
 
-      {/* S-Unit */}
-      <div className="flex-shrink-0 text-center">
-        <div className="text-[10px] text-gray-400">Signal</div>
-        <div className="text-xs font-mono text-white">{optimal.sUnit}</div>
-      </div>
-    </div>
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        title={HELP_CONTENT.recommendations.title}
+        sections={HELP_CONTENT.recommendations.sections}
+      />
+    </>
   );
 }
 

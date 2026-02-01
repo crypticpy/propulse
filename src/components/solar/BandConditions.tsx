@@ -73,7 +73,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
       <div className="space-y-0" role="table" aria-label="HF Band Conditions">
         {/* Column Headers */}
         <div
-          className="grid grid-cols-4 md:grid-cols-5 gap-2 md:gap-4 pb-2 px-2 border-b border-white/10"
+          className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_70px_70px_1fr] gap-2 md:gap-3 pb-2 px-2 border-b border-white/10"
           role="row"
         >
           <div

@@ -77,8 +77,8 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             [&::-moz-range-thumb]:cursor-grab"
         />
 
-        {/* Tick marks */}
-        <div className="flex justify-between mt-1 text-[10px] text-gray-600">
+        {/* Tick marks - improved contrast */}
+        <div className="flex justify-between mt-1 text-[10px] text-gray-400">
           <span>-24h</span>
           <span>-12h</span>
           <span>Now</span>

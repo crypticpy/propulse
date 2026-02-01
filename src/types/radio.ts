@@ -1,0 +1,130 @@
+/**
+ * Radio Equipment Types for Propulse
+ * Types for amateur radio transceiver specifications and performance metrics
+ */
+
+/**
+ * Sherwood-style receiver performance metrics
+ * Based on the Sherwood Engineering receiver test data
+ */
+export interface ReceiverPerformance {
+  /** Reciprocal Mixing Dynamic Range in dB (higher is better) */
+  rmdr: number;
+  /** 3rd Order IMD Dynamic Range in dB (higher is better) */
+  imdr3: number;
+  /** Blocking Gain Compression in dB (higher is better) */
+  blockingGain: number;
+  /** Sensitivity in microvolts (lower is better) */
+  sensitivity: number;
+}
+
+/**
+ * Radio transceiver equipment specification
+ */
+export interface RadioEquipment {
+  /** Unique identifier for the radio */
+  id: string;
+  /** Manufacturer name (e.g., 'Icom', 'Yaesu', 'Kenwood', 'Elecraft') */
+  manufacturer: string;
+  /** Model number/name (e.g., 'IC-7300', 'FT-991A', 'TS-890S') */
+  model: string;
+  /** Receiver performance metrics */
+  receiver: ReceiverPerformance;
+  /** Maximum transmit power in watts */
+  maxPower: number;
+  /** Minimum transmit power in watts (for QRP operation) */
+  minPower: number;
+  /** Supported operating modes */
+  modes: RadioMode[];
+  /** Amateur bands covered by this radio */
+  bands: string[];
+  /** Radio category/tier for UI grouping */
+  tier: RadioTier;
+  /** Year of release (for reference) */
+  releaseYear?: number;
+}
+
+/**
+ * Operating modes supported by transceivers
+ */
+export type RadioMode =
+  | "CW"
+  | "SSB"
+  | "AM"
+  | "FM"
+  | "FT8"
+  | "FT4"
+  | "RTTY"
+  | "PSK31"
+  | "JS8"
+  | "DATA";
+
+/**
+ * Radio performance tier categories
+ */
+export type RadioTier =
+  | "entry" // Entry-level / budget radios
+  | "midrange" // Mid-range / popular enthusiast radios
+  | "highend" // High-end / contest-grade radios
+  | "flagship"; // Top-tier / flagship models
+
+/**
+ * User's saved radio configuration
+ */
+export interface UserRadio {
+  /** Reference to the base radio equipment ID */
+  radioId: string;
+  /** User's nickname for this specific radio instance */
+  nickname?: string;
+  /** Custom power limit (e.g., for QRP contests or license restrictions) */
+  customPowerLimit?: number;
+  /** Date added to collection */
+  addedAt: string;
+}
+
+/**
+ * Calculate a receiver quality score (0-100) based on Sherwood metrics
+ * Higher is better
+ */
+export function calculateReceiverScore(receiver: ReceiverPerformance): number {
+  // Weighted scoring based on importance for HF operation
+  // RMDR and IMDR3 are most important for crowded band conditions
+  const rmdrScore = Math.min(100, (receiver.rmdr / 110) * 100); // 110dB is excellent
+  const imdr3Score = Math.min(100, (receiver.imdr3 / 105) * 100); // 105dB is excellent
+  const blockingScore = Math.min(100, (receiver.blockingGain / 140) * 100); // 140dB is excellent
+  const sensitivityScore = Math.min(100, (0.2 / receiver.sensitivity) * 100); // 0.2uV is excellent
+
+  // Weighted average
+  return Math.round(
+    rmdrScore * 0.35 +
+      imdr3Score * 0.35 +
+      blockingScore * 0.15 +
+      sensitivityScore * 0.15,
+  );
+}
+
+/**
+ * Get a tier label for display
+ */
+export function getTierLabel(tier: RadioTier): string {
+  const labels: Record<RadioTier, string> = {
+    entry: "Entry Level",
+    midrange: "Mid-Range",
+    highend: "High-End",
+    flagship: "Flagship",
+  };
+  return labels[tier];
+}
+
+/**
+ * Get tier color for UI display
+ */
+export function getTierColor(tier: RadioTier): string {
+  const colors: Record<RadioTier, string> = {
+    entry: "#6ee7b7", // green
+    midrange: "#60a5fa", // blue
+    highend: "#a78bfa", // purple
+    flagship: "#fbbf24", // gold
+  };
+  return colors[tier];
+}

@@ -4,6 +4,9 @@
  * Canvas-based azimuthal equidistant projection view centered on the user's QTH.
  * Great circle paths appear as straight lines in this projection, making it
  * extremely useful for ham radio operators to determine beam headings.
+ *
+ * Uses WebGL for the map background (NASA Blue Marble texture projected onto
+ * azimuthal equidistant projection) with 2D canvas overlays for UI elements.
  */
 
 import { useRef, useEffect, useCallback, useMemo, useState } from "react";
@@ -22,12 +25,13 @@ import {
   getModeColor,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
-import { getDifficultyColor, type DifficultyLevel } from "./LocationMarker";
+import {
+  getDifficultyColor,
+  DIFFICULTY_LABELS,
+  type DifficultyLevel,
+} from "./LocationMarker";
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
-
-// Simplified world coastline data (major landmass outlines)
-// Each array is a continuous coastline segment [lat, lon, lat, lon, ...]
-import { WORLD_COASTLINES } from "./coastlineData";
+import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -45,22 +49,17 @@ const RADIUS = CANVAS_SIZE / 2 - 40; // Leave margin for labels
 // Distance rings in km
 const DISTANCE_RINGS = [5000, 10000, 15000, 20000];
 
-// Colors
+// Colors for overlay elements (map background is rendered via WebGL)
 const COLORS = {
   background: "#0a0a1a",
   ring: "rgba(255, 255, 255, 0.15)",
   ringLabel: "rgba(255, 255, 255, 0.5)",
   bearingLabel: "rgba(255, 255, 255, 0.7)",
   bearingTick: "rgba(255, 255, 255, 0.3)",
-  land: "rgba(100, 130, 160, 0.4)",
-  landStroke: "rgba(100, 130, 160, 0.6)",
-  night: "rgba(0, 0, 20, 0.5)",
   terminator: "#ff6b35",
-  greyline: "rgba(255, 180, 100, 0.2)",
   homeMarker: "#4488FF", // Blue for home station
   targetMarker: "#ff6b35", // Default fallback - usually overridden by difficulty
   path: "#ff6b35",
-  grid: "rgba(255, 255, 255, 0.08)",
 };
 
 // Max distance in km (half Earth circumference)
@@ -172,127 +171,6 @@ function drawBearingLabels(ctx: CanvasRenderingContext2D) {
     const y = CENTER + Math.sin(radians) * labelRadius;
     ctx.fillText(label, x, y);
   }
-}
-
-/**
- * Draw coastlines/land masses
- */
-function drawCoastlines(
-  ctx: CanvasRenderingContext2D,
-  centerLat: number,
-  centerLon: number,
-) {
-  ctx.fillStyle = COLORS.land;
-  ctx.strokeStyle = COLORS.landStroke;
-  ctx.lineWidth = 0.5;
-
-  for (const coastline of WORLD_COASTLINES) {
-    if (coastline.length < 4) continue;
-
-    ctx.beginPath();
-    let firstPoint = true;
-    let lastCanvasX = 0;
-    let lastCanvasY = 0;
-
-    for (let i = 0; i < coastline.length; i += 2) {
-      const lat = coastline[i];
-      const lon = coastline[i + 1];
-      const projected = azimuthalProject(lat, lon, centerLat, centerLon);
-
-      // Skip points outside the map circle
-      const dist = Math.sqrt(
-        projected.x * projected.x + projected.y * projected.y,
-      );
-      if (dist > 1.05) {
-        firstPoint = true;
-        continue;
-      }
-
-      const { x, y } = projToCanvas(projected);
-
-      // Skip if there's a large jump (wrap around)
-      if (!firstPoint) {
-        const dx = x - lastCanvasX;
-        const dy = y - lastCanvasY;
-        if (dx * dx + dy * dy > RADIUS * RADIUS) {
-          firstPoint = true;
-        }
-      }
-
-      if (firstPoint) {
-        ctx.moveTo(x, y);
-        firstPoint = false;
-      } else {
-        ctx.lineTo(x, y);
-      }
-
-      lastCanvasX = x;
-      lastCanvasY = y;
-    }
-
-    ctx.stroke();
-  }
-}
-
-/**
- * Draw night side overlay based on subsolar point
- */
-function drawNightSide(
-  ctx: CanvasRenderingContext2D,
-  date: Date,
-  centerLat: number,
-  centerLon: number,
-) {
-  const subsolar = getSubsolarPoint(date);
-
-  // The terminator is a great circle 90 degrees from the subsolar point
-  // In azimuthal equidistant projection, this will be a circle (or ellipse-like curve)
-  // Note: subsolar point is used for zenith angle calculations in the loop below
-
-  // Draw night overlay using sampling
-  const imageData = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-  const data = imageData.data;
-
-  for (let py = 0; py < CANVAS_SIZE; py++) {
-    for (let px = 0; px < CANVAS_SIZE; px++) {
-      const proj = canvasToProj(px, py);
-      const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
-
-      // Skip points outside the circle
-      if (dist > 1) continue;
-
-      // Unproject to get lat/lon
-      const { lat, lon } = azimuthalUnproject(
-        proj.x,
-        proj.y,
-        centerLat,
-        centerLon,
-      );
-
-      // Calculate angular distance from subsolar point
-      const phi1 = subsolar.lat * (Math.PI / 180);
-      const phi2 = lat * (Math.PI / 180);
-      const deltaLambda = (lon - subsolar.lon) * (Math.PI / 180);
-
-      const cosAngle =
-        Math.sin(phi1) * Math.sin(phi2) +
-        Math.cos(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
-      const angle =
-        Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
-
-      const idx = (py * CANVAS_SIZE + px) * 4;
-
-      if (angle > 90) {
-        // Night side - darken
-        const darkness = Math.min(0.6, ((angle - 90) / 30) * 0.6);
-        data[idx] = Math.floor(data[idx] * (1 - darkness));
-        data[idx + 1] = Math.floor(data[idx + 1] * (1 - darkness));
-        data[idx + 2] = Math.floor(data[idx + 2] * (1 - darkness * 0.7));
-      }
-    }
-  }
-
-  ctx.putImageData(imageData, 0, 0);
 }
 
 /**
@@ -428,6 +306,7 @@ function drawTargetAndPath(
   targetLon: number,
   targetLabel?: string,
   markerColor: string = COLORS.targetMarker,
+  difficulty?: DifficultyLevel,
 ) {
   const projected = azimuthalProject(
     targetLat,
@@ -488,6 +367,25 @@ function drawTargetAndPath(
     ctx.font = "bold 11px monospace";
     ctx.textAlign = "center";
     ctx.fillText(labelText, x, y - 18);
+
+    // Difficulty tag below target label
+    if (difficulty) {
+      const difficultyLabel = DIFFICULTY_LABELS[difficulty];
+      ctx.font = "10px sans-serif";
+      const diffWidth = ctx.measureText(difficultyLabel).width + 8;
+
+      // Background with difficulty color tint
+      ctx.fillStyle = markerColor + "30"; // 30 = ~19% opacity
+      ctx.fillRect(x - diffWidth / 2, y - 50, diffWidth, 14);
+      ctx.strokeStyle = markerColor + "80"; // 80 = 50% opacity
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - diffWidth / 2, y - 50, diffWidth, 14);
+
+      ctx.fillStyle = markerColor;
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(difficultyLabel, x, y - 39);
+    }
   }
 }
 
@@ -735,12 +633,44 @@ export function AzimuthalView({
   onLocationClick,
 }: AzimuthalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const webglCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const rendererRef = useRef<AzimuthalRenderer | null>(null);
   const { layers, target } = useMapStore();
   const { station } = useUserStore();
 
   // Track container size for responsive scaling
   const [displaySize, setDisplaySize] = useState(CANVAS_SIZE);
+
+  // Zoom state for scroll wheel zoom (1 = default, 0.5 = zoomed out, 3 = zoomed in)
+  const [zoom, setZoom] = useState(1);
+
+  // Track WebGL readiness
+  const [webglReady, setWebglReady] = useState(false);
+
+  // Initialize WebGL renderer
+  useEffect(() => {
+    const canvas = webglCanvasRef.current;
+    if (!canvas) return;
+
+    const renderer = new AzimuthalRenderer({
+      highRes: true,
+      enableNight: true,
+      onTextureLoad: () => setWebglReady(true),
+      onError: (error) => console.warn("WebGL error:", error.message),
+    });
+
+    renderer.initialize(canvas).then((success) => {
+      if (success) {
+        rendererRef.current = renderer;
+      }
+    });
+
+    return () => {
+      renderer.dispose();
+      rendererRef.current = null;
+    };
+  }, []);
 
   // Observe container resize for responsive display
   useEffect(() => {
@@ -770,6 +700,9 @@ export function AzimuthalView({
     if (!station) return null;
     return { lat: station.lat, lon: station.lon };
   }, [station]);
+
+  // Get subsolar point for day/night blending
+  const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
 
   // Fetch live spots when spots layer is enabled
   const { spots } = useLiveSpots({
@@ -801,10 +734,25 @@ export function AzimuthalView({
     ? getDifficultyColor(pathDifficulty)
     : COLORS.targetMarker;
 
-  // Handle canvas click
+  // Handle scroll wheel zoom - use native listener for non-passive support
+  useEffect(() => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1; // Scroll down = zoom out, up = zoom in
+      setZoom((prev) => Math.max(0.5, Math.min(3, prev * delta)));
+    };
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  // Handle canvas click (on overlay canvas)
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
+      const canvas = overlayCanvasRef.current;
       if (!canvas || !onLocationClick || !center) return;
 
       const rect = canvas.getBoundingClientRect();
@@ -814,8 +762,14 @@ export function AzimuthalView({
       const canvasX = (event.clientX - rect.left) * scaleX;
       const canvasY = (event.clientY - rect.top) * scaleY;
 
+      // Account for zoom transform (zoom is centered on CENTER)
+      // The canvas drawing uses: translate(CENTER), scale(zoom), translate(-CENTER)
+      // So we reverse this: translate(CENTER), scale(1/zoom), translate(-CENTER)
+      const zoomAdjustedX = (canvasX - CENTER) / zoom + CENTER;
+      const zoomAdjustedY = (canvasY - CENTER) / zoom + CENTER;
+
       // Convert to projection coordinates
-      const proj = canvasToProj(canvasX, canvasY);
+      const proj = canvasToProj(zoomAdjustedX, zoomAdjustedY);
 
       // Check if click is within the map circle
       const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
@@ -831,20 +785,34 @@ export function AzimuthalView({
 
       onLocationClick(lat, lon);
     },
-    [onLocationClick, center],
+    [onLocationClick, center, zoom],
   );
 
-  // Render map
+  // Render WebGL background
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const renderer = rendererRef.current;
+    if (!renderer || !center) return;
+
+    renderer.render({
+      centerLat: center.lat,
+      centerLon: center.lon,
+      zoom: zoom,
+      subsolarLat: subsolar.lat,
+      subsolarLon: subsolar.lon,
+      showNight: layers.terminator,
+    });
+  }, [center, zoom, subsolar, layers.terminator, webglReady]);
+
+  // Render 2D overlay (UI elements, paths, markers)
+  useEffect(() => {
+    const canvas = overlayCanvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.fillStyle = COLORS.background;
-    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    // Clear overlay canvas (transparent background)
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
     // If no station is set, show message
     if (!center) {
@@ -852,12 +820,14 @@ export function AzimuthalView({
       return;
     }
 
-    // Draw coastlines first (as background)
-    drawCoastlines(ctx, center.lat, center.lon);
+    // Apply zoom transform (scale from center)
+    ctx.save();
+    ctx.translate(CENTER, CENTER);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-CENTER, -CENTER);
 
-    // Draw night side and terminator
+    // Draw terminator line (if terminator layer is enabled)
     if (layers.terminator) {
-      drawNightSide(ctx, displayTime, center.lat, center.lon);
       drawTerminator(ctx, displayTime, center.lat, center.lon);
     }
 
@@ -892,11 +862,15 @@ export function AzimuthalView({
         target.lon,
         target.name || target.grid,
         targetMarkerColor,
+        pathDifficulty,
       );
     }
 
     // Draw home marker at center (always last so it's on top)
     drawHomeMarker(ctx, station?.callsign);
+
+    // Restore transform
+    ctx.restore();
   }, [
     displayTime,
     layers,
@@ -905,6 +879,8 @@ export function AzimuthalView({
     center,
     resolvedSpots,
     targetMarkerColor,
+    pathDifficulty,
+    zoom,
   ]);
 
   return (
@@ -912,13 +888,26 @@ export function AzimuthalView({
       ref={containerRef}
       className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center"
     >
+      {/* WebGL canvas for map background */}
       <canvas
-        ref={canvasRef}
+        ref={webglCanvasRef}
+        width={CANVAS_SIZE}
+        height={CANVAS_SIZE}
+        className="absolute"
+        style={{
+          imageRendering: "auto",
+          width: displaySize,
+          height: displaySize,
+        }}
+      />
+      {/* 2D canvas for overlays (on top of WebGL) */}
+      <canvas
+        ref={overlayCanvasRef}
         width={CANVAS_SIZE}
         height={CANVAS_SIZE}
         onClick={handleClick}
-        className="cursor-crosshair"
-        aria-label="Azimuthal projection map centered on your location - click to select target"
+        className="absolute cursor-crosshair"
+        aria-label="Azimuthal projection map centered on your location - click to select target, scroll to zoom"
         role="img"
         style={{
           imageRendering: "auto",
@@ -926,6 +915,12 @@ export function AzimuthalView({
           height: displaySize,
         }}
       />
+      {/* Loading indicator */}
+      {!webglReady && center && (
+        <div className="absolute inset-0 flex items-center justify-center bg-deep-space/80">
+          <div className="text-gray-400 text-sm">Loading map...</div>
+        </div>
+      )}
       {/* Legend overlay */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">
         <div className="flex items-center gap-2">
@@ -934,6 +929,12 @@ export function AzimuthalView({
             style={{ backgroundColor: COLORS.path }}
           />
           <span>Great circle path (straight line = beam heading)</span>
+        </div>
+        <div className="flex items-center gap-2 mt-1 text-gray-400">
+          <span>Scroll to zoom</span>
+          {zoom !== 1 && (
+            <span className="text-signal-green">({zoom.toFixed(1)}x)</span>
+          )}
         </div>
       </div>
     </div>

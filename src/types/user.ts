@@ -3,6 +3,8 @@
  * Types for user station configuration and preferences
  */
 
+import type { UserRadio } from "./radio";
+
 /**
  * Ham radio station configuration
  * Represents the user's operating location and identity
@@ -55,4 +57,8 @@ export interface UserPreferences {
   ituRegion?: ITURegion;
   /** Amateur license class for privilege checks */
   licenseClass?: LicenseClass;
+  /** User's radio equipment collection */
+  radios?: UserRadio[];
+  /** Currently active radio ID */
+  activeRadioId?: string | null;
 }

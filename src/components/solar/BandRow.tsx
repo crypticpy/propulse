@@ -66,7 +66,7 @@ export const BandRow: React.FC<BandRowProps> = ({
 }) => {
   return (
     <div
-      className="grid grid-cols-4 md:grid-cols-5 gap-2 md:gap-4 py-2 px-2 items-center border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
+      className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_70px_70px_1fr] gap-2 md:gap-3 py-2 px-2 items-center border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
       role="row"
     >
       {/* Band Name */}
@@ -108,9 +108,8 @@ export const BandRow: React.FC<BandRowProps> = ({
 
       {/* Best For */}
       <div
-        className="text-xs text-gray-400 truncate text-right md:text-left"
+        className="text-xs text-gray-400 text-right md:text-left"
         role="cell"
-        title={bestFor}
       >
         {bestFor}
       </div>

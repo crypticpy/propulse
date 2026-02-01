@@ -30,7 +30,14 @@ export async function fetchPSKReporterSpots(
     const response = await fetch(`/api/spots/pskreporter?${params}`);
 
     if (!response.ok) {
-      console.warn("PSKReporter API error:", response.status);
+      // Silently fail in dev mode - API routes may not be available
+      return [];
+    }
+
+    // Check content-type to avoid parsing non-JSON responses
+    const contentType = response.headers.get("content-type");
+    if (!contentType?.includes("application/json")) {
+      // API route not available in dev mode
       return [];
     }
 

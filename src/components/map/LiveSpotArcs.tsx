@@ -235,23 +235,47 @@ function SpotArc({
   spot: ResolvedSpot;
   segments?: number;
 }) {
+  // Validate coordinates to prevent NaN errors in THREE.js
+  const hasValidCoords =
+    Number.isFinite(spot.spotterLat) &&
+    Number.isFinite(spot.spotterLon) &&
+    Number.isFinite(spot.dxLat) &&
+    Number.isFinite(spot.dxLon);
+
   const points = useMemo(() => {
-    const pathPoints = getPathPoints(
-      spot.spotterLat,
-      spot.spotterLon,
-      spot.dxLat,
-      spot.dxLon,
-      segments,
-    );
-    return pathPoints.map((p) => latLonTo3D(p.lat, p.lon)) as Array<
-      [number, number, number]
-    >;
-  }, [spot, segments]);
+    if (!hasValidCoords) return [];
+    try {
+      const pathPoints = getPathPoints(
+        spot.spotterLat,
+        spot.spotterLon,
+        spot.dxLat,
+        spot.dxLon,
+        segments,
+      );
+      const result = pathPoints.map((p) => latLonTo3D(p.lat, p.lon)) as Array<
+        [number, number, number]
+      >;
+      // Validate all points are finite numbers
+      for (const pt of result) {
+        if (
+          !Number.isFinite(pt[0]) ||
+          !Number.isFinite(pt[1]) ||
+          !Number.isFinite(pt[2])
+        ) {
+          return [];
+        }
+      }
+      return result;
+    } catch {
+      return [];
+    }
+  }, [spot, segments, hasValidCoords]);
 
   const color = getModeColor(spot.mode);
   const opacity = getAgeOpacity(spot.time);
 
-  if (points.length < 2) return null;
+  // Return null for invalid coordinates or insufficient points
+  if (!hasValidCoords || points.length < 2) return null;
 
   return (
     <Line
@@ -278,7 +302,17 @@ function SpotEndpoint({
   color: string;
   size?: number;
 }) {
-  const position = useMemo(() => latLonTo3D(lat, lon, 1.006), [lat, lon]);
+  // Validate coordinates to prevent NaN errors
+  const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
+  const position = useMemo(
+    () =>
+      hasValidCoords
+        ? latLonTo3D(lat, lon, 1.006)
+        : ([0, 0, 0] as [number, number, number]),
+    [lat, lon, hasValidCoords],
+  );
+
+  if (!hasValidCoords) return null;
 
   return (
     <mesh position={position}>

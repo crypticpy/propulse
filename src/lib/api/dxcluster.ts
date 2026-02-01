@@ -362,8 +362,8 @@ export function generateDemoSpots(count: number = 20): DXSpot[] {
     const dxPos = gridToLatLon(dxGrid);
     const spotterPos = gridToLatLon(spotterGrid);
 
-    // Random time within last 30 minutes
-    const spotTime = new Date(now - Math.random() * 30 * 60 * 1000);
+    // Random time within last 20 minutes (ensures spots aren't filtered by 30min maxAge)
+    const spotTime = new Date(now - Math.random() * 20 * 60 * 1000);
 
     // Random comment
     const comment =

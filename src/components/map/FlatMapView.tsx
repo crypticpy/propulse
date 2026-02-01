@@ -20,7 +20,11 @@ import {
   getModeColor,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
-import { getDifficultyColor, type DifficultyLevel } from "./LocationMarker";
+import {
+  getDifficultyColor,
+  DIFFICULTY_LABELS,
+  type DifficultyLevel,
+} from "./LocationMarker";
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import type { AuroraData } from "@/lib/api/aurora";
 
@@ -265,7 +269,7 @@ function drawGreyline(ctx: CanvasRenderingContext2D, date: Date) {
 }
 
 /**
- * Draw a location marker
+ * Draw a location marker with optional path info
  */
 function drawMarker(
   ctx: CanvasRenderingContext2D,
@@ -274,6 +278,8 @@ function drawMarker(
   color: string,
   label?: string,
   isHome: boolean = false,
+  difficulty?: DifficultyLevel,
+  pathInfo?: { bearing: number; distance: number },
 ) {
   const { x, y } = latLonToCanvas(lat, lon);
 
@@ -298,18 +304,52 @@ function drawMarker(
     ctx.stroke();
   }
 
-  // Label
-  if (label) {
+  // Label with optional path info
+  if (label || pathInfo) {
+    // Build label text: "CALLSIGN (45° / 9500km)" or just "CALLSIGN"
+    let labelText = label || "";
+    if (pathInfo && !isHome) {
+      const bearing = Math.round(pathInfo.bearing);
+      const distKm = Math.round(pathInfo.distance);
+      labelText = label
+        ? `${label} (${bearing}° / ${distKm}km)`
+        : `${bearing}° / ${distKm}km`;
+    }
+
+    ctx.font = "bold 11px monospace";
+    const textWidth = ctx.measureText(labelText).width + 12;
+    const boxWidth = Math.max(60, textWidth);
+
+    // Label background
     ctx.fillStyle = "#0a0a1a";
-    ctx.fillRect(x - 30, y - 28, 60, 16);
+    ctx.fillRect(x - boxWidth / 2, y - 28, boxWidth, 16);
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
-    ctx.strokeRect(x - 30, y - 28, 60, 16);
+    ctx.strokeRect(x - boxWidth / 2, y - 28, boxWidth, 16);
 
+    // Label text
     ctx.fillStyle = color;
-    ctx.font = "bold 11px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(label, x, y - 16);
+    ctx.fillText(labelText, x, y - 16);
+
+    // Difficulty tag above label for target markers
+    if (!isHome && difficulty) {
+      const difficultyLabel = DIFFICULTY_LABELS[difficulty];
+      ctx.font = "bold 10px sans-serif";
+      const tagWidth = ctx.measureText(difficultyLabel).width + 10;
+
+      // Background for difficulty tag
+      ctx.fillStyle = color + "20";
+      ctx.fillRect(x - tagWidth / 2, y - 46, tagWidth, 14);
+      ctx.strokeStyle = color + "50";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - tagWidth / 2, y - 46, tagWidth, 14);
+
+      // Difficulty label text
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.fillText(difficultyLabel, x, y - 35);
+    }
   }
 }
 
@@ -322,11 +362,12 @@ function drawPath(
   startLon: number,
   endLat: number,
   endLon: number,
+  color: string = COLORS.path,
 ) {
   const points = getPathPoints(startLat, startLon, endLat, endLon, 100);
 
   // Draw path with crisp lines (no shadow blur for sharpness)
-  ctx.strokeStyle = COLORS.path;
+  ctx.strokeStyle = color;
   ctx.lineWidth = 2.5;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -768,12 +809,24 @@ function drawLabels(ctx: CanvasRenderingContext2D) {
   }
 }
 
+// Zoom state type
+interface ZoomState {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}
+
 export function FlatMapView({
   displayTime,
   onLocationClick,
 }: FlatMapViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+  const [zoom, setZoom] = useState<ZoomState>({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+  });
   const { layers, target } = useMapStore();
   const { station } = useUserStore();
   const { data: auroraData } = useAuroraData();
@@ -792,22 +845,76 @@ export function FlatMapView({
     return resolveSpotLocations(spots).slice(0, 50);
   }, [spots, layers.spots]);
 
-  // Calculate path difficulty for target marker coloring
-  const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
-    if (!station || !target) return undefined;
-    const metrics = getPathMetrics(
-      station.lat,
-      station.lon,
-      target.lat,
-      target.lon,
-    );
-    return metrics.difficulty;
+  // Calculate path metrics for target marker display
+  const pathMetrics = useMemo(() => {
+    if (!station || !target) return null;
+    return getPathMetrics(station.lat, station.lon, target.lat, target.lon);
   }, [station, target]);
+
+  // Extract difficulty for convenience
+  const pathDifficulty = pathMetrics?.difficulty;
 
   // Get target marker color based on difficulty
   const targetMarkerColor = pathDifficulty
     ? getDifficultyColor(pathDifficulty)
     : COLORS.targetMarker;
+
+  // Handle scroll wheel zoom
+  const handleWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    // Mouse position relative to canvas (in display coordinates)
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Scale mouse position to canvas coordinates
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const canvasMouseX = mouseX * scaleX;
+    const canvasMouseY = mouseY * scaleY;
+
+    // Zoom factor
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+
+    setZoom((prev) => {
+      const newScale = Math.max(0.5, Math.min(4, prev.scale * delta));
+
+      // Calculate new offset to zoom toward mouse position
+      // The point under the mouse should stay in the same place
+      const scaleFactor = newScale / prev.scale;
+      const newOffsetX =
+        canvasMouseX - (canvasMouseX - prev.offsetX) * scaleFactor;
+      const newOffsetY =
+        canvasMouseY - (canvasMouseY - prev.offsetY) * scaleFactor;
+
+      // Clamp offsets to prevent panning too far
+      const maxOffsetX = MAP_WIDTH * (newScale - 1);
+      const maxOffsetY = MAP_HEIGHT * (newScale - 1);
+      const clampedOffsetX = Math.max(-maxOffsetX, Math.min(0, newOffsetX));
+      const clampedOffsetY = Math.max(-maxOffsetY, Math.min(0, newOffsetY));
+
+      return {
+        scale: newScale,
+        offsetX: clampedOffsetX,
+        offsetY: clampedOffsetY,
+      };
+    });
+  }, []);
+
+  // Attach wheel event listener with passive: false to allow preventDefault
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+    };
+  }, [handleWheel]);
 
   // Load map image
   useEffect(() => {
@@ -816,7 +923,7 @@ export function FlatMapView({
     img.src = "/textures/earth-flat.jpg";
   }, []);
 
-  // Handle canvas click
+  // Handle canvas click (accounting for zoom transform)
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -826,13 +933,20 @@ export function FlatMapView({
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
 
-      const x = (event.clientX - rect.left) * scaleX;
-      const y = (event.clientY - rect.top) * scaleY;
+      // Get click position in canvas coordinates
+      const canvasX = (event.clientX - rect.left) * scaleX;
+      const canvasY = (event.clientY - rect.top) * scaleY;
 
-      const { lat, lon } = canvasToLatLon(x, y, canvas.width, canvas.height);
+      // Reverse the zoom transform to get the actual map coordinates
+      // The zoom transform is: translate(offsetX, offsetY) then scale(zoom.scale)
+      // So we need to: un-translate by offset, then un-scale
+      const mapX = (canvasX - zoom.offsetX) / zoom.scale;
+      const mapY = (canvasY - zoom.offsetY) / zoom.scale;
+
+      const { lat, lon } = canvasToLatLon(mapX, mapY, MAP_WIDTH, MAP_HEIGHT);
       onLocationClick(lat, lon);
     },
-    [onLocationClick],
+    [onLocationClick, zoom],
   );
 
   // Render map
@@ -842,6 +956,14 @@ export function FlatMapView({
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // Clear canvas before drawing
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Apply zoom transform
+    ctx.save();
+    ctx.translate(zoom.offsetX, zoom.offsetY);
+    ctx.scale(zoom.scale, zoom.scale);
 
     // Draw base map image
     ctx.drawImage(mapImage, 0, 0, MAP_WIDTH, MAP_HEIGHT);
@@ -885,9 +1007,16 @@ export function FlatMapView({
       drawSpotArcs(ctx, resolvedSpots);
     }
 
-    // Draw path if both home and target exist
+    // Draw path if both home and target exist (use difficulty color)
     if (station && target) {
-      drawPath(ctx, station.lat, station.lon, target.lat, target.lon);
+      drawPath(
+        ctx,
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+        targetMarkerColor,
+      );
     }
 
     // Draw markers
@@ -909,8 +1038,19 @@ export function FlatMapView({
         target.lon,
         targetMarkerColor,
         target.name || target.grid,
+        false,
+        pathDifficulty,
+        pathMetrics
+          ? {
+              bearing: pathMetrics.shortPath.bearing,
+              distance: pathMetrics.shortPath.distance,
+            }
+          : undefined,
       );
     }
+
+    // Restore context after zoom transform
+    ctx.restore();
   }, [
     displayTime,
     layers,
@@ -921,6 +1061,9 @@ export function FlatMapView({
     currentSFI,
     resolvedSpots,
     targetMarkerColor,
+    pathDifficulty,
+    pathMetrics,
+    zoom,
   ]);
 
   return (

@@ -11,6 +11,8 @@ import type {
   ITURegion,
   LicenseClass,
 } from "../types/user";
+import type { UserRadio, RadioEquipment } from "../types/radio";
+import { getRadioById } from "../lib/data/radios";
 
 /**
  * Saved target location for quick access
@@ -26,6 +28,9 @@ export interface SavedTarget {
 
 /** Maximum number of saved targets allowed */
 const MAX_SAVED_TARGETS = 10;
+
+/** Maximum number of radios allowed */
+const MAX_RADIOS = 10;
 
 /**
  * User store state and actions
@@ -53,6 +58,14 @@ interface UserStore {
   setITURegion: (region: ITURegion) => void;
   /** Set license class for privilege checks */
   setLicenseClass: (licenseClass: LicenseClass) => void;
+  /** Add a radio to the user's collection */
+  addRadio: (radioId: string, nickname?: string) => void;
+  /** Remove a radio from the user's collection */
+  removeRadio: (radioId: string) => void;
+  /** Set the active radio */
+  setActiveRadio: (radioId: string | null) => void;
+  /** Get the active radio equipment details */
+  getActiveRadio: () => RadioEquipment | null;
 }
 
 /**
@@ -64,6 +77,8 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   theme: "dark",
   ituRegion: "ITU2",
   licenseClass: "GENERAL",
+  radios: [],
+  activeRadioId: null,
 };
 
 /**
@@ -138,10 +153,72 @@ export const useUserStore = create<UserStore>()(
         set((state) => ({
           preferences: { ...state.preferences, licenseClass },
         })),
+
+      addRadio: (radioId, nickname) =>
+        set((state) => {
+          const currentRadios = state.preferences.radios || [];
+          // Check if already added
+          if (currentRadios.some((r) => r.radioId === radioId)) {
+            return state;
+          }
+          // Enforce max limit
+          if (currentRadios.length >= MAX_RADIOS) {
+            return state;
+          }
+          const newRadio: UserRadio = {
+            radioId,
+            nickname,
+            addedAt: new Date().toISOString(),
+          };
+          const updatedRadios = [...currentRadios, newRadio];
+          // If this is the first radio, make it active
+          const activeRadioId =
+            state.preferences.activeRadioId ||
+            (updatedRadios.length === 1 ? radioId : null);
+          return {
+            preferences: {
+              ...state.preferences,
+              radios: updatedRadios,
+              activeRadioId,
+            },
+          };
+        }),
+
+      removeRadio: (radioId) =>
+        set((state) => {
+          const currentRadios = state.preferences.radios || [];
+          const updatedRadios = currentRadios.filter(
+            (r) => r.radioId !== radioId,
+          );
+          // If we removed the active radio, select the first available
+          const activeRadioId =
+            state.preferences.activeRadioId === radioId
+              ? updatedRadios.length > 0
+                ? updatedRadios[0].radioId
+                : null
+              : state.preferences.activeRadioId;
+          return {
+            preferences: {
+              ...state.preferences,
+              radios: updatedRadios,
+              activeRadioId,
+            },
+          };
+        }),
+
+      setActiveRadio: (radioId) =>
+        set((state) => ({
+          preferences: { ...state.preferences, activeRadioId: radioId },
+        })),
+
+      getActiveRadio: () => {
+        // Note: This returns null as a placeholder. Use the useActiveRadio hook instead.
+        return null;
+      },
     }),
     {
       name: "propulse-user",
-      version: 2,
+      version: 3,
       partialize: (state) => ({
         station: state.station,
         preferences: state.preferences,
@@ -150,3 +227,29 @@ export const useUserStore = create<UserStore>()(
     },
   ),
 );
+
+/**
+ * Hook to get the active radio equipment details
+ * Returns null if no radio is active or the radio isn't found
+ */
+export function useActiveRadio(): RadioEquipment | null {
+  const activeRadioId = useUserStore(
+    (state) => state.preferences.activeRadioId,
+  );
+  if (!activeRadioId) return null;
+  return getRadioById(activeRadioId) || null;
+}
+
+/**
+ * Hook to get all user's radios with their equipment details
+ */
+export function useUserRadios(): Array<{
+  userRadio: UserRadio;
+  equipment: RadioEquipment | undefined;
+}> {
+  const radios = useUserStore((state) => state.preferences.radios) || [];
+  return radios.map((userRadio) => ({
+    userRadio,
+    equipment: getRadioById(userRadio.radioId),
+  }));
+}

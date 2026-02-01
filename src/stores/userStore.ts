@@ -60,6 +60,18 @@ interface UserStore {
   setLicenseClass: (licenseClass: LicenseClass) => void;
   /** Add a radio to the user's collection */
   addRadio: (radioId: string, nickname?: string) => void;
+  /** Add a custom radio equipment definition (returns false if duplicate name) */
+  addCustomRadio: (radio: Omit<RadioEquipment, "id">) => {
+    ok: true;
+    id: string;
+  } | { ok: false; error: string };
+  /** Update a custom radio equipment definition */
+  updateCustomRadio: (
+    id: string,
+    updates: Partial<Omit<RadioEquipment, "id">>,
+  ) => { ok: true } | { ok: false; error: string };
+  /** Remove a custom radio equipment definition */
+  removeCustomRadio: (id: string) => void;
   /** Remove a radio from the user's collection */
   removeRadio: (radioId: string) => void;
   /** Set the active radio */
@@ -78,6 +90,7 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   ituRegion: "ITU2",
   licenseClass: "GENERAL",
   radios: [],
+  customRadios: [],
   activeRadioId: null,
 };
 
@@ -184,6 +197,125 @@ export const useUserStore = create<UserStore>()(
           };
         }),
 
+      addCustomRadio: (radio) => {
+        const id = `custom-${crypto.randomUUID()}`;
+        const displayName = radio.displayName?.trim();
+        if (!displayName) {
+          return { ok: false, error: "Custom radio name is required" };
+        }
+
+        let result:
+          | { ok: true; id: string }
+          | { ok: false; error: string } = { ok: true, id };
+
+        set((state) => {
+          const existing = state.preferences.customRadios || [];
+          const normalized = displayName.toLowerCase();
+          const hasDuplicate = existing.some(
+            (r) => (r.displayName || "").trim().toLowerCase() === normalized,
+          );
+          if (hasDuplicate) {
+            result = {
+              ok: false,
+              error: `A custom radio named "${displayName}" already exists`,
+            };
+            return state;
+          }
+
+          const nextCustom = [
+            ...existing,
+            {
+              ...radio,
+              id,
+              displayName,
+            },
+          ];
+
+          return {
+            preferences: {
+              ...state.preferences,
+              customRadios: nextCustom,
+            },
+          };
+        });
+
+        return result;
+      },
+
+      updateCustomRadio: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+
+        set((state) => {
+          const existing = state.preferences.customRadios || [];
+          const idx = existing.findIndex((r) => r.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Custom radio not found" };
+            return state;
+          }
+
+          const nextDisplayName =
+            typeof updates.displayName === "string"
+              ? updates.displayName.trim()
+              : existing[idx].displayName;
+
+          if (!nextDisplayName) {
+            result = { ok: false, error: "Custom radio name is required" };
+            return state;
+          }
+
+          const normalized = nextDisplayName.toLowerCase();
+          const hasDuplicate = existing.some(
+            (r, i) =>
+              i !== idx &&
+              (r.displayName || "").trim().toLowerCase() === normalized,
+          );
+          if (hasDuplicate) {
+            result = {
+              ok: false,
+              error: `A custom radio named "${nextDisplayName}" already exists`,
+            };
+            return state;
+          }
+
+          const nextCustom = existing.map((r, i) =>
+            i === idx ? { ...r, ...updates, displayName: nextDisplayName } : r,
+          );
+
+          return {
+            preferences: {
+              ...state.preferences,
+              customRadios: nextCustom,
+            },
+          };
+        });
+
+        return result;
+      },
+
+      removeCustomRadio: (id) =>
+        set((state) => {
+          const existing = state.preferences.customRadios || [];
+          const nextCustom = existing.filter((r) => r.id !== id);
+
+          const currentRadios = state.preferences.radios || [];
+          const updatedRadios = currentRadios.filter((r) => r.radioId !== id);
+          const activeRadioId =
+            state.preferences.activeRadioId === id
+              ? updatedRadios.length > 0
+                ? updatedRadios[0].radioId
+                : null
+              : state.preferences.activeRadioId;
+
+          return {
+            preferences: {
+              ...state.preferences,
+              customRadios: nextCustom,
+              radios: updatedRadios,
+              activeRadioId,
+            },
+          };
+        }),
+
       removeRadio: (radioId) =>
         set((state) => {
           const currentRadios = state.preferences.radios || [];
@@ -218,7 +350,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: "propulse-user",
-      version: 3,
+      version: 4,
       partialize: (state) => ({
         station: state.station,
         preferences: state.preferences,
@@ -228,16 +360,23 @@ export const useUserStore = create<UserStore>()(
   ),
 );
 
+function resolveEquipmentById(
+  id: string,
+  customRadios: RadioEquipment[] | undefined,
+): RadioEquipment | undefined {
+  const custom = customRadios?.find((r) => r.id === id);
+  return custom ?? getRadioById(id);
+}
+
 /**
  * Hook to get the active radio equipment details
  * Returns null if no radio is active or the radio isn't found
  */
 export function useActiveRadio(): RadioEquipment | null {
-  const activeRadioId = useUserStore(
-    (state) => state.preferences.activeRadioId,
-  );
+  const activeRadioId = useUserStore((state) => state.preferences.activeRadioId);
+  const customRadios = useUserStore((state) => state.preferences.customRadios);
   if (!activeRadioId) return null;
-  return getRadioById(activeRadioId) || null;
+  return resolveEquipmentById(activeRadioId, customRadios) || null;
 }
 
 /**
@@ -248,8 +387,9 @@ export function useUserRadios(): Array<{
   equipment: RadioEquipment | undefined;
 }> {
   const radios = useUserStore((state) => state.preferences.radios) || [];
+  const customRadios = useUserStore((state) => state.preferences.customRadios);
   return radios.map((userRadio) => ({
     userRadio,
-    equipment: getRadioById(userRadio.radioId),
+    equipment: resolveEquipmentById(userRadio.radioId, customRadios),
   }));
 }

@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Home } from "@/pages/Home";
 import { SolarPulse } from "@/pages/SolarPulse";
+import { DXWizard } from "@/pages/DXWizard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -18,6 +19,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/solar" element={<SolarPulse />} />
+          <Route path="/dx" element={<DXWizard />} />
           <Route
             path="/map"
             element={

@@ -85,6 +85,19 @@ export async function getDB(): Promise<IDBPDatabase<DBSchema>> {
           }
         }
       }
+
+      // Version 3: Add indexes for guest logging feature
+      if (oldVersion < 3) {
+        if (db.objectStoreNames.contains(DB_CONFIG.stores.logEntries)) {
+          const logStore = transaction.objectStore(DB_CONFIG.stores.logEntries);
+          if (!logStore.indexNames.contains("by-operatorCallsign")) {
+            logStore.createIndex("by-operatorCallsign", "operatorCallsign");
+          }
+          if (!logStore.indexNames.contains("by-guestSessionId")) {
+            logStore.createIndex("by-guestSessionId", "guestSessionId");
+          }
+        }
+      }
     },
     blocked() {
       console.warn(

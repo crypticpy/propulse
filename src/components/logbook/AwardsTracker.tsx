@@ -112,27 +112,41 @@ function getDXCCEntity(callsign: string): string | null {
 }
 
 /**
+ * Escape special regex characters in a string
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
  * Attempt to extract US state from log entry
  * Checks QTH field, exchange, and callsign patterns
+ * Uses word-boundary matching to avoid false positives
  */
 function extractUSState(entry: LogEntry): string | null {
-  // Check QTH field for state abbreviation
+  // Check QTH field for state abbreviation or full name (word-boundary match)
   if (entry.qth) {
     const qth = entry.qth.toUpperCase();
     for (const abbr of Object.keys(US_STATES)) {
-      if (qth.includes(abbr) || qth.includes(US_STATES[abbr].toUpperCase())) {
+      const escapedAbbr = escapeRegex(abbr);
+      const escapedFullName = escapeRegex(US_STATES[abbr].toUpperCase());
+      const abbrPattern = new RegExp(`\\b${escapedAbbr}\\b`, "i");
+      const namePattern = new RegExp(`\\b${escapedFullName}\\b`, "i");
+      if (abbrPattern.test(qth) || namePattern.test(qth)) {
         return abbr;
       }
     }
   }
 
-  // Check notes field for contest exchange with state
+  // Check notes field for contest exchange with state (word-boundary match)
   if (entry.notes) {
     const notes = entry.notes.toUpperCase();
     for (const abbr of Object.keys(US_STATES)) {
-      // Look for state abbreviations bounded by spaces or punctuation
-      const pattern = new RegExp(`\\b${abbr}\\b`);
-      if (pattern.test(notes)) {
+      const escapedAbbr = escapeRegex(abbr);
+      const escapedFullName = escapeRegex(US_STATES[abbr].toUpperCase());
+      const abbrPattern = new RegExp(`\\b${escapedAbbr}\\b`, "i");
+      const namePattern = new RegExp(`\\b${escapedFullName}\\b`, "i");
+      if (abbrPattern.test(notes) || namePattern.test(notes)) {
         return abbr;
       }
     }

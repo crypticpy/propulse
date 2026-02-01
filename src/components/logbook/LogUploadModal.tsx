@@ -673,7 +673,8 @@ export function LogUploadModal({
               disabled={
                 filteredEntries.length === 0 ||
                 uploading ||
-                progress.some((p) => p.status === "success")
+                (progress.length > 0 &&
+                  progress.every((p) => p.status === "success"))
               }
               className="flex-1 px-4 py-2.5 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
                        text-plasma-orange hover:bg-plasma-orange/30

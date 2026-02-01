@@ -28,6 +28,7 @@ function jsonResponse(
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
       "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Expose-Headers": "X-HamQTH-Session-Id",
       ...extraHeaders,
     },
   });

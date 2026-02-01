@@ -108,16 +108,29 @@ export async function fetchHamQTH(
     }
 
     // Return successful lookup result
+    // Use explicit null/undefined checks to preserve valid zero values
     return {
       callsign: data.callsign || normalizedCallsign,
       name: data.name,
       grid: data.grid,
       qth: data.qth,
       country: data.country,
-      cqzone: data.cqzone ? Number(data.cqzone) : undefined,
-      ituzone: data.ituzone ? Number(data.ituzone) : undefined,
-      lat: data.lat ? Number(data.lat) : undefined,
-      lon: data.lon ? Number(data.lon) : undefined,
+      cqzone:
+        data.cqzone !== undefined && data.cqzone !== null
+          ? Number(data.cqzone)
+          : undefined,
+      ituzone:
+        data.ituzone !== undefined && data.ituzone !== null
+          ? Number(data.ituzone)
+          : undefined,
+      lat:
+        data.lat !== undefined && data.lat !== null
+          ? Number(data.lat)
+          : undefined,
+      lon:
+        data.lon !== undefined && data.lon !== null
+          ? Number(data.lon)
+          : undefined,
       source: "hamqth",
     };
   } catch (error) {

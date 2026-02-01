@@ -286,15 +286,43 @@ export function formatCabrilloDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Digital modes that use 3-digit RST (599) */
+const DIGITAL_MODES = new Set([
+  "CW",
+  "RTTY",
+  "DATA",
+  "DIGITAL",
+  "FT8",
+  "FT4",
+  "PSK31",
+  "PSK63",
+  "JS8",
+  "JT65",
+  "JT9",
+  "MSK144",
+  "OLIVIA",
+  "CONTESTI",
+  "MFSK",
+]);
+
 /**
- * Parse RST from string, handling CW (599) and Phone (59) formats
+ * Check if a mode uses 3-digit RST (CW/digital) vs 2-digit (phone)
+ */
+function isDigitalMode(mode: string): boolean {
+  return DIGITAL_MODES.has(mode.toUpperCase().trim());
+}
+
+/**
+ * Parse RST from string, handling CW/Digital (599) and Phone (59) formats
  */
 export function parseRST(
   rst: string,
   mode: string,
 ): { r: number; s: number; t?: number } {
+  const normalizedMode = mode.toUpperCase().trim();
   const digits = rst.replace(/\D/g, "");
-  if (mode === "CW" || mode === "RTTY" || mode === "DATA") {
+
+  if (isDigitalMode(normalizedMode)) {
     return {
       r: parseInt(digits[0] || "5", 10),
       s: parseInt(digits[1] || "9", 10),
@@ -311,12 +339,8 @@ export function parseRST(
  * Get default RST for a mode
  */
 export function getDefaultRST(mode: string): string {
-  if (
-    mode === "CW" ||
-    mode === "RTTY" ||
-    mode === "DATA" ||
-    mode === "digital"
-  ) {
+  const normalizedMode = mode.toUpperCase().trim();
+  if (isDigitalMode(normalizedMode)) {
     return "599";
   }
   return "59";

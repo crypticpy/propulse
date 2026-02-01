@@ -373,12 +373,13 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: "propulse-user",
-      version: 5,
+      version: 6,
       partialize: (state) => ({
         station: state.station,
         preferences: state.preferences,
         savedTargets: state.savedTargets,
-        serviceCredentials: state.serviceCredentials,
+        // NOTE: serviceCredentials intentionally NOT persisted for security
+        // Credentials remain in-memory only and must be re-entered each session
       }),
     },
   ),

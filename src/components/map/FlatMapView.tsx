@@ -9,7 +9,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathPoints } from "@/lib/utils/path";
+import { getPathPoints, getPathMetrics } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { estimateMUF, getMUFColor } from "@/lib/api/muf";
@@ -20,6 +20,7 @@ import {
   getModeColor,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
+import { getDifficultyColor, type DifficultyLevel } from "./LocationMarker";
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import type { AuroraData } from "@/lib/api/aurora";
 
@@ -39,8 +40,8 @@ const COLORS = {
   terminator: "#ff6b35",
   night: "rgba(0, 0, 20, 0.6)",
   grid: "rgba(255, 255, 255, 0.15)",
-  homeMarker: "#00ff88",
-  targetMarker: "#ff6b35",
+  homeMarker: "#4488FF", // Blue for home station
+  targetMarker: "#ff6b35", // Default fallback - usually overridden by difficulty
   path: "#ff6b35",
 };
 
@@ -154,6 +155,10 @@ function drawNightSide(ctx: CanvasRenderingContext2D, date: Date) {
 
 /**
  * Draw terminator line
+ *
+ * The terminator is the line where the sun angle is exactly 90°.
+ * Formula derived from: 0 = sin(lat)*sin(subsolarLat) + cos(lat)*cos(subsolarLat)*cos(Δlon)
+ * Solving for lat: lat = atan(-cos(Δlon) / tan(subsolarLat))
  */
 function drawTerminator(ctx: CanvasRenderingContext2D, date: Date) {
   const subsolar = getSubsolarPoint(date);
@@ -165,17 +170,35 @@ function drawTerminator(ctx: CanvasRenderingContext2D, date: Date) {
 
   ctx.beginPath();
 
+  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
+  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
+
+  // Handle equinox edge case (subsolar lat near 0)
+  const tanSubsolarLat = Math.tan(subsolarLatRad);
+  const isNearEquinox = Math.abs(tanSubsolarLat) < 0.001;
+
   // Draw terminator by finding 90° points from subsolar
   for (let lon = -180; lon <= 180; lon += 1) {
     const lonRad = lon * (Math.PI / 180);
-    const subsolarLatRad = subsolar.lat * (Math.PI / 180);
-    const subsolarLonRad = subsolar.lon * (Math.PI / 180);
-
-    // Find latitude where angle from subsolar = 90°
     const deltaLon = lonRad - subsolarLonRad;
-    const lat =
-      Math.atan(-Math.cos(deltaLon) / Math.tan(subsolarLatRad)) *
-      (180 / Math.PI);
+
+    let lat: number;
+    if (isNearEquinox) {
+      // Near equinox: terminator runs north-south at 90° from subsolar longitude
+      // Just draw a vertical line offset by 90° from subsolar point
+      const offset = subsolar.lon + 90;
+      const normalizedOffset = ((offset + 180) % 360) - 180;
+      lat =
+        Math.abs(lon - normalizedOffset) < 1 ||
+        Math.abs(lon - normalizedOffset + 360) < 1
+          ? 0
+          : deltaLon > 0
+            ? 90
+            : -90;
+    } else {
+      // Normal formula: lat = atan(-cos(deltaLon) / tan(subsolarLat))
+      lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
+    }
 
     const { x, y } = latLonToCanvas(lat, lon);
 
@@ -302,11 +325,12 @@ function drawPath(
 ) {
   const points = getPathPoints(startLat, startLon, endLat, endLon, 100);
 
+  // Draw path with crisp lines (no shadow blur for sharpness)
   ctx.strokeStyle = COLORS.path;
-  ctx.lineWidth = 3;
-  ctx.shadowColor = COLORS.path;
-  ctx.shadowBlur = 6;
-  ctx.setLineDash([8, 4]);
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.setLineDash([10, 6]);
 
   ctx.beginPath();
   let lastX = -1;
@@ -329,7 +353,6 @@ function drawPath(
 
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
 }
 
 /**
@@ -487,8 +510,7 @@ function drawSpotArc(ctx: CanvasRenderingContext2D, spot: ResolvedSpot) {
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.5;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 3;
+  ctx.lineCap = "round";
 
   if (wrapAround) {
     // Draw two segments for wrap-around paths
@@ -559,6 +581,193 @@ function drawSpotArcs(ctx: CanvasRenderingContext2D, spots: ResolvedSpot[]) {
   }
 }
 
+// Major cities for night lights display
+const NIGHT_LIGHT_CITIES = [
+  { lat: 40.7128, lon: -74.006, size: 8 }, // New York
+  { lat: 34.0522, lon: -118.2437, size: 7 }, // Los Angeles
+  { lat: 51.5074, lon: -0.1278, size: 7 }, // London
+  { lat: 48.8566, lon: 2.3522, size: 6 }, // Paris
+  { lat: 35.6762, lon: 139.6503, size: 8 }, // Tokyo
+  { lat: 39.9042, lon: 116.4074, size: 8 }, // Beijing
+  { lat: -33.8688, lon: 151.2093, size: 6 }, // Sydney
+  { lat: 55.7558, lon: 37.6173, size: 6 }, // Moscow
+  { lat: 25.2048, lon: 55.2708, size: 5 }, // Dubai
+  { lat: 1.3521, lon: 103.8198, size: 5 }, // Singapore
+  { lat: 19.076, lon: 72.8777, size: 7 }, // Mumbai
+  { lat: 30.0444, lon: 31.2357, size: 5 }, // Cairo
+  { lat: -22.9068, lon: -43.1729, size: 6 }, // Rio
+  { lat: 43.6532, lon: -79.3832, size: 5 }, // Toronto
+  { lat: 52.52, lon: 13.405, size: 5 }, // Berlin
+  { lat: 37.5665, lon: 126.978, size: 6 }, // Seoul
+  { lat: 19.4326, lon: -99.1332, size: 6 }, // Mexico City
+  { lat: 41.9028, lon: 12.4964, size: 5 }, // Rome
+  { lat: -34.6037, lon: -58.3816, size: 5 }, // Buenos Aires
+  { lat: 13.7563, lon: 100.5018, size: 5 }, // Bangkok
+  { lat: 22.3193, lon: 114.1694, size: 6 }, // Hong Kong
+  { lat: 31.2304, lon: 121.4737, size: 7 }, // Shanghai
+  { lat: 28.6139, lon: 77.209, size: 6 }, // Delhi
+  { lat: -6.2088, lon: 106.8456, size: 5 }, // Jakarta
+  { lat: 14.5995, lon: 120.9842, size: 5 }, // Manila
+  { lat: 23.8103, lon: 90.4125, size: 5 }, // Dhaka
+  { lat: 33.6844, lon: 73.0479, size: 4 }, // Islamabad
+  { lat: -23.5505, lon: -46.6333, size: 6 }, // Sao Paulo
+  { lat: 6.5244, lon: 3.3792, size: 5 }, // Lagos
+  { lat: -1.2921, lon: 36.8219, size: 4 }, // Nairobi
+];
+
+/**
+ * Draw night lights (city lights on dark side)
+ */
+function drawNightLights(ctx: CanvasRenderingContext2D, date: Date) {
+  const subsolar = getSubsolarPoint(date);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  for (const city of NIGHT_LIGHT_CITIES) {
+    // Calculate if city is on night side
+    const phi1 = city.lat * (Math.PI / 180);
+    const phi2 = subsolar.lat * (Math.PI / 180);
+    const deltaLambda = (city.lon - subsolar.lon) * (Math.PI / 180);
+
+    const cosAngle =
+      Math.sin(phi1) * Math.sin(phi2) +
+      Math.cos(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
+    const angle =
+      Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
+
+    // Only show lights on night side (angle > 90 from subsolar)
+    if (angle > 85) {
+      const { x, y } = latLonToCanvas(city.lat, city.lon);
+
+      // Calculate intensity based on how deep into night
+      const nightDepth = Math.min((angle - 85) / 30, 1);
+      const intensity = nightDepth * 0.8;
+
+      // Draw glowing city light
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, city.size);
+      gradient.addColorStop(0, `rgba(255, 200, 100, ${intensity})`);
+      gradient.addColorStop(0.3, `rgba(255, 180, 80, ${intensity * 0.6})`);
+      gradient.addColorStop(1, "transparent");
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, city.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+// Simplified country border data for 2D map
+const BORDER_SEGMENTS = [
+  // North America West Coast
+  [
+    [48.4, -124.7],
+    [42.0, -124.2],
+    [34.4, -120.5],
+    [32.5, -117.1],
+    [23.0, -110.0],
+  ],
+  // North America East Coast
+  [
+    [47.0, -67.0],
+    [42.0, -70.0],
+    [35.0, -75.5],
+    [25.0, -80.0],
+    [30.0, -88.0],
+  ],
+  // Europe
+  [
+    [58.0, -6.0],
+    [50.0, -5.0],
+    [43.0, -9.0],
+    [36.0, -6.0],
+  ],
+  // Africa West
+  [
+    [35.0, -6.0],
+    [14.0, -17.0],
+    [-5.0, 12.0],
+    [-34.0, 18.0],
+  ],
+  // Asia - India outline
+  [
+    [23.0, 68.0],
+    [8.0, 77.0],
+    [22.0, 88.0],
+  ],
+  // Australia
+  [
+    [-12.0, 130.0],
+    [-20.0, 118.0],
+    [-35.0, 117.0],
+    [-38.0, 145.0],
+    [-28.0, 153.0],
+    [-12.0, 142.0],
+  ],
+];
+
+// City labels for 2D map
+const CITY_LABELS = [
+  { name: "New York", lat: 40.7128, lon: -74.006 },
+  { name: "London", lat: 51.5074, lon: -0.1278 },
+  { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
+  { name: "Sydney", lat: -33.8688, lon: 151.2093 },
+  { name: "Moscow", lat: 55.7558, lon: 37.6173 },
+  { name: "Dubai", lat: 25.2048, lon: 55.2708 },
+  { name: "Singapore", lat: 1.3521, lon: 103.8198 },
+  { name: "Cairo", lat: 30.0444, lon: 31.2357 },
+  { name: "Rio", lat: -22.9068, lon: -43.1729 },
+  { name: "LA", lat: 34.0522, lon: -118.2437 },
+];
+
+/**
+ * Draw labels (country borders and city names)
+ */
+function drawLabels(ctx: CanvasRenderingContext2D) {
+  // Draw country borders
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+  ctx.lineWidth = 1;
+
+  for (const segment of BORDER_SEGMENTS) {
+    ctx.beginPath();
+    for (let i = 0; i < segment.length; i++) {
+      const [lat, lon] = segment[i];
+      const { x, y } = latLonToCanvas(lat, lon);
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+  }
+
+  // Draw city labels
+  ctx.font = "bold 9px sans-serif";
+  ctx.textAlign = "center";
+
+  for (const city of CITY_LABELS) {
+    const { x, y } = latLonToCanvas(city.lat, city.lon);
+
+    // Draw text with dark outline for visibility on both light and dark backgrounds
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(city.name, x, y - 8);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.fillText(city.name, x, y - 8);
+
+    // Small dot for city location
+    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 export function FlatMapView({
   displayTime,
   onLocationClick,
@@ -582,6 +791,23 @@ export function FlatMapView({
     if (!layers.spots) return [];
     return resolveSpotLocations(spots).slice(0, 50);
   }, [spots, layers.spots]);
+
+  // Calculate path difficulty for target marker coloring
+  const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
+    if (!station || !target) return undefined;
+    const metrics = getPathMetrics(
+      station.lat,
+      station.lon,
+      target.lat,
+      target.lon,
+    );
+    return metrics.difficulty;
+  }, [station, target]);
+
+  // Get target marker color based on difficulty
+  const targetMarkerColor = pathDifficulty
+    ? getDifficultyColor(pathDifficulty)
+    : COLORS.targetMarker;
 
   // Load map image
   useEffect(() => {
@@ -641,8 +867,18 @@ export function FlatMapView({
       drawAurora(ctx, auroraData, 10);
     }
 
+    // Draw night lights (city lights on dark side)
+    if (layers.nightLights) {
+      drawNightLights(ctx, displayTime);
+    }
+
     // Draw grid
     drawGrid(ctx);
+
+    // Draw labels (country borders and city names)
+    if (layers.labels) {
+      drawLabels(ctx);
+    }
 
     // Draw live spot arcs
     if (layers.spots && resolvedSpots.length > 0) {
@@ -671,7 +907,7 @@ export function FlatMapView({
         ctx,
         target.lat,
         target.lon,
-        COLORS.targetMarker,
+        targetMarkerColor,
         target.name || target.grid,
       );
     }
@@ -684,10 +920,11 @@ export function FlatMapView({
     auroraData,
     currentSFI,
     resolvedSpots,
+    targetMarkerColor,
   ]);
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative">
+    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center">
       {!mapImage && (
         <div className="absolute inset-0 flex items-center justify-center bg-deep-space">
           <div className="flex flex-col items-center gap-3">
@@ -701,10 +938,14 @@ export function FlatMapView({
         width={MAP_WIDTH}
         height={MAP_HEIGHT}
         onClick={handleClick}
-        className="w-full h-full cursor-crosshair"
+        className="cursor-crosshair max-w-full max-h-full"
         aria-label="Interactive propagation map - click to select target location"
         role="img"
-        style={{ imageRendering: "auto" }}
+        style={{
+          imageRendering: "auto",
+          aspectRatio: `${MAP_WIDTH} / ${MAP_HEIGHT}`,
+          objectFit: "contain",
+        }}
       />
     </div>
   );

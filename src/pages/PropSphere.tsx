@@ -20,6 +20,8 @@ import {
   MUFLegend,
   FullscreenPropSphere,
   RecommendationsPanel,
+  RecommendationsBadge,
+  OptimalBandsPanel,
 } from "@/components/map";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { Card } from "@/components/ui/Card";
@@ -70,8 +72,70 @@ export function PropSphere() {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
+  // Panel widths for resizing (in pixels)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(280);
+  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+
   // Active tab for mobile bottom panel
   const [activeTab, setActiveTab] = useState<PanelTab>("path");
+
+  // DX Cluster drawer state
+  const [dxClusterExpanded, setDxClusterExpanded] = useState(true);
+
+  // Resize handle dragging
+  const handleResizeLeft = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = leftPanelWidth;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const delta = moveEvent.clientX - startX;
+        const newWidth = Math.max(200, Math.min(400, startWidth + delta));
+        setLeftPanelWidth(newWidth);
+      };
+
+      const handleMouseUp = () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [leftPanelWidth],
+  );
+
+  const handleResizeRight = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = rightPanelWidth;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const delta = startX - moveEvent.clientX;
+        const newWidth = Math.max(200, Math.min(400, startWidth + delta));
+        setRightPanelWidth(newWidth);
+      };
+
+      const handleMouseUp = () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [rightPanelWidth],
+  );
 
   // Calculate display time with offset
   const displayTime = useMemo(() => {
@@ -93,12 +157,12 @@ export function PropSphere() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* Main Content - Framed Layout */}
-      <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full">
-        {/* Top Row: Time | Station | Forecast */}
-        <div className="grid grid-cols-2 lg:grid-cols-[280px_1fr_1fr] xl:grid-cols-[280px_auto_1fr] gap-2 md:gap-3">
-          {/* Time Machine */}
+      <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
+        {/* Top Row: Time + View | Station | Forecast | Recommendations */}
+        <div className="grid grid-cols-2 lg:grid-cols-[240px_auto_1fr] xl:grid-cols-[240px_auto_1fr_280px] gap-2 md:gap-3">
+          {/* Time Machine + View Toggle */}
           <Card className="p-3 col-span-1">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-medium text-white">Time Machine</h3>
@@ -107,26 +171,30 @@ export function PropSphere() {
             <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden" />
           </Card>
 
-          {/* Station Info */}
-          <Card className="p-3 col-span-1">
+          {/* Station Info + Pro View Button */}
+          <Card className="p-3 col-span-1 min-w-[140px]">
             {station ? (
               <div className="h-full flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-signal-green animate-pulse flex-shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-white font-mono font-bold text-sm truncate">
-                    {station.callsign}
-                  </div>
-                  <div className="text-[10px] text-gray-500 truncate">
-                    {station.grid} • {station.name || "Home"}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="w-2 h-2 rounded-full bg-signal-green animate-pulse flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-white font-mono font-bold text-sm truncate">
+                      {station.callsign}
+                    </div>
+                    <div className="text-[10px] text-gray-500 truncate">
+                      {station.grid}
+                    </div>
                   </div>
                 </div>
+                {/* Pro View button */}
                 <button
                   onClick={() => setFullscreen(true)}
-                  className="ml-auto p-1.5 bg-white/5 rounded hover:bg-white/10 transition-colors"
-                  title="Fullscreen"
+                  className="flex items-center gap-1 px-2 py-1.5 bg-plasma-orange/20 border border-plasma-orange/50 rounded
+                             text-plasma-orange hover:bg-plasma-orange/30 transition-colors flex-shrink-0"
+                  title="Enter fullscreen Pro View"
                 >
                   <svg
-                    className="w-4 h-4 text-gray-400"
+                    className="w-4 h-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -138,6 +206,9 @@ export function PropSphere() {
                       d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
                     />
                   </svg>
+                  <span className="text-[10px] font-bold uppercase tracking-wide">
+                    Pro
+                  </span>
                 </button>
               </div>
             ) : (
@@ -147,22 +218,43 @@ export function PropSphere() {
             )}
           </Card>
 
-          {/* 24h Forecast Mini (hidden on mobile, shown on lg+) */}
-          <div className="hidden lg:block col-span-1">
+          {/* 24h Forecast (hidden on mobile, shown on lg+) */}
+          <Card className="hidden lg:block col-span-1 p-3">
+            <div className="text-[10px] text-gray-300 uppercase tracking-wide mb-1">
+              24h Propagation Forecast
+            </div>
             <PropagationForecastMini
               displayTime={displayTime}
-              className="h-full"
+              className="h-[calc(100%-16px)]"
             />
-          </div>
+          </Card>
+
+          {/* Recommendations Badge (xl+ only) */}
+          {station && target && (
+            <Card className="hidden xl:block col-span-1 p-3">
+              <div className="text-[10px] text-gray-300 uppercase tracking-wide mb-1">
+                Optimal Band Now
+              </div>
+              <RecommendationsBadge
+                homeLat={station.lat}
+                homeLon={station.lon}
+                targetLat={target.lat}
+                targetLon={target.lon}
+                displayTime={displayTime}
+                className="h-[calc(100%-16px)]"
+              />
+            </Card>
+          )}
         </div>
 
-        {/* Middle Row: Bands | Map | Path */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_1fr_280px] gap-2 md:gap-3 min-h-0">
+        {/* Middle Row: Bands | Map | Path - fills available space */}
+        <div className="flex-1 min-h-0 flex gap-0 lg:gap-0">
           {/* Band Conditions Panel (left) - hidden on mobile */}
           <div
-            className={`hidden lg:flex flex-col transition-all duration-300 ${
-              leftPanelCollapsed ? "lg:w-10" : ""
+            className={`hidden lg:flex flex-col flex-shrink-0 transition-all duration-200 ${
+              leftPanelCollapsed ? "w-10" : ""
             }`}
+            style={{ width: leftPanelCollapsed ? 40 : leftPanelWidth }}
           >
             {leftPanelCollapsed ? (
               <Card className="h-full flex items-center justify-center">
@@ -187,10 +279,10 @@ export function PropSphere() {
                 </button>
               </Card>
             ) : (
-              <div className="relative h-full">
+              <div className="relative h-full overflow-hidden">
                 <BandConditionsPanel
                   displayTime={displayTime}
-                  className="h-full"
+                  className="h-full overflow-y-auto"
                 />
                 <button
                   onClick={() => setLeftPanelCollapsed(true)}
@@ -215,43 +307,102 @@ export function PropSphere() {
             )}
           </div>
 
-          {/* Map View (center) */}
-          <Card className="p-0 overflow-hidden relative min-h-[300px] md:min-h-[400px]">
-            {/* Layer toggles overlay (top-left of map) */}
-            <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1">
+          {/* Left Resize Handle */}
+          {!leftPanelCollapsed && (
+            <div
+              className="hidden lg:flex w-2 flex-shrink-0 cursor-col-resize items-center justify-center group hover:bg-plasma-orange/20 transition-colors"
+              onMouseDown={handleResizeLeft}
+              title="Drag to resize"
+            >
+              <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
+            </div>
+          )}
+
+          {/* Map View (center) - takes remaining space */}
+          <Card className="flex-1 min-w-0 p-0 overflow-hidden relative min-h-[280px] flex flex-col">
+            {/* View Mode Tabs - edge-to-edge row */}
+            <div className="flex-shrink-0 flex border-b border-white/10">
               {(
-                ["terminator", "greyline", "aurora", "muf", "spots"] as const
-              ).map((layer) => (
+                [
+                  { value: "globe", label: "3D Globe" },
+                  { value: "flat", label: "2D Map" },
+                  { value: "azimuthal", label: "Azimuthal" },
+                ] as const
+              ).map((option) => (
                 <button
-                  key={layer}
-                  onClick={() => toggleLayer(layer)}
-                  className={`px-2 py-1 text-[10px] rounded-full border transition-all ${
-                    layers[layer]
-                      ? "bg-white/20 border-white/30 text-white"
-                      : "bg-black/40 border-white/10 text-gray-400 hover:bg-black/60"
+                  key={option.value}
+                  onClick={() =>
+                    useMapStore.getState().setViewMode(option.value)
+                  }
+                  className={`flex-1 py-2 text-xs font-medium transition-all border-b-2 ${
+                    viewMode === option.value
+                      ? "bg-plasma-orange/10 text-plasma-orange border-plasma-orange"
+                      : "text-gray-400 hover:text-white hover:bg-white/5 border-transparent"
                   }`}
                 >
-                  {layer.charAt(0).toUpperCase() + layer.slice(1)}
+                  {option.label}
                 </button>
               ))}
             </div>
 
-            {/* Preset buttons overlay (top-right of map) */}
-            <div className="absolute top-2 right-2 z-10 flex gap-1">
-              {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => applyPreset(preset)}
-                  title={PRESET_CONFIG[preset].description}
-                  className={`px-2 py-1 text-[10px] rounded-full border transition-all ${
-                    activePreset === preset
-                      ? "bg-plasma-orange/30 border-plasma-orange/50 text-plasma-orange"
-                      : "bg-black/40 border-white/10 text-gray-400 hover:bg-black/60"
-                  }`}
-                >
-                  {PRESET_CONFIG[preset].label}
-                </button>
-              ))}
+            {/* Layer controls bar */}
+            <div className="flex-shrink-0 flex items-center justify-between gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10">
+              {/* Layer toggles */}
+              <div className="flex flex-wrap gap-1">
+                {(
+                  [
+                    "terminator",
+                    "greyline",
+                    "aurora",
+                    "muf",
+                    "spots",
+                    "nightLights",
+                    "labels",
+                  ] as const
+                ).map((layer) => {
+                  // Display names for layers
+                  const displayNames: Record<string, string> = {
+                    terminator: "Day/Night",
+                    greyline: "Greyline",
+                    aurora: "Aurora",
+                    muf: "MUF",
+                    spots: "Spots",
+                    nightLights: "Lights",
+                    labels: "Labels",
+                  };
+                  return (
+                    <button
+                      key={layer}
+                      onClick={() => toggleLayer(layer)}
+                      className={`px-2 py-0.5 text-[10px] rounded transition-all ${
+                        layers[layer]
+                          ? "bg-white/20 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      {displayNames[layer] || layer}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Preset buttons */}
+              <div className="flex gap-1">
+                {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => applyPreset(preset)}
+                    title={PRESET_CONFIG[preset].description}
+                    className={`px-2 py-0.5 text-[10px] rounded transition-all ${
+                      activePreset === preset
+                        ? "bg-plasma-orange/30 text-plasma-orange"
+                        : "text-gray-400 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {PRESET_CONFIG[preset].label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* MUF Legend (bottom of map when MUF layer active) */}
@@ -261,8 +412,8 @@ export function PropSphere() {
               </div>
             )}
 
-            {/* Map View */}
-            <div className="h-full">
+            {/* Map View - relative container for floating panels */}
+            <div className="flex-1 min-h-0 relative">
               {viewMode === "globe" && (
                 <GlobeView
                   displayTime={displayTime}
@@ -281,14 +432,31 @@ export function PropSphere() {
                   onLocationClick={handleLocationClick}
                 />
               )}
+
+              {/* Optimal Bands Pop-out Panel (inside map container, below control bar) */}
+              {viewMode === "globe" && (
+                <OptimalBandsPanel displayTime={displayTime} />
+              )}
             </div>
           </Card>
 
+          {/* Right Resize Handle */}
+          {!rightPanelCollapsed && (
+            <div
+              className="hidden lg:flex w-2 flex-shrink-0 cursor-col-resize items-center justify-center group hover:bg-plasma-orange/20 transition-colors"
+              onMouseDown={handleResizeRight}
+              title="Drag to resize"
+            >
+              <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
+            </div>
+          )}
+
           {/* Path Analysis Panel (right) - hidden on mobile */}
           <div
-            className={`hidden lg:flex flex-col transition-all duration-300 ${
-              rightPanelCollapsed ? "lg:w-10" : ""
+            className={`hidden lg:flex flex-col flex-shrink-0 transition-all duration-200 ${
+              rightPanelCollapsed ? "w-10" : ""
             }`}
+            style={{ width: rightPanelCollapsed ? 40 : rightPanelWidth }}
           >
             {rightPanelCollapsed ? (
               <Card className="h-full flex items-center justify-center">
@@ -313,11 +481,14 @@ export function PropSphere() {
                 </button>
               </Card>
             ) : (
-              <div className="relative h-full">
-                <PathAnalysis displayTime={displayTime} className="h-full" />
+              <div className="relative h-full overflow-hidden">
+                <PathAnalysis
+                  displayTime={displayTime}
+                  className="h-full overflow-y-auto"
+                />
                 <button
                   onClick={() => setRightPanelCollapsed(true)}
-                  className="absolute top-2 right-2 p-1 bg-white/10 rounded hover:bg-white/20 transition-colors"
+                  className="absolute top-2 right-2 p-1 bg-white/10 rounded hover:bg-white/20 transition-colors z-10"
                   title="Collapse panel"
                 >
                   <svg
@@ -339,9 +510,9 @@ export function PropSphere() {
           </div>
         </div>
 
-        {/* Bottom Row: Recommendations | DX Spots (desktop) */}
-        <div className="hidden lg:grid grid-cols-[1fr_2fr] gap-2 md:gap-3 h-[200px]">
-          {/* Recommendations */}
+        {/* Bottom Row: DX Spots (full width on xl, with Recommendations on lg) */}
+        <div className="hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px]">
+          {/* Recommendations (lg only - on xl it's in top row) */}
           {station && target ? (
             <RecommendationsPanel
               homeLat={station.lat}
@@ -364,6 +535,54 @@ export function PropSphere() {
             showHeader={true}
             className="h-full"
           />
+        </div>
+
+        {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
+        <div className="hidden xl:block flex-shrink-0">
+          <Card className="overflow-hidden">
+            {/* Drawer Toggle Handle */}
+            <button
+              onClick={() => setDxClusterExpanded(!dxClusterExpanded)}
+              className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-white">
+                  DX Cluster
+                </span>
+                <span className="text-xs text-gray-400">
+                  Live spots from PSKReporter, RBN, and DX clusters
+                </span>
+              </div>
+              <svg
+                className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                  dxClusterExpanded ? "" : "rotate-180"
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            {/* Collapsible Content */}
+            <div
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                dxClusterExpanded ? "h-[280px]" : "h-0"
+              }`}
+            >
+              <DXSpotList
+                maxHeight="248px"
+                showFilters={true}
+                showHeader={false}
+                className="border-t-0 rounded-t-none h-full"
+              />
+            </div>
+          </Card>
         </div>
 
         {/* Mobile/Tablet Bottom Panel (shown on < lg) */}

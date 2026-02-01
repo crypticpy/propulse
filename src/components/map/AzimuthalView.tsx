@@ -6,10 +6,11 @@
  * extremely useful for ham radio operators to determine beam headings.
  */
 
-import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import { getPathMetrics } from "@/lib/utils/path";
 import {
   azimuthalProject,
   azimuthalUnproject,
@@ -21,6 +22,7 @@ import {
   getModeColor,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
+import { getDifficultyColor, type DifficultyLevel } from "./LocationMarker";
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 
 // Simplified world coastline data (major landmass outlines)
@@ -35,6 +37,7 @@ interface AzimuthalViewProps {
 }
 
 // Canvas dimensions (square for circular projection)
+// These are now used as defaults/internal references
 const CANVAS_SIZE = 600;
 const CENTER = CANVAS_SIZE / 2;
 const RADIUS = CANVAS_SIZE / 2 - 40; // Leave margin for labels
@@ -54,8 +57,8 @@ const COLORS = {
   night: "rgba(0, 0, 20, 0.5)",
   terminator: "#ff6b35",
   greyline: "rgba(255, 180, 100, 0.2)",
-  homeMarker: "#00ff88",
-  targetMarker: "#ff6b35",
+  homeMarker: "#4488FF", // Blue for home station
+  targetMarker: "#ff6b35", // Default fallback - usually overridden by difficulty
   path: "#ff6b35",
   grid: "rgba(255, 255, 255, 0.08)",
 };
@@ -424,6 +427,7 @@ function drawTargetAndPath(
   targetLat: number,
   targetLon: number,
   targetLabel?: string,
+  markerColor: string = COLORS.targetMarker,
 ) {
   const projected = azimuthalProject(
     targetLat,
@@ -434,11 +438,11 @@ function drawTargetAndPath(
   const { x, y } = projToCanvas(projected);
 
   // Draw the path (straight line from center - this is the key feature!)
-  ctx.strokeStyle = COLORS.path;
-  ctx.lineWidth = 3;
-  ctx.shadowColor = COLORS.path;
-  ctx.shadowBlur = 6;
-  ctx.setLineDash([8, 4]);
+  // Path color matches the marker (difficulty-based)
+  ctx.strokeStyle = markerColor;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.setLineDash([10, 6]);
 
   ctx.beginPath();
   ctx.moveTo(CENTER, CENTER);
@@ -446,23 +450,22 @@ function drawTargetAndPath(
   ctx.stroke();
 
   ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
 
   // Draw target marker
   // Outer glow
-  ctx.fillStyle = COLORS.targetMarker + "40";
+  ctx.fillStyle = markerColor + "40";
   ctx.beginPath();
   ctx.arc(x, y, 14, 0, Math.PI * 2);
   ctx.fill();
 
   // Inner dot
-  ctx.fillStyle = COLORS.targetMarker;
+  ctx.fillStyle = markerColor;
   ctx.beginPath();
   ctx.arc(x, y, 7, 0, Math.PI * 2);
   ctx.fill();
 
   // Pulsing ring
-  ctx.strokeStyle = COLORS.targetMarker;
+  ctx.strokeStyle = markerColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(x, y, 12, 0, Math.PI * 2);
@@ -477,11 +480,11 @@ function drawTargetAndPath(
     ctx.fillStyle = COLORS.background;
     const textWidth = ctx.measureText(labelText).width + 10;
     ctx.fillRect(x - textWidth / 2, y - 32, textWidth, 18);
-    ctx.strokeStyle = COLORS.targetMarker;
+    ctx.strokeStyle = markerColor;
     ctx.lineWidth = 1;
     ctx.strokeRect(x - textWidth / 2, y - 32, textWidth, 18);
 
-    ctx.fillStyle = COLORS.targetMarker;
+    ctx.fillStyle = markerColor;
     ctx.font = "bold 11px monospace";
     ctx.textAlign = "center";
     ctx.fillText(labelText, x, y - 18);
@@ -588,13 +591,179 @@ function drawSpotArcs(
   }
 }
 
+// Major cities for night lights display in azimuthal view
+const AZIMUTHAL_LIGHT_CITIES = [
+  { lat: 40.7128, lon: -74.006, size: 6 }, // New York
+  { lat: 34.0522, lon: -118.2437, size: 5 }, // Los Angeles
+  { lat: 51.5074, lon: -0.1278, size: 5 }, // London
+  { lat: 48.8566, lon: 2.3522, size: 4 }, // Paris
+  { lat: 35.6762, lon: 139.6503, size: 6 }, // Tokyo
+  { lat: 39.9042, lon: 116.4074, size: 6 }, // Beijing
+  { lat: -33.8688, lon: 151.2093, size: 4 }, // Sydney
+  { lat: 55.7558, lon: 37.6173, size: 4 }, // Moscow
+  { lat: 25.2048, lon: 55.2708, size: 4 }, // Dubai
+  { lat: 19.076, lon: 72.8777, size: 5 }, // Mumbai
+  { lat: 30.0444, lon: 31.2357, size: 4 }, // Cairo
+  { lat: -22.9068, lon: -43.1729, size: 4 }, // Rio
+  { lat: 37.5665, lon: 126.978, size: 5 }, // Seoul
+  { lat: 22.3193, lon: 114.1694, size: 5 }, // Hong Kong
+  { lat: 31.2304, lon: 121.4737, size: 5 }, // Shanghai
+];
+
+/**
+ * Draw night lights on azimuthal projection
+ */
+function drawAzimuthalNightLights(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  centerLat: number,
+  centerLon: number,
+) {
+  const subsolar = getSubsolarPoint(date);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  for (const city of AZIMUTHAL_LIGHT_CITIES) {
+    // Project city location
+    const projected = azimuthalProject(
+      city.lat,
+      city.lon,
+      centerLat,
+      centerLon,
+    );
+    const dist = Math.sqrt(
+      projected.x * projected.x + projected.y * projected.y,
+    );
+
+    // Skip if outside circle
+    if (dist > 1) continue;
+
+    // Calculate if city is on night side
+    const phi1 = city.lat * (Math.PI / 180);
+    const phi2 = subsolar.lat * (Math.PI / 180);
+    const deltaLambda = (city.lon - subsolar.lon) * (Math.PI / 180);
+
+    const cosAngle =
+      Math.sin(phi1) * Math.sin(phi2) +
+      Math.cos(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
+    const angle =
+      Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
+
+    // Only show lights on night side
+    if (angle > 85) {
+      const canvas = projToCanvas(projected);
+      const nightDepth = Math.min((angle - 85) / 30, 1);
+      const intensity = nightDepth * 0.8;
+
+      const gradient = ctx.createRadialGradient(
+        canvas.x,
+        canvas.y,
+        0,
+        canvas.x,
+        canvas.y,
+        city.size,
+      );
+      gradient.addColorStop(0, `rgba(255, 200, 100, ${intensity})`);
+      gradient.addColorStop(0.3, `rgba(255, 180, 80, ${intensity * 0.6})`);
+      gradient.addColorStop(1, "transparent");
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(canvas.x, canvas.y, city.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+// City labels for azimuthal view
+const AZIMUTHAL_CITY_LABELS = [
+  { name: "NYC", lat: 40.7128, lon: -74.006 },
+  { name: "London", lat: 51.5074, lon: -0.1278 },
+  { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
+  { name: "Sydney", lat: -33.8688, lon: 151.2093 },
+  { name: "Moscow", lat: 55.7558, lon: 37.6173 },
+];
+
+/**
+ * Draw labels on azimuthal projection
+ */
+function drawAzimuthalLabels(
+  ctx: CanvasRenderingContext2D,
+  centerLat: number,
+  centerLon: number,
+) {
+  ctx.font = "bold 9px sans-serif";
+  ctx.textAlign = "center";
+
+  for (const city of AZIMUTHAL_CITY_LABELS) {
+    const projected = azimuthalProject(
+      city.lat,
+      city.lon,
+      centerLat,
+      centerLon,
+    );
+    const dist = Math.sqrt(
+      projected.x * projected.x + projected.y * projected.y,
+    );
+
+    // Skip if outside circle
+    if (dist > 0.95) continue;
+
+    const canvas = projToCanvas(projected);
+
+    // Draw text with dark outline for visibility
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(city.name, canvas.x, canvas.y - 8);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.fillText(city.name, canvas.x, canvas.y - 8);
+
+    // Small dot
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.beginPath();
+    ctx.arc(canvas.x, canvas.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 export function AzimuthalView({
   displayTime,
   onLocationClick,
 }: AzimuthalViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { layers, target } = useMapStore();
   const { station } = useUserStore();
+
+  // Track container size for responsive scaling
+  const [displaySize, setDisplaySize] = useState(CANVAS_SIZE);
+
+  // Observe container resize for responsive display
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect();
+      // Use the smaller dimension to maintain square aspect ratio
+      // No minimum - let it scale down, cap at 1200px for display
+      const size = Math.min(Math.min(rect.width, rect.height) - 16, 1200);
+      setDisplaySize(Math.max(size, 300)); // Minimum 300px for display
+    };
+
+    // Initial size
+    updateSize();
+
+    // Observe resize
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, []);
 
   // Memoize the center coordinates
   const center = useMemo(() => {
@@ -614,6 +783,23 @@ export function AzimuthalView({
     if (!layers.spots) return [];
     return resolveSpotLocations(spots).slice(0, 50);
   }, [spots, layers.spots]);
+
+  // Calculate path difficulty for target marker coloring
+  const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
+    if (!station || !target) return undefined;
+    const metrics = getPathMetrics(
+      station.lat,
+      station.lon,
+      target.lat,
+      target.lon,
+    );
+    return metrics.difficulty;
+  }, [station, target]);
+
+  // Get target marker color based on difficulty
+  const targetMarkerColor = pathDifficulty
+    ? getDifficultyColor(pathDifficulty)
+    : COLORS.targetMarker;
 
   // Handle canvas click
   const handleClick = useCallback(
@@ -675,8 +861,18 @@ export function AzimuthalView({
       drawTerminator(ctx, displayTime, center.lat, center.lon);
     }
 
+    // Draw night lights (city lights on dark side)
+    if (layers.nightLights) {
+      drawAzimuthalNightLights(ctx, displayTime, center.lat, center.lon);
+    }
+
     // Draw distance rings
     drawDistanceRings(ctx);
+
+    // Draw labels (city names)
+    if (layers.labels) {
+      drawAzimuthalLabels(ctx, center.lat, center.lon);
+    }
 
     // Draw bearing labels
     drawBearingLabels(ctx);
@@ -695,24 +891,40 @@ export function AzimuthalView({
         target.lat,
         target.lon,
         target.name || target.grid,
+        targetMarkerColor,
       );
     }
 
     // Draw home marker at center (always last so it's on top)
     drawHomeMarker(ctx, station?.callsign);
-  }, [displayTime, layers, station, target, center, resolvedSpots]);
+  }, [
+    displayTime,
+    layers,
+    station,
+    target,
+    center,
+    resolvedSpots,
+    targetMarkerColor,
+  ]);
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center">
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center"
+    >
       <canvas
         ref={canvasRef}
         width={CANVAS_SIZE}
         height={CANVAS_SIZE}
         onClick={handleClick}
-        className="max-w-full max-h-full cursor-crosshair"
+        className="cursor-crosshair"
         aria-label="Azimuthal projection map centered on your location - click to select target"
         role="img"
-        style={{ imageRendering: "auto" }}
+        style={{
+          imageRendering: "auto",
+          width: displaySize,
+          height: displaySize,
+        }}
       />
       {/* Legend overlay */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">

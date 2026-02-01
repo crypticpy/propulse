@@ -15,14 +15,21 @@ import {
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import { getPathMetrics } from "@/lib/utils/path";
 import { EarthSphere } from "./EarthSphere";
 import { Terminator } from "./Terminator";
 import { Greyline } from "./Greyline";
 import { NightOverlay } from "./NightOverlay";
+import { NightLightsOverlay } from "./NightLightsOverlay";
+import { LabelsOverlay } from "./LabelsOverlay";
 import { AuroraOverlay } from "./AuroraOverlay";
 import { MUFOverlay } from "./MUFOverlay";
 import { PathArc } from "./PathArc";
-import { LocationMarker } from "./LocationMarker";
+import {
+  LocationMarker,
+  getDifficultyColor,
+  type DifficultyLevel,
+} from "./LocationMarker";
 import { LiveSpotArcs } from "./LiveSpotArcs";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -132,6 +139,18 @@ function GlobeScene({
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
 
+  // Calculate path difficulty when station and target are set
+  const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
+    if (!station || !target) return undefined;
+    const metrics = getPathMetrics(
+      station.lat,
+      station.lon,
+      target.lat,
+      target.lon,
+    );
+    return metrics.difficulty;
+  }, [station, target]);
+
   const handleEarthClick = useCallback(
     (lat: number, lon: number) => {
       onLocationClick?.(lat, lon);
@@ -175,6 +194,12 @@ function GlobeScene({
         <AuroraOverlay auroraData={auroraData} minProbability={10} />
       )}
 
+      {/* Night lights overlay - city lights on dark side */}
+      {layers.nightLights && <NightLightsOverlay date={displayTime} />}
+
+      {/* Labels overlay - country borders and city names */}
+      {layers.labels && <LabelsOverlay />}
+
       {/* MUF overlay */}
       {layers.muf && currentSFI && (
         <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
@@ -183,35 +208,39 @@ function GlobeScene({
       {/* Live spot arcs */}
       {layers.spots && <LiveSpotArcs grid={station?.grid} maxArcs={50} />}
 
-      {/* Home station marker */}
+      {/* Home station marker - Blue color */}
       {station && (
         <LocationMarker
           lat={station.lat}
           lon={station.lon}
-          color="#00ff88"
+          color="#4488FF"
           label={station.callsign}
           type="home"
         />
       )}
 
-      {/* Target location marker */}
+      {/* Target location marker - Color based on difficulty */}
       {target && (
         <>
           <LocationMarker
             lat={target.lat}
             lon={target.lon}
-            color="#ff6b35"
             label={target.name || target.grid}
             type="target"
+            difficulty={pathDifficulty}
+            showDifficultyTag={true}
           />
 
-          {/* Path arc between home and target */}
+          {/* Path arc between home and target - Color based on difficulty */}
           {station && (
             <PathArc
               startLat={station.lat}
               startLon={station.lon}
               endLat={target.lat}
               endLon={target.lon}
+              color={
+                pathDifficulty ? getDifficultyColor(pathDifficulty) : "#ff6b35"
+              }
             />
           )}
         </>

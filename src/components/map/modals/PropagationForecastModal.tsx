@@ -160,7 +160,7 @@ export function PropagationForecastModal({
             >
               {kp}
             </div>
-            <div className="text-[10px] text-gray-600 mt-1">
+            <div className="text-[10px] text-gray-400 mt-1">
               {kp <= 2 ? "Quiet" : kp <= 4 ? "Unsettled" : "Stormy"}
             </div>
           </div>
@@ -177,7 +177,7 @@ export function PropagationForecastModal({
             >
               {sfi}
             </div>
-            <div className="text-[10px] text-gray-600 mt-1">
+            <div className="text-[10px] text-gray-400 mt-1">
               {sfi >= 150 ? "Excellent" : sfi >= 100 ? "Good" : "Low"}
             </div>
           </div>
@@ -186,7 +186,7 @@ export function PropagationForecastModal({
             <div className="text-2xl font-mono font-bold text-plasma-orange">
               {currentHour.toString().padStart(2, "0")}:00z
             </div>
-            <div className="text-[10px] text-gray-600 mt-1">UTC</div>
+            <div className="text-[10px] text-gray-400 mt-1">UTC</div>
           </div>
           <div className="bg-white/5 rounded-xl p-4 text-center">
             <div className="text-xs text-gray-500 mb-1">Best Band Now</div>
@@ -200,7 +200,7 @@ export function PropagationForecastModal({
             >
               {currentBestBand?.band || "---"}
             </div>
-            <div className="text-[10px] text-gray-600 mt-1">
+            <div className="text-[10px] text-gray-400 mt-1">
               {currentBestBand
                 ? `${currentBestBand.snrEstimate} dB`
                 : "No opening"}
@@ -287,27 +287,27 @@ export function PropagationForecastModal({
                 </linearGradient>
               </defs>
 
-              {/* Y-axis labels (bands) */}
+              {/* Y-axis labels (bands) - improved contrast */}
               {DISPLAY_BANDS.map((band, idx) => (
                 <text
                   key={band}
                   x={MARGIN.left - 8}
                   y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 4}
                   textAnchor="end"
-                  className="fill-gray-400 text-[11px] font-mono"
+                  className="fill-gray-200 text-[11px] font-mono"
                 >
                   {band}
                 </text>
               ))}
 
-              {/* X-axis labels (hours) - show every 2 hours */}
+              {/* X-axis labels (hours) - show every 2 hours with better contrast */}
               {Array.from({ length: 12 }, (_, i) => i * 2).map((hour) => (
                 <text
                   key={hour}
                   x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH}
                   y={CHART_HEIGHT - 8}
                   textAnchor="middle"
-                  className="fill-gray-400 text-[10px] font-mono"
+                  className="fill-gray-300 text-[10px] font-mono"
                 >
                   {hour.toString().padStart(2, "0")}
                 </text>

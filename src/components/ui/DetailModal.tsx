@@ -62,15 +62,16 @@ export function DetailModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
       {/* Backdrop - pure black for maximum contrast */}
-      <div className="absolute inset-0 bg-black" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/95" onClick={onClose} />
 
-      {/* Modal - pure black background, no blur */}
+      {/* Modal - pure black background, constrained to viewport */}
       <Card
         className={`
-          relative z-10 w-full p-6
-          max-md:max-w-none max-md:h-full max-md:rounded-none max-md:flex max-md:flex-col
+          relative z-10 w-full p-6 flex flex-col
+          max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)]
+          max-md:max-w-none max-md:rounded-none
           ${sizeClasses[size]}
           !bg-black !backdrop-blur-none
         `}
@@ -88,7 +89,7 @@ export function DetailModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors ml-4"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-4"
             aria-label="Close modal"
           >
             <svg
@@ -108,7 +109,9 @@ export function DetailModal({
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-1 -mx-6 px-6">{children}</div>
+        <div className="overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
+          {children}
+        </div>
       </Card>
     </div>
   );

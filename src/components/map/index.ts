@@ -11,6 +11,8 @@ export { EarthSphere } from "./EarthSphere";
 export { Terminator } from "./Terminator";
 export { Greyline } from "./Greyline";
 export { NightOverlay } from "./NightOverlay";
+export { NightLightsOverlay } from "./NightLightsOverlay";
+export { LabelsOverlay } from "./LabelsOverlay";
 export { AuroraOverlay } from "./AuroraOverlay";
 export { MUFOverlay } from "./MUFOverlay";
 export { MUFLegend, MUFLegendCompact } from "./MUFLegend";
@@ -38,3 +40,15 @@ export { FullscreenPropSphere } from "./FullscreenPropSphere";
 
 // Recommendations
 export { RecommendationsPanel } from "./RecommendationsPanel";
+export { RecommendationsBadge } from "./RecommendationsBadge";
+
+// Optimal bands pop-out panel
+export { OptimalBandsPanel } from "./OptimalBandsPanel";
+
+// LocationMarker exports (for difficulty utilities)
+export {
+  DIFFICULTY_COLORS,
+  DIFFICULTY_LABELS,
+  getDifficultyColor,
+  type DifficultyLevel,
+} from "./LocationMarker";

@@ -2,7 +2,6 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { formatUTC } from "@/lib/utils/time";
 import { useUserStore } from "@/stores/userStore";
-import { useMapStore } from "@/stores/mapStore";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 
 /**
@@ -13,7 +12,6 @@ export function Header() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showSettings, setShowSettings] = useState(false);
   const { station } = useUserStore();
-  const setFullscreen = useMapStore((state) => state.setFullscreen);
 
   // Update time every second
   useEffect(() => {
@@ -56,54 +54,23 @@ export function Header() {
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
-                  <div key={item.path} className="flex items-center gap-1">
-                    <Link
-                      to={item.path}
-                      aria-label={item.label}
-                      className={`
-                    flex-shrink-0 flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-lg text-sm font-medium
-                    transition-colors
-                    ${
-                      isActive
-                        ? "bg-plasma-orange/20 text-plasma-orange"
-                        : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
-                    }
-                  `}
-                    >
-                      <span>{item.icon}</span>
-                      <span className="hidden md:inline">{item.label}</span>
-                    </Link>
-
-                    {/* Pro View button (PropSphere only) */}
-                    {item.path === "/map" && isActive && (
-                      <button
-                        type="button"
-                        onClick={() => setFullscreen(true)}
-                        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg
-                                   bg-plasma-orange/15 border border-plasma-orange/40
-                                   text-plasma-orange hover:bg-plasma-orange/25 transition-colors"
-                        title="Open Pro View (fullscreen)"
-                        aria-label="Open Pro View (fullscreen)"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                          />
-                        </svg>
-                        <span className="hidden md:inline text-xs font-semibold">
-                          Pro View
-                        </span>
-                      </button>
-                    )}
-                  </div>
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    aria-label={item.label}
+                    className={`
+                      flex-shrink-0 flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-lg text-sm font-medium
+                      transition-colors
+                      ${
+                        isActive
+                          ? "bg-plasma-orange/20 text-plasma-orange"
+                          : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                      }
+                    `}
+                  >
+                    <span>{item.icon}</span>
+                    <span className="hidden md:inline">{item.label}</span>
+                  </Link>
                 );
               })}
             </nav>

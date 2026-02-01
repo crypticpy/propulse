@@ -86,35 +86,6 @@ export function TimeControl({ className = "" }: TimeControlProps) {
           <span>+24h</span>
         </div>
       </div>
-
-      {/* Quick presets */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setTimeOffset(-6)}
-          className="flex-1 px-2 py-1 text-xs bg-white/5 hover:bg-white/10
-            rounded border border-white/10 text-gray-400 hover:text-white transition-colors"
-        >
-          -6h
-        </button>
-        <button
-          onClick={() => setTimeOffset(0)}
-          className={`flex-1 px-2 py-1 text-xs rounded border transition-colors
-            ${
-              timeOffset === 0
-                ? "bg-signal-green/20 border-signal-green/50 text-signal-green"
-                : "bg-white/5 hover:bg-white/10 border-white/10 text-gray-400 hover:text-white"
-            }`}
-        >
-          Now
-        </button>
-        <button
-          onClick={() => setTimeOffset(6)}
-          className="flex-1 px-2 py-1 text-xs bg-white/5 hover:bg-white/10
-            rounded border border-white/10 text-gray-400 hover:text-white transition-colors"
-        >
-          +6h
-        </button>
-      </div>
     </div>
   );
 }

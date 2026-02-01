@@ -12,7 +12,6 @@ import {
   GlobeView,
   FlatMapView,
   AzimuthalView,
-  ViewModeToggle,
   TimeControl,
   PathAnalysis,
   PropagationForecastMini,
@@ -28,7 +27,11 @@ import { Card } from "@/components/ui/Card";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
-import { useActiveRadio, useActiveUserRadio, useUserStore } from "@/stores/userStore";
+import {
+  useActiveRadio,
+  useActiveUserRadio,
+  useUserStore,
+} from "@/stores/userStore";
 import { getBandsForRegion, getAvailableSegments } from "@/lib/data/bandplans";
 
 /**
@@ -66,6 +69,7 @@ export function PropSphere() {
     activePreset,
     applyPreset,
     isFullscreen,
+    setFullscreen,
   } = useMapStore();
   const station = useUserStore((state) => state.station);
   const preferences = useUserStore((state) => state.preferences);
@@ -214,16 +218,60 @@ export function PropSphere() {
     <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-hidden">
       {/* Main Content - Framed Layout */}
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
-        {/* Top Row: Time + View | Station | Forecast | Recommendations */}
+        {/* Top Row: Pro View + Time | Station | Forecast | Recommendations */}
         <div className="grid grid-cols-2 lg:grid-cols-[240px_auto_1fr] xl:grid-cols-[240px_auto_1fr_280px] gap-2 md:gap-3">
-          {/* Time Machine + View Toggle */}
-          <Card className="p-3 col-span-1">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-medium text-white">Time Machine</h3>
-              <ViewModeToggle compact />
+          {/* Pro View Entry + Time Machine */}
+          <div className="col-span-1 flex flex-col gap-2">
+            {/* Pro View Entry Point */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setFullscreen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setFullscreen(true);
+                }
+              }}
+              className="p-3 rounded-2xl bg-white/[0.03] backdrop-blur-md border border-plasma-orange/30
+                         hover:border-plasma-orange/60 hover:bg-plasma-orange/5
+                         cursor-pointer transition-all duration-200 group"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-white group-hover:text-plasma-orange transition-colors">
+                    Pro View
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    Full-screen immersive experience
+                  </div>
+                </div>
+                <div className="p-2 rounded-lg bg-plasma-orange/10 text-plasma-orange group-hover:bg-plasma-orange/20 transition-colors">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                    />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden" />
-          </Card>
+
+            {/* Time Machine */}
+            <Card className="p-3 flex-1">
+              <div className="flex items-center mb-2">
+                <h3 className="text-xs font-medium text-white">Time Machine</h3>
+              </div>
+              <TimeControl />
+            </Card>
+          </div>
 
           {/* Operator Location */}
           <Card className="p-3 col-span-1 min-w-[140px]">
@@ -273,14 +321,18 @@ export function PropSphere() {
                 <div className="truncate">
                   <span className="text-gray-300 font-semibold">Radio:</span>{" "}
                   <span
-                    className={activeRadioLabel ? "text-gray-100" : "text-gray-400"}
+                    className={
+                      activeRadioLabel ? "text-gray-100" : "text-gray-400"
+                    }
                   >
                     {activeRadioLabel ?? "No active profile"}
                   </span>
                 </div>
                 <div className="truncate">
                   <span className="text-gray-300 font-semibold">Power:</span>{" "}
-                  <span className={powerLabel ? "text-gray-100" : "text-gray-400"}>
+                  <span
+                    className={powerLabel ? "text-gray-100" : "text-gray-400"}
+                  >
                     {powerLabel ?? "—"}
                   </span>
                 </div>
@@ -331,7 +383,9 @@ export function PropSphere() {
                 />
               ) : (
                 <div className="h-full flex items-center justify-center text-gray-500 text-xs">
-                  {station ? "Select a target on the map" : "Set QTH in settings"}
+                  {station
+                    ? "Select a target on the map"
+                    : "Set QTH in settings"}
                 </div>
               )}
             </div>

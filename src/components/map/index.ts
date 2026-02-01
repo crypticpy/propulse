@@ -28,6 +28,8 @@ export { AzimuthalView } from "./AzimuthalView";
 export { TimeControl } from "./TimeControl";
 export { PathAnalysis } from "./PathAnalysis";
 export { PropagationForecast } from "./PropagationForecast";
+export { PropagationForecastMini } from "./PropagationForecastMini";
+export { BandConditionsPanel } from "./BandConditionsPanel";
 export { ViewModeToggle } from "./ViewModeToggle";
 export { QuickTargets } from "./QuickTargets";
 

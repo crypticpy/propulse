@@ -200,12 +200,6 @@ export function DXWizard() {
     return entry?.equipment ?? null;
   }, [selectedRadioId, userRadios]);
 
-  const selectedRadioNickname = useMemo(() => {
-    if (!selectedRadioId) return null;
-    const entry = userRadios.find((r) => r.userRadio.radioId === selectedRadioId);
-    return entry?.userRadio.nickname ?? null;
-  }, [selectedRadioId, userRadios]);
-
   const resolveTarget = useCallback(async () => {
     const raw = targetQuery.trim();
     setTargetError(null);
@@ -763,4 +757,3 @@ export function DXWizard() {
 }
 
 export default DXWizard;
-

@@ -25,6 +25,7 @@ export function Header() {
     { path: "/", label: "Home", icon: "🏠" },
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
     { path: "/map", label: "PropSphere", icon: "🌍" },
+    { path: "/dx", label: "DX Wizard", icon: "🧙" },
     // Future: { path: "/log", label: "LogBook", icon: "📝" },
   ];
 

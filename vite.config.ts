@@ -40,6 +40,21 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/json/ovation_aurora_latest.json",
       },
+      // Callsign lookup proxy (dev only) - mirrors Vercel `/api/callsign/lookup`
+      "/api/callsign/lookup": {
+        target: "https://callook.info",
+        changeOrigin: true,
+        rewrite: (pathStr) => {
+          try {
+            const url = new URL(`http://local${pathStr}`);
+            const callsign = url.searchParams.get("callsign");
+            if (callsign) return `/${callsign}/json`;
+          } catch {
+            // ignore
+          }
+          return "/INVALID/json";
+        },
+      },
     },
   },
 });

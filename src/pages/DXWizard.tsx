@@ -434,7 +434,7 @@ export function DXWizard() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     value={targetQuery}
                     onChange={(e) => setTargetQuery(e.target.value)}
@@ -447,7 +447,7 @@ export function DXWizard() {
                     type="button"
                     onClick={resolveTarget}
                     disabled={targetResolving}
-                    className="px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
+                    className="w-full sm:w-auto px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
                                text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium
                                disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -462,7 +462,7 @@ export function DXWizard() {
                   <div className="text-xs text-gray-400 mb-2">
                     Optional: look up a callsign (US via Callook)
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       value={callsignInput}
                       onChange={(e) => setCallsignInput(e.target.value)}
@@ -475,7 +475,7 @@ export function DXWizard() {
                       type="button"
                       onClick={handleLookupCallsign}
                       disabled={callsignLoading}
-                      className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg
+                      className="w-full sm:w-auto px-4 py-2 bg-white/5 border border-white/10 rounded-lg
                                  text-gray-200 hover:bg-white/10 transition-colors font-medium
                                  disabled:opacity-50 disabled:cursor-not-allowed"
                     >

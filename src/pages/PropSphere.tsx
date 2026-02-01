@@ -217,7 +217,7 @@ export function PropSphere() {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-hidden">
       {/* Main Content - Framed Layout */}
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
         {/* Top Row: Time + View | Station | Forecast | Recommendations */}
@@ -443,7 +443,7 @@ export function PropSphere() {
             </div>
 
             {/* Layer controls bar */}
-            <div className="flex-shrink-0 flex items-center justify-between gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10">
+            <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10">
               {/* Layer toggles */}
               <div className="flex flex-wrap gap-1">
                 {(
@@ -484,7 +484,7 @@ export function PropSphere() {
               </div>
 
               {/* Preset buttons */}
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap justify-start sm:justify-end">
                 {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
                   <button
                     key={preset}

@@ -82,7 +82,10 @@ export function DetailModal({
       className={`fixed inset-0 ${zIndexClassName ?? "z-[350]"} flex items-center justify-center p-4 md:p-6`}
     >
       {/* Backdrop - allow map context to remain visible */}
-      <div className="absolute inset-0 bg-black/10" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       {/* Modal - dark translucent background, constrained to viewport */}
       <Card

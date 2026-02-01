@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 
 export interface BzDataPoint {
@@ -172,11 +172,17 @@ export const BzModal: React.FC<BzModalProps> = ({
   const yMax = 20;
   const yRange = yMax - yMin;
 
-  const yScale = (value: number) =>
-    padding.top + innerHeight - ((value - yMin) / yRange) * innerHeight;
+  const yScale = useCallback(
+    (value: number) =>
+      padding.top + innerHeight - ((value - yMin) / yRange) * innerHeight,
+    [innerHeight, padding.top, yMin, yRange],
+  );
 
-  const xScale = (index: number) =>
-    padding.left + (index / Math.max(chartData.length - 1, 1)) * innerWidth;
+  const xScale = useCallback(
+    (index: number) =>
+      padding.left + (index / Math.max(chartData.length - 1, 1)) * innerWidth,
+    [chartData.length, innerWidth, padding.left],
+  );
 
   // Build SVG path for line chart
   const linePath = useMemo(() => {
@@ -192,7 +198,7 @@ export const BzModal: React.FC<BzModalProps> = ({
         return `${i === 0 ? "M" : "L"} ${x} ${y}`;
       })
       .join(" ");
-  }, [chartData]);
+  }, [chartData, xScale, yScale]);
 
   // Build area path for fill
   const areaPath = useMemo(() => {
@@ -214,7 +220,7 @@ export const BzModal: React.FC<BzModalProps> = ({
     const firstX = xScale(validPoints[0].index);
 
     return `${pathStart} L ${lastX} ${baseline} L ${firstX} ${baseline} Z`;
-  }, [chartData]);
+  }, [chartData, xScale, yScale]);
 
   const yTicks = [-20, -10, -5, 0, 5, 10, 20];
 

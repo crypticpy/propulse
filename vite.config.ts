@@ -34,6 +34,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/json/solar-cycle/sunspots.json",
       },
+      "/api/solar/magnetometer": {
+        target: "https://services.swpc.noaa.gov",
+        changeOrigin: true,
+        rewrite: () => "/products/solar-wind/mag-1-day.json",
+      },
       // Aurora OVATION data proxy
       "/api/aurora": {
         target: "https://services.swpc.noaa.gov",

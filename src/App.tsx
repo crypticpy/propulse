@@ -4,6 +4,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Home } from "@/pages/Home";
 import { SolarPulse } from "@/pages/SolarPulse";
 import { DXWizard } from "@/pages/DXWizard";
+import { Logbook } from "@/pages/Logbook";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -20,6 +21,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/solar" element={<SolarPulse />} />
           <Route path="/dx" element={<DXWizard />} />
+          <Route path="/log" element={<Logbook />} />
           <Route
             path="/map"
             element={

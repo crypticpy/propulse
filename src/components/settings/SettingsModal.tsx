@@ -75,9 +75,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       />
 
       {/* Modal */}
-      <Card className="relative z-10 w-full max-w-md p-6" animate>
+      <Card
+        className="relative z-10 w-full max-w-md p-6 flex flex-col max-h-[calc(100dvh-2rem)]"
+        animate
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-shrink-0">
           <h2 className="font-orbitron text-xl font-bold text-gradient-orange">
             Settings
           </h2>
@@ -102,8 +105,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* Station Section */}
-        <div className="space-y-4 mb-6">
+        <div className="overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
+          {/* Station Section */}
+          <div className="space-y-4 mb-6">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
             Station Info
           </h3>
@@ -140,18 +144,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               onError={setGridError}
             />
           </div>
-        </div>
+          </div>
 
-        {/* Radio Equipment Section */}
-        <div className="mb-6">
-          <RadioManager compact />
-        </div>
+          {/* Radio Equipment Section */}
+          <div className="mb-6">
+            <RadioManager compact />
+          </div>
 
-        {/* Preferences Section */}
-        <div className="space-y-4 mb-6">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-            Preferences
-          </h3>
+          {/* Preferences Section */}
+          <div className="space-y-4 mb-6">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Preferences
+            </h3>
 
           {/* Time Format */}
           <div>
@@ -222,10 +226,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </button>
             </div>
           </div>
+          </div>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-shrink-0 pt-4 border-t border-white/10">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg

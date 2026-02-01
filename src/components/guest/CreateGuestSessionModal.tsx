@@ -81,7 +81,10 @@ export function CreateGuestSessionModal({
       />
 
       {/* Modal */}
-      <Card className="relative z-10 w-full max-w-md p-6" animate>
+      <Card
+        className="relative z-10 w-full max-w-md p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        animate
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-orbitron text-xl font-bold text-gradient-orange">

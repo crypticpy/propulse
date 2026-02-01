@@ -132,13 +132,45 @@ export async function fetchSunspots(): Promise<SunspotData[]> {
 }
 
 /**
+ * Raw NOAA magnetometer response format (array of arrays)
+ * First row is headers: ["time_tag", "bx_gsm", "by_gsm", "bz_gsm", "lon_gsm", "lat_gsm", "bt"]
+ */
+type RawMagnetometerRow = [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+];
+
+/**
  * Fetch solar wind magnetometer data
  * Returns IMF Bz, By, and total field (Bt) measurements
  * Bz is critical for predicting geomagnetic storm impacts
+ *
+ * Handles both raw NOAA format (dev proxy) and processed format (Edge Function).
  *
  * @returns Promise<MagnetometerData[]> - Array of magnetometer measurements (1-minute resolution)
  * @throws ApiError if the request fails
  */
 export async function fetchMagnetometer(): Promise<MagnetometerData[]> {
-  return fetchFromProxy<MagnetometerData[]>("magnetometer");
+  const data = await fetchFromProxy<MagnetometerData[] | RawMagnetometerRow[]>(
+    "magnetometer",
+  );
+
+  // Raw NOAA format - transform it
+  if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
+    const rawData = data as RawMagnetometerRow[];
+    return rawData.slice(1).map((row) => ({
+      time_tag: row[0],
+      by_gsm: row[2] ? parseFloat(row[2]) : null,
+      bz_gsm: row[3] ? parseFloat(row[3]) : null,
+      bt: row[6] ? parseFloat(row[6]) : null,
+    }));
+  }
+
+  // Already in processed format
+  return data as MagnetometerData[];
 }

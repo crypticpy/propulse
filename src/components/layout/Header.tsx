@@ -26,7 +26,7 @@ export function Header() {
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
     { path: "/map", label: "PropSphere", icon: "🌍" },
     { path: "/dx", label: "DX Wizard", icon: "🧙" },
-    // Future: { path: "/log", label: "LogBook", icon: "📝" },
+    { path: "/log", label: "LogBook", icon: "📝" },
   ];
 
   return (
@@ -50,15 +50,16 @@ export function Header() {
             </Link>
 
             {/* Navigation */}
-            <nav className="flex items-center gap-1 md:gap-2">
+            <nav className="flex items-center gap-1 md:gap-2 overflow-x-auto max-w-[60vw] sm:max-w-none">
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <div key={item.path} className="flex items-center gap-1">
                     <Link
                       to={item.path}
+                      aria-label={item.label}
                       className={`
-                    flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
+                    flex-shrink-0 flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-lg text-sm font-medium
                     transition-colors
                     ${
                       isActive
@@ -76,7 +77,7 @@ export function Header() {
                       <button
                         type="button"
                         onClick={() => setFullscreen(true)}
-                        className="flex items-center gap-1 px-2.5 py-2 rounded-lg
+                        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg
                                    bg-plasma-orange/15 border border-plasma-orange/40
                                    text-plasma-orange hover:bg-plasma-orange/25 transition-colors"
                         title="Open Pro View (fullscreen)"

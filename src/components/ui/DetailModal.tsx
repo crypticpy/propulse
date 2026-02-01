@@ -8,6 +8,8 @@ export interface DetailModalProps {
   title: string;
   subtitle?: string;
   size?: "md" | "lg" | "xl" | "full";
+  /** Optional z-index override for nested modals */
+  zIndexClassName?: string;
   children: React.ReactNode;
 }
 
@@ -44,6 +46,7 @@ export function DetailModal({
   title,
   subtitle,
   size = "md",
+  zIndexClassName,
   children,
 }: DetailModalProps) {
   // Prevent background scroll while modal is open
@@ -75,7 +78,9 @@ export function DetailModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[350] flex items-center justify-center p-4 md:p-6">
+    <div
+      className={`fixed inset-0 ${zIndexClassName ?? "z-[350]"} flex items-center justify-center p-4 md:p-6`}
+    >
       {/* Backdrop - allow map context to remain visible */}
       <div className="absolute inset-0 bg-black/10" onClick={onClose} />
 

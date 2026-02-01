@@ -22,6 +22,12 @@ Transmit performance (when available):
 2. Prefer measured data over marketing specs; when using estimates, say so in `sources[].notes`.
 3. If a metric is unknown, omit it (don’t guess) and add a source note about what’s missing.
 
+## Importing Sherwood (Opt-In)
+Sherwood’s receiver table is the most useful public dataset for comparative RX performance, but it may have redistribution restrictions. This repo includes an **opt-in** importer that writes `src/lib/data/sherwood.generated.ts` for local use.
+
+- Run: `npm run import:sherwood`
+- Output: `src/lib/data/sherwood.generated.ts`
+- Note: do not commit regenerated contents unless you have explicit permission.
+
 ## User-Created Custom Radios
 Users can create/edit custom radios in Settings → Radio Equipment. Custom radios are stored in `preferences.customRadios` (persisted locally) and are selectable from the “Custom” tab in the radio picker. Custom radio names (`displayName`) are case-insensitive unique.
-

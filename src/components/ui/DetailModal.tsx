@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Card } from "./Card";
 
 export interface DetailModalProps {
@@ -45,6 +46,16 @@ export function DetailModal({
   size = "md",
   children,
 }: DetailModalProps) {
+  // Prevent background scroll while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   // ESC key handler
   useEffect(() => {
     if (!isOpen) return;
@@ -61,19 +72,21 @@ export function DetailModal({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
-      {/* Backdrop - pure black for maximum contrast */}
-      <div className="absolute inset-0 bg-black/95" onClick={onClose} />
+  if (typeof document === "undefined") return null;
 
-      {/* Modal - pure black background, constrained to viewport */}
+  return createPortal(
+    <div className="fixed inset-0 z-[350] flex items-center justify-center p-4 md:p-6">
+      {/* Backdrop - allow map context to remain visible */}
+      <div className="absolute inset-0 bg-black/10" onClick={onClose} />
+
+      {/* Modal - dark translucent background, constrained to viewport */}
       <Card
         className={`
           relative z-10 w-full p-6 flex flex-col
           max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)]
-          max-md:max-w-none max-md:rounded-none
+          max-w-[92vw]
           ${sizeClasses[size]}
-          !bg-black !backdrop-blur-none
+          !bg-black/80 !backdrop-blur-md border border-white/15
         `}
         animate
       >
@@ -114,6 +127,8 @@ export function DetailModal({
         </div>
       </Card>
     </div>
+    ,
+    document.body,
   );
 }
 

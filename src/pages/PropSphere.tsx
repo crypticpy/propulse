@@ -25,9 +25,11 @@ import {
 } from "@/components/map";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { Card } from "@/components/ui/Card";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
-import { useUserStore } from "@/stores/userStore";
+import { useActiveRadio, useUserStore } from "@/stores/userStore";
+import { getBandsForRegion, getAvailableSegments } from "@/lib/data/bandplans";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -64,9 +66,66 @@ export function PropSphere() {
     activePreset,
     applyPreset,
     isFullscreen,
-    setFullscreen,
   } = useMapStore();
-  const { station } = useUserStore();
+  const station = useUserStore((state) => state.station);
+  const preferences = useUserStore((state) => state.preferences);
+  const activeRadioId = preferences.activeRadioId ?? null;
+  const activeRadio = useActiveRadio();
+
+  const activeUserRadio = useMemo(() => {
+    if (!activeRadioId) return null;
+    const radios = preferences.radios;
+    if (!radios || radios.length === 0) return null;
+    return radios.find((r) => r.radioId === activeRadioId) || null;
+  }, [activeRadioId, preferences.radios]);
+
+  const operatorGrid = station?.grid?.trim() ? station.grid.trim() : null;
+  const operatorCallsign = station?.callsign?.trim()
+    ? station.callsign.trim()
+    : null;
+
+  const ituRegion = preferences.ituRegion ?? "ITU2";
+  const licenseClass = preferences.licenseClass ?? "GENERAL";
+
+  const activeRadioLabel = useMemo(() => {
+    const nickname = activeUserRadio?.nickname?.trim();
+    if (activeRadio) {
+      const base = `${activeRadio.manufacturer} ${activeRadio.model}`;
+      return nickname ? `${nickname} — ${base}` : base;
+    }
+    if (activeRadioId) {
+      return nickname
+        ? `${nickname} — Unknown radio`
+        : `Unknown radio (${activeRadioId})`;
+    }
+    return null;
+  }, [activeRadio, activeRadioId, activeUserRadio?.nickname]);
+
+  const powerLabel = useMemo(() => {
+    const limit = activeUserRadio?.customPowerLimit;
+    if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
+      return `${Math.round(limit)}W limit`;
+    }
+    const max = activeRadio?.maxPower;
+    if (typeof max === "number" && Number.isFinite(max) && max > 0) {
+      return `${Math.round(max)}W max`;
+    }
+    return null;
+  }, [activeRadio?.maxPower, activeUserRadio?.customPowerLimit]);
+
+  const bandPrivilegesLabel = useMemo(() => {
+    const allBands = getBandsForRegion(ituRegion);
+    const allowedBands = allBands.filter(
+      (band) => getAvailableSegments(band, ituRegion, licenseClass).length > 0,
+    );
+    if (allowedBands.length === 0) return null;
+    const preview = allowedBands.slice(0, 4).join(", ");
+    const remainder = allowedBands.length - 4;
+    return remainder > 0 ? `${preview} +${remainder}` : preview;
+  }, [ituRegion, licenseClass]);
+
+  const stationConfigured = station !== null;
+  const operatorStatus = operatorGrid ? "ready" : "incomplete";
 
   // Panel collapse states (desktop)
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -81,6 +140,7 @@ export function PropSphere() {
 
   // DX Cluster drawer state
   const [dxClusterExpanded, setDxClusterExpanded] = useState(true);
+  const [showOptimalBandHelp, setShowOptimalBandHelp] = useState(false);
 
   // Resize handle dragging
   const handleResizeLeft = useCallback(
@@ -171,51 +231,79 @@ export function PropSphere() {
             <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden" />
           </Card>
 
-          {/* Station Info + Pro View Button */}
+          {/* Operator Location */}
           <Card className="p-3 col-span-1 min-w-[140px]">
-            {station ? (
-              <div className="h-full flex items-center gap-3">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="w-2 h-2 rounded-full bg-signal-green animate-pulse flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-white font-mono font-bold text-sm truncate">
-                      {station.callsign}
-                    </div>
-                    <div className="text-[10px] text-gray-500 truncate">
-                      {station.grid}
-                    </div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-medium text-white">
+                Operator Location
+              </h3>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-gray-200">
+                  {licenseClass}
+                </span>
+                <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-gray-200">
+                  {ituRegion}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    operatorStatus === "ready"
+                      ? "bg-signal-green animate-pulse"
+                      : "bg-gray-600"
+                  }`}
+                  title={
+                    operatorStatus === "ready"
+                      ? "Station location configured"
+                      : "Station location incomplete"
+                  }
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-white font-mono font-bold text-sm truncate">
+                    {stationConfigured
+                      ? (operatorCallsign ?? "Callsign not set")
+                      : "No station configured"}
+                  </div>
+                  <div className="text-[10px] text-gray-300 font-mono truncate">
+                    {stationConfigured
+                      ? (operatorGrid ?? "Grid square not set")
+                      : "Set your station QTH in Settings"}
                   </div>
                 </div>
-                {/* Pro View button */}
-                <button
-                  onClick={() => setFullscreen(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 bg-plasma-orange/20 border border-plasma-orange/50 rounded
-                             text-plasma-orange hover:bg-plasma-orange/30 transition-colors flex-shrink-0"
-                  title="Enter fullscreen Pro View"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                <div className="truncate">
+                  <span className="text-gray-300 font-semibold">Radio:</span>{" "}
+                  <span
+                    className={activeRadioLabel ? "text-gray-100" : "text-gray-400"}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                    />
-                  </svg>
-                  <span className="text-[10px] font-bold uppercase tracking-wide">
-                    Pro
+                    {activeRadioLabel ?? "No active profile"}
                   </span>
-                </button>
+                </div>
+                <div className="truncate">
+                  <span className="text-gray-300 font-semibold">Power:</span>{" "}
+                  <span className={powerLabel ? "text-gray-100" : "text-gray-400"}>
+                    {powerLabel ?? "—"}
+                  </span>
+                </div>
+                <div className="col-span-2 truncate">
+                  <span className="text-gray-300 font-semibold">
+                    Band privileges:
+                  </span>{" "}
+                  <span
+                    className={
+                      bandPrivilegesLabel ? "text-gray-100" : "text-gray-400"
+                    }
+                  >
+                    {bandPrivilegesLabel ?? "—"}
+                  </span>
+                </div>
               </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500 text-xs">
-                Set QTH in settings
-              </div>
-            )}
+            </div>
           </Card>
 
           {/* 24h Forecast (hidden on mobile, shown on lg+) */}
@@ -230,21 +318,30 @@ export function PropSphere() {
           </Card>
 
           {/* Recommendations Badge (xl+ only) */}
-          {station && target && (
-            <Card className="hidden xl:block col-span-1 p-3">
-              <div className="text-[10px] text-gray-300 uppercase tracking-wide mb-1">
-                Optimal Band Now
+          <Card className="hidden xl:block col-span-1 p-3">
+            <div className="text-[10px] text-gray-300 uppercase tracking-wide mb-1">
+              Optimal Band Now
+            </div>
+            <div className="h-[calc(100%-16px)] relative">
+              <div className="absolute -top-1 -right-1 z-10">
+                <HelpButton onClick={() => setShowOptimalBandHelp(true)} />
               </div>
-              <RecommendationsBadge
-                homeLat={station.lat}
-                homeLon={station.lon}
-                targetLat={target.lat}
-                targetLon={target.lon}
-                displayTime={displayTime}
-                className="h-[calc(100%-16px)]"
-              />
-            </Card>
-          )}
+              {station && target ? (
+                <RecommendationsBadge
+                  homeLat={station.lat}
+                  homeLon={station.lon}
+                  targetLat={target.lat}
+                  targetLon={target.lon}
+                  displayTime={displayTime}
+                  className="h-full"
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+                  {station ? "Select a target on the map" : "Set QTH in settings"}
+                </div>
+              )}
+            </div>
+          </Card>
         </div>
 
         {/* Middle Row: Bands | Map | Path - fills available space */}
@@ -656,6 +753,13 @@ export function PropSphere() {
           onLocationClick={handleLocationClick}
         />
       )}
+
+      <HelpModal
+        isOpen={showOptimalBandHelp}
+        onClose={() => setShowOptimalBandHelp(false)}
+        title={HELP_CONTENT.recommendations.title}
+        sections={HELP_CONTENT.recommendations.sections}
+      />
     </div>
   );
 }

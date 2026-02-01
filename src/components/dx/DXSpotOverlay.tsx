@@ -58,24 +58,25 @@ function SpotMarker3D({
   const markerRef = useRef<THREE.Mesh>(null);
   const pulseRef = useRef<THREE.Mesh>(null);
 
-  // Skip if no position data
-  if (spot.dxLat === undefined || spot.dxLon === undefined) {
-    return null;
-  }
+  const hasPosition = spot.dxLat !== undefined && spot.dxLon !== undefined;
 
   const bandColor = getBandColor(spot.band || "");
   const position = useMemo(
-    () => latLonToVector3(spot.dxLat!, spot.dxLon!, 1.01),
-    [spot.dxLat, spot.dxLon],
+    () =>
+      hasPosition ? latLonToVector3(spot.dxLat!, spot.dxLon!, 1.01) : null,
+    [hasPosition, spot.dxLat, spot.dxLon],
   );
 
   // Pulse animation for selected/hovered markers
   useFrame(({ clock }) => {
+    if (!hasPosition) return;
     if (pulseRef.current && (isSelected || isHovered)) {
       const scale = 1 + Math.sin(clock.elapsedTime * 4) * 0.3;
       pulseRef.current.scale.set(scale, scale, scale);
     }
   });
+
+  if (!position) return null;
 
   const markerSize = isSelected ? 0.02 : isHovered ? 0.018 : 0.012;
   const pulseSize = markerSize * 2.5;

@@ -104,35 +104,63 @@ export function BandConditionsPanel({
   // No station configured
   if (!station) {
     return (
-      <Card className={`${className} h-full`}>
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-white">Band Conditions</h3>
+      <>
+        <Card className={`${className} h-full`}>
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-white">
+                  Band Conditions
+                </h3>
+                <HelpButton onClick={() => setShowHelp(true)} />
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+              Set your QTH in settings
+            </div>
           </div>
-          <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-            Set your QTH in settings
-          </div>
-        </div>
-      </Card>
+        </Card>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.bandConditions.title}
+          sections={HELP_CONTENT.bandConditions.sections}
+        />
+      </>
     );
   }
 
   // No target selected
   if (!target) {
     return (
-      <Card className={`${className} h-full`}>
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-white">Band Conditions</h3>
-            <div className="text-xs text-gray-500 font-mono">
-              Kp={currentKp} SFI={currentSfi}
+      <>
+        <Card className={`${className} h-full`}>
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-white">
+                  Band Conditions
+                </h3>
+                <HelpButton onClick={() => setShowHelp(true)} />
+              </div>
+              <div className="text-xs text-gray-500 font-mono">
+                Kp={currentKp} SFI={currentSfi}
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm text-center px-4">
+              Click on the map to select a target
             </div>
           </div>
-          <div className="flex-1 flex items-center justify-center text-gray-500 text-sm text-center px-4">
-            Click on the map to select a target
-          </div>
-        </div>
-      </Card>
+        </Card>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.bandConditions.title}
+          sections={HELP_CONTENT.bandConditions.sections}
+        />
+      </>
     );
   }
 

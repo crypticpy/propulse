@@ -111,20 +111,48 @@ export function PropagationForecastMini({
   // Loading state
   if (kLoading || sfiLoading) {
     return (
-      <div
-        className={`${className} h-full flex items-center justify-center text-gray-500 text-xs`}
-      >
-        <div className="animate-pulse">Loading forecast...</div>
-      </div>
+      <>
+        <div
+          className={`${className} h-full flex items-center justify-center text-gray-500 text-xs relative`}
+        >
+          <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
+            <HelpButton onClick={() => setShowHelp(true)} />
+          </div>
+          <div className="animate-pulse">Loading forecast...</div>
+        </div>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.forecast.title}
+          sections={HELP_CONTENT.forecast.sections}
+        />
+      </>
     );
   }
 
   // No station or target
   if (!station || !target) {
     return (
-      <div className={`${className} h-full flex items-center justify-center`}>
-        <div className="text-xs text-gray-500">Select a target on the map</div>
-      </div>
+      <>
+        <div
+          className={`${className} h-full flex items-center justify-center relative`}
+        >
+          <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
+            <HelpButton onClick={() => setShowHelp(true)} />
+          </div>
+          <div className="text-xs text-gray-500">
+            Select a target on the map
+          </div>
+        </div>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.forecast.title}
+          sections={HELP_CONTENT.forecast.sections}
+        />
+      </>
     );
   }
 

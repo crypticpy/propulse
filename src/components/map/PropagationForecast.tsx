@@ -19,6 +19,7 @@ import {
   type BestWindow,
 } from "@/lib/utils/bands";
 import { PropagationForecastModal } from "./modals/PropagationForecastModal";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 
 interface PropagationForecastProps {
   /** Current display time for baseline calculation */
@@ -61,6 +62,7 @@ export function PropagationForecast({
   const { target } = useMapStore();
   const { station } = useUserStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Fetch current solar data
   const { data: kIndexData, isLoading: kLoading } = useKIndex();
@@ -123,44 +125,86 @@ export function PropagationForecast({
   // Loading state
   if (kLoading || sfiLoading) {
     return (
-      <Card className={className}>
-        <div className="text-center py-8 text-gray-500">
-          <div className="animate-pulse">Loading forecast data...</div>
-        </div>
-      </Card>
+      <>
+        <Card className={className}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+              <HelpButton onClick={() => setShowHelp(true)} />
+            </div>
+          </div>
+          <div className="text-center py-8 text-gray-500">
+            <div className="animate-pulse">Loading forecast data...</div>
+          </div>
+        </Card>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.forecast.title}
+          sections={HELP_CONTENT.forecast.sections}
+        />
+      </>
     );
   }
 
   // No station configured
   if (!station) {
     return (
-      <Card className={className}>
-        <div className="text-center py-6 text-gray-500">
-          <p className="text-sm">Set your QTH in settings for forecast</p>
-        </div>
-      </Card>
+      <>
+        <Card className={className}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+              <HelpButton onClick={() => setShowHelp(true)} />
+            </div>
+          </div>
+          <div className="text-center py-6 text-gray-500">
+            <p className="text-sm">Set your QTH in settings for forecast</p>
+          </div>
+        </Card>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.forecast.title}
+          sections={HELP_CONTENT.forecast.sections}
+        />
+      </>
     );
   }
 
   // No target selected - show general conditions
   if (!target) {
     return (
-      <Card className={className}>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white">24h Forecast</h3>
-            <div className="text-xs text-gray-500">
-              Kp={currentKp} SFI={currentSfi}
+      <>
+        <Card className={className}>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+                <HelpButton onClick={() => setShowHelp(true)} />
+              </div>
+              <div className="text-xs text-gray-500">
+                Kp={currentKp} SFI={currentSfi}
+              </div>
+            </div>
+            <div className="text-center py-4 text-gray-500">
+              <p className="text-sm">Select target for path forecast</p>
+              <p className="text-xs mt-1">
+                Click on the map to set a target location
+              </p>
             </div>
           </div>
-          <div className="text-center py-4 text-gray-500">
-            <p className="text-sm">Select target for path forecast</p>
-            <p className="text-xs mt-1">
-              Click on the map to set a target location
-            </p>
-          </div>
-        </div>
-      </Card>
+        </Card>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.forecast.title}
+          sections={HELP_CONTENT.forecast.sections}
+        />
+      </>
     );
   }
 
@@ -174,7 +218,10 @@ export function PropagationForecast({
           {/* Header with best recommendation */}
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+                <HelpButton onClick={() => setShowHelp(true)} />
+              </div>
               {topRecommendation && (
                 <p className="text-xs text-gray-500 mt-0.5">
                   Best: {topRecommendation.band} @ {topRecommendation.time}z
@@ -377,6 +424,13 @@ export function PropagationForecast({
         sfi={currentSfi}
         stationCallsign={station?.callsign || ""}
         targetName={target?.name || target?.grid || "Target"}
+      />
+
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        title={HELP_CONTENT.forecast.title}
+        sections={HELP_CONTENT.forecast.sections}
       />
     </>
   );

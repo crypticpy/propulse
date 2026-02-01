@@ -19,6 +19,7 @@ import {
 import { getFrequencyLimits } from "@/lib/api/muf";
 import { useSolarFlux } from "@/hooks/useSolarData";
 import { Card } from "@/components/ui/Card";
+import { DetailModal } from "@/components/ui/DetailModal";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { calculateReceiverScore } from "@/types/radio";
 import type { FrequencyLimits } from "@/types/propagation";
@@ -173,26 +174,64 @@ export function PathAnalysis({
   // No station configured
   if (!station) {
     return (
-      <Card className={`${className} h-full`}>
-        <div className="h-full flex items-center justify-center text-gray-500">
-          <p className="text-sm text-center px-4">
-            Set your QTH in settings to see path analysis
-          </p>
-        </div>
-      </Card>
+      <>
+        <Card className={`${className} h-full`}>
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-white">
+                  Path Analysis
+                </h3>
+                <HelpButton onClick={() => setShowHelp(true)} />
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center text-gray-500">
+              <p className="text-sm text-center px-4">
+                Set your QTH in settings to see path analysis
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.pathAnalysis.title}
+          sections={HELP_CONTENT.pathAnalysis.sections}
+        />
+      </>
     );
   }
 
   // No target selected
   if (!target) {
     return (
-      <Card className={`${className} h-full`}>
-        <div className="h-full flex items-center justify-center text-gray-500">
-          <p className="text-sm text-center px-4">
-            Click on the map to select a target location
-          </p>
-        </div>
-      </Card>
+      <>
+        <Card className={`${className} h-full`}>
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-white">
+                  Path Analysis
+                </h3>
+                <HelpButton onClick={() => setShowHelp(true)} />
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center text-gray-500">
+              <p className="text-sm text-center px-4">
+                Click on the map to select a target location
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.pathAnalysis.title}
+          sections={HELP_CONTENT.pathAnalysis.sections}
+        />
+      </>
     );
   }
 
@@ -334,71 +373,62 @@ export function PathAnalysis({
       </div>
 
       {/* Save Target Modal */}
-      {showSaveModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowSaveModal(false)}
-          />
-          <Card className="relative z-10 w-full max-w-sm p-5" animate>
-            <h3 className="text-lg font-semibold text-white mb-4">
-              Save Target
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="target-name"
-                  className="block text-sm font-medium text-gray-300 mb-1"
-                >
-                  Target Name
-                </label>
-                <input
-                  type="text"
-                  id="target-name"
-                  value={targetName}
-                  onChange={(e) => setTargetName(e.target.value)}
-                  placeholder="e.g., DX Station, Contest Target"
-                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                             text-white placeholder-gray-500
-                             focus:outline-none focus:border-plasma-orange/50"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && targetName.trim()) {
-                      handleSaveTarget();
-                    } else if (e.key === "Escape") {
-                      setShowSaveModal(false);
-                    }
-                  }}
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  {target.grid} ({target.lat.toFixed(2)}°,{" "}
-                  {target.lon.toFixed(2)}°)
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowSaveModal(false)}
-                  className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                             text-gray-300 hover:text-white hover:border-white/20
-                             transition-colors font-medium text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveTarget}
-                  disabled={!targetName.trim()}
-                  className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                             text-plasma-orange hover:bg-plasma-orange/30
-                             transition-colors font-medium text-sm
-                             disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </Card>
+      <DetailModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        title="Save Target"
+        subtitle={`${target.grid ?? ""} ${target.lat.toFixed(2)}°, ${target.lon.toFixed(2)}°`.trim()}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="target-name"
+              className="block text-sm font-medium text-gray-200 mb-1"
+            >
+              Target Name
+            </label>
+            <input
+              type="text"
+              id="target-name"
+              value={targetName}
+              onChange={(e) => setTargetName(e.target.value)}
+              placeholder="e.g., DX Station, Contest Target"
+              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
+                         text-white placeholder-gray-400
+                         focus:outline-none focus:border-plasma-orange/50"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && targetName.trim()) {
+                  handleSaveTarget();
+                } else if (e.key === "Escape") {
+                  setShowSaveModal(false);
+                }
+              }}
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowSaveModal(false)}
+              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
+                         text-gray-200 hover:text-white hover:border-white/20
+                         transition-colors font-medium text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveTarget}
+              disabled={!targetName.trim()}
+              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
+                         text-plasma-orange hover:bg-plasma-orange/30
+                         transition-colors font-medium text-sm
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save
+            </button>
+          </div>
         </div>
-      )}
+      </DetailModal>
 
       {/* Help Modal */}
       <HelpModal

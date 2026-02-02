@@ -171,11 +171,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Profile tab local form state
   const [callsign, setCallsign] = useState(station?.callsign || "");
+  const [callsignError, setCallsignError] = useState<string | null>(null);
   const [grid, setGrid] = useState(station?.grid || "");
   const [gridError, setGridError] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState(
     station?.operatorName || station?.name || "",
   );
+
+  // Callsign validation regex - matches common amateur radio callsign formats
+  // e.g., W5XXX, N5XXX, KA5XXX, VE3XXX, G4XXX, JA1XXX
+  const CALLSIGN_REGEX = /^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z]$/i;
 
   // Preferences tab local form state
   const [timeFormat, setTimeFormat] = useState(preferences.timeFormat);
@@ -195,6 +200,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (isOpen) {
       setCallsign(station?.callsign || "");
+      setCallsignError(null);
       setGrid(station?.grid || "");
       setOperatorName(station?.operatorName || station?.name || "");
       setTimeFormat(preferences.timeFormat);
@@ -209,6 +215,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Handle profile save
   const handleProfileSave = () => {
+    // Validate callsign if provided
+    if (callsign && !CALLSIGN_REGEX.test(callsign)) {
+      setCallsignError(
+        "Please enter a valid amateur radio callsign (e.g., W5XXX, VE3XXX)",
+      );
+      return;
+    }
+    setCallsignError(null);
+
     // Validate grid if provided
     if (grid && !isValidGrid(grid)) {
       setGridError("Please enter a valid Maidenhead grid square");
@@ -289,7 +304,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Handle close - warn if unsaved changes
   const handleClose = () => {
-    // For now, just close - components auto-save where possible
+    if (profileDirty || preferencesDirty) {
+      const confirmClose = window.confirm(
+        "You have unsaved changes. Are you sure you want to close?",
+      );
+      if (!confirmClose) return;
+    }
     onClose();
   };
 
@@ -377,14 +397,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   id="callsign"
                   value={callsign}
                   onChange={(e) => {
-                    setCallsign(e.target.value);
+                    setCallsign(e.target.value.toUpperCase());
+                    setCallsignError(null);
                     setProfileDirty(true);
                   }}
                   placeholder="N5XXX"
-                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                  aria-invalid={!!callsignError}
+                  aria-describedby={
+                    callsignError ? "callsign-error" : undefined
+                  }
+                  className={`w-full px-3 py-2 bg-deep-space border rounded-lg
                            text-white placeholder-gray-500 font-mono
-                           focus:outline-none focus:border-plasma-orange/50"
+                           focus:outline-none focus:border-plasma-orange/50
+                           ${callsignError ? "border-alert-red/50" : "border-white/10"}`}
                 />
+                {callsignError && (
+                  <p
+                    id="callsign-error"
+                    className="mt-1 text-xs text-alert-red"
+                  >
+                    {callsignError}
+                  </p>
+                )}
               </div>
 
               {/* Operator Name */}

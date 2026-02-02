@@ -131,11 +131,12 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
       coords.lat,
       coords.lon,
       tempName.trim() || "Temporary",
+      tempType,
     );
 
     setTempModalOpen(false);
     setTempError(null);
-  }, [tempGrid, tempName, setTemporaryLocation]);
+  }, [tempGrid, tempName, tempType, setTemporaryLocation]);
 
   // Handle switching to home
   const switchToHome = useCallback(() => {
@@ -169,136 +170,166 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3
+        id="location-group-label"
+        className="text-sm font-semibold text-gray-400 uppercase tracking-wider"
+      >
         Operating Location
       </h3>
 
-      {/* Home Location */}
+      {/* Location radio group */}
       <div
-        onClick={switchToHome}
-        className={`
+        role="radiogroup"
+        aria-labelledby="location-group-label"
+        className="space-y-4"
+      >
+        {/* Home Location */}
+        <div
+          role="radio"
+          aria-checked={!isTemporaryActive}
+          tabIndex={0}
+          onClick={switchToHome}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              switchToHome();
+            }
+          }}
+          className={`
           p-3 rounded-lg border transition-colors cursor-pointer
+          focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
           ${
             !isTemporaryActive
               ? "bg-signal-green/10 border-signal-green/30"
               : "bg-white/[0.03] border-white/10 hover:border-white/20"
           }
         `}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Radio button indicator */}
-            <div
-              className={`
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Radio button indicator */}
+              <div
+                className={`
                 w-4 h-4 rounded-full border-2 flex items-center justify-center
                 ${!isTemporaryActive ? "border-signal-green" : "border-gray-500"}
               `}
-            >
-              {!isTemporaryActive && (
-                <div className="w-2 h-2 rounded-full bg-signal-green" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-400 uppercase">
-                  Home
-                </span>
-                <span className="text-white font-mono font-medium">
-                  {homeLocation.grid}
-                </span>
+              >
+                {!isTemporaryActive && (
+                  <div className="w-2 h-2 rounded-full bg-signal-green" />
+                )}
               </div>
-              {homeLocation.name && homeLocation.name !== "Home" && (
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {homeLocation.name}
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-400 uppercase">
+                    Home
+                  </span>
+                  <span className="text-white font-mono font-medium">
+                    {homeLocation.grid}
+                  </span>
                 </div>
-              )}
+                {homeLocation.name && homeLocation.name !== "Home" && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {homeLocation.name}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              openEditHome();
-            }}
-            className="px-2 py-1 text-xs rounded bg-white/5 border border-white/10
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openEditHome();
+              }}
+              className="px-2 py-1 text-xs rounded bg-white/5 border border-white/10
                        text-gray-200 hover:text-white hover:border-white/20 transition-colors"
-          >
-            Edit
-          </button>
+            >
+              Edit
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Temporary Location */}
-      <div
-        onClick={switchToTemporary}
-        className={`
+        {/* Temporary Location */}
+        <div
+          role="radio"
+          aria-checked={isTemporaryActive}
+          tabIndex={0}
+          onClick={switchToTemporary}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              switchToTemporary();
+            }
+          }}
+          className={`
           p-3 rounded-lg border transition-colors cursor-pointer
+          focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
           ${
             isTemporaryActive
               ? "bg-caution-amber/10 border-caution-amber/30"
               : "bg-white/[0.03] border-white/10 hover:border-white/20"
           }
         `}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Radio button indicator */}
-            <div
-              className={`
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* Radio button indicator */}
+              <div
+                className={`
                 w-4 h-4 rounded-full border-2 flex items-center justify-center
                 ${isTemporaryActive ? "border-caution-amber" : "border-gray-500"}
               `}
-            >
-              {isTemporaryActive && (
-                <div className="w-2 h-2 rounded-full bg-caution-amber" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-400 uppercase">
-                  Temporary
-                </span>
-                {temporaryLocation ? (
-                  <span className="text-white font-mono font-medium">
-                    {temporaryLocation.grid}
-                  </span>
-                ) : (
-                  <span className="text-gray-500 text-sm">Not set</span>
+              >
+                {isTemporaryActive && (
+                  <div className="w-2 h-2 rounded-full bg-caution-amber" />
                 )}
               </div>
-              {temporaryLocation?.name &&
-                temporaryLocation.name !== "Temporary" && (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {temporaryLocation.name}
-                  </div>
-                )}
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-400 uppercase">
+                    Temporary
+                  </span>
+                  {temporaryLocation ? (
+                    <span className="text-white font-mono font-medium">
+                      {temporaryLocation.grid}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500 text-sm">Not set</span>
+                  )}
+                </div>
+                {temporaryLocation?.name &&
+                  temporaryLocation.name !== "Temporary" && (
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {temporaryLocation.name}
+                    </div>
+                  )}
+              </div>
             </div>
-          </div>
-          {temporaryLocation ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClearTemporary();
-              }}
-              className="px-2 py-1 text-xs rounded bg-alert-red/10 border border-alert-red/30
+            {temporaryLocation ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearTemporary();
+                }}
+                className="px-2 py-1 text-xs rounded bg-alert-red/10 border border-alert-red/30
                          text-alert-red hover:bg-alert-red/20 transition-colors"
-            >
-              Clear
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                openTempModal();
-              }}
-              className="px-2 py-1 text-xs rounded bg-plasma-orange/20 border border-plasma-orange/40
+              >
+                Clear
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openTempModal();
+                }}
+                className="px-2 py-1 text-xs rounded bg-plasma-orange/20 border border-plasma-orange/40
                          text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
-            >
-              + Set
-            </button>
-          )}
+              >
+                + Set
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -11,6 +11,7 @@ import type {
   ITURegion,
   LicenseClass,
   OperatingLocation,
+  LocationType,
   LicenseInfo,
   FavoredBands,
   BandId,
@@ -142,6 +143,7 @@ interface UserStore {
     lat: number,
     lon: number,
     name?: string,
+    type?: LocationType,
   ) => string;
   /** Clear temporary location (set activeLocationId to null) */
   clearTemporaryLocation: () => void;
@@ -710,7 +712,7 @@ export const useUserStore = create<UserStore>()(
           };
         }),
 
-      setTemporaryLocation: (grid, lat, lon, name) => {
+      setTemporaryLocation: (grid, lat, lon, name, type) => {
         const id = crypto.randomUUID();
         const newLocation: OperatingLocation = {
           id,
@@ -718,7 +720,7 @@ export const useUserStore = create<UserStore>()(
           grid,
           lat,
           lon,
-          type: "portable",
+          type: type ?? "portable",
           createdAt: new Date().toISOString(),
         };
 

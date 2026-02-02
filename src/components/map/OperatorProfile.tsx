@@ -18,6 +18,11 @@ import { useMapStore } from "@/stores/mapStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getSunTimes } from "@/lib/utils/time";
 import { getDistance } from "@/lib/utils/path";
+import {
+  useActiveLocation,
+  useIsTemporaryActive,
+  useLicenseStatus,
+} from "@/hooks/useActiveLocation";
 
 interface OperatorProfileProps {
   className?: string;
@@ -137,6 +142,11 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const preferences = useUserStore((state) => state.preferences);
   const target = useMapStore((state) => state.target);
   const activeRadio = useActiveRadio();
+
+  // Location and license hooks
+  const activeLocation = useActiveLocation();
+  const isTemporaryActive = useIsTemporaryActive();
+  const licenseStatus = useLicenseStatus();
 
   // Fetch solar data for context
   const { data: kIndexData } = useKIndex();
@@ -260,15 +270,69 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             <div className="text-lg font-bold font-mono text-white truncate leading-tight">
               {operatorCallsign ?? "---"}
             </div>
-            <div className="text-xs font-mono text-gray-400 leading-tight">
-              {operatorGrid ?? "----"}
+            <div className="flex items-center gap-1.5 leading-tight">
+              {/* Location type indicator */}
+              {isTemporaryActive ? (
+                <svg
+                  className="w-3 h-3 text-amber-400 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-label="Portable location"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-3 h-3 text-gray-400 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-label="Home location"
+                >
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+              )}
+              <span
+                className={`text-xs font-mono ${isTemporaryActive ? "text-amber-400" : "text-gray-400"}`}
+              >
+                {activeLocation?.grid ?? operatorGrid ?? "----"}
+              </span>
             </div>
           </div>
         </div>
-        {/* License badge */}
-        <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-white/10 text-gray-300 flex-shrink-0">
-          {licenseClass}
-        </span>
+        {/* License badge with expiration indicator */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {!licenseStatus.isValid && (
+            <span
+              className="text-red-400 text-xs font-bold"
+              title="License expired"
+            >
+              EXPIRED
+            </span>
+          )}
+          {licenseStatus.isValid && licenseStatus.isExpiringSoon && (
+            <span
+              className="text-amber-400 text-xs"
+              title={`License expires in ${licenseStatus.daysUntilExpiration} days`}
+            >
+              {licenseStatus.daysUntilExpiration}d
+            </span>
+          )}
+          <span
+            className={`px-1.5 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
+              !licenseStatus.isValid
+                ? "bg-red-500/20 text-red-400"
+                : licenseStatus.isExpiringSoon
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "bg-white/10 text-gray-300"
+            }`}
+          >
+            {licenseClass}
+          </span>
+        </div>
       </div>
 
       {/* Sun times with SVG icons - stacked vertically */}

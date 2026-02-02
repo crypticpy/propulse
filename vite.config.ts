@@ -37,7 +37,7 @@ export default defineConfig({
       "/api/solar/magnetometer": {
         target: "https://services.swpc.noaa.gov",
         changeOrigin: true,
-        rewrite: () => "/products/solar-wind/mag-1-day.json",
+        rewrite: () => "/json/rtsw/rtsw_mag_1m.json",
       },
       // Aurora OVATION data proxy
       "/api/aurora": {

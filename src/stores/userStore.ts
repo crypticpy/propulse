@@ -848,7 +848,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: "propulse-user",
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -992,8 +992,75 @@ export const useUserStore = create<UserStore>()(
           nextPreferences.activeRadioId = normalizedRadios[0].id;
         }
 
+        // v8 -> v9: Migrate to multi-location format and structured license
+        let migratedStation = state.station ?? null;
+
+        if (version <= 8 && migratedStation) {
+          // Cast to legacy shape to access old fields
+          const legacyStation = migratedStation as {
+            callsign: string;
+            grid?: string;
+            lat?: number;
+            lon?: number;
+            timezone?: string;
+            name?: string;
+            operatorName?: string;
+            homeLocationId?: string;
+            savedLocations?: OperatingLocation[];
+          };
+
+          // Only migrate if not already in multi-location format
+          if (
+            !legacyStation.homeLocationId ||
+            !Array.isArray(legacyStation.savedLocations)
+          ) {
+            const homeLocationId = crypto.randomUUID();
+            const homeLocation: OperatingLocation = {
+              id: homeLocationId,
+              name: legacyStation.name || "Home",
+              grid: legacyStation.grid || "",
+              lat: legacyStation.lat ?? 0,
+              lon: legacyStation.lon ?? 0,
+              timezone: legacyStation.timezone,
+              type: "home",
+              createdAt: new Date().toISOString(),
+            };
+
+            migratedStation = {
+              callsign: legacyStation.callsign,
+              homeLocationId,
+              activeLocationId: null,
+              savedLocations: [homeLocation],
+              operatorName: legacyStation.operatorName || legacyStation.name,
+              // Legacy compatibility fields
+              grid: homeLocation.grid,
+              lat: homeLocation.lat,
+              lon: homeLocation.lon,
+              timezone: homeLocation.timezone,
+              name: legacyStation.name,
+            };
+          }
+
+          // Migrate licenseClass to structured license object
+          if (nextPreferences.licenseClass && !nextPreferences.license) {
+            nextPreferences.license = {
+              country: "US", // Default to US for existing users
+              class: nextPreferences.licenseClass,
+              expirationDate: null,
+            };
+          }
+        }
+
+        // Initialize new preference fields with defaults if not present
+        if (!nextPreferences.favoredBands) {
+          nextPreferences.favoredBands = DEFAULT_FAVORED_BANDS;
+        }
+        if (!nextPreferences.notifications) {
+          nextPreferences.notifications = DEFAULT_NOTIFICATION_PREFERENCES;
+        }
+
         return {
-          station: state.station ?? null,
+          station: migratedStation,
           preferences: nextPreferences,
           savedTargets: Array.isArray(state.savedTargets)
             ? state.savedTargets

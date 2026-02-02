@@ -46,7 +46,11 @@ export function BandPlanner() {
   const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? 3;
   const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? 100;
   const currentBz =
-    magnetometerData?.[magnetometerData.length - 1]?.bz_gsm ?? null;
+    magnetometerData
+      ?.slice()
+      .reverse()
+      .find((d) => typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm))
+      ?.bz_gsm ?? null;
 
   const isLoading = kLoading || fluxLoading;
 

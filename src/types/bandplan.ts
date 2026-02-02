@@ -3,22 +3,10 @@
  * Types for ITU region allocations and amateur radio frequency regulations
  */
 
-/**
- * ITU radio region identifier
- * The world is divided into three regions for radio frequency allocation
- */
-export type ITURegion = "ITU1" | "ITU2" | "ITU3";
+import type { ITURegion, LicenseClass } from "./user";
 
-/**
- * Amateur radio license class (US-based, extensible for other countries)
- * Determines frequency privileges and power limits
- */
-export type LicenseClass =
-  | "NOVICE"
-  | "TECHNICIAN"
-  | "GENERAL"
-  | "ADVANCED"
-  | "EXTRA";
+// Re-export shared types for consumers of this module
+export type { ITURegion, LicenseClass } from "./user";
 
 /**
  * Operating mode categories for band segment allocations

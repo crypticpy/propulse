@@ -5,6 +5,10 @@ import { useUserStore } from "@/stores/userStore";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { RadioManager } from "./RadioManager";
 import { LocationInput } from "./LocationInput";
+import { LocationManager } from "./LocationManager";
+import { LicenseSection } from "./LicenseSection";
+import { FavoredBandsPicker } from "./FavoredBandsPicker";
+import { NotificationSettings } from "./NotificationSettings";
 import type { UserStation, TextScale } from "@/types/user";
 
 export interface SettingsModalProps {
@@ -12,38 +16,199 @@ export interface SettingsModalProps {
   onClose: () => void;
 }
 
+type SettingsTab =
+  | "profile"
+  | "locations"
+  | "license"
+  | "equipment"
+  | "preferences"
+  | "notifications";
+
+interface TabDef {
+  id: SettingsTab;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const TABS: TabDef[] = [
+  {
+    id: "profile",
+    label: "Profile",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "locations",
+    label: "Locations",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "license",
+    label: "License",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "equipment",
+    label: "Equipment",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "preferences",
+    label: "Preferences",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "notifications",
+    label: "Alerts",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+        />
+      </svg>
+    ),
+  },
+];
+
 /**
- * SettingsModal - User settings for station location and preferences
+ * SettingsModal - User settings with tabbed navigation
  */
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { station, setStation, preferences, updatePreferences } =
     useUserStore();
 
-  // Local form state
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+
+  // Profile tab local form state
   const [callsign, setCallsign] = useState(station?.callsign || "");
   const [grid, setGrid] = useState(station?.grid || "");
   const [gridError, setGridError] = useState<string | null>(null);
+  const [operatorName, setOperatorName] = useState(
+    station?.operatorName || station?.name || "",
+  );
+
+  // Preferences tab local form state
   const [timeFormat, setTimeFormat] = useState(preferences.timeFormat);
   const [units, setUnits] = useState(preferences.units);
   const [textScale, setTextScale] = useState<TextScale>(
     preferences.textScale ?? "md",
   );
+
+  // Radio manager modal state
   const [showFullRadioManager, setShowFullRadioManager] = useState(false);
+
+  // Track if profile form has unsaved changes
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [preferencesDirty, setPreferencesDirty] = useState(false);
 
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setCallsign(station?.callsign || "");
       setGrid(station?.grid || "");
+      setOperatorName(station?.operatorName || station?.name || "");
       setTimeFormat(preferences.timeFormat);
       setUnits(preferences.units);
       setTextScale(preferences.textScale ?? "md");
       setGridError(null);
+      setProfileDirty(false);
+      setPreferencesDirty(false);
+      setActiveTab("profile");
     }
   }, [isOpen, station, preferences]);
 
-  // Handle save
-  const handleSave = () => {
+  // Handle profile save
+  const handleProfileSave = () => {
     // Validate grid if provided
     if (grid && !isValidGrid(grid)) {
       setGridError("Please enter a valid Maidenhead grid square");
@@ -77,6 +242,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         newStation = {
           ...existingStation,
           callsign: callsign.toUpperCase(),
+          operatorName: operatorName.trim() || undefined,
           savedLocations: updatedLocations,
           // Update legacy fields
           grid: gridUpper,
@@ -97,6 +263,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         };
         newStation = {
           callsign: callsign.toUpperCase(),
+          operatorName: operatorName.trim() || undefined,
           homeLocationId,
           activeLocationId: null,
           savedLocations: [homeLocation],
@@ -111,9 +278,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setStation(null);
     }
 
-    // Update preferences
-    updatePreferences({ timeFormat, units, textScale });
+    setProfileDirty(false);
+  };
 
+  // Handle preferences save
+  const handlePreferencesSave = () => {
+    updatePreferences({ timeFormat, units, textScale });
+    setPreferencesDirty(false);
+  };
+
+  // Handle close - warn if unsaved changes
+  const handleClose = () => {
+    // For now, just close - components auto-save where possible
     onClose();
   };
 
@@ -124,21 +300,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal */}
       <Card
-        className="relative z-10 w-full max-w-md p-6 flex flex-col max-h-[calc(100dvh-2rem)]"
+        className="relative z-10 w-full max-w-2xl flex flex-col max-h-[calc(100dvh-2rem)]"
         animate
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-shrink-0">
+        <div className="flex items-center justify-between p-6 pb-0 flex-shrink-0">
           <h2 className="font-orbitron text-xl font-bold text-gradient-orange">
             Settings
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 text-gray-400 hover:text-white transition-colors"
             aria-label="Close"
           >
@@ -158,216 +334,332 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
-          {/* Station Section */}
-          <div className="space-y-4 mb-6">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-              Station Info
-            </h3>
-
-            {/* Callsign */}
-            <div>
-              <label
-                htmlFor="callsign"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
-                Callsign
-              </label>
-              <input
-                type="text"
-                id="callsign"
-                value={callsign}
-                onChange={(e) => setCallsign(e.target.value)}
-                placeholder="N5XXX"
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 font-mono
-                         focus:outline-none focus:border-plasma-orange/50"
-              />
-            </div>
-
-            {/* Location / Grid Square */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Station Location
-              </label>
-              <LocationInput
-                value={grid}
-                onChange={setGrid}
-                error={gridError}
-                onError={setGridError}
-              />
-            </div>
-          </div>
-
-          {/* Radio Equipment Section */}
-          <div className="mb-6">
-            <RadioManager compact />
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowFullRadioManager(true)}
-                className="px-3 py-1.5 text-xs bg-white/5 border border-white/10
-                           text-gray-200 rounded-lg hover:bg-white/10 hover:text-white transition-colors"
-              >
-                Open full radio manager
-              </button>
-            </div>
-          </div>
-
-          {/* Preferences Section */}
-          <div className="space-y-4 mb-6">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-              Preferences
-            </h3>
-
-            {/* Time Format */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Time Format
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setTimeFormat("24h")}
-                  className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    timeFormat === "24h"
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                  }
-                `}
-                >
-                  24-hour
-                </button>
-                <button
-                  onClick={() => setTimeFormat("12h")}
-                  className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    timeFormat === "12h"
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                  }
-                `}
-                >
-                  12-hour
-                </button>
-              </div>
-            </div>
-
-            {/* Units */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Distance Units
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setUnits("metric")}
-                  className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    units === "metric"
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                  }
-                `}
-                >
-                  Metric (km)
-                </button>
-                <button
-                  onClick={() => setUnits("imperial")}
-                  className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    units === "imperial"
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                  }
-                `}
-                >
-                  Imperial (mi)
-                </button>
-              </div>
-            </div>
-
-            {/* Text Size - Accessibility */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Text Size
-                <span className="ml-2 text-xs text-gray-500 font-normal">
-                  (Accessibility)
-                </span>
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setTextScale("sm")}
-                  className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    textScale === "sm"
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                  }
-                `}
-                >
-                  <span className="text-xs">Small</span>
-                </button>
-                <button
-                  onClick={() => setTextScale("md")}
-                  className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    textScale === "md"
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                  }
-                `}
-                >
-                  Normal
-                </button>
-                <button
-                  onClick={() => setTextScale("lg")}
-                  className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    textScale === "lg"
-                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                  }
-                `}
-                >
-                  <span className="text-base">Large</span>
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Increase text size for better readability. Affects panels and
-                data displays.
-              </p>
-            </div>
-          </div>
+        {/* Tab Navigation */}
+        <div className="flex gap-1 px-6 pt-4 pb-2 overflow-x-auto flex-shrink-0">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
+                ${
+                  activeTab === tab.id
+                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                    : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
+                }
+              `}
+            >
+              {tab.icon}
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 flex-shrink-0 pt-4 border-t border-white/10">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                       text-gray-300 hover:text-white hover:border-white/20
-                       transition-colors font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                       text-plasma-orange hover:bg-plasma-orange/30
-                       transition-colors font-medium"
-          >
-            Save
-          </button>
+        {/* Tab Content */}
+        <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
+          {/* Profile Tab */}
+          {activeTab === "profile" && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                Station Identity
+              </h3>
+
+              {/* Callsign */}
+              <div>
+                <label
+                  htmlFor="callsign"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Callsign
+                </label>
+                <input
+                  type="text"
+                  id="callsign"
+                  value={callsign}
+                  onChange={(e) => {
+                    setCallsign(e.target.value);
+                    setProfileDirty(true);
+                  }}
+                  placeholder="N5XXX"
+                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white placeholder-gray-500 font-mono
+                           focus:outline-none focus:border-plasma-orange/50"
+                />
+              </div>
+
+              {/* Operator Name */}
+              <div>
+                <label
+                  htmlFor="operator-name"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Operator Name
+                  <span className="ml-1 text-xs text-gray-500 font-normal">
+                    (optional)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  id="operator-name"
+                  value={operatorName}
+                  onChange={(e) => {
+                    setOperatorName(e.target.value);
+                    setProfileDirty(true);
+                  }}
+                  placeholder="John"
+                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white placeholder-gray-500
+                           focus:outline-none focus:border-plasma-orange/50"
+                />
+              </div>
+
+              {/* Home Grid Square */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Home Grid Square
+                </label>
+                <LocationInput
+                  value={grid}
+                  onChange={(v) => {
+                    setGrid(v);
+                    setProfileDirty(true);
+                  }}
+                  error={gridError}
+                  onError={setGridError}
+                />
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleProfileSave}
+                  disabled={!profileDirty}
+                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                             ${
+                               profileDirty
+                                 ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
+                                 : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                             }`}
+                >
+                  {profileDirty ? "Save Profile" : "Profile Saved"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Locations Tab */}
+          {activeTab === "locations" && <LocationManager />}
+
+          {/* License Tab */}
+          {activeTab === "license" && <LicenseSection />}
+
+          {/* Equipment Tab */}
+          {activeTab === "equipment" && (
+            <div className="space-y-4">
+              <RadioManager compact />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowFullRadioManager(true)}
+                  className="px-3 py-1.5 text-xs bg-white/5 border border-white/10
+                             text-gray-200 rounded-lg hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  Open full radio manager
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Preferences Tab */}
+          {activeTab === "preferences" && (
+            <div className="space-y-6">
+              {/* Display Preferences */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  Display
+                </h3>
+
+                {/* Time Format */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Time Format
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setTimeFormat("24h");
+                        setPreferencesDirty(true);
+                      }}
+                      className={`
+                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          timeFormat === "24h"
+                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                        }
+                      `}
+                    >
+                      24-hour
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTimeFormat("12h");
+                        setPreferencesDirty(true);
+                      }}
+                      className={`
+                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          timeFormat === "12h"
+                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                        }
+                      `}
+                    >
+                      12-hour
+                    </button>
+                  </div>
+                </div>
+
+                {/* Units */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Distance Units
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setUnits("metric");
+                        setPreferencesDirty(true);
+                      }}
+                      className={`
+                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          units === "metric"
+                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                        }
+                      `}
+                    >
+                      Metric (km)
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUnits("imperial");
+                        setPreferencesDirty(true);
+                      }}
+                      className={`
+                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          units === "imperial"
+                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                        }
+                      `}
+                    >
+                      Imperial (mi)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Text Size */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Text Size
+                    <span className="ml-2 text-xs text-gray-500 font-normal">
+                      (Accessibility)
+                    </span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setTextScale("sm");
+                        setPreferencesDirty(true);
+                      }}
+                      className={`
+                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          textScale === "sm"
+                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                        }
+                      `}
+                    >
+                      <span className="text-xs">Small</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTextScale("md");
+                        setPreferencesDirty(true);
+                      }}
+                      className={`
+                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          textScale === "md"
+                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                        }
+                      `}
+                    >
+                      Normal
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTextScale("lg");
+                        setPreferencesDirty(true);
+                      }}
+                      className={`
+                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${
+                          textScale === "lg"
+                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                        }
+                      `}
+                    >
+                      <span className="text-base">Large</span>
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Increase text size for better readability. Affects panels
+                    and data displays.
+                  </p>
+                </div>
+
+                {/* Save Button */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handlePreferencesSave}
+                    disabled={!preferencesDirty}
+                    className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                               ${
+                                 preferencesDirty
+                                   ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
+                                   : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                               }`}
+                  >
+                    {preferencesDirty
+                      ? "Save Display Preferences"
+                      : "Preferences Saved"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-white/10" />
+
+              {/* Favored Bands */}
+              <FavoredBandsPicker />
+            </div>
+          )}
+
+          {/* Notifications Tab */}
+          {activeTab === "notifications" && <NotificationSettings />}
         </div>
       </Card>
 
+      {/* Full Radio Manager Modal */}
       <DetailModal
         isOpen={showFullRadioManager}
         onClose={() => setShowFullRadioManager(false)}

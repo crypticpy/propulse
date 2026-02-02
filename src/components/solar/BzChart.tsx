@@ -188,7 +188,7 @@ export const BzChart: React.FC<BzChartProps> = ({
     }
 
     // Calculate stats
-    const currentBz = sampledData[sampledData.length - 1]?.bz_gsm || 0;
+    const currentBz = sampledData[sampledData.length - 1]?.bz_gsm ?? 0;
     const minBz = Math.min(...bzValues);
     const maxBz = Math.max(...bzValues);
     const avgBz = bzValues.reduce((a, b) => a + b, 0) / bzValues.length;

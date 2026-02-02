@@ -19,20 +19,16 @@ import {
   MUFLegend,
   FullscreenPropSphere,
   RecommendationsPanel,
-  RecommendationsBadge,
   OptimalBandsPanel,
+  OperatorProfile,
+  SolarSnapshot,
 } from "@/components/map";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { Card } from "@/components/ui/Card";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
-import {
-  useActiveRadio,
-  useActiveUserRadio,
-  useUserStore,
-} from "@/stores/userStore";
-import { getBandsForRegion, getAvailableSegments } from "@/lib/data/bandplans";
+import { useUserStore } from "@/stores/userStore";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -72,58 +68,6 @@ export function PropSphere() {
     setFullscreen,
   } = useMapStore();
   const station = useUserStore((state) => state.station);
-  const preferences = useUserStore((state) => state.preferences);
-  const activeRadioId = preferences.activeRadioId ?? null;
-  const activeRadio = useActiveRadio();
-  const activeUserRadio = useActiveUserRadio();
-
-  const operatorGrid = station?.grid?.trim() ? station.grid.trim() : null;
-  const operatorCallsign = station?.callsign?.trim()
-    ? station.callsign.trim()
-    : null;
-
-  const ituRegion = preferences.ituRegion ?? "ITU2";
-  const licenseClass = preferences.licenseClass ?? "GENERAL";
-
-  const activeRadioLabel = useMemo(() => {
-    const nickname = activeUserRadio?.nickname?.trim();
-    if (activeRadio) {
-      const base = `${activeRadio.manufacturer} ${activeRadio.model}`;
-      return nickname ? `${nickname} — ${base}` : base;
-    }
-    if (activeRadioId) {
-      return nickname
-        ? `${nickname} — Unknown radio`
-        : `Unknown radio (${activeRadioId})`;
-    }
-    return null;
-  }, [activeRadio, activeRadioId, activeUserRadio?.nickname]);
-
-  const powerLabel = useMemo(() => {
-    const limit = activeUserRadio?.customPowerLimit;
-    if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
-      return `${Math.round(limit)}W limit`;
-    }
-    const max = activeRadio?.maxPower;
-    if (typeof max === "number" && Number.isFinite(max) && max > 0) {
-      return `${Math.round(max)}W max`;
-    }
-    return null;
-  }, [activeRadio?.maxPower, activeUserRadio?.customPowerLimit]);
-
-  const bandPrivilegesLabel = useMemo(() => {
-    const allBands = getBandsForRegion(ituRegion);
-    const allowedBands = allBands.filter(
-      (band) => getAvailableSegments(band, ituRegion, licenseClass).length > 0,
-    );
-    if (allowedBands.length === 0) return null;
-    const preview = allowedBands.slice(0, 4).join(", ");
-    const remainder = allowedBands.length - 4;
-    return remainder > 0 ? `${preview} +${remainder}` : preview;
-  }, [ituRegion, licenseClass]);
-
-  const stationConfigured = station !== null;
-  const operatorStatus = operatorGrid ? "ready" : "incomplete";
 
   // Panel collapse states (desktop)
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -218,11 +162,11 @@ export function PropSphere() {
     <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-hidden">
       {/* Main Content - Framed Layout */}
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
-        {/* Top Row: Pro View + Time | Station | Forecast | Recommendations */}
-        <div className="grid grid-cols-2 lg:grid-cols-[240px_auto_1fr] xl:grid-cols-[240px_auto_1fr_280px] gap-2 md:gap-3">
+        {/* Top Row: Pro View + Time | Station | Forecast | Snapshot */}
+        <div className="grid grid-cols-2 lg:grid-cols-[200px_220px_1fr] xl:grid-cols-[200px_220px_minmax(300px,1fr)_280px] gap-2 md:gap-3">
           {/* Pro View Entry + Time Machine */}
           <div className="col-span-1 flex flex-col gap-2">
-            {/* Pro View Entry Point */}
+            {/* Pro View Entry Point - more compact */}
             <div
               role="button"
               tabIndex={0}
@@ -233,20 +177,20 @@ export function PropSphere() {
                   setFullscreen(true);
                 }
               }}
-              className="p-3 rounded-2xl bg-white/[0.03] backdrop-blur-md border border-plasma-orange/30
+              className="p-2.5 rounded-xl bg-white/[0.03] backdrop-blur-md border border-plasma-orange/30
                          hover:border-plasma-orange/60 hover:bg-plasma-orange/5
                          cursor-pointer transition-all duration-200 group"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-white group-hover:text-plasma-orange transition-colors">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-white group-hover:text-plasma-orange transition-colors truncate">
                     Pro View
                   </div>
-                  <div className="text-[10px] text-gray-400">
-                    Full-screen immersive experience
+                  <div className="text-[9px] text-gray-400 truncate">
+                    Full-screen experience
                   </div>
                 </div>
-                <div className="p-2 rounded-lg bg-plasma-orange/10 text-plasma-orange group-hover:bg-plasma-orange/20 transition-colors">
+                <div className="p-1.5 rounded-lg bg-plasma-orange/10 text-plasma-orange group-hover:bg-plasma-orange/20 transition-colors flex-shrink-0">
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -264,116 +208,56 @@ export function PropSphere() {
               </div>
             </div>
 
-            {/* Time Machine */}
-            <Card className="p-3 flex-1">
-              <div className="flex items-center mb-2">
-                <h3 className="text-xs font-medium text-white">Time Machine</h3>
+            {/* Time Machine - more compact */}
+            <Card className="p-2.5 flex-1">
+              <div className="flex items-center mb-1.5">
+                <h3 className="text-[10px] font-medium text-gray-300 uppercase tracking-wide">
+                  Time Machine
+                </h3>
               </div>
               <TimeControl />
             </Card>
           </div>
 
-          {/* Operator Location */}
-          <Card className="p-3 col-span-1 min-w-[140px]">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-medium text-white">
-                Operator Location
+          {/* Operator Profile - fixed width */}
+          <Card className="p-2.5 col-span-1 flex flex-col">
+            <div className="flex items-center justify-between mb-1 flex-shrink-0">
+              <h3 className="text-[10px] font-medium text-gray-300 uppercase tracking-wide">
+                Operator Profile
               </h3>
-              <div className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-gray-200">
-                  {licenseClass}
-                </span>
-                <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-gray-200">
-                  {ituRegion}
-                </span>
-              </div>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    operatorStatus === "ready"
-                      ? "bg-signal-green animate-pulse"
-                      : "bg-gray-600"
-                  }`}
-                  title={
-                    operatorStatus === "ready"
-                      ? "Station location configured"
-                      : "Station location incomplete"
-                  }
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-white font-mono font-bold text-sm truncate">
-                    {stationConfigured
-                      ? (operatorCallsign ?? "Callsign not set")
-                      : "No station configured"}
-                  </div>
-                  <div className="text-[10px] text-gray-300 font-mono truncate">
-                    {stationConfigured
-                      ? (operatorGrid ?? "Grid square not set")
-                      : "Set your station QTH in Settings"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
-                <div className="truncate">
-                  <span className="text-gray-300 font-semibold">Radio:</span>{" "}
-                  <span
-                    className={
-                      activeRadioLabel ? "text-gray-100" : "text-gray-400"
-                    }
-                  >
-                    {activeRadioLabel ?? "No active profile"}
-                  </span>
-                </div>
-                <div className="truncate">
-                  <span className="text-gray-300 font-semibold">Power:</span>{" "}
-                  <span
-                    className={powerLabel ? "text-gray-100" : "text-gray-400"}
-                  >
-                    {powerLabel ?? "—"}
-                  </span>
-                </div>
-                <div className="col-span-2 truncate">
-                  <span className="text-gray-300 font-semibold">
-                    Band privileges:
-                  </span>{" "}
-                  <span
-                    className={
-                      bandPrivilegesLabel ? "text-gray-100" : "text-gray-400"
-                    }
-                  >
-                    {bandPrivilegesLabel ?? "—"}
-                  </span>
-                </div>
-              </div>
+            <div className="flex-1 min-h-0">
+              <OperatorProfile className="h-full" />
             </div>
           </Card>
 
           {/* 24h Forecast (hidden on mobile, shown on lg+) */}
-          <Card className="hidden lg:block col-span-1 p-3">
-            <div className="text-[10px] text-gray-300 uppercase tracking-wide mb-1">
+          <Card className="hidden lg:flex lg:flex-col col-span-1 p-2.5">
+            <div className="text-[10px] text-gray-300 uppercase tracking-wide mb-1 flex-shrink-0">
               24h Propagation Forecast
+              <span className="text-gray-500 normal-case ml-1">
+                (hover for details)
+              </span>
             </div>
-            <PropagationForecastMini
-              displayTime={displayTime}
-              className="h-[calc(100%-16px)]"
-            />
+            <div className="flex-1 min-h-0">
+              <PropagationForecastMini
+                displayTime={displayTime}
+                className="h-full"
+              />
+            </div>
           </Card>
 
-          {/* Recommendations Badge (xl+ only) */}
-          <Card className="hidden xl:block col-span-1 p-3">
-            <div className="text-[10px] text-gray-300 uppercase tracking-wide mb-1">
-              Optimal Band Now
+          {/* Solar Snapshot (xl+ only) */}
+          <Card className="hidden xl:flex xl:flex-col col-span-1 p-2.5">
+            <div className="flex items-center justify-between mb-1 flex-shrink-0">
+              <span className="text-[10px] text-gray-300 uppercase tracking-wide">
+                Solar Snapshot
+              </span>
+              <HelpButton onClick={() => setShowOptimalBandHelp(true)} />
             </div>
-            <div className="h-[calc(100%-16px)] relative">
-              <div className="absolute -top-1 -right-1 z-10">
-                <HelpButton onClick={() => setShowOptimalBandHelp(true)} />
-              </div>
+            <div className="flex-1 min-h-0">
               {station && target ? (
-                <RecommendationsBadge
+                <SolarSnapshot
                   homeLat={station.lat}
                   homeLon={station.lon}
                   targetLat={target.lat}

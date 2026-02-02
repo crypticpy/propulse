@@ -157,7 +157,30 @@ export function useMagnetometer() {
     queryFn: async () => {
       const data = await fetchMagnetometer();
       // Return last 60 entries (approximately 1 hour of 1-minute data)
-      return data.slice(-60);
+      // Guard against upstream "header-only" or empty responses so we don't
+      // replace last-good cached data with an empty array.
+      const recent = data.slice(-60).map((point) => ({
+        time_tag: point.time_tag,
+        bz_gsm:
+          typeof point.bz_gsm === "number" && Number.isFinite(point.bz_gsm)
+            ? point.bz_gsm
+            : null,
+        by_gsm:
+          typeof point.by_gsm === "number" && Number.isFinite(point.by_gsm)
+            ? point.by_gsm
+            : null,
+        bt:
+          typeof point.bt === "number" && Number.isFinite(point.bt)
+            ? point.bt
+            : null,
+      }));
+
+      const hasAnyBz = recent.some((p) => p.bz_gsm !== null);
+      if (recent.length === 0 || !hasAnyBz) {
+        throw new Error("No valid magnetometer data available");
+      }
+
+      return recent;
     },
     staleTime: 1 * MINUTE,
     refetchInterval: 1 * MINUTE,

@@ -3,15 +3,34 @@ import { useState, useEffect } from "react";
 import { formatUTC } from "@/lib/utils/time";
 import { useUserStore } from "@/stores/userStore";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import {
+  useActiveLocation,
+  useIsTemporaryActive,
+} from "@/hooks/useActiveLocation";
+
+export interface HeaderProps {
+  /** Number of active alerts */
+  alertCount?: number;
+  /** Number of critical alerts */
+  criticalAlertCount?: number;
+  /** Callback when alert indicator is clicked */
+  onAlertClick?: () => void;
+}
 
 /**
  * Header - Main application header with navigation and user info
  */
-export function Header() {
+export function Header({
+  alertCount = 0,
+  criticalAlertCount = 0,
+  onAlertClick,
+}: HeaderProps) {
   const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showSettings, setShowSettings] = useState(false);
   const { station } = useUserStore();
+  const activeLocation = useActiveLocation();
+  const isTemporaryActive = useIsTemporaryActive();
 
   // Update time every second
   useEffect(() => {
@@ -87,32 +106,103 @@ export function Header() {
                 </div>
               </div>
 
-              {/* Settings Button */}
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors"
-                aria-label="Settings"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              {/* Alert Indicator + Temporary Location + Settings Button */}
+              <div className="flex items-center gap-2">
+                {/* Alert Indicator */}
+                {alertCount > 0 && (
+                  <button
+                    onClick={onAlertClick}
+                    className={`
+                      relative p-2 rounded-lg transition-colors
+                      ${
+                        criticalAlertCount > 0
+                          ? "text-alert-red hover:bg-alert-red/10 animate-pulse"
+                          : "text-caution-amber hover:bg-caution-amber/10"
+                      }
+                    `}
+                    aria-label={`${alertCount} active alert${alertCount > 1 ? "s" : ""}${criticalAlertCount > 0 ? ` (${criticalAlertCount} critical)` : ""}`}
+                    title="Solar Weather Alerts"
+                  >
+                    {/* Bell/Warning icon */}
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                      />
+                    </svg>
+                    {/* Badge count */}
+                    <span
+                      className={`
+                        absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px]
+                        flex items-center justify-center
+                        text-[10px] font-bold rounded-full
+                        ${
+                          criticalAlertCount > 0
+                            ? "bg-alert-red text-white"
+                            : "bg-caution-amber text-black"
+                        }
+                      `}
+                    >
+                      {alertCount}
+                    </span>
+                  </button>
+                )}
+
+                {isTemporaryActive && activeLocation && (
+                  <div
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/20 border border-amber-500/30"
+                    title={`Operating from: ${activeLocation.name || activeLocation.grid}`}
+                  >
+                    <svg
+                      className="w-3.5 h-3.5 text-amber-400"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-xs font-mono font-medium text-amber-400">
+                      {activeLocation.grid}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors"
+                  aria-label="Settings"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>

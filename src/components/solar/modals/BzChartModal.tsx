@@ -172,7 +172,7 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
       yMin,
       yMax,
       stats: {
-        current: sampledData[sampledData.length - 1]?.bz_gsm || 0,
+        current: sampledData[sampledData.length - 1]?.bz_gsm ?? 0,
         min: dataMin,
         max: dataMax,
         avg: bzValues.reduce((a, b) => a + b, 0) / bzValues.length,
@@ -195,7 +195,7 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
     return labels;
   }, [chartData.yMin, chartData.yMax, innerHeight]);
 
-  const currentBz = chartData.stats?.current || 0;
+  const currentBz = chartData.stats?.current ?? 0;
 
   // Find current scale level
   const currentScale = BZ_SCALE.find((s) => {

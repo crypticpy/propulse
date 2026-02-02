@@ -69,7 +69,11 @@ export function SolarPulse() {
   const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? 100;
   const currentSsn = sunspotData?.[sunspotData.length - 1]?.ssn ?? 0;
   const currentBz =
-    magnetometerData?.[magnetometerData.length - 1]?.bz_gsm ?? null;
+    magnetometerData
+      ?.slice()
+      .reverse()
+      .find((d) => typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm))
+      ?.bz_gsm ?? null;
 
   const isLoading =
     kLoading || fluxLoading || probLoading || sunspotLoading || magLoading;
@@ -169,11 +173,11 @@ export function SolarPulse() {
           <BzChart
             data={
               magnetometerData
-                ?.filter((d) => d.bz_gsm !== null)
-                .map((d) => ({
-                  time_tag: d.time_tag,
-                  bz_gsm: d.bz_gsm as number,
-                })) ?? []
+                ?.flatMap((d) =>
+                  typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm)
+                    ? [{ time_tag: d.time_tag, bz_gsm: d.bz_gsm }]
+                    : [],
+                ) ?? []
             }
             loading={magLoading}
             onExpand={() => setBzChartOpen(true)}
@@ -246,11 +250,11 @@ export function SolarPulse() {
         onClose={() => setBzChartOpen(false)}
         data={
           magnetometerData
-            ?.filter((d) => d.bz_gsm !== null)
-            .map((d) => ({
-              time_tag: d.time_tag,
-              bz_gsm: d.bz_gsm as number,
-            })) ?? []
+            ?.flatMap((d) =>
+              typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm)
+                ? [{ time_tag: d.time_tag, bz_gsm: d.bz_gsm }]
+                : [],
+            ) ?? []
         }
       />
 

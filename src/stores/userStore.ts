@@ -363,7 +363,9 @@ export const useUserStore = create<UserStore>()(
 
         set((state) => {
           const currentRadios = state.preferences.radios || [];
-          if (currentRadios.length >= MAX_RADIOS) return state;
+          if (currentRadios.length >= MAX_RADIOS) {
+            return state;
+          }
 
           const newRadio = createUserRadioInstance({
             equipmentId: radioId,
@@ -589,7 +591,9 @@ export const useUserStore = create<UserStore>()(
         };
 
         set((state) => {
-          if (!state.station) return state;
+          if (!state.station) {
+            return state;
+          }
 
           const savedLocations = [...state.station.savedLocations, newLocation];
 
@@ -606,7 +610,9 @@ export const useUserStore = create<UserStore>()(
 
       updateLocation: (id, updates) =>
         set((state) => {
-          if (!state.station) return state;
+          if (!state.station) {
+            return state;
+          }
 
           const savedLocations = state.station.savedLocations.map((loc) =>
             loc.id === id ? { ...loc, ...updates } : loc,
@@ -641,10 +647,14 @@ export const useUserStore = create<UserStore>()(
 
       removeLocation: (id) =>
         set((state) => {
-          if (!state.station) return state;
+          if (!state.station) {
+            return state;
+          }
 
           // Don't allow removing the home location
-          if (id === state.station.homeLocationId) return state;
+          if (id === state.station.homeLocationId) {
+            return state;
+          }
 
           const savedLocations = state.station.savedLocations.filter(
             (loc) => loc.id !== id,
@@ -690,14 +700,18 @@ export const useUserStore = create<UserStore>()(
 
       setActiveLocation: (id) =>
         set((state) => {
-          if (!state.station) return state;
+          if (!state.station) {
+            return state;
+          }
 
           const targetId = id ?? state.station.homeLocationId;
           const location = state.station.savedLocations.find(
             (loc) => loc.id === targetId,
           );
 
-          if (!location) return state;
+          if (!location) {
+            return state;
+          }
 
           return {
             station: {
@@ -725,7 +739,9 @@ export const useUserStore = create<UserStore>()(
         };
 
         set((state) => {
-          if (!state.station) return state;
+          if (!state.station) {
+            return state;
+          }
 
           const savedLocations = [...state.station.savedLocations, newLocation];
 
@@ -747,13 +763,17 @@ export const useUserStore = create<UserStore>()(
 
       clearTemporaryLocation: () =>
         set((state) => {
-          if (!state.station) return state;
+          if (!state.station) {
+            return state;
+          }
 
           const homeLocation = state.station.savedLocations.find(
             (loc) => loc.id === state.station!.homeLocationId,
           );
 
-          if (!homeLocation) return state;
+          if (!homeLocation) {
+            return state;
+          }
 
           return {
             station: {
@@ -886,8 +906,9 @@ export const useUserStore = create<UserStore>()(
             const legacy = incoming.filter(isLegacyUserRadio);
             const uniqueByEquipment = new Map<string, LegacyUserRadio>();
             for (const r of legacy) {
-              if (!uniqueByEquipment.has(r.radioId))
+              if (!uniqueByEquipment.has(r.radioId)) {
                 uniqueByEquipment.set(r.radioId, r);
+              }
             }
             nextPreferences.radios = Array.from(uniqueByEquipment.values()).map(
               (r) =>
@@ -1091,7 +1112,9 @@ export function useActiveRadio(): RadioEquipment | null {
   );
   const radios = useUserStore((state) => state.preferences.radios) || [];
   const customRadios = useUserStore((state) => state.preferences.customRadios);
-  if (!activeRadioId) return null;
+  if (!activeRadioId) {
+    return null;
+  }
   const activeInstance = radios.find((r) => r.id === activeRadioId);
   if (activeInstance) {
     return (
@@ -1125,7 +1148,9 @@ export function useActiveUserRadio(): UserRadio | null {
     (state) => state.preferences.activeRadioId,
   );
   const radios = useUserStore((state) => state.preferences.radios) || [];
-  if (!activeRadioId) return null;
+  if (!activeRadioId) {
+    return null;
+  }
   return radios.find((r) => r.id === activeRadioId) ?? null;
 }
 

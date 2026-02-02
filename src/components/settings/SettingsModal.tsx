@@ -308,12 +308,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       const confirmClose = window.confirm(
         "You have unsaved changes. Are you sure you want to close?",
       );
-      if (!confirmClose) return;
+      if (!confirmClose) {
+        return;
+      }
     }
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

@@ -80,7 +80,9 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
 
   // Save home location edits
   const saveHomeEdits = useCallback(() => {
-    if (!homeLocation) return;
+    if (!homeLocation) {
+      return;
+    }
 
     if (!editHomeGrid.trim()) {
       setEditHomeError("Grid square is required");
@@ -199,9 +201,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           p-3 rounded-lg border transition-colors cursor-pointer
           focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
           ${
-            !isTemporaryActive
-              ? "bg-signal-green/10 border-signal-green/30"
-              : "bg-white/[0.03] border-white/10 hover:border-white/20"
+            isTemporaryActive ? "bg-white/[0.03] border-white/10 hover:border-white/20" : "bg-signal-green/10 border-signal-green/30"
           }
         `}
         >
@@ -211,7 +211,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
               <div
                 className={`
                 w-4 h-4 rounded-full border-2 flex items-center justify-center
-                ${!isTemporaryActive ? "border-signal-green" : "border-gray-500"}
+                ${isTemporaryActive ? "border-gray-500" : "border-signal-green"}
               `}
               >
                 {!isTemporaryActive && (

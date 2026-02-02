@@ -10,8 +10,21 @@ import type {
   UserPreferences,
   ITURegion,
   LicenseClass,
+  OperatingLocation,
+  LicenseInfo,
+  FavoredBands,
+  BandId,
+  NotificationPreferences,
 } from "../types/user";
-import type { UserRadio, LegacyUserRadio, RadioEquipment } from "../types/radio";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  DEFAULT_FAVORED_BANDS,
+} from "../types/user";
+import type {
+  UserRadio,
+  LegacyUserRadio,
+  RadioEquipment,
+} from "../types/radio";
 import { getRadioById } from "../lib/data/radios";
 
 /**
@@ -107,6 +120,47 @@ interface UserStore {
   setActiveRadio: (radioId: string | null) => void;
   /** Get the active radio equipment details */
   getActiveRadio: () => RadioEquipment | null;
+
+  // === Location Management ===
+
+  /** Add a new operating location, returns the new location ID */
+  addLocation: (
+    location: Omit<OperatingLocation, "id" | "createdAt">,
+  ) => string;
+  /** Update an existing operating location */
+  updateLocation: (
+    id: string,
+    updates: Partial<Omit<OperatingLocation, "id" | "createdAt">>,
+  ) => void;
+  /** Remove an operating location by ID */
+  removeLocation: (id: string) => void;
+  /** Set the active location (null = use home) */
+  setActiveLocation: (id: string | null) => void;
+  /** Quick-set a temporary location, returns the new location ID */
+  setTemporaryLocation: (
+    grid: string,
+    lat: number,
+    lon: number,
+    name?: string,
+  ) => string;
+  /** Clear temporary location (set activeLocationId to null) */
+  clearTemporaryLocation: () => void;
+
+  // === License Management ===
+
+  /** Set license information (or clear with null) */
+  setLicense: (license: LicenseInfo | null) => void;
+
+  // === Favorites & Notifications ===
+
+  /** Set favored bands configuration */
+  setFavoredBands: (bands: FavoredBands) => void;
+  /** Toggle a band in/out of primary favorites */
+  toggleFavoredBand: (band: BandId) => void;
+  /** Toggle a band in/out of hidden list */
+  toggleHiddenBand: (band: BandId) => void;
+  /** Update notification preferences */
+  updateNotifications: (prefs: Partial<NotificationPreferences>) => void;
 }
 
 /**
@@ -122,6 +176,10 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   customRadios: [],
   activeRadioId: null,
   preferTestedSpecs: true, // Default to tested/Sherwood specs when available
+  textScale: "md", // Default text scale (100%)
+  license: undefined,
+  favoredBands: DEFAULT_FAVORED_BANDS,
+  notifications: DEFAULT_NOTIFICATION_PREFERENCES,
 };
 
 function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
@@ -339,9 +397,13 @@ export const useUserStore = create<UserStore>()(
 
           if (
             typeof updates.customPowerLimit === "number" &&
-            (!Number.isFinite(updates.customPowerLimit) || updates.customPowerLimit <= 0)
+            (!Number.isFinite(updates.customPowerLimit) ||
+              updates.customPowerLimit <= 0)
           ) {
-            result = { ok: false, error: "Power limit must be a positive number" };
+            result = {
+              ok: false,
+              error: "Power limit must be a positive number",
+            };
             return state;
           }
 
@@ -467,7 +529,8 @@ export const useUserStore = create<UserStore>()(
           );
           const currentActiveId = state.preferences.activeRadioId;
           const activeRadioId =
-            currentActiveId && updatedRadios.some((r) => r.id === currentActiveId)
+            currentActiveId &&
+            updatedRadios.some((r) => r.id === currentActiveId)
               ? currentActiveId
               : updatedRadios.length > 0
                 ? updatedRadios[0].id
@@ -486,9 +549,7 @@ export const useUserStore = create<UserStore>()(
       removeRadio: (radioId) =>
         set((state) => {
           const currentRadios = state.preferences.radios || [];
-          const updatedRadios = currentRadios.filter(
-            (r) => r.id !== radioId,
-          );
+          const updatedRadios = currentRadios.filter((r) => r.id !== radioId);
           // If we removed the active radio, select the first available
           const activeRadioId =
             state.preferences.activeRadioId === radioId
@@ -514,10 +575,280 @@ export const useUserStore = create<UserStore>()(
         // Note: This returns null as a placeholder. Use the useActiveRadio hook instead.
         return null;
       },
+
+      // === Location Management ===
+
+      addLocation: (location) => {
+        const id = crypto.randomUUID();
+        const newLocation: OperatingLocation = {
+          ...location,
+          id,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => {
+          if (!state.station) return state;
+
+          const savedLocations = [...state.station.savedLocations, newLocation];
+
+          return {
+            station: {
+              ...state.station,
+              savedLocations,
+            },
+          };
+        });
+
+        return id;
+      },
+
+      updateLocation: (id, updates) =>
+        set((state) => {
+          if (!state.station) return state;
+
+          const savedLocations = state.station.savedLocations.map((loc) =>
+            loc.id === id ? { ...loc, ...updates } : loc,
+          );
+
+          // Find the updated location to sync legacy fields if it's active
+          const activeId =
+            state.station.activeLocationId ?? state.station.homeLocationId;
+          const updatedLocation = savedLocations.find((loc) => loc.id === id);
+
+          // If the updated location is the active one, sync legacy fields
+          if (updatedLocation && id === activeId) {
+            return {
+              station: {
+                ...state.station,
+                savedLocations,
+                grid: updatedLocation.grid,
+                lat: updatedLocation.lat,
+                lon: updatedLocation.lon,
+                timezone: updatedLocation.timezone,
+              },
+            };
+          }
+
+          return {
+            station: {
+              ...state.station,
+              savedLocations,
+            },
+          };
+        }),
+
+      removeLocation: (id) =>
+        set((state) => {
+          if (!state.station) return state;
+
+          // Don't allow removing the home location
+          if (id === state.station.homeLocationId) return state;
+
+          const savedLocations = state.station.savedLocations.filter(
+            (loc) => loc.id !== id,
+          );
+
+          // If we're removing the active location, clear activeLocationId
+          const activeLocationId =
+            state.station.activeLocationId === id
+              ? null
+              : state.station.activeLocationId;
+
+          // If activeLocationId changed, sync legacy fields to home
+          if (
+            state.station.activeLocationId === id &&
+            activeLocationId === null
+          ) {
+            const homeLocation = savedLocations.find(
+              (loc) => loc.id === state.station!.homeLocationId,
+            );
+            if (homeLocation) {
+              return {
+                station: {
+                  ...state.station,
+                  savedLocations,
+                  activeLocationId,
+                  grid: homeLocation.grid,
+                  lat: homeLocation.lat,
+                  lon: homeLocation.lon,
+                  timezone: homeLocation.timezone,
+                },
+              };
+            }
+          }
+
+          return {
+            station: {
+              ...state.station,
+              savedLocations,
+              activeLocationId,
+            },
+          };
+        }),
+
+      setActiveLocation: (id) =>
+        set((state) => {
+          if (!state.station) return state;
+
+          const targetId = id ?? state.station.homeLocationId;
+          const location = state.station.savedLocations.find(
+            (loc) => loc.id === targetId,
+          );
+
+          if (!location) return state;
+
+          return {
+            station: {
+              ...state.station,
+              activeLocationId: id,
+              // Sync legacy fields
+              grid: location.grid,
+              lat: location.lat,
+              lon: location.lon,
+              timezone: location.timezone,
+            },
+          };
+        }),
+
+      setTemporaryLocation: (grid, lat, lon, name) => {
+        const id = crypto.randomUUID();
+        const newLocation: OperatingLocation = {
+          id,
+          name: name ?? "Temporary",
+          grid,
+          lat,
+          lon,
+          type: "portable",
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => {
+          if (!state.station) return state;
+
+          const savedLocations = [...state.station.savedLocations, newLocation];
+
+          return {
+            station: {
+              ...state.station,
+              savedLocations,
+              activeLocationId: id,
+              // Sync legacy fields
+              grid,
+              lat,
+              lon,
+            },
+          };
+        });
+
+        return id;
+      },
+
+      clearTemporaryLocation: () =>
+        set((state) => {
+          if (!state.station) return state;
+
+          const homeLocation = state.station.savedLocations.find(
+            (loc) => loc.id === state.station!.homeLocationId,
+          );
+
+          if (!homeLocation) return state;
+
+          return {
+            station: {
+              ...state.station,
+              activeLocationId: null,
+              // Sync legacy fields to home
+              grid: homeLocation.grid,
+              lat: homeLocation.lat,
+              lon: homeLocation.lon,
+              timezone: homeLocation.timezone,
+            },
+          };
+        }),
+
+      // === License Management ===
+
+      setLicense: (license) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            license: license ?? undefined,
+            // Also update legacy licenseClass for backward compatibility
+            licenseClass: license?.class ?? state.preferences.licenseClass,
+          },
+        })),
+
+      // === Favorites & Notifications ===
+
+      setFavoredBands: (bands) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            favoredBands: bands,
+          },
+        })),
+
+      toggleFavoredBand: (band) =>
+        set((state) => {
+          const current =
+            state.preferences.favoredBands ?? DEFAULT_FAVORED_BANDS;
+          const isPrimary = current.primary.includes(band);
+
+          const primary = isPrimary
+            ? current.primary.filter((b) => b !== band)
+            : [...current.primary, band];
+
+          // If adding to primary, remove from hidden
+          const hidden = isPrimary
+            ? current.hidden
+            : current.hidden.filter((b) => b !== band);
+
+          return {
+            preferences: {
+              ...state.preferences,
+              favoredBands: { primary, hidden },
+            },
+          };
+        }),
+
+      toggleHiddenBand: (band) =>
+        set((state) => {
+          const current =
+            state.preferences.favoredBands ?? DEFAULT_FAVORED_BANDS;
+          const isHidden = current.hidden.includes(band);
+
+          const hidden = isHidden
+            ? current.hidden.filter((b) => b !== band)
+            : [...current.hidden, band];
+
+          // If adding to hidden, remove from primary
+          const primary = isHidden
+            ? current.primary
+            : current.primary.filter((b) => b !== band);
+
+          return {
+            preferences: {
+              ...state.preferences,
+              favoredBands: { primary, hidden },
+            },
+          };
+        }),
+
+      updateNotifications: (prefs) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            notifications: {
+              ...(state.preferences.notifications ??
+                DEFAULT_NOTIFICATION_PREFERENCES),
+              ...prefs,
+            },
+          },
+        })),
     }),
     {
       name: "propulse-user",
-      version: 7,
+      version: 8,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -553,7 +884,8 @@ export const useUserStore = create<UserStore>()(
             const legacy = incoming.filter(isLegacyUserRadio);
             const uniqueByEquipment = new Map<string, LegacyUserRadio>();
             for (const r of legacy) {
-              if (!uniqueByEquipment.has(r.radioId)) uniqueByEquipment.set(r.radioId, r);
+              if (!uniqueByEquipment.has(r.radioId))
+                uniqueByEquipment.set(r.radioId, r);
             }
             nextPreferences.radios = Array.from(uniqueByEquipment.values()).map(
               (r) =>
@@ -586,9 +918,13 @@ export const useUserStore = create<UserStore>()(
                 nextPreferences.activeRadioId = byEquipment.id;
               } else {
                 const hasEquipment =
-                  (nextPreferences.customRadios ?? []).some((r) => r.id === active) ||
-                  Boolean(getRadioById(active));
-                if (hasEquipment && (nextPreferences.radios as UserRadio[]).length < MAX_RADIOS) {
+                  (nextPreferences.customRadios ?? []).some(
+                    (r) => r.id === active,
+                  ) || Boolean(getRadioById(active));
+                if (
+                  hasEquipment &&
+                  (nextPreferences.radios as UserRadio[]).length < MAX_RADIOS
+                ) {
                   const instance = createUserRadioInstance({
                     equipmentId: active,
                   });
@@ -610,7 +946,9 @@ export const useUserStore = create<UserStore>()(
             !nextPreferences.activeRadioId &&
             (nextPreferences.radios as UserRadio[]).length === 1
           ) {
-            nextPreferences.activeRadioId = (nextPreferences.radios as UserRadio[])[0].id;
+            nextPreferences.activeRadioId = (
+              nextPreferences.radios as UserRadio[]
+            )[0].id;
           }
         }
 
@@ -620,18 +958,26 @@ export const useUserStore = create<UserStore>()(
           : [];
         nextPreferences.radios = normalizedRadios;
 
-        if (typeof nextPreferences.activeRadioId === "string" && nextPreferences.activeRadioId.trim()) {
+        if (
+          typeof nextPreferences.activeRadioId === "string" &&
+          nextPreferences.activeRadioId.trim()
+        ) {
           const active = nextPreferences.activeRadioId;
           if (!normalizedRadios.some((r) => r.id === active)) {
-            const byEquipment = normalizedRadios.find((r) => r.equipmentId === active);
+            const byEquipment = normalizedRadios.find(
+              (r) => r.equipmentId === active,
+            );
             if (byEquipment) {
               nextPreferences.activeRadioId = byEquipment.id;
             } else {
               const hasEquipment =
-                (nextPreferences.customRadios ?? []).some((r) => r.id === active) ||
-                Boolean(getRadioById(active));
+                (nextPreferences.customRadios ?? []).some(
+                  (r) => r.id === active,
+                ) || Boolean(getRadioById(active));
               if (hasEquipment && normalizedRadios.length < MAX_RADIOS) {
-                const instance = createUserRadioInstance({ equipmentId: active });
+                const instance = createUserRadioInstance({
+                  equipmentId: active,
+                });
                 normalizedRadios = [...normalizedRadios, instance];
                 nextPreferences.radios = normalizedRadios;
                 nextPreferences.activeRadioId = instance.id;
@@ -649,7 +995,9 @@ export const useUserStore = create<UserStore>()(
         return {
           station: state.station ?? null,
           preferences: nextPreferences,
-          savedTargets: Array.isArray(state.savedTargets) ? state.savedTargets : [],
+          savedTargets: Array.isArray(state.savedTargets)
+            ? state.savedTargets
+            : [],
         };
       },
     },
@@ -669,13 +1017,17 @@ function resolveEquipmentById(
  * Returns null if no radio is active or the radio isn't found
  */
 export function useActiveRadio(): RadioEquipment | null {
-  const activeRadioId = useUserStore((state) => state.preferences.activeRadioId);
+  const activeRadioId = useUserStore(
+    (state) => state.preferences.activeRadioId,
+  );
   const radios = useUserStore((state) => state.preferences.radios) || [];
   const customRadios = useUserStore((state) => state.preferences.customRadios);
   if (!activeRadioId) return null;
   const activeInstance = radios.find((r) => r.id === activeRadioId);
   if (activeInstance) {
-    return resolveEquipmentById(activeInstance.equipmentId, customRadios) || null;
+    return (
+      resolveEquipmentById(activeInstance.equipmentId, customRadios) || null
+    );
   }
   // Fallback for any legacy callers/data that still stores equipment IDs.
   return resolveEquipmentById(activeRadioId, customRadios) || null;
@@ -700,7 +1052,9 @@ export function useUserRadios(): Array<{
  * Hook to get the active user radio instance (metadata + per-radio overrides)
  */
 export function useActiveUserRadio(): UserRadio | null {
-  const activeRadioId = useUserStore((state) => state.preferences.activeRadioId);
+  const activeRadioId = useUserStore(
+    (state) => state.preferences.activeRadioId,
+  );
   const radios = useUserStore((state) => state.preferences.radios) || [];
   if (!activeRadioId) return null;
   return radios.find((r) => r.id === activeRadioId) ?? null;

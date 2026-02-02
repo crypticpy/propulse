@@ -115,7 +115,7 @@ export function BandConditionsPanel({
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
             </div>
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
               Set your QTH in settings
             </div>
           </div>
@@ -144,11 +144,11 @@ export function BandConditionsPanel({
                 </h3>
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
-              <div className="text-xs text-gray-500 font-mono">
+              <div className="text-xs text-gray-400 font-mono">
                 Kp={currentKp} SFI={currentSfi}
               </div>
             </div>
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm text-center px-4">
+            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm text-center px-4">
               Click on the map to select a target
             </div>
           </div>
@@ -173,7 +173,7 @@ export function BandConditionsPanel({
             <h3 className="text-sm font-medium text-white">Band Conditions</h3>
             <HelpButton onClick={() => setShowHelp(true)} />
           </div>
-          <div className="text-xs text-gray-500 font-mono">
+          <div className="text-xs text-gray-400 font-mono">
             Kp={currentKp} SFI={currentSfi}
           </div>
         </div>
@@ -209,7 +209,7 @@ export function BandConditionsPanel({
         </div>
 
         {/* Footer with path info */}
-        <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5 text-[10px] text-gray-400">
+        <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5 text-xs text-gray-400">
           Path illumination: {Math.round(illumination)}%
         </div>
       </Card>
@@ -249,11 +249,11 @@ function BandConditionRow({
     <tr className="hover:bg-white/5 transition-colors">
       <td className="px-1 py-1">
         <div className="font-mono text-white text-sm">{condition.band}</div>
-        <div className="text-gray-400 text-[10px]">{condition.frequency}</div>
+        <div className="text-gray-400 text-xs">{condition.frequency}</div>
       </td>
       <td className="px-1 py-1 text-center">
         <span
-          className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${statusColor} ${statusBgColor}`}
+          className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-medium ${statusColor} ${statusBgColor}`}
         >
           {statusLabel}
         </span>
@@ -263,21 +263,21 @@ function BandConditionRow({
           <td className="px-1 py-1 text-center">
             <div className="flex items-center justify-center gap-0.5">
               <SMeterIndicator sUnit={condition.sUnit} />
-              <span className={`font-mono text-[10px] ${sUnitColor}`}>
+              <span className={`font-mono text-xs ${sUnitColor}`}>
                 {sUnitText}
               </span>
             </div>
           </td>
-          <td className="px-1 py-1 text-center font-mono text-[10px]">
+          <td className="px-1 py-1 text-center font-mono text-xs">
             <span
               className={
-                condition.snrEstimate <= -24 ? "text-gray-500" : "text-white"
+                condition.snrEstimate <= -24 ? "text-gray-400" : "text-white"
               }
             >
               {condition.snrEstimate}dB
             </span>
             {hasEnhancedData && condition.pathLoss !== undefined && (
-              <div className="text-[9px] text-gray-400">
+              <div className="text-xs text-gray-400">
                 {Math.round(condition.pathLoss)}dB loss
               </div>
             )}
@@ -292,7 +292,7 @@ function BandConditionRow({
  * Get color class for S-unit display
  */
 function getSUnitColor(sUnit?: SUnit): string {
-  if (!sUnit) return "text-gray-500";
+  if (!sUnit) return "text-gray-400";
   const value = sUnit.value;
   if (value >= 8) return "text-signal-green";
   if (value >= 5) return "text-caution-amber";

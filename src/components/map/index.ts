@@ -42,6 +42,15 @@ export { FullscreenPropSphere } from "./FullscreenPropSphere";
 export { RecommendationsPanel } from "./RecommendationsPanel";
 export { RecommendationsBadge } from "./RecommendationsBadge";
 
+// Operator profile widget
+export { OperatorProfile } from "./OperatorProfile";
+
+// Solar snapshot (propagation index + solar indicators + optimal band)
+export { SolarSnapshot } from "./SolarSnapshot";
+
+// Mobile conditions pill
+export { ConditionsPill } from "./ConditionsPill";
+
 // Optimal bands pop-out panel
 export { OptimalBandsPanel } from "./OptimalBandsPanel";
 

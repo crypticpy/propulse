@@ -116,7 +116,8 @@ export function PathAnalysis({
 
   const analysisRadio = useMemo(() => {
     if (analysisRadioId === null) return activeRadio;
-    const instance = radioInstances.find((r) => r.id === analysisRadioId) ?? null;
+    const instance =
+      radioInstances.find((r) => r.id === analysisRadioId) ?? null;
     const equipmentId = instance?.equipmentId ?? analysisRadioId;
     return (
       customRadios?.find((r) => r.id === equipmentId) ||
@@ -135,7 +136,8 @@ export function PathAnalysis({
     }
 
     if (!analysisRadio) return `Unknown (${analysisRadioId})`;
-    const instance = radioInstances.find((r) => r.id === analysisRadioId) ?? null;
+    const instance =
+      radioInstances.find((r) => r.id === analysisRadioId) ?? null;
     const base =
       analysisRadio.displayName?.trim() ||
       `${analysisRadio.manufacturer} ${analysisRadio.model}`;
@@ -245,7 +247,7 @@ export function PathAnalysis({
                 }
               />
             </div>
-            <div className="flex-1 flex items-center justify-center text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-gray-400">
               <p className="text-sm text-center px-4">
                 Set your QTH in settings to see path analysis
               </p>
@@ -298,7 +300,7 @@ export function PathAnalysis({
                 }
               />
             </div>
-            <div className="flex-1 flex items-center justify-center text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-gray-400">
               <p className="text-sm text-center px-4">
                 Click on the map to select a target location
               </p>
@@ -338,13 +340,13 @@ export function PathAnalysis({
               </h3>
               <HelpButton onClick={() => setShowHelp(true)} />
             </div>
-            <p className="text-xs text-gray-500 truncate">
+            <p className="text-xs text-gray-400 truncate">
               {station.callsign} → {target.name || target.grid || "Target"}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <div
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium
+              className={`px-2 py-0.5 rounded-full text-xs font-medium
                 ${DIFFICULTY_COLORS[metrics.difficulty]} bg-white/5`}
             >
               {DIFFICULTY_LABELS[metrics.difficulty]}
@@ -452,7 +454,9 @@ export function PathAnalysis({
           isOverride={analysisRadioId !== null}
           onChange={() => setShowRadioPicker(true)}
           onUseProfile={
-            analysisRadioId !== null ? () => setAnalysisRadioId(null) : undefined
+            analysisRadioId !== null
+              ? () => setAnalysisRadioId(null)
+              : undefined
           }
         />
 
@@ -468,7 +472,7 @@ export function PathAnalysis({
         )}
 
         {/* Target coordinates footer */}
-        <div className="mt-auto pt-3 border-t border-white/5 text-[10px] text-gray-400 font-mono flex-shrink-0">
+        <div className="mt-auto pt-3 border-t border-white/5 text-xs text-gray-400 font-mono flex-shrink-0">
           {target.lat.toFixed(2)}°, {target.lon.toFixed(2)}°
           {target.grid && <span className="ml-1">({target.grid})</span>}
         </div>
@@ -573,7 +577,7 @@ function RadioProfileBlock({
             <button
               type="button"
               onClick={onUseProfile}
-              className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+              className="px-2 py-1 text-xs rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
               title="Use active profile radio"
             >
               Use profile
@@ -582,7 +586,7 @@ function RadioProfileBlock({
           <button
             type="button"
             onClick={onChange}
-            className="px-2 py-1 text-[10px] rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+            className="px-2 py-1 text-xs rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
           >
             Change
           </button>
@@ -595,11 +599,11 @@ function RadioProfileBlock({
             <div className="text-sm font-semibold text-white truncate">
               {label}
             </div>
-            <div className="text-[10px] text-gray-300">
+            <div className="text-xs text-gray-300">
               {isOverride ? "Override for this panel" : "Using active profile"}
             </div>
           </div>
-          <div className="text-[10px] text-gray-300 font-mono flex-shrink-0">
+          <div className="text-xs text-gray-300 font-mono flex-shrink-0">
             {typeof maxPower === "number" ? `${Math.round(maxPower)}W` : "—"}
           </div>
         </div>
@@ -624,11 +628,11 @@ function MetricItem({
 }) {
   return (
     <div className="text-center">
-      <div className="text-[10px] text-gray-500 mb-0.5">{label}</div>
+      <div className="text-xs text-gray-400 mb-0.5">{label}</div>
       <div className={`text-sm font-mono ${valueClassName || "text-white"}`}>
         {value}
       </div>
-      {subValue && <div className="text-[10px] text-gray-600">{subValue}</div>}
+      {subValue && <div className="text-xs text-gray-400">{subValue}</div>}
     </div>
   );
 }
@@ -645,7 +649,7 @@ function FrequencyLimitsDisplay({
     return (
       <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
         <h4 className="text-xs font-medium text-gray-400">Freq Limits</h4>
-        <div className="p-2 rounded-lg border border-white/10 bg-white/5 text-center text-gray-500 text-[10px]">
+        <div className="p-2 rounded-lg border border-white/10 bg-white/5 text-center text-gray-400 text-xs">
           Calculating...
         </div>
       </div>
@@ -670,25 +674,25 @@ function FrequencyLimitsDisplay({
     <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
       <h4 className="text-xs font-medium text-gray-400">Freq Limits</h4>
       <div className="p-2 rounded-lg border border-white/10 bg-white/5">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[10px]">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between">
-            <span className="text-gray-500">MUF:</span>
+            <span className="text-gray-400">MUF:</span>
             <span className={getMufColor(limits.muf)}>
               {limits.muf.toFixed(1)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">FOT:</span>
+            <span className="text-gray-400">FOT:</span>
             <span className="text-white">{limits.fot.toFixed(1)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">LUF:</span>
+            <span className="text-gray-400">LUF:</span>
             <span className={getLufColor(limits.luf)}>
               {limits.luf.toFixed(1)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">HPF:</span>
+            <span className="text-gray-400">HPF:</span>
             <span className="text-white">{limits.hpf.toFixed(1)}</span>
           </div>
         </div>
@@ -747,7 +751,10 @@ function RadioSuggestions({
   distance,
 }: {
   radio: RadioEquipment;
-  radioInstance: { customPowerLimit?: number; specPreference?: "global" | "factory" | "tested" } | null;
+  radioInstance: {
+    customPowerLimit?: number;
+    specPreference?: "global" | "factory" | "tested";
+  } | null;
   preferTested: boolean;
   difficulty: number;
   distance: number;
@@ -758,7 +765,10 @@ function RadioSuggestions({
       : radioInstance?.specPreference === "tested"
         ? true
         : preferTested;
-  const effectiveReceiver = getEffectiveReceiverSpecs(radio, effectivePreferTested);
+  const effectiveReceiver = getEffectiveReceiverSpecs(
+    radio,
+    effectivePreferTested,
+  );
 
   // Calculate suggested power based on path difficulty
   const suggestedPower = useMemo(() => {
@@ -812,21 +822,21 @@ function RadioSuggestions({
         Radio: {radio.manufacturer} {radio.model}
       </h4>
       <div className="p-2 rounded-lg border border-white/10 bg-white/5">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-[10px]">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between">
-            <span className="text-gray-500">Power:</span>
+            <span className="text-gray-400">Power:</span>
             <span className="text-plasma-orange">{suggestedPower}W</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">Max:</span>
+            <span className="text-gray-400">Max:</span>
             <span className="text-white">{radio.maxPower}W</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">RX:</span>
+            <span className="text-gray-400">RX:</span>
             <span className={rxColor}>{rxQuality}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">For path:</span>
+            <span className="text-gray-400">For path:</span>
             <span
               className={
                 rxAdequate ? "text-signal-green" : "text-caution-amber"
@@ -837,7 +847,7 @@ function RadioSuggestions({
           </div>
         </div>
         {!rxAdequate && (
-          <p className="mt-2 text-[9px] text-caution-amber">
+          <p className="mt-2 text-xs text-caution-amber">
             Consider narrow filters or quieter bands for this difficult path.
           </p>
         )}

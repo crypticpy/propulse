@@ -161,3 +161,32 @@
     /* Override if needed for light mode in future */
   }
 }
+
+/* ==================== */
+/* Text Scale System    */
+/* For accessibility    */
+/* ==================== */
+
+/* Default scale (md = 100%) */
+:root {
+  --text-scale: 1;
+}
+
+/* Small scale (90%) - compact display */
+:root[data-text-scale="sm"] {
+  --text-scale: 0.9;
+}
+
+/* Large scale (115%) - larger for older eyes/glasses */
+:root[data-text-scale="lg"] {
+  --text-scale: 1.15;
+}
+
+/* Scalable text size utilities - use these for text that should respect user preference */
+:root {
+  --text-xs-scaled: calc(0.75rem * var(--text-scale));    /* 12px * scale */
+  --text-sm-scaled: calc(0.875rem * var(--text-scale));   /* 14px * scale */
+  --text-base-scaled: calc(1rem * var(--text-scale));     /* 16px * scale */
+  --text-lg-scaled: calc(1.125rem * var(--text-scale));   /* 18px * scale */
+  --text-xl-scaled: calc(1.25rem * var(--text-scale));    /* 20px * scale */
+}

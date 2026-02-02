@@ -35,7 +35,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
           <div className="text-white font-mono">
             {format(displayTime, "HH:mm")} UTC
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-400">
             {format(displayTime, "MMM d, yyyy")}
           </div>
         </div>
@@ -43,7 +43,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
 
       {/* Offset indicator */}
       <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-500">Offset</span>
+        <span className="text-gray-400">Offset</span>
         <span
           className={`font-mono ${timeOffset === 0 ? "text-signal-green" : "text-caution-amber"}`}
         >
@@ -78,7 +78,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
         />
 
         {/* Tick marks - improved contrast */}
-        <div className="flex justify-between mt-1 text-[10px] text-gray-400">
+        <div className="flex justify-between mt-1 text-xs text-gray-400">
           <span>-24h</span>
           <span>-12h</span>
           <span>Now</span>

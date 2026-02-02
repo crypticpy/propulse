@@ -5,7 +5,7 @@ import { useUserStore } from "@/stores/userStore";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { RadioManager } from "./RadioManager";
 import { LocationInput } from "./LocationInput";
-import type { UserStation } from "@/types/user";
+import type { UserStation, TextScale } from "@/types/user";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -25,6 +25,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [gridError, setGridError] = useState<string | null>(null);
   const [timeFormat, setTimeFormat] = useState(preferences.timeFormat);
   const [units, setUnits] = useState(preferences.units);
+  const [textScale, setTextScale] = useState<TextScale>(
+    preferences.textScale ?? "md",
+  );
   const [showFullRadioManager, setShowFullRadioManager] = useState(false);
 
   // Reset form when modal opens
@@ -34,6 +37,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setGrid(station?.grid || "");
       setTimeFormat(preferences.timeFormat);
       setUnits(preferences.units);
+      setTextScale(preferences.textScale ?? "md");
       setGridError(null);
     }
   }, [isOpen, station, preferences]);
@@ -46,22 +50,69 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       return;
     }
 
-    // Build station object
+    // Build station object with multi-location support
     if (callsign || grid) {
       const coords = grid ? gridToLatLon(grid) : { lat: 0, lon: 0 };
-      const newStation: UserStation = {
-        callsign: callsign.toUpperCase(),
-        grid: grid.toUpperCase(),
-        lat: coords.lat,
-        lon: coords.lon,
-      };
+      const gridUpper = grid.toUpperCase();
+
+      // Check if we have an existing station with valid home location
+      const existingStation = station;
+      const existingHomeId = existingStation?.homeLocationId;
+      const hasValidExistingHome =
+        existingStation &&
+        existingHomeId &&
+        existingStation.savedLocations?.some(
+          (loc) => loc.id === existingHomeId,
+        );
+
+      let newStation: UserStation;
+
+      if (hasValidExistingHome && existingStation && existingHomeId) {
+        // Update existing home location
+        const updatedLocations = existingStation.savedLocations.map((loc) =>
+          loc.id === existingHomeId
+            ? { ...loc, grid: gridUpper, lat: coords.lat, lon: coords.lon }
+            : loc,
+        );
+        newStation = {
+          ...existingStation,
+          callsign: callsign.toUpperCase(),
+          savedLocations: updatedLocations,
+          // Update legacy fields
+          grid: gridUpper,
+          lat: coords.lat,
+          lon: coords.lon,
+        };
+      } else {
+        // Create new station with home location
+        const homeLocationId = crypto.randomUUID();
+        const homeLocation = {
+          id: homeLocationId,
+          name: "Home",
+          grid: gridUpper,
+          lat: coords.lat,
+          lon: coords.lon,
+          type: "home" as const,
+          createdAt: new Date().toISOString(),
+        };
+        newStation = {
+          callsign: callsign.toUpperCase(),
+          homeLocationId,
+          activeLocationId: null,
+          savedLocations: [homeLocation],
+          // Legacy compatibility fields
+          grid: gridUpper,
+          lat: coords.lat,
+          lon: coords.lon,
+        };
+      }
       setStation(newStation);
     } else {
       setStation(null);
     }
 
     // Update preferences
-    updatePreferences({ timeFormat, units });
+    updatePreferences({ timeFormat, units, textScale });
 
     onClose();
   };
@@ -110,42 +161,42 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="overflow-y-auto flex-1 min-h-0 -mx-6 px-6">
           {/* Station Section */}
           <div className="space-y-4 mb-6">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-            Station Info
-          </h3>
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Station Info
+            </h3>
 
-          {/* Callsign */}
-          <div>
-            <label
-              htmlFor="callsign"
-              className="block text-sm font-medium text-gray-300 mb-1"
-            >
-              Callsign
-            </label>
-            <input
-              type="text"
-              id="callsign"
-              value={callsign}
-              onChange={(e) => setCallsign(e.target.value)}
-              placeholder="N5XXX"
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+            {/* Callsign */}
+            <div>
+              <label
+                htmlFor="callsign"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
+                Callsign
+              </label>
+              <input
+                type="text"
+                id="callsign"
+                value={callsign}
+                onChange={(e) => setCallsign(e.target.value)}
+                placeholder="N5XXX"
+                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
                          text-white placeholder-gray-500 font-mono
                          focus:outline-none focus:border-plasma-orange/50"
-            />
-          </div>
+              />
+            </div>
 
-          {/* Location / Grid Square */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Station Location
-            </label>
-            <LocationInput
-              value={grid}
-              onChange={setGrid}
-              error={gridError}
-              onError={setGridError}
-            />
-          </div>
+            {/* Location / Grid Square */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Station Location
+              </label>
+              <LocationInput
+                value={grid}
+                onChange={setGrid}
+                error={gridError}
+                onError={setGridError}
+              />
+            </div>
           </div>
 
           {/* Radio Equipment Section */}
@@ -169,15 +220,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               Preferences
             </h3>
 
-          {/* Time Format */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Time Format
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setTimeFormat("24h")}
-                className={`
+            {/* Time Format */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Time Format
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTimeFormat("24h")}
+                  className={`
                   flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                   ${
                     timeFormat === "24h"
@@ -185,12 +236,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
                   }
                 `}
-              >
-                24-hour
-              </button>
-              <button
-                onClick={() => setTimeFormat("12h")}
-                className={`
+                >
+                  24-hour
+                </button>
+                <button
+                  onClick={() => setTimeFormat("12h")}
+                  className={`
                   flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                   ${
                     timeFormat === "12h"
@@ -198,21 +249,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
                   }
                 `}
-              >
-                12-hour
-              </button>
+                >
+                  12-hour
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Units */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Distance Units
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setUnits("metric")}
-                className={`
+            {/* Units */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Distance Units
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setUnits("metric")}
+                  className={`
                   flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                   ${
                     units === "metric"
@@ -220,12 +271,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
                   }
                 `}
-              >
-                Metric (km)
-              </button>
-              <button
-                onClick={() => setUnits("imperial")}
-                className={`
+                >
+                  Metric (km)
+                </button>
+                <button
+                  onClick={() => setUnits("imperial")}
+                  className={`
                   flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                   ${
                     units === "imperial"
@@ -233,11 +284,66 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
                   }
                 `}
-              >
-                Imperial (mi)
-              </button>
+                >
+                  Imperial (mi)
+                </button>
+              </div>
             </div>
-          </div>
+
+            {/* Text Size - Accessibility */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Text Size
+                <span className="ml-2 text-xs text-gray-500 font-normal">
+                  (Accessibility)
+                </span>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTextScale("sm")}
+                  className={`
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${
+                    textScale === "sm"
+                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                  }
+                `}
+                >
+                  <span className="text-xs">Small</span>
+                </button>
+                <button
+                  onClick={() => setTextScale("md")}
+                  className={`
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${
+                    textScale === "md"
+                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                  }
+                `}
+                >
+                  Normal
+                </button>
+                <button
+                  onClick={() => setTextScale("lg")}
+                  className={`
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${
+                    textScale === "lg"
+                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                  }
+                `}
+                >
+                  <span className="text-base">Large</span>
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Increase text size for better readability. Affects panels and
+                data displays.
+              </p>
+            </div>
           </div>
         </div>
 

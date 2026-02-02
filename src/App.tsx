@@ -9,6 +9,7 @@ import { Logbook } from "@/pages/Logbook";
 import { Contest } from "@/pages/Contest";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useTextScale } from "@/hooks/useTextScale";
 
 // Lazy load PropSphere to split Three.js into separate chunk
 const PropSphere = lazy(() =>
@@ -16,6 +17,9 @@ const PropSphere = lazy(() =>
 );
 
 function App() {
+  // Apply text scale preference to DOM
+  useTextScale();
+
   return (
     <ErrorBoundary>
       <Routes>

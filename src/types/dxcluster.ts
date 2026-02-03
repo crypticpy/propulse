@@ -58,6 +58,10 @@ export interface DXClusterFilters {
   searchText?: string;
   /** Grid locator filter (matches spotter OR DX grid, prefix match) */
   gridFilter?: string;
+  /** Show only "needed" spots (not yet worked, or band-new) */
+  neededOnly?: boolean;
+  /** Sort needed spots to top of list */
+  sortByNeeded?: boolean;
 }
 
 /**

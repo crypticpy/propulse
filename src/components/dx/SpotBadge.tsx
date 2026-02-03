@@ -10,7 +10,7 @@ import { forwardRef } from "react";
 /**
  * Badge type variants for different spot statuses
  */
-export type SpotBadgeType = "new" | "band-new" | "worked" | "alert";
+export type SpotBadgeType = "new" | "band-new" | "worked" | "alert" | "needed";
 
 export interface SpotBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   /** Type of badge to display */
@@ -59,6 +59,12 @@ const badgeConfig: Record<
     borderColor: "border-alert-red/50",
     animate: "animate-pulse",
   },
+  needed: {
+    label: "NEED",
+    bgColor: "bg-yellow-500/25",
+    textColor: "text-yellow-400",
+    borderColor: "border-yellow-500/50",
+  },
 };
 
 /**
@@ -76,6 +82,22 @@ function CheckmarkIcon({ className }: { className?: string }) {
       strokeLinejoin="round"
     >
       <path d="M3.5 8.5L6.5 11.5L12.5 4.5" />
+    </svg>
+  );
+}
+
+/**
+ * Star icon for needed status
+ */
+function StarIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      stroke="none"
+    >
+      <path d="M8 1.5l1.85 3.75 4.15.6-3 2.93.71 4.12L8 11l-3.71 1.9.71-4.12-3-2.93 4.15-.6L8 1.5z" />
     </svg>
   );
 }
@@ -138,6 +160,11 @@ export const SpotBadge = forwardRef<HTMLSpanElement, SpotBadgeProps>(
       <span ref={ref} className={baseStyles} {...props}>
         {type === "worked" ? (
           <CheckmarkIcon className="w-2.5 h-2.5" />
+        ) : type === "needed" ? (
+          <>
+            <StarIcon className="w-2.5 h-2.5 mr-0.5" />
+            {displayLabel}
+          </>
         ) : (
           displayLabel
         )}

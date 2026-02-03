@@ -27,3 +27,7 @@ export {
 } from "./ConditionMatchCard";
 export { PredictionsCard, type PredictionsCardProps } from "./PredictionsCard";
 export { HistoryCard, type HistoryCardProps } from "./HistoryCard";
+export {
+  SpotStatsDashboard,
+  type SpotStatsDashboardProps,
+} from "./SpotStatsDashboard";

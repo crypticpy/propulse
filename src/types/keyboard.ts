@@ -156,6 +156,14 @@ export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
     description: "Toggle time machine",
     category: "general",
   },
+
+  // Band Sync (Feature 2.3)
+  {
+    key: "b",
+    action: "cycleSyncedBand",
+    description: "Cycle synced band",
+    category: "panels",
+  },
 ];
 
 // =============================================================================

@@ -13,6 +13,12 @@ interface DXState {
   addSpot: (spot: DXSpot) => void;
   clearSpots: () => void;
 
+  // Hidden spots (filtered from display)
+  hiddenSpotIds: Set<string>;
+  hideSpot: (id: string) => void;
+  unhideSpot: (id: string) => void;
+  clearHiddenSpots: () => void;
+
   // Filters
   filters: DXClusterFilters;
   setFilters: (filters: DXClusterFilters) => void;
@@ -38,6 +44,14 @@ interface DXState {
   isPanelOpen: boolean;
   togglePanel: () => void;
   setPanelOpen: (open: boolean) => void;
+
+  // Band Sync Mode (Feature 2.3)
+  syncMode: boolean;
+  syncedBand: string | null;
+  setSyncMode: (enabled: boolean) => void;
+  setSyncedBand: (band: string | null) => void;
+  toggleSyncMode: () => void;
+  cycleSyncedBand: () => void;
 }
 
 const DEFAULT_FILTERS: DXClusterFilters = {
@@ -46,6 +60,8 @@ const DEFAULT_FILTERS: DXClusterFilters = {
   sources: [],
   maxAge: 30, // 30 minutes default
   searchText: "",
+  neededOnly: false,
+  sortByNeeded: false,
 };
 
 const DEFAULT_MAX_SPOTS = 50;
@@ -64,6 +80,20 @@ export const useDXStore = create<DXState>((set, get) => ({
       return { spots: newSpots };
     }),
   clearSpots: () => set({ spots: [], selectedSpot: null, hoveredSpot: null }),
+
+  // Hidden spots
+  hiddenSpotIds: new Set<string>(),
+  hideSpot: (id) =>
+    set((state) => ({
+      hiddenSpotIds: new Set([...state.hiddenSpotIds, id]),
+    })),
+  unhideSpot: (id) =>
+    set((state) => {
+      const newHidden = new Set(state.hiddenSpotIds);
+      newHidden.delete(id);
+      return { hiddenSpotIds: newHidden };
+    }),
+  clearHiddenSpots: () => set({ hiddenSpotIds: new Set<string>() }),
 
   // Filters
   filters: DEFAULT_FILTERS,
@@ -97,6 +127,34 @@ export const useDXStore = create<DXState>((set, get) => ({
   isPanelOpen: false,
   togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
   setPanelOpen: (open) => set({ isPanelOpen: open }),
+
+  // Band Sync Mode (Feature 2.3)
+  syncMode: false,
+  syncedBand: null,
+  setSyncMode: (enabled) => set({ syncMode: enabled }),
+  setSyncedBand: (band) => set({ syncedBand: band }),
+  toggleSyncMode: () =>
+    set((state) => ({
+      syncMode: !state.syncMode,
+      // Clear synced band when disabling sync mode
+      syncedBand: state.syncMode ? null : state.syncedBand,
+    })),
+  cycleSyncedBand: () =>
+    set((state) => {
+      if (!state.syncMode) return state;
+
+      // Get available bands from current spots
+      const bands = selectAvailableBands(state);
+      if (bands.length === 0) return state;
+
+      // Find current index and cycle to next
+      const currentIndex = state.syncedBand
+        ? bands.indexOf(state.syncedBand)
+        : -1;
+      const nextIndex = (currentIndex + 1) % bands.length;
+
+      return { syncedBand: bands[nextIndex] };
+    }),
 }));
 
 /**
@@ -153,6 +211,23 @@ export function selectAvailableBands(state: DXState): string[] {
   return Array.from(bands).sort(
     (a, b) => bandOrder.indexOf(a) - bandOrder.indexOf(b),
   );
+}
+
+/**
+ * Selector for getting visible spots (excluding hidden ones)
+ */
+export function selectVisibleSpots(state: DXState): DXSpot[] {
+  if (state.hiddenSpotIds.size === 0) {
+    return state.spots;
+  }
+  return state.spots.filter((spot) => !state.hiddenSpotIds.has(spot.id));
+}
+
+/**
+ * Selector for getting the count of hidden spots
+ */
+export function selectHiddenSpotCount(state: DXState): number {
+  return state.hiddenSpotIds.size;
 }
 
 /**

@@ -4,6 +4,7 @@
  */
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
 
 interface DXState {
@@ -66,96 +67,139 @@ const DEFAULT_FILTERS: DXClusterFilters = {
 
 const DEFAULT_MAX_SPOTS = 50;
 
-export const useDXStore = create<DXState>((set, get) => ({
-  // Spot data
-  spots: [],
-  setSpots: (spots) => set({ spots }),
-  addSpot: (spot) =>
-    set((state) => {
-      const newSpots = [spot, ...state.spots];
-      // Keep only maxSpots
-      if (newSpots.length > state.maxSpots) {
-        newSpots.length = state.maxSpots;
-      }
-      return { spots: newSpots };
+// Keys from filters that should be persisted (excluding transient searchText)
+type PersistedFilterKeys =
+  | "bands"
+  | "modes"
+  | "maxAge"
+  | "neededOnly"
+  | "sortByNeeded";
+type PersistedFilters = Pick<DXClusterFilters, PersistedFilterKeys>;
+
+interface PersistedState {
+  filters: PersistedFilters;
+}
+
+export const useDXStore = create<DXState>()(
+  persist(
+    (set, get) => ({
+      // Spot data
+      spots: [],
+      setSpots: (spots) => set({ spots }),
+      addSpot: (spot) =>
+        set((state) => {
+          const newSpots = [spot, ...state.spots];
+          // Keep only maxSpots
+          if (newSpots.length > state.maxSpots) {
+            newSpots.length = state.maxSpots;
+          }
+          return { spots: newSpots };
+        }),
+      clearSpots: () =>
+        set({ spots: [], selectedSpot: null, hoveredSpot: null }),
+
+      // Hidden spots
+      hiddenSpotIds: new Set<string>(),
+      hideSpot: (id) =>
+        set((state) => ({
+          hiddenSpotIds: new Set([...state.hiddenSpotIds, id]),
+        })),
+      unhideSpot: (id) =>
+        set((state) => {
+          const newHidden = new Set(state.hiddenSpotIds);
+          newHidden.delete(id);
+          return { hiddenSpotIds: newHidden };
+        }),
+      clearHiddenSpots: () => set({ hiddenSpotIds: new Set<string>() }),
+
+      // Filters
+      filters: DEFAULT_FILTERS,
+      setFilters: (filters) => set({ filters }),
+      updateFilter: (key, value) =>
+        set((state) => ({
+          filters: { ...state.filters, [key]: value },
+        })),
+      clearFilters: () => set({ filters: DEFAULT_FILTERS }),
+
+      // UI state
+      selectedSpot: null,
+      setSelectedSpot: (spot) => set({ selectedSpot: spot }),
+      hoveredSpot: null,
+      setHoveredSpot: (spot) => set({ hoveredSpot: spot }),
+
+      // Display settings
+      maxSpots: DEFAULT_MAX_SPOTS,
+      setMaxSpots: (max) => {
+        set({ maxSpots: Math.max(10, Math.min(200, max)) });
+        // Trim existing spots if needed
+        const state = get();
+        if (state.spots.length > max) {
+          set({ spots: state.spots.slice(0, max) });
+        }
+      },
+      showPaths: false,
+      setShowPaths: (show) => set({ showPaths: show }),
+
+      // Panel visibility
+      isPanelOpen: false,
+      togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
+      setPanelOpen: (open) => set({ isPanelOpen: open }),
+
+      // Band Sync Mode (Feature 2.3)
+      syncMode: false,
+      syncedBand: null,
+      setSyncMode: (enabled) => set({ syncMode: enabled }),
+      setSyncedBand: (band) => set({ syncedBand: band }),
+      toggleSyncMode: () =>
+        set((state) => ({
+          syncMode: !state.syncMode,
+          // Clear synced band when disabling sync mode
+          syncedBand: state.syncMode ? null : state.syncedBand,
+        })),
+      cycleSyncedBand: () =>
+        set((state) => {
+          if (!state.syncMode) return state;
+
+          // Get available bands from current spots
+          const bands = selectAvailableBands(state);
+          if (bands.length === 0) return state;
+
+          // Find current index and cycle to next
+          const currentIndex = state.syncedBand
+            ? bands.indexOf(state.syncedBand)
+            : -1;
+          const nextIndex = (currentIndex + 1) % bands.length;
+
+          return { syncedBand: bands[nextIndex] };
+        }),
     }),
-  clearSpots: () => set({ spots: [], selectedSpot: null, hoveredSpot: null }),
-
-  // Hidden spots
-  hiddenSpotIds: new Set<string>(),
-  hideSpot: (id) =>
-    set((state) => ({
-      hiddenSpotIds: new Set([...state.hiddenSpotIds, id]),
-    })),
-  unhideSpot: (id) =>
-    set((state) => {
-      const newHidden = new Set(state.hiddenSpotIds);
-      newHidden.delete(id);
-      return { hiddenSpotIds: newHidden };
-    }),
-  clearHiddenSpots: () => set({ hiddenSpotIds: new Set<string>() }),
-
-  // Filters
-  filters: DEFAULT_FILTERS,
-  setFilters: (filters) => set({ filters }),
-  updateFilter: (key, value) =>
-    set((state) => ({
-      filters: { ...state.filters, [key]: value },
-    })),
-  clearFilters: () => set({ filters: DEFAULT_FILTERS }),
-
-  // UI state
-  selectedSpot: null,
-  setSelectedSpot: (spot) => set({ selectedSpot: spot }),
-  hoveredSpot: null,
-  setHoveredSpot: (spot) => set({ hoveredSpot: spot }),
-
-  // Display settings
-  maxSpots: DEFAULT_MAX_SPOTS,
-  setMaxSpots: (max) => {
-    set({ maxSpots: Math.max(10, Math.min(200, max)) });
-    // Trim existing spots if needed
-    const state = get();
-    if (state.spots.length > max) {
-      set({ spots: state.spots.slice(0, max) });
-    }
-  },
-  showPaths: false,
-  setShowPaths: (show) => set({ showPaths: show }),
-
-  // Panel visibility
-  isPanelOpen: false,
-  togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
-  setPanelOpen: (open) => set({ isPanelOpen: open }),
-
-  // Band Sync Mode (Feature 2.3)
-  syncMode: false,
-  syncedBand: null,
-  setSyncMode: (enabled) => set({ syncMode: enabled }),
-  setSyncedBand: (band) => set({ syncedBand: band }),
-  toggleSyncMode: () =>
-    set((state) => ({
-      syncMode: !state.syncMode,
-      // Clear synced band when disabling sync mode
-      syncedBand: state.syncMode ? null : state.syncedBand,
-    })),
-  cycleSyncedBand: () =>
-    set((state) => {
-      if (!state.syncMode) return state;
-
-      // Get available bands from current spots
-      const bands = selectAvailableBands(state);
-      if (bands.length === 0) return state;
-
-      // Find current index and cycle to next
-      const currentIndex = state.syncedBand
-        ? bands.indexOf(state.syncedBand)
-        : -1;
-      const nextIndex = (currentIndex + 1) % bands.length;
-
-      return { syncedBand: bands[nextIndex] };
-    }),
-}));
+    {
+      name: "propulse-dx-filters",
+      partialize: (state): PersistedState => ({
+        filters: {
+          bands: state.filters.bands,
+          modes: state.filters.modes,
+          maxAge: state.filters.maxAge,
+          neededOnly: state.filters.neededOnly,
+          sortByNeeded: state.filters.sortByNeeded,
+        },
+      }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as PersistedState | undefined;
+        if (!persisted?.filters) {
+          return currentState;
+        }
+        return {
+          ...currentState,
+          filters: {
+            ...DEFAULT_FILTERS,
+            ...persisted.filters,
+          },
+        };
+      },
+    },
+  ),
+);
 
 /**
  * Selector for getting filtered spots count by band

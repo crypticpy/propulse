@@ -23,6 +23,9 @@ export { LiveSpotArcs } from "./LiveSpotArcs";
 export { SpotHighlight } from "./SpotHighlight";
 export { SpotMarker } from "./SpotMarker";
 export { SpotCluster } from "./SpotCluster";
+export { SpotLabel } from "./SpotLabel";
+export { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
+export { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 export { GlobeClickHandler } from "./GlobeClickHandler";
 export { GlobeTooltip } from "./GlobeTooltip";
 export { GlobeFlyout } from "./GlobeFlyout";
@@ -35,6 +38,7 @@ export { AzimuthalView } from "./AzimuthalView";
 
 // Control components
 export { TimeControl } from "./TimeControl";
+export { DateTimePicker } from "./DateTimePicker";
 export { PathAnalysis } from "./PathAnalysis";
 export { PropagationForecast } from "./PropagationForecast";
 export { PropagationForecastMini } from "./PropagationForecastMini";
@@ -95,3 +99,10 @@ export { KeyboardShortcutsOverlay } from "./KeyboardShortcutsOverlay";
 
 // Quick Grid Input modal
 export { QuickGridInput } from "./QuickGridInput";
+
+// Mini-map navigator
+export {
+  MiniMapNavigator,
+  type MiniMapNavigatorProps,
+  type MiniMapPosition,
+} from "./MiniMapNavigator";

@@ -4,9 +4,11 @@
  * Interactive map visualization for radio propagation analysis.
  * Features a framed layout with the map as the central focal point,
  * surrounded by information panels on all sides.
+ *
+ * Performance optimized with lazy loading for heavy components.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, lazy, Suspense } from "react";
 import { addHours } from "date-fns";
 import {
   GlobeView,
@@ -17,7 +19,6 @@ import {
   PropagationForecastMini,
   BandConditionsPanel,
   MUFLegend,
-  FullscreenPropSphere,
   RecommendationsPanel,
   OptimalBandsPanel,
   OperatorProfile,
@@ -28,17 +29,32 @@ import {
   GridResearchPanel,
   AddPinDialog,
 } from "@/components/map";
+
+// Lazy load heavy components that aren't always visible
+const FullscreenPropSphere = lazy(() =>
+  import("@/components/map/FullscreenPropSphere").then((m) => ({
+    default: m.FullscreenPropSphere,
+  })),
+);
 import { DXSpotList, DXConsole } from "@/components/dx";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { ShareModal } from "@/components/ui/ShareModal";
+import { OnboardingTour } from "@/components/ui/OnboardingTour";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import { useWatchAlerts } from "@/hooks/useWatchAlerts";
+import { useShareParams } from "@/hooks/useShareParams";
+import { useSpotCountTitle } from "@/hooks/useDocumentTitle";
 import { gridToLatLon } from "@/lib/utils/grid";
+import type { ShareState } from "@/lib/utils/shareState";
+import { PROPSPHERE_TOUR_STEPS } from "@/config/tourSteps";
+import { useUndoStore } from "@/stores/undoStore";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -80,8 +96,13 @@ export function PropSphere() {
     isLiteMode,
     isDXConsoleExpanded,
     setDXConsoleExpanded,
+    pathMode,
   } = useMapStore();
   const station = useUserStore((state) => state.station);
+  const spotCount = useDXStore((state) => state.spots.length);
+
+  // Update browser tab title with spot count
+  useSpotCountTitle(spotCount);
 
   // Panel expand states for lite mode floating pills
   // When user clicks a collapsed pill, it can expand to show full content
@@ -112,11 +133,36 @@ export function PropSphere() {
   // Add Pin Dialog state (for keyboard shortcut)
   const [showAddPin, setShowAddPin] = useState(false);
 
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+
   // Get watch store for toggle watch action
   const watchStore = useWatchStore();
 
+  // Get undo store for tracking undoable actions
+  const { pushAction } = useUndoStore();
+
+  // Apply share params from URL (if any)
+  useShareParams();
+
   // Initialize watch audio alerts (monitors watch matches and plays sounds)
   useWatchAlerts({ enabled: true });
+
+  // Onboarding tour state and handlers
+  const {
+    isActive: isTourActive,
+    currentStepData: tourStep,
+    currentStep: tourStepIndex,
+    totalSteps: tourTotalSteps,
+    startTour,
+    nextStep: tourNextStep,
+    prevStep: tourPrevStep,
+    skipTour,
+    completeTour,
+  } = useOnboardingTour({
+    steps: PROPSPHERE_TOUR_STEPS,
+    autoStart: true,
+  });
 
   // Handler for grid research from DXSpotList context menu (Feature 2.6)
   const handleResearchGrid = useCallback((grid: string) => {
@@ -152,16 +198,26 @@ export function PropSphere() {
           break;
 
         // Clear and close
-        case "clearAndClose":
+        case "clearAndClose": {
           // Close any open panels/overlays
           setShowShortcutsHelp(false);
           setShowOptimalBandHelp(false);
           setShowGridInput(false);
+          // Record target clear for undo if there was a target
+          const currentTarget = mapStore.target;
+          if (currentTarget) {
+            pushAction({
+              type: "CLEAR_TARGET",
+              target: currentTarget,
+              description: `Cleared target "${currentTarget.name || currentTarget.grid || "location"}"`,
+            });
+          }
           // Clear target
           mapStore.setTarget(null);
           // Close flyout if open
           mapStore.setFlyoutPosition(null);
           break;
+        }
 
         // Time machine toggle (reset to live)
         case "toggleTimeMachine":
@@ -230,12 +286,25 @@ export function PropSphere() {
           useDXStore.getState().cycleSyncedBand();
           break;
 
+        // Onboarding tour
+        case "startTour":
+          startTour();
+          break;
+
         default:
           // Unknown action - do nothing
           break;
       }
     },
-    [timeOffset, setTimeOffset, target, setTarget, watchStore],
+    [
+      timeOffset,
+      setTimeOffset,
+      target,
+      setTarget,
+      watchStore,
+      startTour,
+      pushAction,
+    ],
   );
 
   // Initialize keyboard shortcuts
@@ -304,6 +373,18 @@ export function PropSphere() {
     return addHours(new Date(), timeOffset);
   }, [timeOffset]);
 
+  // Create share state for ShareModal
+  const shareState = useMemo(
+    (): ShareState => ({
+      viewMode,
+      target,
+      timeOffset,
+      layers,
+      pathMode,
+    }),
+    [viewMode, target, timeOffset, layers, pathMode],
+  );
+
   // Handle location selection
   const handleLocationClick = useCallback(
     (lat: number, lon: number) => {
@@ -342,6 +423,27 @@ export function PropSphere() {
               {/* View Mode Toggle Row */}
               <div className="hidden lg:flex gap-2">
                 <LiteModeToggle className="flex-1" />
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="p-2 rounded-lg bg-white/[0.03] border border-white/10
+                             hover:border-cosmic-cyan/50 hover:bg-cosmic-cyan/5
+                             transition-all duration-200 group"
+                  title="Share this view"
+                >
+                  <svg
+                    className="w-4 h-4 text-cosmic-cyan"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    />
+                  </svg>
+                </button>
               </div>
 
               {/* Pro View Entry Point - more compact */}
@@ -387,13 +489,16 @@ export function PropSphere() {
               </div>
 
               {/* Time Machine */}
-              <Card className="p-2 flex-1 !rounded-lg">
+              <Card className="p-2 flex-1 !rounded-lg" data-tour="time-control">
                 <TimeControl className="h-full" />
               </Card>
             </div>
 
             {/* Operator Profile - fixed width */}
-            <Card className="p-2 col-span-1 flex flex-col !rounded-lg">
+            <Card
+              className="p-2 col-span-1 flex flex-col !rounded-lg"
+              data-tour="operator-profile"
+            >
               <OperatorProfile className="h-full" />
             </Card>
 
@@ -443,6 +548,7 @@ export function PropSphere() {
               <div
                 className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
                 style={{ width: leftPanelWidth }}
+                data-tour="band-conditions-panel"
               >
                 <BandConditionsPanel
                   displayTime={displayTime}
@@ -464,7 +570,10 @@ export function PropSphere() {
           {/* Map View (center) - takes remaining space */}
           <Card className="flex-1 min-w-0 p-0 overflow-hidden relative min-h-[280px] flex flex-col">
             {/* View Mode Tabs - edge-to-edge row */}
-            <div className="flex-shrink-0 flex border-b border-white/10">
+            <div
+              className="flex-shrink-0 flex border-b border-white/10"
+              data-tour="view-mode-tabs"
+            >
               {(
                 [
                   { value: "globe", label: "3D Globe" },
@@ -489,7 +598,10 @@ export function PropSphere() {
             </div>
 
             {/* Layer controls bar */}
-            <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10">
+            <div
+              className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10"
+              data-tour="layer-controls"
+            >
               {/* Layer toggles */}
               <div className="flex flex-wrap gap-1">
                 {(
@@ -556,7 +668,10 @@ export function PropSphere() {
             )}
 
             {/* Map View - relative container for floating panels */}
-            <div className="flex-1 min-h-0 relative">
+            <div
+              className="flex-1 min-h-0 relative"
+              data-tour="globe-container"
+            >
               {viewMode === "globe" && (
                 <GlobeView
                   displayTime={displayTime}
@@ -653,6 +768,31 @@ export function PropSphere() {
                           Pro
                         </span>
                       </button>
+                      <button
+                        onClick={() => setShowShareModal(true)}
+                        className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
+                                   bg-black/60 backdrop-blur-md border border-white/10
+                                   hover:border-cosmic-cyan/50 hover:bg-black/70
+                                   transition-all duration-200"
+                        title="Share this view"
+                      >
+                        <svg
+                          className="w-3.5 h-3.5 text-cosmic-cyan"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                          />
+                        </svg>
+                        <span className="text-[11px] font-medium text-gray-300 group-hover:text-white">
+                          Share
+                        </span>
+                      </button>
                     </div>
 
                     {/* Center: Time offset (compact) */}
@@ -729,6 +869,7 @@ export function PropSphere() {
                         onToggleCollapse={() =>
                           setRightPanelExpanded(!rightPanelExpanded)
                         }
+                        onShare={() => setShowShareModal(true)}
                       />
                     </div>
                   </div>
@@ -753,10 +894,12 @@ export function PropSphere() {
               <div
                 className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
                 style={{ width: rightPanelWidth }}
+                data-tour="path-analysis-panel"
               >
                 <PathAnalysis
                   displayTime={displayTime}
                   className="h-full overflow-y-auto"
+                  onShare={() => setShowShareModal(true)}
                 />
               </div>
             </>
@@ -812,6 +955,7 @@ export function PropSphere() {
             {/* Hidden when DX Console is expanded */}
             <div
               className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
+              data-tour="dx-spot-list"
             >
               <Card className="p-0 overflow-hidden">
                 {/* Drawer Toggle Handle */}
@@ -918,7 +1062,11 @@ export function PropSphere() {
           {/* Tab Content */}
           <div className="h-[250px] overflow-hidden">
             {activeTab === "path" && (
-              <PathAnalysis displayTime={displayTime} className="h-full" />
+              <PathAnalysis
+                displayTime={displayTime}
+                className="h-full"
+                onShare={() => setShowShareModal(true)}
+              />
             )}
             {activeTab === "bands" && (
               <BandConditionsPanel
@@ -955,11 +1103,25 @@ export function PropSphere() {
       </main>
 
       {/* Fullscreen mode */}
+      {/* Fullscreen mode - lazy loaded for performance */}
       {isFullscreen && (
-        <FullscreenPropSphere
-          displayTime={displayTime}
-          onLocationClick={handleLocationClick}
-        />
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <div className="w-8 h-8 border-2 border-plasma-orange border-t-transparent rounded-full animate-spin" />
+                <p className="text-gray-400 text-sm">
+                  Loading fullscreen view...
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <FullscreenPropSphere
+            displayTime={displayTime}
+            onLocationClick={handleLocationClick}
+          />
+        </Suspense>
       )}
 
       <HelpModal
@@ -1031,6 +1193,31 @@ export function PropSphere() {
           onClose={() => setShowAddPin(false)}
         />
       )}
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        isActive={isTourActive}
+        currentStep={tourStep}
+        stepIndex={tourStepIndex}
+        totalSteps={tourTotalSteps}
+        onNext={tourNextStep}
+        onPrev={tourPrevStep}
+        onSkip={skipTour}
+        onComplete={completeTour}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        state={shareState}
+        title="Share PropSphere View"
+        description={
+          target
+            ? `Share your path analysis to ${target.name || target.grid}`
+            : "Share your current propagation view"
+        }
+      />
     </div>
   );
 }

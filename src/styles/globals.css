@@ -145,10 +145,130 @@
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Focus styles for accessibility */
+/* ==================== */
+/* Keyboard Focus Indicators */
+/* WCAG 2.1 compliant focus styles */
+/* Uses :focus-visible for keyboard-only focus */
+/* ==================== */
+
 @layer base {
+  /* Remove default browser outline - we use custom ring styles */
+  *:focus {
+    outline: none;
+  }
+
+  /* Global focus-visible style for all interactive elements */
   *:focus-visible {
-    @apply outline-none ring-2 ring-plasma-orange ring-offset-2 ring-offset-deep-space;
+    @apply outline-none ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+  }
+
+  /* Button-specific focus styles */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  .btn:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+    box-shadow: 0 0 0 2px var(--color-deep-space, #0a0a1a),
+                0 0 0 4px var(--color-cyan, #44ddff),
+                0 0 12px rgba(68, 221, 255, 0.4);
+  }
+
+  /* Input and form control focus styles */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [contenteditable="true"]:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-1 ring-offset-deep-space border-cosmic-cyan;
+  }
+
+  /* Link focus styles */
+  a:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-sm;
+  }
+
+  /* Tab and navigation item focus styles */
+  [role="tab"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  [role="option"]:focus-visible,
+  [role="listitem"]:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-1 ring-offset-deep-space;
+    box-shadow: inset 0 0 0 2px rgba(68, 221, 255, 0.3);
+  }
+
+  /* Card and panel focus styles (for focusable containers) */
+  .glass-card:focus-visible,
+  .glass-panel:focus-visible,
+  [role="region"]:focus-visible,
+  [tabindex="0"]:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+  }
+
+  /* Checkbox and radio focus styles */
+  input[type="checkbox"]:focus-visible,
+  input[type="radio"]:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+  }
+
+  /* Switch/toggle focus styles */
+  [role="switch"]:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-full;
+  }
+
+  /* Slider focus styles */
+  input[type="range"]:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-lg;
+  }
+
+  /* Slider thumb focus (WebKit) */
+  input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px rgba(68, 221, 255, 0.5);
+  }
+
+  /* Dialog/Modal focus trap styles */
+  [role="dialog"]:focus-visible,
+  [role="alertdialog"]:focus-visible {
+    @apply ring-2 ring-cosmic-cyan ring-offset-4 ring-offset-deep-space;
+  }
+}
+
+/* ==================== */
+/* Focus styles for light backgrounds */
+/* Some components may have light backgrounds */
+/* ==================== */
+
+@layer components {
+  /* Focus on light background contexts */
+  .bg-white *:focus-visible,
+  .bg-gray-100 *:focus-visible,
+  .bg-gray-200 *:focus-visible,
+  [data-theme="light"] *:focus-visible {
+    --tw-ring-offset-color: #ffffff;
+    @apply ring-offset-white;
+  }
+
+  /* High-visibility focus for critical actions */
+  .focus-high-visibility:focus-visible {
+    @apply ring-4 ring-cosmic-cyan ring-offset-4 ring-offset-deep-space;
+    box-shadow: 0 0 0 4px var(--color-deep-space, #0a0a1a),
+                0 0 0 8px var(--color-cyan, #44ddff),
+                0 0 20px rgba(68, 221, 255, 0.6);
+  }
+
+  /* Skip link focus styles (for skip-to-content links) */
+  .skip-link:focus-visible {
+    @apply fixed top-4 left-4 z-50 px-4 py-2 bg-cosmic-cyan text-deep-space font-semibold rounded-lg;
+    box-shadow: 0 0 20px rgba(68, 221, 255, 0.8);
+  }
+}
+
+/* ==================== */
+/* Focus within styles */
+/* For parent elements containing focused children */
+/* ==================== */
+
+@layer utilities {
+  /* Focus-within for container highlighting */
+  .focus-within-highlight:focus-within {
+    @apply ring-1 ring-cosmic-cyan/50;
   }
 }
 
@@ -205,9 +325,12 @@
     @apply border-white/40;
   }
 
-  /* Make focus indicators more prominent */
+  /* Make focus indicators more prominent in high contrast mode */
   *:focus-visible {
-    @apply ring-4 ring-offset-4;
+    @apply ring-4 ring-cosmic-cyan ring-offset-4 ring-offset-deep-space;
+    box-shadow: 0 0 0 4px var(--color-deep-space, #0a0a1a),
+                0 0 0 8px var(--color-cyan, #44ddff),
+                0 0 24px rgba(68, 221, 255, 0.8);
   }
 
   /* Ensure dupe/mult indicators have strong borders */

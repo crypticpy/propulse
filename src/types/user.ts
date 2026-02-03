@@ -4,6 +4,7 @@
  */
 
 import type { UserRadio, RadioEquipment } from "./radio";
+import type { ColorBlindMode } from "@/lib/themes/colorblind";
 
 // =============================================================================
 // LOCATION TYPES
@@ -180,6 +181,19 @@ export interface FavoredBands {
 }
 
 /**
+ * Band preset for quick filtering
+ * Allows users to save and quickly apply favorite band combinations
+ */
+export interface BandPreset {
+  /** Unique identifier for this preset */
+  id: string;
+  /** User-friendly name for the preset (e.g., "HF Low", "Contest Bands") */
+  name: string;
+  /** Array of band strings to filter by when this preset is applied */
+  bands: string[];
+}
+
+/**
  * Notification/alert preferences
  * Controls which alerts the user wants to receive
  */
@@ -268,6 +282,25 @@ export interface SpotAgePreferences {
   maxAgeMinutes: number;
   /** Show age column in DX Cluster list */
   showAgeColumn: boolean;
+}
+
+/**
+ * UI Interaction preferences for globe and map controls
+ * Controls gesture detection and menu behavior
+ */
+export interface UIInteractionPreferences {
+  /** Press-and-hold duration in milliseconds to trigger menu (1500-5000, default: 2500) */
+  holdDurationMs: number;
+  /** Auto-dismiss timeout for flyout in milliseconds (1000-10000, default: 2500) */
+  flyoutAutoDismissMs: number;
+  /** Whether auto-dismiss is enabled (default: true) */
+  flyoutAutoDismissEnabled: boolean;
+  /** Show callsign labels on globe spots (default: true) */
+  showSpotCallsignLabels: boolean;
+  /** Show spotter labels in addition to DX labels (default: false) */
+  showSpotterLabels: boolean;
+  /** Hit radius multiplier for spot hover detection (0.5-2.0, default: 1.0) */
+  spotHitRadiusMultiplier: number;
 }
 
 // =============================================================================
@@ -390,6 +423,12 @@ export interface UserPreferences {
   spotAge?: SpotAgePreferences;
   /** Watch system audio alert preferences */
   watchAlerts?: WatchAlertPreferences;
+  /** UI interaction preferences for globe controls and gestures */
+  uiInteraction?: UIInteractionPreferences;
+  /** Saved band presets for quick filtering (max 5) */
+  bandPresets?: BandPreset[];
+  /** Color blind mode for accessibility */
+  colorBlindMode?: ColorBlindMode;
 }
 
 // =============================================================================
@@ -515,4 +554,16 @@ export const DEFAULT_SPOT_AGE: SpotAgePreferences = {
   enabled: true,
   maxAgeMinutes: 30,
   showAgeColumn: true,
+};
+
+/**
+ * Default UI interaction preferences
+ */
+export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
+  holdDurationMs: 2500,
+  flyoutAutoDismissMs: 2500,
+  flyoutAutoDismissEnabled: true,
+  showSpotCallsignLabels: true,
+  showSpotterLabels: false,
+  spotHitRadiusMultiplier: 1.0,
 };

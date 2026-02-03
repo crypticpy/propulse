@@ -4,9 +4,11 @@
  * Renders a marker on the globe at a specific lat/lon position.
  * Used for home station and target location markers.
  * Target markers display difficulty-based coloring.
+ *
+ * Performance optimized with React.memo and proper comparison function.
  */
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, memo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -73,7 +75,26 @@ function latLonToVector3(
   );
 }
 
-export function LocationMarker({
+/**
+ * Comparison function for LocationMarker memo
+ * Only re-render when position, color, or important props change
+ */
+function locationMarkerPropsAreEqual(
+  prevProps: LocationMarkerProps,
+  nextProps: LocationMarkerProps,
+): boolean {
+  return (
+    prevProps.lat === nextProps.lat &&
+    prevProps.lon === nextProps.lon &&
+    prevProps.color === nextProps.color &&
+    prevProps.label === nextProps.label &&
+    prevProps.type === nextProps.type &&
+    prevProps.difficulty === nextProps.difficulty &&
+    prevProps.showDifficultyTag === nextProps.showDifficultyTag
+  );
+}
+
+function LocationMarkerInner({
   lat,
   lon,
   color = "#ff6b35",
@@ -174,3 +195,12 @@ export function LocationMarker({
     </group>
   );
 }
+
+/**
+ * Memoized LocationMarker component
+ * Only re-renders when relevant props change
+ */
+export const LocationMarker = memo(
+  LocationMarkerInner,
+  locationMarkerPropsAreEqual,
+);

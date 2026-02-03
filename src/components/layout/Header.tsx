@@ -286,6 +286,7 @@ export function Header({
                   onClick={() => setShowSettings(true)}
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors"
                   aria-label="Settings"
+                  data-tour="settings-button"
                 >
                   <svg
                     className="w-5 h-5"

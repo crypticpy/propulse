@@ -6,7 +6,7 @@
  * Includes worked status indicators and alert highlighting.
  */
 
-import { useMemo, useCallback, useState, useEffect, useRef } from "react";
+import { useMemo, useCallback, useState, useEffect, useRef, memo } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { useDXCluster, useDXSpotStats } from "@/hooks/useDXCluster";
 import { useLogbook } from "@/hooks/useLogbook";
@@ -34,7 +34,12 @@ import {
   SpotContextMenu,
   type SpotContextAction,
 } from "@/components/map/SpotContextMenu";
-import { useUserStore, useSpotAgePrefs } from "@/stores/userStore";
+import {
+  useUserStore,
+  useSpotAgePrefs,
+  useBandPresets,
+} from "@/stores/userStore";
+import type { BandPreset } from "@/types/user";
 import { calculateGreatCircleDistance } from "@/lib/utils/bands";
 import {
   getSpotAgeInfo,
@@ -42,6 +47,12 @@ import {
   getShortAgeLabel,
   getAgeBadgeColors,
 } from "@/components/map/LiveSpotArcs";
+import {
+  parseSplitFromComment,
+  formatSplitInfo,
+  getSplitTooltip,
+} from "@/lib/utils/spotParser";
+import { useUndoStore } from "@/stores/undoStore";
 
 /**
  * Format time for display (HH:MM UTC)
@@ -87,6 +98,7 @@ interface WorkedStatus {
 
 interface SpotRowProps {
   spot: DXSpot;
+  index: number;
   isSelected: boolean;
   isHovered: boolean;
   workedStatus: WorkedStatus;
@@ -97,27 +109,63 @@ interface SpotRowProps {
   onHover: (spot: DXSpot | null) => void;
   onContextMenu?: (spot: DXSpot, position: { x: number; y: number }) => void;
   onGridClick?: (grid: string) => void;
+  onBandClick?: (band: string) => void;
   onFrequencyCopied?: (frequency: number) => void;
   /** Whether to show the age column */
   showAgeColumn?: boolean;
   /** Whether age-based row opacity is enabled */
   ageVisualizationEnabled?: boolean;
+  /** Currently active band filter (for showing active state on badge) */
+  activeBandFilter?: string | null;
+  /** Q8: Whether this row is temporarily highlighted (scroll-to animation) */
+  isHighlighted?: boolean;
 }
 
-/**
- * Individual spot row component with worked status and alert indicators
- */
 /**
  * Format distance for display (e.g., "1,234 km" or "12,345 km")
  */
 function formatDistance(km: number | null): string {
-  if (km === null) return "—";
+  if (km === null) return "---";
   if (km < 1000) return `${Math.round(km)} km`;
   return `${Math.round(km / 100) / 10}k km`;
 }
 
-function SpotRow({
+/**
+ * Comparison function for SpotRow memo
+ * Only re-render when relevant data changes
+ */
+function spotRowPropsAreEqual(
+  prevProps: SpotRowProps,
+  nextProps: SpotRowProps,
+): boolean {
+  return (
+    prevProps.spot.id === nextProps.spot.id &&
+    prevProps.spot.frequency === nextProps.spot.frequency &&
+    prevProps.spot.time.getTime() === nextProps.spot.time.getTime() &&
+    prevProps.spot.comment === nextProps.spot.comment && // For split indicator
+    prevProps.index === nextProps.index &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isHovered === nextProps.isHovered &&
+    prevProps.workedStatus.isWorked === nextProps.workedStatus.isWorked &&
+    prevProps.workedStatus.workedOnBand ===
+      nextProps.workedStatus.workedOnBand &&
+    prevProps.isAlertMatch === nextProps.isAlertMatch &&
+    prevProps.isNeeded === nextProps.isNeeded &&
+    prevProps.distanceKm === nextProps.distanceKm &&
+    prevProps.showAgeColumn === nextProps.showAgeColumn &&
+    prevProps.ageVisualizationEnabled === nextProps.ageVisualizationEnabled &&
+    prevProps.activeBandFilter === nextProps.activeBandFilter &&
+    prevProps.isHighlighted === nextProps.isHighlighted
+  );
+}
+
+/**
+ * Individual spot row component with worked status and alert indicators
+ * Memoized to prevent re-renders when other rows in the list change
+ */
+const SpotRow = memo(function SpotRow({
   spot,
+  index,
   isSelected,
   isHovered,
   workedStatus,
@@ -128,9 +176,12 @@ function SpotRow({
   onHover,
   onContextMenu,
   onGridClick,
+  onBandClick,
   onFrequencyCopied,
   showAgeColumn = true,
   ageVisualizationEnabled = true,
+  activeBandFilter = null,
+  isHighlighted = false,
 }: SpotRowProps) {
   const bandColor = getBandColor(spot.band || "");
   const minutesAgo = getMinutesAgo(spot.time);
@@ -190,6 +241,20 @@ function SpotRow({
     [spot.dxGrid, onGridClick],
   );
 
+  // Handle band badge click (Q15: filter by this band)
+  const handleBandClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation(); // Don't trigger row selection
+      if (spot.band && onBandClick) {
+        onBandClick(spot.band);
+      }
+    },
+    [spot.band, onBandClick],
+  );
+
+  // Check if this band is the active filter
+  const isBandActive = activeBandFilter === spot.band;
+
   const handleClick = useCallback(() => {
     onSelect(spot);
   }, [spot, onSelect]);
@@ -212,7 +277,7 @@ function SpotRow({
     [spot, onContextMenu],
   );
 
-  // Build row classes with alert highlight, needed highlight, and age-based opacity
+  // Build row classes with alert highlight, needed highlight, zebra striping, and age-based opacity
   const rowClasses = useMemo(() => {
     // Grid columns: Time, Age (optional), Band, Freq, DX, Dist, Spotter, Info
     const gridCols = showAgeColumn
@@ -220,8 +285,16 @@ function SpotRow({
       : "grid-cols-[50px_60px_70px_1fr_55px_70px_1fr]";
     const base = `grid ${gridCols} gap-2 px-3 py-2 cursor-pointer transition-all duration-150`;
 
+    // Q6: Zebra striping for alternating rows (only applies when no other highlight)
+    const zebraStripe = index % 2 === 0 ? "bg-white/[0.02]" : "";
+
+    // Q8: Highlight animation for scroll-to-selected (brief cyan glow)
+    const highlightClass = isHighlighted
+      ? "ring-2 ring-cyan-400/60 ring-inset animate-pulse"
+      : "";
+
     if (isSelected) {
-      return `${base} bg-plasma-orange/20 border-l-2 border-plasma-orange`;
+      return `${base} bg-plasma-orange/20 border-l-2 border-plasma-orange ${highlightClass}`;
     }
 
     if (isAlertMatch) {
@@ -231,17 +304,26 @@ function SpotRow({
     // Highlight needed spots with a subtle gold/yellow left border
     if (isNeeded) {
       if (isHovered) {
-        return `${base} bg-yellow-500/10 border-l-2 border-yellow-500/70`;
+        return `${base} bg-yellow-500/10 border-l-2 border-yellow-500/70 ${highlightClass}`;
       }
-      return `${base} bg-yellow-500/5 border-l-2 border-yellow-500/50 hover:bg-yellow-500/10`;
+      return `${base} bg-yellow-500/5 border-l-2 border-yellow-500/50 hover:bg-yellow-500/10 ${highlightClass}`;
     }
 
     if (isHovered) {
-      return `${base} bg-white/5`;
+      return `${base} bg-white/5 ${highlightClass}`;
     }
 
-    return `${base} hover:bg-white/5`;
-  }, [isSelected, isHovered, isAlertMatch, isNeeded, showAgeColumn]);
+    // Apply zebra stripe for default state
+    return `${base} ${zebraStripe} hover:bg-white/5 ${highlightClass}`;
+  }, [
+    isSelected,
+    isHovered,
+    isAlertMatch,
+    isNeeded,
+    showAgeColumn,
+    index,
+    isHighlighted,
+  ]);
 
   // Calculate row opacity based on age (only when age visualization is enabled)
   const rowStyle = useMemo(() => {
@@ -286,6 +368,12 @@ function SpotRow({
     );
   }, [isNeeded, workedStatus.isWorked, spot.band]);
 
+  // Parse split info from comment (Q10: Working Split Indicator)
+  const splitInfo = useMemo(
+    () => parseSplitFromComment(spot.comment || ""),
+    [spot.comment],
+  );
+
   return (
     <div
       className={rowClasses}
@@ -295,6 +383,7 @@ function SpotRow({
       onMouseLeave={handleMouseLeave}
       onContextMenu={handleContextMenu}
       role="row"
+      data-spot-id={spot.id}
     >
       {/* Time */}
       <div
@@ -314,17 +403,27 @@ function SpotRow({
         </div>
       )}
 
-      {/* Band */}
+      {/* Band - Q15: Clickable to filter */}
       <div className="flex items-center gap-1.5">
-        <span
-          className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+        <button
+          onClick={handleBandClick}
+          className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
+            isBandActive
+              ? "ring-2 ring-white/50 ring-offset-1 ring-offset-nebula-blue scale-105"
+              : "hover:scale-105 hover:ring-1 hover:ring-white/30"
+          }`}
           style={{
             backgroundColor: bandColor.bgColor,
             color: bandColor.color,
           }}
+          title={
+            isBandActive
+              ? `Click to clear ${spot.band} filter`
+              : `Click to filter by ${spot.band}`
+          }
         >
           {spot.band}
-        </span>
+        </button>
       </div>
 
       {/* Frequency - clickable to copy */}
@@ -388,13 +487,22 @@ function SpotRow({
             {spot.mode}
           </span>
         )}
+        {/* Q10: Split indicator badge */}
+        {splitInfo.isSplit && (
+          <span
+            className="px-1 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/40 whitespace-nowrap flex-shrink-0"
+            title={getSplitTooltip(splitInfo)}
+          >
+            {formatSplitInfo(splitInfo)}
+          </span>
+        )}
         <span className="truncate" title={spot.comment}>
           {spot.comment}
         </span>
       </div>
     </div>
   );
-}
+}, spotRowPropsAreEqual);
 
 interface FilterControlsProps {
   searchText: string;
@@ -421,6 +529,11 @@ interface FilterControlsProps {
   sortByNeeded: boolean;
   onSortByNeededToggle: () => void;
   neededCount: number;
+  // Band Presets (Q11)
+  bandPresets: BandPreset[];
+  onSavePreset: (name: string) => void;
+  onApplyPreset: (bands: string[]) => void;
+  onDeletePreset: (id: string) => void;
 }
 
 /** Time range options in minutes */
@@ -458,7 +571,45 @@ function FilterControls({
   sortByNeeded,
   onSortByNeededToggle,
   neededCount,
+  bandPresets,
+  onSavePreset,
+  onApplyPreset,
+  onDeletePreset,
 }: FilterControlsProps) {
+  // State for "Save Preset" input
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const saveInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when shown
+  useEffect(() => {
+    if (showSaveInput && saveInputRef.current) {
+      saveInputRef.current.focus();
+    }
+  }, [showSaveInput]);
+
+  // Handle save preset
+  const handleSavePreset = useCallback(() => {
+    if (presetName.trim()) {
+      onSavePreset(presetName.trim());
+      setPresetName("");
+      setShowSaveInput(false);
+    }
+  }, [presetName, onSavePreset]);
+
+  // Handle key press in save input
+  const handleSaveKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        handleSavePreset();
+      } else if (e.key === "Escape") {
+        setShowSaveInput(false);
+        setPresetName("");
+      }
+    },
+    [handleSavePreset],
+  );
+
   return (
     <div className="space-y-3 mb-4">
       {/* Search row - callsign search, grid filter, and sync toggle */}
@@ -685,6 +836,81 @@ function FilterControls({
         })}
       </div>
 
+      {/* Band Presets (Q11) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {bandPresets.map((preset) => (
+          <div key={preset.id} className="group relative">
+            <button
+              onClick={() => onApplyPreset(preset.bands)}
+              className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 hover:border-purple-500/60 transition-all"
+              title={`Apply preset: ${preset.bands.join(", ")}`}
+            >
+              {preset.name}
+            </button>
+            {/* Delete button - appears on hover */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeletePreset(preset.id);
+              }}
+              className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500/80 text-white text-[8px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
+              title="Delete preset"
+            >
+              x
+            </button>
+          </div>
+        ))}
+        {/* Save current selection as preset */}
+        {selectedBands.length > 0 && bandPresets.length < 5 && (
+          <>
+            {showSaveInput ? (
+              <div className="flex items-center gap-1">
+                <input
+                  ref={saveInputRef}
+                  type="text"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  onKeyDown={handleSaveKeyDown}
+                  placeholder="Preset name..."
+                  maxLength={20}
+                  className="w-24 px-1.5 py-0.5 rounded text-[10px] bg-white/10 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                />
+                <button
+                  onClick={handleSavePreset}
+                  disabled={!presetName.trim()}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/30 text-purple-300 border border-purple-500/50 hover:bg-purple-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSaveInput(false);
+                    setPresetName("");
+                  }}
+                  className="px-1 py-0.5 rounded text-[10px] text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowSaveInput(true)}
+                className="px-2 py-0.5 rounded text-[10px] font-medium text-purple-400/70 border border-dashed border-purple-500/40 hover:text-purple-300 hover:border-purple-500/60 transition-all"
+                title={`Save current selection (${selectedBands.join(", ")}) as preset`}
+              >
+                + Save preset
+              </button>
+            )}
+          </>
+        )}
+        {/* Show hint if at max presets */}
+        {selectedBands.length > 0 && bandPresets.length >= 5 && (
+          <span className="text-[9px] text-gray-500" title="Maximum 5 presets">
+            (max presets)
+          </span>
+        )}
+      </div>
+
       {/* Band filters */}
       <div className="flex flex-wrap gap-1.5">
         {availableBands.map((band) => {
@@ -792,11 +1018,25 @@ export function DXSpotList({
     position: { x: number; y: number };
   } | null>(null);
 
+  // Q8: Ref for the spot list container (for scroll-to-selected)
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  // Q8: State for highlighting a recently scrolled-to row
+  const [_highlightedSpotId, setHighlightedSpotId] = useState<string | null>(
+    null,
+  );
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   // Get map store for setting targets
   const { setTarget } = useMapStore();
 
   // Get watch store for watch actions
   const watchStore = useWatchStore();
+
+  // Get undo store for tracking undoable actions
+  const { pushAction } = useUndoStore();
 
   // Handle context menu open
   const handleContextMenu = useCallback(
@@ -880,13 +1120,20 @@ export function DXSpotList({
           break;
         }
         case "hideSpot": {
+          // Record the action for undo before hiding
+          pushAction({
+            type: "HIDE_SPOT",
+            spotId: spot.id,
+            spotData: spot,
+            description: `Hidden spot ${spot.dx} on ${spot.frequency.toFixed(1)} kHz`,
+          });
           // Hide this spot from the list
           hideSpot(spot.id);
           break;
         }
       }
     },
-    [setTarget, watchStore, hideSpot, onResearchGrid],
+    [setTarget, watchStore, hideSpot, onResearchGrid, pushAction],
   );
 
   // Get user's station location for distance calculation
@@ -894,6 +1141,10 @@ export function DXSpotList({
 
   // Get spot age visualization preferences
   const spotAgePrefs = useSpotAgePrefs();
+
+  // Band presets (Q11)
+  const bandPresets = useBandPresets();
+  const { addBandPreset, removeBandPreset } = useUserStore();
 
   // Get logbook data for worked status
   const { isWorked, getWorkedBands } = useLogbook();
@@ -923,6 +1174,44 @@ export function DXSpotList({
     return () => {
       mounted = false;
       clearInterval(interval);
+    };
+  }, []);
+
+  // Q8: Scroll to selected spot and highlight it briefly
+  // This effect triggers when selectedSpot changes from globe interaction
+  useEffect(() => {
+    if (!selectedSpot?.id || !listContainerRef.current) return;
+
+    // Find the row element with the matching spot id
+    const row = listContainerRef.current.querySelector(
+      `[data-spot-id="${selectedSpot.id}"]`,
+    );
+    if (row) {
+      // Smooth scroll to bring the row into view
+      row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+      // Set highlight state for brief visual feedback
+      setHighlightedSpotId(selectedSpot.id);
+
+      // Clear any existing highlight timeout
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+
+      // Remove highlight after 1.5 seconds
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightedSpotId(null);
+        highlightTimeoutRef.current = null;
+      }, 1500);
+    }
+  }, [selectedSpot?.id]);
+
+  // Q8: Cleanup highlight timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -1027,6 +1316,28 @@ export function DXSpotList({
     [filters.bands, updateFilter],
   );
 
+  // Q15: Handle band badge click in spot row - toggle single band filter
+  const handleBandBadgeClick = useCallback(
+    (band: string) => {
+      const currentBands = filters.bands || [];
+      // If this band is already the only filter, clear it (toggle off)
+      if (currentBands.length === 1 && currentBands[0] === band) {
+        updateFilter("bands", []);
+      } else {
+        // Otherwise, set this as the only band filter
+        updateFilter("bands", [band]);
+      }
+    },
+    [filters.bands, updateFilter],
+  );
+
+  // Q15: Compute active band filter for badge highlighting
+  const activeBandFilter = useMemo(() => {
+    const currentBands = filters.bands || [];
+    // Only show active state when exactly one band is selected
+    return currentBands.length === 1 ? currentBands[0] : null;
+  }, [filters.bands]);
+
   const handleModeToggle = useCallback(
     (mode: string) => {
       const currentModes = filters.modes || [];
@@ -1114,6 +1425,36 @@ export function DXSpotList({
   const handleSortByNeededToggle = useCallback(() => {
     updateFilter("sortByNeeded", !filters.sortByNeeded);
   }, [filters.sortByNeeded, updateFilter]);
+
+  // Handler for saving current band selection as preset (Q11)
+  const handleSavePreset = useCallback(
+    (name: string) => {
+      const currentBands = filters.bands || [];
+      if (currentBands.length > 0) {
+        const result = addBandPreset(name, currentBands);
+        if (!result.ok) {
+          console.warn("Failed to save band preset:", result.error);
+        }
+      }
+    },
+    [filters.bands, addBandPreset],
+  );
+
+  // Handler for applying a preset (Q11)
+  const handleApplyPreset = useCallback(
+    (bands: string[]) => {
+      updateFilter("bands", [...bands]);
+    },
+    [updateFilter],
+  );
+
+  // Handler for deleting a preset (Q11)
+  const handleDeletePreset = useCallback(
+    (id: string) => {
+      removeBandPreset(id);
+    },
+    [removeBandPreset],
+  );
 
   // Apply needed filtering and sorting (Feature 2.1)
   // This is done at component level because it requires logbook data
@@ -1267,6 +1608,10 @@ export function DXSpotList({
           sortByNeeded={filters.sortByNeeded || false}
           onSortByNeededToggle={handleSortByNeededToggle}
           neededCount={neededCount}
+          bandPresets={bandPresets}
+          onSavePreset={handleSavePreset}
+          onApplyPreset={handleApplyPreset}
+          onDeletePreset={handleDeletePreset}
         />
       )}
 
@@ -1287,6 +1632,7 @@ export function DXSpotList({
 
       {/* Spot List */}
       <div
+        ref={listContainerRef}
         className="flex-1 overflow-y-auto divide-y divide-white/5"
         style={{ maxHeight }}
         role="table"
@@ -1301,10 +1647,11 @@ export function DXSpotList({
             No spots match your filters
           </div>
         ) : (
-          displaySpots.map((spot) => (
+          displaySpots.map((spot, index) => (
             <SpotRow
               key={spot.id}
               spot={spot}
+              index={index}
               isSelected={selectedSpot?.id === spot.id}
               isHovered={hoveredSpot?.id === spot.id}
               workedStatus={
@@ -1321,8 +1668,11 @@ export function DXSpotList({
               onHover={setHoveredSpot}
               onContextMenu={handleContextMenu}
               onGridClick={handleGridFilterChange}
+              onBandClick={handleBandBadgeClick}
               showAgeColumn={spotAgePrefs.showAgeColumn}
               ageVisualizationEnabled={spotAgePrefs.enabled}
+              activeBandFilter={activeBandFilter}
+              isHighlighted={_highlightedSpotId === spot.id}
             />
           ))
         )}

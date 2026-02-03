@@ -151,13 +151,35 @@ function SceneLighting({ displayTime }: { displayTime: Date }) {
 }
 
 /**
- * Camera controller with spot focus animation
- * Handles OrbitControls and animates camera when a spot is selected
+ * Convert lat/lon to camera position at a given distance
+ */
+function latLonToCameraPosition(
+  lat: number,
+  lon: number,
+  distance: number = 2.5,
+): THREE.Vector3 {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+
+  return new THREE.Vector3(
+    -distance * Math.sin(phi) * Math.cos(theta),
+    distance * Math.cos(phi),
+    distance * Math.sin(phi) * Math.sin(theta),
+  );
+}
+
+/**
+ * Camera controller with spot focus and center animations
+ * Handles OrbitControls and animates camera when:
+ * - A spot is selected (targetPosition from useSpotFocus)
+ * - Q2: Double-click centers the view (centerLocation from mapStore)
  */
 function CameraController() {
   const controlsRef = useRef<OrbitControlsType>(null);
   const { camera } = useThree();
   const { targetPosition, isFocusing } = useSpotFocus();
+  const centerLocation = useMapStore((state) => state.centerLocation);
+  const clearCenterLocation = useMapStore((state) => state.clearCenterLocation);
 
   // Animate camera to focus on selected spot
   useEffect(() => {
@@ -197,6 +219,48 @@ function CameraController() {
     animate();
   }, [targetPosition, isFocusing, camera]);
 
+  // Q2: Animate camera to center on double-clicked location
+  useEffect(() => {
+    if (!centerLocation || !controlsRef.current) return;
+
+    const controls = controlsRef.current;
+    const startPosition = camera.position.clone();
+    const currentDistance = startPosition.length();
+    const endPosition = latLonToCameraPosition(
+      centerLocation.lat,
+      centerLocation.lon,
+      currentDistance,
+    );
+
+    // Smooth animation duration in ms (300ms for responsive feel)
+    const duration = 300;
+    const startTime = Date.now();
+
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease out cubic for smooth deceleration
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      // Lerp camera position
+      camera.position.lerpVectors(startPosition, endPosition, eased);
+
+      // Always look at center of globe
+      camera.lookAt(0, 0, 0);
+      controls.update();
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Clear the center location after animation completes
+        clearCenterLocation();
+      }
+    }
+
+    animate();
+  }, [centerLocation, camera, clearCenterLocation]);
+
   return (
     <OrbitControls
       ref={controlsRef}
@@ -218,12 +282,19 @@ function CameraController() {
 function GlobeScene({
   displayTime,
   onLocationClick,
+  onDoubleClick,
   onLocationHover,
   onHoverEnd,
   onPinHover,
 }: {
   displayTime: Date;
   onLocationClick?: (
+    lat: number,
+    lon: number,
+    screenPos: { x: number; y: number },
+  ) => void;
+  /** Q2: Called when double-clicking - centers view without setting target */
+  onDoubleClick?: (
     lat: number,
     lon: number,
     screenPos: { x: number; y: number },
@@ -307,6 +378,7 @@ function GlobeScene({
       {/* Globe click/hover handler wrapping the Earth */}
       <GlobeClickHandler
         onLocationClick={handleGlobeClick}
+        onDoubleClick={onDoubleClick}
         onLocationHover={handleGlobeHover}
         onHoverEnd={onHoverEnd}
       >
@@ -434,6 +506,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     flyoutPosition,
     setFlyoutPosition,
     setTarget,
+    setCenterLocation,
   } = useMapStore();
   const { addPin } = usePinStore();
   const { updateFilter } = useDXStore();
@@ -489,6 +562,18 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       onLocationClick?.(lat, lon);
     },
     [setFlyoutPosition, setTooltipPosition, onLocationClick],
+  );
+
+  // Q2: Handle double-click - center view without setting target
+  const handleDoubleClick = useCallback(
+    (lat: number, lon: number) => {
+      // Close any open flyout/tooltip
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      // Center the view on this location (smooth animation in CameraController)
+      setCenterLocation(lat, lon);
+    },
+    [setFlyoutPosition, setTooltipPosition, setCenterLocation],
   );
 
   // Handle globe hover - show tooltip
@@ -648,6 +733,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
             <GlobeScene
               displayTime={displayTime}
               onLocationClick={handleGlobeClick}
+              onDoubleClick={handleDoubleClick}
               onLocationHover={handleGlobeHover}
               onHoverEnd={handleHoverEnd}
               onPinHover={handlePinHover}

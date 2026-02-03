@@ -6,7 +6,9 @@ import {
   AlertToastContainer,
   AlertHistoryModal,
 } from "@/components/alerts";
+import { UndoToast } from "@/components/ui/UndoToast";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 
 /**
  * Layout - Root layout component with header and background effects
@@ -17,6 +19,9 @@ export function Layout() {
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Initialize undo/redo keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
+  useUndoRedo({ enabled: true });
 
   return (
     <div className="min-h-screen bg-cosmic-gradient">
@@ -55,6 +60,9 @@ export function Layout() {
         isOpen={showAlertHistory}
         onClose={() => setShowAlertHistory(false)}
       />
+
+      {/* Undo Toast - fixed position bottom-left */}
+      <UndoToast />
     </div>
   );
 }

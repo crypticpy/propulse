@@ -10,6 +10,38 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Code splitting configuration for optimal bundle sizes
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks for caching
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-three": ["three", "@react-three/fiber", "@react-three/drei"],
+          "vendor-tanstack": ["@tanstack/react-query"],
+          "vendor-utils": ["date-fns", "zustand", "zod", "suncalc"],
+        },
+      },
+    },
+    // Enable source maps for production debugging (optional)
+    sourcemap: false,
+    // Chunk size warning limit (kB)
+    chunkSizeWarningLimit: 500,
+  },
+  // Optimize deps for faster dev startup
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "three",
+      "@react-three/fiber",
+      "@react-three/drei",
+      "@tanstack/react-query",
+      "date-fns",
+      "zustand",
+    ],
+  },
   server: {
     proxy: {
       // Proxy API requests to NOAA during local development

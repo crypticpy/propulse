@@ -17,15 +17,22 @@ import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXStore } from "@/stores/dxStore";
-import { useSpotClusteringPrefs, useSpotAgePrefs } from "@/stores/userStore";
+import {
+  useSpotClusteringPrefs,
+  useSpotAgePrefs,
+  useUIInteractionPrefs,
+} from "@/stores/userStore";
 import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
 } from "@/lib/data/prefixLocations";
 import { useSpotClustering } from "@/hooks/useSpotClustering";
 import { SpotCluster } from "./SpotCluster";
+import { SpotLabel } from "./SpotLabel";
+import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
+import type { SpotDetailsData } from "./SpotDetailsFlyout";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -380,6 +387,13 @@ interface LiveSpotArcsProps {
   maxArcs?: number;
   /** Minimum opacity for arc lines */
   minOpacity?: number;
+  /** Callback when a spot is hovered */
+  onSpotHover?: (
+    data: SpotDetailsData,
+    screenPos: { x: number; y: number },
+  ) => void;
+  /** Callback when spot hover ends */
+  onSpotHoverEnd?: () => void;
 }
 
 /**
@@ -533,7 +547,12 @@ function SpotEndpoint({
  * are present in the same geographic area.
  * Applies age-based visual decay (opacity/scale) based on user preferences.
  */
-export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
+export function LiveSpotArcs({
+  grid,
+  maxArcs = 50,
+  onSpotHover,
+  onSpotHoverEnd,
+}: LiveSpotArcsProps) {
   // Get source filter from dxStore - shared with DXSpotList
   const filters = useDXStore((state) => state.filters);
   const sourcesFilter = filters.sources as SpotSource[] | undefined;
@@ -543,6 +562,9 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
 
   // Get spot age visualization preferences
   const spotAgePrefs = useSpotAgePrefs();
+
+  // Get UI interaction preferences for callsign labels
+  const uiPrefs = useUIInteractionPrefs();
 
   const { spots, isLoading } = useLiveSpots({
     grid,
@@ -563,6 +585,15 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
   // Resolve locations for single (non-clustered) spots
   const resolvedSingles = useMemo(() => {
     return resolveSpotLocations(singles);
+  }, [singles]);
+
+  // Create a map from spot ID to original LiveSpot for additional data
+  const singlesMap = useMemo(() => {
+    const map = new Map<string, LiveSpot>();
+    for (const spot of singles) {
+      map.set(spot.id, spot);
+    }
+    return map;
   }, [singles]);
 
   // Handler for cluster click - placeholder for future zoom/expand functionality
@@ -619,6 +650,37 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
               opacity={endpointOpacity}
               scale={endpointScale}
             />
+            {/* Callsign label at DX location (receiver) */}
+            {uiPrefs.showSpotCallsignLabels && (
+              <SpotLabel
+                lat={spot.dxLat}
+                lon={spot.dxLon}
+                callsign={spot.callsign}
+                mode={spot.mode}
+                isSpotter={false}
+                opacity={endpointOpacity}
+                frequency={spot.frequency}
+              />
+            )}
+            {/* Hit area for hover detection at DX location */}
+            {onSpotHover && (
+              <SpotEndpointHitArea
+                lat={spot.dxLat}
+                lon={spot.dxLon}
+                spot={spot}
+                spotData={{
+                  spotter: singlesMap.get(spot.id)?.spotter,
+                  spotterGrid: singlesMap.get(spot.id)?.spotterGrid,
+                  dxGrid: singlesMap.get(spot.id)?.dxGrid,
+                  band: singlesMap.get(spot.id)?.band,
+                  snr: singlesMap.get(spot.id)?.snr,
+                  wpm: singlesMap.get(spot.id)?.wpm,
+                }}
+                hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                onHover={onSpotHover}
+                onHoverEnd={onSpotHoverEnd}
+              />
+            )}
           </group>
         );
       })}

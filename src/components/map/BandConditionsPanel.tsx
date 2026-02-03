@@ -4,9 +4,12 @@
  * Standalone panel displaying band-by-band propagation conditions
  * with S-meter indicators, SNR estimates, and status information.
  * Designed for left-side framed layout position.
+ *
+ * Performance optimized with React.memo for expensive sub-components.
  */
 
-import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback, memo } from "react";
+import { formatDistanceToNow } from "date-fns";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useDXStore } from "@/stores/dxStore";
@@ -127,9 +130,38 @@ export function BandConditionsPanel({
     };
   }, [checkScroll, collapsed]);
 
-  // Fetch current solar data
-  const { data: kIndexData } = useKIndex();
-  const { data: solarFluxData } = useSolarFlux();
+  // Fetch current solar data with refresh capabilities
+  const {
+    data: kIndexData,
+    dataUpdatedAt: kIndexUpdatedAt,
+    isRefetching: isKIndexRefetching,
+    refetch: refetchKIndex,
+  } = useKIndex();
+  const {
+    data: solarFluxData,
+    dataUpdatedAt: sfiUpdatedAt,
+    isRefetching: isSfiRefetching,
+    refetch: refetchSfi,
+  } = useSolarFlux();
+
+  // Combined refresh state - use most recent update time
+  const lastUpdatedAt = useMemo(() => {
+    return Math.max(kIndexUpdatedAt || 0, sfiUpdatedAt || 0);
+  }, [kIndexUpdatedAt, sfiUpdatedAt]);
+
+  const isRefetching = isKIndexRefetching || isSfiRefetching;
+
+  // Manual refresh handler
+  const handleRefresh = useCallback(() => {
+    refetchKIndex();
+    refetchSfi();
+  }, [refetchKIndex, refetchSfi]);
+
+  // Format last updated time
+  const lastUpdatedText = useMemo(() => {
+    if (!lastUpdatedAt) return "Never";
+    return formatDistanceToNow(new Date(lastUpdatedAt), { addSuffix: false });
+  }, [lastUpdatedAt]);
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
@@ -523,9 +555,37 @@ export function BandConditionsPanel({
             )}
           </div>
 
-          {/* Footer with path info */}
-          <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5 text-xs text-gray-400">
-            Path illumination: {Math.round(illumination)}%
+          {/* Footer with path info and refresh */}
+          <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5">
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>Path illumination: {Math.round(illumination)}%</span>
+            </div>
+            <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-white/5">
+              <span className="text-[10px] text-gray-500">
+                Updated {lastUpdatedText} ago
+              </span>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefetching}
+                className="p-1 hover:bg-white/10 rounded transition-colors disabled:opacity-50"
+                title="Refresh band conditions"
+                aria-label="Refresh band conditions"
+              >
+                <svg
+                  className={`w-3.5 h-3.5 text-gray-400 ${isRefetching ? "animate-spin" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </Card>
@@ -542,21 +602,46 @@ export function BandConditionsPanel({
 }
 
 /**
- * Band condition table row
+ * Props for BandConditionRow
  */
-function BandConditionRow({
-  condition,
-  hasEnhancedData,
-  compact,
-  isSynced,
-  greylineIntensity,
-}: {
+interface BandConditionRowProps {
   condition: PathBandCondition;
   hasEnhancedData: boolean;
   compact: boolean;
   isSynced: boolean;
   greylineIntensity: GreylineIntensity;
-}) {
+}
+
+/**
+ * Comparison function for BandConditionRow memo
+ */
+function bandConditionRowPropsAreEqual(
+  prevProps: BandConditionRowProps,
+  nextProps: BandConditionRowProps,
+): boolean {
+  return (
+    prevProps.condition.band === nextProps.condition.band &&
+    prevProps.condition.status === nextProps.condition.status &&
+    prevProps.condition.snrEstimate === nextProps.condition.snrEstimate &&
+    prevProps.condition.sUnit?.value === nextProps.condition.sUnit?.value &&
+    prevProps.hasEnhancedData === nextProps.hasEnhancedData &&
+    prevProps.compact === nextProps.compact &&
+    prevProps.isSynced === nextProps.isSynced &&
+    prevProps.greylineIntensity === nextProps.greylineIntensity
+  );
+}
+
+/**
+ * Band condition table row
+ * Memoized to prevent unnecessary re-renders when other rows change
+ */
+const BandConditionRow = memo(function BandConditionRow({
+  condition,
+  hasEnhancedData,
+  compact,
+  isSynced,
+  greylineIntensity,
+}: BandConditionRowProps) {
   const statusColor = getPathStatusColor(condition.status);
   const statusBgColor = getPathStatusBgColor(condition.status);
   const statusLabel =
@@ -648,7 +733,7 @@ function BandConditionRow({
       )}
     </tr>
   );
-}
+}, bandConditionRowPropsAreEqual);
 
 /**
  * Get color class for S-unit display
@@ -663,8 +748,13 @@ function getSUnitColor(sUnit?: SUnit): string {
 
 /**
  * S-meter visual indicator
+ * Memoized to prevent re-renders when parent re-renders
  */
-function SMeterIndicator({ sUnit }: { sUnit?: SUnit }) {
+const SMeterIndicator = memo(function SMeterIndicator({
+  sUnit,
+}: {
+  sUnit?: SUnit;
+}) {
   if (!sUnit) {
     return (
       <div className="flex gap-0.5">
@@ -696,6 +786,6 @@ function SMeterIndicator({ sUnit }: { sUnit?: SUnit }) {
       ))}
     </div>
   );
-}
+});
 
 export default BandConditionsPanel;

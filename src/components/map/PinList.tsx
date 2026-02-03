@@ -9,6 +9,7 @@ import { useState, useCallback } from "react";
 import type { MapPin, PinCategory } from "../../types/pin";
 import { PIN_CATEGORIES, getCategoryMeta } from "../../types/pin";
 import { usePinStore } from "../../stores/pinStore";
+import { useUndoStore } from "../../stores/undoStore";
 
 export interface PinListProps {
   /** Callback when a pin is selected/clicked */
@@ -48,7 +49,8 @@ export function PinList({
   onPinEdit,
   className = "",
 }: PinListProps) {
-  const { pins, removePin, getPinsByCategory } = usePinStore();
+  const { pins, removePin, getPinsByCategory, getPinById } = usePinStore();
+  const { pushAction } = useUndoStore();
 
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>("all");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -88,11 +90,22 @@ export function PinList({
     (e: React.MouseEvent) => {
       e.stopPropagation();
       if (pendingDelete) {
+        // Get pin data before deleting for undo
+        const pinData = getPinById(pendingDelete);
+        if (pinData) {
+          // Record the action for undo
+          pushAction({
+            type: "DELETE_PIN",
+            pinId: pendingDelete,
+            pinData,
+            description: `Deleted pin "${pinData.name || pinData.grid}"`,
+          });
+        }
         removePin(pendingDelete);
         setPendingDelete(null);
       }
     },
-    [pendingDelete, removePin],
+    [pendingDelete, removePin, getPinById, pushAction],
   );
 
   // Cancel delete

@@ -4,13 +4,18 @@
  * A click action menu overlay for the 3D globe providing location-based
  * actions like setting a target, adding a pin, or researching a grid.
  * Uses glassmorphism styling and supports click-outside/escape dismissal.
+ *
+ * Features:
+ * - Auto-dismiss when mouse moves away (configurable)
+ * - Fade animation on dismiss
+ * - Smart positioning to stay on screen
  */
 
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { FeasibilityBadge } from "./FeasibilityBadge";
 import { useFeasibility } from "@/hooks/useFeasibility";
-import { useUserStore } from "@/stores/userStore";
+import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 
 /** Action types available in the flyout menu */
 export type GlobeFlyoutAction =
@@ -117,6 +122,19 @@ export function GlobeFlyout({
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
 
+  // Get UI interaction preferences for auto-dismiss settings
+  const uiPrefs = useUIInteractionPrefs();
+  const autoDismissEnabled = uiPrefs.flyoutAutoDismissEnabled;
+  const autoDismissMs = uiPrefs.flyoutAutoDismissMs;
+
+  // Auto-dismiss state
+  const [isFading, setIsFading] = useState(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mouseInFlyoutRef = useRef(false);
+
+  // Padding around flyout for mouse proximity detection
+  const PROXIMITY_PADDING = 50;
+
   // Calculate feasibility when flyout is visible and we have a home grid
   const feasibility = useFeasibility({
     fromGrid: homeGrid,
@@ -221,6 +239,69 @@ export function GlobeFlyout({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [visible, onClose]);
 
+  // Auto-dismiss when mouse leaves flyout proximity area
+  useEffect(() => {
+    if (!visible || !autoDismissEnabled) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!flyoutRef.current) return;
+
+      const rect = flyoutRef.current.getBoundingClientRect();
+      const isNear =
+        e.clientX >= rect.left - PROXIMITY_PADDING &&
+        e.clientX <= rect.right + PROXIMITY_PADDING &&
+        e.clientY >= rect.top - PROXIMITY_PADDING &&
+        e.clientY <= rect.bottom + PROXIMITY_PADDING;
+
+      if (isNear) {
+        // Mouse is near - clear any pending dismiss timer
+        mouseInFlyoutRef.current = true;
+        if (dismissTimerRef.current) {
+          clearTimeout(dismissTimerRef.current);
+          dismissTimerRef.current = null;
+        }
+        // Cancel fading if it started
+        if (isFading) {
+          setIsFading(false);
+        }
+      } else {
+        // Mouse moved away - start dismiss timer if not already running
+        if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
+          mouseInFlyoutRef.current = false;
+          dismissTimerRef.current = setTimeout(() => {
+            // Start fade animation
+            setIsFading(true);
+            // Close after fade completes
+            setTimeout(() => {
+              onClose();
+            }, 200); // Match CSS transition duration
+          }, autoDismissMs);
+        }
+      }
+    };
+
+    // Track mouse movement
+    document.addEventListener("mousemove", handleMouseMove);
+
+    // Initially mark mouse as near (flyout just opened)
+    mouseInFlyoutRef.current = true;
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
+    };
+  }, [visible, autoDismissEnabled, autoDismissMs, isFading, onClose]);
+
+  // Reset fading state when flyout becomes visible
+  useEffect(() => {
+    if (visible) {
+      setIsFading(false);
+    }
+  }, [visible]);
+
   // Handle action button click
   const handleActionClick = useCallback(
     (action: GlobeFlyoutAction) => {
@@ -278,7 +359,7 @@ export function GlobeFlyout({
         border border-white/10 rounded-lg
         shadow-xl
         transition-all duration-200
-        ${visible ? "opacity-100 scale-100" : "opacity-0 scale-95"}
+        ${isFading ? "opacity-0 scale-95" : visible ? "opacity-100 scale-100" : "opacity-0 scale-95"}
         ${className}
       `}
       style={{

@@ -164,6 +164,31 @@ export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
     description: "Cycle synced band",
     category: "panels",
   },
+
+  // Onboarding tour
+  {
+    key: "h",
+    modifiers: ["shift"],
+    action: "startTour",
+    description: "Start guided tour",
+    category: "general",
+  },
+
+  // Undo/Redo
+  {
+    key: "z",
+    modifiers: ["ctrl"],
+    action: "undo",
+    description: "Undo last action",
+    category: "general",
+  },
+  {
+    key: "z",
+    modifiers: ["ctrl", "shift"],
+    action: "redo",
+    description: "Redo last undone action",
+    category: "general",
+  },
 ];
 
 // =============================================================================

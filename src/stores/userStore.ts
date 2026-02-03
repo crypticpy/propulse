@@ -20,7 +20,10 @@ import type {
   CompassRosePreferences,
   SpotAgePreferences,
   WatchAlertPreferences,
+  UIInteractionPreferences,
+  BandPreset,
 } from "../types/user";
+import type { ColorBlindMode } from "../lib/themes/colorblind";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_FAVORED_BANDS,
@@ -28,6 +31,7 @@ import {
   DEFAULT_COMPASS_ROSE,
   DEFAULT_SPOT_AGE,
   DEFAULT_WATCH_ALERT_PREFERENCES,
+  DEFAULT_UI_INTERACTION,
 } from "../types/user";
 import type {
   UserRadio,
@@ -63,6 +67,9 @@ const MAX_SAVED_TARGETS = 10;
 
 /** Maximum number of radios allowed */
 const MAX_RADIOS = 10;
+
+/** Maximum number of band presets allowed */
+const MAX_BAND_PRESETS = 5;
 
 /**
  * User store state and actions
@@ -192,6 +199,26 @@ interface UserStore {
   updateSpotAge: (prefs: Partial<SpotAgePreferences>) => void;
   /** Toggle spot age visualization on/off */
   toggleSpotAge: () => void;
+
+  // === Band Presets ===
+
+  /** Add a new band preset (max 5, returns false if limit reached or duplicate name) */
+  addBandPreset: (
+    name: string,
+    bands: string[],
+  ) => { ok: true; id: string } | { ok: false; error: string };
+  /** Remove a band preset by ID */
+  removeBandPreset: (id: string) => void;
+  /** Update an existing band preset */
+  updateBandPreset: (
+    id: string,
+    updates: Partial<Omit<BandPreset, "id">>,
+  ) => { ok: true } | { ok: false; error: string };
+
+  // === Accessibility ===
+
+  /** Set color blind mode for accessibility */
+  setColorBlindMode: (mode: ColorBlindMode) => void;
 }
 
 /**
@@ -981,6 +1008,145 @@ export const useUserStore = create<UserStore>()(
             },
           };
         }),
+
+      // === Band Presets ===
+
+      addBandPreset: (name, bands) => {
+        const trimmedName = name.trim();
+        if (!trimmedName) {
+          return { ok: false, error: "Preset name is required" };
+        }
+        if (bands.length === 0) {
+          return { ok: false, error: "At least one band must be selected" };
+        }
+
+        const id = crypto.randomUUID();
+        let result: { ok: true; id: string } | { ok: false; error: string } = {
+          ok: true,
+          id,
+        };
+
+        set((state) => {
+          const existing = state.preferences.bandPresets ?? [];
+
+          // Check max limit
+          if (existing.length >= MAX_BAND_PRESETS) {
+            result = {
+              ok: false,
+              error: `Maximum of ${MAX_BAND_PRESETS} presets allowed`,
+            };
+            return state;
+          }
+
+          // Check for duplicate name
+          const normalized = trimmedName.toLowerCase();
+          const hasDuplicate = existing.some(
+            (p) => p.name.toLowerCase() === normalized,
+          );
+          if (hasDuplicate) {
+            result = {
+              ok: false,
+              error: `A preset named "${trimmedName}" already exists`,
+            };
+            return state;
+          }
+
+          const newPreset: BandPreset = {
+            id,
+            name: trimmedName,
+            bands: [...bands],
+          };
+
+          return {
+            preferences: {
+              ...state.preferences,
+              bandPresets: [...existing, newPreset],
+            },
+          };
+        });
+
+        return result;
+      },
+
+      removeBandPreset: (id) =>
+        set((state) => {
+          const existing = state.preferences.bandPresets ?? [];
+          return {
+            preferences: {
+              ...state.preferences,
+              bandPresets: existing.filter((p) => p.id !== id),
+            },
+          };
+        }),
+
+      updateBandPreset: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+
+        set((state) => {
+          const existing = state.preferences.bandPresets ?? [];
+          const idx = existing.findIndex((p) => p.id === id);
+
+          if (idx === -1) {
+            result = { ok: false, error: "Preset not found" };
+            return state;
+          }
+
+          const nextName =
+            typeof updates.name === "string"
+              ? updates.name.trim()
+              : existing[idx].name;
+
+          if (!nextName) {
+            result = { ok: false, error: "Preset name is required" };
+            return state;
+          }
+
+          // Check for duplicate name (excluding self)
+          const normalized = nextName.toLowerCase();
+          const hasDuplicate = existing.some(
+            (p, i) => i !== idx && p.name.toLowerCase() === normalized,
+          );
+          if (hasDuplicate) {
+            result = {
+              ok: false,
+              error: `A preset named "${nextName}" already exists`,
+            };
+            return state;
+          }
+
+          const nextBands = Array.isArray(updates.bands)
+            ? updates.bands
+            : existing[idx].bands;
+
+          if (nextBands.length === 0) {
+            result = { ok: false, error: "At least one band must be selected" };
+            return state;
+          }
+
+          const nextPresets = existing.map((p, i) =>
+            i === idx ? { ...p, name: nextName, bands: [...nextBands] } : p,
+          );
+
+          return {
+            preferences: {
+              ...state.preferences,
+              bandPresets: nextPresets,
+            },
+          };
+        });
+
+        return result;
+      },
+
+      // === Accessibility ===
+
+      setColorBlindMode: (mode) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            colorBlindMode: mode,
+          },
+        })),
     }),
     {
       name: "propulse-user",
@@ -1207,6 +1373,9 @@ export const useUserStore = create<UserStore>()(
         if (!nextPreferences.watchAlerts) {
           nextPreferences.watchAlerts = DEFAULT_WATCH_ALERT_PREFERENCES;
         }
+        if (!nextPreferences.bandPresets) {
+          nextPreferences.bandPresets = [];
+        }
 
         return {
           station: migratedStation,
@@ -1323,4 +1492,30 @@ export function useWatchAlertPrefs(): WatchAlertPreferences {
   return useUserStore(
     (state) => state.preferences.watchAlerts ?? DEFAULT_WATCH_ALERT_PREFERENCES,
   );
+}
+
+/**
+ * Hook to get UI interaction preferences for globe controls
+ * Returns the current interaction settings with defaults applied
+ */
+export function useUIInteractionPrefs(): UIInteractionPreferences {
+  return useUserStore(
+    (state) => state.preferences.uiInteraction ?? DEFAULT_UI_INTERACTION,
+  );
+}
+
+/**
+ * Hook to get band presets for quick filtering
+ * Returns the array of saved band presets (max 5)
+ */
+export function useBandPresets(): BandPreset[] {
+  return useUserStore((state) => state.preferences.bandPresets ?? []);
+}
+
+/**
+ * Hook to get color blind mode preference
+ * Returns 'none' if not set (default standard colors)
+ */
+export function useColorBlindMode(): ColorBlindMode {
+  return useUserStore((state) => state.preferences.colorBlindMode ?? "none");
 }

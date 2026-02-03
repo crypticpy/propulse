@@ -5,10 +5,12 @@
  * Shows distance, bearing, hop count, difficulty rating, and
  * MUF/LUF/FOT/HPF frequency limits. Designed for right-side panel
  * in the framed layout.
+ *
+ * Performance optimized with memoized sub-components.
  */
 
-import { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import { useMapStore } from "@/stores/mapStore";
+import { useMemo, useState, useCallback, useRef, useEffect, memo } from "react";
+import { useMapStore, type TargetLocation } from "@/stores/mapStore";
 import {
   useUserStore,
   useActiveRadio,
@@ -30,6 +32,7 @@ import { calculateReceiverScore } from "@/types/radio";
 import type { FrequencyLimits } from "@/types/propagation";
 import type { RadioEquipment } from "@/types/radio";
 import { getRadioById, getEffectiveReceiverSpecs } from "@/lib/data/radios";
+import { useUndoStore } from "@/stores/undoStore";
 
 interface PathAnalysisProps {
   /** Current display time for illumination calculation */
@@ -39,6 +42,8 @@ interface PathAnalysisProps {
   collapsed?: boolean;
   /** Callback to toggle collapsed state */
   onToggleCollapse?: () => void;
+  /** Callback to share the current path analysis */
+  onShare?: () => void;
 }
 
 const DIFFICULTY_LABELS = [
@@ -96,13 +101,145 @@ const getLongPathDistanceColor = (difficulty: number): string => {
   return DIFFICULTY_COLORS[adjustedDifficulty] || "text-caution-amber";
 };
 
+/**
+ * Recent Targets Dropdown component
+ * Shows last 10 targets for quick re-selection
+ */
+const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
+  recentTargets,
+  currentTarget,
+  station,
+  useImperial,
+  onSelect,
+  onClear,
+}: {
+  recentTargets: TargetLocation[];
+  currentTarget: TargetLocation | null;
+  station: { lat: number; lon: number } | null;
+  useImperial: boolean;
+  onSelect: (target: TargetLocation) => void;
+  onClear: () => void;
+}) {
+  // Calculate distance for a target (if station is available)
+  const getDistance = useCallback(
+    (target: TargetLocation): string | null => {
+      if (!station) return null;
+      const metrics = getPathMetrics(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+      );
+      return formatDistance(metrics.shortPath.distance, useImperial);
+    },
+    [station, useImperial],
+  );
+
+  // Check if a target is the current one
+  const isCurrent = useCallback(
+    (target: TargetLocation): boolean => {
+      if (!currentTarget) return false;
+      return (
+        target.lat === currentTarget.lat && target.lon === currentTarget.lon
+      );
+    },
+    [currentTarget],
+  );
+
+  return (
+    <div className="absolute top-full left-0 mt-1 w-56 bg-nebula-blue border border-white/10 rounded-lg shadow-lg z-50 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-white/5">
+        <span className="text-xs font-medium text-gray-300">
+          Recent Targets
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClear();
+          }}
+          className="text-[10px] text-gray-400 hover:text-alert-red transition-colors"
+          title="Clear recent targets"
+        >
+          Clear
+        </button>
+      </div>
+
+      {/* Target list */}
+      <div className="max-h-60 overflow-y-auto scrollbar-hide">
+        {recentTargets.map((target, index) => {
+          const distance = getDistance(target);
+          const current = isCurrent(target);
+          const displayName =
+            target.name ||
+            target.grid ||
+            `${target.lat.toFixed(2)}, ${target.lon.toFixed(2)}`;
+
+          return (
+            <button
+              key={`${target.lat}-${target.lon}-${index}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(target);
+              }}
+              className={`w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center justify-between gap-2 ${
+                current ? "bg-plasma-orange/10" : ""
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <div
+                  className={`text-sm truncate ${current ? "text-plasma-orange" : "text-white"}`}
+                >
+                  {displayName}
+                </div>
+                {target.grid && target.name && (
+                  <div className="text-[10px] text-gray-400 font-mono">
+                    {target.grid}
+                  </div>
+                )}
+              </div>
+              {distance && (
+                <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">
+                  {distance}
+                </span>
+              )}
+              {current && (
+                <svg
+                  className="w-3 h-3 text-plasma-orange flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
 export function PathAnalysis({
   displayTime,
   className = "",
   collapsed = false,
   onToggleCollapse,
+  onShare,
 }: PathAnalysisProps) {
-  const { target, pathMode, setPathMode } = useMapStore();
+  const {
+    target,
+    pathMode,
+    setPathMode,
+    recentTargets,
+    setTarget,
+    clearRecentTargets,
+  } = useMapStore();
+  const { pushAction } = useUndoStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const activeRadio = useActiveRadio();
   const preferTested = usePreferTestedSpecs();
@@ -121,6 +258,10 @@ export function PathAnalysis({
   const [analysisRadioId, setAnalysisRadioId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+
+  // Recent targets dropdown state
+  const [showRecentTargets, setShowRecentTargets] = useState(false);
+  const recentDropdownRef = useRef<HTMLDivElement>(null);
 
   // Check if content overflows and handle scroll position
   const checkScroll = useCallback(() => {
@@ -144,6 +285,23 @@ export function PathAnalysis({
       resizeObserver.disconnect();
     };
   }, [checkScroll, collapsed]);
+
+  // Close recent targets dropdown when clicking outside
+  useEffect(() => {
+    if (!showRecentTargets) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        recentDropdownRef.current &&
+        !recentDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowRecentTargets(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showRecentTargets]);
 
   const analysisRadio = useMemo(() => {
     if (analysisRadioId === null) return activeRadio;
@@ -473,13 +631,69 @@ export function PathAnalysis({
                 }`}
               />
 
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
                   Path Info
                 </h3>
-                <p className="text-xs text-gray-400 truncate">
-                  {station.callsign} → {target.name || target.grid || "Target"}
-                </p>
+                <div className="flex items-center gap-1">
+                  <p className="text-xs text-gray-400 truncate">
+                    {station.callsign} →{" "}
+                    {target.name || target.grid || "Target"}
+                  </p>
+                  {/* Recent targets dropdown */}
+                  {recentTargets.length > 0 && (
+                    <div className="relative" ref={recentDropdownRef}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowRecentTargets(!showRecentTargets);
+                        }}
+                        className="p-0.5 hover:bg-white/10 rounded transition-colors"
+                        title="Recent targets"
+                      >
+                        <svg
+                          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
+                            showRecentTargets ? "rotate-180" : ""
+                          }`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                      {showRecentTargets && (
+                        <RecentTargetsDropdown
+                          recentTargets={recentTargets}
+                          currentTarget={target}
+                          station={station}
+                          useImperial={useImperial}
+                          onSelect={(t) => {
+                            setTarget(t);
+                            setShowRecentTargets(false);
+                          }}
+                          onClear={() => {
+                            // Record the action for undo before clearing
+                            if (recentTargets.length > 0) {
+                              pushAction({
+                                type: "CLEAR_RECENT_TARGETS",
+                                targets: [...recentTargets],
+                                description: `Cleared ${recentTargets.length} recent target${recentTargets.length !== 1 ? "s" : ""}`,
+                              });
+                            }
+                            clearRecentTargets();
+                            setShowRecentTargets(false);
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Difficulty badge - inline with title area */}
@@ -495,6 +709,29 @@ export function PathAnalysis({
             {/* Action icons - top-right */}
             <div className="flex items-center gap-1 flex-shrink-0">
               <HelpButton onClick={() => setShowHelp(true)} />
+              {/* Share button */}
+              {onShare && (
+                <button
+                  onClick={onShare}
+                  className="p-1 bg-cosmic-cyan/20 border border-cosmic-cyan/50 rounded
+                             text-cosmic-cyan hover:bg-cosmic-cyan/30 transition-colors"
+                  title="Share this path"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                    />
+                  </svg>
+                </button>
+              )}
               {/* Save button */}
               {!isTargetSaved && (
                 <button
@@ -787,8 +1024,9 @@ export function PathAnalysis({
 
 /**
  * Individual metric display item
+ * Memoized to prevent unnecessary re-renders
  */
-function MetricItem({
+const MetricItem = memo(function MetricItem({
   label,
   value,
   subValue,
@@ -808,12 +1046,13 @@ function MetricItem({
       {subValue && <div className="text-xs text-gray-400">{subValue}</div>}
     </div>
   );
-}
+});
 
 /**
  * Frequency Limits display component - compact version
+ * Memoized to prevent re-renders when parent re-renders
  */
-function FrequencyLimitsDisplay({
+const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
   limits,
 }: {
   limits: FrequencyLimits | null;
@@ -874,12 +1113,17 @@ function FrequencyLimitsDisplay({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Visual frequency window bar - compact version
+ * Memoized to prevent re-renders
  */
-function FrequencyWindowBar({ limits }: { limits: FrequencyLimits }) {
+const FrequencyWindowBar = memo(function FrequencyWindowBar({
+  limits,
+}: {
+  limits: FrequencyLimits;
+}) {
   const minFreq = 1.8;
   const maxFreq = 30;
   const range = maxFreq - minFreq;
@@ -911,12 +1155,13 @@ function FrequencyWindowBar({ limits }: { limits: FrequencyLimits }) {
       />
     </div>
   );
-}
+});
 
 /**
  * Radio-specific suggestions based on path difficulty and active radio
+ * Memoized to prevent re-renders when parent state changes
  */
-function RadioSuggestions({
+const RadioSuggestions = memo(function RadioSuggestions({
   radio,
   radioInstance,
   preferTested,
@@ -1053,4 +1298,4 @@ function RadioSuggestions({
       </div>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { useUserStore } from "@/stores/userStore";
@@ -9,7 +9,22 @@ import { LocationManager } from "./LocationManager";
 import { LicenseSection } from "./LicenseSection";
 import { FavoredBandsPicker } from "./FavoredBandsPicker";
 import { NotificationSettings } from "./NotificationSettings";
+import {
+  downloadSettingsBackup,
+  readBackupFile,
+  importSettings,
+  getBackupSummary,
+  type SettingsBackup,
+  type ValidationResult,
+} from "@/lib/utils/settingsBackup";
 import type { UserStation, TextScale } from "@/types/user";
+import type { ColorBlindMode, StatusType } from "@/lib/themes/colorblind";
+import {
+  COLOR_BLIND_MODE_NAMES,
+  COLOR_BLIND_MODE_DESCRIPTIONS,
+  getColorBlindColor,
+  getStatusIcon,
+} from "@/lib/themes/colorblind";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -22,7 +37,8 @@ type SettingsTab =
   | "license"
   | "equipment"
   | "preferences"
-  | "notifications";
+  | "notifications"
+  | "backup";
 
 interface TabDef {
   id: SettingsTab;
@@ -157,6 +173,25 @@ const TABS: TabDef[] = [
       </svg>
     ),
   },
+  {
+    id: "backup",
+    label: "Backup",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+        />
+      </svg>
+    ),
+  },
 ];
 
 /**
@@ -188,6 +223,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [textScale, setTextScale] = useState<TextScale>(
     preferences.textScale ?? "md",
   );
+  const [colorBlindMode, setColorBlindModeLocal] = useState<ColorBlindMode>(
+    (preferences as { colorBlindMode?: ColorBlindMode }).colorBlindMode ??
+      "none",
+  );
+
+  // Get the setColorBlindMode action from store
+  const setColorBlindMode = useUserStore(
+    (state) => state.setColorBlindMode as (mode: ColorBlindMode) => void,
+  );
 
   // Radio manager modal state
   const [showFullRadioManager, setShowFullRadioManager] = useState(false);
@@ -195,6 +239,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Track if profile form has unsaved changes
   const [profileDirty, setProfileDirty] = useState(false);
   const [preferencesDirty, setPreferencesDirty] = useState(false);
+
+  // Backup tab state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [backupStatus, setBackupStatus] = useState<{
+    type: "success" | "error" | "warning" | "info";
+    message: string;
+  } | null>(null);
+  const [pendingImport, setPendingImport] = useState<{
+    backup: SettingsBackup;
+    validation: ValidationResult;
+  } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -206,12 +262,110 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setTimeFormat(preferences.timeFormat);
       setUnits(preferences.units);
       setTextScale(preferences.textScale ?? "md");
+      setColorBlindModeLocal(preferences.colorBlindMode ?? "none");
       setGridError(null);
       setProfileDirty(false);
       setPreferencesDirty(false);
       setActiveTab("profile");
+      // Reset backup state
+      setBackupStatus(null);
+      setPendingImport(null);
+      setIsImporting(false);
     }
   }, [isOpen, station, preferences]);
+
+  // Handle export settings
+  const handleExport = () => {
+    try {
+      downloadSettingsBackup();
+      setBackupStatus({
+        type: "success",
+        message: "Settings exported successfully. Check your downloads folder.",
+      });
+    } catch (e) {
+      setBackupStatus({
+        type: "error",
+        message: `Export failed: ${e instanceof Error ? e.message : "Unknown error"}`,
+      });
+    }
+  };
+
+  // Handle file selection for import
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset file input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    setBackupStatus(null);
+    setPendingImport(null);
+
+    const result = await readBackupFile(file);
+
+    if ("error" in result) {
+      setBackupStatus({
+        type: "error",
+        message: result.error,
+      });
+      return;
+    }
+
+    // Show summary and ask for confirmation
+    const summary = getBackupSummary(result.data);
+    setPendingImport({
+      backup: result.data,
+      validation: result.validation,
+    });
+
+    if (result.validation.warnings?.length) {
+      setBackupStatus({
+        type: "warning",
+        message: result.validation.warnings.join(" "),
+      });
+    } else {
+      setBackupStatus({
+        type: "info",
+        message: summary,
+      });
+    }
+  };
+
+  // Handle confirming the import
+  const handleConfirmImport = () => {
+    if (!pendingImport) return;
+
+    setIsImporting(true);
+    const result = importSettings(pendingImport.backup);
+
+    if (result.success) {
+      const importedSections = Object.entries(result.imported)
+        .filter(([, imported]) => imported)
+        .map(([section]) => section)
+        .join(", ");
+
+      setBackupStatus({
+        type: "success",
+        message: `Settings imported successfully. Imported: ${importedSections}`,
+      });
+    } else {
+      setBackupStatus({
+        type: "error",
+        message: result.error || "Import failed",
+      });
+    }
+
+    setPendingImport(null);
+    setIsImporting(false);
+  };
+
+  // Handle canceling the import
+  const handleCancelImport = () => {
+    setPendingImport(null);
+    setBackupStatus(null);
+  };
 
   // Handle profile save
   const handleProfileSave = () => {
@@ -664,6 +818,78 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </p>
                 </div>
 
+                {/* Color Vision Mode */}
+                <div>
+                  <label
+                    htmlFor="color-blind-mode"
+                    className="block text-sm font-medium text-gray-300 mb-2"
+                  >
+                    Color Vision Mode
+                    <span className="ml-2 text-xs text-gray-500 font-normal">
+                      (Accessibility)
+                    </span>
+                  </label>
+                  <select
+                    id="color-blind-mode"
+                    value={colorBlindMode}
+                    onChange={(e) => {
+                      const mode = e.target.value as ColorBlindMode;
+                      setColorBlindModeLocal(mode);
+                      // Apply immediately (no save button needed)
+                      setColorBlindMode(mode);
+                    }}
+                    className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                             text-white focus:outline-none focus:border-plasma-orange/50
+                             appearance-none cursor-pointer"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 0.75rem center",
+                      backgroundSize: "1rem",
+                    }}
+                  >
+                    {(
+                      Object.keys(COLOR_BLIND_MODE_NAMES) as ColorBlindMode[]
+                    ).map((mode) => (
+                      <option key={mode} value={mode}>
+                        {COLOR_BLIND_MODE_NAMES[mode]}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-gray-500">
+                    {COLOR_BLIND_MODE_DESCRIPTIONS[colorBlindMode]}
+                  </p>
+                  {colorBlindMode !== "none" && (
+                    <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+                      <p className="text-xs text-gray-400 mb-2">
+                        Status color preview:
+                      </p>
+                      <div className="flex items-center gap-3 text-xs">
+                        <ColorBlindPreviewDot
+                          mode={colorBlindMode}
+                          status="good"
+                          label="Good"
+                        />
+                        <ColorBlindPreviewDot
+                          mode={colorBlindMode}
+                          status="fair"
+                          label="Fair"
+                        />
+                        <ColorBlindPreviewDot
+                          mode={colorBlindMode}
+                          status="poor"
+                          label="Poor"
+                        />
+                        <ColorBlindPreviewDot
+                          mode={colorBlindMode}
+                          status="closed"
+                          label="Closed"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Save Button */}
                 <div className="pt-2">
                   <button
@@ -694,6 +920,242 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           {/* Notifications Tab */}
           {activeTab === "notifications" && <NotificationSettings />}
+
+          {/* Backup Tab */}
+          {activeTab === "backup" && (
+            <div className="space-y-6">
+              {/* Export Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  Export Settings
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Download all your settings as a JSON file. This includes your
+                  station profile, preferences, saved targets, watches, pins,
+                  and filter settings.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3
+                             bg-plasma-orange/20 border border-plasma-orange/50
+                             text-plasma-orange rounded-lg font-medium
+                             hover:bg-plasma-orange/30 transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  Export Settings Backup
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-white/10" />
+
+              {/* Import Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  Import Settings
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Restore settings from a previously exported backup file. This
+                  will replace your current settings.
+                </p>
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  aria-label="Select backup file to import"
+                />
+
+                {/* Import button */}
+                {!pendingImport && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3
+                               bg-nebula-blue border border-white/20
+                               text-gray-200 rounded-lg font-medium
+                               hover:bg-white/10 hover:border-white/30 transition-colors"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                      />
+                    </svg>
+                    Select Backup File
+                  </button>
+                )}
+
+                {/* Pending import confirmation */}
+                {pendingImport && (
+                  <div className="p-4 bg-deep-space border border-white/10 rounded-lg space-y-4">
+                    <div className="flex items-start gap-3">
+                      <svg
+                        className="w-5 h-5 text-plasma-orange flex-shrink-0 mt-0.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          Ready to import settings
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {getBackupSummary(pendingImport.backup)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          This will replace your current settings. This action
+                          cannot be undone.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleConfirmImport}
+                        disabled={isImporting}
+                        className="flex-1 px-3 py-2 bg-plasma-orange/20 border border-plasma-orange/50
+                                   text-plasma-orange rounded-lg text-sm font-medium
+                                   hover:bg-plasma-orange/30 transition-colors
+                                   disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isImporting ? "Importing..." : "Confirm Import"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelImport}
+                        disabled={isImporting}
+                        className="flex-1 px-3 py-2 bg-white/5 border border-white/10
+                                   text-gray-300 rounded-lg text-sm font-medium
+                                   hover:bg-white/10 transition-colors
+                                   disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Status message */}
+              {backupStatus && (
+                <div
+                  className={`p-4 rounded-lg border ${
+                    backupStatus.type === "success"
+                      ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                      : backupStatus.type === "error"
+                        ? "bg-alert-red/10 border-alert-red/30 text-alert-red"
+                        : backupStatus.type === "warning"
+                          ? "bg-solar-yellow/10 border-solar-yellow/30 text-solar-yellow"
+                          : "bg-white/5 border-white/10 text-gray-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {backupStatus.type === "success" && (
+                      <svg
+                        className="w-5 h-5 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                    {backupStatus.type === "error" && (
+                      <svg
+                        className="w-5 h-5 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                    {backupStatus.type === "warning" && (
+                      <svg
+                        className="w-5 h-5 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                    )}
+                    {backupStatus.type === "info" && (
+                      <svg
+                        className="w-5 h-5 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    )}
+                    <p className="text-sm">{backupStatus.message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Info note */}
+              <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                <p className="text-xs text-gray-500">
+                  <strong className="text-gray-400">Note:</strong> Backup files
+                  include version information for compatibility. You can safely
+                  import backups from older versions of PropulSE.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -708,6 +1170,37 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       >
         <RadioManager modalZIndexClassName="z-[550]" />
       </DetailModal>
+    </div>
+  );
+}
+
+/**
+ * Preview dot for color blind mode color preview
+ */
+function ColorBlindPreviewDot({
+  mode,
+  status,
+  label,
+}: {
+  mode: ColorBlindMode;
+  status: StatusType;
+  label: string;
+}) {
+  const color = getColorBlindColor(mode, status);
+  const icon = getStatusIcon(mode, status);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div
+        className="w-3 h-3 rounded-full flex items-center justify-center text-[8px] font-bold"
+        style={{ backgroundColor: color }}
+        title={`${label}: ${color}`}
+      >
+        {icon && <span className="text-white drop-shadow-sm">{icon}</span>}
+      </div>
+      <span className="text-gray-400" style={{ color }}>
+        {label}
+      </span>
     </div>
   );
 }

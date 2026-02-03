@@ -31,3 +31,8 @@ export {
   SpotStatsDashboard,
   type SpotStatsDashboardProps,
 } from "./SpotStatsDashboard";
+export {
+  VirtualList,
+  useVirtualList,
+  useVariableHeightVirtualList,
+} from "./VirtualSpotList";

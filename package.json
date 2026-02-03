@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "import:sherwood": "node scripts/import-sherwood.mjs"
+    "import:sherwood": "node scripts/import-sherwood.mjs",
+    "bridge": "cd bridge && npm run dev",
+    "bridge:build": "cd bridge && npm run build"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

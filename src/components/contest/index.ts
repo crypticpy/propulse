@@ -85,3 +85,10 @@ export type { CallHistoryImportModalProps } from "./CallHistoryImportModal";
 // Phase 6B.1 - ADIF Import/Export
 export { ADIFImportExportModal } from "./ADIFImportExportModal";
 export type { ADIFImportExportModalProps } from "./ADIFImportExportModal";
+
+// Phase 7E.1 - Bridge Connection and Rig Status
+export { BridgeStatusIndicator } from "./BridgeStatusIndicator";
+export type { BridgeStatusIndicatorProps } from "./BridgeStatusIndicator";
+
+export { RigStatusBar } from "./RigStatusBar";
+export type { RigStatusBarProps } from "./RigStatusBar";

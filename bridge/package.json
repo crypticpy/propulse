@@ -1,0 +1,25 @@
+{
+  "name": "propulse-bridge",
+  "version": "0.1.0",
+  "description": "ProPulse Bridge - WebSocket server for CAT control, multi-op sync, and external integrations",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "~5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

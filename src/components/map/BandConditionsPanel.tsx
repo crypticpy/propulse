@@ -9,6 +9,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useDXStore } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getPathIllumination } from "@/lib/utils/path";
 import {
@@ -18,6 +19,11 @@ import {
   getPathStatusBgColor,
   type PathBandCondition,
 } from "@/lib/utils/bands";
+import {
+  getGreylineStatus,
+  isGreylineActiveForBand,
+  type GreylineIntensity,
+} from "@/lib/utils/greyline";
 import { Card } from "@/components/ui/Card";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import type { SUnit } from "@/types/signal";
@@ -92,6 +98,7 @@ export function BandConditionsPanel({
 }: BandConditionsPanelProps) {
   const { target } = useMapStore();
   const { station } = useUserStore();
+  const { syncMode, syncedBand } = useDXStore();
   const [showHelp, setShowHelp] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
@@ -183,6 +190,13 @@ export function BandConditionsPanel({
 
   // Use enhanced conditions if available
   const bandConditions = enhancedBandConditions || basicBandConditions;
+
+  // Calculate greyline status based on station location
+  const greylineIntensity = useMemo((): GreylineIntensity => {
+    if (!station) return "none";
+    const status = getGreylineStatus(station.lat, station.lon, displayTime);
+    return status.intensity;
+  }, [station, displayTime]);
 
   // No station configured
   if (!station) {
@@ -478,6 +492,8 @@ export function BandConditionsPanel({
                       condition={condition}
                       hasEnhancedData={!!enhancedBandConditions}
                       compact={compact}
+                      isSynced={syncMode && syncedBand === condition.band}
+                      greylineIntensity={greylineIntensity}
                     />
                   ))}
                 </tbody>
@@ -532,10 +548,14 @@ function BandConditionRow({
   condition,
   hasEnhancedData,
   compact,
+  isSynced,
+  greylineIntensity,
 }: {
   condition: PathBandCondition;
   hasEnhancedData: boolean;
   compact: boolean;
+  isSynced: boolean;
+  greylineIntensity: GreylineIntensity;
 }) {
   const statusColor = getPathStatusColor(condition.status);
   const statusBgColor = getPathStatusBgColor(condition.status);
@@ -545,18 +565,60 @@ function BandConditionRow({
   const sUnitText = condition.sUnit?.text || "N/A";
   const sUnitColor = getSUnitColor(condition.sUnit);
 
+  // Check if greyline is active for this band (low bands only)
+  const isGreylineActive = isGreylineActiveForBand(
+    condition.band,
+    greylineIntensity,
+  );
+
   return (
-    <tr className="hover:bg-white/5 transition-colors">
+    <tr
+      className={`hover:bg-white/5 transition-colors ${
+        isSynced ? "bg-cyan-500/10 border-l-2 border-cyan-400" : ""
+      } ${isGreylineActive ? "bg-amber-500/5" : ""}`}
+    >
       <td className="px-1 py-1">
-        <div className="font-mono text-white text-sm">{condition.band}</div>
+        <div className="flex items-center gap-1.5">
+          {isSynced && (
+            <svg
+              className="w-3 h-3 text-cyan-400 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+          )}
+          <div
+            className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-white"}`}
+          >
+            {condition.band}
+          </div>
+          {/* Greyline active indicator for low bands */}
+          {isGreylineActive && (
+            <span
+              className="px-1 py-0.5 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400 animate-pulse"
+              title="Greyline propagation enhanced for this band"
+            >
+              GL
+            </span>
+          )}
+        </div>
         <div className="text-gray-400 text-xs">{condition.frequency}</div>
       </td>
       <td className="px-1 py-1 text-center">
-        <span
-          className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-medium ${statusColor} ${statusBgColor}`}
-        >
-          {statusLabel}
-        </span>
+        <div className="flex flex-col items-center gap-0.5">
+          <span
+            className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-medium ${statusColor} ${statusBgColor}`}
+          >
+            {statusLabel}
+          </span>
+        </div>
       </td>
       {!compact && (
         <>

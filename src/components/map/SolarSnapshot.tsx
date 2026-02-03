@@ -11,6 +11,12 @@ import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 import { calculatePropagationIndex } from "@/components/solar/PropagationIndex";
 import { getRecommendations } from "@/lib/utils/recommendations";
+import {
+  getGreylineStatus,
+  getGreylineIntensityLabel,
+  getGreylineIntensityColor,
+  formatGreylineEventTime,
+} from "@/lib/utils/greyline";
 import type { PropagationRecommendations } from "@/types/recommendations";
 
 export interface SolarSnapshotProps {
@@ -284,6 +290,11 @@ export function SolarSnapshot({
   // Check storm risk conditions
   const hasStormRisk = currentKp >= 5 || (currentBz !== null && currentBz < -5);
 
+  // Get greyline status for home location
+  const greylineStatus = useMemo(() => {
+    return getGreylineStatus(homeLat, homeLon, displayTime);
+  }, [homeLat, homeLon, displayTime]);
+
   const scoreColor = getScoreColor(indexResult.score);
   const optimal = recommendations?.optimal ?? null;
   const mode = recommendations?.mode ?? null;
@@ -381,6 +392,39 @@ export function SolarSnapshot({
           <span>Storm risk - HF may be degraded</span>
         </div>
       )}
+
+      {/* Greyline status indicator */}
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 uppercase">Greyline</span>
+          <span
+            className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+              greylineStatus.isActive ? "animate-pulse" : ""
+            }`}
+            style={{
+              color: getGreylineIntensityColor(greylineStatus.intensity),
+              backgroundColor: `${getGreylineIntensityColor(greylineStatus.intensity)}20`,
+            }}
+          >
+            {getGreylineIntensityLabel(greylineStatus.intensity)}
+          </span>
+        </div>
+        {greylineStatus.minutesToNextEvent !== null && (
+          <span
+            className="text-[10px] text-gray-400 font-mono"
+            title={
+              greylineStatus.nextEventTime
+                ? `Next: ${greylineStatus.nextEventTime.toLocaleTimeString()}`
+                : undefined
+            }
+          >
+            {formatGreylineEventTime(
+              greylineStatus.minutesToNextEvent,
+              greylineStatus.nextEventType,
+            )}
+          </span>
+        )}
+      </div>
 
       {/* Main content: Gauge + Band Info */}
       <div className="flex-1 flex items-center gap-3 min-h-0">
@@ -491,6 +535,11 @@ export function SolarSnapshot({
             title: "Bz",
             content:
               "IMF magnetic field direction. Northward (↑) is favorable for propagation.",
+          },
+          {
+            title: "Greyline",
+            content:
+              "The twilight zone around sunrise/sunset. Peak: within 15 min of SR/SS. Enhanced: 15-30 min. Great for low-band (160m/80m/40m) DX.",
           },
         ]}
       />

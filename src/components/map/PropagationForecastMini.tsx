@@ -10,6 +10,7 @@ import { useMemo, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useDXStore } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import {
   getForecastForPath,
@@ -131,6 +132,7 @@ export function PropagationForecastMini({
 }: PropagationForecastMiniProps) {
   const { target } = useMapStore();
   const { station } = useUserStore();
+  const { syncMode, syncedBand } = useDXStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
@@ -456,14 +458,34 @@ export function PropagationForecastMini({
                 gap: "2px",
               }}
             >
-              {DISPLAY_BANDS.map((band) => (
-                <div
-                  key={band}
-                  className="text-xs font-mono text-gray-400 flex items-center"
-                >
-                  {band}
-                </div>
-              ))}
+              {DISPLAY_BANDS.map((band) => {
+                const isSynced = syncMode && syncedBand === band;
+                return (
+                  <div
+                    key={band}
+                    className={`text-xs font-mono flex items-center ${
+                      isSynced ? "text-cyan-400 font-bold" : "text-gray-400"
+                    }`}
+                  >
+                    {isSynced && (
+                      <svg
+                        className="w-2.5 h-2.5 mr-0.5 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                        />
+                      </svg>
+                    )}
+                    {band}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Heatmap grid - CSS Grid, fills available height */}
@@ -484,14 +506,16 @@ export function PropagationForecastMini({
                   const snr = bandData?.snrEstimate ?? -30;
                   const color = getForecastStatusColor(status);
                   const isCurrentHour = hour === currentHour;
+                  const isSynced = syncMode && syncedBand === band;
 
                   return (
                     <div
                       key={`${band}-${hour}`}
-                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""}`}
+                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-1 ring-cyan-400/60" : ""}`}
                       style={{
                         backgroundColor: color,
-                        opacity: status === "closed" ? 0.25 : 0.9,
+                        opacity:
+                          status === "closed" ? 0.25 : isSynced ? 1 : 0.9,
                       }}
                       onMouseEnter={(e) =>
                         setHoverInfo({

@@ -59,6 +59,7 @@ import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useDXCluster } from "@/hooks/useDXCluster";
+import { getGreylineIntensity } from "@/lib/utils/greyline";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 
 interface GlobeViewProps {
@@ -266,6 +267,12 @@ function GlobeScene({
     return getBearing(station.lat, station.lon, target.lat, target.lon);
   }, [station, target]);
 
+  // Calculate greyline intensity based on station location
+  const greylineIntensity = useMemo(() => {
+    if (!station) return "normal" as const;
+    return getGreylineIntensity(station.lat, station.lon, displayTime);
+  }, [station, displayTime]);
+
   // Handle click on globe surface
   const handleGlobeClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
@@ -313,8 +320,10 @@ function GlobeScene({
       {/* Day/night terminator line */}
       {layers.terminator && <Terminator date={displayTime} />}
 
-      {/* Greyline band */}
-      {layers.greyline && <Greyline date={displayTime} />}
+      {/* Greyline band with intensity-based visualization */}
+      {layers.greyline && (
+        <Greyline date={displayTime} intensity={greylineIntensity} />
+      )}
 
       {/* Aurora overlay */}
       {layers.aurora && auroraData && (

@@ -1,24 +1,38 @@
 /**
  * Greyline Component
  *
- * Renders the greyline band on the 3D globe.
- * The greyline is the twilight zone ±15° from the terminator,
- * which provides enhanced propagation conditions.
+ * Renders the greyline band on the 3D globe with intensity-based visualization.
+ * The greyline is the twilight zone around the terminator which provides
+ * enhanced propagation conditions, especially for low-band DX.
+ *
+ * Intensity Levels:
+ * - Normal: Standard greyline rendering
+ * - Enhanced: Wider band, higher opacity (30 min before/after sunrise/sunset)
+ * - Peak: Widest band, highest opacity with pulsing animation (15 min window)
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { getGreylineBand } from "@/lib/utils/sun";
+import {
+  type GreylineIntensity,
+  getGreylineVisualParams,
+} from "@/lib/utils/greyline";
 
 interface GreylineProps {
   /** Current display time */
   date: Date;
-  /** Greyline band width in degrees from terminator */
+  /** Greyline intensity level */
+  intensity?: GreylineIntensity;
+  /** Override band width in degrees from terminator */
   offsetDegrees?: number;
-  /** Band color */
+  /** Override band color */
   color?: string;
-  /** Band opacity */
+  /** Override band opacity */
   opacity?: number;
+  /** Enable pulsing animation (auto-enabled for peak intensity) */
+  pulsing?: boolean;
 }
 
 /**
@@ -87,21 +101,50 @@ function createGreylineMesh(
 
 export function Greyline({
   date,
-  offsetDegrees = 15,
-  color = "#ffaa00",
-  opacity = 0.35,
+  intensity = "normal",
+  offsetDegrees,
+  color,
+  opacity,
+  pulsing,
 }: GreylineProps) {
-  // Calculate greyline band
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  // Get visual parameters based on intensity
+  const visualParams = useMemo(
+    () => getGreylineVisualParams(intensity),
+    [intensity],
+  );
+
+  // Use provided values or fall back to intensity-based defaults
+  const actualOffset = offsetDegrees ?? visualParams.widthDegrees;
+  const actualColor = color ?? visualParams.color;
+  const actualOpacity = opacity ?? visualParams.opacity;
+  const shouldPulse = pulsing ?? visualParams.pulsing;
+
+  // Calculate greyline band geometry
   const geometry = useMemo(() => {
-    const { inner, outer } = getGreylineBand(date, offsetDegrees, 90);
+    const { inner, outer } = getGreylineBand(date, actualOffset, 90);
     return createGreylineMesh(inner, outer);
-  }, [date, offsetDegrees]);
+  }, [date, actualOffset]);
+
+  // Animate pulsing effect
+  useFrame((state) => {
+    if (!materialRef.current || !shouldPulse) return;
+
+    // Create smooth pulsing animation
+    const time = state.clock.getElapsedTime();
+    const pulseSpeed = visualParams.pulseSpeed;
+    const pulse = Math.sin(time * pulseSpeed * 2) * 0.15 + 1; // Oscillate between 0.85 and 1.15
+
+    materialRef.current.opacity = actualOpacity * pulse;
+  });
 
   return (
     <mesh geometry={geometry}>
       <meshBasicMaterial
-        color={color}
-        opacity={opacity}
+        ref={materialRef}
+        color={actualColor}
+        opacity={actualOpacity}
         transparent
         side={THREE.DoubleSide}
         depthWrite={false}

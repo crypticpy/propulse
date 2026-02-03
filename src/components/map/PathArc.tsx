@@ -1,14 +1,30 @@
 /**
  * PathArc Component
  *
- * Renders a great circle path arc between two points on the globe.
+ * Renders an animated great circle path arc between two points on the globe.
  * Used to visualize the propagation path between home and target.
  * Supports both short path (default) and long path visualization.
+ *
+ * Features:
+ * - Animated dash pattern flowing from source to target
+ * - Subtle pulsing glow effect
+ * - Direction indicators (chevrons) along the path
+ * - Respects prefers-reduced-motion for accessibility
+ * - Performance-optimized with proper cleanup
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
+import * as THREE from "three";
 import { getPathPoints, getLongPathPoints } from "@/lib/utils/path";
+
+// Animation constants
+const ANIMATION_SPEED = 0.5; // Speed of dash flow animation
+const PULSE_SPEED = 2; // Speed of glow pulse
+const CHEVRON_COUNT_SHORT = 3; // Number of direction indicators on short path
+const CHEVRON_COUNT_LONG = 5; // Number of direction indicators on long path
+const CHEVRON_SIZE = 0.012; // Size of chevron indicators
 
 interface PathArcProps {
   /** Start latitude */
@@ -27,6 +43,8 @@ interface PathArcProps {
   segments?: number;
   /** Path mode - short (default) or long */
   pathMode?: "short" | "long";
+  /** Disable animations (useful for performance) */
+  disableAnimation?: boolean;
 }
 
 /**
@@ -47,6 +65,219 @@ function latLonTo3D(
   ];
 }
 
+/**
+ * Hook to detect reduced motion preference
+ */
+function useReducedMotion(): boolean {
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    // Check on mount
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mediaQuery.matches);
+
+    // Listen for changes
+    const handler = (event: MediaQueryListEvent) => {
+      setReducedMotion(event.matches);
+    };
+
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
+
+  return reducedMotion;
+}
+
+/**
+ * Animated dashed line component
+ * Animates the dash offset to create flowing effect
+ */
+function AnimatedDashedLine({
+  points,
+  color,
+  lineWidth,
+  dashSize,
+  gapSize,
+  opacity,
+  animationSpeed,
+  shouldAnimate,
+}: {
+  points: Array<[number, number, number]>;
+  color: string;
+  lineWidth: number;
+  dashSize: number;
+  gapSize: number;
+  opacity: number;
+  animationSpeed: number;
+  shouldAnimate: boolean;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lineRef = useRef<any>(null);
+  const dashOffsetRef = useRef(0);
+
+  useFrame((_, delta) => {
+    if (!shouldAnimate || !lineRef.current) return;
+
+    // Update dash offset for flowing animation
+    dashOffsetRef.current -= delta * animationSpeed;
+
+    // Access the material and update dashOffset
+    const material = lineRef.current.material as THREE.LineDashedMaterial;
+    if (material && "dashOffset" in material) {
+      material.dashOffset = dashOffsetRef.current;
+    }
+  });
+
+  return (
+    <Line
+      ref={lineRef}
+      points={points}
+      color={color}
+      lineWidth={lineWidth}
+      opacity={opacity}
+      transparent
+      dashed
+      dashSize={dashSize}
+      gapSize={gapSize}
+    />
+  );
+}
+
+/**
+ * Pulsing glow line effect
+ * Creates a subtle breathing glow around the main path
+ */
+function GlowLine({
+  points,
+  color,
+  baseOpacity,
+  shouldAnimate,
+}: {
+  points: Array<[number, number, number]>;
+  color: string;
+  baseOpacity: number;
+  shouldAnimate: boolean;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lineRef = useRef<any>(null);
+
+  useFrame(({ clock }) => {
+    if (!shouldAnimate || !lineRef.current) return;
+
+    const material = lineRef.current.material as THREE.Material;
+    if (material && "opacity" in material) {
+      // Subtle pulse effect
+      const pulse = Math.sin(clock.elapsedTime * PULSE_SPEED) * 0.15 + 0.85;
+      (material as { opacity: number }).opacity = baseOpacity * pulse;
+    }
+  });
+
+  return (
+    <Line
+      ref={lineRef}
+      points={points}
+      color={color}
+      lineWidth={8}
+      opacity={baseOpacity}
+      transparent
+      depthWrite={false}
+    />
+  );
+}
+
+/**
+ * Direction indicator chevron
+ * Shows propagation direction along the path
+ */
+function DirectionChevron({
+  position,
+  direction,
+  normal,
+  color,
+  opacity,
+  shouldAnimate,
+}: {
+  position: THREE.Vector3;
+  direction: THREE.Vector3;
+  normal: THREE.Vector3;
+  color: string;
+  opacity: number;
+  shouldAnimate: boolean;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  useFrame(({ clock }) => {
+    if (!shouldAnimate || !materialRef.current) return;
+
+    // Subtle fade pulse synchronized with glow
+    const pulse =
+      Math.sin(clock.elapsedTime * PULSE_SPEED + Math.PI / 4) * 0.2 + 0.8;
+    materialRef.current.opacity = opacity * pulse;
+  });
+
+  // Create chevron geometry pointing in the direction
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape();
+    const size = CHEVRON_SIZE;
+
+    // Chevron arrow shape (pointing right initially)
+    shape.moveTo(-size * 0.5, size * 0.4);
+    shape.lineTo(0, 0);
+    shape.lineTo(-size * 0.5, -size * 0.4);
+    shape.lineTo(-size * 0.3, 0);
+    shape.closePath();
+
+    return new THREE.ShapeGeometry(shape);
+  }, []);
+
+  // Calculate rotation to align chevron with path direction
+  const rotation = useMemo(() => {
+    const quaternion = new THREE.Quaternion();
+
+    // Create a matrix that aligns Z with normal (outward from globe)
+    // and X with direction (along path)
+    const matrix = new THREE.Matrix4();
+    const up = normal.clone();
+    const forward = direction.clone().normalize();
+    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+    forward.crossVectors(right, up).normalize();
+
+    matrix.makeBasis(forward, right, up);
+    quaternion.setFromRotationMatrix(matrix);
+
+    return new THREE.Euler().setFromQuaternion(quaternion);
+  }, [direction, normal]);
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={position}
+      rotation={rotation}
+      geometry={geometry}
+    >
+      <meshBasicMaterial
+        ref={materialRef}
+        color={color}
+        transparent
+        opacity={opacity}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+/**
+ * PathArc renders an animated great circle path between two points
+ *
+ * The animation includes:
+ * - Flowing dashes moving from source to destination
+ * - Subtle pulsing glow effect
+ * - Chevron direction indicators
+ *
+ * Animation respects prefers-reduced-motion accessibility setting.
+ */
 export function PathArc({
   startLat,
   startLon,
@@ -56,7 +287,11 @@ export function PathArc({
   lineWidth = 3,
   segments = 50,
   pathMode = "short",
+  disableAnimation = false,
 }: PathArcProps) {
+  const reducedMotion = useReducedMotion();
+  const shouldAnimate = !reducedMotion && !disableAnimation;
+
   // Calculate path points along great circle (short or long path)
   const points = useMemo(() => {
     // Use more segments for long path since it's longer
@@ -73,21 +308,108 @@ export function PathArc({
     >;
   }, [startLat, startLon, endLat, endLon, segments, pathMode]);
 
+  // Calculate chevron positions and directions
+  const chevrons = useMemo(() => {
+    if (points.length < 3) return [];
+
+    const count =
+      pathMode === "long" ? CHEVRON_COUNT_LONG : CHEVRON_COUNT_SHORT;
+    const result: Array<{
+      position: THREE.Vector3;
+      direction: THREE.Vector3;
+      normal: THREE.Vector3;
+    }> = [];
+
+    for (let i = 0; i < count; i++) {
+      // Distribute chevrons along the path (skip start and end)
+      const fraction = (i + 1) / (count + 1);
+      const index = Math.floor(fraction * (points.length - 1));
+
+      if (index > 0 && index < points.length - 1) {
+        const pos = new THREE.Vector3(...points[index]);
+        const prev = new THREE.Vector3(...points[index - 1]);
+        const next = new THREE.Vector3(
+          ...points[Math.min(index + 1, points.length - 1)],
+        );
+
+        // Direction along the path
+        const direction = new THREE.Vector3()
+          .subVectors(next, prev)
+          .normalize();
+
+        // Normal (outward from globe center)
+        const normal = pos.clone().normalize();
+
+        result.push({ position: pos, direction, normal });
+      }
+    }
+
+    return result;
+  }, [points, pathMode]);
+
   if (points.length < 2) return null;
 
-  // Use dashed style for long path to visually distinguish
-  const isDashed = pathMode === "long";
+  // Determine dash configuration based on path mode
+  const isLongPath = pathMode === "long";
+  const dashSize = isLongPath ? 0.04 : 0.025;
+  const gapSize = isLongPath ? 0.025 : 0.015;
+  const baseOpacity = isLongPath ? 0.7 : 0.9;
+  const glowOpacity = isLongPath ? 0.15 : 0.2;
 
   return (
-    <Line
-      points={points}
-      color={color}
-      lineWidth={lineWidth}
-      opacity={isDashed ? 0.7 : 0.9}
-      transparent
-      dashed={isDashed}
-      dashSize={isDashed ? 0.03 : undefined}
-      gapSize={isDashed ? 0.02 : undefined}
-    />
+    <group name={`path-arc-${pathMode}`}>
+      {/* Background glow layer - subtle pulsing effect */}
+      {shouldAnimate && (
+        <GlowLine
+          points={points}
+          color={color}
+          baseOpacity={glowOpacity}
+          shouldAnimate={shouldAnimate}
+        />
+      )}
+
+      {/* Main animated dashed line */}
+      {shouldAnimate ? (
+        <AnimatedDashedLine
+          points={points}
+          color={color}
+          lineWidth={lineWidth}
+          dashSize={dashSize}
+          gapSize={gapSize}
+          opacity={baseOpacity}
+          animationSpeed={ANIMATION_SPEED}
+          shouldAnimate={shouldAnimate}
+        />
+      ) : (
+        // Static fallback for reduced motion
+        <Line
+          points={points}
+          color={color}
+          lineWidth={lineWidth}
+          opacity={baseOpacity}
+          transparent
+          dashed={isLongPath}
+          dashSize={isLongPath ? 0.03 : undefined}
+          gapSize={isLongPath ? 0.02 : undefined}
+        />
+      )}
+
+      {/* Direction indicator chevrons */}
+      {chevrons.map((chevron, index) => (
+        <DirectionChevron
+          key={`chevron-${index}`}
+          position={chevron.position}
+          direction={chevron.direction}
+          normal={chevron.normal}
+          color={color}
+          opacity={baseOpacity * 0.8}
+          shouldAnimate={shouldAnimate}
+        />
+      ))}
+    </group>
   );
 }
+
+PathArc.displayName = "PathArc";
+
+export default PathArc;

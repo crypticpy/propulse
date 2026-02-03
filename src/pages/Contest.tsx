@@ -1,141 +1,58 @@
 /**
  * Contest Page - Main contest logging interface
- * Brings together all contest components for live contest operation
+ * Composable layout using modular panels for contest operation
+ *
+ * Phase 2 refactor: Now uses composable panels with narrow Zustand selectors
+ * for minimal re-renders and better code organization.
  */
 
 import { useState, useCallback, useMemo } from "react";
 import { Card } from "@/components/ui";
 import {
-  ContestScorePanel,
-  ContestEntryForm,
-  MultiplierTracker,
+  ContestScoreboard,
+  ContestEntryArea,
+  ContestMultiplierPanel,
+  ContestQSOTable,
   ContestConfigModal,
   type ContestConfig,
 } from "@/components/contest";
-import {
-  useContestStore,
-  type ContestQSO,
-  type MultiplierType,
-} from "@/stores/contestStore";
+import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
-import { getDXCCEntity } from "@/lib/utils/multipliers";
-import { useUserStore } from "@/stores/userStore";
 
 /**
- * Extract multiplier value from exchange based on contest type
- * Uses token-based parsing to handle exchanges like "599 05" correctly
+ * Contest Page Component
+ * Composes all contest panels into a unified interface
  */
-function extractMultiplierValue(
-  exchange: string,
-  multiplierType: MultiplierType | undefined,
-): string | null {
-  if (!exchange || !multiplierType || multiplierType === "NONE") {
-    return null;
-  }
-
-  // Split exchange into tokens
-  const tokens = exchange.trim().split(/\s+/);
-
-  // For zone-based contests, extract the LAST numeric token (zone number)
-  if (multiplierType === "CQ_ZONE" || multiplierType === "ITU_ZONE") {
-    // Find last token that's purely numeric
-    for (let i = tokens.length - 1; i >= 0; i--) {
-      if (/^\d+$/.test(tokens[i])) {
-        return tokens[i];
-      }
-    }
-    // Fallback: try to extract any number
-    const match = exchange.match(/\d+/);
-    return match ? match[0] : null;
-  }
-
-  // For state-based contests, look for LAST 2-3 letter token (state/section)
-  if (multiplierType === "STATE" || multiplierType === "SECTION") {
-    // Find last token that's 2-3 letters
-    for (let i = tokens.length - 1; i >= 0; i--) {
-      if (/^[A-Z]{2,3}$/i.test(tokens[i])) {
-        return tokens[i].toUpperCase();
-      }
-    }
-    // Fallback: try to extract any 2-3 letter sequence
-    const match = exchange.match(/[A-Z]{2,3}/i);
-    return match ? match[0].toUpperCase() : null;
-  }
-
-  // For prefix-based contests (WPX), extract from callsign (handled separately)
-  if (multiplierType === "WPX_PREFIX") {
-    return null; // Prefix is extracted from callsign, not exchange
-  }
-
-  return null;
-}
-
-/**
- * Extract WPX prefix from a callsign
- */
-function extractCallsignPrefix(callsign: string): string {
-  // WPX prefix rules: Extract letters until the last digit, then include that digit
-  const match = callsign.match(/^([A-Z0-9]*\d)/i);
-  return match ? match[1].toUpperCase() : callsign.slice(0, 2).toUpperCase();
-}
-
-/**
- * Format time for QSO table display (HHMM)
- */
-function formatTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toISOString().slice(11, 16).replace(":", "");
-}
-
 export function Contest() {
-  const {
-    activeSession,
-    startContest,
-    endContest,
-    logQSO,
-    incrementSerial,
-    addMultiplier,
-    isDupe,
-  } = useContestStore();
+  // Narrow selectors to minimize re-renders
+  const hasActiveSession = useContestStore((s) => s.activeSession !== null);
+  const contestId = useContestStore((s) => s.activeSession?.contestId);
+  const qsoCount = useContestStore((s) => s.activeSession?.qsos.length ?? 0);
+  const totalScore = useContestStore((s) => s.activeSession?.totalScore ?? 0);
+  const startContest = useContestStore((s) => s.startContest);
+  const endContest = useContestStore((s) => s.endContest);
 
   // Modal states
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [editingQSO, setEditingQSO] = useState<ContestQSO | null>(null);
 
-  // Dupe checking state
-  const [currentCallsign, setCurrentCallsign] = useState("");
-  const [currentBand, setCurrentBand] = useState("20m");
-  const [currentMode, setCurrentMode] = useState("CW");
-
-  // Get user station for zone-based scoring
-  const station = useUserStore((state) => state.station);
-
-  // Get contest definition for the active session
-  const contestDefinition = useMemo(() => {
-    if (!activeSession) return null;
-    return getContestById(activeSession.contestId);
-  }, [activeSession]);
-
-  // Check if current entry is a dupe
-  const currentIsDupe = useMemo(() => {
-    if (!currentCallsign || currentCallsign.length < 3) return false;
-    return isDupe(currentCallsign, currentBand, currentMode);
-  }, [currentCallsign, currentBand, currentMode, isDupe]);
-
-  // Handle callsign change for dupe checking
-  const handleCallsignChange = useCallback(
-    (callsign: string, band: string, mode: string) => {
-      setCurrentCallsign(callsign);
-      setCurrentBand(band);
-      setCurrentMode(mode);
-    },
-    [],
-  );
+  // Get contest name
+  const contestName = useMemo(() => {
+    if (!contestId) return null;
+    const def = getContestById(contestId);
+    return def?.name ?? contestId;
+  }, [contestId]);
 
   // Handle starting a new contest
   const handleStartContest = useCallback(
     (config: ContestConfig) => {
-      startContest(config.contestId, config.myExchange, config.categories);
+      startContest(
+        config.contestId,
+        config.myExchange,
+        config.categories,
+        config.cabrilloMeta,
+      );
     },
     [startContest],
   );
@@ -146,130 +63,15 @@ export function Contest() {
     setShowEndConfirm(false);
   }, [endContest]);
 
-  // Handle QSO submission
-  const handleQSOSubmit = useCallback(
-    (qsoData: Omit<ContestQSO, "id" | "timestamp">) => {
-      if (!activeSession || !contestDefinition) return;
-
-      // Check for dupe
-      const dupeCheck = isDupe(qsoData.callsign, qsoData.band, qsoData.mode);
-      if (dupeCheck) return; // Don't log dupes
-
-      // Determine multiplier
-      let isNewMultiplier = false;
-      let multiplierValue: string | null = null;
-      const multType = contestDefinition.multiplierType;
-
-      if (multType === "WPX_PREFIX") {
-        // WPX-style: extract prefix from callsign
-        multiplierValue = extractCallsignPrefix(qsoData.callsign);
-      } else {
-        // Extract from exchange
-        multiplierValue = extractMultiplierValue(
-          qsoData.exchangeReceived,
-          multType,
-        );
-      }
-
-      // Add multiplier if we found one
-      if (multiplierValue && multType !== "NONE") {
-        const band = contestDefinition.multiplierPerBand
-          ? qsoData.band
-          : undefined;
-        isNewMultiplier = addMultiplier(multType, multiplierValue, band);
-      }
-
-      // Calculate points based on contest scoring
-      let points = 1; // Default
-      if (contestDefinition.scoring.mode === "fixed") {
-        points = contestDefinition.scoring.fixedPoints || 1;
-      } else if (contestDefinition.scoring.mode === "mixed") {
-        // Mode-dependent scoring (e.g., Field Day)
-        const mode = qsoData.mode.toUpperCase();
-        if (mode === "CW") {
-          points = contestDefinition.scoring.cwPoints || 2;
-        } else if (mode === "SSB") {
-          points = contestDefinition.scoring.ssbPoints || 1;
-        } else {
-          points = contestDefinition.scoring.digitalPoints || 2;
-        }
-      }
-      // Zone-based scoring: compare continents/countries
-      else if (contestDefinition.scoring.mode === "zone") {
-        // Get DXCC info for worked station
-        const workedEntity = getDXCCEntity(qsoData.callsign);
-        // Get operator's DXCC info from station callsign
-        const myEntity = station?.callsign
-          ? getDXCCEntity(station.callsign)
-          : null;
-
-        if (workedEntity && myEntity) {
-          if (workedEntity.entity === myEntity.entity) {
-            // Same country - typically 0 or low points
-            points = contestDefinition.scoring.sameCountry || 0;
-          } else if (workedEntity.continent === myEntity.continent) {
-            // Same continent - medium points
-            points = contestDefinition.scoring.sameContinent || 1;
-          } else {
-            // Different continent - maximum points
-            points = contestDefinition.scoring.diffContinent || 3;
-          }
-        } else {
-          // Fallback if we can't determine location
-          points = contestDefinition.scoring.diffContinent || 3;
-        }
-      }
-
-      // Get serial number
-      const serialSent = incrementSerial();
-
-      // Create the QSO object
-      const qso: ContestQSO = {
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        callsign: qsoData.callsign,
-        band: qsoData.band,
-        mode: qsoData.mode,
-        rstSent: qsoData.rstSent,
-        rstReceived: qsoData.rstReceived,
-        exchangeSent: qsoData.exchangeSent,
-        exchangeReceived: qsoData.exchangeReceived,
-        serialSent,
-        points,
-        isMultiplier: isNewMultiplier,
-        multipliers:
-          isNewMultiplier && multiplierValue ? [multiplierValue] : undefined,
-      };
-
-      logQSO(qso);
-
-      // Reset dupe check state
-      setCurrentCallsign("");
-    },
-    [
-      activeSession,
-      contestDefinition,
-      isDupe,
-      addMultiplier,
-      incrementSerial,
-      logQSO,
-    ],
-  );
-
-  // Get recent QSOs (last 20, newest first)
-  const recentQSOs = useMemo(() => {
-    if (!activeSession) return [];
-    return [...activeSession.qsos].reverse().slice(0, 20);
-  }, [activeSession]);
-
-  // Get multiplier type for tracker
-  const multiplierType = useMemo(() => {
-    if (!contestDefinition) return "NONE" as MultiplierType;
-    return contestDefinition.multiplierType;
-  }, [contestDefinition]);
+  // Handle QSO edit click
+  const handleEditQSO = useCallback((qso: ContestQSO) => {
+    setEditingQSO(qso);
+    // TODO: Open edit modal in Phase 3
+    console.log("Edit QSO:", qso.callsign);
+  }, []);
 
   // Render no contest active state
-  if (!activeSession) {
+  if (!hasActiveSession) {
     return (
       <div className="min-h-screen p-4 md:p-6">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -342,9 +144,7 @@ export function Contest() {
             <h1 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
               Contest
             </h1>
-            <p className="text-gray-400 text-sm">
-              {contestDefinition?.name || activeSession.contestId}
-            </p>
+            <p className="text-gray-400 text-sm">{contestName}</p>
           </div>
 
           <button
@@ -376,104 +176,20 @@ export function Contest() {
           </button>
         </div>
 
-        {/* Score Panel */}
-        <ContestScorePanel session={activeSession} />
+        {/* Scoreboard Panel */}
+        <ContestScoreboard />
 
         {/* Entry Form and Multiplier Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Entry Form - takes 2 columns */}
-          <div className="lg:col-span-2">
-            <ContestEntryForm
-              session={activeSession}
-              isDupe={currentIsDupe}
-              onSubmit={handleQSOSubmit}
-              onCallsignChange={handleCallsignChange}
-            />
-          </div>
+          {/* Entry Area - takes 2 columns */}
+          <ContestEntryArea className="lg:col-span-2" />
 
-          {/* Multiplier Tracker */}
-          <div className="lg:col-span-1">
-            <MultiplierTracker
-              multipliers={activeSession.multipliers}
-              type={multiplierType}
-            />
-          </div>
+          {/* Multiplier Panel */}
+          <ContestMultiplierPanel className="lg:col-span-1" />
         </div>
 
-        {/* Recent QSOs Table */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-orbitron text-sm font-bold text-white">
-              Recent QSOs
-            </h3>
-            <span className="text-xs text-gray-400">
-              Showing last 20 of {activeSession.qsos.length}
-            </span>
-          </div>
-
-          {recentQSOs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No QSOs logged yet. Start making contacts!
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-gray-400 border-b border-white/10">
-                    <th className="pb-2 pr-4 font-medium">Time</th>
-                    <th className="pb-2 pr-4 font-medium">Call</th>
-                    <th className="pb-2 pr-4 font-medium">Exch</th>
-                    <th className="pb-2 pr-4 font-medium">Band</th>
-                    <th className="pb-2 pr-4 font-medium">Mode</th>
-                    <th className="pb-2 pr-4 font-medium text-right">Pts</th>
-                    <th className="pb-2 font-medium">Mult</th>
-                  </tr>
-                </thead>
-                <tbody className="font-mono">
-                  {recentQSOs.map((qso) => (
-                    <tr
-                      key={qso.id}
-                      className="border-b border-white/5 hover:bg-white/5"
-                    >
-                      <td className="py-2 pr-4 text-gray-400">
-                        {formatTime(qso.timestamp)}
-                      </td>
-                      <td className="py-2 pr-4 text-white font-bold">
-                        {qso.callsign}
-                      </td>
-                      <td className="py-2 pr-4 text-gray-300">
-                        {qso.exchangeReceived}
-                      </td>
-                      <td className="py-2 pr-4 text-cosmic-cyan">{qso.band}</td>
-                      <td className="py-2 pr-4 text-gray-400">{qso.mode}</td>
-                      <td className="py-2 pr-4 text-right text-plasma-orange">
-                        {qso.points}
-                      </td>
-                      <td className="py-2">
-                        {qso.isMultiplier && qso.multipliers?.[0] && (
-                          <span className="inline-flex items-center gap-1 text-signal-green">
-                            <svg
-                              className="w-3 h-3"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            {qso.multipliers[0]}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+        {/* QSO Table */}
+        <ContestQSOTable maxRows={20} onEditQSO={handleEditQSO} />
       </div>
 
       {/* End Contest Confirmation Modal */}
@@ -505,12 +221,10 @@ export function Contest() {
               </h3>
               <p className="text-gray-400 text-sm">
                 This will end your current contest session with{" "}
-                <span className="text-white font-bold">
-                  {activeSession.qsos.length}
-                </span>{" "}
-                QSOs and a score of{" "}
+                <span className="text-white font-bold">{qsoCount}</span> QSOs
+                and a score of{" "}
                 <span className="text-plasma-orange font-bold">
-                  {activeSession.totalScore.toLocaleString()}
+                  {totalScore.toLocaleString()}
                 </span>
                 . The session will be saved to your history.
               </p>
@@ -532,6 +246,45 @@ export function Contest() {
                   End Contest
                 </button>
               </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit QSO Modal Placeholder (Phase 3) */}
+      {editingQSO && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setEditingQSO(null)}
+          />
+          <Card className="relative z-10 w-full max-w-md p-6" animate>
+            <div className="space-y-4">
+              <h3 className="text-lg font-orbitron font-bold text-white">
+                Edit QSO
+              </h3>
+              <p className="text-gray-400 text-sm">
+                Edit modal will be implemented in Phase 3
+              </p>
+              <div className="bg-nebula-blue/50 p-3 rounded-lg font-mono text-sm">
+                <div className="text-white font-bold">
+                  {editingQSO.callsign}
+                </div>
+                <div className="text-gray-400">
+                  {editingQSO.band} {editingQSO.mode}
+                </div>
+                <div className="text-gray-400">
+                  {editingQSO.exchangeReceived}
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingQSO(null)}
+                className="w-full px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
+                           text-gray-300 hover:text-white hover:border-white/20
+                           transition-colors font-medium"
+              >
+                Close
+              </button>
             </div>
           </Card>
         </div>

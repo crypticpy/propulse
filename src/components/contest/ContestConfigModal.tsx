@@ -9,12 +9,32 @@ import {
   getContestById,
   getContestsByGroup,
 } from "@/lib/data/contests";
+import { useUserStore } from "@/stores/userStore";
 import type { ContestCategories } from "@/stores/contestStore";
+
+/**
+ * Cabrillo export metadata
+ * Optional fields used when generating Cabrillo log files
+ */
+export interface CabrilloMeta {
+  /** Operator's name (for OPERATORS: header) */
+  operatorName?: string;
+  /** Contact email (for EMAIL: header) */
+  email?: string;
+  /** Club affiliation (for CLUB: header) */
+  club?: string;
+  /** Station location - state, section, or country (for LOCATION: header) */
+  location?: string;
+}
 
 export interface ContestConfig {
   contestId: string;
   myExchange: string;
-  categories: ContestCategories;
+  categories: ContestCategories & {
+    assisted?: "assisted" | "non-assisted";
+  };
+  /** Optional Cabrillo export metadata */
+  cabrilloMeta?: CabrilloMeta;
 }
 
 export interface ContestConfigModalProps {
@@ -31,7 +51,10 @@ export function ContestConfigModal({
   onClose,
   onStart,
 }: ContestConfigModalProps) {
-  // Form state
+  // Get user station info for pre-filling
+  const station = useUserStore((state) => state.station);
+
+  // Form state - Contest categories
   const [selectedContestId, setSelectedContestId] = useState(
     CONTEST_DATABASE[0]?.id || "",
   );
@@ -41,6 +64,16 @@ export function ContestConfigModal({
   const [power, setPower] = useState<ContestCategories["power"]>("low");
   const [mode, setMode] = useState<ContestCategories["mode"]>("cw");
   const [band, setBand] = useState<ContestCategories["band"]>("all");
+  const [assisted, setAssisted] = useState<"assisted" | "non-assisted">(
+    "non-assisted",
+  );
+
+  // Form state - Cabrillo metadata (collapsible section)
+  const [showCabrilloMeta, setShowCabrilloMeta] = useState(false);
+  const [operatorName, setOperatorName] = useState(station?.operatorName || "");
+  const [email, setEmail] = useState("");
+  const [club, setClub] = useState("");
+  const [location, setLocation] = useState("");
 
   // Get grouped contests for the dropdown
   const contestsByGroup = useMemo(() => getContestsByGroup(), []);
@@ -81,6 +114,12 @@ export function ContestConfigModal({
       ? (val as ContestCategories["band"])
       : "all";
   };
+  const mapAssisted = (val: string): "assisted" | "non-assisted" => {
+    const valid: ("assisted" | "non-assisted")[] = ["assisted", "non-assisted"];
+    return valid.includes(val as "assisted" | "non-assisted")
+      ? (val as "assisted" | "non-assisted")
+      : "non-assisted";
+  };
 
   // Handle contest selection change
   const handleContestChange = useCallback(
@@ -103,6 +142,9 @@ export function ContestConfigModal({
         if (contest.categories.band[0]) {
           setBand(mapBand(contest.categories.band[0]));
         }
+        if (contest.categories.assisted?.[0]) {
+          setAssisted(mapAssisted(contest.categories.assisted[0]));
+        }
       }
     },
     [],
@@ -114,6 +156,18 @@ export function ContestConfigModal({
       return;
     }
 
+    // Build Cabrillo metadata if any fields are filled
+    const hasCabrilloMeta =
+      operatorName.trim() || email.trim() || club.trim() || location.trim();
+    const cabrilloMeta: CabrilloMeta | undefined = hasCabrilloMeta
+      ? {
+          operatorName: operatorName.trim() || undefined,
+          email: email.trim() || undefined,
+          club: club.trim() || undefined,
+          location: location.trim().toUpperCase() || undefined,
+        }
+      : undefined;
+
     const config: ContestConfig = {
       contestId: selectedContestId,
       myExchange: myExchange.trim().toUpperCase(),
@@ -122,7 +176,9 @@ export function ContestConfigModal({
         power,
         mode,
         band,
+        assisted,
       },
+      cabrilloMeta,
     };
 
     onStart(config);
@@ -134,6 +190,11 @@ export function ContestConfigModal({
     power,
     mode,
     band,
+    assisted,
+    operatorName,
+    email,
+    club,
+    location,
     onStart,
     onClose,
   ]);
@@ -366,7 +427,133 @@ export function ContestConfigModal({
                 ))}
               </select>
             </div>
+
+            {/* Assisted Category - only show if contest has both options */}
+            {selectedContest?.categories.assisted &&
+              selectedContest.categories.assisted.length > 1 && (
+                <div>
+                  <label
+                    htmlFor="cat-assisted"
+                    className="text-xs text-gray-400 mb-1 block"
+                  >
+                    Assisted
+                  </label>
+                  <select
+                    id="cat-assisted"
+                    value={assisted}
+                    onChange={(e) =>
+                      setAssisted(e.target.value as "assisted" | "non-assisted")
+                    }
+                    className={selectClass}
+                  >
+                    {selectedContest.categories.assisted.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt === "assisted" ? "ASSISTED" : "NON-ASSISTED"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
           </div>
+        </div>
+
+        {/* Cabrillo Export Info - Collapsible Section */}
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => setShowCabrilloMeta(!showCabrilloMeta)}
+            className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${showCabrilloMeta ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+            Cabrillo Export Info
+            <span className="text-xs text-gray-500 font-normal">
+              (optional)
+            </span>
+          </button>
+
+          {showCabrilloMeta && (
+            <div className="mt-3 p-4 bg-nebula-blue rounded-lg border border-white/10 space-y-4">
+              <p className="text-xs text-gray-400 mb-3">
+                These fields are included in your Cabrillo log file for contest
+                submission. You can also fill them in later before exporting.
+              </p>
+
+              {/* Operator Name */}
+              <div>
+                <label htmlFor="cabrillo-operator" className={labelClass}>
+                  Operator Name
+                </label>
+                <input
+                  type="text"
+                  id="cabrillo-operator"
+                  value={operatorName}
+                  onChange={(e) => setOperatorName(e.target.value)}
+                  placeholder="Your name for OPERATORS: header"
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label htmlFor="cabrillo-email" className={labelClass}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="cabrillo-email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Contact email for contest committee"
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Club */}
+              <div>
+                <label htmlFor="cabrillo-club" className={labelClass}>
+                  Club Affiliation
+                </label>
+                <input
+                  type="text"
+                  id="cabrillo-club"
+                  value={club}
+                  onChange={(e) => setClub(e.target.value)}
+                  placeholder="Your club name (for CLUB: header)"
+                  className={inputClass}
+                />
+              </div>
+
+              {/* Location */}
+              <div>
+                <label htmlFor="cabrillo-location" className={labelClass}>
+                  Station Location
+                </label>
+                <input
+                  type="text"
+                  id="cabrillo-location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value.toUpperCase())}
+                  placeholder="State/Section/Country (e.g., CA, ORG, DX)"
+                  className={`${inputClass} font-mono`}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  ARRL section, US state abbreviation, or DX for non-US/Canada
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Start Button */}

@@ -958,10 +958,18 @@ export function PropSphere() {
               data-tour="dx-spot-list"
             >
               <Card className="p-0 overflow-hidden">
-                {/* Drawer Toggle Handle */}
-                <button
+                {/* Drawer Toggle Handle - using div with role="button" to avoid nested button */}
+                <div
                   onClick={() => setDxClusterExpanded(!dxClusterExpanded)}
-                  className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setDxClusterExpanded(!dxClusterExpanded);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-white">
@@ -1013,7 +1021,7 @@ export function PropSphere() {
                       />
                     </svg>
                   </div>
-                </button>
+                </div>
                 {/* Collapsible Content */}
                 <div
                   className={`transition-all duration-300 ease-in-out overflow-hidden ${

@@ -2,26 +2,30 @@
  * Contest Page - Main contest logging interface
  * Composable layout using modular panels for contest operation
  *
- * Phase 2 refactor: Now uses composable panels with narrow Zustand selectors
- * for minimal re-renders and better code organization.
+ * Phase 3 update: Keyboard-first entry with hotkeys and ESM support
  */
 
 import { useState, useCallback, useMemo } from "react";
 import { Card } from "@/components/ui";
 import {
   ContestScoreboard,
-  ContestEntryArea,
+  ContestOneLineEntry,
   ContestMultiplierPanel,
   ContestQSOTable,
   ContestConfigModal,
+  ContestEditLastModal,
   type ContestConfig,
 } from "@/components/contest";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
+import {
+  useContestHotkeys,
+  BAND_QUICK_SELECT,
+} from "@/hooks/useContestHotkeys";
 
 /**
  * Contest Page Component
- * Composes all contest panels into a unified interface
+ * Composes all contest panels into a unified interface with keyboard-first operation
  */
 export function Contest() {
   // Narrow selectors to minimize re-renders
@@ -29,13 +33,20 @@ export function Contest() {
   const contestId = useContestStore((s) => s.activeSession?.contestId);
   const qsoCount = useContestStore((s) => s.activeSession?.qsos.length ?? 0);
   const totalScore = useContestStore((s) => s.activeSession?.totalScore ?? 0);
+  const qsos = useContestStore((s) => s.activeSession?.qsos ?? []);
+  const runMode = useContestStore((s) => s.activeSession?.runMode ?? "run");
   const startContest = useContestStore((s) => s.startContest);
   const endContest = useContestStore((s) => s.endContest);
+  const undoLastQSO = useContestStore((s) => s.undoLastQSO);
 
   // Modal states
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [editingQSO, setEditingQSO] = useState<ContestQSO | null>(null);
+
+  // Band and mode state (will be CAT-driven in Phase 7)
+  const [currentBand, setCurrentBand] = useState("20m");
+  const [currentMode, setCurrentMode] = useState("CW");
 
   // Get contest name
   const contestName = useMemo(() => {
@@ -43,6 +54,11 @@ export function Contest() {
     const def = getContestById(contestId);
     return def?.name ?? contestId;
   }, [contestId]);
+
+  // Get last QSO for edit functionality
+  const lastQSO = useMemo(() => {
+    return qsos.length > 0 ? qsos[qsos.length - 1] : null;
+  }, [qsos]);
 
   // Handle starting a new contest
   const handleStartContest = useCallback(
@@ -63,12 +79,56 @@ export function Contest() {
     setShowEndConfirm(false);
   }, [endContest]);
 
-  // Handle QSO edit click
+  // Handle QSO edit click from table
   const handleEditQSO = useCallback((qso: ContestQSO) => {
     setEditingQSO(qso);
-    // TODO: Open edit modal in Phase 3
-    console.log("Edit QSO:", qso.callsign);
   }, []);
+
+  // Handle edit modal close
+  const handleCloseEditModal = useCallback(() => {
+    setEditingQSO(null);
+    // ContestOneLineEntry auto-focuses on render
+  }, []);
+
+  // Hotkey callbacks
+  const handleWipeInput = useCallback(() => {
+    // ContestOneLineEntry handles Escape key internally
+    // This callback is provided for consistency with useContestHotkeys interface
+  }, []);
+
+  const handleEditLast = useCallback(() => {
+    if (lastQSO) {
+      setEditingQSO(lastQSO);
+    }
+  }, [lastQSO]);
+
+  const handleUndoLast = useCallback(() => {
+    undoLastQSO();
+    // ContestOneLineEntry maintains focus automatically
+  }, [undoLastQSO]);
+
+  const handleBandChange = useCallback((band: string) => {
+    setCurrentBand(band);
+  }, []);
+
+  const handleMacro = useCallback((_macroName: string) => {
+    // Macro triggering deferred to Phase 7 (CAT integration)
+    // For v1, macros are displayed in hotkey hints but don't send
+  }, []);
+
+  // Set up contest hotkeys
+  useContestHotkeys({
+    enabled:
+      hasActiveSession && !showConfigModal && !showEndConfirm && !editingQSO,
+    mode: runMode,
+    callbacks: {
+      onWipeInput: handleWipeInput,
+      onEditLast: handleEditLast,
+      onUndoLast: handleUndoLast,
+      onBandChange: handleBandChange,
+      onMacro: handleMacro,
+    },
+  });
 
   // Render no contest active state
   if (!hasActiveSession) {
@@ -147,42 +207,87 @@ export function Contest() {
             <p className="text-gray-400 text-sm">{contestName}</p>
           </div>
 
-          <button
-            onClick={() => setShowEndConfirm(true)}
-            className="px-4 py-2 bg-alert-red/20 border border-alert-red/50 rounded-lg
-                       text-alert-red font-semibold hover:bg-alert-red/30
-                       transition-colors flex items-center gap-2"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex items-center gap-3">
+            {/* Band/Mode quick-select display */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-nebula-blue rounded-lg border border-white/10">
+              <select
+                value={currentBand}
+                onChange={(e) => setCurrentBand(e.target.value)}
+                className="bg-transparent text-cosmic-cyan font-mono text-sm focus:outline-none cursor-pointer"
+              >
+                {Object.values(BAND_QUICK_SELECT).map((band) => (
+                  <option key={band} value={band} className="bg-deep-space">
+                    {band}
+                  </option>
+                ))}
+              </select>
+              <span className="text-gray-500">/</span>
+              <select
+                value={currentMode}
+                onChange={(e) => setCurrentMode(e.target.value)}
+                className="bg-transparent text-white font-mono text-sm focus:outline-none cursor-pointer"
+              >
+                <option value="CW" className="bg-deep-space">
+                  CW
+                </option>
+                <option value="SSB" className="bg-deep-space">
+                  SSB
+                </option>
+                <option value="RTTY" className="bg-deep-space">
+                  RTTY
+                </option>
+                <option value="FT8" className="bg-deep-space">
+                  FT8
+                </option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => setShowEndConfirm(true)}
+              className="px-4 py-2 bg-alert-red/20 border border-alert-red/50 rounded-lg
+                         text-alert-red font-semibold hover:bg-alert-red/30
+                         transition-colors flex items-center gap-2"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-              />
-            </svg>
-            End Contest
-          </button>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                />
+              </svg>
+              End Contest
+            </button>
+          </div>
         </div>
 
         {/* Scoreboard Panel */}
         <ContestScoreboard />
 
-        {/* Entry Form and Multiplier Tracker */}
+        {/* One-Line Entry and Multiplier Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Entry Area - takes 2 columns */}
-          <ContestEntryArea className="lg:col-span-2" />
+          {/* One-Line Entry - takes 2 columns */}
+          <div className="lg:col-span-2">
+            <ContestOneLineEntry
+              band={currentBand}
+              mode={currentMode}
+              onBandModeChange={(band, mode) => {
+                setCurrentBand(band);
+                setCurrentMode(mode);
+              }}
+            />
+          </div>
 
           {/* Multiplier Panel */}
           <ContestMultiplierPanel className="lg:col-span-1" />
@@ -190,6 +295,26 @@ export function Contest() {
 
         {/* QSO Table */}
         <ContestQSOTable maxRows={20} onEditQSO={handleEditQSO} />
+
+        {/* Keyboard shortcuts hint */}
+        <div className="text-xs text-gray-500 flex flex-wrap items-center gap-4 justify-center">
+          <span>
+            <kbd className="px-1 py-0.5 bg-white/10 rounded">Enter</kbd> Log
+          </span>
+          <span>
+            <kbd className="px-1 py-0.5 bg-white/10 rounded">Esc</kbd> Clear
+          </span>
+          <span>
+            <kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+Z</kbd> Undo
+          </span>
+          <span>
+            <kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+E</kbd> Edit
+            Last
+          </span>
+          <span>
+            <kbd className="px-1 py-0.5 bg-white/10 rounded">Alt+1-9</kbd> Band
+          </span>
+        </div>
       </div>
 
       {/* End Contest Confirmation Modal */}
@@ -251,44 +376,12 @@ export function Contest() {
         </div>
       )}
 
-      {/* Edit QSO Modal Placeholder (Phase 3) */}
-      {editingQSO && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setEditingQSO(null)}
-          />
-          <Card className="relative z-10 w-full max-w-md p-6" animate>
-            <div className="space-y-4">
-              <h3 className="text-lg font-orbitron font-bold text-white">
-                Edit QSO
-              </h3>
-              <p className="text-gray-400 text-sm">
-                Edit modal will be implemented in Phase 3
-              </p>
-              <div className="bg-nebula-blue/50 p-3 rounded-lg font-mono text-sm">
-                <div className="text-white font-bold">
-                  {editingQSO.callsign}
-                </div>
-                <div className="text-gray-400">
-                  {editingQSO.band} {editingQSO.mode}
-                </div>
-                <div className="text-gray-400">
-                  {editingQSO.exchangeReceived}
-                </div>
-              </div>
-              <button
-                onClick={() => setEditingQSO(null)}
-                className="w-full px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                           text-gray-300 hover:text-white hover:border-white/20
-                           transition-colors font-medium"
-              >
-                Close
-              </button>
-            </div>
-          </Card>
-        </div>
-      )}
+      {/* Edit QSO Modal */}
+      <ContestEditLastModal
+        isOpen={editingQSO !== null}
+        onClose={handleCloseEditModal}
+        qso={editingQSO}
+      />
 
       {/* Config Modal (for starting new contest while one is active) */}
       <ContestConfigModal

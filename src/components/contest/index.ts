@@ -31,6 +31,14 @@ export type { ContestQSOTableProps } from "./ContestQSOTable";
 export { ContestEntryForm } from "./ContestEntryForm";
 export type { ContestEntryFormProps } from "./ContestEntryForm";
 
+// One-line entry (Phase 3 - keyboard-first high-speed entry)
+export { ContestOneLineEntry } from "./ContestOneLineEntry";
+export type { ContestOneLineEntryProps } from "./ContestOneLineEntry";
+
+// Edit last modal (Phase 3 - fast QSO correction)
+export { ContestEditLastModal } from "./ContestEditLastModal";
+export type { ContestEditLastModalProps } from "./ContestEditLastModal";
+
 // Multiplier tracker (used by ContestMultiplierPanel)
 export { MultiplierTracker } from "./MultiplierTracker";
 export type { MultiplierTrackerProps } from "./MultiplierTracker";

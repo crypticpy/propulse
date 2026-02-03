@@ -227,7 +227,7 @@ export function QSOTable({
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="p-0 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-white/5 border-b border-white/10">

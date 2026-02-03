@@ -36,7 +36,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       "backdrop-blur-md",
       "border",
       "rounded-2xl",
-      // padding removed - let consumers specify their own
+      "p-3",
       "transition-all",
       "duration-200",
     ];

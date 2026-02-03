@@ -6,7 +6,7 @@
  * Includes worked status indicators and alert highlighting.
  */
 
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { useDXCluster, useDXSpotStats } from "@/hooks/useDXCluster";
 import { useLogbook } from "@/hooks/useLogbook";
@@ -38,6 +38,22 @@ function formatTime(date: Date): string {
 }
 
 /**
+ * Format frequency for display
+ * @param freqKHz - Frequency in kHz
+ * @param format - Display format ('mhz' or 'khz')
+ * @returns Formatted frequency string
+ */
+function formatFrequency(
+  freqKHz: number,
+  format: "mhz" | "khz" = "mhz",
+): string {
+  if (format === "mhz") {
+    return (freqKHz / 1000).toFixed(3); // "14.195"
+  }
+  return freqKHz.toFixed(1); // "14195.0"
+}
+
+/**
  * Calculate minutes ago from now
  */
 function getMinutesAgo(date: Date): number {
@@ -66,6 +82,7 @@ interface SpotRowProps {
   onSelect: (spot: DXSpot) => void;
   onHover: (spot: DXSpot | null) => void;
   onGridClick?: (grid: string) => void;
+  onFrequencyCopied?: (frequency: number) => void;
 }
 
 /**
@@ -90,9 +107,45 @@ function SpotRow({
   onSelect,
   onHover,
   onGridClick,
+  onFrequencyCopied,
 }: SpotRowProps) {
   const bandColor = getBandColor(spot.band || "");
   const minutesAgo = getMinutesAgo(spot.time);
+  const [frequencyCopied, setFrequencyCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Handle frequency copy to clipboard
+  const handleFrequencyCopy = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation(); // Don't trigger row selection
+      try {
+        const freqKhz = spot.frequency.toFixed(1);
+        await navigator.clipboard.writeText(freqKhz);
+        setFrequencyCopied(true);
+        onFrequencyCopied?.(spot.frequency);
+
+        // Clear the copied state after a short delay
+        if (copyTimeoutRef.current) {
+          clearTimeout(copyTimeoutRef.current);
+        }
+        copyTimeoutRef.current = setTimeout(() => {
+          setFrequencyCopied(false);
+        }, 1500);
+      } catch (err) {
+        console.error("Failed to copy frequency:", err);
+      }
+    },
+    [spot.frequency, onFrequencyCopied],
+  );
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Handle grid click (filter by this grid)
   const handleGridClick = useCallback(
@@ -122,7 +175,7 @@ function SpotRow({
   // Build row classes with alert highlight
   const rowClasses = useMemo(() => {
     const base =
-      "grid grid-cols-[50px_60px_1fr_55px_70px_1fr] gap-2 px-3 py-2 cursor-pointer transition-all duration-150";
+      "grid grid-cols-[50px_60px_70px_1fr_55px_70px_1fr] gap-2 px-3 py-2 cursor-pointer transition-all duration-150";
 
     if (isSelected) {
       return `${base} bg-plasma-orange/20 border-l-2 border-plasma-orange`;
@@ -177,7 +230,7 @@ function SpotRow({
         {formatTime(spot.time)}
       </div>
 
-      {/* Frequency & Band */}
+      {/* Band */}
       <div className="flex items-center gap-1.5">
         <span
           className="px-1.5 py-0.5 rounded text-[10px] font-bold"
@@ -189,6 +242,19 @@ function SpotRow({
           {spot.band}
         </span>
       </div>
+
+      {/* Frequency - clickable to copy */}
+      <button
+        onClick={handleFrequencyCopy}
+        className={`text-xs font-mono tabular-nums text-left transition-all duration-150 rounded px-1 -mx-1 ${
+          frequencyCopied
+            ? "text-green-400 bg-green-500/20"
+            : "text-cyan-400/80 hover:text-cyan-400 hover:bg-cyan-500/10"
+        }`}
+        title={`Click to copy ${spot.frequency.toFixed(1)} kHz`}
+      >
+        {frequencyCopied ? "Copied!" : formatFrequency(spot.frequency)}
+      </button>
 
       {/* DX Callsign with grid and badges */}
       <div className="flex items-center gap-1.5 min-w-0">
@@ -757,11 +823,12 @@ export function DXSpotList({
 
       {/* Column Headers */}
       <div
-        className="grid grid-cols-[50px_60px_1fr_55px_70px_1fr] gap-2 px-3 py-2 border-b border-white/10 text-xs font-semibold text-gray-400 uppercase tracking-wider"
+        className="grid grid-cols-[50px_60px_70px_1fr_55px_70px_1fr] gap-2 px-3 py-2 border-b border-white/10 text-xs font-semibold text-gray-400 uppercase tracking-wider"
         role="row"
       >
         <div>Time</div>
         <div>Band</div>
+        <div>Freq</div>
         <div>DX</div>
         <div className="text-right">Dist</div>
         <div>Spotter</div>

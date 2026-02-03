@@ -135,7 +135,12 @@ export function QuickGridInput({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6">
+    <div
+      className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="quick-grid-input-title"
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -155,7 +160,10 @@ export function QuickGridInput({
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="font-orbitron text-lg font-bold text-gradient-orange flex items-center gap-2">
+            <h2
+              id="quick-grid-input-title"
+              className="font-orbitron text-lg font-bold text-gradient-orange flex items-center gap-2"
+            >
               <svg
                 className="w-5 h-5"
                 fill="none"

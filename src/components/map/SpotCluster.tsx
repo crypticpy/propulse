@@ -10,7 +10,7 @@
  * - Click to expand/zoom functionality
  */
 
-import { useRef, useMemo, useState, useCallback } from "react";
+import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -147,10 +147,17 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
     return getClusterCallsignSummary(cluster, MAX_TOOLTIP_CALLSIGNS);
   }, [cluster]);
 
-  // Create hexagon geometry (memoized)
+  // Create hexagon geometry (memoized with cleanup)
   const hexGeometry = useMemo(() => {
     return createHexagonGeometry(CLUSTER_SIZE);
   }, []);
+
+  // Dispose geometry on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      hexGeometry.dispose();
+    };
+  }, [hexGeometry]);
 
   // Handle click event
   const handleClick = useCallback(

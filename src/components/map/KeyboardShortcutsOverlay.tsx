@@ -85,7 +85,12 @@ export function KeyboardShortcutsOverlay({
   const groupedShortcuts = groupShortcutsByCategory(DEFAULT_SHORTCUTS);
 
   return createPortal(
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6">
+    <div
+      className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="keyboard-shortcuts-title"
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -105,7 +110,10 @@ export function KeyboardShortcutsOverlay({
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h2 className="font-orbitron text-xl font-bold text-gradient-orange flex items-center gap-2">
+            <h2
+              id="keyboard-shortcuts-title"
+              className="font-orbitron text-xl font-bold text-gradient-orange flex items-center gap-2"
+            >
               <svg
                 className="w-5 h-5"
                 fill="none"

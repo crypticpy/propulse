@@ -32,10 +32,12 @@ import { DXSpotList, DXConsole } from "@/components/dx";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
+import { useDXStore } from "@/stores/dxStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useWatchAlerts } from "@/hooks/useWatchAlerts";
 import { gridToLatLon } from "@/lib/utils/grid";
 
 /**
@@ -112,6 +114,15 @@ export function PropSphere() {
 
   // Get watch store for toggle watch action
   const watchStore = useWatchStore();
+
+  // Initialize watch audio alerts (monitors watch matches and plays sounds)
+  useWatchAlerts({ enabled: true });
+
+  // Handler for grid research from DXSpotList context menu (Feature 2.6)
+  const handleResearchGrid = useCallback((grid: string) => {
+    setGridResearchGrid(grid);
+    setShowGridResearch(true);
+  }, []);
 
   // Keyboard shortcut action handler
   const handleShortcutAction = useCallback(
@@ -214,12 +225,17 @@ export function PropSphere() {
           mapStore.togglePathMode();
           break;
 
+        // Band Sync Mode (Feature 2.3)
+        case "cycleSyncedBand":
+          useDXStore.getState().cycleSyncedBand();
+          break;
+
         default:
           // Unknown action - do nothing
           break;
       }
     },
-    [timeOffset, setTimeOffset],
+    [timeOffset, setTimeOffset, target, setTarget, watchStore],
   );
 
   // Initialize keyboard shortcuts
@@ -788,6 +804,7 @@ export function PropSphere() {
                 showFilters={true}
                 showHeader={true}
                 className="h-full"
+                onResearchGrid={handleResearchGrid}
               />
             </div>
 
@@ -864,6 +881,7 @@ export function PropSphere() {
                     showFilters={true}
                     showHeader={false}
                     className="border-t-0 rounded-t-none h-full"
+                    onResearchGrid={handleResearchGrid}
                   />
                 </div>
               </Card>
@@ -929,6 +947,7 @@ export function PropSphere() {
                 showFilters={true}
                 showHeader={true}
                 className="h-full"
+                onResearchGrid={handleResearchGrid}
               />
             )}
           </div>

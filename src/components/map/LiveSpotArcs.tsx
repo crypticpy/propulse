@@ -17,7 +17,7 @@ import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXStore } from "@/stores/dxStore";
-import { useSpotClusteringPrefs } from "@/stores/userStore";
+import { useSpotClusteringPrefs, useSpotAgePrefs } from "@/stores/userStore";
 import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
@@ -26,6 +26,186 @@ import { useSpotClustering } from "@/hooks/useSpotClustering";
 import { SpotCluster } from "./SpotCluster";
 import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
+
+// ==========================================================================
+// Spot Age Types and Utilities
+// ==========================================================================
+
+/**
+ * Age category for visual styling
+ */
+export type SpotAgeCategory = "fresh" | "recent" | "aging" | "stale" | "old";
+
+/**
+ * Spot age information for visual decay styling
+ */
+export interface SpotAgeInfo {
+  /** Age in minutes */
+  ageMinutes: number;
+  /** Category for styling decisions */
+  ageCategory: SpotAgeCategory;
+  /** Opacity value (0.4 - 1.0) */
+  opacity: number;
+  /** Scale factor (0.5 - 1.0) */
+  scale: number;
+  /** Saturation factor (0.3 - 1.0) */
+  saturation: number;
+}
+
+/**
+ * Calculate spot age information for visual decay styling
+ * @param spotTime - Time when the spot was created
+ * @param currentTime - Current time (defaults to now)
+ * @returns SpotAgeInfo with age category and visual parameters
+ */
+export function getSpotAgeInfo(
+  spotTime: Date,
+  currentTime: Date = new Date(),
+): SpotAgeInfo {
+  const ageMinutes = (currentTime.getTime() - spotTime.getTime()) / 60000;
+
+  // 0-2 minutes: fresh - full visibility
+  if (ageMinutes < 2) {
+    return {
+      ageMinutes,
+      ageCategory: "fresh",
+      opacity: 1.0,
+      scale: 1.0,
+      saturation: 1.0,
+    };
+  }
+
+  // 2-5 minutes: recent - slight decay
+  if (ageMinutes < 5) {
+    return {
+      ageMinutes,
+      ageCategory: "recent",
+      opacity: 0.9,
+      scale: 0.9,
+      saturation: 0.95,
+    };
+  }
+
+  // 5-10 minutes: aging - moderate decay
+  if (ageMinutes < 10) {
+    return {
+      ageMinutes,
+      ageCategory: "aging",
+      opacity: 0.75,
+      scale: 0.75,
+      saturation: 0.7,
+    };
+  }
+
+  // 10-15 minutes: stale - significant decay
+  if (ageMinutes < 15) {
+    return {
+      ageMinutes,
+      ageCategory: "stale",
+      opacity: 0.6,
+      scale: 0.6,
+      saturation: 0.5,
+    };
+  }
+
+  // 15+ minutes: old - maximum decay
+  return {
+    ageMinutes,
+    ageCategory: "old",
+    opacity: 0.4,
+    scale: 0.5,
+    saturation: 0.3,
+  };
+}
+
+/**
+ * Format spot age for display (e.g., "2:45" for 2 minutes 45 seconds)
+ * @param spotTime - Time when the spot was created
+ * @param currentTime - Current time (defaults to now)
+ * @returns Formatted age string
+ */
+export function formatSpotAge(
+  spotTime: Date,
+  currentTime: Date = new Date(),
+): string {
+  const ageMs = currentTime.getTime() - spotTime.getTime();
+  const totalSeconds = Math.floor(ageMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h${remainingMinutes}m`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Get short age label for compact display (e.g., "2m", "15m", "1h")
+ * @param spotTime - Time when the spot was created
+ * @param currentTime - Current time (defaults to now)
+ * @returns Short age label
+ */
+export function getShortAgeLabel(
+  spotTime: Date,
+  currentTime: Date = new Date(),
+): string {
+  const ageMs = currentTime.getTime() - spotTime.getTime();
+  const minutes = Math.floor(ageMs / 60000);
+
+  if (minutes < 1) return "<1m";
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
+/**
+ * Get color for age badge based on category
+ * @param ageCategory - The age category
+ * @returns Tailwind-compatible color classes
+ */
+export function getAgeBadgeColors(ageCategory: SpotAgeCategory): {
+  bg: string;
+  text: string;
+  border: string;
+} {
+  switch (ageCategory) {
+    case "fresh":
+      return {
+        bg: "bg-green-500/20",
+        text: "text-green-400",
+        border: "border-green-500/30",
+      };
+    case "recent":
+      return {
+        bg: "bg-cyan-500/20",
+        text: "text-cyan-400",
+        border: "border-cyan-500/30",
+      };
+    case "aging":
+      return {
+        bg: "bg-yellow-500/20",
+        text: "text-yellow-400",
+        border: "border-yellow-500/30",
+      };
+    case "stale":
+      return {
+        bg: "bg-orange-500/20",
+        text: "text-orange-400",
+        border: "border-orange-500/30",
+      };
+    case "old":
+      return {
+        bg: "bg-gray-500/20",
+        text: "text-gray-400",
+        border: "border-gray-500/30",
+      };
+  }
+}
 
 // ==========================================================================
 // Mode Colors - for visual identification of operating modes
@@ -238,9 +418,12 @@ export function getAgeOpacity(
 function SpotArc({
   spot,
   segments = 30,
+  ageVisualizationEnabled = true,
 }: {
   spot: ResolvedSpot;
   segments?: number;
+  /** Whether to apply age-based visual decay */
+  ageVisualizationEnabled?: boolean;
 }) {
   // Validate coordinates to prevent NaN errors in THREE.js
   const hasValidCoords =
@@ -279,7 +462,11 @@ function SpotArc({
   }, [spot, segments, hasValidCoords]);
 
   const color = getModeColor(spot.mode);
-  const opacity = getAgeOpacity(spot.time);
+
+  // Calculate age-based opacity using new getSpotAgeInfo
+  const ageInfo = useMemo(() => getSpotAgeInfo(spot.time), [spot.time]);
+  const opacity = ageVisualizationEnabled ? ageInfo.opacity : 1.0;
+  const lineWidth = ageVisualizationEnabled ? 1.5 * ageInfo.scale : 1.5;
 
   // Return null for invalid coordinates or insufficient points
   if (!hasValidCoords || points.length < 2) return null;
@@ -288,7 +475,7 @@ function SpotArc({
     <Line
       points={points}
       color={color}
-      lineWidth={1.5}
+      lineWidth={lineWidth}
       opacity={opacity}
       transparent
     />
@@ -303,11 +490,17 @@ function SpotEndpoint({
   lon,
   color,
   size = 0.008,
+  opacity = 0.8,
+  scale = 1.0,
 }: {
   lat: number;
   lon: number;
   color: string;
   size?: number;
+  /** Opacity for age-based decay (0.4 - 1.0) */
+  opacity?: number;
+  /** Scale factor for age-based decay (0.5 - 1.0) */
+  scale?: number;
 }) {
   // Validate coordinates to prevent NaN errors
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
@@ -321,10 +514,13 @@ function SpotEndpoint({
 
   if (!hasValidCoords) return null;
 
+  // Apply scale to size for age-based visual decay
+  const scaledSize = size * scale;
+
   return (
     <mesh position={position}>
-      <sphereGeometry args={[size, 8, 8]} />
-      <meshBasicMaterial color={color} transparent opacity={0.8} />
+      <sphereGeometry args={[scaledSize, 8, 8]} />
+      <meshBasicMaterial color={color} transparent opacity={opacity} />
     </mesh>
   );
 }
@@ -335,6 +531,7 @@ function SpotEndpoint({
  * Fetches live spots and renders them as 3D arcs on the globe.
  * Supports spot clustering for cleaner visualization when many spots
  * are present in the same geographic area.
+ * Applies age-based visual decay (opacity/scale) based on user preferences.
  */
 export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
   // Get source filter from dxStore - shared with DXSpotList
@@ -343,6 +540,9 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
 
   // Get clustering preferences from user store
   const clusteringPrefs = useSpotClusteringPrefs();
+
+  // Get spot age visualization preferences
+  const spotAgePrefs = useSpotAgePrefs();
 
   const { spots, isLoading } = useLiveSpots({
     grid,
@@ -365,10 +565,9 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
     return resolveSpotLocations(singles);
   }, [singles]);
 
-  // Handler for cluster click - could be used for zoom/expand
-  const handleClusterClick = useCallback((cluster: SpotClusterType) => {
-    // For now, just log - future enhancement could zoom to cluster
-    console.log("Cluster clicked:", cluster.id, cluster.count, "spots");
+  // Handler for cluster click - placeholder for future zoom/expand functionality
+  const handleClusterClick = useCallback((_cluster: SpotClusterType) => {
+    // Future enhancement: zoom to cluster center or expand to show individual spots
   }, []);
 
   if (isLoading || (resolvedSingles.length === 0 && clusters.length === 0)) {
@@ -386,24 +585,39 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
         />
       ))}
 
-      {/* Render non-clustered spots as individual arcs */}
+      {/* Render non-clustered spots as individual arcs with age-based styling */}
       {resolvedSingles.map((spot) => {
         const color = getModeColor(spot.mode);
+        // Calculate age info for endpoint styling
+        const ageInfo = getSpotAgeInfo(spot.time);
+        // Apply age-based styling only if preference is enabled
+        const endpointOpacity = spotAgePrefs.enabled
+          ? ageInfo.opacity * 0.8
+          : 0.8;
+        const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
+
         return (
           <group key={spot.id}>
-            <SpotArc spot={spot} />
-            {/* Endpoint markers */}
+            <SpotArc
+              spot={spot}
+              ageVisualizationEnabled={spotAgePrefs.enabled}
+            />
+            {/* Endpoint markers with age-based styling */}
             <SpotEndpoint
               lat={spot.spotterLat}
               lon={spot.spotterLon}
               color={color}
               size={0.006}
+              opacity={endpointOpacity}
+              scale={endpointScale}
             />
             <SpotEndpoint
               lat={spot.dxLat}
               lon={spot.dxLon}
               color={color}
               size={0.008}
+              opacity={endpointOpacity}
+              scale={endpointScale}
             />
           </group>
         );

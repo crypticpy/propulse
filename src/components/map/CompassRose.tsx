@@ -6,7 +6,7 @@
  * Used for visual orientation and antenna pointing guidance on the 3D globe.
  */
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
@@ -311,8 +311,6 @@ export function CompassRose({
   radius = 1.01,
   size = DEFAULT_RADIUS,
 }: CompassRoseProps) {
-  const groupRef = useRef<THREE.Group>(null);
-
   // Calculate 3D position on globe surface
   const position = useMemo(() => {
     return latLonToVector3(qthLat, qthLon, radius);
@@ -371,10 +369,17 @@ export function CompassRose({
     );
   }, [targetBearing, beamWidth, size]);
 
+  // Dispose geometry on unmount or when it changes to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      beamWedgeGeometry?.dispose();
+    };
+  }, [beamWedgeGeometry]);
+
   if (!visible) return null;
 
   return (
-    <group ref={groupRef} position={position} quaternion={rotation}>
+    <group position={position} quaternion={rotation}>
       {/* Compass ring outline */}
       <Line
         points={ringPoints}

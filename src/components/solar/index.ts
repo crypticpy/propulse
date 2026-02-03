@@ -53,6 +53,23 @@ export {
   calculatePropagationIndex,
 } from "./PropagationIndex";
 
+// Image Modal
+export { ImageModal, type ImageModalProps } from "./ImageModal";
+
+// Animation Modal (modal with optional frame animation support)
+export {
+  AnimationModal,
+  type AnimationModalProps,
+  type AnimationFrame as AnimationModalFrame,
+} from "./AnimationModal";
+
+// Animated Image Player
+export {
+  AnimatedImagePlayer,
+  type AnimatedImagePlayerProps,
+  type AnimationFrame,
+} from "./AnimatedImagePlayer";
+
 // Modal Components
 export {
   // Metric Modals

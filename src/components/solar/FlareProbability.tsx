@@ -100,9 +100,9 @@ export const FlareProbability: React.FC<FlareProbabilityProps> = ({
     <Card animate className="h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-gray-400">
-          Flare Probability (Next 24 Hours)
-        </h3>
+        <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+          Flare Probability
+        </h2>
         {onExpand && (
           <button
             onClick={onExpand}

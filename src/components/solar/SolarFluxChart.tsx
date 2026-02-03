@@ -184,9 +184,9 @@ export const SolarFluxChart: React.FC<SolarFluxChartProps> = ({
     <Card animate className="h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-gray-400">
-          Solar Flux Index (30-Day Trend)
-        </h3>
+        <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+          Solar Flux Index 30-Day Trend
+        </h2>
         {onExpand && (
           <button
             onClick={onExpand}

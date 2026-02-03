@@ -141,9 +141,9 @@ export const SolarSummary: React.FC<SolarSummaryProps> = ({
       <div className="flex flex-col gap-4">
         {/* Header with title and condition badge */}
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-mono uppercase tracking-wider text-gray-400">
-            PROPAGATION SUMMARY
-          </h3>
+          <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+            Propagation Summary
+          </h2>
           <div className="flex items-center gap-2">
             <Badge status={badgeStatus}>{overall.hf.toUpperCase()}</Badge>
             {onExpand && (

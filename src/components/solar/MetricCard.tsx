@@ -130,7 +130,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       ) : (
         <div className="flex flex-col gap-2">
           {/* Label */}
-          <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
+          <span className="text-sm font-sans font-semibold uppercase tracking-wide text-gray-300">
             {label}
           </span>
 

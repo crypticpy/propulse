@@ -146,38 +146,77 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
 
   const scoreColor = getScoreColor(result.score);
 
+  function polarToCartesian(
+    cx: number,
+    cy: number,
+    radius: number,
+    angleInDegrees: number,
+  ) {
+    const angleInRadians = (angleInDegrees * Math.PI) / 180;
+    return {
+      x: cx + radius * Math.cos(angleInRadians),
+      y: cy + radius * Math.sin(angleInRadians),
+    };
+  }
+
+  function describeArc(
+    cx: number,
+    cy: number,
+    radius: number,
+    startAngle: number,
+    endAngle: number,
+  ) {
+    const start = polarToCartesian(cx, cy, radius, startAngle);
+    const end = polarToCartesian(cx, cy, radius, endAngle);
+    const sweepAngle = (((endAngle - startAngle) % 360) + 360) % 360;
+    const largeArcFlag = sweepAngle > 180 ? 1 : 0;
+    const sweepFlag = 1; // clockwise
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
+  }
+
   // SVG gauge parameters
   const gaugeRadius = 90;
   const gaugeStrokeWidth = 14;
   const gaugeCenter = 100;
-  const gaugeCircumference = 2 * Math.PI * gaugeRadius;
-  // Arc from -135deg to +135deg (270deg total)
-  const gaugeArcLength = gaugeCircumference * (270 / 360);
-  const scoreArcLength = (result.score / 100) * gaugeArcLength;
+  const gaugeStartAngle = 135;
+  const gaugeSweepAngle = 270;
+  const gaugeEndAngle = gaugeStartAngle + gaugeSweepAngle;
+
+  const gaugePath = describeArc(
+    gaugeCenter,
+    gaugeCenter,
+    gaugeRadius,
+    gaugeStartAngle,
+    gaugeEndAngle,
+  );
 
   // Tick marks for the gauge (0, 25, 50, 75, 100)
   const ticks = [0, 25, 50, 75, 100].map((value) => {
-    const angle = -135 + (value / 100) * 270;
+    const angle = gaugeStartAngle + (value / 100) * gaugeSweepAngle;
     const rad = (angle * Math.PI) / 180;
     const tickOuter = gaugeRadius + gaugeStrokeWidth / 2 + 8;
     const tickInner = gaugeRadius + gaugeStrokeWidth / 2 + 2;
+    const labelRadius = gaugeRadius + gaugeStrokeWidth / 2 + 14;
     return {
       value,
       x1: gaugeCenter + tickInner * Math.cos(rad),
       y1: gaugeCenter + tickInner * Math.sin(rad),
       x2: gaugeCenter + tickOuter * Math.cos(rad),
       y2: gaugeCenter + tickOuter * Math.sin(rad),
-      labelX: gaugeCenter + (tickOuter + 12) * Math.cos(rad),
-      labelY: gaugeCenter + (tickOuter + 12) * Math.sin(rad),
+      labelX: gaugeCenter + labelRadius * Math.cos(rad),
+      labelY: gaugeCenter + labelRadius * Math.sin(rad),
     };
   });
 
-  // Calculate the needle position
-  const needleAngle = -135 + (result.score / 100) * 270;
-  const needleRad = (needleAngle * Math.PI) / 180;
-  const needleLength = gaugeRadius - 15;
-  const needleX = gaugeCenter + needleLength * Math.cos(needleRad);
-  const needleY = gaugeCenter + needleLength * Math.sin(needleRad);
+  // Score marker position (a small indicator on the arc rather than a center needle)
+  const markerAngle = gaugeStartAngle + (result.score / 100) * gaugeSweepAngle;
+  const markerRad = (markerAngle * Math.PI) / 180;
+  const markerInnerRadius = gaugeRadius - (gaugeStrokeWidth - 4) / 2 - 2;
+  const markerOuterRadius = gaugeRadius + (gaugeStrokeWidth - 4) / 2 + 4;
+  const markerX1 = gaugeCenter + markerInnerRadius * Math.cos(markerRad);
+  const markerY1 = gaugeCenter + markerInnerRadius * Math.sin(markerRad);
+  const markerX2 = gaugeCenter + markerOuterRadius * Math.cos(markerRad);
+  const markerY2 = gaugeCenter + markerOuterRadius * Math.sin(markerRad);
 
   return (
     <Card className="relative overflow-hidden">
@@ -193,7 +232,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="font-sans text-xl font-bold text-white tracking-wide">
+            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
               Propagation Index
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
@@ -270,46 +309,33 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                 </defs>
 
                 {/* Background track */}
-                <circle
-                  cx={gaugeCenter}
-                  cy={gaugeCenter}
-                  r={gaugeRadius}
+                <path
+                  d={gaugePath}
                   fill="none"
                   stroke="rgba(255,255,255,0.1)"
                   strokeWidth={gaugeStrokeWidth}
                   strokeLinecap="round"
-                  strokeDasharray={`${gaugeArcLength} ${gaugeCircumference}`}
-                  strokeDashoffset={-gaugeCircumference * (135 / 360)}
-                  transform={`rotate(-90 ${gaugeCenter} ${gaugeCenter})`}
                 />
 
                 {/* Colored track */}
-                <circle
-                  cx={gaugeCenter}
-                  cy={gaugeCenter}
-                  r={gaugeRadius}
+                <path
+                  d={gaugePath}
                   fill="none"
                   stroke="url(#gaugeGradient)"
                   strokeWidth={gaugeStrokeWidth - 4}
                   strokeLinecap="round"
-                  strokeDasharray={`${gaugeArcLength} ${gaugeCircumference}`}
-                  strokeDashoffset={-gaugeCircumference * (135 / 360)}
-                  transform={`rotate(-90 ${gaugeCenter} ${gaugeCenter})`}
                   opacity="0.3"
                 />
 
                 {/* Active score arc */}
-                <circle
-                  cx={gaugeCenter}
-                  cy={gaugeCenter}
-                  r={gaugeRadius}
+                <path
+                  d={gaugePath}
                   fill="none"
                   stroke={scoreColor}
                   strokeWidth={gaugeStrokeWidth - 4}
                   strokeLinecap="round"
-                  strokeDasharray={`${scoreArcLength} ${gaugeCircumference}`}
-                  strokeDashoffset={-gaugeCircumference * (135 / 360)}
-                  transform={`rotate(-90 ${gaugeCenter} ${gaugeCenter})`}
+                  pathLength={100}
+                  strokeDasharray={`${result.score} 100`}
                   filter="url(#gaugeGlow)"
                   className="transition-all duration-1000 ease-out"
                 />
@@ -339,27 +365,29 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                   </g>
                 ))}
 
-                {/* Needle */}
+                {/* Score marker */}
                 <line
-                  x1={gaugeCenter}
-                  y1={gaugeCenter}
-                  x2={needleX}
-                  y2={needleY}
+                  x1={markerX1}
+                  y1={markerY1}
+                  x2={markerX2}
+                  y2={markerY2}
                   stroke="white"
                   strokeWidth="3"
                   strokeLinecap="round"
                   className="transition-all duration-1000 ease-out"
                   style={{
-                    filter: "drop-shadow(0 0 4px rgba(255,255,255,0.5))",
+                    filter: "drop-shadow(0 0 6px rgba(255,255,255,0.7))",
                   }}
                 />
                 <circle
-                  cx={gaugeCenter}
-                  cy={gaugeCenter}
-                  r="8"
-                  fill="#1a1a2e"
-                  stroke="white"
-                  strokeWidth="2"
+                  cx={markerX2}
+                  cy={markerY2}
+                  r="4"
+                  fill="white"
+                  className="transition-all duration-1000 ease-out"
+                  style={{
+                    filter: `drop-shadow(0 0 8px ${scoreColor})`,
+                  }}
                 />
 
                 {/* Center score display */}

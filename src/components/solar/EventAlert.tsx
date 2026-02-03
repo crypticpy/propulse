@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui";
 
 export type EventType = "flare" | "storm" | "blackout" | null;
-export type EventSeverity = "minor" | "moderate" | "major";
+export type EventSeverity = "minor" | "moderate" | "major" | "extreme";
 
 export interface EventAlertProps {
   /** Type of solar event (null or undefined to hide) */
@@ -58,6 +58,11 @@ const SEVERITY_CONFIG: Record<
     label: "Major",
     textColor: "text-alert-red",
     bgColor: "bg-alert-red/10",
+  },
+  extreme: {
+    label: "Extreme",
+    textColor: "text-alert-red",
+    bgColor: "bg-alert-red/20",
   },
 };
 

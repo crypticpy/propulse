@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useEffect,
+  useState,
   type ReactNode,
 } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
@@ -19,6 +20,7 @@ import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics } from "@/lib/utils/path";
+import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { Terminator } from "./Terminator";
 import { Greyline } from "./Greyline";
@@ -35,11 +37,27 @@ import {
 } from "./LocationMarker";
 import { LiveSpotArcs } from "./LiveSpotArcs";
 import { SpotHighlight } from "./SpotHighlight";
+import { SpotMarker } from "./SpotMarker";
+import { GlobeClickHandler } from "./GlobeClickHandler";
+import { GlobeTooltip } from "./GlobeTooltip";
+import { GlobeFlyout, type GlobeFlyoutAction } from "./GlobeFlyout";
+import { AddPinDialog } from "./AddPinDialog";
+import {
+  GridResearchPanel,
+  type GridResearchAction,
+} from "./GridResearchPanel";
+import { WatchListPanel } from "./WatchListPanel";
+import { WatchIndicator } from "./WatchIndicator";
 import { useMapStore } from "@/stores/mapStore";
+import { useWatchStore } from "@/stores/watchStore";
+import { gridToLatLon } from "@/lib/utils/grid";
 import { useUserStore } from "@/stores/userStore";
+import { usePinStore } from "@/stores/pinStore";
+import { useDXStore } from "@/stores/dxStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
+import { useDXCluster } from "@/hooks/useDXCluster";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 
 interface GlobeViewProps {
@@ -198,12 +216,33 @@ function CameraController() {
 function GlobeScene({
   displayTime,
   onLocationClick,
+  onLocationHover,
+  onHoverEnd,
+  onPinHover,
 }: {
   displayTime: Date;
-  onLocationClick?: (lat: number, lon: number) => void;
+  onLocationClick?: (
+    lat: number,
+    lon: number,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onLocationHover?: (
+    lat: number,
+    lon: number,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onHoverEnd?: () => void;
+  /** Called when hovering over a pin - shows flyout */
+  onPinHover?: (
+    lat: number,
+    lon: number,
+    grid: string,
+    screenPos: { x: number; y: number },
+  ) => void;
 }) {
   const { layers, target, autoRotate } = useMapStore();
   const { station } = useUserStore();
+  const { pins } = usePinStore();
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
 
@@ -219,11 +258,20 @@ function GlobeScene({
     return metrics.difficulty;
   }, [station, target]);
 
-  const handleEarthClick = useCallback(
-    (lat: number, lon: number) => {
-      onLocationClick?.(lat, lon);
+  // Handle click on globe surface
+  const handleGlobeClick = useCallback(
+    (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      onLocationClick?.(lat, lon, screenPos);
     },
     [onLocationClick],
+  );
+
+  // Handle hover on globe surface
+  const handleGlobeHover = useCallback(
+    (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      onLocationHover?.(lat, lon, screenPos);
+    },
+    [onLocationHover],
   );
 
   return (
@@ -241,12 +289,15 @@ function GlobeScene({
         speed={0.5}
       />
 
-      {/* Earth sphere */}
-      <EarthSphere
-        autoRotate={autoRotate}
-        rotationSpeed={0.0005}
-        onClick={handleEarthClick}
-      />
+      {/* Globe click/hover handler wrapping the Earth */}
+      <GlobeClickHandler
+        onLocationClick={handleGlobeClick}
+        onLocationHover={handleGlobeHover}
+        onHoverEnd={onHoverEnd}
+      >
+        {/* Earth sphere */}
+        <EarthSphere autoRotate={autoRotate} rotationSpeed={0.0005} />
+      </GlobeClickHandler>
 
       {/* Night side darkening overlay */}
       {layers.terminator && <NightOverlay date={displayTime} opacity={0.6} />}
@@ -275,6 +326,24 @@ function GlobeScene({
 
       {/* Live spot arcs */}
       {layers.spots && <LiveSpotArcs grid={station?.grid} maxArcs={50} />}
+
+      {/* Pin markers from saved locations */}
+      {pins.map((pin) => (
+        <SpotMarker
+          key={pin.id}
+          lat={pin.lat}
+          lon={pin.lon}
+          color={pin.color || "#22D3EE"}
+          label={pin.name || pin.grid}
+          size={0.015}
+          glowIntensity={0.4}
+          onHover={(isHovered, screenPos) => {
+            if (isHovered && onPinHover) {
+              onPinHover(pin.lat, pin.lon, pin.grid, screenPos);
+            }
+          }}
+        />
+      ))}
 
       {/* Home station marker - Blue color */}
       {station && (
@@ -324,10 +393,203 @@ function GlobeScene({
 }
 
 export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
-  const { zoom } = useMapStore();
+  const {
+    zoom,
+    tooltipPosition,
+    setTooltipPosition,
+    flyoutPosition,
+    setFlyoutPosition,
+    setTarget,
+  } = useMapStore();
+  const { addPin } = usePinStore();
+  const { updateFilter } = useDXStore();
+  // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
+  const { allSpots } = useDXCluster();
+
+  // Watch store for activity checking
+  const addWatch = useWatchStore((state) => state.addWatch);
+  const checkForActivity = useWatchStore((state) => state.checkForActivity);
+
+  // State for AddPinDialog
+  const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
+  const [addPinData, setAddPinData] = useState<{
+    lat: number;
+    lon: number;
+    grid: string;
+  } | null>(null);
+
+  // State for GridResearchPanel
+  const [researchPanelOpen, setResearchPanelOpen] = useState(false);
+  const [researchGrid, setResearchGrid] = useState<string | null>(null);
+
+  // State for WatchListPanel
+  const [watchListOpen, setWatchListOpen] = useState(false);
+
+  // Check watch activity when spots change
+  useEffect(() => {
+    if (allSpots.length > 0) {
+      checkForActivity(allSpots);
+    }
+  }, [allSpots, checkForActivity]);
+
+  // Get spots in the hovered grid for tooltip
+  // Matches if either DX or spotter grid starts with the hovered 4-char prefix
+  const tooltipSpots = useMemo(() => {
+    if (!tooltipPosition?.grid) return [];
+    const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
+    return allSpots.filter((spot) => {
+      const dxGrid = (spot.dxGrid || "").toUpperCase();
+      const spotterGrid = (spot.spotterGrid || "").toUpperCase();
+      return (
+        dxGrid.startsWith(gridPrefix) || spotterGrid.startsWith(gridPrefix)
+      );
+    });
+  }, [tooltipPosition?.grid, allSpots]);
+
+  // Handle globe click - show flyout
+  const handleGlobeClick = useCallback(
+    (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      const grid = latLonToGrid(lat, lon);
+      setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
+      setTooltipPosition(null); // Hide tooltip when flyout opens
+      onLocationClick?.(lat, lon);
+    },
+    [setFlyoutPosition, setTooltipPosition, onLocationClick],
+  );
+
+  // Handle globe hover - show tooltip
+  const handleGlobeHover = useCallback(
+    (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      // Don't show tooltip if flyout is open
+      if (flyoutPosition) return;
+      const grid = latLonToGrid(lat, lon);
+      setTooltipPosition({ x: screenPos.x, y: screenPos.y, grid });
+    },
+    [flyoutPosition, setTooltipPosition],
+  );
+
+  // Handle hover end
+  const handleHoverEnd = useCallback(() => {
+    setTooltipPosition(null);
+  }, [setTooltipPosition]);
+
+  // Handle pin hover - show flyout on active spots/pins
+  const handlePinHover = useCallback(
+    (
+      lat: number,
+      lon: number,
+      grid: string,
+      screenPos: { x: number; y: number },
+    ) => {
+      setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
+      setTooltipPosition(null);
+    },
+    [setFlyoutPosition, setTooltipPosition],
+  );
+
+  // Handle flyout close
+  const handleFlyoutClose = useCallback(() => {
+    setFlyoutPosition(null);
+  }, [setFlyoutPosition]);
+
+  // Handle opening AddPinDialog from flyout
+  const handleOpenAddPinDialog = useCallback(
+    (lat: number, lon: number, grid: string) => {
+      setAddPinData({ lat, lon, grid });
+      setAddPinDialogOpen(true);
+      setFlyoutPosition(null);
+    },
+    [setFlyoutPosition],
+  );
+
+  // Handle opening GridResearchPanel from flyout
+  const handleOpenResearchPanel = useCallback(
+    (grid: string) => {
+      setResearchGrid(grid);
+      setResearchPanelOpen(true);
+      setFlyoutPosition(null);
+    },
+    [setFlyoutPosition],
+  );
+
+  // Handle adding a grid to watch list
+  const handleWatchGrid = useCallback(
+    (grid: string) => {
+      // Watch the 4-char grid prefix for broader matching
+      const gridPrefix = grid.slice(0, 4).toUpperCase();
+      addWatch("grid", gridPrefix);
+      setFlyoutPosition(null);
+    },
+    [addWatch, setFlyoutPosition],
+  );
+
+  // Handle GridResearchPanel actions
+  const handleResearchAction = useCallback(
+    (action: GridResearchAction, grid: string) => {
+      switch (action) {
+        case "watch":
+          handleWatchGrid(grid);
+          break;
+        case "pin": {
+          // Need to compute lat/lon from grid
+          try {
+            const { lat, lon } = gridToLatLon(grid);
+            handleOpenAddPinDialog(lat, lon, grid);
+          } catch {
+            // Grid conversion failed, ignore
+          }
+          break;
+        }
+        case "setTarget": {
+          try {
+            const { lat, lon } = gridToLatLon(grid);
+            setTarget({ lat, lon, grid });
+            setResearchPanelOpen(false);
+          } catch {
+            // Grid conversion failed, ignore
+          }
+          break;
+        }
+        case "close":
+          setResearchPanelOpen(false);
+          break;
+      }
+    },
+    [handleWatchGrid, handleOpenAddPinDialog, setTarget],
+  );
+
+  // Handle flyout actions (fallback for unhandled actions)
+  const handleFlyoutAction = useCallback(
+    (action: GlobeFlyoutAction) => {
+      if (!flyoutPosition) return;
+
+      switch (action) {
+        case "setTarget":
+          setTarget({
+            lat: flyoutPosition.lat,
+            lon: flyoutPosition.lon,
+            grid: flyoutPosition.grid,
+          });
+          break;
+        case "addPin":
+          // Fallback to simple add (dialog callback should handle this)
+          addPin(flyoutPosition.lat, flyoutPosition.lon, flyoutPosition.grid);
+          break;
+        case "researchGrid":
+          // Fallback to filter (panel callback should handle this)
+          updateFilter("gridFilter", flyoutPosition.grid);
+          break;
+        case "watchGrid":
+          // Fallback - should be handled by callback
+          handleWatchGrid(flyoutPosition.grid);
+          break;
+      }
+    },
+    [flyoutPosition, setTarget, addPin, updateFilter, handleWatchGrid],
+  );
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden">
+    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative">
       <GlobeErrorBoundary
         fallback={
           <div className="w-full h-full flex items-center justify-center bg-deep-space text-gray-500">
@@ -351,11 +613,70 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
           <Suspense fallback={<GlobeLoader />}>
             <GlobeScene
               displayTime={displayTime}
-              onLocationClick={onLocationClick}
+              onLocationClick={handleGlobeClick}
+              onLocationHover={handleGlobeHover}
+              onHoverEnd={handleHoverEnd}
+              onPinHover={handlePinHover}
             />
           </Suspense>
         </Canvas>
       </GlobeErrorBoundary>
+
+      {/* Tooltip overlay - rendered outside Canvas */}
+      <GlobeTooltip
+        visible={!!tooltipPosition && !flyoutPosition}
+        position={tooltipPosition || { x: 0, y: 0 }}
+        grid={tooltipPosition?.grid || ""}
+        spots={tooltipSpots}
+      />
+
+      {/* Flyout menu overlay - rendered outside Canvas */}
+      <GlobeFlyout
+        visible={!!flyoutPosition}
+        position={flyoutPosition || { x: 0, y: 0 }}
+        lat={flyoutPosition?.lat || 0}
+        lon={flyoutPosition?.lon || 0}
+        grid={flyoutPosition?.grid || ""}
+        onAction={handleFlyoutAction}
+        onClose={handleFlyoutClose}
+        onOpenAddPinDialog={handleOpenAddPinDialog}
+        onOpenResearchPanel={handleOpenResearchPanel}
+        onWatchGrid={handleWatchGrid}
+      />
+
+      {/* Watch activity indicator - top right corner */}
+      <div className="absolute top-3 right-3 z-10">
+        <WatchIndicator onClick={() => setWatchListOpen(true)} />
+      </div>
+
+      {/* AddPinDialog modal */}
+      <AddPinDialog
+        visible={addPinDialogOpen}
+        mode="add"
+        location={addPinData || undefined}
+        onClose={() => {
+          setAddPinDialogOpen(false);
+          setAddPinData(null);
+        }}
+        onSave={() => {
+          setAddPinDialogOpen(false);
+          setAddPinData(null);
+        }}
+      />
+
+      {/* GridResearchPanel slide-out */}
+      <GridResearchPanel
+        visible={researchPanelOpen}
+        grid={researchGrid || ""}
+        onAction={handleResearchAction}
+        onClose={() => setResearchPanelOpen(false)}
+      />
+
+      {/* WatchListPanel slide-out */}
+      <WatchListPanel
+        visible={watchListOpen}
+        onClose={() => setWatchListOpen(false)}
+      />
     </div>
   );
 }

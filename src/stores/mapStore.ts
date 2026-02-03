@@ -55,6 +55,22 @@ export interface TargetLocation {
   grid?: string;
 }
 
+/** Position for tooltip overlay */
+export interface TooltipPosition {
+  x: number;
+  y: number;
+  grid: string;
+}
+
+/** Position for flyout menu overlay */
+export interface FlyoutPosition {
+  x: number;
+  y: number;
+  lat: number;
+  lon: number;
+  grid: string;
+}
+
 interface MapState {
   // View settings
   viewMode: ViewMode;
@@ -118,6 +134,12 @@ interface MapState {
   setDXConsoleExpanded: (value: boolean) => void;
   toggleDXConsoleExpanded: () => void;
 
+  // Globe interaction overlays
+  tooltipPosition: TooltipPosition | null;
+  setTooltipPosition: (pos: TooltipPosition | null) => void;
+  flyoutPosition: FlyoutPosition | null;
+  setFlyoutPosition: (pos: FlyoutPosition | null) => void;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -144,6 +166,8 @@ const initialState = {
   isFullscreen: false,
   isLiteMode: false,
   isDXConsoleExpanded: false,
+  tooltipPosition: null as TooltipPosition | null,
+  flyoutPosition: null as FlyoutPosition | null,
 };
 
 export const useMapStore = create<MapState>((set) => ({
@@ -223,6 +247,10 @@ export const useMapStore = create<MapState>((set) => ({
 
   toggleDXConsoleExpanded: () =>
     set((state) => ({ isDXConsoleExpanded: !state.isDXConsoleExpanded })),
+
+  setTooltipPosition: (tooltipPosition) => set({ tooltipPosition }),
+
+  setFlyoutPosition: (flyoutPosition) => set({ flyoutPosition }),
 
   reset: () => set(initialState),
 }));

@@ -78,6 +78,7 @@ function PulsingRing({
         opacity={opacity}
         side={THREE.DoubleSide}
         depthWrite={false}
+        depthTest={false}
       />
     </mesh>
   );
@@ -119,6 +120,8 @@ function GlowPoint({
         color={color}
         transparent
         opacity={0.9}
+        depthTest={false}
+        depthWrite={false}
       />
     </mesh>
   );
@@ -161,6 +164,7 @@ function GlowHalo({
         opacity={0.15}
         side={THREE.DoubleSide}
         depthWrite={false}
+        depthTest={false}
       />
     </mesh>
   );
@@ -201,7 +205,7 @@ export function SpotHighlight({
       return null;
     }
 
-    const pos = latLonToPosition3D(focusedSpot.dxLat, focusedSpot.dxLon, 1.015);
+    const pos = latLonToPosition3D(focusedSpot.dxLat, focusedSpot.dxLon, 1.025);
     return new THREE.Vector3(pos.x, pos.y, pos.z);
   }, [focusedSpot]);
 
@@ -211,7 +215,7 @@ export function SpotHighlight({
   }
 
   return (
-    <group>
+    <group renderOrder={1}>
       {/* Outer glow halo */}
       <GlowHalo position={position} color={color} size={RING_BASE_SIZE * 4} />
 

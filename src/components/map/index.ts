@@ -20,6 +20,10 @@ export { PathArc } from "./PathArc";
 export { LocationMarker } from "./LocationMarker";
 export { LiveSpotArcs } from "./LiveSpotArcs";
 export { SpotHighlight } from "./SpotHighlight";
+export { SpotMarker } from "./SpotMarker";
+export { GlobeClickHandler } from "./GlobeClickHandler";
+export { GlobeTooltip } from "./GlobeTooltip";
+export { GlobeFlyout } from "./GlobeFlyout";
 
 // 2D Flat Map components
 export { FlatMapView } from "./FlatMapView";
@@ -65,3 +69,21 @@ export {
 
 // Lite Mode toggle
 export { LiteModeToggle } from "./LiteModeToggle";
+
+// Pin management components
+export { AddPinDialog } from "./AddPinDialog";
+export { PinList } from "./PinList";
+
+// Grid research panel
+export {
+  GridResearchPanel,
+  type GridResearchAction,
+} from "./GridResearchPanel";
+
+// Watch system components
+export { WatchIndicator } from "./WatchIndicator";
+export { WatchListPanel } from "./WatchListPanel";
+
+// Feasibility indicator
+export { FeasibilityBadge } from "./FeasibilityBadge";
+export type { FeasibilityLevel } from "@/hooks/useFeasibility";

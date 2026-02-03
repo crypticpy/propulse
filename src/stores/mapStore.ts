@@ -140,6 +140,11 @@ interface MapState {
   flyoutPosition: FlyoutPosition | null;
   setFlyoutPosition: (pos: FlyoutPosition | null) => void;
 
+  // Path mode (short/long path display)
+  pathMode: "short" | "long";
+  setPathMode: (mode: "short" | "long") => void;
+  togglePathMode: () => void;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -168,6 +173,7 @@ const initialState = {
   isDXConsoleExpanded: false,
   tooltipPosition: null as TooltipPosition | null,
   flyoutPosition: null as FlyoutPosition | null,
+  pathMode: "short" as "short" | "long",
 };
 
 export const useMapStore = create<MapState>((set) => ({
@@ -251,6 +257,13 @@ export const useMapStore = create<MapState>((set) => ({
   setTooltipPosition: (tooltipPosition) => set({ tooltipPosition }),
 
   setFlyoutPosition: (flyoutPosition) => set({ flyoutPosition }),
+
+  setPathMode: (pathMode) => set({ pathMode }),
+
+  togglePathMode: () =>
+    set((state) => ({
+      pathMode: state.pathMode === "short" ? "long" : "short",
+    })),
 
   reset: () => set(initialState),
 }));

@@ -24,8 +24,8 @@ export interface GlobeTooltipProps {
 }
 
 /** Tooltip dimensions for positioning calculations */
-const TOOLTIP_WIDTH = 200;
-const TOOLTIP_HEIGHT = 120;
+const TOOLTIP_WIDTH = 220;
+const TOOLTIP_HEIGHT = 160;
 const EDGE_PADDING = 10;
 
 /**
@@ -47,25 +47,47 @@ function getBandBreakdown(spots: DXSpot[]): { band: string; count: number }[] {
 }
 
 /**
- * Get recent callsigns from spots
+ * Format frequency for display in MHz
+ * @param freqKHz - Frequency in kHz
+ * @returns Formatted frequency string with MHz suffix
  */
-function getRecentCallsigns(spots: DXSpot[], maxCount: number = 3): string[] {
+function formatFrequencyMHz(freqKHz: number): string {
+  return `${(freqKHz / 1000).toFixed(3)} MHz`;
+}
+
+/**
+ * Spot info with callsign and frequency
+ */
+interface SpotInfo {
+  callsign: string;
+  frequency: number;
+  mode?: string;
+}
+
+/**
+ * Get recent spots with callsign and frequency
+ */
+function getRecentSpotInfo(spots: DXSpot[], maxCount: number = 3): SpotInfo[] {
   const sortedSpots = [...spots].sort(
     (a, b) => b.time.getTime() - a.time.getTime(),
   );
 
-  const callsigns: string[] = [];
+  const spotInfos: SpotInfo[] = [];
   const seen = new Set<string>();
 
   for (const spot of sortedSpots) {
     if (!seen.has(spot.dx)) {
-      callsigns.push(spot.dx);
+      spotInfos.push({
+        callsign: spot.dx,
+        frequency: spot.frequency,
+        mode: spot.mode,
+      });
       seen.add(spot.dx);
-      if (callsigns.length >= maxCount) break;
+      if (spotInfos.length >= maxCount) break;
     }
   }
 
-  return callsigns;
+  return spotInfos;
 }
 
 /**
@@ -111,7 +133,7 @@ export function GlobeTooltip({
   // Process spot data
   const spotCount = spots.length;
   const bandBreakdown = useMemo(() => getBandBreakdown(spots), [spots]);
-  const recentCallsigns = useMemo(() => getRecentCallsigns(spots, 3), [spots]);
+  const recentSpotInfo = useMemo(() => getRecentSpotInfo(spots, 3), [spots]);
 
   // Don't render if not visible
   if (!visible) {
@@ -159,11 +181,27 @@ export function GlobeTooltip({
               </div>
             )}
 
-            {/* Recent callsigns */}
-            {recentCallsigns.length > 0 && (
-              <div className="text-xs text-gray-400 font-mono truncate">
-                {recentCallsigns.join(", ")}
-                {spots.length > recentCallsigns.length && "..."}
+            {/* Recent spots with callsign and frequency */}
+            {recentSpotInfo.length > 0 && (
+              <div className="space-y-0.5">
+                {recentSpotInfo.map((info, i) => (
+                  <div
+                    key={`${info.callsign}-${i}`}
+                    className="flex items-center justify-between gap-2 text-xs"
+                  >
+                    <span className="text-gray-300 font-mono truncate">
+                      {info.callsign}
+                    </span>
+                    <span className="text-cyan-400/80 font-mono text-[10px] flex-shrink-0">
+                      {formatFrequencyMHz(info.frequency)}
+                    </span>
+                  </div>
+                ))}
+                {spots.length > recentSpotInfo.length && (
+                  <div className="text-gray-500 text-[10px]">
+                    +{spots.length - recentSpotInfo.length} more...
+                  </div>
+                )}
               </div>
             )}
           </>

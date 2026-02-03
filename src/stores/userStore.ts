@@ -16,10 +16,14 @@ import type {
   FavoredBands,
   BandId,
   NotificationPreferences,
+  SpotClusteringPreferences,
+  CompassRosePreferences,
 } from "../types/user";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_FAVORED_BANDS,
+  DEFAULT_SPOT_CLUSTERING,
+  DEFAULT_COMPASS_ROSE,
 } from "../types/user";
 import type {
   UserRadio,
@@ -163,6 +167,20 @@ interface UserStore {
   toggleHiddenBand: (band: BandId) => void;
   /** Update notification preferences */
   updateNotifications: (prefs: Partial<NotificationPreferences>) => void;
+
+  // === Spot Clustering ===
+
+  /** Update spot clustering preferences */
+  updateSpotClustering: (prefs: Partial<SpotClusteringPreferences>) => void;
+  /** Toggle spot clustering on/off */
+  toggleSpotClustering: () => void;
+
+  // === Compass Rose ===
+
+  /** Update compass rose preferences */
+  updateCompassRose: (prefs: Partial<CompassRosePreferences>) => void;
+  /** Toggle compass rose on/off */
+  toggleCompassRose: () => void;
 }
 
 /**
@@ -182,6 +200,8 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   license: undefined,
   favoredBands: DEFAULT_FAVORED_BANDS,
   notifications: DEFAULT_NOTIFICATION_PREFERENCES,
+  spotClustering: DEFAULT_SPOT_CLUSTERING,
+  compassRose: DEFAULT_COMPASS_ROSE,
 };
 
 function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
@@ -867,6 +887,61 @@ export const useUserStore = create<UserStore>()(
             },
           },
         })),
+
+      // === Spot Clustering ===
+
+      updateSpotClustering: (prefs) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            spotClustering: {
+              ...(state.preferences.spotClustering ?? DEFAULT_SPOT_CLUSTERING),
+              ...prefs,
+            },
+          },
+        })),
+
+      toggleSpotClustering: () =>
+        set((state) => {
+          const current =
+            state.preferences.spotClustering ?? DEFAULT_SPOT_CLUSTERING;
+          return {
+            preferences: {
+              ...state.preferences,
+              spotClustering: {
+                ...current,
+                enabled: !current.enabled,
+              },
+            },
+          };
+        }),
+
+      // === Compass Rose ===
+
+      updateCompassRose: (prefs) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            compassRose: {
+              ...(state.preferences.compassRose ?? DEFAULT_COMPASS_ROSE),
+              ...prefs,
+            },
+          },
+        })),
+
+      toggleCompassRose: () =>
+        set((state) => {
+          const current = state.preferences.compassRose ?? DEFAULT_COMPASS_ROSE;
+          return {
+            preferences: {
+              ...state.preferences,
+              compassRose: {
+                ...current,
+                enabled: !current.enabled,
+              },
+            },
+          };
+        }),
     }),
     {
       name: "propulse-user",
@@ -1081,6 +1156,12 @@ export const useUserStore = create<UserStore>()(
         if (!nextPreferences.notifications) {
           nextPreferences.notifications = DEFAULT_NOTIFICATION_PREFERENCES;
         }
+        if (!nextPreferences.spotClustering) {
+          nextPreferences.spotClustering = DEFAULT_SPOT_CLUSTERING;
+        }
+        if (!nextPreferences.compassRose) {
+          nextPreferences.compassRose = DEFAULT_COMPASS_ROSE;
+        }
 
         return {
           station: migratedStation,
@@ -1159,4 +1240,24 @@ export function useActiveUserRadio(): UserRadio | null {
  */
 export function usePreferTestedSpecs(): boolean {
   return useUserStore((state) => state.preferences.preferTestedSpecs ?? true);
+}
+
+/**
+ * Hook to get spot clustering preferences
+ * Returns the current clustering settings with defaults applied
+ */
+export function useSpotClusteringPrefs(): SpotClusteringPreferences {
+  return useUserStore(
+    (state) => state.preferences.spotClustering ?? DEFAULT_SPOT_CLUSTERING,
+  );
+}
+
+/**
+ * Hook to get compass rose preferences
+ * Returns the current compass rose settings with defaults applied
+ */
+export function useCompassRosePrefs(): CompassRosePreferences {
+  return useUserStore(
+    (state) => state.preferences.compassRose ?? DEFAULT_COMPASS_ROSE,
+  );
 }

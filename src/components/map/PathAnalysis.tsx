@@ -102,7 +102,7 @@ export function PathAnalysis({
   collapsed = false,
   onToggleCollapse,
 }: PathAnalysisProps) {
-  const { target } = useMapStore();
+  const { target, pathMode, setPathMode } = useMapStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const activeRadio = useActiveRadio();
   const preferTested = usePreferTestedSpecs();
@@ -367,6 +367,17 @@ export function PathAnalysis({
               />
             </svg>
 
+            {/* Path mode badge */}
+            <span
+              className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium ${
+                pathMode === "long"
+                  ? "bg-plasma-orange/20 text-plasma-orange"
+                  : "bg-white/10 text-gray-400"
+              }`}
+            >
+              {pathMode === "long" ? "LP" : "SP"}
+            </span>
+
             {/* Difficulty indicator dot */}
             <div
               className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -378,13 +389,17 @@ export function PathAnalysis({
               }`}
             />
 
-            {/* Distance */}
+            {/* Distance - show based on path mode */}
             <span
-              className={`text-sm font-mono font-semibold ${getDistanceColor(
-                metrics.difficulty,
-              )}`}
+              className={`text-sm font-mono font-semibold ${
+                pathMode === "long"
+                  ? getLongPathDistanceColor(metrics.difficulty)
+                  : getDistanceColor(metrics.difficulty)
+              }`}
             >
-              {formatDistance(metrics.shortPath.distance, useImperial)}
+              {pathMode === "long"
+                ? formatDistance(metrics.longPath.distance, useImperial)
+                : formatDistance(metrics.shortPath.distance, useImperial)}
             </span>
 
             {/* Difficulty badge */}
@@ -399,10 +414,11 @@ export function PathAnalysis({
             {/* Divider */}
             <div className="w-px h-3 bg-white/10" />
 
-            {/* Bearing compact */}
+            {/* Bearing compact - show based on path mode */}
             <span className="text-[10px] font-mono text-gray-400">
-              {Math.round(metrics.shortPath.bearing)}°{" "}
-              {formatBearing(metrics.shortPath.bearing)}
+              {pathMode === "long"
+                ? `${Math.round(metrics.longPath.bearing)}° ${formatBearing(metrics.longPath.bearing)}`
+                : `${Math.round(metrics.shortPath.bearing)}° ${formatBearing(metrics.shortPath.bearing)}`}
             </span>
 
             {/* Target indicator */}
@@ -410,7 +426,8 @@ export function PathAnalysis({
               <>
                 <div className="w-px h-3 bg-white/10" />
                 <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
-                  → {target.grid || target.name}
+                  {pathMode === "long" ? "← " : "→ "}
+                  {target.grid || target.name}
                 </span>
               </>
             )}
@@ -516,9 +533,53 @@ export function PathAnalysis({
           ref={scrollRef}
           className="h-full flex flex-col overflow-y-auto scrollbar-hide pt-3"
         >
+          {/* Path Mode Toggle */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-400">
+              Path Display
+            </span>
+            <div className="flex rounded-md overflow-hidden border border-white/10">
+              <button
+                onClick={() => setPathMode("short")}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                  pathMode === "short"
+                    ? "bg-plasma-orange/30 text-plasma-orange border-r border-plasma-orange/30"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border-r border-white/10"
+                }`}
+                title="Short Path - direct great circle route"
+              >
+                SP
+              </button>
+              <button
+                onClick={() => setPathMode("long")}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                  pathMode === "long"
+                    ? "bg-plasma-orange/30 text-plasma-orange"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
+                title="Long Path - around the other side of Earth"
+              >
+                LP
+              </button>
+            </div>
+          </div>
+
           {/* Short Path */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-medium text-gray-400">Short Path</h4>
+          <div
+            className={`space-y-2 rounded-lg p-2 transition-colors ${
+              pathMode === "short"
+                ? "bg-plasma-orange/10 border border-plasma-orange/20"
+                : "bg-white/5 border border-transparent"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-medium text-gray-400">Short Path</h4>
+              {pathMode === "short" && (
+                <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
+                  Active
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2">
               <MetricItem
                 label="Distance"
@@ -539,8 +600,21 @@ export function PathAnalysis({
           </div>
 
           {/* Long Path */}
-          <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-            <h4 className="text-xs font-medium text-gray-400">Long Path</h4>
+          <div
+            className={`space-y-2 pt-3 mt-3 rounded-lg p-2 transition-colors ${
+              pathMode === "long"
+                ? "bg-plasma-orange/10 border border-plasma-orange/20"
+                : "bg-white/5 border border-transparent"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-medium text-gray-400">Long Path</h4>
+              {pathMode === "long" && (
+                <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
+                  Active
+                </span>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2">
               <MetricItem
                 label="Distance"

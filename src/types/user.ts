@@ -200,6 +200,37 @@ export interface NotificationPreferences {
   soundEnabled: boolean;
 }
 
+/**
+ * Spot clustering preferences for PropSphere globe view
+ * Controls how nearby DX spots are grouped together
+ */
+export interface SpotClusteringPreferences {
+  /** Whether spot clustering is enabled */
+  enabled: boolean;
+  /** Grid cell size in degrees for clustering (5-15) */
+  gridSize: number;
+  /** Minimum number of spots to form a cluster (2-10) */
+  minClusterSize: number;
+}
+
+/**
+ * Beam width options for compass rose visualization
+ */
+export type BeamWidthOption = 30 | 45 | 60 | 90;
+
+/**
+ * Compass rose preferences for PropSphere globe view
+ * Controls the compass rose overlay at operator's QTH location
+ */
+export interface CompassRosePreferences {
+  /** Whether the compass rose is displayed */
+  enabled: boolean;
+  /** Beam width in degrees for wedge visualization */
+  beamWidth: BeamWidthOption;
+  /** Whether to show the beam width wedge overlay */
+  showBeamWidth: boolean;
+}
+
 // =============================================================================
 // PROFILE VALIDATION
 // =============================================================================
@@ -312,6 +343,10 @@ export interface UserPreferences {
   favoredBands?: FavoredBands;
   /** Notification/alert preferences */
   notifications?: NotificationPreferences;
+  /** Spot clustering preferences for PropSphere globe view */
+  spotClustering?: SpotClusteringPreferences;
+  /** Compass rose preferences for PropSphere globe view */
+  compassRose?: CompassRosePreferences;
 }
 
 // =============================================================================
@@ -397,4 +432,22 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 export const DEFAULT_FAVORED_BANDS: FavoredBands = {
   primary: ["20m", "40m"],
   hidden: [],
+};
+
+/**
+ * Default spot clustering preferences
+ */
+export const DEFAULT_SPOT_CLUSTERING: SpotClusteringPreferences = {
+  enabled: true,
+  gridSize: 5,
+  minClusterSize: 3,
+};
+
+/**
+ * Default compass rose preferences
+ */
+export const DEFAULT_COMPASS_ROSE: CompassRosePreferences = {
+  enabled: false,
+  beamWidth: 45,
+  showBeamWidth: true,
 };

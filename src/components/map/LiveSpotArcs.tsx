@@ -6,18 +6,25 @@
  *
  * Arcs are colored by operating mode (FT8, CW, SSB, etc.)
  * for quick visual identification of activity.
+ *
+ * Features spot clustering for cleaner visualization when many spots
+ * are present in the same geographic area.
  */
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { Line } from "@react-three/drei";
 import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXStore } from "@/stores/dxStore";
+import { useSpotClusteringPrefs } from "@/stores/userStore";
 import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
 } from "@/lib/data/prefixLocations";
+import { useSpotClustering } from "@/hooks/useSpotClustering";
+import { SpotCluster } from "./SpotCluster";
+import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 
 // ==========================================================================
@@ -325,12 +332,17 @@ function SpotEndpoint({
 /**
  * LiveSpotArcs Component for Globe View
  *
- * Fetches live spots and renders them as 3D arcs on the globe
+ * Fetches live spots and renders them as 3D arcs on the globe.
+ * Supports spot clustering for cleaner visualization when many spots
+ * are present in the same geographic area.
  */
 export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
   // Get source filter from dxStore - shared with DXSpotList
   const filters = useDXStore((state) => state.filters);
   const sourcesFilter = filters.sources as SpotSource[] | undefined;
+
+  // Get clustering preferences from user store
+  const clusteringPrefs = useSpotClusteringPrefs();
 
   const { spots, isLoading } = useLiveSpots({
     grid,
@@ -341,18 +353,41 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
       sourcesFilter && sourcesFilter.length > 0 ? sourcesFilter : undefined,
   });
 
-  // Resolve locations and limit count
-  const resolvedSpots = useMemo(() => {
-    return resolveSpotLocations(spots).slice(0, maxArcs);
-  }, [spots, maxArcs]);
+  // Apply clustering to spots
+  const { clusters, singles } = useSpotClustering(spots.slice(0, maxArcs), {
+    enabled: clusteringPrefs.enabled,
+    gridSize: clusteringPrefs.gridSize,
+    minClusterSize: clusteringPrefs.minClusterSize,
+  });
 
-  if (isLoading || resolvedSpots.length === 0) {
+  // Resolve locations for single (non-clustered) spots
+  const resolvedSingles = useMemo(() => {
+    return resolveSpotLocations(singles);
+  }, [singles]);
+
+  // Handler for cluster click - could be used for zoom/expand
+  const handleClusterClick = useCallback((cluster: SpotClusterType) => {
+    // For now, just log - future enhancement could zoom to cluster
+    console.log("Cluster clicked:", cluster.id, cluster.count, "spots");
+  }, []);
+
+  if (isLoading || (resolvedSingles.length === 0 && clusters.length === 0)) {
     return null;
   }
 
   return (
     <group name="live-spot-arcs">
-      {resolvedSpots.map((spot) => {
+      {/* Render clustered spots as cluster markers */}
+      {clusters.map((cluster) => (
+        <SpotCluster
+          key={cluster.id}
+          cluster={cluster}
+          onClick={handleClusterClick}
+        />
+      ))}
+
+      {/* Render non-clustered spots as individual arcs */}
+      {resolvedSingles.map((spot) => {
         const color = getModeColor(spot.mode);
         return (
           <group key={spot.id}>

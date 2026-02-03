@@ -19,9 +19,10 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics } from "@/lib/utils/path";
+import { getPathMetrics, getBearing } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
+import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
 import { Greyline } from "./Greyline";
 import { NightOverlay } from "./NightOverlay";
@@ -51,7 +52,7 @@ import { WatchIndicator } from "./WatchIndicator";
 import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { gridToLatLon } from "@/lib/utils/grid";
-import { useUserStore } from "@/stores/userStore";
+import { useUserStore, useCompassRosePrefs } from "@/stores/userStore";
 import { usePinStore } from "@/stores/pinStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
@@ -240,11 +241,12 @@ function GlobeScene({
     screenPos: { x: number; y: number },
   ) => void;
 }) {
-  const { layers, target, autoRotate } = useMapStore();
+  const { layers, target, autoRotate, pathMode } = useMapStore();
   const { station } = useUserStore();
   const { pins } = usePinStore();
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
+  const compassRosePrefs = useCompassRosePrefs();
 
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
@@ -256,6 +258,12 @@ function GlobeScene({
       target.lon,
     );
     return metrics.difficulty;
+  }, [station, target]);
+
+  // Calculate target bearing when station and target are set
+  const targetBearing = useMemo((): number | undefined => {
+    if (!station || !target) return undefined;
+    return getBearing(station.lat, station.lon, target.lat, target.lon);
   }, [station, target]);
 
   // Handle click on globe surface
@@ -378,6 +386,7 @@ function GlobeScene({
               color={
                 pathDifficulty ? getDifficultyColor(pathDifficulty) : "#ff6b35"
               }
+              pathMode={pathMode}
             />
           )}
         </>
@@ -385,6 +394,22 @@ function GlobeScene({
 
       {/* Spot highlight effect */}
       <SpotHighlight />
+
+      {/* Compass rose overlay at operator's QTH */}
+      {station && compassRosePrefs.enabled && (
+        <CompassRose
+          qthLat={station.lat}
+          qthLon={station.lon}
+          targetBearing={targetBearing}
+          beamWidth={
+            compassRosePrefs.showBeamWidth
+              ? compassRosePrefs.beamWidth
+              : undefined
+          }
+          visible={true}
+          radius={1.01}
+        />
+      )}
 
       {/* Camera controls with spot focus */}
       <CameraController />

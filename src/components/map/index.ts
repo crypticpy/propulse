@@ -18,9 +18,11 @@ export { MUFOverlay } from "./MUFOverlay";
 export { MUFLegend, MUFLegendCompact } from "./MUFLegend";
 export { PathArc } from "./PathArc";
 export { LocationMarker } from "./LocationMarker";
+export { CompassRose } from "./CompassRose";
 export { LiveSpotArcs } from "./LiveSpotArcs";
 export { SpotHighlight } from "./SpotHighlight";
 export { SpotMarker } from "./SpotMarker";
+export { SpotCluster } from "./SpotCluster";
 export { GlobeClickHandler } from "./GlobeClickHandler";
 export { GlobeTooltip } from "./GlobeTooltip";
 export { GlobeFlyout } from "./GlobeFlyout";
@@ -87,3 +89,9 @@ export { WatchListPanel } from "./WatchListPanel";
 // Feasibility indicator
 export { FeasibilityBadge } from "./FeasibilityBadge";
 export type { FeasibilityLevel } from "@/hooks/useFeasibility";
+
+// Keyboard shortcuts help overlay
+export { KeyboardShortcutsOverlay } from "./KeyboardShortcutsOverlay";
+
+// Quick Grid Input modal
+export { QuickGridInput } from "./QuickGridInput";

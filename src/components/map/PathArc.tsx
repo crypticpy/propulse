@@ -3,11 +3,12 @@
  *
  * Renders a great circle path arc between two points on the globe.
  * Used to visualize the propagation path between home and target.
+ * Supports both short path (default) and long path visualization.
  */
 
 import { useMemo } from "react";
 import { Line } from "@react-three/drei";
-import { getPathPoints } from "@/lib/utils/path";
+import { getPathPoints, getLongPathPoints } from "@/lib/utils/path";
 
 interface PathArcProps {
   /** Start latitude */
@@ -24,6 +25,8 @@ interface PathArcProps {
   lineWidth?: number;
   /** Number of points along the arc */
   segments?: number;
+  /** Path mode - short (default) or long */
+  pathMode?: "short" | "long";
 }
 
 /**
@@ -52,30 +55,39 @@ export function PathArc({
   color = "#ff6b35",
   lineWidth = 3,
   segments = 50,
+  pathMode = "short",
 }: PathArcProps) {
-  // Calculate path points along great circle
+  // Calculate path points along great circle (short or long path)
   const points = useMemo(() => {
-    const pathPoints = getPathPoints(
-      startLat,
-      startLon,
-      endLat,
-      endLon,
-      segments,
-    );
+    // Use more segments for long path since it's longer
+    const numSegments =
+      pathMode === "long" ? Math.max(segments, 150) : segments;
+
+    const pathPoints =
+      pathMode === "long"
+        ? getLongPathPoints(startLat, startLon, endLat, endLon, numSegments)
+        : getPathPoints(startLat, startLon, endLat, endLon, numSegments);
+
     return pathPoints.map((p) => latLonTo3D(p.lat, p.lon)) as Array<
       [number, number, number]
     >;
-  }, [startLat, startLon, endLat, endLon, segments]);
+  }, [startLat, startLon, endLat, endLon, segments, pathMode]);
 
   if (points.length < 2) return null;
+
+  // Use dashed style for long path to visually distinguish
+  const isDashed = pathMode === "long";
 
   return (
     <Line
       points={points}
       color={color}
       lineWidth={lineWidth}
-      opacity={0.9}
+      opacity={isDashed ? 0.7 : 0.9}
       transparent
+      dashed={isDashed}
+      dashSize={isDashed ? 0.03 : undefined}
+      gapSize={isDashed ? 0.02 : undefined}
     />
   );
 }

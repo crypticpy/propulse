@@ -6,6 +6,7 @@
  */
 
 const EARTH_RADIUS_KM = 6371;
+const EARTH_CIRCUMFERENCE_KM = 2 * Math.PI * EARTH_RADIUS_KM; // ~40,030 km
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
@@ -241,6 +242,83 @@ export function formatDistance(
   }
   if (km < 1000) return `${Math.round(km).toLocaleString()} km`;
   return `${(km / 1000).toFixed(1)}k km`;
+}
+
+/**
+ * Get long path distance from short path distance
+ * Long path = Earth circumference - short path
+ */
+export function getLongPathDistance(shortPathKm: number): number {
+  return EARTH_CIRCUMFERENCE_KM - shortPathKm;
+}
+
+/**
+ * Get long path bearing from short path bearing
+ * Long path bearing is opposite direction (180 degrees offset)
+ */
+export function getLongPathBearing(shortPathBearing: number): number {
+  return (shortPathBearing + 180) % 360;
+}
+
+/**
+ * Generate points along the long path (opposite direction around Earth)
+ * Uses more points for smooth rendering since long path is longer
+ */
+export function getLongPathPoints(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  numPoints: number = 150,
+): PathPoint[] {
+  // Long path goes the opposite way - so we swap the direction
+  // by generating points from end to start along the short path direction,
+  // but going the "long way" around the sphere
+  const points: PathPoint[] = [];
+
+  const phi1 = lat1 * DEG_TO_RAD;
+  const lambda1 = lon1 * DEG_TO_RAD;
+
+  // Calculate the short path angular distance
+  const shortDistanceRad =
+    getDistance(lat1, lon1, lat2, lon2) / EARTH_RADIUS_KM;
+  // Long path angular distance (going the other way)
+  const longDistanceRad = 2 * Math.PI - shortDistanceRad;
+
+  // Get the initial bearing for short path, then reverse it
+  const shortBearing = getBearing(lat1, lon1, lat2, lon2);
+  const longBearing = (shortBearing + 180) % 360;
+  const bearingRad = longBearing * DEG_TO_RAD;
+
+  for (let i = 0; i <= numPoints; i++) {
+    const fraction = i / numPoints;
+    const angularDistance = fraction * longDistanceRad;
+
+    // Calculate point along great circle at given angular distance and bearing
+    const lat = Math.asin(
+      Math.sin(phi1) * Math.cos(angularDistance) +
+        Math.cos(phi1) * Math.sin(angularDistance) * Math.cos(bearingRad),
+    );
+
+    const lon =
+      lambda1 +
+      Math.atan2(
+        Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(phi1),
+        Math.cos(angularDistance) - Math.sin(phi1) * Math.sin(lat),
+      );
+
+    // Normalize longitude to -180 to 180
+    let lonDeg = lon * RAD_TO_DEG;
+    lonDeg = ((lonDeg + 540) % 360) - 180;
+
+    points.push({
+      lat: lat * RAD_TO_DEG,
+      lon: lonDeg,
+      fraction,
+    });
+  }
+
+  return points;
 }
 
 /**

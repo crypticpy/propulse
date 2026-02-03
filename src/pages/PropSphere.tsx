@@ -23,6 +23,10 @@ import {
   OperatorProfile,
   SolarSnapshot,
   LiteModeToggle,
+  KeyboardShortcutsOverlay,
+  QuickGridInput,
+  GridResearchPanel,
+  AddPinDialog,
 } from "@/components/map";
 import { DXSpotList, DXConsole } from "@/components/dx";
 import { Card } from "@/components/ui/Card";
@@ -30,6 +34,9 @@ import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
 import { useUserStore } from "@/stores/userStore";
+import { useWatchStore } from "@/stores/watchStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { gridToLatLon } from "@/lib/utils/grid";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -89,6 +96,137 @@ export function PropSphere() {
   // DX Cluster drawer state
   const [dxClusterExpanded, setDxClusterExpanded] = useState(true);
   const [showOptimalBandHelp, setShowOptimalBandHelp] = useState(false);
+
+  // Keyboard shortcuts help overlay
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  // Quick Grid Input modal (Feature 1.5)
+  const [showGridInput, setShowGridInput] = useState(false);
+
+  // Grid Research Panel state (for keyboard shortcut)
+  const [showGridResearch, setShowGridResearch] = useState(false);
+  const [gridResearchGrid, setGridResearchGrid] = useState<string | null>(null);
+
+  // Add Pin Dialog state (for keyboard shortcut)
+  const [showAddPin, setShowAddPin] = useState(false);
+
+  // Get watch store for toggle watch action
+  const watchStore = useWatchStore();
+
+  // Keyboard shortcut action handler
+  const handleShortcutAction = useCallback(
+    (action: string) => {
+      const mapStore = useMapStore.getState();
+
+      switch (action) {
+        // View modes
+        case "viewGlobe":
+          mapStore.setViewMode("globe");
+          break;
+        case "viewFlat":
+          mapStore.setViewMode("flat");
+          break;
+        case "viewAzimuthal":
+          mapStore.setViewMode("azimuthal");
+          break;
+
+        // Mode toggles
+        case "toggleLiteMode":
+          mapStore.toggleLiteMode();
+          break;
+
+        // Help
+        case "showHelp":
+          setShowShortcutsHelp(true);
+          break;
+
+        // Clear and close
+        case "clearAndClose":
+          // Close any open panels/overlays
+          setShowShortcutsHelp(false);
+          setShowOptimalBandHelp(false);
+          setShowGridInput(false);
+          // Clear target
+          mapStore.setTarget(null);
+          // Close flyout if open
+          mapStore.setFlyoutPosition(null);
+          break;
+
+        // Time machine toggle (reset to live)
+        case "toggleTimeMachine":
+          if (timeOffset !== 0) {
+            setTimeOffset(0);
+          }
+          break;
+
+        // Grid input (for future implementation)
+        case "openGridInput":
+          setShowGridInput(true);
+          break;
+
+        // Target-based actions - use current target or hovered tooltip
+        case "setHoveredAsTarget": {
+          // Use tooltip position if available, otherwise do nothing
+          const tooltip = mapStore.tooltipPosition;
+          if (tooltip?.grid) {
+            const coords = gridToLatLon(tooltip.grid);
+            if (coords) {
+              setTarget({
+                lat: coords.lat,
+                lon: coords.lon,
+                grid: tooltip.grid,
+                name: tooltip.grid,
+              });
+            }
+          }
+          break;
+        }
+        case "toggleWatch": {
+          // Toggle watch on current target grid
+          if (target?.grid) {
+            const existingWatch = watchStore.watches.find(
+              (w) => w.type === "grid" && w.pattern === target.grid,
+            );
+            if (existingWatch) {
+              watchStore.removeWatch(existingWatch.id);
+            } else {
+              watchStore.addWatch("grid", target.grid, `Grid ${target.grid}`);
+            }
+          }
+          break;
+        }
+        case "addPin": {
+          // Open add pin dialog for current target
+          if (target) {
+            setShowAddPin(true);
+          }
+          break;
+        }
+        case "openGridResearch": {
+          // Open grid research panel for current target
+          if (target?.grid) {
+            setGridResearchGrid(target.grid);
+            setShowGridResearch(true);
+          }
+          break;
+        }
+        case "togglePathMode":
+          mapStore.togglePathMode();
+          break;
+
+        default:
+          // Unknown action - do nothing
+          break;
+      }
+    },
+    [timeOffset, setTimeOffset],
+  );
+
+  // Initialize keyboard shortcuts
+  useKeyboardShortcuts({
+    onAction: handleShortcutAction,
+    enabled: !showShortcutsHelp && !showOptimalBandHelp && !isFullscreen,
+  });
 
   // Resize handle dragging
   const handleResizeLeft = useCallback(
@@ -811,6 +949,69 @@ export function PropSphere() {
         title={HELP_CONTENT.recommendations.title}
         sections={HELP_CONTENT.recommendations.sections}
       />
+
+      <KeyboardShortcutsOverlay
+        isOpen={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
+      />
+
+      {/* Quick Grid Input Modal (Feature 1.5) */}
+      <QuickGridInput
+        isOpen={showGridInput}
+        onClose={() => setShowGridInput(false)}
+        onSubmit={(grid, lat, lon) => {
+          setTarget({
+            lat,
+            lon,
+            grid,
+            name: grid,
+          });
+          setShowGridInput(false);
+        }}
+      />
+
+      {/* Grid Research Panel (keyboard shortcut R) */}
+      {gridResearchGrid && (
+        <GridResearchPanel
+          visible={showGridResearch}
+          grid={gridResearchGrid}
+          onClose={() => {
+            setShowGridResearch(false);
+            setGridResearchGrid(null);
+          }}
+          onAction={(action, grid) => {
+            if (action === "setTarget") {
+              const coords = gridToLatLon(grid);
+              if (coords) {
+                setTarget({
+                  lat: coords.lat,
+                  lon: coords.lon,
+                  grid,
+                  name: grid,
+                });
+              }
+            }
+            if (action === "close") {
+              setShowGridResearch(false);
+              setGridResearchGrid(null);
+            }
+          }}
+        />
+      )}
+
+      {/* Add Pin Dialog (keyboard shortcut P) */}
+      {target && (
+        <AddPinDialog
+          visible={showAddPin}
+          mode="add"
+          location={{
+            lat: target.lat,
+            lon: target.lon,
+            grid: target.grid || latLonToGrid(target.lat, target.lon),
+          }}
+          onClose={() => setShowAddPin(false)}
+        />
+      )}
     </div>
   );
 }

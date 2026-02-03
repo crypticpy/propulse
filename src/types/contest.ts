@@ -1,6 +1,11 @@
 /**
  * Contest Types for Propulse
  * Types for ham radio contest definitions, sessions, and QSO logging
+ *
+ * vNext Schema (2026-02):
+ * - Added DupeRule, MultiplierRule, ScoreModel for contest-correct scoring
+ * - ContestDefinition extended with multiplierRules[], dupeRule, scoreModel
+ * - Legacy fields (multiplierType, multiplierPerBand) kept for backward compatibility
  */
 
 /**
@@ -16,6 +21,55 @@ export type MultiplierType =
   | "SECTION" // ARRL/RAC sections
   | "PROVINCE" // Canadian provinces
   | "NONE"; // No multipliers
+
+// ============================================================================
+// vNext Schema Types (Phase 0.1)
+// ============================================================================
+
+/**
+ * Dupe checking rule configuration
+ * Determines how duplicate QSOs are identified per contest rules
+ *
+ * @example CQWW: { perBand: true, perMode: false } - same call on different band is not dupe
+ * @example Sweepstakes: { perBand: false, perMode: false } - same call anywhere is dupe
+ * @example Field Day: { perBand: true, perMode: true } - same call on same band/mode is dupe
+ */
+export interface DupeRule {
+  /** If true, dupes are checked per-band (same call on different band = not dupe) */
+  perBand: boolean;
+  /** If true, dupes are checked per-mode (same call/band but different mode = not dupe) */
+  perMode: boolean;
+}
+
+/**
+ * Multiplier rule configuration
+ * Defines how multipliers are extracted and counted for a contest
+ *
+ * @example CQWW zone mult: { type: "CQ_ZONE", source: "exchange", perBand: true }
+ * @example CQWW DXCC mult: { type: "DXCC", source: "callsign", perBand: true }
+ * @example Sweepstakes section: { type: "SECTION", source: "exchange", perBand: false }
+ */
+export interface MultiplierRule {
+  /** Type of multiplier to extract */
+  type: MultiplierType;
+  /** Where to extract the multiplier value from */
+  source: "callsign" | "exchange";
+  /** If true, multiplier counts per-band (same mult on different band = new mult) */
+  perBand: boolean;
+}
+
+/**
+ * Score calculation model
+ * Defines how the final score is computed from QSO points and multipliers
+ *
+ * - "points_x_mults_per_band": CQWW style - Σ(bandPoints × bandMults)
+ * - "points_x_mults_total": Sweepstakes style - totalPoints × totalMults
+ * - "field_day": Field Day style - points + bonuses (no mult multiplication)
+ */
+export type ScoreModel =
+  | "points_x_mults_per_band"
+  | "points_x_mults_total"
+  | "field_day";
 
 export function normalizeMultiplierType(value: string): MultiplierType {
   const normalized = value.trim().toUpperCase();
@@ -124,10 +178,35 @@ export interface ContestDefinition {
   months: number[];
   /** Duration in hours */
   durationHours: number;
-  /** Multiplier type used */
+
+  // ---- vNext fields (preferred) ----
+
+  /**
+   * Multiplier rules for this contest (vNext)
+   * Defines all multiplier types and how they're extracted
+   * @example CQWW has two rules: zones from exchange + DXCC from callsign
+   */
+  multiplierRules?: MultiplierRule[];
+
+  /**
+   * Dupe checking rule (vNext)
+   * Defines per-band and/or per-mode dupe checking
+   */
+  dupeRule?: DupeRule;
+
+  /**
+   * Score calculation model (vNext)
+   * How to compute final score from points and multipliers
+   */
+  scoreModel?: ScoreModel;
+
+  // ---- Legacy fields (kept for backward compatibility) ----
+
+  /** @deprecated Use multiplierRules instead. Primary multiplier type used */
   multiplierType: MultiplierType;
-  /** Whether multipliers count per-band or overall */
+  /** @deprecated Use multiplierRules[].perBand instead. Whether multipliers count per-band */
   multiplierPerBand: boolean;
+
   /** Scoring configuration */
   scoring: {
     mode: ScoringMode;
@@ -154,6 +233,68 @@ export interface ContestDefinition {
   rulesUrl?: string;
   /** Brief description of the contest */
   description?: string;
+}
+
+/**
+ * Helper function to get effective dupe rule from contest definition
+ * Uses vNext dupeRule if present, otherwise derives from legacy multiplierPerBand
+ */
+export function getEffectiveDupeRule(contest: ContestDefinition): DupeRule {
+  if (contest.dupeRule) {
+    return contest.dupeRule;
+  }
+  // Legacy fallback: per-band if multiplierPerBand, no per-mode
+  return {
+    perBand: contest.multiplierPerBand,
+    perMode: false,
+  };
+}
+
+/**
+ * Helper function to get effective multiplier rules from contest definition
+ * Uses vNext multiplierRules if present, otherwise derives from legacy fields
+ */
+export function getEffectiveMultiplierRules(
+  contest: ContestDefinition,
+): MultiplierRule[] {
+  if (contest.multiplierRules && contest.multiplierRules.length > 0) {
+    return contest.multiplierRules;
+  }
+  // Legacy fallback: create single rule from multiplierType/multiplierPerBand
+  if (contest.multiplierType === "NONE") {
+    return [];
+  }
+  return [
+    {
+      type: contest.multiplierType,
+      // Legacy: zones come from exchange, DXCC/WPX from callsign, states from exchange
+      source: ["CQ_ZONE", "ITU_ZONE", "STATE", "SECTION", "GRID"].includes(
+        contest.multiplierType,
+      )
+        ? "exchange"
+        : "callsign",
+      perBand: contest.multiplierPerBand,
+    },
+  ];
+}
+
+/**
+ * Helper function to get effective score model from contest definition
+ * Uses vNext scoreModel if present, otherwise derives from scoring.mode
+ */
+export function getEffectiveScoreModel(contest: ContestDefinition): ScoreModel {
+  if (contest.scoreModel) {
+    return contest.scoreModel;
+  }
+  // Legacy fallback based on contest characteristics
+  if (contest.id.includes("fd") || contest.id.includes("field-day")) {
+    return "field_day";
+  }
+  // Per-band mults typically mean per-band scoring
+  if (contest.multiplierPerBand) {
+    return "points_x_mults_per_band";
+  }
+  return "points_x_mults_total";
 }
 
 /**

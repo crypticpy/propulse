@@ -52,6 +52,14 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [11],
     durationHours: 48,
+    // vNext fields
+    multiplierRules: [
+      { type: "CQ_ZONE", source: "exchange", perBand: true },
+      { type: "DXCC", source: "callsign", perBand: true },
+    ],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "CQ_ZONE",
     multiplierPerBand: true,
     scoring: {
@@ -83,6 +91,14 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [10],
     durationHours: 48,
+    // vNext fields
+    multiplierRules: [
+      { type: "CQ_ZONE", source: "exchange", perBand: true },
+      { type: "DXCC", source: "callsign", perBand: true },
+    ],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "CQ_ZONE",
     multiplierPerBand: true,
     scoring: {
@@ -114,6 +130,13 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [5],
     durationHours: 48,
+    // vNext fields
+    multiplierRules: [
+      { type: "WPX_PREFIX", source: "callsign", perBand: true },
+    ],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "WPX_PREFIX",
     multiplierPerBand: false,
     scoring: {
@@ -145,6 +168,13 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [3],
     durationHours: 48,
+    // vNext fields
+    multiplierRules: [
+      { type: "WPX_PREFIX", source: "callsign", perBand: true },
+    ],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "WPX_PREFIX",
     multiplierPerBand: false,
     scoring: {
@@ -178,6 +208,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [2],
     durationHours: 48,
+    // vNext fields (Note: DX stations use DXCC, W/VE use STATE - simplified to STATE)
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: true }],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE", // W/VE stations count DXCC as mult; DX counts states/provinces
     multiplierPerBand: true,
     scoring: {
@@ -219,6 +254,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [3],
     durationHours: 48,
+    // vNext fields (Note: DX stations use DXCC, W/VE use STATE - simplified to STATE)
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: true }],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE",
     multiplierPerBand: true,
     scoring: {
@@ -260,6 +300,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [11],
     durationHours: 24, // 24 hours of operating in 30-hour window
+    // vNext fields
+    multiplierRules: [{ type: "SECTION", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: false },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "SECTION",
     multiplierPerBand: false,
     scoring: {
@@ -295,6 +340,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [11],
     durationHours: 24,
+    // vNext fields
+    multiplierRules: [{ type: "SECTION", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: false },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "SECTION",
     multiplierPerBand: false,
     scoring: {
@@ -330,6 +380,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [6],
     durationHours: 24, // 24 hours, 4th full weekend of June
+    // vNext fields
+    multiplierRules: [], // No multipliers in FD scoring formula
+    dupeRule: { perBand: true, perMode: true },
+    scoreModel: "field_day",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "NONE",
     multiplierPerBand: false,
     scoring: {
@@ -369,6 +424,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "IARU",
     months: [7],
     durationHours: 24,
+    // vNext fields
+    multiplierRules: [{ type: "ITU_ZONE", source: "exchange", perBand: true }],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "ITU_ZONE",
     multiplierPerBand: true,
     scoring: {
@@ -408,6 +468,14 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [9],
     durationHours: 48,
+    // vNext fields
+    multiplierRules: [
+      { type: "CQ_ZONE", source: "exchange", perBand: true },
+      { type: "DXCC", source: "callsign", perBand: true },
+    ],
+    dupeRule: { perBand: true, perMode: false },
+    scoreModel: "points_x_mults_per_band",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "CQ_ZONE",
     multiplierPerBand: true,
     scoring: {
@@ -451,6 +519,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [1],
     durationHours: 24, // First full weekend of January
+    // vNext fields
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: false },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
@@ -488,6 +561,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "NCJ",
     months: [1, 8],
     durationHours: 12,
+    // vNext fields
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: false },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
@@ -523,6 +601,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "NCJ",
     months: [1, 8],
     durationHours: 12,
+    // vNext fields
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: false },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
@@ -558,6 +641,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [1],
     durationHours: 42,
+    // vNext fields (160m only = no band dimension)
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: false },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
@@ -595,6 +683,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "CQ Magazine",
     months: [2],
     durationHours: 42,
+    // vNext fields (160m only = no band dimension)
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: false },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {
@@ -632,6 +725,11 @@ export const CONTEST_DATABASE: ContestDefinition[] = [
     sponsor: "ARRL",
     months: [12],
     durationHours: 48,
+    // vNext fields (CW and SSB can work same station = perMode: true)
+    multiplierRules: [{ type: "STATE", source: "exchange", perBand: false }],
+    dupeRule: { perBand: false, perMode: true },
+    scoreModel: "points_x_mults_total",
+    // Legacy fields (kept for backward compatibility)
     multiplierType: "STATE",
     multiplierPerBand: false,
     scoring: {

@@ -5,6 +5,7 @@
  * Parses one-line entries like "K3LR 59 05" into complete QSO records.
  *
  * Phase 3A.1 - Contest Mode Implementation
+ * Phase 8.2 - Accessibility: color-blind safe indicators with icons and patterns
  */
 
 import {
@@ -472,25 +473,56 @@ export function ContestOneLineEntry({
           `}
         />
 
-        {/* Status badges positioned inside input */}
+        {/* Status badges positioned inside input - accessible with icons */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
           {status.isDupe && (
             <span
               className="
-              px-2 py-1 rounded text-xs font-bold
-              bg-alert-red/20 text-alert-red border border-alert-red/30
-            "
+                inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold
+                bg-alert-red/20 text-alert-red border-2 border-alert-red/50
+                animate-pulse
+              "
+              role="alert"
+              aria-live="assertive"
+              aria-label="Duplicate contact detected"
             >
-              DUPE
+              {/* X icon for color-blind accessibility */}
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={3}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              <span className="line-through decoration-2">DUPE</span>
             </span>
           )}
           {status.isNewMult && !status.isDupe && (
             <span
               className="
-              px-2 py-1 rounded text-xs font-bold
-              bg-signal-green/20 text-signal-green border border-signal-green/30
-            "
+                inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold
+                bg-signal-green/20 text-signal-green border-2 border-signal-green/50
+              "
+              role="status"
+              aria-live="polite"
+              aria-label="New multiplier"
             >
+              {/* Star icon for new multiplier - distinct shape */}
+              <svg
+                className="w-3.5 h-3.5"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+              >
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
               NEW MULT
             </span>
           )}
@@ -499,32 +531,98 @@ export function ContestOneLineEntry({
 
       {/* Status row: validation warnings/errors and mult info */}
       <div className="mt-2 min-h-[1.5rem] flex items-center gap-4 text-sm">
-        {/* Callsign echo */}
+        {/* Callsign echo with accessible styling */}
         {status.callsign && (
           <span
             className={`font-mono font-bold ${
-              status.isDupe ? "text-alert-red" : "text-white"
+              status.isDupe ? "text-alert-red line-through" : "text-white"
             }`}
+            aria-label={
+              status.isDupe
+                ? `${status.callsign} is a duplicate`
+                : status.callsign
+            }
           >
             {status.callsign}
           </span>
         )}
 
-        {/* New multiplier values */}
+        {/* New multiplier values with icon */}
         {status.newMults.length > 0 && (
-          <span className="text-signal-green">
-            +{status.newMults.join(", ")}
+          <span
+            className="inline-flex items-center gap-1 text-signal-green"
+            role="status"
+            aria-label={`New multipliers: ${status.newMults.join(", ")}`}
+          >
+            {/* Plus icon for new mults */}
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            {status.newMults.join(", ")}
           </span>
         )}
 
-        {/* Warnings */}
+        {/* Warnings with icon */}
         {status.warnings.length > 0 && (
-          <span className="text-caution-amber">{status.warnings[0]}</span>
+          <span
+            className="inline-flex items-center gap-1 text-caution-amber"
+            role="status"
+            aria-label={`Warning: ${status.warnings[0]}`}
+          >
+            {/* Warning triangle icon */}
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            {status.warnings[0]}
+          </span>
         )}
 
-        {/* Errors */}
+        {/* Errors with icon */}
         {status.errors.length > 0 && (
-          <span className="text-alert-red">{status.errors[0]}</span>
+          <span
+            className="inline-flex items-center gap-1 text-alert-red"
+            role="alert"
+            aria-label={`Error: ${status.errors[0]}`}
+          >
+            {/* Error X icon */}
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            {status.errors[0]}
+          </span>
         )}
 
         {/* Keyboard hints on the right */}

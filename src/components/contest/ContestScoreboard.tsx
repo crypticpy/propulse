@@ -1,6 +1,7 @@
 /**
  * ContestScoreboard - Elite-grade contest scoreboard with advanced metrics
  * Phase 4A.1: Rates, Pace, Trend, and ΔScore for high-speed decision support
+ * Phase 8.1: Performance hardened with memoization for 5000+ QSO logs
  *
  * Features:
  * - 10-minute and 60-minute rolling rates (QSOs/hr, points/hr, mults/hr)
@@ -8,9 +9,18 @@
  * - Last-QSO delta showing points added and new multipliers
  * - Trend indicators (up/down/stable)
  * - Optimized with narrow Zustand selectors for minimal re-renders
+ *
+ * Performance notes:
+ * - All sub-components use React.memo to prevent unnecessary re-renders
+ * - Rate calculations are memoized and only recompute when QSOs change
+ * - Narrow Zustand selectors prevent re-renders from unrelated state changes
+ *
+ * Web Worker candidates (for future optimization if needed):
+ * - calculateRollingRate, calculatePointsRate, calculateMultsRate
+ *   These iterate over QSO arrays and could be offloaded for logs > 10k QSOs
  */
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, memo } from "react";
 import { Card } from "@/components/ui";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
@@ -215,52 +225,115 @@ function formatRate(rate: number): string {
 }
 
 // ============================================================================
-// UI Components
+// UI Components (memoized for performance)
 // ============================================================================
 
 /**
- * Trend indicator arrow component
+ * Trend indicator arrow component with accessibility
+ * Memoized to prevent re-renders when parent updates
  */
-function TrendIndicator({ trend }: { trend: TrendDirection }) {
+const TrendIndicator = memo(function TrendIndicator({
+  trend,
+}: {
+  trend: TrendDirection;
+}) {
   if (trend === "stable") {
     return (
-      <span className="text-gray-500 text-xs ml-1" title="Stable rate">
-        →
+      <span
+        className="text-gray-500 text-xs ml-1"
+        title="Stable rate"
+        aria-label="Rate stable"
+      >
+        {/* Horizontal arrow icon */}
+        <svg
+          className="w-3 h-3 inline"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M14 5l7 7m0 0l-7 7m7-7H3"
+          />
+        </svg>
       </span>
     );
   }
   if (trend === "up") {
     return (
-      <span className="text-signal-green text-xs ml-1" title="Rate increasing">
-        ↑
+      <span
+        className="text-signal-green text-xs ml-1"
+        title="Rate increasing"
+        aria-label="Rate increasing"
+      >
+        {/* Up arrow icon */}
+        <svg
+          className="w-3 h-3 inline"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 10l7-7m0 0l7 7m-7-7v18"
+          />
+        </svg>
       </span>
     );
   }
   return (
-    <span className="text-alert-red text-xs ml-1" title="Rate decreasing">
-      ↓
+    <span
+      className="text-alert-red text-xs ml-1"
+      title="Rate decreasing"
+      aria-label="Rate decreasing"
+    >
+      {/* Down arrow icon */}
+      <svg
+        className="w-3 h-3 inline"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M19 14l-7 7m0 0l-7-7m7 7V3"
+        />
+      </svg>
     </span>
   );
-}
+});
 
-/**
- * Individual stat display component
- */
-function StatDisplay({
-  label,
-  value,
-  color = "white",
-  size = "normal",
-  trend,
-  subValue,
-}: {
+/** Props for StatDisplay component */
+interface StatDisplayProps {
   label: string;
   value: string | number;
   color?: "orange" | "cyan" | "green" | "white" | "red" | "yellow";
   size?: "normal" | "large" | "small";
   trend?: TrendDirection;
   subValue?: string;
-}) {
+}
+
+/**
+ * Individual stat display component
+ * Memoized to prevent re-renders when sibling stats update
+ */
+const StatDisplay = memo(function StatDisplay({
+  label,
+  value,
+  color = "white",
+  size = "normal",
+  trend,
+  subValue,
+}: StatDisplayProps) {
   const colorClasses = {
     orange: "text-plasma-orange",
     cyan: "text-cosmic-cyan",
@@ -294,22 +367,26 @@ function StatDisplay({
       )}
     </div>
   );
-}
+});
 
-/**
- * Rate display with 10min/60min breakdown
- */
-function RateDisplay({
-  label,
-  rate10,
-  rate60,
-  color = "green",
-}: {
+/** Props for RateDisplay component */
+interface RateDisplayProps {
   label: string;
   rate10: number;
   rate60: number;
   color?: "orange" | "cyan" | "green" | "white";
-}) {
+}
+
+/**
+ * Rate display with 10min/60min breakdown
+ * Memoized to prevent re-renders when sibling rates update
+ */
+const RateDisplay = memo(function RateDisplay({
+  label,
+  rate10,
+  rate60,
+  color = "green",
+}: RateDisplayProps) {
   const trend = getTrend(rate10, rate60);
   const colorClasses = {
     orange: "text-plasma-orange",
@@ -332,12 +409,17 @@ function RateDisplay({
       <span className="text-[9px] text-gray-500 font-mono">60m: {rate60}</span>
     </div>
   );
-}
+});
 
 /**
  * Last QSO delta display
+ * Memoized and includes accessibility features for color-blind users
  */
-function DeltaDisplay({ delta }: { delta: LastQSODelta | null }) {
+const DeltaDisplay = memo(function DeltaDisplay({
+  delta,
+}: {
+  delta: LastQSODelta | null;
+}) {
   if (!delta) {
     return (
       <div className="flex flex-col items-center">
@@ -358,16 +440,50 @@ function DeltaDisplay({ delta }: { delta: LastQSODelta | null }) {
       </span>
       <div className="flex items-center gap-1">
         {isDupe ? (
-          <span className="font-mono text-alert-red text-sm font-bold">
-            DUPE
+          <span
+            className="inline-flex items-center gap-0.5 font-mono text-alert-red text-sm font-bold"
+            role="status"
+            aria-label="Last QSO was a duplicate"
+          >
+            {/* X icon for color-blind accessibility */}
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+            <span className="line-through">DUPE</span>
           </span>
         ) : (
           <>
-            <span className="font-mono text-plasma-orange text-sm font-bold">
+            <span
+              className="font-mono text-plasma-orange text-sm font-bold"
+              aria-label={`Plus ${delta.points} points`}
+            >
               +{delta.points}
             </span>
             {delta.newMults > 0 && (
-              <span className="font-mono text-cosmic-cyan text-sm font-bold">
+              <span
+                className="inline-flex items-center gap-0.5 font-mono text-cosmic-cyan text-sm font-bold"
+                aria-label={`Plus ${delta.newMults} multiplier`}
+              >
+                {/* Star icon for new mult */}
+                <svg
+                  className="w-3 h-3"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
                 +{delta.newMults}M
               </span>
             )}
@@ -379,7 +495,7 @@ function DeltaDisplay({ delta }: { delta: LastQSODelta | null }) {
       </span>
     </div>
   );
-}
+});
 
 export interface ContestScoreboardProps {
   /** Show compact version for narrow layouts */

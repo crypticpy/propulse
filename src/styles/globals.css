@@ -162,3 +162,89 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* High contrast mode support for accessibility */
+@media (prefers-contrast: more) {
+  :root {
+    /* Increase border opacity for better visibility */
+    --glass-border: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Increase text contrast */
+  .text-gray-400 {
+    @apply text-gray-200;
+  }
+
+  .text-gray-500 {
+    @apply text-gray-300;
+  }
+
+  /* Make status indicators more visible */
+  .text-alert-red {
+    @apply text-red-400;
+  }
+
+  .text-signal-green {
+    @apply text-green-400;
+  }
+
+  .text-cosmic-cyan {
+    @apply text-cyan-300;
+  }
+
+  .text-plasma-orange {
+    @apply text-orange-400;
+  }
+
+  /* Increase border visibility on inputs and cards */
+  .border-white\/10 {
+    @apply border-white/30;
+  }
+
+  .border-white\/20 {
+    @apply border-white/40;
+  }
+
+  /* Make focus indicators more prominent */
+  *:focus-visible {
+    @apply ring-4 ring-offset-4;
+  }
+
+  /* Ensure dupe/mult indicators have strong borders */
+  .border-alert-red\/30,
+  .border-alert-red\/50 {
+    @apply border-alert-red;
+  }
+
+  .border-signal-green\/30,
+  .border-signal-green\/50 {
+    @apply border-signal-green;
+  }
+}
+
+/* Utility class for high-contrast mode overrides in components */
+@layer utilities {
+  .high-contrast\:border-alert-red {
+    @media (prefers-contrast: more) {
+      @apply border-alert-red;
+    }
+  }
+
+  .high-contrast\:bg-alert-red\/30 {
+    @media (prefers-contrast: more) {
+      @apply bg-alert-red/30;
+    }
+  }
+
+  .high-contrast\:border-signal-green {
+    @media (prefers-contrast: more) {
+      @apply border-signal-green;
+    }
+  }
+
+  .high-contrast\:bg-signal-green\/30 {
+    @media (prefers-contrast: more) {
+      @apply bg-signal-green/30;
+    }
+  }
+}

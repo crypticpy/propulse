@@ -7,7 +7,7 @@
  * in the framed layout.
  */
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import {
   useUserStore,
@@ -35,6 +35,10 @@ interface PathAnalysisProps {
   /** Current display time for illumination calculation */
   displayTime: Date;
   className?: string;
+  /** When true, panel collapses to a slim summary bar */
+  collapsed?: boolean;
+  /** Callback to toggle collapsed state */
+  onToggleCollapse?: () => void;
 }
 
 const DIFFICULTY_LABELS = [
@@ -95,6 +99,8 @@ const getLongPathDistanceColor = (difficulty: number): string => {
 export function PathAnalysis({
   displayTime,
   className = "",
+  collapsed = false,
+  onToggleCollapse,
 }: PathAnalysisProps) {
   const { target } = useMapStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
@@ -113,6 +119,31 @@ export function PathAnalysis({
   const [showHelp, setShowHelp] = useState(false);
   const [showRadioPicker, setShowRadioPicker] = useState(false);
   const [analysisRadioId, setAnalysisRadioId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+
+  // Check if content overflows and handle scroll position
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollHeight > el.clientHeight;
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 5;
+    setShowScrollIndicator(hasOverflow && !isAtBottom);
+  }, []);
+
+  // Set up scroll listener and initial check
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll);
+    const resizeObserver = new ResizeObserver(checkScroll);
+    resizeObserver.observe(el);
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      resizeObserver.disconnect();
+    };
+  }, [checkScroll, collapsed]);
 
   const analysisRadio = useMemo(() => {
     if (analysisRadioId === null) return activeRadio;
@@ -125,24 +156,6 @@ export function PathAnalysis({
       null
     );
   }, [activeRadio, analysisRadioId, customRadios, radioInstances]);
-
-  const analysisRadioLabel = useMemo(() => {
-    if (analysisRadioId === null) {
-      if (!activeRadio) return "No active profile radio";
-      return (
-        activeRadio.displayName?.trim() ||
-        `${activeRadio.manufacturer} ${activeRadio.model}`
-      );
-    }
-
-    if (!analysisRadio) return `Unknown (${analysisRadioId})`;
-    const instance =
-      radioInstances.find((r) => r.id === analysisRadioId) ?? null;
-    const base =
-      analysisRadio.displayName?.trim() ||
-      `${analysisRadio.manufacturer} ${analysisRadio.model}`;
-    return instance?.nickname?.trim() ? `${instance.nickname} — ${base}` : base;
-  }, [activeRadio, analysisRadio, analysisRadioId, radioInstances]);
 
   const analysisRadioInstance = useMemo(() => {
     if (!analysisRadioId) return null;
@@ -224,28 +237,15 @@ export function PathAnalysis({
   if (!station) {
     return (
       <>
-        <Card className={`${className} h-full`}>
+        <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-white">
-                  Path Analysis
-                </h3>
+            <div className="flex items-center justify-between mb-0.5 flex-shrink-0">
+              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                Path Analysis
+              </h3>
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
-            </div>
-            <div className="pt-3">
-              <RadioProfileBlock
-                label={analysisRadioLabel}
-                maxPower={analysisRadio?.maxPower}
-                isOverride={analysisRadioId !== null}
-                onChange={() => setShowRadioPicker(true)}
-                onUseProfile={
-                  analysisRadioId !== null
-                    ? () => setAnalysisRadioId(null)
-                    : undefined
-                }
-              />
             </div>
             <div className="flex-1 flex items-center justify-center text-gray-400">
               <p className="text-sm text-center px-4">
@@ -277,28 +277,15 @@ export function PathAnalysis({
   if (!target) {
     return (
       <>
-        <Card className={`${className} h-full`}>
+        <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-white">
-                  Path Analysis
-                </h3>
+            <div className="flex items-center justify-between mb-0.5 flex-shrink-0">
+              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                Path Analysis
+              </h3>
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
-            </div>
-            <div className="pt-3">
-              <RadioProfileBlock
-                label={analysisRadioLabel}
-                maxPower={analysisRadio?.maxPower}
-                isOverride={analysisRadioId !== null}
-                onChange={() => setShowRadioPicker(true)}
-                onUseProfile={
-                  analysisRadioId !== null
-                    ? () => setAnalysisRadioId(null)
-                    : undefined
-                }
-              />
             </div>
             <div className="flex-1 flex items-center justify-center text-gray-400">
               <p className="text-sm text-center px-4">
@@ -328,154 +315,323 @@ export function PathAnalysis({
 
   if (!metrics) return null;
 
+  // Difficulty colors for collapsed view
+  const difficultyBgColors: Record<number, string> = {
+    1: "bg-signal-green/20",
+    2: "bg-good/20",
+    3: "bg-caution-amber/20",
+    4: "bg-plasma-orange/20",
+    5: "bg-alert-red/20",
+  };
+
   return (
-    <Card className={`${className} h-full flex flex-col`}>
-      <div className="flex flex-col h-full overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-shrink-0">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white">
-                Path Analysis
-              </h3>
-              <HelpButton onClick={() => setShowHelp(true)} />
-            </div>
-            <p className="text-xs text-gray-400 truncate">
-              {station.callsign} → {target.name || target.grid || "Target"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+    <Card
+      className={`${className} flex flex-col transition-all duration-300 ease-in-out !rounded-lg ${
+        collapsed ? "h-auto !p-2.5" : "h-full p-2"
+      }`}
+    >
+      {/* Header - always visible, clickable in collapsed mode */}
+      <div
+        className={`flex items-center justify-between flex-shrink-0 ${
+          collapsed ? "cursor-pointer rounded-lg transition-colors" : "mb-0.5"
+        }`}
+        onClick={collapsed ? onToggleCollapse : undefined}
+        role={collapsed ? "button" : undefined}
+        tabIndex={collapsed ? 0 : undefined}
+        onKeyDown={
+          collapsed
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onToggleCollapse?.();
+                }
+              }
+            : undefined
+        }
+      >
+        {/* COLLAPSED: Clean horizontal layout */}
+        {collapsed ? (
+          <div className="flex items-center gap-3 w-full">
+            {/* Expand indicator */}
+            <svg
+              className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+
+            {/* Difficulty indicator dot */}
             <div
-              className={`px-2 py-0.5 rounded-full text-xs font-medium
-                ${DIFFICULTY_COLORS[metrics.difficulty]} bg-white/5`}
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                metrics.difficulty <= 2
+                  ? "bg-signal-green"
+                  : metrics.difficulty <= 3
+                    ? "bg-caution-amber"
+                    : "bg-alert-red"
+              }`}
+            />
+
+            {/* Distance */}
+            <span
+              className={`text-sm font-mono font-semibold ${getDistanceColor(
+                metrics.difficulty,
+              )}`}
+            >
+              {formatDistance(metrics.shortPath.distance, useImperial)}
+            </span>
+
+            {/* Difficulty badge */}
+            <span
+              className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                DIFFICULTY_COLORS[metrics.difficulty]
+              } ${difficultyBgColors[metrics.difficulty] || "bg-white/5"}`}
             >
               {DIFFICULTY_LABELS[metrics.difficulty]}
-            </div>
-            {!isTargetSaved && (
-              <button
-                onClick={openSaveModal}
-                className="p-1 bg-plasma-orange/20 border border-plasma-orange/50 rounded
-                           text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
-                title="Save this target"
-              >
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                  />
-                </svg>
-              </button>
+            </span>
+
+            {/* Divider */}
+            <div className="w-px h-3 bg-white/10" />
+
+            {/* Bearing compact */}
+            <span className="text-[10px] font-mono text-gray-400">
+              {Math.round(metrics.shortPath.bearing)}°{" "}
+              {formatBearing(metrics.shortPath.bearing)}
+            </span>
+
+            {/* Target indicator */}
+            {target && (
+              <>
+                <div className="w-px h-3 bg-white/10" />
+                <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
+                  → {target.grid || target.name}
+                </span>
+              </>
             )}
           </div>
-        </div>
+        ) : (
+          /* EXPANDED: Restructured header with title top-left, icons top-right */
+          <>
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Collapse toggle icon */}
+              {onToggleCollapse && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleCollapse();
+                  }}
+                  className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+                  title="Collapse panel"
+                >
+                  <svg
+                    className="w-4 h-4 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+              )}
 
-        {/* Short Path */}
-        <div className="space-y-2 pt-3">
-          <h4 className="text-xs font-medium text-gray-400">Short Path</h4>
-          <div className="grid grid-cols-3 gap-2">
-            <MetricItem
-              label="Distance"
-              value={formatDistance(metrics.shortPath.distance, useImperial)}
-              valueClassName={getDistanceColor(metrics.difficulty)}
-            />
-            <MetricItem
-              label="Bearing"
-              value={`${Math.round(metrics.shortPath.bearing)}°`}
-              subValue={formatBearing(metrics.shortPath.bearing)}
-            />
-            <MetricItem
-              label="Return"
-              value={`${Math.round(metrics.shortPath.reciprocal)}°`}
-              subValue={formatBearing(metrics.shortPath.reciprocal)}
-            />
-          </div>
-        </div>
+              {/* Difficulty indicator dot */}
+              <div
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  metrics.difficulty <= 2
+                    ? "bg-signal-green"
+                    : metrics.difficulty <= 3
+                      ? "bg-caution-amber"
+                      : "bg-alert-red"
+                }`}
+              />
 
-        {/* Long Path */}
-        <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-          <h4 className="text-xs font-medium text-gray-400">Long Path</h4>
-          <div className="grid grid-cols-3 gap-2">
-            <MetricItem
-              label="Distance"
-              value={formatDistance(metrics.longPath.distance, useImperial)}
-              valueClassName={getLongPathDistanceColor(metrics.difficulty)}
-            />
-            <MetricItem
-              label="Bearing"
-              value={`${Math.round(metrics.longPath.bearing)}°`}
-              subValue={formatBearing(metrics.longPath.bearing)}
-            />
-            <MetricItem
-              label="Return"
-              value={`${Math.round(metrics.longPath.reciprocal)}°`}
-              subValue={formatBearing(metrics.longPath.reciprocal)}
-            />
-          </div>
-        </div>
+              <div className="min-w-0">
+                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                  Path Info
+                </h3>
+                <p className="text-xs text-gray-400 truncate">
+                  {station.callsign} → {target.name || target.grid || "Target"}
+                </p>
+              </div>
 
-        {/* Propagation Info */}
-        <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-          <h4 className="text-xs font-medium text-gray-400">Propagation</h4>
-          <div className="grid grid-cols-3 gap-2">
-            <MetricItem
-              label="Est. Hops"
-              value={`${metrics.hops}`}
-              subValue="F-layer"
-              valueClassName={getHopsColor(metrics.hops)}
-            />
-            <MetricItem
-              label="Path Light"
-              value={`${Math.round(illumination)}%`}
-              subValue={illumination > 50 ? "Day" : "Night"}
-              valueClassName={getIlluminationColor(illumination)}
-            />
-            <MetricItem
-              label="Midpoint"
-              value={`${metrics.midpoint.lat.toFixed(0)}°`}
-              subValue={`${metrics.midpoint.lon.toFixed(0)}°`}
-            />
-          </div>
-        </div>
+              {/* Difficulty badge - inline with title area */}
+              <div
+                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  DIFFICULTY_COLORS[metrics.difficulty]
+                } ${difficultyBgColors[metrics.difficulty] || "bg-white/5"}`}
+              >
+                {DIFFICULTY_LABELS[metrics.difficulty]}
+              </div>
+            </div>
 
-        {/* Frequency Limits Section */}
-        <FrequencyLimitsDisplay limits={frequencyLimits} />
-
-        {/* Radio Profile Section */}
-        <RadioProfileBlock
-          label={analysisRadioLabel}
-          maxPower={analysisRadio?.maxPower}
-          isOverride={analysisRadioId !== null}
-          onChange={() => setShowRadioPicker(true)}
-          onUseProfile={
-            analysisRadioId !== null
-              ? () => setAnalysisRadioId(null)
-              : undefined
-          }
-        />
-
-        {/* Radio Suggestions Section */}
-        {analysisRadio && (
-          <RadioSuggestions
-            radio={analysisRadio}
-            radioInstance={analysisRadioInstance}
-            preferTested={preferTested}
-            difficulty={metrics.difficulty}
-            distance={metrics.shortPath.distance}
-          />
+            {/* Action icons - top-right */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <HelpButton onClick={() => setShowHelp(true)} />
+              {/* Save button */}
+              {!isTargetSaved && (
+                <button
+                  onClick={openSaveModal}
+                  className="p-1 bg-plasma-orange/20 border border-plasma-orange/50 rounded
+                             text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+                  title="Save this target"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </>
         )}
+      </div>
 
-        {/* Target coordinates footer */}
-        <div className="mt-auto pt-3 border-t border-white/5 text-xs text-gray-400 font-mono flex-shrink-0">
-          {target.lat.toFixed(2)}°, {target.lon.toFixed(2)}°
-          {target.grid && <span className="ml-1">({target.grid})</span>}
+      {/* Collapsible content with smooth animation */}
+      <div
+        className={`relative flex-1 min-h-0 transition-all duration-300 ease-in-out overflow-hidden ${
+          collapsed ? "max-h-0 opacity-0" : "max-h-[2000px] opacity-100"
+        }`}
+      >
+        <div
+          ref={scrollRef}
+          className="h-full flex flex-col overflow-y-auto scrollbar-hide pt-3"
+        >
+          {/* Short Path */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-gray-400">Short Path</h4>
+            <div className="grid grid-cols-3 gap-2">
+              <MetricItem
+                label="Distance"
+                value={formatDistance(metrics.shortPath.distance, useImperial)}
+                valueClassName={getDistanceColor(metrics.difficulty)}
+              />
+              <MetricItem
+                label="Bearing"
+                value={`${Math.round(metrics.shortPath.bearing)}°`}
+                subValue={formatBearing(metrics.shortPath.bearing)}
+              />
+              <MetricItem
+                label="Return"
+                value={`${Math.round(metrics.shortPath.reciprocal)}°`}
+                subValue={formatBearing(metrics.shortPath.reciprocal)}
+              />
+            </div>
+          </div>
+
+          {/* Long Path */}
+          <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
+            <h4 className="text-xs font-medium text-gray-400">Long Path</h4>
+            <div className="grid grid-cols-3 gap-2">
+              <MetricItem
+                label="Distance"
+                value={formatDistance(metrics.longPath.distance, useImperial)}
+                valueClassName={getLongPathDistanceColor(metrics.difficulty)}
+              />
+              <MetricItem
+                label="Bearing"
+                value={`${Math.round(metrics.longPath.bearing)}°`}
+                subValue={formatBearing(metrics.longPath.bearing)}
+              />
+              <MetricItem
+                label="Return"
+                value={`${Math.round(metrics.longPath.reciprocal)}°`}
+                subValue={formatBearing(metrics.longPath.reciprocal)}
+              />
+            </div>
+          </div>
+
+          {/* Propagation Info */}
+          <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
+            <h4 className="text-xs font-medium text-gray-400">Propagation</h4>
+            <div className="grid grid-cols-3 gap-2">
+              <MetricItem
+                label="Est. Hops"
+                value={`${metrics.hops}`}
+                subValue="F-layer"
+                valueClassName={getHopsColor(metrics.hops)}
+              />
+              <MetricItem
+                label="Path Light"
+                value={`${Math.round(illumination)}%`}
+                subValue={illumination > 50 ? "Day" : "Night"}
+                valueClassName={getIlluminationColor(illumination)}
+              />
+              <MetricItem
+                label="Midpoint"
+                value={`${metrics.midpoint.lat.toFixed(0)}°`}
+                subValue={`${metrics.midpoint.lon.toFixed(0)}°`}
+              />
+            </div>
+          </div>
+
+          {/* Frequency Limits Section */}
+          <FrequencyLimitsDisplay limits={frequencyLimits} />
+
+          {/* Radio Suggestions Section */}
+          {analysisRadio && (
+            <RadioSuggestions
+              radio={analysisRadio}
+              radioInstance={analysisRadioInstance}
+              preferTested={preferTested}
+              difficulty={metrics.difficulty}
+              distance={metrics.shortPath.distance}
+              onChange={() => setShowRadioPicker(true)}
+              onUseProfile={
+                analysisRadioId !== null
+                  ? () => setAnalysisRadioId(null)
+                  : undefined
+              }
+            />
+          )}
+
+          {/* Target coordinates footer */}
+          <div className="mt-auto pt-3 border-t border-white/5 text-xs text-gray-400 font-mono flex-shrink-0">
+            {target.lat.toFixed(2)}°, {target.lon.toFixed(2)}°
+            {target.grid && <span className="ml-1">({target.grid})</span>}
+          </div>
         </div>
+
+        {/* Scroll indicator - shows when more content below */}
+        {showScrollIndicator && (
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+            <div className="h-8 bg-gradient-to-t from-nebula-blue/90 to-transparent" />
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center text-gray-400 animate-bounce">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Save Target Modal */}
@@ -552,63 +708,6 @@ export function PathAnalysis({
         title="Path Analysis Radio Profile"
       />
     </Card>
-  );
-}
-
-function RadioProfileBlock({
-  label,
-  maxPower,
-  isOverride,
-  onChange,
-  onUseProfile,
-}: {
-  label: string;
-  maxPower?: number;
-  isOverride: boolean;
-  onChange: () => void;
-  onUseProfile?: () => void;
-}) {
-  return (
-    <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-xs font-medium text-gray-400">Radio Profile</h4>
-        <div className="flex items-center gap-2">
-          {onUseProfile && (
-            <button
-              type="button"
-              onClick={onUseProfile}
-              className="px-2 py-1 text-xs rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
-              title="Use active profile radio"
-            >
-              Use profile
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onChange}
-            className="px-2 py-1 text-xs rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
-          >
-            Change
-          </button>
-        </div>
-      </div>
-
-      <div className="p-2 rounded-lg border border-white/10 bg-white/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-white truncate">
-              {label}
-            </div>
-            <div className="text-xs text-gray-300">
-              {isOverride ? "Override for this panel" : "Using active profile"}
-            </div>
-          </div>
-          <div className="text-xs text-gray-300 font-mono flex-shrink-0">
-            {typeof maxPower === "number" ? `${Math.round(maxPower)}W` : "—"}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -749,6 +848,8 @@ function RadioSuggestions({
   preferTested,
   difficulty,
   distance,
+  onChange,
+  onUseProfile,
 }: {
   radio: RadioEquipment;
   radioInstance: {
@@ -758,6 +859,8 @@ function RadioSuggestions({
   preferTested: boolean;
   difficulty: number;
   distance: number;
+  onChange: () => void;
+  onUseProfile?: () => void;
 }) {
   const effectivePreferTested =
     radioInstance?.specPreference === "factory"
@@ -818,9 +921,31 @@ function RadioSuggestions({
 
   return (
     <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-      <h4 className="text-xs font-medium text-gray-400">
-        Radio: {radio.manufacturer} {radio.model}
-      </h4>
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-medium text-gray-400">Active Radio</h4>
+        <div className="flex items-center gap-2">
+          {onUseProfile && (
+            <button
+              type="button"
+              onClick={onUseProfile}
+              className="px-2 py-1 text-xs rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+              title="Use active profile radio"
+            >
+              Use profile
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onChange}
+            className="px-2 py-1 text-xs rounded bg-plasma-orange/20 border border-plasma-orange/40 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+          >
+            Change
+          </button>
+        </div>
+      </div>
+      <div className="text-sm font-semibold text-white">
+        {radio.manufacturer} {radio.model}
+      </div>
       <div className="p-2 rounded-lg border border-white/10 bg-white/5">
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between">

@@ -61,3 +61,6 @@ export {
   getDifficultyColor,
   type DifficultyLevel,
 } from "./LocationMarker";
+
+// Lite Mode toggle
+export { LiteModeToggle } from "./LiteModeToggle";

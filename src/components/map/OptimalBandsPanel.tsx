@@ -317,7 +317,9 @@ export function OptimalBandsPanel({
                 className="w-2 h-2 rounded-full animate-pulse"
                 style={{ backgroundColor: difficultyColor }}
               />
-              <span className="text-xs font-medium text-white">Path Info</span>
+              <span className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                Path Info
+              </span>
             </div>
             <button
               onClick={() => setIsExpanded(false)}
@@ -341,7 +343,7 @@ export function OptimalBandsPanel({
           </div>
 
           {/* Content */}
-          <div className="p-3 space-y-3">
+          <div className="p-3 space-y-2">
             {/* Distance */}
             <div>
               <div className="text-[10px] text-gray-500 mb-0.5">Distance</div>
@@ -374,7 +376,7 @@ export function OptimalBandsPanel({
                 Optimal Bands
               </div>
               {optimalBands.length > 0 ? (
-                <div className="space-y-1">
+                <div className="flex flex-col gap-1">
                   {optimalBands.map((band, index) => (
                     <div
                       key={band.band}

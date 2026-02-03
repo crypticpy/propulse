@@ -36,6 +36,15 @@
 
 /* Background stars pattern */
 @layer utilities {
+  /* Hide scrollbar but keep scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .bg-stars {
     background-image:
       radial-gradient(2px 2px at 20px 30px, #fff, transparent),

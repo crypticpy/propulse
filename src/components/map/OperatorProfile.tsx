@@ -12,32 +12,18 @@
  * - New hams: Explanations, guidance
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useActiveRadio, useUserStore } from "@/stores/userStore";
-import { useMapStore } from "@/stores/mapStore";
-import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getSunTimes } from "@/lib/utils/time";
-import { getDistance } from "@/lib/utils/path";
 import {
   useActiveLocation,
   useIsTemporaryActive,
   useLicenseStatus,
 } from "@/hooks/useActiveLocation";
+import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 
 interface OperatorProfileProps {
   className?: string;
-}
-
-/**
- * Calculate local time at a given longitude based on UTC offset
- * Each 15 degrees of longitude equals 1 hour offset from UTC
- */
-function getLocalTimeAtLongitude(lon: number): Date {
-  const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-  const offsetHours = lon / 15;
-  const localMs = utcMs + offsetHours * 60 * 60 * 1000;
-  return new Date(localMs);
 }
 
 /**
@@ -138,9 +124,9 @@ function SunsetIcon({ className = "" }: { className?: string }) {
 }
 
 export function OperatorProfile({ className = "" }: OperatorProfileProps) {
+  const [showHelp, setShowHelp] = useState(false);
   const station = useUserStore((state) => state.station);
   const preferences = useUserStore((state) => state.preferences);
-  const target = useMapStore((state) => state.target);
   const activeRadio = useActiveRadio();
 
   // Location and license hooks
@@ -148,27 +134,12 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const isTemporaryActive = useIsTemporaryActive();
   const licenseStatus = useLicenseStatus();
 
-  // Fetch solar data for context
-  const { data: kIndexData } = useKIndex();
-  const { data: solarFluxData } = useSolarFlux();
-
   const stationConfigured = station !== null;
   const operatorCallsign = station?.callsign?.trim() || null;
   const operatorGrid = station?.grid?.trim() || null;
   const operatorLat = station?.lat ?? null;
   const operatorLon = station?.lon ?? null;
   const licenseClass = preferences.licenseClass ?? "GENERAL";
-
-  // Current solar indices
-  const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return null;
-    return kIndexData[kIndexData.length - 1].kp_index;
-  }, [kIndexData]);
-
-  const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return null;
-    return solarFluxData[solarFluxData.length - 1].flux;
-  }, [solarFluxData]);
 
   // Calculate sunrise/sunset times at operator's QTH
   const sunTimes = useMemo(() => {
@@ -178,24 +149,6 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
     return getSunTimes(operatorLat, operatorLon, new Date());
   }, [operatorLat, operatorLon]);
 
-  // Calculate local time at QTH based on longitude
-  const localTimeAtQTH = useMemo(() => {
-    if (operatorLon === null) return null;
-    return getLocalTimeAtLongitude(operatorLon);
-  }, [operatorLon]);
-
-  // Calculate path distance to target
-  const pathDistance = useMemo(() => {
-    if (operatorLat === null || operatorLon === null || !target) return null;
-    return getDistance(operatorLat, operatorLon, target.lat, target.lon);
-  }, [operatorLat, operatorLon, target]);
-
-  // Format radio display
-  const radioDisplay = useMemo(() => {
-    if (!activeRadio) return null;
-    return `${activeRadio.manufacturer} ${activeRadio.model}`;
-  }, [activeRadio]);
-
   // Determine polar condition label
   const getPolarLabel = (): string | null => {
     if (operatorLat === null) return null;
@@ -204,30 +157,6 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
     const isSummerNorth = month >= 3 && month <= 8;
     const isSummer = isNorthernHemisphere ? isSummerNorth : !isSummerNorth;
     return isSummer ? "Midnight Sun" : "Polar Night";
-  };
-
-  // Get operating tip based on conditions
-  const getOperatingTip = (): string => {
-    if (currentKp !== null && currentKp >= 5) {
-      return "Storm active - try 40m/80m";
-    }
-    if (currentSfi !== null && currentSfi >= 150) {
-      return "Excellent HF - try 10m/15m";
-    }
-    if (currentSfi !== null && currentSfi < 80) {
-      return "Low flux - stick to 20m/40m";
-    }
-    const hour = new Date().getUTCHours();
-    if (hour >= 6 && hour < 10) {
-      return "Greyline window active";
-    }
-    if (hour >= 12 && hour < 18) {
-      return "Peak daytime propagation";
-    }
-    if (hour >= 22 || hour < 4) {
-      return "Low bands open for DX";
-    }
-    return "Good conditions for most bands";
   };
 
   const operatorStatus =
@@ -247,64 +176,71 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   }
 
   return (
-    <div className={`h-full flex flex-col gap-2 ${className}`}>
-      {/* Top: Callsign + Grid + Badge */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Status indicator */}
-          <div
-            role="status"
-            aria-label={
-              operatorStatus === "ready"
-                ? "Station configured"
-                : "Station incomplete"
-            }
-            className={`w-2 h-2 rounded-full flex-shrink-0 ${
-              operatorStatus === "ready"
-                ? "bg-signal-green animate-pulse"
-                : "bg-gray-600"
-            }`}
-          />
-          {/* Callsign + Grid */}
-          <div className="min-w-0">
-            <div className="text-lg font-bold font-mono text-white truncate leading-tight">
-              {operatorCallsign ?? "---"}
-            </div>
-            <div className="flex items-center gap-1.5 leading-tight">
-              {/* Location type indicator */}
-              {isTemporaryActive ? (
-                <svg
-                  className="w-3 h-3 text-amber-400 flex-shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  aria-label="Portable location"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-3 h-3 text-gray-400 flex-shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  aria-label="Home location"
-                >
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                </svg>
-              )}
-              <span
-                className={`text-xs font-mono ${isTemporaryActive ? "text-amber-400" : "text-gray-400"}`}
-              >
-                {activeLocation?.grid ?? operatorGrid ?? "----"}
-              </span>
-            </div>
-          </div>
+    <div className={`h-full flex flex-col ${className}`}>
+      {/* Header: Title + Help button */}
+      <div className="flex items-center justify-between mb-1.5">
+        <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+          Operator Profile
+        </h3>
+        <HelpButton onClick={() => setShowHelp(true)} />
+      </div>
+
+      {/* Callsign - prominent display */}
+      <div className="flex items-center gap-2 mb-2">
+        <div
+          role="status"
+          aria-label={
+            operatorStatus === "ready"
+              ? "Station configured"
+              : "Station incomplete"
+          }
+          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+            operatorStatus === "ready"
+              ? "bg-signal-green animate-pulse"
+              : "bg-gray-600"
+          }`}
+        />
+        <div className="text-xl font-bold font-mono text-white leading-none">
+          {operatorCallsign ?? "---"}
         </div>
-        {/* License badge with expiration indicator */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+      </div>
+
+      {/* Grid + License row */}
+      <div className="flex items-center gap-2 mb-2">
+        {/* Location type indicator + Grid */}
+        <div className="flex items-center gap-1.5">
+          {isTemporaryActive ? (
+            <svg
+              className="w-3.5 h-3.5 text-amber-400 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              aria-label="Portable location"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                clipRule="evenodd"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="w-3.5 h-3.5 text-gray-400 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              aria-label="Home location"
+            >
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>
+          )}
+          <span
+            className={`text-sm font-mono font-medium ${isTemporaryActive ? "text-amber-400" : "text-gray-300"}`}
+          >
+            {activeLocation?.grid ?? operatorGrid ?? "----"}
+          </span>
+        </div>
+
+        {/* License badge */}
+        <div className="flex items-center gap-1.5">
           {!licenseStatus.isValid && (
             <span
               className="text-red-400 text-xs font-bold"
@@ -322,7 +258,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             </span>
           )}
           <span
-            className={`px-1.5 py-0.5 text-xs font-medium rounded flex-shrink-0 ${
+            className={`px-1.5 py-0.5 text-xs font-medium rounded ${
               !licenseStatus.isValid
                 ? "bg-red-500/20 text-red-400"
                 : licenseStatus.isExpiringSoon
@@ -335,96 +271,125 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
         </div>
       </div>
 
-      {/* Sun times with SVG icons - stacked vertically */}
+      {/* Sun times - stacked vertically with larger display */}
       {operatorLat !== null && operatorLon !== null && (
-        <div className="flex flex-col gap-1">
-          {/* Sunrise and Sunset row */}
-          <div className="flex items-center gap-3">
-            {/* Sunrise */}
-            <div
-              className="flex items-center gap-1.5 group"
-              title={
-                sunTimes.sunrise
-                  ? `Sunrise: ${formatCompactTime(sunTimes.sunrise, true)} UTC`
-                  : "No sunrise today"
-              }
-            >
-              <SunriseIcon className="w-5 h-5 text-gray-400" />
-              <span className="text-xs font-mono text-amber-400">
-                {sunTimes.sunrise
-                  ? formatCompactTime(sunTimes.sunrise, true)
-                  : (getPolarLabel() ?? "--:--")}
-              </span>
-            </div>
-
-            {/* Sunset */}
-            <div
-              className="flex items-center gap-1.5 group"
-              title={
-                sunTimes.sunset
-                  ? `Sunset: ${formatCompactTime(sunTimes.sunset, true)} UTC`
-                  : "No sunset today"
-              }
-            >
-              <SunsetIcon className="w-5 h-5 text-gray-400" />
-              <span className="text-xs font-mono text-orange-400">
-                {sunTimes.sunset
-                  ? formatCompactTime(sunTimes.sunset, true)
-                  : (getPolarLabel() ?? "--:--")}
-              </span>
-            </div>
+        <div className="flex justify-center gap-6 py-2">
+          {/* Sunrise */}
+          <div
+            className="flex flex-col items-center"
+            title={
+              sunTimes.sunrise
+                ? `Sunrise at QTH: ${formatCompactTime(sunTimes.sunrise, true)} UTC`
+                : "No sunrise today"
+            }
+          >
+            <SunriseIcon className="w-10 h-10" />
+            <span className="text-xl font-mono font-bold text-amber-400 mt-1">
+              {sunTimes.sunrise
+                ? formatCompactTime(sunTimes.sunrise, true)
+                : (getPolarLabel() ?? "--:--")}
+            </span>
+            <span className="text-[10px] text-gray-500 uppercase">Sunrise</span>
           </div>
 
-          {/* Local time - clear live clock display */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 uppercase">Local:</span>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="text-sm font-mono font-bold text-cyan-400">
-                {localTimeAtQTH
-                  ? formatCompactTime(localTimeAtQTH, true)
-                  : "--:--"}
-              </span>
-            </div>
+          {/* Divider */}
+          <div className="w-px bg-white/10" />
+
+          {/* Sunset */}
+          <div
+            className="flex flex-col items-center"
+            title={
+              sunTimes.sunset
+                ? `Sunset at QTH: ${formatCompactTime(sunTimes.sunset, true)} UTC`
+                : "No sunset today"
+            }
+          >
+            <SunsetIcon className="w-10 h-10" />
+            <span className="text-xl font-mono font-bold text-orange-400 mt-1">
+              {sunTimes.sunset
+                ? formatCompactTime(sunTimes.sunset, true)
+                : (getPolarLabel() ?? "--:--")}
+            </span>
+            <span className="text-[10px] text-gray-500 uppercase">Sunset</span>
           </div>
         </div>
       )}
 
-      {/* Middle: Context info - fills remaining space */}
-      <div className="flex-1 flex flex-col justify-center gap-1.5 min-h-0">
-        {/* Path distance (if target selected) */}
-        {pathDistance !== null && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-400 uppercase">Path:</span>
-            <span className="font-mono text-white">
-              {pathDistance < 1000
-                ? `${Math.round(pathDistance)} km`
-                : `${(pathDistance / 1000).toFixed(1)}k km`}
-            </span>
-            <span className="text-gray-400">
-              ({Math.ceil(pathDistance / 3000)} hop
-              {Math.ceil(pathDistance / 3000) > 1 ? "s" : ""})
-            </span>
+      {/* Radio profile - expanded details */}
+      <div className="pt-2 border-t border-white/10 mt-auto">
+        {activeRadio ? (
+          <div className="space-y-1.5">
+            {/* Radio name */}
+            <div className="flex items-center gap-2">
+              <svg
+                className="w-4 h-4 text-plasma-orange flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+              </svg>
+              <span className="text-sm font-medium text-white">
+                {activeRadio.manufacturer} {activeRadio.model}
+              </span>
+            </div>
+            {/* Radio specs row */}
+            <div className="flex items-center gap-2 flex-wrap text-[10px]">
+              <span className="px-1.5 py-0.5 rounded bg-plasma-orange/20 text-plasma-orange font-mono font-medium">
+                {activeRadio.maxPower}W
+              </span>
+              {activeRadio.bands && activeRadio.bands.length > 0 && (
+                <span className="text-gray-400">
+                  {activeRadio.bands.slice(0, 4).join(" · ")}
+                  {activeRadio.bands.length > 4 &&
+                    ` +${activeRadio.bands.length - 4}`}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 italic">
+            <svg
+              className="w-3.5 h-3.5 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+            No radio selected
           </div>
         )}
-
-        {/* Operating tip */}
-        <div className="px-2 py-1 rounded bg-white/5 border-l-2 border-plasma-orange">
-          <span className="text-xs text-gray-300">{getOperatingTip()}</span>
-        </div>
       </div>
 
-      {/* Bottom: Radio profile */}
-      <div className="pt-1.5 border-t border-white/10">
-        <div className="text-xs truncate">
-          <span className="text-gray-400">Current Radio Profile: </span>
-          {radioDisplay ? (
-            <span className="text-white font-medium">{radioDisplay}</span>
-          ) : (
-            <span className="text-gray-400 italic">None selected</span>
-          )}
-        </div>
-      </div>
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Operator Profile"
+        sections={[
+          {
+            title: "Overview",
+            content:
+              "Your station information including callsign, grid square, license class, and active radio.",
+          },
+          {
+            title: "Sun Times",
+            content:
+              "Sunrise and sunset times at your QTH in UTC. These are key for greyline propagation - the terminator crossing your location creates enhanced propagation windows.",
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -6,8 +6,9 @@
  * Designed to replace the RecommendationsBadge with richer context.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
+import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 import { calculatePropagationIndex } from "@/components/solar/PropagationIndex";
 import { getRecommendations } from "@/lib/utils/recommendations";
 import type { PropagationRecommendations } from "@/types/recommendations";
@@ -221,6 +222,8 @@ export function SolarSnapshot({
   displayTime,
   className = "",
 }: SolarSnapshotProps) {
+  const [showHelp, setShowHelp] = useState(false);
+
   // Fetch solar data
   const { data: kIndexData, isLoading: kLoading } = useKIndex();
   const { data: solarFluxData, isLoading: sfiLoading } = useSolarFlux();
@@ -319,12 +322,22 @@ export function SolarSnapshot({
 
   return (
     <div className={`${className} h-full flex flex-col`}>
-      {/* Top row: Condition + Solar metrics */}
+      {/* Header: Title + Help button */}
+      <div className="flex items-center justify-between mb-1.5">
+        <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+          Solar Snapshot
+        </h3>
+        <HelpButton onClick={() => setShowHelp(true)} />
+      </div>
+
+      {/* Condition + Solar metrics row */}
       <div className="flex items-center justify-between gap-2 mb-1">
         {/* Condition label */}
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-400 uppercase">Conditions</span>
-          <span className="text-xs font-semibold" style={{ color: scoreColor }}>
+          <span className="text-[10px] text-gray-400 uppercase">
+            Conditions
+          </span>
+          <span className="text-sm font-semibold" style={{ color: scoreColor }}>
             {getCategoryLabel(indexResult.category)}
           </span>
         </div>
@@ -377,13 +390,15 @@ export function SolarSnapshot({
         </div>
 
         {/* Right: Band recommendations */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
           {optimal && mode ? (
             <>
               {/* Best band + mode + SNR */}
               <div className="flex items-baseline gap-2">
-                <span className="text-xs text-gray-400">Best:</span>
-                <span className="text-lg font-bold font-mono text-white leading-none">
+                <span className="text-[10px] text-gray-500 uppercase">
+                  Best
+                </span>
+                <span className="text-xl font-bold font-mono text-white leading-none">
                   {optimal.band}
                 </span>
                 <span
@@ -399,50 +414,42 @@ export function SolarSnapshot({
                 )}
               </div>
 
-              {/* Alternatives with mini score bars */}
+              {/* Alternatives as colored pill tags */}
               {recommendations?.alternatives &&
                 recommendations.alternatives.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">Alt:</span>
-                    <div className="flex items-center gap-1.5">
-                      {recommendations.alternatives.slice(0, 3).map((alt) => (
-                        <div
-                          key={alt.band}
-                          className="flex items-center gap-1"
-                          title={`${alt.band}: Score ${alt.score}`}
-                        >
-                          <span className="text-xs font-mono text-gray-400">
-                            {alt.band}
-                          </span>
-                          <div className="w-6 h-1 bg-white/10 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${alt.score}%`,
-                                backgroundColor: getScoreColor(alt.score),
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-gray-500 uppercase">
+                      Also
+                    </span>
+                    {recommendations.alternatives.slice(0, 3).map((alt) => (
+                      <span
+                        key={alt.band}
+                        className="px-2 py-0.5 rounded-full text-sm font-mono font-medium border"
+                        style={{
+                          color: getScoreColor(alt.score),
+                          borderColor: `${getScoreColor(alt.score)}40`,
+                          backgroundColor: `${getScoreColor(alt.score)}15`,
+                        }}
+                        title={`${alt.band}: Score ${alt.score}/100`}
+                      >
+                        {alt.band}
+                      </span>
+                    ))}
                   </div>
                 )}
 
-              {/* Score bar */}
-              <div className="flex items-center gap-2 mt-0.5">
-                <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${optimal.score}%`,
-                      backgroundColor: scoreColor,
-                    }}
-                  />
-                </div>
-                <span className="text-xs font-mono text-gray-400 w-6 text-right">
+              {/* Band score indicator */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-500 uppercase">
+                  Band Score
+                </span>
+                <span
+                  className="text-sm font-mono font-bold"
+                  style={{ color: scoreColor }}
+                >
                   {optimal.score}
                 </span>
+                <span className="text-[10px] text-gray-500">/ 100</span>
               </div>
             </>
           ) : (
@@ -453,11 +460,40 @@ export function SolarSnapshot({
 
       {/* Bottom: Operating tip */}
       <div className="mt-1 pt-1 border-t border-white/10">
-        <div className="text-xs text-gray-400 leading-tight">
+        <div className="bg-plasma-orange/10 border-l-2 border-plasma-orange rounded-r px-2 py-1 text-xs leading-tight">
           <span className="text-gray-400">Tip:</span>{" "}
           <span className="text-gray-300">{operatingTip.tip}</span>
         </div>
       </div>
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Solar Conditions"
+        sections={[
+          {
+            title: "Propagation Score",
+            content:
+              "A 0-100 score combining SFI, Kp, and Bz. Higher is better for HF propagation.",
+          },
+          {
+            title: "SFI (Solar Flux Index)",
+            content:
+              "Measures solar radio emissions. Higher SFI (>100) means better high-band propagation.",
+          },
+          {
+            title: "Kp Index",
+            content:
+              "Measures geomagnetic disturbance. Lower Kp (<3) means more stable propagation.",
+          },
+          {
+            title: "Bz",
+            content:
+              "IMF magnetic field direction. Northward (↑) is favorable for propagation.",
+          },
+        ]}
+      />
     </div>
   );
 }

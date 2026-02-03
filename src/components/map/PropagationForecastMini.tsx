@@ -380,37 +380,10 @@ export function PropagationForecastMini({
           }
         }}
       >
-        {/* Buttons - bottom right */}
-        <div className="absolute -bottom-1 -right-1 z-10 flex items-center gap-1">
-          <HelpButton onClick={() => setShowHelp(true)} />
-          <button
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Expand full forecast"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClick();
-            }}
-          >
-            <span className="hidden sm:inline">Expand</span>
-            <svg
-              className="w-3 h-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* TOP: Path metrics + Solar indices */}
-        <div className="flex items-center justify-between gap-3 mb-1 text-xs">
-          <div className="flex items-center gap-3 font-mono">
+        {/* TOP: Header with path metrics + Solar indices + ACTION ICONS */}
+        <div className="flex items-center justify-between gap-1.5 mb-0.5 text-xs">
+          {/* Left: Path metrics */}
+          <div className="flex items-center gap-3 font-mono min-w-0">
             {pathDistance && (
               <span className="text-gray-300">
                 <span className="text-gray-400">PATH</span>{" "}
@@ -425,6 +398,8 @@ export function PropagationForecastMini({
               <span className="text-cyan-400">{estimatedMuf.toFixed(1)}</span>
             </span>
           </div>
+
+          {/* Center: Solar indices */}
           <div className="flex items-center gap-2 font-mono">
             <span
               style={{ color: getSfiColor(currentSfi) }}
@@ -438,6 +413,34 @@ export function PropagationForecastMini({
             <span style={{ color: bzDisplay.color }} title="IMF Bz">
               Bz {bzDisplay.arrow}
             </span>
+          </div>
+
+          {/* Right: ACTION ICONS - Always top-right */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <HelpButton onClick={() => setShowHelp(true)} />
+            <button
+              className="p-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors"
+              title="Expand full forecast"
+              aria-label="Expand forecast"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClick();
+              }}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -470,7 +473,7 @@ export function PropagationForecastMini({
               style={{
                 gridTemplateColumns: `repeat(${HOURS_TO_SHOW}, 1fr)`,
                 gridTemplateRows: `repeat(${DISPLAY_BANDS.length}, 1fr)`,
-                gap: "2px",
+                gap: "3px",
               }}
             >
               {DISPLAY_BANDS.map((band) =>
@@ -485,7 +488,7 @@ export function PropagationForecastMini({
                   return (
                     <div
                       key={`${band}-${hour}`}
-                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 ${isCurrentHour ? "ring-2 ring-plasma-orange" : ""}`}
+                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""}`}
                       style={{
                         backgroundColor: color,
                         opacity: status === "closed" ? 0.25 : 0.9,
@@ -529,7 +532,7 @@ export function PropagationForecastMini({
               {visibleHours.map((hour, idx) => (
                 <div
                   key={hour}
-                  className={`text-center ${hour === currentHour ? "text-plasma-orange font-bold" : "text-gray-400"}`}
+                  className={`text-center ${hour === currentHour ? "text-white font-bold text-sm" : "text-gray-400"}`}
                 >
                   {idx % 2 === 0 ? hour.toString().padStart(2, "0") : ""}
                 </div>
@@ -538,126 +541,134 @@ export function PropagationForecastMini({
           </div>
         </div>
 
-        {/* BOTTOM: Horizontal info panels - increased font size for legibility */}
-        <div className="flex gap-2 mt-2 text-xs">
-          {/* Best band NOW - primary recommendation */}
-          {topBandsNow.length > 0 && (
-            <div
-              className="bg-signal-green/20 border border-signal-green/50 rounded px-2.5 py-1.5 flex items-center gap-2 cursor-help"
-              title={`BEST BAND RIGHT NOW\n${topBandsNow[0].band} (${BAND_INFO[topBandsNow[0].band]?.freq || ""})\nEstimated SNR: ${topBandsNow[0].snrEstimate}dB\nCondition: ${topBandsNow[0].status}\nRecommended mode: ${topBandsNow[0].status === "excellent" ? "SSB or CW for voice/morse" : "FT8/FT4 digital modes"}`}
-            >
-              <span className="text-signal-green text-sm">▶</span>
-              <span className="font-mono font-bold text-white text-sm">
-                {topBandsNow[0].band}
-              </span>
-              <span className="font-mono text-signal-green font-semibold">
-                {topBandsNow[0].snrEstimate > 0 ? "+" : ""}
-                {topBandsNow[0].snrEstimate}dB
-              </span>
-              <span className="text-gray-200 font-medium">
-                {topBandsNow[0].status === "excellent" ? "SSB/CW" : "FT8"}
-              </span>
-            </div>
-          )}
-
-          {/* Also Open - alternative bands */}
-          {topBandsNow.length > 1 && (
-            <div
-              className="bg-white/8 rounded px-2.5 py-1.5 flex items-center gap-2 cursor-help"
-              title={`ALTERNATIVE BANDS\nThese bands are also open right now:\n${topBandsNow
-                .slice(1)
-                .map(
-                  (b) =>
-                    `• ${b.band} (${BAND_INFO[b.band]?.freq || ""}): ${b.snrEstimate}dB, ${b.status}`,
-                )
-                .join("\n")}`}
-            >
-              <span className="text-gray-300 font-medium">Also:</span>
-              {topBandsNow.slice(1).map((band) => (
-                <span key={band.band} className="font-mono text-white">
-                  {band.band}{" "}
-                  <span
-                    className="font-semibold"
-                    style={{ color: getForecastStatusColor(band.status) }}
-                  >
-                    {band.snrEstimate > 0 ? "+" : ""}
-                    {band.snrEstimate}
-                  </span>
+        {/* BOTTOM: Two-row footer layout for breathing room */}
+        <div className="flex flex-col gap-1 mt-1 text-xs">
+          {/* Row 1: Best band + alternatives + peak windows */}
+          <div className="flex gap-2 flex-wrap">
+            {/* Best band NOW - primary recommendation */}
+            {topBandsNow.length > 0 && (
+              <div
+                className="bg-signal-green/20 border border-signal-green/50 rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
+                title={`BEST BAND RIGHT NOW\n${topBandsNow[0].band} (${BAND_INFO[topBandsNow[0].band]?.freq || ""})\nEstimated SNR: ${topBandsNow[0].snrEstimate}dB\nCondition: ${topBandsNow[0].status}\nRecommended mode: ${topBandsNow[0].status === "excellent" ? "SSB or CW for voice/morse" : "FT8/FT4 digital modes"}`}
+              >
+                <span className="text-signal-green">▶</span>
+                <span className="font-mono font-bold text-white">
+                  {topBandsNow[0].band}
                 </span>
-              ))}
-            </div>
-          )}
-
-          {/* Peak Windows - best upcoming time */}
-          <div
-            className="bg-white/8 rounded px-2.5 py-1.5 flex items-center gap-2 cursor-help"
-            title={
-              topRecommendation
-                ? `PEAK PROPAGATION WINDOW\n${topRecommendation.band} will peak at ${topRecommendation.time}:00 UTC\nCondition: ${topRecommendation.status}\n\nThis is the best time to work this band on this path.${nextOpening ? `\n\nNEXT BAND OPENING\n${nextOpening.band} opens in ${nextOpening.hoursAway} hour${nextOpening.hoursAway > 1 ? "s" : ""}` : ""}`
-                : "No peak windows predicted in the next 24 hours"
-            }
-          >
-            {topRecommendation && (
-              <>
-                <span className="text-gray-300 font-medium">Peak:</span>
-                <span
-                  className="font-mono font-bold text-sm"
-                  style={{
-                    color: getForecastStatusColor(topRecommendation.status),
-                  }}
-                >
-                  {topRecommendation.band}
-                </span>
-                <span className="text-gray-200 font-mono">
-                  @{topRecommendation.time}z
-                </span>
-              </>
-            )}
-            {nextOpening && (
-              <>
-                <span className="text-gray-300 font-medium ml-1">Opens:</span>
                 <span className="font-mono text-signal-green font-semibold">
-                  {nextOpening.band}
+                  {topBandsNow[0].snrEstimate > 0 ? "+" : ""}
+                  {topBandsNow[0].snrEstimate}dB
                 </span>
-                <span className="text-gray-200 font-mono">
-                  +{nextOpening.hoursAway}h
+                <span className="text-gray-200">
+                  {topBandsNow[0].status === "excellent" ? "SSB/CW" : "FT8"}
                 </span>
-              </>
+              </div>
             )}
-            {!topRecommendation && !nextOpening && (
-              <span className="text-gray-400">No windows</span>
+
+            {/* Also Open - alternative bands */}
+            {topBandsNow.length > 1 && (
+              <div
+                className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
+                title={`ALTERNATIVE BANDS\nThese bands are also open right now:\n${topBandsNow
+                  .slice(1)
+                  .map(
+                    (b) =>
+                      `• ${b.band} (${BAND_INFO[b.band]?.freq || ""}): ${b.snrEstimate}dB, ${b.status}`,
+                  )
+                  .join("\n")}`}
+              >
+                <span className="text-gray-400">Also:</span>
+                {topBandsNow.slice(1).map((band) => (
+                  <span key={band.band} className="font-mono text-white">
+                    {band.band}{" "}
+                    <span
+                      className="font-semibold"
+                      style={{ color: getForecastStatusColor(band.status) }}
+                    >
+                      {band.snrEstimate > 0 ? "+" : ""}
+                      {band.snrEstimate}
+                    </span>
+                  </span>
+                ))}
+              </div>
             )}
+
+            {/* Peak Windows - best upcoming time */}
+            <div
+              className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
+              title={
+                topRecommendation
+                  ? `PEAK PROPAGATION WINDOW\n${topRecommendation.band} will peak at ${topRecommendation.time}:00 UTC\nCondition: ${topRecommendation.status}\n\nThis is the best time to work this band on this path.${nextOpening ? `\n\nNEXT BAND OPENING\n${nextOpening.band} opens in ${nextOpening.hoursAway} hour${nextOpening.hoursAway > 1 ? "s" : ""}` : ""}`
+                  : "No peak windows predicted in the next 24 hours"
+              }
+            >
+              {topRecommendation && (
+                <>
+                  <span className="text-gray-400">Peak:</span>
+                  <span
+                    className="font-mono font-bold"
+                    style={{
+                      color: getForecastStatusColor(topRecommendation.status),
+                    }}
+                  >
+                    {topRecommendation.band}
+                  </span>
+                  <span className="text-gray-300 font-mono">
+                    @{topRecommendation.time}z
+                  </span>
+                </>
+              )}
+              {nextOpening && (
+                <>
+                  {topRecommendation && (
+                    <span className="text-gray-600 mx-0.5">│</span>
+                  )}
+                  <span className="font-mono text-signal-green font-semibold">
+                    {nextOpening.band}
+                  </span>
+                  <span className="text-gray-400">
+                    +{nextOpening.hoursAway}h
+                  </span>
+                </>
+              )}
+              {!topRecommendation && !nextOpening && (
+                <span className="text-gray-500">No windows</span>
+              )}
+            </div>
           </div>
 
-          {/* DX sun times - sunrise/sunset at target */}
-          {target && targetSunTimes && (
+          {/* Row 2: Greyline times + Operating tip */}
+          <div className="flex gap-2 items-center">
+            {/* DX sun times - sunrise/sunset at target (greyline) */}
+            {target && targetSunTimes && (
+              <div
+                className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-2 font-mono cursor-help flex-shrink-0"
+                title={`GREYLINE WINDOW AT DX\n${target.name || target.grid || "Target"}\n\n☀ Sunrise: ${targetSunTimes.sunrise ? formatTime(targetSunTimes.sunrise) : "N/A"} UTC\n☽ Sunset: ${targetSunTimes.sunset ? formatTime(targetSunTimes.sunset) : "N/A"} UTC\n\nGreyline propagation is enhanced around these times.\nLow bands (40m-160m) often peak near sunset/sunrise.`}
+              >
+                <span className="text-gray-500 text-[10px]">★</span>
+                <span className="text-amber-300">
+                  {targetSunTimes.sunrise
+                    ? formatTime(targetSunTimes.sunrise)
+                    : "--:--"}
+                </span>
+                <span className="text-gray-600">→</span>
+                <span className="text-orange-300">
+                  {targetSunTimes.sunset
+                    ? formatTime(targetSunTimes.sunset)
+                    : "--:--"}
+                </span>
+              </div>
+            )}
+
+            {/* Tip - operating recommendation */}
             <div
-              className="bg-white/8 rounded px-2.5 py-1.5 flex items-center gap-3 font-mono cursor-help"
-              title={`SUN TIMES AT DX LOCATION\n${target.name || target.grid || "Target"}\n\n☀ Sunrise: ${targetSunTimes.sunrise ? formatTime(targetSunTimes.sunrise) : "N/A"} UTC\n☽ Sunset: ${targetSunTimes.sunset ? formatTime(targetSunTimes.sunset) : "N/A"} UTC\n\nGreyline propagation is enhanced around these times.\nLow bands (40m-160m) often peak near sunset/sunrise.`}
+              className="flex-1 bg-plasma-orange/10 border-l-2 border-plasma-orange rounded-r px-2 py-1 flex items-center min-w-0 cursor-help"
+              title={`OPERATING TIP\n${getRecommendation()}\n\nBased on current solar conditions:\n• SFI: ${Math.round(currentSfi)} (${currentSfi >= 150 ? "excellent" : currentSfi >= 100 ? "good" : "low"})\n• Kp: ${currentKp.toFixed(1)} (${currentKp <= 2 ? "quiet" : currentKp <= 4 ? "unsettled" : "storm"})`}
             >
-              <span className="text-amber-300 font-semibold">
-                ☀{" "}
-                {targetSunTimes.sunrise
-                  ? formatTime(targetSunTimes.sunrise)
-                  : "--:--"}
-              </span>
-              <span className="text-orange-300 font-semibold">
-                ☽{" "}
-                {targetSunTimes.sunset
-                  ? formatTime(targetSunTimes.sunset)
-                  : "--:--"}
+              <span className="text-gray-200 truncate">
+                {getRecommendation()}
               </span>
             </div>
-          )}
-
-          {/* Tip - operating recommendation */}
-          <div
-            className="flex-1 bg-plasma-orange/15 border-l-2 border-plasma-orange rounded-r px-2.5 py-1.5 flex items-center min-w-0 cursor-help"
-            title={`OPERATING TIP\n${getRecommendation()}\n\nBased on current solar conditions:\n• SFI: ${Math.round(currentSfi)} (${currentSfi >= 150 ? "excellent" : currentSfi >= 100 ? "good" : "low"})\n• Kp: ${currentKp.toFixed(1)} (${currentKp <= 2 ? "quiet" : currentKp <= 4 ? "unsettled" : "storm"})`}
-          >
-            <span className="text-gray-100 truncate font-medium">
-              {getRecommendation()}
-            </span>
           </div>
         </div>
       </div>
@@ -692,9 +703,7 @@ export function PropagationForecastMini({
                   <div className="text-xs text-gray-400 mb-2">
                     {hoverInfo.hour.toString().padStart(2, "0")}:00 UTC
                     {hoverInfo.hour === currentHour && (
-                      <span className="ml-2 text-plasma-orange font-bold">
-                        NOW
-                      </span>
+                      <span className="ml-2 text-white font-bold">NOW</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mb-2">

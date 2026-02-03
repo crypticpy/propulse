@@ -8,6 +8,12 @@ import {
   useIsTemporaryActive,
 } from "@/hooks/useActiveLocation";
 
+interface NavItem {
+  path: string;
+  label: string;
+  icon: string;
+}
+
 export interface HeaderProps {
   /** Number of active alerts */
   alertCount?: number;
@@ -38,15 +44,28 @@ export function Header({
     return () => clearInterval(interval);
   }, []);
 
-  const navItems = [
+  // Main nav items (always visible)
+  const mainNavItems: NavItem[] = [
     { path: "/", label: "Home", icon: "🏠" },
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
     { path: "/map", label: "PropSphere", icon: "🌍" },
+  ];
+
+  // Tools items (in dropdown on desktop, inline on mobile)
+  const toolsItems: NavItem[] = [
     { path: "/dx", label: "DX Wizard", icon: "🧙" },
     { path: "/planner", label: "Band Planner", icon: "📡" },
     { path: "/log", label: "LogBook", icon: "📝" },
     { path: "/contest", label: "Contest", icon: "🏆" },
   ];
+
+  // Check if any tool is active
+  const isToolActive = toolsItems.some(
+    (item) => location.pathname === item.path,
+  );
+  const activeToolLabel = toolsItems.find(
+    (item) => location.pathname === item.path,
+  )?.label;
 
   return (
     <>
@@ -69,8 +88,9 @@ export function Header({
             </Link>
 
             {/* Navigation */}
-            <nav className="flex items-center gap-1 md:gap-2 overflow-x-auto max-w-[60vw] sm:max-w-none">
-              {navItems.map((item) => {
+            <nav className="flex items-center gap-1 md:gap-2 overflow-x-auto sm:overflow-visible max-w-[60vw] sm:max-w-none">
+              {/* Main nav items */}
+              {mainNavItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <Link
@@ -92,14 +112,99 @@ export function Header({
                   </Link>
                 );
               })}
+
+              {/* Tools dropdown - desktop only (hover to open) */}
+              <div className="relative hidden md:block group">
+                <button
+                  className={`
+                    flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${
+                      isToolActive
+                        ? "bg-plasma-orange/20 text-plasma-orange"
+                        : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                    }
+                  `}
+                >
+                  <span>🛠️</span>
+                  <span>{activeToolLabel || "Tools"}</span>
+                  <svg
+                    className="w-4 h-4 transition-transform group-hover:rotate-180"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                {/* Dropdown menu - shows on hover */}
+                <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-150 absolute top-full left-0 pt-1 z-[200]">
+                  <div className="py-1 w-44 bg-deep-space border border-white/20 rounded-lg shadow-2xl">
+                    {toolsItems.map((item) => {
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={`
+                            flex items-center gap-2 px-4 py-2.5 text-sm transition-colors
+                            ${
+                              isActive
+                                ? "bg-plasma-orange/20 text-plasma-orange"
+                                : "text-gray-300 hover:text-white hover:bg-white/10"
+                            }
+                          `}
+                        >
+                          <span>{item.icon}</span>
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tools items - mobile only (inline) */}
+              {toolsItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    aria-label={item.label}
+                    className={`
+                      md:hidden flex-shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium
+                      transition-colors
+                      ${
+                        isActive
+                          ? "bg-plasma-orange/20 text-plasma-orange"
+                          : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                      }
+                    `}
+                  >
+                    <span>{item.icon}</span>
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* Right side: Time & Settings */}
             <div className="flex items-center gap-4">
-              {/* UTC Time */}
+              {/* Real-time UTC Clock */}
               <div className="hidden sm:block text-right">
-                <div className="font-mono text-sm md:text-base text-signal-green font-semibold">
-                  {formatUTC(currentTime)}
+                <div className="flex items-center justify-end gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
+                  <span className="font-mono text-sm md:text-base text-signal-green font-semibold">
+                    {formatUTC(currentTime)}
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-medium">
+                    UTC
+                  </span>
                 </div>
                 <div className="text-[10px] text-gray-500">
                   {station?.grid || "Set location"}

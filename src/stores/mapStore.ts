@@ -108,6 +108,11 @@ interface MapState {
   setFullscreen: (value: boolean) => void;
   toggleFullscreen: () => void;
 
+  // Lite mode (minimized panels)
+  isLiteMode: boolean;
+  setLiteMode: (value: boolean) => void;
+  toggleLiteMode: () => void;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -132,6 +137,7 @@ const initialState = {
   nvisEnabled: false,
   activePreset: null as PresetName | null,
   isFullscreen: false,
+  isLiteMode: false,
 };
 
 export const useMapStore = create<MapState>((set) => ({
@@ -192,6 +198,10 @@ export const useMapStore = create<MapState>((set) => ({
 
   toggleFullscreen: () =>
     set((state) => ({ isFullscreen: !state.isFullscreen })),
+
+  setLiteMode: (isLiteMode) => set({ isLiteMode }),
+
+  toggleLiteMode: () => set((state) => ({ isLiteMode: !state.isLiteMode })),
 
   reset: () => set(initialState),
 }));

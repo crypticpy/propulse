@@ -36,3 +36,11 @@ export { DetailModal, type DetailModalProps } from "./DetailModal";
 
 // HelpModal Component
 export { HelpModal, HelpButton, HELP_CONTENT } from "./HelpModal";
+
+// PanelCard Component
+export {
+  PanelCard,
+  type PanelCardProps,
+  type PanelBadge,
+  type HelpContent,
+} from "./PanelCard";

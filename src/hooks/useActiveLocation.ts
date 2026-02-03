@@ -20,6 +20,23 @@ export function useActiveLocation(): OperatingLocation | null {
   return useMemo(() => {
     if (!station) return null;
 
+    // Handle legacy station objects without savedLocations
+    if (!station.savedLocations || station.savedLocations.length === 0) {
+      // Return a synthetic location from legacy fields
+      if (station.grid) {
+        return {
+          id: "legacy-home",
+          name: "Home",
+          grid: station.grid,
+          lat: station.lat ?? 0,
+          lon: station.lon ?? 0,
+          type: "home" as const,
+          createdAt: new Date().toISOString(),
+        };
+      }
+      return null;
+    }
+
     const targetId = station.activeLocationId ?? station.homeLocationId;
     return station.savedLocations.find((loc) => loc.id === targetId) ?? null;
   }, [station]);
@@ -106,6 +123,23 @@ export function useHomeLocation(): OperatingLocation | null {
 
   return useMemo(() => {
     if (!station) return null;
+
+    // Handle legacy station objects without savedLocations
+    if (!station.savedLocations || station.savedLocations.length === 0) {
+      if (station.grid) {
+        return {
+          id: "legacy-home",
+          name: "Home",
+          grid: station.grid,
+          lat: station.lat ?? 0,
+          lon: station.lon ?? 0,
+          type: "home" as const,
+          createdAt: new Date().toISOString(),
+        };
+      }
+      return null;
+    }
+
     return (
       station.savedLocations.find((loc) => loc.id === station.homeLocationId) ??
       null

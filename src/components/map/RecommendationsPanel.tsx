@@ -11,6 +11,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { Card } from "@/components/ui/Card";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
   getRecommendations,
@@ -56,6 +57,7 @@ export function RecommendationsPanel({
 }: RecommendationsPanelProps) {
   const [selectedMode, setSelectedMode] = useState<OperatingMode>("FT8");
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Fetch current solar data
   const { data: kIndexData, isLoading: kLoading } = useKIndex();
@@ -127,7 +129,7 @@ export function RecommendationsPanel({
   // Loading state
   if (kLoading || sfiLoading) {
     return (
-      <Card className={className}>
+      <Card className={`${className} p-2 !rounded-lg`}>
         <div className="text-center py-6 text-gray-500">
           <div className="animate-pulse">Analyzing propagation...</div>
         </div>
@@ -138,7 +140,7 @@ export function RecommendationsPanel({
   // No recommendations available
   if (!recommendations) {
     return (
-      <Card className={className}>
+      <Card className={`${className} p-2 !rounded-lg`}>
         <div className="text-center py-6 text-gray-500">
           <p className="text-sm">Select a target for recommendations</p>
         </div>
@@ -150,14 +152,22 @@ export function RecommendationsPanel({
   const isOptimalClosed = optimal.status === "closed";
 
   return (
-    <Card className={`${className}`}>
-      <div className="space-y-4">
+    <Card className={`${className} p-2 !rounded-lg`}>
+      <div className="space-y-2">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-white">Recommendations</h3>
-          <div className="text-xs text-gray-500 font-mono">
-            Kp={currentKp} SFI={currentSfi}
+        <div className="flex items-center justify-between mb-0.5">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+              Recommendations
+            </h3>
+            <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+              Kp={currentKp}
+            </span>
+            <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+              SFI={currentSfi}
+            </span>
           </div>
+          <HelpButton onClick={() => setShowHelp(true)} />
         </div>
 
         {/* Mode Selector - Pill Buttons */}
@@ -303,6 +313,22 @@ export function RecommendationsPanel({
         {/* Summary */}
         <div className="text-xs text-gray-500 leading-relaxed">{summary}</div>
       </div>
+
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        title={HELP_CONTENT.recommendations?.title || "Band Recommendations"}
+        sections={
+          HELP_CONTENT.recommendations?.sections || [
+            {
+              title: "Overview",
+              content:
+                "Optimal band recommendations based on current conditions.",
+            },
+          ]
+        }
+      />
     </Card>
   );
 }

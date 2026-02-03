@@ -6,7 +6,7 @@
  * Designed for left-side framed layout position.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -26,16 +26,99 @@ interface BandConditionsPanelProps {
   displayTime: Date;
   className?: string;
   compact?: boolean;
+  /** When true, panel collapses to a slim summary bar */
+  collapsed?: boolean;
+  /** Callback to toggle collapsed state */
+  onToggleCollapse?: () => void;
+}
+
+/**
+ * Find the best band from conditions (for collapsed view)
+ */
+function findBestBand(
+  conditions: PathBandCondition[],
+): PathBandCondition | null {
+  if (conditions.length === 0) return null;
+
+  const statusPriority: Record<PathBandCondition["status"], number> = {
+    excellent: 5,
+    good: 4,
+    fair: 3,
+    poor: 2,
+    closed: 1,
+  };
+
+  const sorted = [...conditions].sort((a, b) => {
+    const priorityDiff = statusPriority[b.status] - statusPriority[a.status];
+    if (priorityDiff !== 0) return priorityDiff;
+    return b.snrEstimate - a.snrEstimate;
+  });
+
+  return sorted[0];
+}
+
+/**
+ * Get overall status from conditions (for collapsed view)
+ */
+function getOverallStatus(
+  conditions: PathBandCondition[],
+): "good" | "fair" | "poor" {
+  if (conditions.length === 0) return "poor";
+
+  const statusCounts = conditions.reduce(
+    (acc, c) => {
+      acc[c.status] = (acc[c.status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const total = conditions.length;
+  const excellentGood =
+    (statusCounts["excellent"] || 0) + (statusCounts["good"] || 0);
+  const fair = statusCounts["fair"] || 0;
+
+  if (excellentGood >= total * 0.4) return "good";
+  if (excellentGood + fair >= total * 0.5) return "fair";
+  return "poor";
 }
 
 export function BandConditionsPanel({
   displayTime,
   className = "",
   compact = false,
+  collapsed = false,
+  onToggleCollapse,
 }: BandConditionsPanelProps) {
   const { target } = useMapStore();
   const { station } = useUserStore();
   const [showHelp, setShowHelp] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+
+  // Check if content overflows and handle scroll position
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollHeight > el.clientHeight;
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 5;
+    setShowScrollIndicator(hasOverflow && !isAtBottom);
+  }, []);
+
+  // Set up scroll listener and initial check
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll);
+    // Recheck on resize
+    const resizeObserver = new ResizeObserver(checkScroll);
+    resizeObserver.observe(el);
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      resizeObserver.disconnect();
+    };
+  }, [checkScroll, collapsed]);
 
   // Fetch current solar data
   const { data: kIndexData } = useKIndex();
@@ -105,13 +188,13 @@ export function BandConditionsPanel({
   if (!station) {
     return (
       <>
-        <Card className={`${className} h-full`}>
+        <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-white">
-                  Band Conditions
-                </h3>
+            <div className="flex items-center justify-between mb-0.5">
+              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                Band Conditions
+              </h3>
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
             </div>
@@ -135,17 +218,32 @@ export function BandConditionsPanel({
   if (!target) {
     return (
       <>
-        <Card className={`${className} h-full`}>
+        <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-white">
-                  Band Conditions
-                </h3>
+            <div className="flex items-center justify-between mb-0.5">
+              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                Band Conditions
+              </h3>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span
+                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                    currentKp >= 4
+                      ? "bg-caution-amber/20 text-caution-amber"
+                      : "bg-white/5 text-gray-400"
+                  }`}
+                >
+                  Kp {currentKp}
+                </span>
+                <span
+                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                    currentSfi >= 120
+                      ? "bg-signal-green/20 text-signal-green"
+                      : "bg-white/5 text-gray-400"
+                  }`}
+                >
+                  SFI {currentSfi}
+                </span>
                 <HelpButton onClick={() => setShowHelp(true)} />
-              </div>
-              <div className="text-xs text-gray-400 font-mono">
-                Kp={currentKp} SFI={currentSfi}
               </div>
             </div>
             <div className="flex-1 flex items-center justify-center text-gray-400 text-sm text-center px-4">
@@ -164,53 +262,255 @@ export function BandConditionsPanel({
     );
   }
 
+  // Get best band and overall status for collapsed view
+  const bestBand = findBestBand(bandConditions);
+  const overallStatus = getOverallStatus(bandConditions);
+
+  // Status colors for collapsed view
+  const statusColors = {
+    good: {
+      dot: "bg-signal-green",
+      text: "text-signal-green",
+      bg: "bg-signal-green/10",
+    },
+    fair: {
+      dot: "bg-caution-amber",
+      text: "text-caution-amber",
+      bg: "bg-caution-amber/10",
+    },
+    poor: {
+      dot: "bg-alert-red",
+      text: "text-alert-red",
+      bg: "bg-alert-red/10",
+    },
+  };
+
   return (
     <>
-      <Card className={`${className} h-full flex flex-col`}>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium text-white">Band Conditions</h3>
-            <HelpButton onClick={() => setShowHelp(true)} />
-          </div>
-          <div className="text-xs text-gray-400 font-mono">
-            Kp={currentKp} SFI={currentSfi}
-          </div>
-        </div>
-
-        {/* Scrollable Table */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-1">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-nebula-blue text-gray-400">
-                <th className="px-1 py-1 text-left font-medium">Band</th>
-                <th className="px-1 py-1 text-center font-medium">Status</th>
-                {!compact && (
-                  <>
-                    <th className="px-1 py-1 text-center font-medium">
-                      Signal
-                    </th>
-                    <th className="px-1 py-1 text-center font-medium">SNR</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {bandConditions.map((condition) => (
-                <BandConditionRow
-                  key={condition.band}
-                  condition={condition}
-                  hasEnhancedData={!!enhancedBandConditions}
-                  compact={compact}
+      <Card
+        className={`${className} flex flex-col transition-all duration-300 ease-in-out !rounded-lg ${
+          collapsed ? "h-auto !p-2.5" : "h-full p-2"
+        }`}
+      >
+        {/* Header - always visible, clickable in collapsed mode */}
+        <div
+          className={`flex items-center justify-between flex-shrink-0 ${
+            collapsed ? "cursor-pointer rounded-lg transition-colors" : "mb-0.5"
+          }`}
+          onClick={collapsed ? onToggleCollapse : undefined}
+          role={collapsed ? "button" : undefined}
+          tabIndex={collapsed ? 0 : undefined}
+          onKeyDown={
+            collapsed
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onToggleCollapse?.();
+                  }
+                }
+              : undefined
+          }
+        >
+          {/* COLLAPSED: Clean horizontal layout */}
+          {collapsed ? (
+            <div className="flex items-center gap-3 w-full">
+              {/* Expand indicator */}
+              <svg
+                className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
                 />
-              ))}
-            </tbody>
-          </table>
+              </svg>
+
+              {/* Status dot */}
+              <div
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColors[overallStatus].dot}`}
+              />
+
+              {/* Best band with status */}
+              {bestBand ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-sm font-mono font-semibold ${getPathStatusColor(
+                      bestBand.status,
+                    )}`}
+                  >
+                    {bestBand.band}
+                  </span>
+                  <span
+                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${statusColors[overallStatus].text} ${statusColors[overallStatus].bg}`}
+                  >
+                    {overallStatus}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-500">No data</span>
+              )}
+
+              {/* Divider */}
+              <div className="w-px h-3 bg-white/10" />
+
+              {/* Solar indices compact */}
+              <div className="flex items-center gap-2 text-[10px] font-mono">
+                <span
+                  className={
+                    currentKp >= 4 ? "text-caution-amber" : "text-gray-400"
+                  }
+                >
+                  K{currentKp}
+                </span>
+                <span
+                  className={
+                    currentSfi >= 120 ? "text-signal-green" : "text-gray-400"
+                  }
+                >
+                  SFI {currentSfi}
+                </span>
+              </div>
+            </div>
+          ) : (
+            /* EXPANDED: Header with title left, badges + icons right */
+            <>
+              <div className="flex items-center gap-2 min-w-0">
+                {/* Collapse toggle icon */}
+                {onToggleCollapse && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleCollapse();
+                    }}
+                    className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+                    title="Collapse panel"
+                  >
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Status dot */}
+                <div
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColors[overallStatus].dot}`}
+                />
+
+                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide truncate">
+                  Band Conditions
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span
+                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                    currentKp >= 4
+                      ? "bg-caution-amber/20 text-caution-amber"
+                      : "bg-white/5 text-gray-400"
+                  }`}
+                >
+                  Kp {currentKp}
+                </span>
+                <span
+                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                    currentSfi >= 120
+                      ? "bg-signal-green/20 text-signal-green"
+                      : "bg-white/5 text-gray-400"
+                  }`}
+                >
+                  SFI {currentSfi}
+                </span>
+                <HelpButton onClick={() => setShowHelp(true)} />
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Footer with path info */}
-        <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5 text-xs text-gray-400">
-          Path illumination: {Math.round(illumination)}%
+        {/* Collapsible content with smooth animation */}
+        <div
+          className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            collapsed ? "max-h-0 opacity-0" : "max-h-[1000px] opacity-100"
+          }`}
+        >
+          {/* Scrollable Table */}
+          <div className="relative flex-1 min-h-0 mt-3">
+            <div
+              ref={scrollRef}
+              className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide -mx-1"
+            >
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-nebula-blue text-gray-400">
+                    <th className="px-1 py-1 text-left font-medium">Band</th>
+                    <th className="px-1 py-1 text-center font-medium">
+                      Status
+                    </th>
+                    {!compact && (
+                      <>
+                        <th className="px-1 py-1 text-center font-medium">
+                          Signal
+                        </th>
+                        <th className="px-1 py-1 text-center font-medium">
+                          SNR
+                        </th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {bandConditions.map((condition) => (
+                    <BandConditionRow
+                      key={condition.band}
+                      condition={condition}
+                      hasEnhancedData={!!enhancedBandConditions}
+                      compact={compact}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Scroll indicator - shows when more content below */}
+            {showScrollIndicator && (
+              <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+                <div className="h-8 bg-gradient-to-t from-nebula-blue/90 to-transparent" />
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center text-gray-400 animate-bounce">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer with path info */}
+          <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5 text-xs text-gray-400">
+            Path illumination: {Math.round(illumination)}%
+          </div>
         </div>
       </Card>
 

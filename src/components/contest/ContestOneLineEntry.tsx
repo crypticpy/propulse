@@ -519,7 +519,7 @@ export function ContestOneLineEntry({
 
         {/* Warnings */}
         {status.warnings.length > 0 && (
-          <span className="text-warning-yellow">{status.warnings[0]}</span>
+          <span className="text-caution-amber">{status.warnings[0]}</span>
         )}
 
         {/* Errors */}

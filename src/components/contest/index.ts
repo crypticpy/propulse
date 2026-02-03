@@ -43,6 +43,17 @@ export type { ContestEditLastModalProps } from "./ContestEditLastModal";
 export { MultiplierTracker } from "./MultiplierTracker";
 export type { MultiplierTrackerProps } from "./MultiplierTracker";
 
+// Phase 4B - Multiplier Matrix and Needed List
+export { MultiplierMatrix } from "./MultiplierMatrix";
+export type { MultiplierMatrixProps } from "./MultiplierMatrix";
+
+export { NeededMultsPanel } from "./NeededMultsPanel";
+export type { NeededMultsPanelProps } from "./NeededMultsPanel";
+
 // UI components
 export { DupeIndicator } from "./DupeIndicator";
 export type { DupeIndicatorProps } from "./DupeIndicator";
+
+// Phase 4C - Quality Control
+export { AuditQueuePanel } from "./AuditQueuePanel";
+export type { AuditQueuePanelProps } from "./AuditQueuePanel";

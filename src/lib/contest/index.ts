@@ -72,6 +72,66 @@ export {
   projectFinalScore,
 } from "./scoring";
 
+// Import and re-export from SCP (Super Check Partial)
+export {
+  getSCPMatches,
+  getSCPMatchesDetailed,
+  buildSCPIndex,
+  isCallInSCP,
+  getSCPIndexSize,
+} from "./scp";
+export type { SCPOptions, SCPMatch } from "./scp";
+
+// Import and re-export from similar call detection
+export {
+  findSimilarCalls,
+  hasSimilarCall,
+  getMostSimilarCall,
+  callsignSimilarity,
+  levenshteinDistance,
+  damerauLevenshteinDistance,
+} from "./similar";
+export type {
+  SimilarCall,
+  SimilarCallErrorType,
+  SimilarCallOptions,
+} from "./similar";
+
+// Import and re-export from audit engine
+export {
+  auditQSO,
+  getAuditQueue,
+  getAuditSummary,
+  hasAuditErrors,
+} from "./audit";
+export type {
+  AuditFlag,
+  AuditSeverity,
+  AuditCategory,
+  AuditCode,
+  FlaggedQSO,
+} from "./audit";
+
+// Import and re-export from strategy engine
+export {
+  getNeededMultipliers,
+  getNeededMultipliersSummary,
+  rankNextBestMultipliers,
+  getTopTargets,
+  getWorkedByType,
+  getWorkedByBand,
+  hasPerBandMultipliers,
+  getUniqueWorkedValues,
+  getWorkedBandsForMult,
+} from "./strategy";
+export type {
+  NeededMult,
+  RankedTarget,
+  RankFactor,
+  RankingContext,
+  NeededMultsSummary,
+} from "./strategy";
+
 // ============================================================================
 // Normalization Functions
 // ============================================================================

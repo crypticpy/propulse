@@ -201,6 +201,32 @@ export interface NotificationPreferences {
 }
 
 /**
+ * Watch audio alert type for different alert sounds
+ */
+export type WatchAlertType = "callsign" | "grid" | "entity";
+
+/**
+ * Watch System audio alert preferences
+ * Controls audio notifications when watched items are spotted
+ */
+export interface WatchAlertPreferences {
+  /** Master enable/disable for watch audio alerts */
+  enabled: boolean;
+  /** Master mute toggle (silences alerts without disabling) */
+  muted: boolean;
+  /** Volume level 0-100 (default: 50) */
+  volume: number;
+  /** Cooldown in seconds before re-alerting same spot (default: 300 = 5 min) */
+  cooldownSeconds: number;
+  /** Enable alert for watched callsigns */
+  callsignAlerts: boolean;
+  /** Enable alert for watched grids */
+  gridAlerts: boolean;
+  /** Enable alert for watched entities/DXCC */
+  entityAlerts: boolean;
+}
+
+/**
  * Spot clustering preferences for PropSphere globe view
  * Controls how nearby DX spots are grouped together
  */
@@ -229,6 +255,19 @@ export interface CompassRosePreferences {
   beamWidth: BeamWidthOption;
   /** Whether to show the beam width wedge overlay */
   showBeamWidth: boolean;
+}
+
+/**
+ * Spot age visualization preferences
+ * Controls how spot markers decay visually based on age
+ */
+export interface SpotAgePreferences {
+  /** Whether age-based visual decay is enabled */
+  enabled: boolean;
+  /** Maximum age in minutes before spots are considered 'old' (default: 30) */
+  maxAgeMinutes: number;
+  /** Show age column in DX Cluster list */
+  showAgeColumn: boolean;
 }
 
 // =============================================================================
@@ -347,6 +386,10 @@ export interface UserPreferences {
   spotClustering?: SpotClusteringPreferences;
   /** Compass rose preferences for PropSphere globe view */
   compassRose?: CompassRosePreferences;
+  /** Spot age visualization preferences */
+  spotAge?: SpotAgePreferences;
+  /** Watch system audio alert preferences */
+  watchAlerts?: WatchAlertPreferences;
 }
 
 // =============================================================================
@@ -427,6 +470,19 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 };
 
 /**
+ * Default watch alert preferences
+ */
+export const DEFAULT_WATCH_ALERT_PREFERENCES: WatchAlertPreferences = {
+  enabled: true,
+  muted: false,
+  volume: 50,
+  cooldownSeconds: 300, // 5 minutes
+  callsignAlerts: true,
+  gridAlerts: true,
+  entityAlerts: true,
+};
+
+/**
  * Default favored bands configuration
  */
 export const DEFAULT_FAVORED_BANDS: FavoredBands = {
@@ -450,4 +506,13 @@ export const DEFAULT_COMPASS_ROSE: CompassRosePreferences = {
   enabled: false,
   beamWidth: 45,
   showBeamWidth: true,
+};
+
+/**
+ * Default spot age preferences
+ */
+export const DEFAULT_SPOT_AGE: SpotAgePreferences = {
+  enabled: true,
+  maxAgeMinutes: 30,
+  showAgeColumn: true,
 };

@@ -18,12 +18,16 @@ import type {
   NotificationPreferences,
   SpotClusteringPreferences,
   CompassRosePreferences,
+  SpotAgePreferences,
+  WatchAlertPreferences,
 } from "../types/user";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_FAVORED_BANDS,
   DEFAULT_SPOT_CLUSTERING,
   DEFAULT_COMPASS_ROSE,
+  DEFAULT_SPOT_AGE,
+  DEFAULT_WATCH_ALERT_PREFERENCES,
 } from "../types/user";
 import type {
   UserRadio,
@@ -181,6 +185,13 @@ interface UserStore {
   updateCompassRose: (prefs: Partial<CompassRosePreferences>) => void;
   /** Toggle compass rose on/off */
   toggleCompassRose: () => void;
+
+  // === Spot Age ===
+
+  /** Update spot age visualization preferences */
+  updateSpotAge: (prefs: Partial<SpotAgePreferences>) => void;
+  /** Toggle spot age visualization on/off */
+  toggleSpotAge: () => void;
 }
 
 /**
@@ -202,6 +213,7 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   notifications: DEFAULT_NOTIFICATION_PREFERENCES,
   spotClustering: DEFAULT_SPOT_CLUSTERING,
   compassRose: DEFAULT_COMPASS_ROSE,
+  spotAge: DEFAULT_SPOT_AGE,
 };
 
 function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
@@ -942,6 +954,33 @@ export const useUserStore = create<UserStore>()(
             },
           };
         }),
+
+      // === Spot Age ===
+
+      updateSpotAge: (prefs) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            spotAge: {
+              ...(state.preferences.spotAge ?? DEFAULT_SPOT_AGE),
+              ...prefs,
+            },
+          },
+        })),
+
+      toggleSpotAge: () =>
+        set((state) => {
+          const current = state.preferences.spotAge ?? DEFAULT_SPOT_AGE;
+          return {
+            preferences: {
+              ...state.preferences,
+              spotAge: {
+                ...current,
+                enabled: !current.enabled,
+              },
+            },
+          };
+        }),
     }),
     {
       name: "propulse-user",
@@ -1162,6 +1201,12 @@ export const useUserStore = create<UserStore>()(
         if (!nextPreferences.compassRose) {
           nextPreferences.compassRose = DEFAULT_COMPASS_ROSE;
         }
+        if (!nextPreferences.spotAge) {
+          nextPreferences.spotAge = DEFAULT_SPOT_AGE;
+        }
+        if (!nextPreferences.watchAlerts) {
+          nextPreferences.watchAlerts = DEFAULT_WATCH_ALERT_PREFERENCES;
+        }
 
         return {
           station: migratedStation,
@@ -1259,5 +1304,23 @@ export function useSpotClusteringPrefs(): SpotClusteringPreferences {
 export function useCompassRosePrefs(): CompassRosePreferences {
   return useUserStore(
     (state) => state.preferences.compassRose ?? DEFAULT_COMPASS_ROSE,
+  );
+}
+
+/**
+ * Hook to get spot age visualization preferences
+ * Returns the current spot age settings with defaults applied
+ */
+export function useSpotAgePrefs(): SpotAgePreferences {
+  return useUserStore((state) => state.preferences.spotAge ?? DEFAULT_SPOT_AGE);
+}
+
+/**
+ * Hook to get watch alert preferences
+ * Returns the current watch alert settings with defaults applied
+ */
+export function useWatchAlertPrefs(): WatchAlertPreferences {
+  return useUserStore(
+    (state) => state.preferences.watchAlerts ?? DEFAULT_WATCH_ALERT_PREFERENCES,
   );
 }

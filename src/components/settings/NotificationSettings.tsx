@@ -16,6 +16,7 @@ import {
   type BandId,
   type NotificationPreferences,
 } from "@/types/user";
+import { WatchAlertSettings } from "./WatchAlertSettings";
 
 interface NotificationSettingsProps {
   className?: string;
@@ -316,6 +317,12 @@ export function NotificationSettings({
             app when conditions change.
           </p>
         </div>
+
+        {/* Divider before Watch Alerts */}
+        <div className="border-t border-white/10 my-6" />
+
+        {/* Watch Alert Settings */}
+        <WatchAlertSettings />
       </div>
     </div>
   );

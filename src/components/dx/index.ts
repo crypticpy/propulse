@@ -4,7 +4,8 @@
  * Components for DX cluster spot display and management
  */
 
-export { DXSpotList, type DXSpotListProps } from "./DXSpotList";
+export { DXSpotList } from "./DXSpotList/index";
+export type { DXSpotListProps } from "./DXSpotList/index";
 export {
   DXSpotOverlay3D,
   drawDXSpots,

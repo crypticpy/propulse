@@ -51,9 +51,10 @@ const TIME_WINDOW_MINUTES = 30;
 
 /**
  * Margin configuration for the canvas
+ * Increased top margin to accommodate header overlay
  */
 const MARGINS = {
-  top: 20,
+  top: 35,
   right: 20,
   bottom: 30,
   left: 50,
@@ -64,7 +65,7 @@ export interface BandMapProps {
   spots: DXSpot[];
   /** Currently selected band (e.g., "20m") */
   selectedBand: string | null;
-  /** Height of the canvas in pixels */
+  /** Height of the canvas in pixels (if not provided, fills container) */
   height?: number;
   /** Additional CSS classes */
   className?: string;
@@ -97,12 +98,13 @@ function getSpotSize(spotTime: Date, now: number): number {
 export function BandMap({
   spots,
   selectedBand,
-  height = 300,
+  height: propHeight,
   className = "",
 }: BandMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(600);
+  const [canvasHeight, setCanvasHeight] = useState(propHeight ?? 300);
   const [hoveredSpot, setHoveredSpot] = useState<DXSpot | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
@@ -128,7 +130,7 @@ export function BandMap({
     return BAND_FREQUENCY_RANGES[selectedBand] || null;
   }, [selectedBand]);
 
-  // Handle canvas resize
+  // Handle canvas resize - track both width and height
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -136,14 +138,24 @@ export function BandMap({
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setCanvasWidth(entry.contentRect.width);
+        // Only update height if no fixed height prop provided
+        // Subtract legend height (approx 36px) to leave room for it
+        if (propHeight === undefined) {
+          const availableHeight = entry.contentRect.height - 36;
+          setCanvasHeight(Math.max(200, availableHeight));
+        }
       }
     });
 
     resizeObserver.observe(container);
     setCanvasWidth(container.clientWidth);
+    if (propHeight === undefined) {
+      const availableHeight = container.clientHeight - 36;
+      setCanvasHeight(Math.max(200, availableHeight));
+    }
 
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [propHeight]);
 
   // Map frequency to X position
   const frequencyToX = useCallback(
@@ -162,13 +174,13 @@ export function BandMap({
   const timeToY = useCallback(
     (time: Date): number => {
       const now = Date.now();
-      const plotHeight = height - MARGINS.top - MARGINS.bottom;
+      const plotHeight = canvasHeight - MARGINS.top - MARGINS.bottom;
       const ageMs = now - time.getTime();
       const ageMinutes = ageMs / 60000;
       const normalized = ageMinutes / TIME_WINDOW_MINUTES;
       return MARGINS.top + normalized * plotHeight;
     },
-    [height],
+    [canvasHeight],
   );
 
   // Draw the canvas
@@ -181,18 +193,18 @@ export function BandMap({
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = canvasWidth * dpr;
-    canvas.height = height * dpr;
+    canvas.height = canvasHeight * dpr;
     ctx.scale(dpr, dpr);
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvasWidth, height);
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     // Fill background
     ctx.fillStyle = "rgba(10, 15, 30, 0.9)";
-    ctx.fillRect(0, 0, canvasWidth, height);
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const plotWidth = canvasWidth - MARGINS.left - MARGINS.right;
-    const plotHeight = height - MARGINS.top - MARGINS.bottom;
+    const plotHeight = canvasHeight - MARGINS.top - MARGINS.bottom;
 
     if (!frequencyRange || !selectedBand) {
       // Draw "no band selected" message
@@ -202,7 +214,7 @@ export function BandMap({
       ctx.fillText(
         "Select a band to view the band map",
         canvasWidth / 2,
-        height / 2,
+        canvasHeight / 2,
       );
       return;
     }
@@ -224,12 +236,12 @@ export function BandMap({
       const x = frequencyToX(freq);
       ctx.beginPath();
       ctx.moveTo(x, MARGINS.top);
-      ctx.lineTo(x, height - MARGINS.bottom);
+      ctx.lineTo(x, canvasHeight - MARGINS.bottom);
       ctx.stroke();
 
       // Frequency label
       const label = freq >= 1000 ? `${(freq / 1000).toFixed(3)}` : `${freq}`;
-      ctx.fillText(label, x, height - 10);
+      ctx.fillText(label, x, canvasHeight - 10);
     }
 
     // Horizontal grid lines (time markers)
@@ -255,7 +267,7 @@ export function BandMap({
     ctx.fillStyle = "#9ca3af";
     ctx.font = "11px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("Frequency (MHz)", canvasWidth / 2, height - 2);
+    ctx.fillText("Frequency (MHz)", canvasWidth / 2, canvasHeight - 2);
 
     // Draw plot border
     ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
@@ -311,11 +323,10 @@ export function BandMap({
       ctx.stroke();
     }
 
-    // Draw mode legend
-    drawModeLegend(ctx, canvasWidth, MARGINS);
+    // Note: Legend is now rendered as HTML overlay below canvas
   }, [
     canvasWidth,
-    height,
+    canvasHeight,
     filteredSpots,
     frequencyRange,
     selectedBand,
@@ -414,8 +425,8 @@ export function BandMap({
       <canvas
         ref={canvasRef}
         width={canvasWidth}
-        height={height}
-        style={{ width: "100%", height: `${height}px` }}
+        height={canvasHeight}
+        style={{ width: "100%", height: `${canvasHeight}px` }}
         onMouseMove={handleMouseMove}
         onClick={handleClick}
         onMouseLeave={handleMouseLeave}
@@ -452,9 +463,9 @@ export function BandMap({
         </div>
       )}
 
-      {/* Header with band info */}
+      {/* Header with band info - positioned to not overlap Y-axis */}
       {selectedBand && frequencyRange && (
-        <div className="absolute top-2 left-2 px-2 py-1 bg-black/50 rounded text-xs text-gray-300 font-mono">
+        <div className="absolute top-2 left-14 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-gray-300 font-mono">
           {selectedBand}: {(frequencyRange.min / 1000).toFixed(3)} -{" "}
           {(frequencyRange.max / 1000).toFixed(3)} MHz
           <span className="ml-2 text-gray-500">
@@ -462,6 +473,19 @@ export function BandMap({
           </span>
         </div>
       )}
+
+      {/* Mode legend - below canvas to prevent overlap with spots */}
+      <div className="flex items-center justify-center gap-4 py-2 px-3 border-t border-white/5 bg-black/30">
+        {["CW", "SSB", "FT8", "FT4", "RTTY"].map((mode) => (
+          <div key={mode} className="flex items-center gap-1.5">
+            <span
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: MODE_COLORS[mode] }}
+            />
+            <span className="text-[10px] text-gray-400 font-mono">{mode}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -475,39 +499,6 @@ function getFrequencyStep(range: number): number {
   if (range <= 1000) return 100;
   if (range <= 5000) return 500;
   return 1000;
-}
-
-/**
- * Draw the mode legend on the canvas
- */
-function drawModeLegend(
-  ctx: CanvasRenderingContext2D,
-  canvasWidth: number,
-  margins: typeof MARGINS,
-): void {
-  const modes = ["CW", "SSB", "FT8", "FT4", "RTTY"];
-  const legendX = canvasWidth - margins.right - 10;
-  const legendY = margins.top + 5;
-  const itemHeight = 14;
-
-  ctx.font = "9px sans-serif";
-  ctx.textAlign = "right";
-
-  for (let i = 0; i < modes.length; i++) {
-    const mode = modes[i];
-    const y = legendY + i * itemHeight;
-    const color = MODE_COLORS[mode];
-
-    // Draw color dot
-    ctx.beginPath();
-    ctx.arc(legendX - 20, y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Draw label
-    ctx.fillStyle = "#9ca3af";
-    ctx.fillText(mode, legendX, y + 3);
-  }
 }
 
 BandMap.displayName = "BandMap";

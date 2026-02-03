@@ -27,6 +27,8 @@ import {
   type LiveSpot,
 } from "@/types/livespot";
 import { SpotBadge } from "./SpotBadge";
+import { useUserStore } from "@/stores/userStore";
+import { calculateGreatCircleDistance } from "@/lib/utils/bands";
 
 /**
  * Format time for display (HH:MM UTC)
@@ -60,24 +62,50 @@ interface SpotRowProps {
   isHovered: boolean;
   workedStatus: WorkedStatus;
   isAlertMatch: boolean;
+  distanceKm: number | null;
   onSelect: (spot: DXSpot) => void;
   onHover: (spot: DXSpot | null) => void;
+  onGridClick?: (grid: string) => void;
 }
 
 /**
  * Individual spot row component with worked status and alert indicators
  */
+/**
+ * Format distance for display (e.g., "1,234 km" or "12,345 km")
+ */
+function formatDistance(km: number | null): string {
+  if (km === null) return "—";
+  if (km < 1000) return `${Math.round(km)} km`;
+  return `${Math.round(km / 100) / 10}k km`;
+}
+
 function SpotRow({
   spot,
   isSelected,
   isHovered,
   workedStatus,
   isAlertMatch,
+  distanceKm,
   onSelect,
   onHover,
+  onGridClick,
 }: SpotRowProps) {
   const bandColor = getBandColor(spot.band || "");
   const minutesAgo = getMinutesAgo(spot.time);
+
+  // Handle grid click (filter by this grid)
+  const handleGridClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation(); // Don't trigger row selection
+      if (spot.dxGrid && onGridClick) {
+        // Use 4-char prefix for broader match
+        const gridPrefix = spot.dxGrid.slice(0, 4);
+        onGridClick(gridPrefix);
+      }
+    },
+    [spot.dxGrid, onGridClick],
+  );
 
   const handleClick = useCallback(() => {
     onSelect(spot);
@@ -94,7 +122,7 @@ function SpotRow({
   // Build row classes with alert highlight
   const rowClasses = useMemo(() => {
     const base =
-      "grid grid-cols-[60px_80px_1fr_80px_1fr] gap-2 px-3 py-2 cursor-pointer transition-all duration-150";
+      "grid grid-cols-[50px_60px_1fr_55px_70px_1fr] gap-2 px-3 py-2 cursor-pointer transition-all duration-150";
 
     if (isSelected) {
       return `${base} bg-plasma-orange/20 border-l-2 border-plasma-orange`;
@@ -162,14 +190,21 @@ function SpotRow({
         </span>
       </div>
 
-      {/* DX Callsign with badges */}
+      {/* DX Callsign with grid and badges */}
       <div className="flex items-center gap-1.5 min-w-0">
-        <span
-          className="text-white font-mono font-medium truncate"
-          title={spot.dxGrid}
-        >
+        <span className="text-white font-mono font-medium truncate">
           {spot.dx}
         </span>
+        {/* Grid locator - clickable to filter */}
+        {spot.dxGrid && (
+          <button
+            onClick={handleGridClick}
+            className="text-[10px] text-cyan-400/70 hover:text-cyan-400 font-mono px-1 py-0.5 rounded hover:bg-cyan-500/10 transition-colors flex-shrink-0"
+            title={`Filter by grid ${spot.dxGrid.slice(0, 4)}`}
+          >
+            {spot.dxGrid.slice(0, 4)}
+          </button>
+        )}
         {/* Status badges */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {isAlertMatch && (
@@ -177,6 +212,14 @@ function SpotRow({
           )}
           {workedBadge}
         </div>
+      </div>
+
+      {/* Distance */}
+      <div
+        className="text-gray-400 text-xs font-mono text-right tabular-nums"
+        title={distanceKm !== null ? `${Math.round(distanceKm)} km` : "Unknown"}
+      >
+        {formatDistance(distanceKm)}
       </div>
 
       {/* Spotter */}
@@ -205,6 +248,10 @@ function SpotRow({
 interface FilterControlsProps {
   searchText: string;
   onSearchChange: (text: string) => void;
+  gridFilter: string;
+  onGridFilterChange: (grid: string) => void;
+  maxAge: number;
+  onMaxAgeChange: (age: number) => void;
   selectedBands: string[];
   onBandToggle: (band: string) => void;
   selectedModes: string[];
@@ -215,12 +262,25 @@ interface FilterControlsProps {
   availableModes: string[];
 }
 
+/** Time range options in minutes */
+const TIME_RANGE_OPTIONS = [
+  { value: 5, label: "5m" },
+  { value: 15, label: "15m" },
+  { value: 30, label: "30m" },
+  { value: 60, label: "1h" },
+  { value: 120, label: "2h" },
+];
+
 /**
  * Filter controls component
  */
 function FilterControls({
   searchText,
   onSearchChange,
+  gridFilter,
+  onGridFilterChange,
+  maxAge,
+  onMaxAgeChange,
   selectedBands,
   onBandToggle,
   selectedModes,
@@ -232,35 +292,93 @@ function FilterControls({
 }: FilterControlsProps) {
   return (
     <div className="space-y-3 mb-4">
-      {/* Search */}
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Search callsigns..."
-          value={searchText}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
-        />
-        {searchText && (
-          <button
-            onClick={() => onSearchChange("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      {/* Search row - callsign search and grid filter */}
+      <div className="flex gap-2">
+        {/* Callsign search */}
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search callsigns..."
+            value={searchText}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+          />
+          {searchText && (
+            <button
+              onClick={() => onSearchChange("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        )}
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Grid locator filter */}
+        <div className="relative w-28">
+          <input
+            type="text"
+            placeholder="Grid..."
+            value={gridFilter}
+            onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
+            maxLength={6}
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            title="Filter by Maidenhead grid locator (e.g., CN87, FN31)"
+          />
+          {gridFilter && (
+            <button
+              onClick={() => onGridFilterChange("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Time range selector */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+          Time:
+        </span>
+        <div className="flex gap-1">
+          {TIME_RANGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => onMaxAgeChange(option.value)}
+              className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                maxAge === option.value
+                  ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/50"
+                  : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Source filters */}
@@ -374,6 +492,9 @@ export function DXSpotList({
   } = useDXStore();
   const stats = useDXSpotStats();
 
+  // Get user's station location for distance calculation
+  const { station } = useUserStore();
+
   // Get logbook data for worked status
   const { isWorked, getWorkedBands } = useLogbook();
 
@@ -428,6 +549,35 @@ export function DXSpotList({
 
     return map;
   }, [spots, isWorked, getWorkedBands]);
+
+  // Pre-compute distance for all spots (from user's QTH to DX station)
+  const distanceMap = useMemo(() => {
+    const map = new Map<string, number | null>();
+
+    if (!station?.lat || !station?.lon) {
+      // No station location - all distances unknown
+      for (const spot of spots) {
+        map.set(spot.id, null);
+      }
+      return map;
+    }
+
+    for (const spot of spots) {
+      if (spot.dxLat != null && spot.dxLon != null) {
+        const distance = calculateGreatCircleDistance(
+          station.lat,
+          station.lon,
+          spot.dxLat,
+          spot.dxLon,
+        );
+        map.set(spot.id, distance);
+      } else {
+        map.set(spot.id, null);
+      }
+    }
+
+    return map;
+  }, [spots, station]);
 
   // Pre-compute alert matches for all spots
   const alertMatchSet = useMemo(() => {
@@ -497,6 +647,20 @@ export function DXSpotList({
       updateFilter("sources", newSources);
     },
     [filters.sources, updateFilter],
+  );
+
+  const handleGridFilterChange = useCallback(
+    (grid: string) => {
+      updateFilter("gridFilter", grid);
+    },
+    [updateFilter],
+  );
+
+  const handleMaxAgeChange = useCallback(
+    (age: number) => {
+      updateFilter("maxAge", age);
+    },
+    [updateFilter],
   );
 
   const handleSelectSpot = useCallback(
@@ -576,6 +740,10 @@ export function DXSpotList({
         <FilterControls
           searchText={filters.searchText || ""}
           onSearchChange={handleSearchChange}
+          gridFilter={filters.gridFilter || ""}
+          onGridFilterChange={handleGridFilterChange}
+          maxAge={filters.maxAge || 30}
+          onMaxAgeChange={handleMaxAgeChange}
           selectedBands={filters.bands || []}
           onBandToggle={handleBandToggle}
           selectedModes={filters.modes || []}
@@ -589,12 +757,13 @@ export function DXSpotList({
 
       {/* Column Headers */}
       <div
-        className="grid grid-cols-[60px_80px_1fr_80px_1fr] gap-2 px-3 py-2 border-b border-white/10 text-xs font-semibold text-gray-400 uppercase tracking-wider"
+        className="grid grid-cols-[50px_60px_1fr_55px_70px_1fr] gap-2 px-3 py-2 border-b border-white/10 text-xs font-semibold text-gray-400 uppercase tracking-wider"
         role="row"
       >
         <div>Time</div>
         <div>Band</div>
         <div>DX</div>
+        <div className="text-right">Dist</div>
         <div>Spotter</div>
         <div>Info</div>
       </div>
@@ -629,8 +798,10 @@ export function DXSpotList({
                 }
               }
               isAlertMatch={alertMatchSet.has(spot.id)}
+              distanceKm={distanceMap.get(spot.id) ?? null}
               onSelect={handleSelectSpot}
               onHover={setHoveredSpot}
+              onGridClick={handleGridFilterChange}
             />
           ))
         )}

@@ -56,6 +56,8 @@ export interface DXClusterFilters {
   maxAge?: number;
   /** Search text to filter callsigns and comments */
   searchText?: string;
+  /** Grid locator filter (matches spotter OR DX grid, prefix match) */
+  gridFilter?: string;
 }
 
 /**

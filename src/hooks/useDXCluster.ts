@@ -56,6 +56,19 @@ function filterSpots(spots: DXSpot[], filters: DXClusterFilters): DXSpot[] {
     );
   }
 
+  // Filter by grid locator (matches either spotter or DX grid, prefix match)
+  if (filters.gridFilter && filters.gridFilter.trim().length >= 2) {
+    const gridSearch = filters.gridFilter.toUpperCase().trim();
+    filtered = filtered.filter((spot) => {
+      const spotterGrid = spot.spotterGrid?.toUpperCase() || "";
+      const dxGrid = spot.dxGrid?.toUpperCase() || "";
+      // Prefix match - "CN87" matches "CN87ML", "CN87" matches "CN87"
+      return (
+        spotterGrid.startsWith(gridSearch) || dxGrid.startsWith(gridSearch)
+      );
+    });
+  }
+
   return filtered;
 }
 

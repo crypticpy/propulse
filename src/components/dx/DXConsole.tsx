@@ -8,6 +8,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { DXSpotList } from "./DXSpotList";
 import { BandMap } from "./BandMap";
+import { InsightsBar } from "./InsightsBar";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useDXStore, selectAvailableBands } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -230,17 +231,19 @@ export function DXConsole({
           />
         </div>
 
-        {/* Right: Band Map (60%) */}
+        {/* Right: Band Map (60%) - fills available height */}
         <div className="w-3/5 flex flex-col min-h-0">
           <BandMap
             spots={spots}
             selectedBand={selectedBand}
-            height={300}
-            className="flex-1"
+            className="flex-1 min-h-[250px]"
           />
-          {/* TODO: Future slot for InsightsBar component */}
-          {/* <InsightsBar /> */}
         </div>
+      </div>
+
+      {/* Insights Bar - Full width at bottom */}
+      <div className="flex-shrink-0 px-4 pb-4">
+        <InsightsBar displayTime={new Date()} />
       </div>
     </div>
   );

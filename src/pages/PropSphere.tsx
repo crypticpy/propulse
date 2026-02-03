@@ -24,7 +24,7 @@ import {
   SolarSnapshot,
   LiteModeToggle,
 } from "@/components/map";
-import { DXSpotList } from "@/components/dx/DXSpotList";
+import { DXSpotList, DXConsole } from "@/components/dx";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
@@ -69,6 +69,8 @@ export function PropSphere() {
     isFullscreen,
     setFullscreen,
     isLiteMode,
+    isDXConsoleExpanded,
+    setDXConsoleExpanded,
   } = useMapStore();
   const station = useUserStore((state) => state.station);
 
@@ -167,13 +169,20 @@ export function PropSphere() {
       {/* Main Content - Framed Layout */}
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
         {/* Top Row: Lite Mode is EMPTY (controls move to map overlay), Default mode shows full cards */}
+        {/* When DX Console is expanded, top row slides up and out of view */}
         {isLiteMode ? (
           // Lite Mode: No top row - everything is overlaid on the map
           // This div is intentionally minimal to maximize map space
           <div className="hidden lg:block h-0" />
         ) : (
-          // Default Mode Top Row - full cards
-          <div className="grid grid-cols-2 lg:grid-cols-[200px_220px_1fr] xl:grid-cols-[200px_220px_minmax(300px,1fr)_280px] gap-2 md:gap-3">
+          // Default Mode Top Row - full cards (animates out when DX Console expanded)
+          <div
+            className={`grid grid-cols-2 lg:grid-cols-[200px_220px_1fr] xl:grid-cols-[200px_220px_minmax(300px,1fr)_280px] gap-2 md:gap-3 transition-all duration-300 ease-in-out ${
+              isDXConsoleExpanded
+                ? "max-h-0 opacity-0 overflow-hidden mb-0"
+                : "max-h-[500px] opacity-100"
+            }`}
+          >
             {/* Pro View Entry + Time Machine */}
             <div className="col-span-1 flex flex-col gap-2">
               {/* View Mode Toggle Row */}
@@ -600,11 +609,25 @@ export function PropSphere() {
           )}
         </div>
 
-        {/* Bottom Row - DX Cluster (collapses in lite mode) */}
+        {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
         {!isLiteMode && (
           <>
-            {/* Bottom Row: DX Spots (full width on xl, with Recommendations on lg) */}
-            <div className="hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px]">
+            {/* DX Operations Console (when expanded) - takes full bottom area */}
+            {isDXConsoleExpanded && (
+              <div className="hidden lg:block flex-1 min-h-[400px]">
+                <DXConsole
+                  displayTime={displayTime}
+                  onCollapse={() => setDXConsoleExpanded(false)}
+                  className="h-full"
+                />
+              </div>
+            )}
+
+            {/* Normal Bottom Row: DX Spots (hidden when Console is expanded) */}
+            {/* On lg (not xl): Shows Recommendations + DX Spots side by side */}
+            <div
+              className={`hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px] ${isDXConsoleExpanded ? "!hidden" : ""}`}
+            >
               {/* Recommendations (lg only - on xl it's in top row) */}
               {station && target ? (
                 <RecommendationsPanel
@@ -631,8 +654,11 @@ export function PropSphere() {
             </div>
 
             {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
-            <div className="hidden xl:block flex-shrink-0">
-              <Card className="overflow-hidden">
+            {/* Hidden when DX Console is expanded */}
+            <div
+              className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
+            >
+              <Card className="p-0 overflow-hidden">
                 {/* Drawer Toggle Handle */}
                 <button
                   onClick={() => setDxClusterExpanded(!dxClusterExpanded)}
@@ -646,21 +672,48 @@ export function PropSphere() {
                       Live spots from PSKReporter, RBN, and DX clusters
                     </span>
                   </div>
-                  <svg
-                    className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                      dxClusterExpanded ? "" : "rotate-180"
-                    }`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <div className="flex items-center gap-2">
+                    {/* Expand to Console button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDXConsoleExpanded(true);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
+                      title="Expand to DX Operations Console"
+                      aria-label="Expand to DX Operations Console"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                        />
+                      </svg>
+                    </button>
+                    {/* Collapse/Expand chevron */}
+                    <svg
+                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                        dxClusterExpanded ? "" : "rotate-180"
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
                 </button>
                 {/* Collapsible Content */}
                 <div

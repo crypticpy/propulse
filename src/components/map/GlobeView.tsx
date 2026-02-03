@@ -10,10 +10,13 @@ import {
   Suspense,
   useCallback,
   useMemo,
+  useRef,
+  useEffect,
   type ReactNode,
 } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
+import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics } from "@/lib/utils/path";
 import { EarthSphere } from "./EarthSphere";
@@ -31,10 +34,13 @@ import {
   type DifficultyLevel,
 } from "./LocationMarker";
 import { LiveSpotArcs } from "./LiveSpotArcs";
+import { SpotHighlight } from "./SpotHighlight";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
+import { useSpotFocus } from "@/hooks/useSpotFocus";
+import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -121,6 +127,68 @@ function SceneLighting({ displayTime }: { displayTime: Date }) {
         color="#4466aa"
       />
     </>
+  );
+}
+
+/**
+ * Camera controller with spot focus animation
+ * Handles OrbitControls and animates camera when a spot is selected
+ */
+function CameraController() {
+  const controlsRef = useRef<OrbitControlsType>(null);
+  const { camera } = useThree();
+  const { targetPosition, isFocusing } = useSpotFocus();
+
+  // Animate camera to focus on selected spot
+  useEffect(() => {
+    if (!targetPosition || !controlsRef.current || !isFocusing) return;
+
+    const controls = controlsRef.current;
+    const startPosition = camera.position.clone();
+    const endPosition = new THREE.Vector3(
+      targetPosition.x,
+      targetPosition.y,
+      targetPosition.z,
+    );
+
+    // Animation duration in ms
+    const duration = 1000;
+    const startTime = Date.now();
+
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease out cubic for smooth deceleration
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      // Lerp camera position
+      camera.position.lerpVectors(startPosition, endPosition, eased);
+
+      // Always look at center of globe
+      camera.lookAt(0, 0, 0);
+      controls.update();
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    }
+
+    animate();
+  }, [targetPosition, isFocusing, camera]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan={false}
+      enableZoom={true}
+      zoomSpeed={0.5}
+      minDistance={1.5}
+      maxDistance={4}
+      rotateSpeed={0.5}
+      dampingFactor={0.1}
+      enableDamping
+    />
   );
 }
 
@@ -246,17 +314,11 @@ function GlobeScene({
         </>
       )}
 
-      {/* Camera controls */}
-      <OrbitControls
-        enablePan={false}
-        enableZoom={true}
-        zoomSpeed={0.5}
-        minDistance={1.5}
-        maxDistance={4}
-        rotateSpeed={0.5}
-        dampingFactor={0.1}
-        enableDamping
-      />
+      {/* Spot highlight effect */}
+      <SpotHighlight />
+
+      {/* Camera controls with spot focus */}
+      <CameraController />
     </>
   );
 }

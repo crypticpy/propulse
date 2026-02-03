@@ -113,6 +113,11 @@ interface MapState {
   setLiteMode: (value: boolean) => void;
   toggleLiteMode: () => void;
 
+  // DX Console expanded state
+  isDXConsoleExpanded: boolean;
+  setDXConsoleExpanded: (value: boolean) => void;
+  toggleDXConsoleExpanded: () => void;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -138,6 +143,7 @@ const initialState = {
   activePreset: null as PresetName | null,
   isFullscreen: false,
   isLiteMode: false,
+  isDXConsoleExpanded: false,
 };
 
 export const useMapStore = create<MapState>((set) => ({
@@ -199,9 +205,24 @@ export const useMapStore = create<MapState>((set) => ({
   toggleFullscreen: () =>
     set((state) => ({ isFullscreen: !state.isFullscreen })),
 
-  setLiteMode: (isLiteMode) => set({ isLiteMode }),
+  setLiteMode: (isLiteMode) =>
+    set({
+      isLiteMode,
+      // Auto-collapse DX Console when entering lite mode
+      ...(isLiteMode && { isDXConsoleExpanded: false }),
+    }),
 
-  toggleLiteMode: () => set((state) => ({ isLiteMode: !state.isLiteMode })),
+  toggleLiteMode: () =>
+    set((state) => ({
+      isLiteMode: !state.isLiteMode,
+      // Auto-collapse DX Console when entering lite mode
+      ...(!state.isLiteMode && { isDXConsoleExpanded: false }),
+    })),
+
+  setDXConsoleExpanded: (isDXConsoleExpanded) => set({ isDXConsoleExpanded }),
+
+  toggleDXConsoleExpanded: () =>
+    set((state) => ({ isDXConsoleExpanded: !state.isDXConsoleExpanded })),
 
   reset: () => set(initialState),
 }));

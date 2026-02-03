@@ -19,6 +19,7 @@ export { MUFLegend, MUFLegendCompact } from "./MUFLegend";
 export { PathArc } from "./PathArc";
 export { LocationMarker } from "./LocationMarker";
 export { LiveSpotArcs } from "./LiveSpotArcs";
+export { SpotHighlight } from "./SpotHighlight";
 
 // 2D Flat Map components
 export { FlatMapView } from "./FlatMapView";

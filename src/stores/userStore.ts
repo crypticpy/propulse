@@ -1504,12 +1504,17 @@ export function useUIInteractionPrefs(): UIInteractionPreferences {
   );
 }
 
+// Stable empty array to prevent infinite re-render loops
+const EMPTY_BAND_PRESETS: BandPreset[] = [];
+
 /**
  * Hook to get band presets for quick filtering
  * Returns the array of saved band presets (max 5)
  */
 export function useBandPresets(): BandPreset[] {
-  return useUserStore((state) => state.preferences.bandPresets ?? []);
+  return useUserStore(
+    (state) => state.preferences.bandPresets ?? EMPTY_BAND_PRESETS,
+  );
 }
 
 /**

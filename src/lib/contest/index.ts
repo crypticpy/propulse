@@ -151,6 +151,50 @@ export type {
   AlertState,
 } from "./alerts";
 
+// Import and re-export from Cabrillo export engine
+export {
+  generateCabrillo,
+  validateCabrilloHeader,
+  generateCabrilloFilename,
+} from "./cabrillo";
+export type { CabrilloResult, CabrilloValidationWarning } from "./cabrillo";
+
+// Import and re-export from call history (SCP booster)
+export {
+  parseCSVCallHistory,
+  parseN1MMCallHistory,
+  parseCallHistory,
+  detectFormat,
+  saveCallHistory,
+  loadCallHistory,
+  clearCallHistory,
+  getCallHistoryEntry,
+  getCallHistoryStats,
+  mergeWithSCP,
+  getSCPMatchWithExchange,
+} from "./callHistory";
+export type {
+  CallHistoryEntry,
+  CallHistoryStore,
+  ParseResult,
+  MergeOptions,
+} from "./callHistory";
+
+// Import and re-export from ADIF import/export engine
+export {
+  exportSessionToADIF,
+  importADIFToSession,
+  isValidADIF,
+  getADIFStats,
+  downloadADIF,
+} from "./adif";
+export type {
+  ADIFImportResult,
+  ADIFImportWarning,
+  ADIFImportError,
+  ADIFExportOptions,
+} from "./adif";
+
 // ============================================================================
 // Normalization Functions
 // ============================================================================

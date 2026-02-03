@@ -132,6 +132,25 @@ export type {
   NeededMultsSummary,
 } from "./strategy";
 
+// Import and re-export from alerts engine
+export {
+  createAlertState,
+  updateSpotSnapshot,
+  getActiveAlerts,
+  dismissAlert,
+  filterActiveAlerts,
+  getAlertTypeName,
+  getAlertPriorityColor,
+  getAlertPriorityBg,
+} from "./alerts";
+export type {
+  ContestAlertType,
+  AlertPriority,
+  ContestAlert,
+  AlertOptions,
+  AlertState,
+} from "./alerts";
+
 // ============================================================================
 // Normalization Functions
 // ============================================================================

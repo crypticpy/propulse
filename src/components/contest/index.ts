@@ -57,3 +57,19 @@ export type { DupeIndicatorProps } from "./DupeIndicator";
 // Phase 4C - Quality Control
 export { AuditQueuePanel } from "./AuditQueuePanel";
 export type { AuditQueuePanelProps } from "./AuditQueuePanel";
+
+// Phase 5A - Contest-Aware Spots Panel
+export { ContestSpotsPanel } from "./ContestSpotsPanel";
+export type {
+  ContestSpotsPanelProps,
+  ContestSpot,
+  SpotStatus,
+} from "./ContestSpotsPanel";
+
+// Phase 5B - Contest BandMap Integration
+export { ContestBandMap } from "./ContestBandMap";
+export type { ContestBandMapProps } from "./ContestBandMap";
+
+// Phase 5C - Band Readiness Strip
+export { BandReadinessStrip } from "./BandReadinessStrip";
+export type { BandReadinessStripProps, BandStatus } from "./BandReadinessStrip";

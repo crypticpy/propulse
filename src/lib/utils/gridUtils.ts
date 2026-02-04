@@ -30,8 +30,6 @@ export interface EntityInfo {
 export interface DistanceBearing {
   /** Distance in kilometers */
   distanceKm: number;
-  /** Distance in miles */
-  distanceMi: number;
   /** Forward bearing in degrees (0-360) */
   bearing: number;
   /** Reverse bearing in degrees (0-360) */
@@ -708,7 +706,6 @@ export function getDistanceBearing(
 
     return {
       distanceKm,
-      distanceMi: Math.round(distanceKm * 0.621371),
       bearing,
       reverseBearing,
     };

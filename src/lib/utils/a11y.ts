@@ -114,16 +114,15 @@ export function createFocusTrap(containerElement: HTMLElement): () => void {
     }
 
     if (e.shiftKey) {
-          // Shift + Tab
-          if (document.activeElement === firstFocusable) {
-            e.preventDefault();
-            lastFocusable?.focus();
-          }
-        }
-    else if (document.activeElement === lastFocusable) {
-            e.preventDefault();
-            firstFocusable?.focus();
-          }
+      // Shift + Tab
+      if (document.activeElement === firstFocusable) {
+        e.preventDefault();
+        lastFocusable?.focus();
+      }
+    } else if (document.activeElement === lastFocusable) {
+      e.preventDefault();
+      firstFocusable?.focus();
+    }
   };
 
   containerElement.addEventListener("keydown", handleKeyDown);
@@ -253,17 +252,7 @@ export function formatBearingForA11y(bearing: number): string {
 /**
  * Format a distance for screen readers.
  */
-export function formatDistanceForA11y(
-  distanceKm: number,
-  useImperial: boolean,
-): string {
-  if (useImperial) {
-    const miles = distanceKm * 0.621371;
-    if (miles < 100) {
-      return `${Math.round(miles)} miles`;
-    }
-    return `${Math.round(miles / 100) * 100} miles`;
-  }
+export function formatDistanceForA11y(distanceKm: number): string {
   if (distanceKm < 100) {
     return `${Math.round(distanceKm)} kilometers`;
   }

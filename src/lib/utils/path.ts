@@ -178,14 +178,14 @@ export function getPathMetrics(
   if (shortDistance < 2000) {
     difficulty = 1;
   } else if (shortDistance < 5000) {
-           difficulty = 2;
-         } else if (shortDistance < 10000) {
-                  difficulty = 3;
-                } else if (shortDistance < 15000) {
-                         difficulty = 4;
-                       } else {
-                         difficulty = 5;
-                       } // Extreme DX (antipodal)
+    difficulty = 2;
+  } else if (shortDistance < 10000) {
+    difficulty = 3;
+  } else if (shortDistance < 15000) {
+    difficulty = 4;
+  } else {
+    difficulty = 5;
+  } // Extreme DX (antipodal)
 
   return {
     shortPath: {
@@ -231,19 +231,9 @@ export function formatBearing(bearing: number): string {
 }
 
 /**
- * Format distance with appropriate units
+ * Format distance in kilometers
  */
-export function formatDistance(
-  km: number,
-  useImperial: boolean = false,
-): string {
-  if (useImperial) {
-    const miles = km * 0.621371;
-    if (miles < 1000) {
-      return `${Math.round(miles).toLocaleString()} mi`;
-    }
-    return `${(miles / 1000).toFixed(1)}k mi`;
-  }
+export function formatDistance(km: number): string {
   if (km < 1000) {
     return `${Math.round(km).toLocaleString()} km`;
   }

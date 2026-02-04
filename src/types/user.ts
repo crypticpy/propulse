@@ -285,6 +285,23 @@ export interface SpotAgePreferences {
 }
 
 /**
+ * Forecast display preferences for the PropagationForecastMini component
+ * Controls which bands are shown, display density, and info modules
+ */
+export interface ForecastDisplayPreferences {
+  /** Which bands to show: "common" = 5 key bands, "all" = full 8 HF bands, "custom" = user-selected */
+  bandMode: "common" | "all" | "custom";
+  /** Custom band selection when bandMode is "custom" */
+  customBands: BandId[];
+  /** Show SNR values overlaid on heatmap cells */
+  showSnrValues: boolean;
+  /** Show the detailed footer (recommendations, greyline, tips) or compact single-line */
+  detailedFooter: boolean;
+  /** Number of hours to display (13 or 24) */
+  hoursToShow: 13 | 24;
+}
+
+/**
  * UI Interaction preferences for globe and map controls
  * Controls gesture detection and menu behavior
  */
@@ -378,8 +395,8 @@ export type TextScale = "sm" | "md" | "lg";
 export interface UserPreferences {
   /** Current station configuration, null if not set up */
   station: UserStation | null;
-  /** Measurement units for distance, temperature, etc. */
-  units: "imperial" | "metric";
+  /** Measurement units for distance (metric only, standardized on km) */
+  units: "metric";
   /** Time display format */
   timeFormat: "12h" | "24h";
   /** Application color theme */
@@ -433,6 +450,8 @@ export interface UserPreferences {
   bandPresets?: BandPreset[];
   /** Color blind mode for accessibility */
   colorBlindMode?: ColorBlindMode;
+  /** Forecast display preferences for the 24h propagation forecast mini */
+  forecastDisplay?: ForecastDisplayPreferences;
 }
 
 // =============================================================================
@@ -558,6 +577,17 @@ export const DEFAULT_SPOT_AGE: SpotAgePreferences = {
   enabled: true,
   maxAgeMinutes: 30,
   showAgeColumn: true,
+};
+
+/**
+ * Default forecast display preferences
+ */
+export const DEFAULT_FORECAST_DISPLAY: ForecastDisplayPreferences = {
+  bandMode: "common",
+  customBands: ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"],
+  showSnrValues: false,
+  detailedFooter: true,
+  hoursToShow: 13,
 };
 
 /**

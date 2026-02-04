@@ -22,6 +22,7 @@ import type {
   WatchAlertPreferences,
   UIInteractionPreferences,
   BandPreset,
+  ForecastDisplayPreferences,
 } from "../types/user";
 import type { ColorBlindMode } from "../lib/themes/colorblind";
 import {
@@ -32,6 +33,7 @@ import {
   DEFAULT_SPOT_AGE,
   DEFAULT_WATCH_ALERT_PREFERENCES,
   DEFAULT_UI_INTERACTION,
+  DEFAULT_FORECAST_DISPLAY,
 } from "../types/user";
 import type {
   UserRadio,
@@ -215,6 +217,11 @@ interface UserStore {
     updates: Partial<Omit<BandPreset, "id">>,
   ) => { ok: true } | { ok: false; error: string };
 
+  // === Forecast Display ===
+
+  /** Update forecast display preferences */
+  updateForecastDisplay: (prefs: Partial<ForecastDisplayPreferences>) => void;
+
   // === Accessibility ===
 
   /** Set color blind mode for accessibility */
@@ -225,7 +232,7 @@ interface UserStore {
  * Default preference values
  */
 const defaultPreferences: Omit<UserPreferences, "station"> = {
-  units: "imperial",
+  units: "metric",
   timeFormat: "12h",
   theme: "dark",
   ituRegion: "ITU2",
@@ -1138,6 +1145,20 @@ export const useUserStore = create<UserStore>()(
         return result;
       },
 
+      // === Forecast Display ===
+
+      updateForecastDisplay: (prefs) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            forecastDisplay: {
+              ...(state.preferences.forecastDisplay ??
+                DEFAULT_FORECAST_DISPLAY),
+              ...prefs,
+            },
+          },
+        })),
+
       // === Accessibility ===
 
       setColorBlindMode: (mode) =>
@@ -1150,7 +1171,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: "propulse-user",
-      version: 9,
+      version: 11,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -1377,6 +1398,16 @@ export const useUserStore = create<UserStore>()(
           nextPreferences.bandPresets = [];
         }
 
+        // v9 -> v10: Standardize on metric units (remove imperial option)
+        if ((nextPreferences as { units?: string }).units !== "metric") {
+          nextPreferences.units = "metric";
+        }
+
+        // v10 -> v11: Add forecast display preferences
+        if (!nextPreferences.forecastDisplay) {
+          nextPreferences.forecastDisplay = DEFAULT_FORECAST_DISPLAY;
+        }
+
         return {
           station: migratedStation,
           preferences: nextPreferences,
@@ -1514,6 +1545,16 @@ const EMPTY_BAND_PRESETS: BandPreset[] = [];
 export function useBandPresets(): BandPreset[] {
   return useUserStore(
     (state) => state.preferences.bandPresets ?? EMPTY_BAND_PRESETS,
+  );
+}
+
+/**
+ * Hook to get forecast display preferences
+ * Returns the current forecast display settings with defaults applied
+ */
+export function useForecastDisplayPrefs(): ForecastDisplayPreferences {
+  return useUserStore(
+    (state) => state.preferences.forecastDisplay ?? DEFAULT_FORECAST_DISPLAY,
   );
 }
 

@@ -6,10 +6,11 @@
  * Clicks to expand full PropagationForecastModal.
  */
 
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useForecastDisplayPrefs } from "@/stores/userStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import {
@@ -23,6 +24,7 @@ import {
 import { getSunTimes } from "@/lib/utils/time";
 import { PropagationForecastModal } from "./modals/PropagationForecastModal";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import type { BandId } from "@/types/user";
 
 interface PropagationForecastMiniProps {
   displayTime: Date;
@@ -94,18 +96,16 @@ function calculateTooltipPosition(
     left = screenX + TOOLTIP_OFFSET;
     side = "right";
   } else if (spaceOnLeft >= TOOLTIP_WIDTH) {
-             // Use left side
-             left = screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH;
-             side = "left";
-           }
-         else if (spaceOnRight >= spaceOnLeft) {
-               left = screenX + TOOLTIP_OFFSET;
-               side = "right";
-             }
-         else {
-               left = Math.max(8, screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH);
-               side = "left";
-             }
+    // Use left side
+    left = screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH;
+    side = "left";
+  } else if (spaceOnRight >= spaceOnLeft) {
+    left = screenX + TOOLTIP_OFFSET;
+    side = "right";
+  } else {
+    left = Math.max(8, screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH);
+    side = "left";
+  }
 
   // Clamp left to viewport bounds
   left = Math.max(8, Math.min(left, viewportWidth - TOOLTIP_WIDTH - 8));
@@ -119,11 +119,32 @@ function calculateTooltipPosition(
   return { left, top, side };
 }
 
-// Bands to display (prioritized order)
-const DISPLAY_BANDS = ["10m", "15m", "20m", "40m", "80m"];
+// Common bands (default 5)
+const COMMON_BANDS: string[] = ["10m", "15m", "20m", "40m", "80m"];
 
-// Hours to show
-const HOURS_TO_SHOW = 13;
+// All HF bands in frequency order (highest first)
+const ALL_BANDS_ORDERED: string[] = [
+  "10m",
+  "12m",
+  "15m",
+  "17m",
+  "20m",
+  "30m",
+  "40m",
+  "80m",
+];
+
+// Band frequency sort order for custom bands (highest frequency first)
+const BAND_SORT_ORDER: Record<string, number> = {
+  "10m": 0,
+  "12m": 1,
+  "15m": 2,
+  "17m": 3,
+  "20m": 4,
+  "30m": 5,
+  "40m": 6,
+  "80m": 7,
+};
 
 export function PropagationForecastMini({
   displayTime,
@@ -132,10 +153,14 @@ export function PropagationForecastMini({
   const { target } = useMapStore();
   const { station } = useUserStore();
   const { syncMode, syncedBand } = useDXStore();
+  const forecastDisplay = useForecastDisplayPrefs();
+  const updateForecastDisplay = useUserStore((s) => s.updateForecastDisplay);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   // Fetch current solar data
   const { data: kIndexData, isLoading: kLoading } = useKIndex();
@@ -203,6 +228,29 @@ export function PropagationForecastMini({
     return displayTime.getUTCHours();
   }, [displayTime]);
 
+  // Dynamic bands based on forecast display preferences
+  const displayBands = useMemo(() => {
+    switch (forecastDisplay.bandMode) {
+      case "common":
+        return COMMON_BANDS;
+      case "all":
+        return ALL_BANDS_ORDERED;
+      case "custom": {
+        const sorted = [...forecastDisplay.customBands].sort((a, b) => {
+          const orderA = BAND_SORT_ORDER[a] ?? 99;
+          const orderB = BAND_SORT_ORDER[b] ?? 99;
+          return orderA - orderB;
+        });
+        return sorted.length > 0 ? sorted : COMMON_BANDS;
+      }
+      default:
+        return COMMON_BANDS;
+    }
+  }, [forecastDisplay.bandMode, forecastDisplay.customBands]);
+
+  // Hours to show from preferences
+  const hoursToShow = forecastDisplay.hoursToShow;
+
   // Generate 24-hour forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
     if (!station || !target) {
@@ -243,12 +291,20 @@ export function PropagationForecastMini({
   // Get hours around current time
   const visibleHours = useMemo(() => {
     const hours: number[] = [];
-    const start = currentHour - 6;
-    for (let i = 0; i < HOURS_TO_SHOW; i++) {
-      hours.push((start + i + 24) % 24);
+    if (hoursToShow === 24) {
+      // Show all 24 hours starting from current hour
+      for (let i = 0; i < 24; i++) {
+        hours.push((currentHour + i) % 24);
+      }
+    } else {
+      // +/- 6 hours centered on current
+      const start = currentHour - 6;
+      for (let i = 0; i < 13; i++) {
+        hours.push((start + i + 24) % 24);
+      }
     }
     return hours;
-  }, [currentHour]);
+  }, [currentHour, hoursToShow]);
 
   // Calculate target sunrise/sunset times
   const targetSunTimes = useMemo(() => {
@@ -292,6 +348,102 @@ export function PropagationForecastMini({
     }
     return null;
   }, [forecast, currentHour]);
+
+  // Propagation score (0-10)
+  const propagationScore = useMemo(() => {
+    const hourData = forecast.find((f) => f.hour === currentHour);
+    if (!hourData) {
+      return null;
+    }
+
+    const openBands = hourData.bands.filter((b) => b.status !== "closed");
+    const totalBands = hourData.bands.length;
+
+    if (totalBands === 0) {
+      return { score: 0, color: "#ff4455" };
+    }
+
+    // Open band score: 0-4 points based on percentage of bands open
+    const openRatio = openBands.length / totalBands;
+    const openBandScore = openRatio * 4;
+
+    // Average SNR score: 0-4 points based on average SNR of open bands
+    let avgSnrScore = 0;
+    if (openBands.length > 0) {
+      const avgSnr =
+        openBands.reduce((sum, b) => sum + b.snrEstimate, 0) / openBands.length;
+      // SNR range: roughly -20 to +20. Map to 0-4.
+      avgSnrScore = Math.max(0, Math.min(4, (avgSnr + 20) / 10));
+    }
+
+    // Kp penalty: 0-2 points deducted for high Kp
+    let kpPenalty = 0;
+    if (currentKp >= 5) {
+      kpPenalty = 2;
+    } else if (currentKp >= 4) {
+      kpPenalty = 1;
+    } else if (currentKp >= 3) {
+      kpPenalty = 0.5;
+    }
+
+    const rawScore = openBandScore + avgSnrScore - kpPenalty;
+    const score = Math.max(0, Math.min(10, rawScore));
+
+    let color = "#ff4455"; // red
+    if (score >= 7) {
+      color = "#00ff88"; // green
+    } else if (score >= 4) {
+      color = "#ffaa00"; // amber
+    }
+
+    return { score, color };
+  }, [forecast, currentHour, currentKp]);
+
+  // Greyline countdown
+  const greylineCountdown = useMemo(() => {
+    if (!targetSunTimes) {
+      return null;
+    }
+
+    const now = displayTime.getTime();
+    const candidates: { label: string; minutesAway: number }[] = [];
+
+    if (targetSunTimes.sunrise) {
+      // Check today's sunrise
+      let srTime = targetSunTimes.sunrise.getTime();
+      let diff = srTime - now;
+      // If sunrise already passed today, check tomorrow
+      if (diff < 0) {
+        srTime += 24 * 60 * 60 * 1000;
+        diff = srTime - now;
+      }
+      const minutes = Math.round(diff / 60000);
+      if (minutes <= 120 && minutes > 0) {
+        candidates.push({ label: "SR", minutesAway: minutes });
+      }
+    }
+
+    if (targetSunTimes.sunset) {
+      let ssTime = targetSunTimes.sunset.getTime();
+      let diff = ssTime - now;
+      if (diff < 0) {
+        ssTime += 24 * 60 * 60 * 1000;
+        diff = ssTime - now;
+      }
+      const minutes = Math.round(diff / 60000);
+      if (minutes <= 120 && minutes > 0) {
+        candidates.push({ label: "SS", minutesAway: minutes });
+      }
+    }
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    // Return the closest event
+    candidates.sort((a, b) => a.minutesAway - b.minutesAway);
+    return candidates[0];
+  }, [targetSunTimes, displayTime]);
 
   // Generate plain English recommendation
   const getRecommendation = (): string => {
@@ -346,6 +498,67 @@ export function PropagationForecastMini({
     const kpPenalty = currentKp > 4 ? (currentKp - 4) * 2 : 0;
     return Math.max(5, Math.min(35, baseMuf - kpPenalty));
   }, [currentSfi, currentKp]);
+
+  // Settings popover: ESC key and click-outside handler
+  useEffect(() => {
+    if (!showSettings) {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowSettings(false);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const clickTarget = e.target as Node;
+      // Don't close if clicking the settings button itself
+      if (settingsButtonRef.current?.contains(clickTarget)) {
+        return;
+      }
+      // Don't close if clicking inside the popover
+      const popover = document.getElementById("forecast-settings-popover");
+      if (popover?.contains(clickTarget)) {
+        return;
+      }
+      setShowSettings(false);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSettings]);
+
+  // Calculate settings popover position after paint so getBoundingClientRect is accurate
+  const [settingsPopoverPos, setSettingsPopoverPos] = useState({
+    top: 0,
+    left: 0,
+  });
+  useEffect(() => {
+    if (!showSettings || !settingsButtonRef.current) {
+      return;
+    }
+    const updatePosition = () => {
+      if (!settingsButtonRef.current) return;
+      const rect = settingsButtonRef.current.getBoundingClientRect();
+      const popoverWidth = 240;
+      let left = rect.left + rect.width / 2 - popoverWidth / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - popoverWidth - 8));
+      setSettingsPopoverPos({ top: rect.bottom + 6, left });
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [showSettings]);
 
   // Loading state
   if (kLoading || sfiLoading) {
@@ -413,7 +626,32 @@ export function PropagationForecastMini({
           }
         }}
       >
-        {/* TOP: Header with path metrics + Solar indices + ACTION ICONS */}
+        {/* Expand button - absolute top-right corner */}
+        <button
+          className="absolute -top-1 -right-1 z-10 p-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors"
+          title="Expand full forecast"
+          aria-label="Expand forecast"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClick();
+          }}
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
+          </svg>
+        </button>
+
+        {/* TOP: Header with path metrics + Solar indices + Prop score + ACTION ICONS */}
         <div className="flex items-center justify-between gap-1.5 mb-0.5 text-xs">
           {/* Left: Path metrics */}
           <div className="flex items-center gap-3 font-mono min-w-0">
@@ -422,7 +660,7 @@ export function PropagationForecastMini({
                 <span className="text-gray-400">PATH</span>{" "}
                 {pathDistance.toLocaleString()}km
                 {hopCount && (
-                  <span className="text-gray-400"> • {hopCount}F2</span>
+                  <span className="text-gray-400"> {hopCount}F2</span>
                 )}
               </span>
             )}
@@ -448,20 +686,36 @@ export function PropagationForecastMini({
             </span>
           </div>
 
-          {/* Right: ACTION ICONS - Always top-right */}
+          {/* Propagation Score Pill */}
+          {propagationScore && (
+            <div
+              className="font-mono text-xs font-bold px-1.5 py-0.5 rounded border flex-shrink-0"
+              style={{
+                color: propagationScore.color,
+                borderColor: `${propagationScore.color}40`,
+                backgroundColor: `${propagationScore.color}15`,
+              }}
+              title={`Propagation Score: ${propagationScore.score.toFixed(1)}/10\nBased on open bands, SNR, and Kp`}
+            >
+              PROP {propagationScore.score.toFixed(1)}
+            </div>
+          )}
+
+          {/* Right: ACTION ICONS - Help + Settings */}
           <div className="flex items-center gap-1 flex-shrink-0">
             <HelpButton onClick={() => setShowHelp(true)} />
             <button
-              className="p-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors"
-              title="Expand full forecast"
-              aria-label="Expand forecast"
+              ref={settingsButtonRef}
+              className="p-0.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors"
+              title="Forecast settings"
+              aria-label="Forecast settings"
               onClick={(e) => {
                 e.stopPropagation();
-                handleClick();
+                setShowSettings((prev) => !prev);
               }}
             >
               <svg
-                className="w-3.5 h-3.5"
+                className="w-4 h-4"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -470,8 +724,9 @@ export function PropagationForecastMini({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
                 />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             </button>
           </div>
@@ -485,11 +740,11 @@ export function PropagationForecastMini({
             <div
               className="w-8 grid"
               style={{
-                gridTemplateRows: `repeat(${DISPLAY_BANDS.length}, 1fr)`,
+                gridTemplateRows: `repeat(${displayBands.length}, 1fr)`,
                 gap: "2px",
               }}
             >
-              {DISPLAY_BANDS.map((band) => {
+              {displayBands.map((band) => {
                 const isSynced = syncMode && syncedBand === band;
                 return (
                   <div
@@ -524,12 +779,12 @@ export function PropagationForecastMini({
               ref={containerRef}
               className="flex-1 min-w-0 grid"
               style={{
-                gridTemplateColumns: `repeat(${HOURS_TO_SHOW}, 1fr)`,
-                gridTemplateRows: `repeat(${DISPLAY_BANDS.length}, 1fr)`,
+                gridTemplateColumns: `repeat(${hoursToShow}, 1fr)`,
+                gridTemplateRows: `repeat(${displayBands.length}, 1fr)`,
                 gap: "3px",
               }}
             >
-              {DISPLAY_BANDS.map((band) =>
+              {displayBands.map((band) =>
                 visibleHours.map((hour) => {
                   const hourData = forecast.find((f) => f.hour === hour);
                   const bandData = hourData?.bands.find((b) => b.band === band);
@@ -542,7 +797,7 @@ export function PropagationForecastMini({
                   return (
                     <div
                       key={`${band}-${hour}`}
-                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-1 ring-cyan-400/60" : ""}`}
+                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative flex items-center justify-center ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-1 ring-cyan-400/60" : ""}`}
                       style={{
                         backgroundColor: color,
                         opacity:
@@ -570,7 +825,16 @@ export function PropagationForecastMini({
                         )
                       }
                       onMouseLeave={() => setHoverInfo(null)}
-                    />
+                    >
+                      {forecastDisplay.showSnrValues && status !== "closed" && (
+                        <span
+                          className={`${hoursToShow === 24 ? "text-[7px]" : "text-[8px]"} font-mono leading-none text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]`}
+                        >
+                          {snr > 0 ? "+" : ""}
+                          {snr}
+                        </span>
+                      )}
+                    </div>
                   );
                 }),
               )}
@@ -582,35 +846,173 @@ export function PropagationForecastMini({
             <div className="w-8" /> {/* Spacer matching band labels width */}
             <div
               className="flex-1 grid mt-1 text-xs font-mono"
-              style={{ gridTemplateColumns: `repeat(${HOURS_TO_SHOW}, 1fr)` }}
+              style={{ gridTemplateColumns: `repeat(${hoursToShow}, 1fr)` }}
             >
-              {visibleHours.map((hour, idx) => (
-                <div
-                  key={hour}
-                  className={`text-center ${hour === currentHour ? "text-white font-bold text-sm" : "text-gray-400"}`}
-                >
-                  {idx % 2 === 0 ? hour.toString().padStart(2, "0") : ""}
-                </div>
-              ))}
+              {visibleHours.map((hour, idx) => {
+                // For 24h mode, show every 3rd label; for 13h, show every 2nd
+                const showLabel =
+                  hoursToShow === 24 ? idx % 3 === 0 : idx % 2 === 0;
+                return (
+                  <div
+                    key={hour}
+                    className={`text-center ${hour === currentHour ? "text-white font-bold text-sm" : "text-gray-400"}`}
+                  >
+                    {showLabel ? hour.toString().padStart(2, "0") : ""}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* BOTTOM: Two-row footer layout for breathing room */}
-        <div className="flex flex-col gap-1 mt-1 text-xs">
-          {/* Row 1: Best band + alternatives + peak windows */}
-          <div className="flex gap-2 flex-wrap">
-            {/* Best band NOW - primary recommendation */}
-            {topBandsNow.length > 0 && (
+        {/* BOTTOM: Footer - detailed or compact */}
+        {forecastDisplay.detailedFooter ? (
+          /* Detailed footer: Two-row layout */
+          <div className="flex flex-col gap-1 mt-1 text-xs">
+            {/* Row 1: Best band + alternatives + peak windows */}
+            <div className="flex gap-2 flex-wrap">
+              {/* Best band NOW - primary recommendation */}
+              {topBandsNow.length > 0 && (
+                <div
+                  className="bg-signal-green/20 border border-signal-green/50 rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
+                  title={`BEST BAND RIGHT NOW\n${topBandsNow[0].band} (${BAND_INFO[topBandsNow[0].band]?.freq || ""})\nEstimated SNR: ${topBandsNow[0].snrEstimate}dB\nCondition: ${topBandsNow[0].status}\nRecommended mode: ${topBandsNow[0].status === "excellent" ? "SSB or CW for voice/morse" : "FT8/FT4 digital modes"}`}
+                >
+                  <span className="text-signal-green">&#9654;</span>
+                  <span className="font-mono font-bold text-white">
+                    {topBandsNow[0].band}
+                  </span>
+                  <span className="font-mono text-signal-green font-semibold">
+                    {topBandsNow[0].snrEstimate > 0 ? "+" : ""}
+                    {topBandsNow[0].snrEstimate}dB
+                  </span>
+                  <span className="text-gray-200">
+                    {topBandsNow[0].status === "excellent" ? "SSB/CW" : "FT8"}
+                  </span>
+                </div>
+              )}
+
+              {/* Also Open - alternative bands */}
+              {topBandsNow.length > 1 && (
+                <div
+                  className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
+                  title={`ALTERNATIVE BANDS\nThese bands are also open right now:\n${topBandsNow
+                    .slice(1)
+                    .map(
+                      (b) =>
+                        `${b.band} (${BAND_INFO[b.band]?.freq || ""}): ${b.snrEstimate}dB, ${b.status}`,
+                    )
+                    .join("\n")}`}
+                >
+                  <span className="text-gray-400">Also:</span>
+                  {topBandsNow.slice(1).map((band) => (
+                    <span key={band.band} className="font-mono text-white">
+                      {band.band}{" "}
+                      <span
+                        className="font-semibold"
+                        style={{ color: getForecastStatusColor(band.status) }}
+                      >
+                        {band.snrEstimate > 0 ? "+" : ""}
+                        {band.snrEstimate}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Peak Windows - best upcoming time */}
               <div
-                className="bg-signal-green/20 border border-signal-green/50 rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
-                title={`BEST BAND RIGHT NOW\n${topBandsNow[0].band} (${BAND_INFO[topBandsNow[0].band]?.freq || ""})\nEstimated SNR: ${topBandsNow[0].snrEstimate}dB\nCondition: ${topBandsNow[0].status}\nRecommended mode: ${topBandsNow[0].status === "excellent" ? "SSB or CW for voice/morse" : "FT8/FT4 digital modes"}`}
+                className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
+                title={
+                  topRecommendation
+                    ? `PEAK PROPAGATION WINDOW\n${topRecommendation.band} will peak at ${topRecommendation.time}:00 UTC\nCondition: ${topRecommendation.status}\n\nThis is the best time to work this band on this path.${nextOpening ? `\n\nNEXT BAND OPENING\n${nextOpening.band} opens in ${nextOpening.hoursAway} hour${nextOpening.hoursAway > 1 ? "s" : ""}` : ""}`
+                    : "No peak windows predicted in the next 24 hours"
+                }
               >
-                <span className="text-signal-green">▶</span>
-                <span className="font-mono font-bold text-white">
+                {topRecommendation && (
+                  <>
+                    <span className="text-gray-400">Peak:</span>
+                    <span
+                      className="font-mono font-bold"
+                      style={{
+                        color: getForecastStatusColor(topRecommendation.status),
+                      }}
+                    >
+                      {topRecommendation.band}
+                    </span>
+                    <span className="text-gray-300 font-mono">
+                      @{topRecommendation.time}z
+                    </span>
+                  </>
+                )}
+                {nextOpening && (
+                  <>
+                    {topRecommendation && (
+                      <span className="text-gray-600 mx-0.5">|</span>
+                    )}
+                    <span className="font-mono text-signal-green font-semibold">
+                      {nextOpening.band}
+                    </span>
+                    <span className="text-gray-400">
+                      +{nextOpening.hoursAway}h
+                    </span>
+                  </>
+                )}
+                {!topRecommendation && !nextOpening && (
+                  <span className="text-gray-500">No windows</span>
+                )}
+              </div>
+            </div>
+
+            {/* Row 2: Greyline times + Operating tip */}
+            <div className="flex gap-2 items-center">
+              {/* DX sun times - sunrise/sunset at target (greyline) */}
+              {target && targetSunTimes && (
+                <div
+                  className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-2 font-mono cursor-help flex-shrink-0"
+                  title={`GREYLINE WINDOW AT DX\n${target.name || target.grid || "Target"}\n\nSunrise: ${targetSunTimes.sunrise ? formatTime(targetSunTimes.sunrise) : "N/A"} UTC\nSunset: ${targetSunTimes.sunset ? formatTime(targetSunTimes.sunset) : "N/A"} UTC\n\nGreyline propagation is enhanced around these times.\nLow bands (40m-160m) often peak near sunset/sunrise.`}
+                >
+                  <span className="text-gray-500 text-[10px]">&#9733;</span>
+                  <span className="text-amber-300">
+                    {targetSunTimes.sunrise
+                      ? formatTime(targetSunTimes.sunrise)
+                      : "--:--"}
+                  </span>
+                  <span className="text-gray-600">&rarr;</span>
+                  <span className="text-orange-300">
+                    {targetSunTimes.sunset
+                      ? formatTime(targetSunTimes.sunset)
+                      : "--:--"}
+                  </span>
+                  {greylineCountdown && (
+                    <span className="text-cosmic-cyan font-semibold">
+                      GL in {greylineCountdown.minutesAway}m
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Tip - operating recommendation */}
+              <div
+                className="flex-1 bg-plasma-orange/10 border-l-2 border-plasma-orange rounded-r px-2 py-1 flex items-center min-w-0 cursor-help"
+                title={`OPERATING TIP\n${getRecommendation()}\n\nBased on current solar conditions:\nSFI: ${Math.round(currentSfi)} (${currentSfi >= 150 ? "excellent" : currentSfi >= 100 ? "good" : "low"})\nKp: ${currentKp.toFixed(1)} (${currentKp <= 2 ? "quiet" : currentKp <= 4 ? "unsettled" : "storm"})`}
+              >
+                <span className="text-gray-200 truncate">
+                  {getRecommendation()}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Compact footer: Single-line summary */
+          <div className="flex gap-2 items-center mt-1 text-xs">
+            {/* Best band now pill */}
+            {topBandsNow.length > 0 && (
+              <div className="bg-signal-green/20 border border-signal-green/50 rounded px-2 py-0.5 flex items-center gap-1 font-mono flex-shrink-0">
+                <span className="text-signal-green">&#9654;</span>
+                <span className="font-bold text-white">
                   {topBandsNow[0].band}
                 </span>
-                <span className="font-mono text-signal-green font-semibold">
+                <span className="text-signal-green font-semibold">
                   {topBandsNow[0].snrEstimate > 0 ? "+" : ""}
                   {topBandsNow[0].snrEstimate}dB
                 </span>
@@ -620,113 +1022,224 @@ export function PropagationForecastMini({
               </div>
             )}
 
-            {/* Also Open - alternative bands */}
-            {topBandsNow.length > 1 && (
+            {/* Propagation score */}
+            {propagationScore && (
               <div
-                className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
-                title={`ALTERNATIVE BANDS\nThese bands are also open right now:\n${topBandsNow
-                  .slice(1)
-                  .map(
-                    (b) =>
-                      `• ${b.band} (${BAND_INFO[b.band]?.freq || ""}): ${b.snrEstimate}dB, ${b.status}`,
-                  )
-                  .join("\n")}`}
+                className="font-mono font-bold px-1.5 py-0.5 rounded border flex-shrink-0"
+                style={{
+                  color: propagationScore.color,
+                  borderColor: `${propagationScore.color}40`,
+                  backgroundColor: `${propagationScore.color}15`,
+                }}
               >
-                <span className="text-gray-400">Also:</span>
-                {topBandsNow.slice(1).map((band) => (
-                  <span key={band.band} className="font-mono text-white">
-                    {band.band}{" "}
-                    <span
-                      className="font-semibold"
-                      style={{ color: getForecastStatusColor(band.status) }}
-                    >
-                      {band.snrEstimate > 0 ? "+" : ""}
-                      {band.snrEstimate}
-                    </span>
-                  </span>
-                ))}
+                PROP {propagationScore.score.toFixed(1)}
               </div>
             )}
 
-            {/* Peak Windows - best upcoming time */}
-            <div
-              className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-1.5 cursor-help"
-              title={
-                topRecommendation
-                  ? `PEAK PROPAGATION WINDOW\n${topRecommendation.band} will peak at ${topRecommendation.time}:00 UTC\nCondition: ${topRecommendation.status}\n\nThis is the best time to work this band on this path.${nextOpening ? `\n\nNEXT BAND OPENING\n${nextOpening.band} opens in ${nextOpening.hoursAway} hour${nextOpening.hoursAway > 1 ? "s" : ""}` : ""}`
-                  : "No peak windows predicted in the next 24 hours"
-              }
-            >
-              {topRecommendation && (
-                <>
-                  <span className="text-gray-400">Peak:</span>
-                  <span
-                    className="font-mono font-bold"
-                    style={{
-                      color: getForecastStatusColor(topRecommendation.status),
+            {/* Peak window */}
+            {topRecommendation && (
+              <div className="font-mono flex items-center gap-1 text-gray-300 flex-shrink-0">
+                <span className="text-gray-400">Peak:</span>
+                <span
+                  className="font-bold"
+                  style={{
+                    color: getForecastStatusColor(topRecommendation.status),
+                  }}
+                >
+                  {topRecommendation.band}
+                </span>
+                <span>@{topRecommendation.time}z</span>
+              </div>
+            )}
+
+            {/* Greyline countdown (compact) */}
+            {greylineCountdown && (
+              <span className="text-cosmic-cyan font-mono font-semibold flex-shrink-0">
+                GL in {greylineCountdown.minutesAway}m
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Settings Popover - rendered via portal */}
+      {showSettings &&
+        createPortal(
+          <div
+            id="forecast-settings-popover"
+            className="fixed z-[9999]"
+            style={{
+              top: settingsPopoverPos.top,
+              left: settingsPopoverPos.left,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gray-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl p-3 min-w-[200px] max-w-[260px]">
+              {/* Band Selection */}
+              <div className="mb-3">
+                <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">
+                  Bands
+                </div>
+                {/* Three-way segmented toggle */}
+                <div className="flex gap-0.5 mb-2">
+                  {(["common", "all", "custom"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      className={`flex-1 text-[10px] px-2 py-1 rounded border transition-colors ${
+                        forecastDisplay.bandMode === mode
+                          ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
+                          : "bg-white/5 text-gray-400 border-white/10 hover:border-white/20"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateForecastDisplay({ bandMode: mode });
+                      }}
+                    >
+                      {mode === "common"
+                        ? "Common"
+                        : mode === "all"
+                          ? "All"
+                          : "Custom"}
+                    </button>
+                  ))}
+                </div>
+                {/* Custom band pills */}
+                {forecastDisplay.bandMode === "custom" && (
+                  <div className="flex flex-wrap gap-1">
+                    {ALL_BANDS_ORDERED.map((band) => {
+                      const isActive = forecastDisplay.customBands.includes(
+                        band as BandId,
+                      );
+                      return (
+                        <button
+                          key={band}
+                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors font-mono ${
+                            isActive
+                              ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
+                              : "bg-white/5 text-gray-400 border-white/10 hover:border-white/20"
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const currentBands = [
+                              ...forecastDisplay.customBands,
+                            ];
+                            if (isActive) {
+                              // Don't allow removing last band
+                              if (currentBands.length > 1) {
+                                updateForecastDisplay({
+                                  customBands: currentBands.filter(
+                                    (b) => b !== band,
+                                  ) as BandId[],
+                                });
+                              }
+                            } else {
+                              updateForecastDisplay({
+                                customBands: [...currentBands, band as BandId],
+                              });
+                            }
+                          }}
+                        >
+                          {band}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Display Options */}
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">
+                  Display
+                </div>
+
+                {/* SNR on cells toggle */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-gray-300">
+                    SNR on cells
+                  </span>
+                  <button
+                    role="switch"
+                    aria-checked={forecastDisplay.showSnrValues}
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                      forecastDisplay.showSnrValues
+                        ? "bg-plasma-orange"
+                        : "bg-white/10"
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateForecastDisplay({
+                        showSnrValues: !forecastDisplay.showSnrValues,
+                      });
                     }}
                   >
-                    {topRecommendation.band}
-                  </span>
-                  <span className="text-gray-300 font-mono">
-                    @{topRecommendation.time}z
-                  </span>
-                </>
-              )}
-              {nextOpening && (
-                <>
-                  {topRecommendation && (
-                    <span className="text-gray-600 mx-0.5">│</span>
-                  )}
-                  <span className="font-mono text-signal-green font-semibold">
-                    {nextOpening.band}
-                  </span>
-                  <span className="text-gray-400">
-                    +{nextOpening.hoursAway}h
-                  </span>
-                </>
-              )}
-              {!topRecommendation && !nextOpening && (
-                <span className="text-gray-500">No windows</span>
-              )}
-            </div>
-          </div>
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                        forecastDisplay.showSnrValues
+                          ? "translate-x-3.5"
+                          : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
 
-          {/* Row 2: Greyline times + Operating tip */}
-          <div className="flex gap-2 items-center">
-            {/* DX sun times - sunrise/sunset at target (greyline) */}
-            {target && targetSunTimes && (
-              <div
-                className="bg-white/[0.06] rounded px-2 py-1 flex items-center gap-2 font-mono cursor-help flex-shrink-0"
-                title={`GREYLINE WINDOW AT DX\n${target.name || target.grid || "Target"}\n\n☀ Sunrise: ${targetSunTimes.sunrise ? formatTime(targetSunTimes.sunrise) : "N/A"} UTC\n☽ Sunset: ${targetSunTimes.sunset ? formatTime(targetSunTimes.sunset) : "N/A"} UTC\n\nGreyline propagation is enhanced around these times.\nLow bands (40m-160m) often peak near sunset/sunrise.`}
-              >
-                <span className="text-gray-500 text-[10px]">★</span>
-                <span className="text-amber-300">
-                  {targetSunTimes.sunrise
-                    ? formatTime(targetSunTimes.sunrise)
-                    : "--:--"}
-                </span>
-                <span className="text-gray-600">→</span>
-                <span className="text-orange-300">
-                  {targetSunTimes.sunset
-                    ? formatTime(targetSunTimes.sunset)
-                    : "--:--"}
-                </span>
+                {/* Full details toggle */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-gray-300">
+                    Full details
+                  </span>
+                  <button
+                    role="switch"
+                    aria-checked={forecastDisplay.detailedFooter}
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                      forecastDisplay.detailedFooter
+                        ? "bg-plasma-orange"
+                        : "bg-white/10"
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateForecastDisplay({
+                        detailedFooter: !forecastDisplay.detailedFooter,
+                      });
+                    }}
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                        forecastDisplay.detailedFooter
+                          ? "translate-x-3.5"
+                          : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Hours segmented toggle */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-gray-300">Hours</span>
+                  <div className="flex gap-0.5">
+                    {([13, 24] as const).map((h) => (
+                      <button
+                        key={h}
+                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                          forecastDisplay.hoursToShow === h
+                            ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
+                            : "bg-white/5 text-gray-400 border-white/10 hover:border-white/20"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateForecastDisplay({ hoursToShow: h });
+                        }}
+                      >
+                        {h === 13 ? "\u00B16h" : "24h"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
-
-            {/* Tip - operating recommendation */}
-            <div
-              className="flex-1 bg-plasma-orange/10 border-l-2 border-plasma-orange rounded-r px-2 py-1 flex items-center min-w-0 cursor-help"
-              title={`OPERATING TIP\n${getRecommendation()}\n\nBased on current solar conditions:\n• SFI: ${Math.round(currentSfi)} (${currentSfi >= 150 ? "excellent" : currentSfi >= 100 ? "good" : "low"})\n• Kp: ${currentKp.toFixed(1)} (${currentKp <= 2 ? "quiet" : currentKp <= 4 ? "unsettled" : "storm"})`}
-            >
-              <span className="text-gray-200 truncate">
-                {getRecommendation()}
-              </span>
             </div>
-          </div>
-        </div>
-      </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Tooltip - rendered via portal to document.body for proper positioning */}
       {hoverInfo &&

@@ -43,6 +43,8 @@ import { useWatchStore } from "@/stores/watchStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { getCategoryMeta } from "@/types/pin";
+import type { MapPin } from "@/types/pin";
+import { PinFlyout } from "./PinFlyout";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 
 interface FlatMapViewProps {
@@ -1427,26 +1429,61 @@ function drawPin(
   lon: number,
   icon: string,
   color: string,
+  name: string | undefined,
+  isHovered: boolean,
   width: number,
   height: number,
 ) {
   const { x, y } = latLonToCanvas(lat, lon, width, height);
 
-  // Pin base (small circle)
-  ctx.fillStyle = color + "40";
+  // Outer glow (larger when hovered)
+  const glowRadius = isHovered ? 10 : 7;
+  ctx.fillStyle = color + "30";
   ctx.beginPath();
-  ctx.arc(x, y, 6, 0, Math.PI * 2);
+  ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
   ctx.fill();
 
+  // Inner filled circle
+  const innerRadius = isHovered ? 5 : 4;
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.arc(x, y, 3, 0, Math.PI * 2);
+  ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  // Icon label above
-  ctx.font = "12px sans-serif";
+  // Border ring
+  ctx.strokeStyle = isHovered ? "#fff" : color;
+  ctx.lineWidth = isHovered ? 2 : 1;
+  ctx.beginPath();
+  ctx.arc(x, y, innerRadius + 1, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Icon above
+  ctx.font = isHovered ? "14px sans-serif" : "12px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(icon, x, y - 10);
+  ctx.fillText(icon, x, y - 12);
+
+  // Name label below (if present)
+  if (name) {
+    ctx.save();
+    ctx.font = "bold 9px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    const metrics = ctx.measureText(name);
+    const labelY = y + glowRadius + 10;
+
+    // Background pill
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    const pad = 3;
+    const lw = metrics.width + pad * 2;
+    const lh = 12;
+    ctx.beginPath();
+    ctx.roundRect(x - lw / 2, labelY - lh + 2, lw, lh, 3);
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = isHovered ? "#fff" : "rgba(255, 255, 255, 0.8)";
+    ctx.fillText(name, x, labelY);
+    ctx.restore();
+  }
 }
 
 // Re-use shared zoom state type
@@ -1530,6 +1567,13 @@ export function FlatMapView({
     lon: number;
     grid: string;
   } | null>(null);
+  const [editingPin, setEditingPin] = useState<MapPin | null>(null);
+
+  // State for pin hover flyout
+  const [hoveredPinData, setHoveredPinData] = useState<{
+    pin: MapPin;
+    screenPos: { x: number; y: number };
+  } | null>(null);
 
   // State for GridResearchPanel
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
@@ -1609,26 +1653,86 @@ export function FlatMapView({
     [setFlyoutPosition, setTooltipPosition, setCenterLocation],
   );
 
-  // Handle map hover - show tooltip
+  // Pin hit-testing: check if screen position is near any pin
+  const PIN_HIT_RADIUS_SQ = 14 * 14;
+  const findPinAtScreenPos = useCallback(
+    (screenPos: { x: number; y: number }): MapPin | null => {
+      const canvas = canvasRef.current;
+      if (!canvas || pins.length === 0) return null;
+      const rect = canvas.getBoundingClientRect();
+      const z = zoomRef.current;
+
+      for (const pin of pins) {
+        const cp = latLonToCanvas(
+          pin.lat,
+          pin.lon,
+          displaySize.width,
+          displaySize.height,
+        );
+        const sx = rect.left + cp.x * z.scale + z.offsetX;
+        const sy = rect.top + cp.y * z.scale + z.offsetY;
+        const dx = screenPos.x - sx;
+        const dy = screenPos.y - sy;
+        if (dx * dx + dy * dy < PIN_HIT_RADIUS_SQ) return pin;
+      }
+      return null;
+    },
+    [pins, displaySize],
+  );
+
+  // Handle map hover - show tooltip or pin flyout
   const handleMapHover = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      // Check pin proximity first
+      const hitPin = findPinAtScreenPos(screenPos);
+      if (hitPin) {
+        setHoveredPinData({ pin: hitPin, screenPos });
+        setTooltipPosition(null);
+        return;
+      }
+      // Clear pin hover if we moved away from a pin
+      if (hoveredPinData) setHoveredPinData(null);
+
       // Don't show tooltip if flyout is open
       if (flyoutPosition) return;
       const grid = latLonToGrid(lat, lon);
       setTooltipPosition({ x: screenPos.x, y: screenPos.y, grid });
     },
-    [flyoutPosition, setTooltipPosition],
+    [flyoutPosition, setTooltipPosition, findPinAtScreenPos, hoveredPinData],
   );
 
   // Handle hover end
   const handleHoverEnd = useCallback(() => {
     setTooltipPosition(null);
+    setHoveredPinData(null);
   }, [setTooltipPosition]);
 
   // Handle flyout close
   const handleFlyoutClose = useCallback(() => {
     setFlyoutPosition(null);
   }, [setFlyoutPosition]);
+
+  // Handle pin flyout close (auto-dismiss handles most cases)
+  const handlePinFlyoutClose = useCallback(() => {
+    setHoveredPinData(null);
+  }, []);
+
+  // Handle edit pin from PinFlyout
+  const handleEditPinFromFlyout = useCallback((pin: MapPin) => {
+    setEditingPin(pin);
+    setAddPinDialogOpen(true);
+    setAddPinData({ lat: pin.lat, lon: pin.lon, grid: pin.grid });
+    setHoveredPinData(null);
+  }, []);
+
+  // Handle set target from PinFlyout
+  const handleSetTargetFromFlyout = useCallback(
+    (lat: number, lon: number, grid: string) => {
+      setTarget({ lat, lon, grid });
+      setHoveredPinData(null);
+    },
+    [setTarget],
+  );
 
   // Handle opening AddPinDialog from flyout
   const handleOpenAddPinDialog = useCallback(
@@ -2249,7 +2353,9 @@ export function FlatMapView({
           pin.lat,
           pin.lon,
           catMeta.icon,
-          catMeta.color,
+          pin.color || catMeta.color,
+          pin.name || pin.grid,
+          hoveredPinData?.pin.id === pin.id,
           renderWidth,
           renderHeight,
         );
@@ -2287,6 +2393,7 @@ export function FlatMapView({
     pathDifficulty,
     pathMetrics,
     pins,
+    hoveredPinData,
     zoom,
     displaySize,
     compassRoseEnabled,
@@ -2312,7 +2419,7 @@ export function FlatMapView({
       >
         <canvas
           ref={canvasRef}
-          className="cursor-crosshair"
+          className={hoveredPinData ? "cursor-pointer" : "cursor-crosshair"}
           aria-label="Interactive propagation map - click to select target location"
           role="img"
           style={{
@@ -2335,7 +2442,7 @@ export function FlatMapView({
 
       {/* Tooltip overlay */}
       <MapTooltip
-        visible={!!tooltipPosition && !flyoutPosition}
+        visible={!!tooltipPosition && !flyoutPosition && !hoveredPinData}
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
         spots={tooltipSpots}
@@ -2343,7 +2450,7 @@ export function FlatMapView({
 
       {/* Flyout menu overlay */}
       <MapFlyout
-        visible={!!flyoutPosition}
+        visible={!!flyoutPosition && !hoveredPinData}
         position={flyoutPosition || { x: 0, y: 0 }}
         lat={flyoutPosition?.lat || 0}
         lon={flyoutPosition?.lon || 0}
@@ -2360,18 +2467,35 @@ export function FlatMapView({
         <WatchIndicator onClick={() => setWatchListOpen(true)} />
       </div>
 
+      {/* Pin flyout - shown when hovering over an existing pin */}
+      {hoveredPinData && (
+        <PinFlyout
+          visible
+          position={hoveredPinData.screenPos}
+          pin={hoveredPinData.pin}
+          spots={allSpots}
+          currentTargetGrid={target?.grid}
+          onSetTarget={handleSetTargetFromFlyout}
+          onEditPin={handleEditPinFromFlyout}
+          onClose={handlePinFlyoutClose}
+        />
+      )}
+
       {/* AddPinDialog modal */}
       <AddPinDialog
         visible={addPinDialogOpen}
-        mode="add"
+        mode={editingPin ? "edit" : "add"}
+        pin={editingPin || undefined}
         location={addPinData || undefined}
         onClose={() => {
           setAddPinDialogOpen(false);
           setAddPinData(null);
+          setEditingPin(null);
         }}
         onSave={() => {
           setAddPinDialogOpen(false);
           setAddPinData(null);
+          setEditingPin(null);
         }}
       />
 

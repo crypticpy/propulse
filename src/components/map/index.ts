@@ -126,3 +126,6 @@ export { RegionPresetManager } from "./RegionPresetManager";
 // Satellite tracking
 export { SatelliteOverlay } from "./SatelliteOverlay";
 export { SatellitePanel } from "./SatellitePanel";
+
+// Labels panel (sub-toggles for label layers)
+export { LabelsPanel } from "./LabelsPanel";

@@ -65,7 +65,11 @@ import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { getGreylineIntensity } from "@/lib/utils/greyline";
+import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import { getEnhancedBandConditions } from "@/lib/utils/bands";
+import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
+import { TargetHoverTooltip } from "./TargetHoverTooltip";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -351,6 +355,8 @@ function GlobeScene({
   onHoverEnd,
   onPinHover,
   onPinLeave,
+  onTargetHover,
+  onTargetHoverEnd,
 }: {
   displayTime: Date;
   onLocationClick?: (
@@ -374,6 +380,10 @@ function GlobeScene({
   onPinHover?: (pin: MapPin, screenPos: { x: number; y: number }) => void;
   /** Called when leaving a pin hover */
   onPinLeave?: () => void;
+  /** Called when hovering over the selected target marker */
+  onTargetHover?: (screenPos: { x: number; y: number }) => void;
+  /** Called when leaving the selected target marker */
+  onTargetHoverEnd?: () => void;
 }) {
   const { layers, target, autoRotate, pathMode } = useMapStore();
   const { station } = useUserStore();
@@ -427,6 +437,20 @@ function GlobeScene({
     },
     [onLocationHover],
   );
+
+  const targetHoverPosition = useMemo(() => {
+    if (!target) {
+      return null;
+    }
+    const phi = (90 - target.lat) * (Math.PI / 180);
+    const theta = (target.lon + 180) * (Math.PI / 180);
+    const r = 1.02;
+    return new THREE.Vector3(
+      -r * Math.sin(phi) * Math.cos(theta),
+      r * Math.cos(phi),
+      r * Math.sin(phi) * Math.sin(theta),
+    );
+  }, [target]);
 
   return (
     <>
@@ -528,6 +552,38 @@ function GlobeScene({
       {/* Target location marker - Color based on difficulty */}
       {target && (
         <>
+          {/* Hover hit area for the selected target marker */}
+          {targetHoverPosition && (
+            <mesh
+              position={targetHoverPosition}
+              onPointerEnter={(event) => {
+                event.stopPropagation();
+                onTargetHover?.({
+                  x: event.nativeEvent.clientX,
+                  y: event.nativeEvent.clientY,
+                });
+              }}
+              onPointerMove={(event) => {
+                event.stopPropagation();
+                onTargetHover?.({
+                  x: event.nativeEvent.clientX,
+                  y: event.nativeEvent.clientY,
+                });
+              }}
+              onPointerLeave={() => {
+                onTargetHoverEnd?.();
+              }}
+            >
+              <sphereGeometry args={[0.055, 8, 8]} />
+              <meshBasicMaterial
+                transparent
+                opacity={0}
+                depthTest={false}
+                depthWrite={false}
+              />
+            </mesh>
+          )}
+
           <LocationMarker
             lat={target.lat}
             lon={target.lon}
@@ -589,6 +645,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     setTarget,
     setCenterLocation,
   } = useMapStore();
+  const { station } = useUserStore();
   const { addPin } = usePinStore();
   const { updateFilter } = useDXStore();
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
@@ -622,6 +679,12 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // State for editing an existing pin
   const [editingPin, setEditingPin] = useState<MapPin | null>(null);
 
+  // State for target hover tooltip
+  const [hoveredTargetPos, setHoveredTargetPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   // Check watch activity when spots change
   useEffect(() => {
     if (allSpots.length > 0) {
@@ -645,6 +708,68 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     });
   }, [tooltipPosition?.grid, allSpots]);
 
+  // Fetch solar conditions for optimal-band signal estimate
+  const kIndexQuery = useKIndex();
+  const solarFluxQuery = useSolarFlux();
+
+  const currentKp = useMemo(() => {
+    const last = kIndexQuery.data?.[kIndexQuery.data.length - 1];
+    return last?.kp_index ?? 3;
+  }, [kIndexQuery.data]);
+
+  const currentSfi = useMemo(() => {
+    const last = solarFluxQuery.data?.[solarFluxQuery.data.length - 1];
+    return last?.flux ?? 100;
+  }, [solarFluxQuery.data]);
+
+  const isEstimatedConditions =
+    kIndexQuery.isPlaceholderData ||
+    solarFluxQuery.isPlaceholderData ||
+    !kIndexQuery.data?.length ||
+    !solarFluxQuery.data?.length;
+
+  const targetDifficulty = useMemo(() => {
+    if (!station || !target) {
+      return undefined;
+    }
+    return getPathMetrics(station.lat, station.lon, target.lat, target.lon)
+      .difficulty;
+  }, [station, target]);
+
+  const optimalSignal = useMemo(() => {
+    if (!station || !target) {
+      return null;
+    }
+    try {
+      const conditions = getEnhancedBandConditions(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+        currentKp,
+        currentSfi,
+        displayTime,
+        100,
+        "FT8",
+      );
+      const best = pickOptimalBandCondition(conditions);
+      if (!best) {
+        return null;
+      }
+      return {
+        band: best.band,
+        status: best.status,
+        sUnit: best.sUnit,
+        snrEstimate: best.snrEstimate,
+        confidence: best.signalPrediction?.confidence,
+        notes: best.notes,
+        isEstimated: isEstimatedConditions,
+      };
+    } catch {
+      return null;
+    }
+  }, [station, target, currentKp, currentSfi, displayTime, isEstimatedConditions]);
+
   // Handle globe click - show flyout
   const handleGlobeClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
@@ -652,6 +777,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
       setTooltipPosition(null); // Hide tooltip when flyout opens
       setHoveredPinData(null); // Clear pin flyout
+      setHoveredTargetPos(null); // Clear target hover
       onLocationClick?.(lat, lon);
     },
     [setFlyoutPosition, setTooltipPosition, onLocationClick],
@@ -663,6 +789,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       // Close any open flyout/tooltip
       setFlyoutPosition(null);
       setTooltipPosition(null);
+      setHoveredTargetPos(null);
       // Center the view on this location (smooth animation in CameraController)
       setCenterLocation(lat, lon);
     },
@@ -693,6 +820,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       setHoveredPinData({ pin, screenPos });
       setFlyoutPosition(null); // Close generic flyout
       setTooltipPosition(null); // Close tooltip
+      setHoveredTargetPos(null); // Close target hover
     },
     [setFlyoutPosition, setTooltipPosition],
   );
@@ -706,6 +834,19 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // Handle pin flyout close
   const handlePinFlyoutClose = useCallback(() => {
     setHoveredPinData(null);
+  }, []);
+
+  const handleTargetHover = useCallback(
+    (screenPos: { x: number; y: number }) => {
+      // Target hover takes precedence over generic grid tooltip
+      setHoveredTargetPos(screenPos);
+      setTooltipPosition(null);
+    },
+    [setTooltipPosition],
+  );
+
+  const handleTargetHoverEnd = useCallback(() => {
+    setHoveredTargetPos(null);
   }, []);
 
   // Handle edit pin from PinFlyout
@@ -859,6 +1000,8 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
               onHoverEnd={handleHoverEnd}
               onPinHover={handlePinHover}
               onPinLeave={handlePinLeave}
+              onTargetHover={handleTargetHover}
+              onTargetHoverEnd={handleTargetHoverEnd}
             />
           </Suspense>
         </Canvas>
@@ -866,10 +1009,24 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
 
       {/* Tooltip overlay - rendered outside Canvas */}
       <MapTooltip
-        visible={!!tooltipPosition && !flyoutPosition && !hoveredPinData}
+        visible={
+          !!tooltipPosition && !flyoutPosition && !hoveredPinData && !hoveredTargetPos
+        }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
         spots={tooltipSpots}
+      />
+
+      <TargetHoverTooltip
+        visible={!!hoveredTargetPos}
+        position={hoveredTargetPos || { x: 0, y: 0 }}
+        label={target?.name || target?.grid || "Target"}
+        grid={target?.grid}
+        difficulty={targetDifficulty}
+        optimalSignal={optimalSignal}
+        signalUnavailableReason={
+          station ? undefined : "Set your QTH to see optimal-band signal"
+        }
       />
 
       {/* Flyout menu overlay - rendered outside Canvas */}

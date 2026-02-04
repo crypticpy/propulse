@@ -27,6 +27,7 @@ import {
   StyleSelector,
   DXNewsTicker,
   SatellitePanel,
+  LabelsPanel,
   KeyboardShortcutsOverlay,
   QuickGridInput,
   GridResearchPanel,
@@ -41,7 +42,7 @@ const FullscreenPropSphere = lazy(() =>
     default: m.FullscreenPropSphere,
   })),
 );
-import { DXSpotList, DXConsole } from "@/components/dx";
+import { DXSpotList, DXConsole, SpotStatsDashboard } from "@/components/dx";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
@@ -761,6 +762,11 @@ export function PropSphere() {
                 </div>
               )}
 
+              {/* Labels Panel — appears when labels layer is active */}
+              {layers.labels && (
+                <LabelsPanel className="absolute top-2 right-2 z-10" />
+              )}
+
               {/* ═══════════════════════════════════════════════════════════════
                   LITE MODE HUD OVERLAY
                   A minimal, professional heads-up display for maximum map visibility
@@ -972,14 +978,20 @@ export function PropSphere() {
                 </Card>
               )}
 
-              {/* DX Spots */}
-              <DXSpotList
-                maxHeight="168px"
-                showFilters={true}
-                showHeader={true}
-                className="h-full"
-                onResearchGrid={handleResearchGrid}
-              />
+              {/* DX Spots with Stats */}
+              <div className="flex flex-col h-full min-h-0">
+                <SpotStatsDashboard
+                  compact
+                  className="flex-shrink-0 rounded-b-none border-b-0"
+                />
+                <DXSpotList
+                  maxHeight="100px"
+                  showFilters={true}
+                  showHeader={true}
+                  className="flex-1 min-h-0 rounded-t-none"
+                  onResearchGrid={handleResearchGrid}
+                />
+              </div>
             </div>
 
             {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
@@ -1056,9 +1068,13 @@ export function PropSphere() {
                 {/* Collapsible Content */}
                 <div
                   className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                    dxClusterExpanded ? "h-[280px]" : "h-0"
+                    dxClusterExpanded ? "h-[340px]" : "h-0"
                   }`}
                 >
+                  <SpotStatsDashboard
+                    compact
+                    className="border-t-0 rounded-none"
+                  />
                   <DXSpotList
                     maxHeight="248px"
                     showFilters={true}

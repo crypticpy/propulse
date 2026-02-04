@@ -174,8 +174,7 @@ function PanelContent({
           <div className="flex items-baseline justify-between">
             <span className="text-sm text-gray-400">Distance</span>
             <span className="font-mono text-sm text-white">
-              {data.distance.km.toLocaleString()} km (
-              {data.distance.mi.toLocaleString()} mi)
+              {data.distance.km.toLocaleString()} km
             </span>
           </div>
           <div className="flex items-baseline justify-between">

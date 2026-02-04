@@ -1,19 +1,32 @@
 /**
- * LabelsOverlay Component
+ * LabelsOverlay Component — Performance-Optimized
  *
- * Renders country borders (from comprehensive world data) and labels on the 3D globe.
- * Country borders are rendered as closed 3D line loops from imported polygon data.
- * Country name labels are placed at centroids with zoom-based filtering.
- * Major city labels are retained as secondary detail.
+ * Renders country borders and labels on the 3D globe.
+ *
+ * Performance strategy:
+ *  - ALL border polygons merged into ONE THREE.LineSegments geometry (1 draw call)
+ *  - Html labels use manual backface culling (dot product) instead of drei's
+ *    `occlude` prop which does per-element raycasting every frame
+ *  - No backdrop-blur CSS (heavy GPU compositing)
+ *  - Visibility array updated in useFrame, DOM only touched on change
  */
 
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { Line, Html } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { WORLD_COUNTRIES, type CountryData } from "@/lib/data/worldCountries";
+import {
+  WORLD_COUNTRIES,
+  type CountryData,
+} from "@/lib/data/worldCountries.generated";
+import { useMapStore } from "@/stores/mapStore";
+import {
+  getMaidenheadFields,
+  MAIDENHEAD_LON_LINES,
+  MAIDENHEAD_LAT_LINES,
+} from "@/lib/utils/maidenheadGrid";
 
-// Major world cities with coordinates
+// Major world cities
 const MAJOR_CITIES = [
   { name: "New York", lat: 40.7128, lon: -74.006 },
   { name: "Los Angeles", lat: 34.0522, lon: -118.2437 },
@@ -37,42 +50,39 @@ const MAJOR_CITIES = [
   { name: "Bangkok", lat: 13.7563, lon: 100.5018 },
 ];
 
-// Zoom-level area thresholds for country label visibility (km²)
+// Area thresholds for zoom-based label filtering (km²)
 const AREA_ALWAYS_VISIBLE = 1_000_000;
 const AREA_MEDIUM_THRESHOLD = 100_000;
 const AREA_SMALL_THRESHOLD = 10_000;
 
-// Camera distance thresholds
 const DISTANCE_FAR = 3.0;
 const DISTANCE_CLOSE = 2.0;
-
-// Hysteresis margin to prevent flickering at threshold boundaries
 const DISTANCE_HYSTERESIS = 0.05;
 
+// Backface culling threshold: cos(90°) = 0 means exactly on the horizon.
+// Small positive value hides labels just before they reach the edge.
+const BACKFACE_THRESHOLD = 0.1;
+
+const DEG2RAD = Math.PI / 180;
+
 /**
- * Convert lat/lon to 3D position on sphere
+ * Convert lat/lon to 3D position on unit sphere (inlined for hot paths)
  */
-function latLonToVector3(
+function latLonToXYZ(
   lat: number,
   lon: number,
-  radius: number = 1.003,
-): THREE.Vector3 {
-  const phi = ((90 - lat) * Math.PI) / 180;
-  const theta = ((lon + 180) * Math.PI) / 180;
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
+  radius: number,
+): [number, number, number] {
+  const phi = (90 - lat) * DEG2RAD;
+  const theta = (lon + 180) * DEG2RAD;
+  const sinPhi = Math.sin(phi);
+  return [
+    -radius * sinPhi * Math.cos(theta),
     radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
+    radius * sinPhi * Math.sin(theta),
+  ];
 }
 
-/**
- * Determine the zoom tier based on camera distance with hysteresis.
- *   0 = far (only large countries)
- *   1 = medium (medium+ countries)
- *   2 = close (small+ countries)
- */
 function getZoomTier(distance: number, currentTier: number): number {
   if (currentTier === 0) {
     if (distance < DISTANCE_FAR - DISTANCE_HYSTERESIS) return 1;
@@ -83,7 +93,6 @@ function getZoomTier(distance: number, currentTier: number): number {
     if (distance < DISTANCE_CLOSE - DISTANCE_HYSTERESIS) return 2;
     return 1;
   }
-  // currentTier === 2
   if (distance >= DISTANCE_CLOSE + DISTANCE_HYSTERESIS) return 1;
   return 2;
 }
@@ -95,156 +104,361 @@ function isCountryVisible(area: number, zoomTier: number): boolean {
   return false;
 }
 
-interface LabelsOverlayProps {
-  /** Show country borders */
-  showBorders?: boolean;
-  /** Show city and country labels */
-  showLabels?: boolean;
+// ─── Merged border geometry (built once) ─────────────────────────────────────
+
+/**
+ * Build a single THREE.BufferGeometry containing ALL country border line
+ * segments. Uses LineSegments topology: each pair of consecutive vertices
+ * forms one independent line segment.
+ *
+ * For a polygon ring [A, B, C, D] we emit segments: A→B, B→C, C→D, D→A
+ * Total segments = sum of all ring lengths across all countries.
+ */
+function buildMergedBorderGeometry(): THREE.BufferGeometry {
+  // First pass: count total segments to pre-allocate
+  let totalSegments = 0;
+  for (const country of WORLD_COUNTRIES) {
+    for (const ring of country.borders) {
+      if (ring.length >= 2) {
+        totalSegments += ring.length; // N points → N segments (including close)
+      }
+    }
+  }
+
+  // Each segment = 2 vertices × 3 floats
+  const positions = new Float32Array(totalSegments * 2 * 3);
+  let offset = 0;
+  const R = 1.003;
+
+  for (const country of WORLD_COUNTRIES) {
+    for (const ring of country.borders) {
+      if (ring.length < 2) continue;
+
+      // Convert all ring points to 3D
+      const pts: [number, number, number][] = ring.map(([lat, lon]) =>
+        latLonToXYZ(lat, lon, R),
+      );
+
+      // Emit segments: each consecutive pair + closing segment
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        positions[offset++] = a[0];
+        positions[offset++] = a[1];
+        positions[offset++] = a[2];
+        positions[offset++] = b[0];
+        positions[offset++] = b[1];
+        positions[offset++] = b[2];
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(positions.slice(0, offset), 3),
+  );
+  return geometry;
 }
 
-export function LabelsOverlay({
-  showBorders = true,
-  showLabels = true,
-}: LabelsOverlayProps) {
-  const [zoomTier, setZoomTier] = useState(0);
-  const zoomTierRef = useRef(0);
+// ─── Maidenhead grid geometry (built once) ───────────────────────────────────
 
-  useFrame(({ camera }) => {
-    const distance = camera.position.length();
-    const newTier = getZoomTier(distance, zoomTierRef.current);
-    if (newTier !== zoomTierRef.current) {
-      zoomTierRef.current = newTier;
-      setZoomTier(newTier);
+/** Points per line when rendering lat/lon grid arcs on the sphere */
+const GRID_ARC_SEGMENTS = 72;
+
+/**
+ * Build merged LineSegments geometry for Maidenhead grid lines.
+ * Longitude lines (every 20°) are great circles; latitude lines (every 10°)
+ * are small circles.
+ */
+function buildMaidenheadGridGeometry(): THREE.BufferGeometry {
+  const R = 1.004; // Slightly above borders
+  const lonLines = MAIDENHEAD_LON_LINES;
+  const latLines = MAIDENHEAD_LAT_LINES;
+
+  // Each line has GRID_ARC_SEGMENTS segments = GRID_ARC_SEGMENTS * 2 * 3 floats
+  const totalSegments = (lonLines.length + latLines.length) * GRID_ARC_SEGMENTS;
+  const positions = new Float32Array(totalSegments * 2 * 3);
+  let offset = 0;
+
+  // Longitude lines: constant lon, vary lat from -90 to 90
+  for (const lon of lonLines) {
+    for (let i = 0; i < GRID_ARC_SEGMENTS; i++) {
+      const lat1 = -90 + (i / GRID_ARC_SEGMENTS) * 180;
+      const lat2 = -90 + ((i + 1) / GRID_ARC_SEGMENTS) * 180;
+      const [ax, ay, az] = latLonToXYZ(lat1, lon, R);
+      const [bx, by, bz] = latLonToXYZ(lat2, lon, R);
+      positions[offset++] = ax;
+      positions[offset++] = ay;
+      positions[offset++] = az;
+      positions[offset++] = bx;
+      positions[offset++] = by;
+      positions[offset++] = bz;
+    }
+  }
+
+  // Latitude lines: constant lat, vary lon from -180 to 180
+  for (const lat of latLines) {
+    for (let i = 0; i < GRID_ARC_SEGMENTS; i++) {
+      const lon1 = -180 + (i / GRID_ARC_SEGMENTS) * 360;
+      const lon2 = -180 + ((i + 1) / GRID_ARC_SEGMENTS) * 360;
+      const [ax, ay, az] = latLonToXYZ(lat, lon1, R);
+      const [bx, by, bz] = latLonToXYZ(lat, lon2, R);
+      positions[offset++] = ax;
+      positions[offset++] = ay;
+      positions[offset++] = az;
+      positions[offset++] = bx;
+      positions[offset++] = by;
+      positions[offset++] = bz;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(positions.slice(0, offset), 3),
+  );
+  return geometry;
+}
+
+// ─── Label data types ────────────────────────────────────────────────────────
+
+interface LabelData {
+  key: string;
+  name: string;
+  area: number;
+  // Unit-sphere normal (for backface culling)
+  nx: number;
+  ny: number;
+  nz: number;
+  // Position slightly above sphere (for Html placement)
+  px: number;
+  py: number;
+  pz: number;
+}
+
+// ─── Single backface-culled label component ──────────────────────────────────
+
+const _normal = new THREE.Vector3();
+
+function BackfaceLabel({
+  label,
+  fontSize,
+  camDirRef,
+}: {
+  label: LabelData;
+  fontSize: string;
+  camDirRef: React.RefObject<THREE.Vector3>;
+}) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const wasVisibleRef = useRef(true);
+
+  useFrame(() => {
+    if (!divRef.current || !camDirRef.current) return;
+
+    // Dot product of label normal with camera direction
+    // Positive = facing camera, negative = facing away
+    _normal.set(label.nx, label.ny, label.nz);
+    const dot = _normal.dot(camDirRef.current);
+    const visible = dot > BACKFACE_THRESHOLD;
+
+    if (visible !== wasVisibleRef.current) {
+      wasVisibleRef.current = visible;
+      divRef.current.style.display = visible ? "" : "none";
     }
   });
 
-  // Pre-compute border line geometry from country data
-  const borderLines = useMemo(() => {
-    const lines: { key: string; points: [number, number, number][] }[] = [];
+  return (
+    <Html
+      position={[label.px, label.py, label.pz]}
+      center
+      style={{
+        pointerEvents: "none",
+        userSelect: "none",
+      }}
+    >
+      <div
+        ref={divRef}
+        className={`${fontSize} font-medium whitespace-nowrap px-1 py-0.5
+                    text-white/90 bg-black/40 rounded`}
+        style={{
+          textShadow: "0 1px 2px rgba(0,0,0,0.9)",
+        }}
+      >
+        {label.name}
+      </div>
+    </Html>
+  );
+}
 
-    WORLD_COUNTRIES.forEach((country: CountryData) => {
-      country.borders.forEach((ring, ringIdx) => {
-        if (ring.length < 2) return;
+// ─── Main component ──────────────────────────────────────────────────────────
 
-        const points: [number, number, number][] = ring.map(([lat, lon]) => {
-          const vec = latLonToVector3(lat, lon, 1.003);
-          return [vec.x, vec.y, vec.z] as [number, number, number];
-        });
+export function LabelsOverlay() {
+  const labelOptions = useMapStore((s) => s.labelOptions);
+  const zoomTierRef = useRef(0);
+  const camDirRef = useRef(new THREE.Vector3(0, 0, 1));
 
-        // Close the ring
-        const first = points[0];
-        const last = points[points.length - 1];
-        if (
-          first[0] !== last[0] ||
-          first[1] !== last[1] ||
-          first[2] !== last[2]
-        ) {
-          points.push([...first]);
-        }
+  // Merged border geometry — ONE draw call for all countries
+  const borderGeometry = useMemo(() => buildMergedBorderGeometry(), []);
 
-        lines.push({
-          key: `${country.iso}-${ringIdx}`,
-          points,
-        });
-      });
-    });
+  const borderMaterial = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+      }),
+    [],
+  );
 
-    return lines;
-  }, []);
+  // Maidenhead grid geometry — ONE draw call for all grid lines
+  const gridGeometry = useMemo(() => buildMaidenheadGridGeometry(), []);
 
-  // Pre-compute country label centroid positions
-  const countryLabels = useMemo(() => {
+  const gridMaterial = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: 0x00cccc,
+        transparent: true,
+        opacity: 0.25,
+        depthWrite: false,
+      }),
+    [],
+  );
+
+  // Pre-compute all label data (positions + normals for backface culling)
+  const allCountryLabels: LabelData[] = useMemo(() => {
     return WORLD_COUNTRIES.map((country: CountryData) => {
-      const position = latLonToVector3(
+      const [nx, ny, nz] = latLonToXYZ(
+        country.centroidLat,
+        country.centroidLon,
+        1.0,
+      );
+      const [px, py, pz] = latLonToXYZ(
         country.centroidLat,
         country.centroidLon,
         1.025,
       );
       return {
+        key: `country-${country.iso}`,
         name: country.name,
-        iso: country.iso,
         area: country.area,
-        position,
+        nx,
+        ny,
+        nz,
+        px,
+        py,
+        pz,
       };
     });
   }, []);
 
-  // Pre-compute city 3D positions
-  const cityPositions = useMemo(() => {
-    return MAJOR_CITIES.map((city) => ({
-      ...city,
-      position: latLonToVector3(city.lat, city.lon, 1.02),
-    }));
+  const cityLabels: LabelData[] = useMemo(() => {
+    return MAJOR_CITIES.map((city) => {
+      const [nx, ny, nz] = latLonToXYZ(city.lat, city.lon, 1.0);
+      const [px, py, pz] = latLonToXYZ(city.lat, city.lon, 1.02);
+      return {
+        key: `city-${city.name}`,
+        name: city.name,
+        area: 0,
+        nx,
+        ny,
+        nz,
+        px,
+        py,
+        pz,
+      };
+    });
   }, []);
 
-  // Filter visible country labels based on current zoom tier
+  // Maidenhead field labels (324 total, backface culled)
+  const maidenheadLabels: LabelData[] = useMemo(() => {
+    const fields = getMaidenheadFields();
+    return fields.map((field) => {
+      const [nx, ny, nz] = latLonToXYZ(field.latCenter, field.lonCenter, 1.0);
+      const [px, py, pz] = latLonToXYZ(field.latCenter, field.lonCenter, 1.03);
+      return {
+        key: `mh-${field.label}`,
+        name: field.label,
+        area: 0,
+        nx,
+        ny,
+        nz,
+        px,
+        py,
+        pz,
+      };
+    });
+  }, []);
+
+  // Force re-render callback for zoom tier changes
+  const [, setTick] = useState(0);
+
+  useFrame(({ camera }) => {
+    // Update camera direction (normalized) for backface culling
+    camDirRef.current.copy(camera.position).normalize();
+
+    // Update zoom tier
+    const distance = camera.position.length();
+    const newTier = getZoomTier(distance, zoomTierRef.current);
+    if (newTier !== zoomTierRef.current) {
+      zoomTierRef.current = newTier;
+      // Only trigger React re-render when zoom tier changes (affects which labels show)
+      setTick((t) => t + 1);
+    }
+  });
+
+  // Filter country labels by zoom tier
   const visibleCountryLabels = useMemo(() => {
-    return countryLabels.filter((c) => isCountryVisible(c.area, zoomTier));
-  }, [countryLabels, zoomTier]);
+    return allCountryLabels.filter((c) =>
+      isCountryVisible(c.area, zoomTierRef.current),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCountryLabels, zoomTierRef.current]);
 
   return (
     <group>
-      {/* Country border polygons */}
-      {showBorders &&
-        borderLines.map((line) => (
-          <Line
-            key={line.key}
-            points={line.points}
-            color="#ffffff"
-            lineWidth={0.6}
-            opacity={0.35}
-            transparent
+      {/* ALL country borders — single draw call */}
+      {labelOptions.borders && (
+        <lineSegments geometry={borderGeometry} material={borderMaterial} />
+      )}
+
+      {/* Country name labels — backface culled, no occlude raycasting */}
+      {labelOptions.countryNames &&
+        visibleCountryLabels.map((label) => (
+          <BackfaceLabel
+            key={label.key}
+            label={label}
+            fontSize="text-[10px]"
+            camDirRef={camDirRef}
           />
         ))}
 
-      {/* Country name labels (zoom-filtered) */}
-      {showLabels &&
-        visibleCountryLabels.map((country) => (
-          <Html
-            key={`country-${country.iso}`}
-            position={[
-              country.position.x,
-              country.position.y,
-              country.position.z,
-            ]}
-            center
-            occlude
-            style={{
-              pointerEvents: "none",
-              userSelect: "none",
-            }}
-          >
-            <div
-              className="text-[10px] font-medium whitespace-nowrap px-1 py-0.5
-                         text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]
-                         bg-black/30 rounded backdrop-blur-sm"
-            >
-              {country.name}
-            </div>
-          </Html>
+      {/* City labels — backface culled */}
+      {labelOptions.cities &&
+        cityLabels.map((label) => (
+          <BackfaceLabel
+            key={label.key}
+            label={label}
+            fontSize="text-[9px]"
+            camDirRef={camDirRef}
+          />
         ))}
 
-      {/* City labels */}
-      {showLabels &&
-        cityPositions.map((city) => (
-          <Html
-            key={city.name}
-            position={[city.position.x, city.position.y, city.position.z]}
-            center
-            occlude
-            style={{
-              pointerEvents: "none",
-              userSelect: "none",
-            }}
-          >
-            <div
-              className="text-[9px] font-medium whitespace-nowrap px-1 py-0.5
-                         text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]
-                         bg-black/30 rounded backdrop-blur-sm"
-            >
-              {city.name}
-            </div>
-          </Html>
+      {/* Maidenhead grid lines — single draw call */}
+      {labelOptions.maidenheadGrid && (
+        <lineSegments geometry={gridGeometry} material={gridMaterial} />
+      )}
+
+      {/* Maidenhead field labels — backface culled */}
+      {labelOptions.maidenheadGrid &&
+        maidenheadLabels.map((label) => (
+          <BackfaceLabel
+            key={label.key}
+            label={label}
+            fontSize="text-[8px]"
+            camDirRef={camDirRef}
+          />
         ))}
     </group>
   );

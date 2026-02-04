@@ -12,6 +12,7 @@ import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathPoints, getPathMetrics } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
+import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { estimateMUF, getMUFColor } from "@/lib/api/muf";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import {
@@ -29,6 +30,7 @@ import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import type { AuroraData } from "@/lib/api/aurora";
 import { useFlatMapClickHandler } from "./FlatMapClickHandler";
 import { MapTooltip } from "./MapTooltip";
+import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapFlyout, type MapFlyoutAction } from "./MapFlyout";
 import { AddPinDialog } from "./AddPinDialog";
 import {
@@ -46,7 +48,15 @@ import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
-import { WORLD_COUNTRIES } from "@/lib/data/worldCountries";
+import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
+import { getEnhancedBandConditions } from "@/lib/utils/bands";
+import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
+import type { LabelOptions } from "@/stores/mapStore";
+import {
+  getMaidenheadFields,
+  MAIDENHEAD_LON_LINES,
+  MAIDENHEAD_LAT_LINES,
+} from "@/lib/utils/maidenheadGrid";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -58,6 +68,10 @@ interface FlatMapViewProps {
 // Map dimensions
 const MAP_WIDTH = 1024;
 const MAP_HEIGHT = 512;
+
+// Hit-testing (screen-space) radii for hover interactions
+const PIN_HIT_RADIUS_SQ = 14 * 14;
+const TARGET_HIT_RADIUS_SQ = 18 * 18;
 
 // Module-level night texture for city lights (loaded once, cached permanently)
 let nightTextureImage: HTMLImageElement | null = null;
@@ -1392,69 +1406,107 @@ function drawLabels(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
+  opts: LabelOptions,
 ) {
-  // Draw country border polygons from comprehensive world data
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-  ctx.lineWidth = 0.8;
-
-  for (const country of WORLD_COUNTRIES) {
-    for (const ring of country.borders) {
-      if (ring.length < 2) continue;
-      ctx.beginPath();
-      for (let i = 0; i < ring.length; i++) {
-        const [lat, lon] = ring[i];
-        const { x, y } = latLonToCanvas(lat, lon, width, height);
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
+  // Draw country border polygons
+  if (opts.borders) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 0.8;
+    for (const country of WORLD_COUNTRIES) {
+      for (const ring of country.borders) {
+        if (ring.length < 2) continue;
+        ctx.beginPath();
+        for (let i = 0; i < ring.length; i++) {
+          const [lat, lon] = ring[i];
+          const { x, y } = latLonToCanvas(lat, lon, width, height);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
+        ctx.closePath();
+        ctx.stroke();
       }
-      ctx.closePath();
-      ctx.stroke();
     }
   }
 
-  // Draw country name labels at centroids (only for countries above area threshold)
-  ctx.font = "bold 8px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  for (const country of WORLD_COUNTRIES) {
-    if (country.area < LABEL_AREA_THRESHOLD) continue;
-    const { x, y } = latLonToCanvas(
-      country.centroidLat,
-      country.centroidLon,
-      width,
-      height,
-    );
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
-    ctx.lineWidth = 2;
-    ctx.strokeText(country.name, x, y);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    ctx.fillText(country.name, x, y);
+  // Draw country name labels
+  if (opts.countryNames) {
+    ctx.font = "bold 8px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const country of WORLD_COUNTRIES) {
+      if (country.area < LABEL_AREA_THRESHOLD) continue;
+      const { x, y } = latLonToCanvas(
+        country.centroidLat,
+        country.centroidLon,
+        width,
+        height,
+      );
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.lineWidth = 2;
+      ctx.strokeText(country.name, x, y);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.fillText(country.name, x, y);
+    }
   }
 
   // Draw city labels
-  ctx.font = "bold 9px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
+  if (opts.cities) {
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    for (const city of CITY_LABELS_2D) {
+      const { x, y } = latLonToCanvas(city.lat, city.lon, width, height);
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(city.name, x, y - 8);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fillText(city.name, x, y - 8);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
-  for (const city of CITY_LABELS_2D) {
-    const { x, y } = latLonToCanvas(city.lat, city.lon, width, height);
-
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
-    ctx.lineWidth = 3;
-    ctx.strokeText(city.name, x, y - 8);
-
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-    ctx.fillText(city.name, x, y - 8);
-
-    // Small dot for city location
-    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-    ctx.beginPath();
-    ctx.arc(x, y, 2, 0, Math.PI * 2);
-    ctx.fill();
+  // Draw Maidenhead grid
+  if (opts.maidenheadGrid) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 204, 204, 0.25)";
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([4, 4]);
+    for (const lon of MAIDENHEAD_LON_LINES) {
+      const { x } = latLonToCanvas(0, lon, width, height);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (const lat of MAIDENHEAD_LAT_LINES) {
+      const { y } = latLonToCanvas(lat, 0, width, height);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.font = "bold 7px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const fields = getMaidenheadFields();
+    for (const field of fields) {
+      const { x, y } = latLonToCanvas(
+        field.latCenter,
+        field.lonCenter,
+        width,
+        height,
+      );
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeText(field.label, x, y);
+      ctx.fillStyle = "rgba(0, 204, 204, 0.5)";
+      ctx.fillText(field.label, x, y);
+    }
+    ctx.restore();
   }
 }
 
@@ -1562,6 +1614,7 @@ export function FlatMapView({
 
   const {
     layers,
+    labelOptions,
     target,
     tooltipPosition,
     setTooltipPosition,
@@ -1577,6 +1630,8 @@ export function FlatMapView({
   const { station, preferences } = useUserStore();
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
+  const kIndexQuery = useKIndex();
+  const solarFluxQuery = useSolarFlux();
 
   // Spot focus for pulsing ring effect
   const { isFocusing, focusedSpot } = useSpotFocus();
@@ -1614,6 +1669,12 @@ export function FlatMapView({
   const [hoveredPinData, setHoveredPinData] = useState<{
     pin: MapPin;
     screenPos: { x: number; y: number };
+  } | null>(null);
+
+  // State for target hover tooltip (selected target marker)
+  const [hoveredTargetPos, setHoveredTargetPos] = useState<{
+    x: number;
+    y: number;
   } | null>(null);
 
   // State for GridResearchPanel
@@ -1654,6 +1715,63 @@ export function FlatMapView({
     ? getDifficultyColor(pathDifficulty)
     : COLORS.targetMarker;
 
+  const currentKp = useMemo(() => {
+    const last = kIndexQuery.data?.[kIndexQuery.data.length - 1];
+    return last?.kp_index ?? 3;
+  }, [kIndexQuery.data]);
+
+  const currentSfi = useMemo(() => {
+    const last = solarFluxQuery.data?.[solarFluxQuery.data.length - 1];
+    return last?.flux ?? 100;
+  }, [solarFluxQuery.data]);
+
+  const isEstimatedConditions =
+    kIndexQuery.isPlaceholderData ||
+    solarFluxQuery.isPlaceholderData ||
+    !kIndexQuery.data?.length ||
+    !solarFluxQuery.data?.length;
+
+  const optimalSignal = useMemo(() => {
+    if (!station || !target) {
+      return null;
+    }
+    try {
+      const conditions = getEnhancedBandConditions(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+        currentKp,
+        currentSfi,
+        displayTime,
+        100,
+        "FT8",
+      );
+      const best = pickOptimalBandCondition(conditions);
+      if (!best) {
+        return null;
+      }
+      return {
+        band: best.band,
+        status: best.status,
+        sUnit: best.sUnit,
+        snrEstimate: best.snrEstimate,
+        confidence: best.signalPrediction?.confidence,
+        notes: best.notes,
+        isEstimated: isEstimatedConditions,
+      };
+    } catch {
+      return null;
+    }
+  }, [
+    station,
+    target,
+    currentKp,
+    currentSfi,
+    displayTime,
+    isEstimatedConditions,
+  ]);
+
   // Check watch activity when spots change
   useEffect(() => {
     if (allSpots.length > 0) {
@@ -1683,6 +1801,7 @@ export function FlatMapView({
       const grid = latLonToGrid(lat, lon);
       setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
       setTooltipPosition(null); // Hide tooltip when flyout opens
+      setHoveredTargetPos(null);
       onLocationClick?.(lat, lon);
     },
     [setFlyoutPosition, setTooltipPosition, onLocationClick],
@@ -1694,6 +1813,7 @@ export function FlatMapView({
       // Close any open flyout/tooltip
       setFlyoutPosition(null);
       setTooltipPosition(null);
+      setHoveredTargetPos(null);
       // Center the view on this location
       setCenterLocation(lat, lon);
     },
@@ -1701,7 +1821,6 @@ export function FlatMapView({
   );
 
   // Pin hit-testing: check if screen position is near any pin
-  const PIN_HIT_RADIUS_SQ = 14 * 14;
   const findPinAtScreenPos = useCallback(
     (screenPos: { x: number; y: number }): MapPin | null => {
       const canvas = canvasRef.current;
@@ -1731,6 +1850,31 @@ export function FlatMapView({
     [pins, displaySize],
   );
 
+  // Target hit-testing: check if screen position is near the selected target
+  const isTargetAtScreenPos = useCallback(
+    (screenPos: { x: number; y: number }) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !target) {
+        return false;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const z = zoomRef.current;
+
+      const cp = latLonToCanvas(
+        target.lat,
+        target.lon,
+        displaySize.width,
+        displaySize.height,
+      );
+      const sx = rect.left + cp.x * z.scale + z.offsetX;
+      const sy = rect.top + cp.y * z.scale + z.offsetY;
+      const dx = screenPos.x - sx;
+      const dy = screenPos.y - sy;
+      return dx * dx + dy * dy < TARGET_HIT_RADIUS_SQ;
+    },
+    [target, displaySize],
+  );
+
   // Handle map hover - show tooltip or pin flyout
   const handleMapHover = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
@@ -1739,6 +1883,7 @@ export function FlatMapView({
       if (hitPin) {
         setHoveredPinData({ pin: hitPin, screenPos });
         setTooltipPosition(null);
+        setHoveredTargetPos(null);
         return;
       }
       // Clear pin hover if we moved away from a pin
@@ -1750,16 +1895,35 @@ export function FlatMapView({
       if (flyoutPosition) {
         return;
       }
+
+      // Selected target hover takes precedence over grid tooltip
+      if (isTargetAtScreenPos(screenPos)) {
+        setHoveredTargetPos(screenPos);
+        setTooltipPosition(null);
+        return;
+      }
+      if (hoveredTargetPos) {
+        setHoveredTargetPos(null);
+      }
+
       const grid = latLonToGrid(lat, lon);
       setTooltipPosition({ x: screenPos.x, y: screenPos.y, grid });
     },
-    [flyoutPosition, setTooltipPosition, findPinAtScreenPos, hoveredPinData],
+    [
+      flyoutPosition,
+      setTooltipPosition,
+      findPinAtScreenPos,
+      hoveredPinData,
+      isTargetAtScreenPos,
+      hoveredTargetPos,
+    ],
   );
 
   // Handle hover end
   const handleHoverEnd = useCallback(() => {
     setTooltipPosition(null);
     setHoveredPinData(null);
+    setHoveredTargetPos(null);
   }, [setTooltipPosition]);
 
   // Handle flyout close
@@ -2356,9 +2520,9 @@ export function FlatMapView({
     // Draw grid
     drawGrid(ctx, renderWidth, renderHeight, highViz);
 
-    // Draw labels (country borders and city names)
+    // Draw labels (country borders, names, cities, Maidenhead grid)
     if (layers.labels) {
-      drawLabels(ctx, renderWidth, renderHeight);
+      drawLabels(ctx, renderWidth, renderHeight, labelOptions);
     }
 
     // Draw live spot arcs
@@ -2479,6 +2643,7 @@ export function FlatMapView({
   }, [
     displayTime,
     layers,
+    labelOptions,
     station,
     target,
     mapImage,
@@ -2540,10 +2705,27 @@ export function FlatMapView({
 
       {/* Tooltip overlay */}
       <MapTooltip
-        visible={!!tooltipPosition && !flyoutPosition && !hoveredPinData}
+        visible={
+          !!tooltipPosition &&
+          !flyoutPosition &&
+          !hoveredPinData &&
+          !hoveredTargetPos
+        }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
         spots={tooltipSpots}
+      />
+
+      <TargetHoverTooltip
+        visible={!!hoveredTargetPos && !flyoutPosition && !hoveredPinData}
+        position={hoveredTargetPos || { x: 0, y: 0 }}
+        label={target?.name || target?.grid || "Target"}
+        grid={target?.grid}
+        difficulty={pathDifficulty}
+        optimalSignal={optimalSignal}
+        signalUnavailableReason={
+          station ? undefined : "Set your QTH to see optimal-band signal"
+        }
       />
 
       {/* Flyout menu overlay */}

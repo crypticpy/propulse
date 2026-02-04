@@ -219,7 +219,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Preferences tab local form state
   const [timeFormat, setTimeFormat] = useState(preferences.timeFormat);
-  const [units, setUnits] = useState(preferences.units);
   const [textScale, setTextScale] = useState<TextScale>(
     preferences.textScale ?? "md",
   );
@@ -260,7 +259,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setGrid(station?.grid || "");
       setOperatorName(station?.operatorName || station?.name || "");
       setTimeFormat(preferences.timeFormat);
-      setUnits(preferences.units);
       setTextScale(preferences.textScale ?? "md");
       setColorBlindModeLocal(preferences.colorBlindMode ?? "none");
       setGridError(null);
@@ -456,7 +454,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Handle preferences save
   const handlePreferencesSave = () => {
-    updatePreferences({ timeFormat, units, textScale });
+    updatePreferences({ timeFormat, textScale });
     setPreferencesDirty(false);
   };
 
@@ -713,47 +711,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       `}
                     >
                       12-hour
-                    </button>
-                  </div>
-                </div>
-
-                {/* Units */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Distance Units
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setUnits("metric");
-                        setPreferencesDirty(true);
-                      }}
-                      className={`
-                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          units === "metric"
-                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                        }
-                      `}
-                    >
-                      Metric (km)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setUnits("imperial");
-                        setPreferencesDirty(true);
-                      }}
-                      className={`
-                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          units === "imperial"
-                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                        }
-                      `}
-                    >
-                      Imperial (mi)
                     </button>
                   </div>
                 </div>

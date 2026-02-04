@@ -117,14 +117,12 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
   recentTargets,
   currentTarget,
   station,
-  useImperial,
   onSelect,
   onClear,
 }: {
   recentTargets: TargetLocation[];
   currentTarget: TargetLocation | null;
   station: { lat: number; lon: number } | null;
-  useImperial: boolean;
   onSelect: (target: TargetLocation) => void;
   onClear: () => void;
 }) {
@@ -140,9 +138,9 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
         target.lat,
         target.lon,
       );
-      return formatDistance(metrics.shortPath.distance, useImperial);
+      return formatDistance(metrics.shortPath.distance);
     },
-    [station, useImperial],
+    [station],
   );
 
   // Check if a target is the current one
@@ -255,8 +253,7 @@ export function PathAnalysis({
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const activeRadio = useActiveRadio();
   const preferTested = usePreferTestedSpecs();
-  const useImperial = preferences.units === "imperial";
-  const {customRadios} = preferences;
+  const { customRadios } = preferences;
   const radioInstances = useMemo(
     () => preferences.radios || [],
     [preferences.radios],
@@ -592,8 +589,8 @@ export function PathAnalysis({
               }`}
             >
               {pathMode === "long"
-                ? formatDistance(metrics.longPath.distance, useImperial)
-                : formatDistance(metrics.shortPath.distance, useImperial)}
+                ? formatDistance(metrics.longPath.distance)
+                : formatDistance(metrics.shortPath.distance)}
             </span>
 
             {/* Difficulty badge */}
@@ -708,7 +705,6 @@ export function PathAnalysis({
                           recentTargets={recentTargets}
                           currentTarget={target}
                           station={station}
-                          useImperial={useImperial}
                           onSelect={(t) => {
                             setTarget(t);
                             setShowRecentTargets(false);
@@ -856,7 +852,7 @@ export function PathAnalysis({
             <div className="grid grid-cols-3 gap-2">
               <MetricItem
                 label="Distance"
-                value={formatDistance(metrics.shortPath.distance, useImperial)}
+                value={formatDistance(metrics.shortPath.distance)}
                 valueClassName={getDistanceColor(metrics.difficulty)}
               />
               <MetricItem
@@ -891,7 +887,7 @@ export function PathAnalysis({
             <div className="grid grid-cols-3 gap-2">
               <MetricItem
                 label="Distance"
-                value={formatDistance(metrics.longPath.distance, useImperial)}
+                value={formatDistance(metrics.longPath.distance)}
                 valueClassName={getLongPathDistanceColor(metrics.difficulty)}
               />
               <MetricItem

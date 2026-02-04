@@ -412,7 +412,10 @@ export function DXNewsTicker({
           ref={contentRef}
           className="inline-flex items-center font-mono text-[11px] text-gray-300"
           style={{
-            animation: `${KEYFRAMES_NAME} ${animationDuration}s linear infinite`,
+            animationName: KEYFRAMES_NAME,
+            animationDuration: `${animationDuration}s`,
+            animationTimingFunction: "linear",
+            animationIterationCount: "infinite",
             animationPlayState: isPaused ? "paused" : "running",
             willChange: "transform",
           }}

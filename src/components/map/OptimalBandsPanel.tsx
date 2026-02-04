@@ -65,9 +65,8 @@ export function OptimalBandsPanel({
   className = "",
 }: OptimalBandsPanelProps) {
   const { target } = useMapStore();
-  const { station, preferences } = useUserStore();
+  const { station } = useUserStore();
   const [isExpanded, setIsExpanded] = useState(true);
-  const useImperial = preferences.units === "imperial";
 
   // Draggable position state - default to top-left
   const [position, setPosition] = useState({ x: 12, y: 12 });
@@ -272,7 +271,7 @@ export function OptimalBandsPanel({
             style={{ backgroundColor: difficultyColor }}
           />
           <span className="text-xs font-mono text-gray-300">
-            {formatDistance(pathMetrics.shortPath.distance, useImperial)}
+            {formatDistance(pathMetrics.shortPath.distance)}
           </span>
           <button
             onClick={() => setIsExpanded(true)}
@@ -362,7 +361,7 @@ export function OptimalBandsPanel({
             <div>
               <div className="text-[10px] text-gray-500 mb-0.5">Distance</div>
               <div className="text-lg font-mono text-white">
-                {formatDistance(pathMetrics.shortPath.distance, useImperial)}
+                {formatDistance(pathMetrics.shortPath.distance)}
               </div>
               <div className="text-[10px] text-gray-500">
                 {pathMetrics.hops} hop{pathMetrics.hops > 1 ? "s" : ""} •{" "}

@@ -20,6 +20,7 @@ import {
   type AzimuthalPoint,
 } from "@/lib/utils/azimuthal";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
+import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { resolveSpotLocations, type ResolvedSpot } from "./LiveSpotArcs";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import {
@@ -29,6 +30,9 @@ import {
 } from "./LocationMarker";
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
+import { getEnhancedBandConditions } from "@/lib/utils/bands";
+import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
+import { TargetHoverTooltip } from "./TargetHoverTooltip";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -648,6 +652,8 @@ export function AzimuthalView({
   const { station } = useUserStore();
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
+  const kIndexQuery = useKIndex();
+  const solarFluxQuery = useSolarFlux();
 
   // Track container size for responsive scaling
   const [displaySize, setDisplaySize] = useState(CANVAS_SIZE);
@@ -657,6 +663,12 @@ export function AzimuthalView({
 
   // Track WebGL readiness
   const [webglReady, setWebglReady] = useState(false);
+
+  // State for target hover tooltip (selected target marker)
+  const [hoveredTargetPos, setHoveredTargetPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Initialize WebGL renderer
   useEffect(() => {
@@ -754,6 +766,72 @@ export function AzimuthalView({
     ? getDifficultyColor(pathDifficulty)
     : COLORS.targetMarker;
 
+  const currentKp = useMemo(() => {
+    const last = kIndexQuery.data?.[kIndexQuery.data.length - 1];
+    return last?.kp_index ?? 3;
+  }, [kIndexQuery.data]);
+
+  const currentSfi = useMemo(() => {
+    const last = solarFluxQuery.data?.[solarFluxQuery.data.length - 1];
+    return last?.flux ?? 100;
+  }, [solarFluxQuery.data]);
+
+  const isEstimatedConditions =
+    kIndexQuery.isPlaceholderData ||
+    solarFluxQuery.isPlaceholderData ||
+    !kIndexQuery.data?.length ||
+    !solarFluxQuery.data?.length;
+
+  const optimalSignal = useMemo(() => {
+    if (!station || !target) {
+      return null;
+    }
+    try {
+      const conditions = getEnhancedBandConditions(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+        currentKp,
+        currentSfi,
+        displayTime,
+        100,
+        "FT8",
+      );
+      const best = pickOptimalBandCondition(conditions);
+      if (!best) {
+        return null;
+      }
+      return {
+        band: best.band,
+        status: best.status,
+        sUnit: best.sUnit,
+        snrEstimate: best.snrEstimate,
+        confidence: best.signalPrediction?.confidence,
+        notes: best.notes,
+        isEstimated: isEstimatedConditions,
+      };
+    } catch {
+      return null;
+    }
+  }, [station, target, currentKp, currentSfi, displayTime, isEstimatedConditions]);
+
+  const targetHitPoint = useMemo(() => {
+    if (!center || !target) {
+      return null;
+    }
+    const projected = azimuthalProject(
+      target.lat,
+      target.lon,
+      center.lat,
+      center.lon,
+    );
+    const base = projToCanvas(projected);
+    const x = CENTER + (base.x - CENTER) * zoom;
+    const y = CENTER + (base.y - CENTER) * zoom;
+    return { x, y };
+  }, [center, target, zoom]);
+
   // Handle scroll wheel zoom - use native listener for non-passive support
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
@@ -769,6 +847,51 @@ export function AzimuthalView({
 
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  // Clear hover tooltip when target changes
+  useEffect(() => {
+    setHoveredTargetPos(null);
+  }, [target]);
+
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!targetHitPoint) {
+        if (hoveredTargetPos) {
+          setHoveredTargetPos(null);
+        }
+        return;
+      }
+
+      const canvas = overlayCanvasRef.current;
+      if (!canvas) {
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      const canvasX = (event.clientX - rect.left) * scaleX;
+      const canvasY = (event.clientY - rect.top) * scaleY;
+
+      // Hit radius tracks zoom (marker grows/shrinks with zoom transform)
+      const hitRadius = 18 * zoom;
+      const dx = canvasX - targetHitPoint.x;
+      const dy = canvasY - targetHitPoint.y;
+      const hit = dx * dx + dy * dy < hitRadius * hitRadius;
+
+      if (hit) {
+        setHoveredTargetPos({ x: event.clientX, y: event.clientY });
+      } else if (hoveredTargetPos) {
+        setHoveredTargetPos(null);
+      }
+    },
+    [targetHitPoint, zoom, hoveredTargetPos],
+  );
+
+  const handlePointerLeave = useCallback(() => {
+    setHoveredTargetPos(null);
   }, []);
 
   // Handle canvas click (on overlay canvas)
@@ -939,6 +1062,8 @@ export function AzimuthalView({
         width={CANVAS_SIZE}
         height={CANVAS_SIZE}
         onClick={handleClick}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
         className="absolute cursor-crosshair"
         aria-label="Azimuthal projection map centered on your location - click to select target, scroll to zoom"
         role="img"
@@ -948,6 +1073,19 @@ export function AzimuthalView({
           height: displaySize,
         }}
       />
+
+      <TargetHoverTooltip
+        visible={!!hoveredTargetPos}
+        position={hoveredTargetPos || { x: 0, y: 0 }}
+        label={target?.name || target?.grid || "Target"}
+        grid={target?.grid}
+        difficulty={pathDifficulty}
+        optimalSignal={optimalSignal}
+        signalUnavailableReason={
+          station ? undefined : "Set your QTH to see optimal-band signal"
+        }
+      />
+
       {/* Loading indicator */}
       {!webglReady && center && (
         <div className="absolute inset-0 flex items-center justify-center bg-deep-space/80">

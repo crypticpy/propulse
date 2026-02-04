@@ -101,6 +101,14 @@ export interface PanelStates {
 
 export type PanelId = keyof PanelStates;
 
+/** Label layer sub-options */
+export interface LabelOptions {
+  borders: boolean;
+  countryNames: boolean;
+  cities: boolean;
+  maidenheadGrid: boolean;
+}
+
 interface MapState {
   // View settings
   viewMode: ViewMode;
@@ -199,6 +207,10 @@ interface MapState {
   togglePanel: (panelId: PanelId) => void;
   setPanelCollapsed: (panelId: PanelId, collapsed: boolean) => void;
   resetPanelStates: () => void;
+
+  // Label layer sub-options (persisted)
+  labelOptions: LabelOptions;
+  setLabelOption: (key: keyof LabelOptions, value: boolean) => void;
 
   // Center location (Q2: double-click centering without setting target)
   centerLocation: CenterLocation | null;
@@ -307,6 +319,29 @@ function savePanelStates(states: PanelStates): void {
   }
 }
 
+// Default label options
+const DEFAULT_LABEL_OPTIONS: LabelOptions = {
+  borders: true,
+  countryNames: true,
+  cities: true,
+  maidenheadGrid: false,
+};
+
+// Load saved label options from localStorage
+function loadLabelOptions(): LabelOptions {
+  try {
+    const saved = localStorage.getItem("propulse-label-options");
+    if (saved) return { ...DEFAULT_LABEL_OPTIONS, ...JSON.parse(saved) };
+  } catch {
+    /* ignore */
+  }
+  return { ...DEFAULT_LABEL_OPTIONS };
+}
+
+function saveLabelOptions(options: LabelOptions) {
+  localStorage.setItem("propulse-label-options", JSON.stringify(options));
+}
+
 // Load saved region presets from localStorage, merging user presets with built-in defaults
 function loadRegionPresets(): RegionPreset[] {
   const builtIns = DEFAULT_REGION_PRESETS.map((p) => ({ ...p }));
@@ -387,6 +422,7 @@ const initialState = {
   flyoutPosition: null as FlyoutPosition | null,
   pathMode: "short" as "short" | "long",
   panelStates: loadPanelStates(),
+  labelOptions: loadLabelOptions(),
   centerLocation: null as CenterLocation | null,
   regionPresets: loadRegionPresets(),
   activePresetId: loadActivePresetId(),
@@ -596,6 +632,13 @@ export const useMapStore = create<MapState>((set, get) => ({
     set(() => {
       savePanelStates(DEFAULT_PANEL_STATES);
       return { panelStates: { ...DEFAULT_PANEL_STATES } };
+    }),
+
+  setLabelOption: (key, value) =>
+    set((state) => {
+      const updated = { ...state.labelOptions, [key]: value };
+      saveLabelOptions(updated);
+      return { labelOptions: updated };
     }),
 
   // Q2: Double-click center location (animates camera without setting target)

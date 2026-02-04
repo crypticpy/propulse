@@ -29,7 +29,7 @@ export interface GridResearchData {
   /** DXCC entity information, null if not found */
   entity: EntityInfo | null;
   /** Distance from home QTH, null if no home grid */
-  distance: { km: number; mi: number } | null;
+  distance: { km: number } | null;
   /** Bearing from home QTH, null if no home grid */
   bearing: { degrees: number; reverse: number } | null;
   /** Activity statistics from current DX spots */
@@ -134,7 +134,6 @@ export function useGridResearch(
     }
     return {
       km: distanceBearing.distanceKm,
-      mi: distanceBearing.distanceMi,
     };
   }, [distanceBearing]);
 
@@ -203,7 +202,7 @@ export function useGridEntity(grid: string): EntityInfo | null {
  * Lighter weight than full useGridResearch when only distance is needed
  */
 export function useGridDistance(grid: string): {
-  distance: { km: number; mi: number } | null;
+  distance: { km: number } | null;
   bearing: { degrees: number; reverse: number } | null;
 } {
   const activeLocation = useActiveLocation();
@@ -220,7 +219,7 @@ export function useGridDistance(grid: string): {
     }
 
     return {
-      distance: { km: result.distanceKm, mi: result.distanceMi },
+      distance: { km: result.distanceKm },
       bearing: { degrees: result.bearing, reverse: result.reverseBearing },
     };
   }, [grid, homeGrid]);

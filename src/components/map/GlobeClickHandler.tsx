@@ -25,7 +25,7 @@ const DRAG_THRESHOLD_PX = 5;
 const HOLD_START_DELAY_MS = 200;
 
 /** Default hold duration to trigger menu */
-const DEFAULT_HOLD_DURATION_MS = 2500;
+const DEFAULT_HOLD_DURATION_MS = 500;
 
 /** Progress update interval during hold */
 const HOLD_PROGRESS_INTERVAL_MS = 50;
@@ -70,7 +70,7 @@ export interface GlobeClickHandlerProps {
   onHoldProgress?: (progress: number) => void;
   /** Called when hold is cancelled (user moved or released early) */
   onHoldCancel?: () => void;
-  /** Hold duration in milliseconds (default: 2500) */
+  /** Hold duration in milliseconds (default: 500) */
   holdDurationMs?: number;
   /** Child components (rendered inside the group) */
   children?: React.ReactNode;

@@ -48,6 +48,11 @@ export function formatDistance(km: number | null): string {
 /**
  * Comparison function for SpotRow memo
  * Only re-render when relevant data changes
+ *
+ * Note: Callback props (onSelect, onHover, onContextMenu, etc.) are intentionally
+ * not compared because they are expected to be stable references created via
+ * useCallback in useDXSpotListState. If inline callbacks are passed, memoization
+ * will still work but the callbacks may reference stale closures.
  */
 export function spotRowPropsAreEqual(
   prevProps: SpotRowProps,
@@ -64,6 +69,8 @@ export function spotRowPropsAreEqual(
     prevProps.workedStatus.isWorked === nextProps.workedStatus.isWorked &&
     prevProps.workedStatus.workedOnBand ===
       nextProps.workedStatus.workedOnBand &&
+    prevProps.workedStatus.workedBands.length ===
+      nextProps.workedStatus.workedBands.length &&
     prevProps.isAlertMatch === nextProps.isAlertMatch &&
     prevProps.isNeeded === nextProps.isNeeded &&
     prevProps.distanceKm === nextProps.distanceKm &&

@@ -30,6 +30,11 @@ import type { AlertRule } from "@/lib/db/types";
 import type { LiveSpot } from "@/types/livespot";
 import type { SpotContextAction } from "@/components/map/SpotContextMenu";
 import type { WorkedStatus, ContextMenuState } from "./types";
+import {
+  GRID_PREFIX_LENGTH,
+  HIGHLIGHT_TIMEOUT_MS,
+  ALERT_RULES_RELOAD_INTERVAL_MS,
+} from "./constants";
 
 /**
  * Return type for the useDXSpotListState hook
@@ -181,8 +186,8 @@ export function useDXSpotListState(
 
     loadRules();
 
-    // Reload rules periodically (every 30 seconds)
-    const interval = setInterval(loadRules, 30000);
+    // Reload rules periodically
+    const interval = setInterval(loadRules, ALERT_RULES_RELOAD_INTERVAL_MS);
 
     return () => {
       mounted = false;
@@ -210,11 +215,11 @@ export function useDXSpotListState(
         clearTimeout(highlightTimeoutRef.current);
       }
 
-      // Remove highlight after 1.5 seconds
+      // Remove highlight after brief visual feedback
       highlightTimeoutRef.current = setTimeout(() => {
         setHighlightedSpotId(null);
         highlightTimeoutRef.current = null;
-      }, 1500);
+      }, HIGHLIGHT_TIMEOUT_MS);
     }
   }, [selectedSpot?.id]);
 
@@ -532,9 +537,9 @@ export function useDXSpotListState(
           break;
         }
         case "watchGrid": {
-          // Add a watch for the 4-char grid prefix
+          // Add a watch for the grid prefix (e.g., "EM73" from "EM73vk")
           if (spot.dxGrid) {
-            const gridPrefix = spot.dxGrid.slice(0, 4);
+            const gridPrefix = spot.dxGrid.slice(0, GRID_PREFIX_LENGTH);
             watchStore.addWatch("grid", gridPrefix, `Grid: ${gridPrefix}`);
           }
           break;

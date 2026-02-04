@@ -4,17 +4,22 @@
  * Filter UI for the DXSpotList including search, time range, bands, modes, and sources.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { getBandColor } from "@/lib/api/dxcluster";
 import { AVAILABLE_SOURCES } from "@/stores/dxStore";
 import { SPOT_SOURCE_COLORS, type SpotSource } from "@/types/livespot";
 import type { FilterControlsProps } from "./types";
-import { TIME_RANGE_OPTIONS } from "./constants";
+import {
+  TIME_RANGE_OPTIONS,
+  MAX_BAND_PRESETS,
+  MAX_PRESET_NAME_LENGTH,
+  MAX_GRID_INPUT_LENGTH,
+} from "./constants";
 
 /**
  * Filter controls component
  */
-export function FilterControls({
+export const FilterControls = memo(function FilterControls({
   searchText,
   onSearchChange,
   gridFilter,
@@ -93,6 +98,7 @@ export function FilterControls({
             <button
               onClick={() => onSearchChange("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              aria-label="Clear search"
             >
               <svg
                 className="w-4 h-4"
@@ -118,7 +124,7 @@ export function FilterControls({
             placeholder="Grid..."
             value={gridFilter}
             onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
-            maxLength={6}
+            maxLength={MAX_GRID_INPUT_LENGTH}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
             title="Filter by Maidenhead grid locator (e.g., CN87, FN31)"
           />
@@ -126,6 +132,7 @@ export function FilterControls({
             <button
               onClick={() => onGridFilterChange("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              aria-label="Clear grid filter"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -157,6 +164,8 @@ export function FilterControls({
               ? `Sync Mode ON${syncedBand ? ` - Synced to ${syncedBand}` : " - Click a spot to sync"}`
               : "Enable Band Sync - links filtering across all views"
           }
+          aria-pressed={syncMode}
+          aria-label={`Band sync${syncMode ? ` - synced to ${syncedBand || "none"}` : ""}`}
         >
           {/* Chain/Link icon */}
           <svg
@@ -193,6 +202,8 @@ export function FilterControls({
               ? "Showing needed spots only - Click to show all"
               : "Show only needed spots (not yet worked)"
           }
+          aria-pressed={neededOnly}
+          aria-label={`Show needed spots only${neededCount > 0 ? ` (${neededCount} available)` : ""}`}
         >
           {/* Star icon */}
           <svg
@@ -239,6 +250,8 @@ export function FilterControls({
                     ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/50"
                     : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
                 }`}
+                aria-pressed={maxAge === option.value}
+                aria-label={`Show spots from last ${option.label}`}
               >
                 {option.label}
               </button>
@@ -259,6 +272,8 @@ export function FilterControls({
               ? "Needed spots sorted to top"
               : "Click to sort needed spots to top"
           }
+          aria-pressed={sortByNeeded}
+          aria-label="Sort needed spots to top"
         >
           <svg
             className="w-3 h-3"
@@ -295,6 +310,8 @@ export function FilterControls({
                 color: sourceColor.color,
                 border: `1px solid ${sourceColor.color}40`,
               }}
+              aria-pressed={isActive}
+              aria-label={`Filter by ${source} source`}
             >
               {source}
             </button>
@@ -321,13 +338,14 @@ export function FilterControls({
               }}
               className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500/80 text-white text-[8px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
               title="Delete preset"
+              aria-label={`Delete preset ${preset.name}`}
             >
               x
             </button>
           </div>
         ))}
         {/* Save current selection as preset */}
-        {selectedBands.length > 0 && bandPresets.length < 5 && (
+        {selectedBands.length > 0 && bandPresets.length < MAX_BAND_PRESETS && (
           <>
             {showSaveInput ? (
               <div className="flex items-center gap-1">
@@ -338,7 +356,7 @@ export function FilterControls({
                   onChange={(e) => setPresetName(e.target.value)}
                   onKeyDown={handleSaveKeyDown}
                   placeholder="Preset name..."
-                  maxLength={20}
+                  maxLength={MAX_PRESET_NAME_LENGTH}
                   className="w-24 px-1.5 py-0.5 rounded text-[10px] bg-white/10 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
                 />
                 <button
@@ -370,8 +388,11 @@ export function FilterControls({
           </>
         )}
         {/* Show hint if at max presets */}
-        {selectedBands.length > 0 && bandPresets.length >= 5 && (
-          <span className="text-[9px] text-gray-500" title="Maximum 5 presets">
+        {selectedBands.length > 0 && bandPresets.length >= MAX_BAND_PRESETS && (
+          <span
+            className="text-[9px] text-gray-500"
+            title={`Maximum ${MAX_BAND_PRESETS} presets`}
+          >
             (max presets)
           </span>
         )}
@@ -397,6 +418,8 @@ export function FilterControls({
                 border: `1px solid ${isSynced ? "#22d3ee" : `${bandColor.color}40`}`,
               }}
               title={isSynced ? `Synced to ${band}` : band}
+              aria-pressed={isActive}
+              aria-label={`Filter by ${band} band${isSynced ? " (synced)" : ""}`}
             >
               {isSynced && (
                 <span className="mr-0.5" aria-hidden="true">
@@ -423,6 +446,8 @@ export function FilterControls({
                   ? "bg-white/10 text-white"
                   : "bg-transparent text-gray-500 hover:text-gray-300"
               }`}
+              aria-pressed={isActive}
+              aria-label={`Filter by ${mode} mode`}
             >
               {mode}
             </button>
@@ -431,6 +456,6 @@ export function FilterControls({
       </div>
     </div>
   );
-}
+});
 
 FilterControls.displayName = "FilterControls";

@@ -27,6 +27,7 @@ import {
   formatDistance,
   spotRowPropsAreEqual,
 } from "./utils";
+import { GRID_PREFIX_LENGTH, COPY_FEEDBACK_TIMEOUT_MS } from "./constants";
 
 /**
  * Individual spot row component with worked status and alert indicators
@@ -80,7 +81,7 @@ export const SpotRow = memo(function SpotRow({
         }
         copyTimeoutRef.current = setTimeout(() => {
           setFrequencyCopied(false);
-        }, 1500);
+        }, COPY_FEEDBACK_TIMEOUT_MS);
       } catch (err) {
         console.error("Failed to copy frequency:", err);
       }
@@ -102,8 +103,8 @@ export const SpotRow = memo(function SpotRow({
     (e: React.MouseEvent) => {
       e.stopPropagation(); // Don't trigger row selection
       if (spot.dxGrid && onGridClick) {
-        // Use 4-char prefix for broader match
-        const gridPrefix = spot.dxGrid.slice(0, 4);
+        // Use prefix for broader match (e.g., "EM73" from "EM73vk")
+        const gridPrefix = spot.dxGrid.slice(0, GRID_PREFIX_LENGTH);
         onGridClick(gridPrefix);
       }
     },
@@ -318,9 +319,9 @@ export const SpotRow = memo(function SpotRow({
           <button
             onClick={handleGridClick}
             className="text-[10px] text-cyan-400/70 hover:text-cyan-400 font-mono px-1 py-0.5 rounded hover:bg-cyan-500/10 transition-colors flex-shrink-0"
-            title={`Filter by grid ${spot.dxGrid.slice(0, 4)}`}
+            title={`Filter by grid ${spot.dxGrid.slice(0, GRID_PREFIX_LENGTH)}`}
           >
-            {spot.dxGrid.slice(0, 4)}
+            {spot.dxGrid.slice(0, GRID_PREFIX_LENGTH)}
           </button>
         )}
         {/* Status badges */}

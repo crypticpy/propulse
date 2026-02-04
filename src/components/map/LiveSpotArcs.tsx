@@ -617,73 +617,81 @@ export function LiveSpotArcs({
       ))}
 
       {/* Render non-clustered spots as individual arcs with age-based styling */}
-      {resolvedSingles.map((spot) => {
-        const color = getModeColor(spot.mode);
-        // Calculate age info for endpoint styling
-        const ageInfo = getSpotAgeInfo(spot.time);
-        // Apply age-based styling only if preference is enabled
-        const endpointOpacity = spotAgePrefs.enabled
-          ? ageInfo.opacity * 0.8
-          : 0.8;
-        const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
+      {(() => {
+        // Track callsigns that already have a label to prevent overlapping duplicates
+        const labeledCallsigns = new Set<string>();
+        return resolvedSingles.map((spot) => {
+          const color = getModeColor(spot.mode);
+          // Calculate age info for endpoint styling
+          const ageInfo = getSpotAgeInfo(spot.time);
+          // Apply age-based styling only if preference is enabled
+          const endpointOpacity = spotAgePrefs.enabled
+            ? ageInfo.opacity * 0.8
+            : 0.8;
+          const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
 
-        return (
-          <group key={spot.id}>
-            <SpotArc
-              spot={spot}
-              ageVisualizationEnabled={spotAgePrefs.enabled}
-            />
-            {/* Endpoint markers with age-based styling */}
-            <SpotEndpoint
-              lat={spot.spotterLat}
-              lon={spot.spotterLon}
-              color={color}
-              size={0.006}
-              opacity={endpointOpacity}
-              scale={endpointScale}
-            />
-            <SpotEndpoint
-              lat={spot.dxLat}
-              lon={spot.dxLon}
-              color={color}
-              size={0.008}
-              opacity={endpointOpacity}
-              scale={endpointScale}
-            />
-            {/* Callsign label at DX location (receiver) */}
-            {uiPrefs.showSpotCallsignLabels && (
-              <SpotLabel
-                lat={spot.dxLat}
-                lon={spot.dxLon}
-                callsign={spot.callsign}
-                mode={spot.mode}
-                isSpotter={false}
-                opacity={endpointOpacity}
-                frequency={spot.frequency}
-              />
-            )}
-            {/* Hit area for hover detection at DX location */}
-            {onSpotHover && (
-              <SpotEndpointHitArea
-                lat={spot.dxLat}
-                lon={spot.dxLon}
+          return (
+            <group key={spot.id}>
+              <SpotArc
                 spot={spot}
-                spotData={{
-                  spotter: singlesMap.get(spot.id)?.spotter,
-                  spotterGrid: singlesMap.get(spot.id)?.spotterGrid,
-                  dxGrid: singlesMap.get(spot.id)?.dxGrid,
-                  band: singlesMap.get(spot.id)?.band,
-                  snr: singlesMap.get(spot.id)?.snr,
-                  wpm: singlesMap.get(spot.id)?.wpm,
-                }}
-                hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
-                onHover={onSpotHover}
-                onHoverEnd={onSpotHoverEnd}
+                ageVisualizationEnabled={spotAgePrefs.enabled}
               />
-            )}
-          </group>
-        );
-      })}
+              {/* Endpoint markers with age-based styling */}
+              <SpotEndpoint
+                lat={spot.spotterLat}
+                lon={spot.spotterLon}
+                color={color}
+                size={0.006}
+                opacity={endpointOpacity}
+                scale={endpointScale}
+              />
+              <SpotEndpoint
+                lat={spot.dxLat}
+                lon={spot.dxLon}
+                color={color}
+                size={0.008}
+                opacity={endpointOpacity}
+                scale={endpointScale}
+              />
+              {/* Callsign label at DX location — deduplicated by callsign */}
+              {uiPrefs.showSpotCallsignLabels &&
+                !labeledCallsigns.has(spot.callsign) &&
+                (() => {
+                  labeledCallsigns.add(spot.callsign);
+                  return (
+                    <SpotLabel
+                      lat={spot.dxLat}
+                      lon={spot.dxLon}
+                      callsign={spot.callsign}
+                      mode={spot.mode}
+                      opacity={endpointOpacity}
+                      frequency={spot.frequency}
+                    />
+                  );
+                })()}
+              {/* Hit area for hover detection at DX location */}
+              {onSpotHover && (
+                <SpotEndpointHitArea
+                  lat={spot.dxLat}
+                  lon={spot.dxLon}
+                  spot={spot}
+                  spotData={{
+                    spotter: singlesMap.get(spot.id)?.spotter,
+                    spotterGrid: singlesMap.get(spot.id)?.spotterGrid,
+                    dxGrid: singlesMap.get(spot.id)?.dxGrid,
+                    band: singlesMap.get(spot.id)?.band,
+                    snr: singlesMap.get(spot.id)?.snr,
+                    wpm: singlesMap.get(spot.id)?.wpm,
+                  }}
+                  hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
+                  onHover={onSpotHover}
+                  onHoverEnd={onSpotHoverEnd}
+                />
+              )}
+            </group>
+          );
+        });
+      })()}
     </group>
   );
 }

@@ -17,13 +17,13 @@ import { useFrame } from "@react-three/fiber";
  * How far before the actual geometric limb to start fading.
  * A small value means fading starts very close to the edge.
  */
-const FADE_START_OFFSET = 0.05;
+const FADE_START_OFFSET = 0.35;
 
 /**
  * Width of the fade zone past the limb.
  * Larger values give a wider, gentler transition.
  */
-const FADE_WIDTH = 0.3;
+const FADE_WIDTH = 0.35;
 
 /**
  * Minimum change in opacity before updating React state.

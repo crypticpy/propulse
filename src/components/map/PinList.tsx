@@ -8,7 +8,7 @@
 import { useState, useCallback } from "react";
 import type { MapPin, PinCategory } from "../../types/pin";
 import { PIN_CATEGORIES, getCategoryMeta } from "../../types/pin";
-import { usePinStore } from "../../stores/pinStore";
+import { usePinStore, MAX_PINS } from "../../stores/pinStore";
 import { useUndoStore } from "../../stores/undoStore";
 
 export interface PinListProps {
@@ -49,11 +49,13 @@ export function PinList({
   onPinEdit,
   className = "",
 }: PinListProps) {
-  const { pins, removePin, getPinsByCategory, getPinById } = usePinStore();
+  const { pins, removePin, clearPins, getPinsByCategory, getPinById } =
+    usePinStore();
   const { pushAction } = useUndoStore();
 
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>("all");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Get filtered pins
   const filteredPins =
@@ -112,6 +114,35 @@ export function PinList({
   const handleCancelDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setPendingDelete(null);
+  }, []);
+
+  // Confirm clear all pins
+  const handleConfirmClearAll = useCallback(() => {
+    if (pins.length > 0) {
+      // Record the action for undo
+      pushAction({
+        type: "CLEAR_PINS",
+        pins: [...pins], // Copy the array
+        description: `Cleared ${pins.length} pin${pins.length === 1 ? "" : "s"}`,
+      });
+      clearPins();
+    }
+    setShowClearConfirm(false);
+  }, [pins, clearPins, pushAction]);
+
+  // Handle clear all button click
+  const handleClearAllClick = useCallback(() => {
+    if (pins.length === 1) {
+      // Only one pin - just delete it directly without confirmation
+      handleConfirmClearAll();
+    } else {
+      setShowClearConfirm(true);
+    }
+  }, [pins.length, handleConfirmClearAll]);
+
+  // Cancel clear all
+  const handleCancelClearAll = useCallback(() => {
+    setShowClearConfirm(false);
   }, []);
 
   // Format expiration date for display
@@ -344,10 +375,56 @@ export function PinList({
         )}
       </div>
 
-      {/* Footer with pin count */}
+      {/* Footer with pin count and clear all */}
       {pins.length > 0 && (
-        <div className="px-3 py-2 border-t border-white/10 text-xs text-gray-500">
-          {pins.length} / 20 pins
+        <div className="flex items-center justify-between px-3 py-2 border-t border-white/10">
+          <span className="text-xs text-gray-500">
+            {pins.length} / {MAX_PINS} pins
+          </span>
+
+          {showClearConfirm ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-amber-400">
+                Clear all {pins.length} pins?
+              </span>
+              <button
+                onClick={handleConfirmClearAll}
+                className="px-2 py-0.5 text-xs font-medium text-red-400 bg-red-500/20 rounded hover:bg-red-500/30 transition-colors"
+                aria-label="Confirm clear all pins"
+              >
+                Yes
+              </button>
+              <button
+                onClick={handleCancelClearAll}
+                className="px-2 py-0.5 text-xs font-medium text-gray-400 bg-white/5 rounded hover:bg-white/10 transition-colors"
+                aria-label="Cancel clear all"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleClearAllClick}
+              className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-400 hover:text-red-400 bg-white/5 hover:bg-red-500/20 rounded transition-colors"
+              title="Clear all pins"
+              aria-label="Clear all pins"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              Clear All
+            </button>
+          )}
         </div>
       )}
     </div>

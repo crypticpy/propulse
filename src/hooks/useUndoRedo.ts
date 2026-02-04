@@ -182,6 +182,24 @@ export function useUndoRedo({
         break;
       }
 
+      case "CLEAR_PINS": {
+        // Restore all cleared pins
+        const pinStore = usePinStore.getState();
+        action.pins.forEach((pin) => {
+          pinStore.addPin({
+            lat: pin.lat,
+            lon: pin.lon,
+            grid: pin.grid,
+            name: pin.name,
+            color: pin.color,
+            category: pin.category,
+            notes: pin.notes,
+            expiresAt: pin.expiresAt,
+          });
+        });
+        break;
+      }
+
       case "DELETE_ALERT": {
         // Alerts are typically not restorable in the same way
         // This is a placeholder for future implementation
@@ -224,6 +242,13 @@ export function useUndoRedo({
         // Re-clear recent targets
         const mapStore = useMapStore.getState();
         mapStore.clearRecentTargets();
+        break;
+      }
+
+      case "CLEAR_PINS": {
+        // Re-clear all pins
+        const pinStore = usePinStore.getState();
+        pinStore.clearPins();
         break;
       }
 

@@ -22,6 +22,7 @@ export { CompassRose } from "./CompassRose";
 export { LiveSpotArcs } from "./LiveSpotArcs";
 export { SpotHighlight } from "./SpotHighlight";
 export { SpotMarker } from "./SpotMarker";
+export { PinMarker } from "./PinMarker";
 export { SpotCluster } from "./SpotCluster";
 export { SpotLabel } from "./SpotLabel";
 export { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";

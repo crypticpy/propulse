@@ -64,6 +64,13 @@ export type UndoableAction =
       targets: TargetLocation[];
       /** Human-readable description for toast */
       description: string;
+    }
+  | {
+      type: "CLEAR_PINS";
+      /** All pins that were cleared */
+      pins: MapPin[];
+      /** Human-readable description for toast */
+      description: string;
     };
 
 /**

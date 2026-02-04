@@ -38,7 +38,8 @@ import {
 } from "./LocationMarker";
 import { LiveSpotArcs } from "./LiveSpotArcs";
 import { SpotHighlight } from "./SpotHighlight";
-import { SpotMarker } from "./SpotMarker";
+import { PinMarker } from "./PinMarker";
+import { getCategoryMeta } from "@/types/pin";
 import { GlobeClickHandler } from "./GlobeClickHandler";
 import { GlobeTooltip } from "./GlobeTooltip";
 import { GlobeFlyout, type GlobeFlyoutAction } from "./GlobeFlyout";
@@ -416,23 +417,26 @@ function GlobeScene({
       {/* Live spot arcs */}
       {layers.spots && <LiveSpotArcs grid={station?.grid} maxArcs={50} />}
 
-      {/* Pin markers from saved locations */}
-      {pins.map((pin) => (
-        <SpotMarker
-          key={pin.id}
-          lat={pin.lat}
-          lon={pin.lon}
-          color={pin.color || "#22D3EE"}
-          label={pin.name || pin.grid}
-          size={0.015}
-          glowIntensity={0.4}
-          onHover={(isHovered, screenPos) => {
-            if (isHovered && onPinHover) {
-              onPinHover(pin.lat, pin.lon, pin.grid, screenPos);
-            }
-          }}
-        />
-      ))}
+      {/* Pin markers from saved locations - distinctive pushpin style */}
+      {pins.map((pin) => {
+        const catMeta = getCategoryMeta(pin.category);
+        return (
+          <PinMarker
+            key={pin.id}
+            lat={pin.lat}
+            lon={pin.lon}
+            color={pin.color || catMeta.color}
+            label={pin.name || pin.grid}
+            emoji={catMeta.icon}
+            size={0.02}
+            onHover={(isHovered, screenPos) => {
+              if (isHovered && onPinHover) {
+                onPinHover(pin.lat, pin.lon, pin.grid, screenPos);
+              }
+            }}
+          />
+        );
+      })}
 
       {/* Home station marker - Blue color */}
       {station && (

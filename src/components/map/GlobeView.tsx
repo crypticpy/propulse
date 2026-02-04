@@ -30,6 +30,7 @@ import { NightLightsOverlay } from "./NightLightsOverlay";
 import { LabelsOverlay } from "./LabelsOverlay";
 import { AuroraOverlay } from "./AuroraOverlay";
 import { MUFOverlay } from "./MUFOverlay";
+import { GrayLineZone } from "./GrayLineZone";
 import { PathArc } from "./PathArc";
 import {
   LocationMarker,
@@ -407,6 +408,9 @@ function GlobeScene({
       {layers.greyline && (
         <Greyline date={displayTime} intensity={greylineIntensity} />
       )}
+
+      {/* Gray line propagation zone (±5° from terminator) */}
+      {layers.greyline && <GrayLineZone date={displayTime} />}
 
       {/* Aurora overlay */}
       {layers.aurora && auroraData && (

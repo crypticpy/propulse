@@ -17,9 +17,9 @@ import { useLiveSpots } from "@/hooks/useLiveSpots";
 import {
   resolveSpotLocations,
   getGreatCirclePoints,
-  getModeColor,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
+import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import {
   getDifficultyColor,
   DIFFICULTY_LABELS,
@@ -472,7 +472,7 @@ function drawGreyline(
 
   // Build greyline overlay with additive golden tint
   const imageData = offCtx.createImageData(width, height);
-  const {data} = imageData;
+  const { data } = imageData;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -789,8 +789,9 @@ function drawSpotArc(
   spot: ResolvedSpot,
   width: number,
   height: number,
+  colorMode: SpotColorMode = "mode",
 ) {
-  const color = getModeColor(spot.mode);
+  const color = getSpotColor(spot, colorMode);
   const opacity = getSpotAgeOpacity(spot.time);
 
   // Get start and end points
@@ -883,9 +884,10 @@ function drawSpotArcs(
   spots: ResolvedSpot[],
   width: number,
   height: number,
+  colorMode: SpotColorMode = "mode",
 ) {
   for (const spot of spots) {
-    drawSpotArc(ctx, spot, width, height);
+    drawSpotArc(ctx, spot, width, height, colorMode);
   }
 }
 
@@ -1078,6 +1080,7 @@ function drawCallsignLabels(
   spots: ResolvedSpot[],
   width: number,
   height: number,
+  colorMode: SpotColorMode = "mode",
 ) {
   const placedLabels: LabelBBox[] = [];
   const fontSize = 10;
@@ -1086,7 +1089,7 @@ function drawCallsignLabels(
   ctx.textBaseline = "bottom";
 
   for (const spot of spots) {
-    const {callsign} = spot;
+    const { callsign } = spot;
     if (!callsign) {
       continue;
     }
@@ -1108,7 +1111,7 @@ function drawCallsignLabels(
     }
     placedLabels.push(bbox);
 
-    const modeColor = getModeColor(spot.mode);
+    const modeColor = getSpotColor(spot, colorMode);
     const opacity = getSpotAgeOpacity(spot.time);
 
     ctx.globalAlpha = opacity;
@@ -1572,6 +1575,8 @@ export function FlatMapView({
   const compassRoseEnabled = preferences?.compassRose?.enabled ?? false;
   const showCallsignLabels =
     preferences?.uiInteraction?.showSpotCallsignLabels ?? true;
+  const spotColorMode: SpotColorMode =
+    preferences?.uiInteraction?.spotColorMode ?? "mode";
 
   // Pin store
   const { addPin } = usePinStore();
@@ -2198,8 +2203,8 @@ export function FlatMapView({
       return;
     }
 
-    const {dxLat} = focusedSpot;
-    const {dxLon} = focusedSpot;
+    const { dxLat } = focusedSpot;
+    const { dxLon } = focusedSpot;
     let running = true;
 
     const animate = () => {
@@ -2351,12 +2356,24 @@ export function FlatMapView({
 
     // Draw live spot arcs
     if (layers.spots && resolvedSpots.length > 0) {
-      drawSpotArcs(ctx, resolvedSpots, renderWidth, renderHeight);
+      drawSpotArcs(
+        ctx,
+        resolvedSpots,
+        renderWidth,
+        renderHeight,
+        spotColorMode,
+      );
     }
 
     // Draw callsign labels at DX spot positions (after arcs, before markers)
     if (showCallsignLabels && layers.spots && resolvedSpots.length > 0) {
-      drawCallsignLabels(ctx, resolvedSpots, renderWidth, renderHeight);
+      drawCallsignLabels(
+        ctx,
+        resolvedSpots,
+        renderWidth,
+        renderHeight,
+        spotColorMode,
+      );
     }
 
     // Spot highlight pulsing rings are drawn on a separate overlay canvas
@@ -2466,6 +2483,7 @@ export function FlatMapView({
     displaySize,
     compassRoseEnabled,
     showCallsignLabels,
+    spotColorMode,
   ]);
 
   return (

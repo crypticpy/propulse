@@ -21,7 +21,7 @@ import {
   formatSpotAge,
   getAgeBadgeColors,
 } from "./LiveSpotArcs";
-import { getModeColor } from "./LiveSpotArcs";
+import { getModeColor } from "@/lib/utils/spotColors";
 import { SPOT_SOURCE_COLORS, type SpotSource } from "@/types/livespot";
 
 /** Data structure for spot details */

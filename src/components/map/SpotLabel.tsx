@@ -14,7 +14,7 @@
 
 import { useMemo } from "react";
 import { Html } from "@react-three/drei";
-import { getModeColor } from "./LiveSpotArcs";
+import { getModeColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Offset from globe surface to prevent z-fighting */
@@ -39,6 +39,8 @@ export interface SpotLabelProps {
   frequency?: number;
   /** Stack offset index for nearby labels (0 = no offset) */
   stackIndex?: number;
+  /** Pre-computed color (hex). When provided, used instead of getModeColor(mode). */
+  color?: string;
 }
 
 /**
@@ -94,6 +96,7 @@ export function SpotLabel({
   size = "sm",
   frequency,
   stackIndex = 0,
+  color: colorProp,
 }: SpotLabelProps) {
   // Validate coordinates
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
@@ -110,8 +113,8 @@ export function SpotLabel({
     [lat, lon, hasValidCoords],
   );
 
-  // Get mode color
-  const color = getModeColor(mode);
+  // Use pre-computed color when provided, otherwise fall back to mode color
+  const color = colorProp ?? getModeColor(mode);
 
   // Combined opacity: age-based decay multiplied by globe occlusion
   const combinedOpacity = opacity * occlusionOpacity;

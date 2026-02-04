@@ -33,6 +33,7 @@ import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotDetailsData } from "./SpotDetailsFlyout";
+import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -217,56 +218,9 @@ export function getAgeBadgeColors(ageCategory: SpotAgeCategory): {
 }
 
 // ==========================================================================
-// Mode Colors - for visual identification of operating modes
+// Mode Colors - re-exported from shared module for backward compatibility
 // ==========================================================================
-export const MODE_COLORS: Record<string, string> = {
-  FT8: "#44DDFF", // Cosmic cyan
-  FT4: "#44DDFF", // Cosmic cyan
-  CW: "#FFD23F", // Caution amber
-  SSB: "#00FF88", // Signal green
-  RTTY: "#AA44FF", // Aurora purple
-  DIGI: "#44DDFF", // Cosmic cyan (generic digital)
-  DATA: "#44DDFF", // Cosmic cyan (generic data)
-  default: "#888888", // Gray fallback
-};
-
-/**
- * Get color for a given mode
- */
-export function getModeColor(mode: string | undefined): string {
-  if (!mode) {
-    return MODE_COLORS.default;
-  }
-  const upperMode = mode.toUpperCase();
-
-  // Direct match
-  if (MODE_COLORS[upperMode]) {
-    return MODE_COLORS[upperMode];
-  }
-
-  // Partial matches for common mode variations
-  if (upperMode.includes("FT8") || upperMode.includes("FT4")) {
-    return MODE_COLORS.FT8;
-  }
-  if (upperMode.includes("CW")) {
-    return MODE_COLORS.CW;
-  }
-  if (
-    upperMode.includes("SSB") ||
-    upperMode.includes("USB") ||
-    upperMode.includes("LSB")
-  ) {
-    return MODE_COLORS.SSB;
-  }
-  if (upperMode.includes("RTTY") || upperMode.includes("PSK")) {
-    return MODE_COLORS.RTTY;
-  }
-  if (upperMode.includes("DIGI") || upperMode.includes("DATA")) {
-    return MODE_COLORS.DIGI;
-  }
-
-  return MODE_COLORS.default;
-}
+export { getModeColor, MODE_COLORS } from "@/lib/utils/spotColors";
 
 // ==========================================================================
 // Great Circle Path Utilities
@@ -441,11 +395,14 @@ function SpotArc({
   spot,
   segments = 30,
   ageVisualizationEnabled = true,
+  colorMode = "mode",
 }: {
   spot: ResolvedSpot;
   segments?: number;
   /** Whether to apply age-based visual decay */
   ageVisualizationEnabled?: boolean;
+  /** Spot color mode: "mode" or "band" */
+  colorMode?: SpotColorMode;
 }) {
   // Validate coordinates to prevent NaN errors in THREE.js
   const hasValidCoords =
@@ -485,7 +442,7 @@ function SpotArc({
     }
   }, [spot, segments, hasValidCoords]);
 
-  const color = getModeColor(spot.mode);
+  const color = getSpotColor(spot, colorMode);
 
   // Calculate age-based opacity using new getSpotAgeInfo
   const ageInfo = useMemo(() => getSpotAgeInfo(spot.time), [spot.time]);
@@ -637,8 +594,10 @@ export function LiveSpotArcs({
         // Track occupied label positions to assign stack indices
         const labelPositions: Array<{ lat: number; lon: number }> = [];
 
+        const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
+
         return resolvedSingles.map((spot) => {
-          const color = getModeColor(spot.mode);
+          const color = getSpotColor(spot, colorMode);
           // Calculate age info for endpoint styling
           const ageInfo = getSpotAgeInfo(spot.time);
           // Apply age-based styling only if preference is enabled
@@ -668,6 +627,7 @@ export function LiveSpotArcs({
               <SpotArc
                 spot={spot}
                 ageVisualizationEnabled={spotAgePrefs.enabled}
+                colorMode={colorMode}
               />
               {/* Endpoint markers with age-based styling */}
               <SpotEndpoint
@@ -699,6 +659,7 @@ export function LiveSpotArcs({
                       mode={spot.mode}
                       frequency={spot.frequency}
                       stackIndex={stackIndex}
+                      color={color}
                     />
                   );
                 })()}

@@ -19,7 +19,7 @@ import {
   getClusterCallsignSummary,
   getClusterModes,
 } from "@/hooks/useSpotClustering";
-import { getModeColor } from "./LiveSpotArcs";
+import { getModeColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Radius offset to prevent z-fighting with globe surface */
@@ -67,7 +67,7 @@ function latLonToVector3(
 function getScreenPositionFromEvent(
   event: ThreeEvent<MouseEvent | PointerEvent>,
 ): { x: number; y: number } {
-  const {nativeEvent} = event;
+  const { nativeEvent } = event;
   return {
     x: nativeEvent.clientX,
     y: nativeEvent.clientY,

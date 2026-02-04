@@ -29,10 +29,8 @@ const BAND_FREQUENCY_RANGES: Record<string, { min: number; max: number }> = {
   "2m": { min: 144000, max: 148000 },
 };
 
-/**
- * Mode colors for spot visualization
- */
-const MODE_COLORS: Record<string, string> = {
+// BandMap uses distinct mode colors optimized for its specific visualization
+const BANDMAP_MODE_COLORS: Record<string, string> = {
   CW: "#54a0ff", // Blue
   SSB: "#1dd1a1", // Green
   FT8: "#ff9f43", // Orange
@@ -72,13 +70,13 @@ export interface BandMapProps {
 }
 
 /**
- * Get the color for a mode
+ * Get the color for a mode (BandMap-specific palette)
  */
-function getModeColor(mode?: string): string {
+function getBandMapModeColor(mode?: string): string {
   if (!mode) {
-    return MODE_COLORS.DEFAULT;
+    return BANDMAP_MODE_COLORS.DEFAULT;
   }
-  return MODE_COLORS[mode.toUpperCase()] || MODE_COLORS.DEFAULT;
+  return BANDMAP_MODE_COLORS[mode.toUpperCase()] || BANDMAP_MODE_COLORS.DEFAULT;
 }
 
 /**
@@ -297,7 +295,7 @@ export function BandMap({
       const x = frequencyToX(spot.frequency);
       const y = timeToY(spot.time);
       const size = getSpotSize(spot.time, now);
-      const color = getModeColor(spot.mode);
+      const color = getBandMapModeColor(spot.mode);
       const isSelected = selectedSpot?.id === spot.id;
       const isHovered = hoveredSpot?.id === spot.id;
 
@@ -470,8 +468,8 @@ export function BandMap({
               <span
                 className="ml-2 px-1 py-0.5 rounded text-[10px]"
                 style={{
-                  backgroundColor: getModeColor(hoveredSpot.mode) + "30",
-                  color: getModeColor(hoveredSpot.mode),
+                  backgroundColor: getBandMapModeColor(hoveredSpot.mode) + "30",
+                  color: getBandMapModeColor(hoveredSpot.mode),
                 }}
               >
                 {hoveredSpot.mode}
@@ -501,7 +499,7 @@ export function BandMap({
           <div key={mode} className="flex items-center gap-1.5">
             <span
               className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: MODE_COLORS[mode] }}
+              style={{ backgroundColor: BANDMAP_MODE_COLORS[mode] }}
             />
             <span className="text-[10px] text-gray-400 font-mono">{mode}</span>
           </div>

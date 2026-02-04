@@ -11,7 +11,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback, memo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useMapStore } from "@/stores/mapStore";
-import { useUserStore } from "@/stores/userStore";
+import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getPathIllumination } from "@/lib/utils/path";
@@ -102,6 +102,110 @@ function getOverallStatus(
   return "poor";
 }
 
+// =============================================================================
+// GRID VIEW COMPONENTS (High-Viz Mode)
+// =============================================================================
+
+/** Status-to-color mapping for grid cells */
+const GRID_STATUS_COLORS: Record<
+  PathBandCondition["status"],
+  { bg: string; border: string; text: string }
+> = {
+  excellent: {
+    bg: "rgba(0, 255, 136, 0.20)",
+    border: "rgba(0, 255, 136, 0.2)",
+    text: "#00ff88",
+  },
+  good: {
+    bg: "rgba(0, 255, 136, 0.15)",
+    border: "rgba(0, 255, 136, 0.15)",
+    text: "#00ff88",
+  },
+  fair: {
+    bg: "rgba(255, 180, 50, 0.15)",
+    border: "rgba(255, 180, 50, 0.15)",
+    text: "#ffb432",
+  },
+  poor: {
+    bg: "rgba(255, 68, 102, 0.15)",
+    border: "rgba(255, 68, 102, 0.15)",
+    text: "#ff4466",
+  },
+  closed: {
+    bg: "rgba(128, 128, 128, 0.10)",
+    border: "rgba(128, 128, 128, 0.2)",
+    text: "#666666",
+  },
+};
+
+interface BandConditionGridCellProps {
+  condition: PathBandCondition;
+  isSynced: boolean;
+}
+
+function gridCellPropsAreEqual(
+  prevProps: BandConditionGridCellProps,
+  nextProps: BandConditionGridCellProps,
+): boolean {
+  return (
+    prevProps.condition.band === nextProps.condition.band &&
+    prevProps.condition.status === nextProps.condition.status &&
+    prevProps.isSynced === nextProps.isSynced
+  );
+}
+
+const BandConditionGridCell = memo(function BandConditionGridCell({
+  condition,
+  isSynced,
+}: BandConditionGridCellProps) {
+  const colors = GRID_STATUS_COLORS[condition.status];
+  const statusLabel =
+    condition.status === "closed" ? "CLOSED" : condition.status.toUpperCase();
+
+  return (
+    <div
+      style={{
+        padding: "6px 4px",
+        borderRadius: "4px",
+        border: `1px solid ${colors.border}`,
+        backgroundColor: colors.bg,
+        textAlign: "center",
+        ...(isSynced
+          ? { boxShadow: "inset 0 0 0 1px rgba(34, 211, 238, 0.5)" }
+          : {}),
+      }}
+    >
+      <div
+        style={{
+          fontSize: "12px",
+          fontWeight: 700,
+          fontFamily:
+            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+          color: isSynced ? "#22d3ee" : "#ffffff",
+          lineHeight: 1.3,
+        }}
+      >
+        {condition.band}
+      </div>
+      <div
+        style={{
+          fontSize: "9px",
+          fontWeight: 600,
+          color: colors.text,
+          lineHeight: 1.4,
+          letterSpacing: "0.03em",
+        }}
+      >
+        {statusLabel}
+      </div>
+    </div>
+  );
+}, gridCellPropsAreEqual);
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+
 export function BandConditionsPanel({
   displayTime,
   className = "",
@@ -112,6 +216,8 @@ export function BandConditionsPanel({
   const { target } = useMapStore();
   const { station } = useUserStore();
   const { syncMode, syncedBand } = useDXStore();
+  const uiPrefs = useUIInteractionPrefs();
+  const isGridView = uiPrefs.visualStyle === "high-viz";
   const [showHelp, setShowHelp] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
@@ -520,44 +626,65 @@ export function BandConditionsPanel({
             collapsed ? "max-h-0 opacity-0" : "max-h-[1000px] opacity-100"
           }`}
         >
-          {/* Scrollable Table */}
+          {/* Band conditions content — grid view (high-viz) or table view (realistic) */}
           <div className="relative flex-1 min-h-0 mt-3">
             <div
               ref={scrollRef}
               className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide -mx-1"
             >
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-nebula-blue text-gray-400">
-                    <th className="px-1 py-1 text-left font-medium">Band</th>
-                    <th className="px-1 py-1 text-center font-medium">
-                      Status
-                    </th>
-                    {!compact && (
-                      <>
-                        <th className="px-1 py-1 text-center font-medium">
-                          Signal
-                        </th>
-                        <th className="px-1 py-1 text-center font-medium">
-                          SNR
-                        </th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
+              {isGridView ? (
+                /* Grid View — compact auto-flow grid inspired by OpenHamClock */
+                <div
+                  className="px-1"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(50px, 1fr))",
+                    gap: "6px",
+                  }}
+                >
                   {bandConditions.map((condition) => (
-                    <BandConditionRow
+                    <BandConditionGridCell
                       key={condition.band}
                       condition={condition}
-                      hasEnhancedData={!!enhancedBandConditions}
-                      compact={compact}
                       isSynced={syncMode && syncedBand === condition.band}
-                      greylineIntensity={greylineIntensity}
                     />
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ) : (
+                /* Table View — original detailed layout */
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-nebula-blue text-gray-400">
+                      <th className="px-1 py-1 text-left font-medium">Band</th>
+                      <th className="px-1 py-1 text-center font-medium">
+                        Status
+                      </th>
+                      {!compact && (
+                        <>
+                          <th className="px-1 py-1 text-center font-medium">
+                            Signal
+                          </th>
+                          <th className="px-1 py-1 text-center font-medium">
+                            SNR
+                          </th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {bandConditions.map((condition) => (
+                      <BandConditionRow
+                        key={condition.band}
+                        condition={condition}
+                        hasEnhancedData={!!enhancedBandConditions}
+                        compact={compact}
+                        isSynced={syncMode && syncedBand === condition.band}
+                        greylineIntensity={greylineIntensity}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {/* Scroll indicator - shows when more content below */}
@@ -770,7 +897,7 @@ function getSUnitColor(sUnit?: SUnit): string {
   if (!sUnit) {
     return "text-gray-400";
   }
-  const {value} = sUnit;
+  const { value } = sUnit;
   if (value >= 8) {
     return "text-signal-green";
   }

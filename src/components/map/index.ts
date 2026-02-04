@@ -79,6 +79,15 @@ export {
 // Lite Mode toggle
 export { LiteModeToggle } from "./LiteModeToggle";
 
+// Visual style selector (Realistic / High-Viz, Mode / Band coloring)
+export { StyleSelector } from "./StyleSelector";
+
+// Gray line propagation zone (±5° from terminator)
+export { GrayLineZone } from "./GrayLineZone";
+
+// DX News ticker
+export { DXNewsTicker } from "./DXNewsTicker";
+
 // Pin management components
 export { AddPinDialog } from "./AddPinDialog";
 export { PinList } from "./PinList";

@@ -24,6 +24,8 @@ import {
   OperatorProfile,
   SolarSnapshot,
   LiteModeToggle,
+  StyleSelector,
+  DXNewsTicker,
   KeyboardShortcutsOverlay,
   QuickGridInput,
   GridResearchPanel,
@@ -652,6 +654,9 @@ export function PropSphere() {
                 className="flex-shrink-0"
               />
 
+              {/* Visual style selector */}
+              <StyleSelector compact className="flex-shrink-0" />
+
               {/* Layer preset buttons */}
               <div className="flex gap-1 flex-wrap justify-start sm:justify-end">
                 {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
@@ -916,6 +921,9 @@ export function PropSphere() {
             </>
           )}
         </div>
+
+        {/* Live ticker bar */}
+        {!isLiteMode && <DXNewsTicker className="flex-shrink-0" />}
 
         {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
         {!isLiteMode && (

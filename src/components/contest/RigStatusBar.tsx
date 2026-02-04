@@ -11,6 +11,7 @@
 import { useMemo } from "react";
 import type { RigMode, RigStatus } from "@/types/bridge";
 import { formatFrequency, frequencyToBand } from "@/types/bridge";
+import { getModeTailwindColor } from "@/lib/utils/spotColors";
 
 export interface RigStatusBarProps {
   /** Current frequency in Hz */
@@ -56,40 +57,6 @@ function getBandColor(band: string): string {
   };
 
   return bandColors[band] || "text-gray-400 bg-gray-400/10 border-gray-400/30";
-}
-
-/**
- * Get color for mode badge
- */
-function getModeColor(mode: string): string {
-  const normalizedMode = mode.toUpperCase();
-
-  if (normalizedMode.includes("CW")) {
-    return "text-cosmic-cyan bg-cosmic-cyan/10 border-cosmic-cyan/30";
-  }
-  if (
-    normalizedMode.includes("SSB") ||
-    normalizedMode.includes("LSB") ||
-    normalizedMode.includes("USB")
-  ) {
-    return "text-plasma-orange bg-plasma-orange/10 border-plasma-orange/30";
-  }
-  if (
-    normalizedMode.includes("FT") ||
-    normalizedMode.includes("DATA") ||
-    normalizedMode.includes("PSK") ||
-    normalizedMode.includes("RTTY")
-  ) {
-    return "text-signal-green bg-signal-green/10 border-signal-green/30";
-  }
-  if (normalizedMode.includes("AM")) {
-    return "text-amber-400 bg-amber-400/10 border-amber-400/30";
-  }
-  if (normalizedMode.includes("FM")) {
-    return "text-purple-400 bg-purple-400/10 border-purple-400/30";
-  }
-
-  return "text-gray-400 bg-gray-400/10 border-gray-400/30";
 }
 
 /**
@@ -154,7 +121,7 @@ export function RigStatusBar({
     [displayBand],
   );
   const modeColorClasses = useMemo(
-    () => getModeColor(displayMode),
+    () => getModeTailwindColor(displayMode),
     [displayMode],
   );
 

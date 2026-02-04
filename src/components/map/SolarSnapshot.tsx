@@ -18,6 +18,7 @@ import {
   formatGreylineEventTime,
 } from "@/lib/utils/greyline";
 import type { PropagationRecommendations } from "@/types/recommendations";
+import { MODE_COLORS_TAILWIND } from "@/lib/utils/spotColors";
 
 export interface SolarSnapshotProps {
   homeLat: number;
@@ -108,14 +109,6 @@ function getCategoryLabel(
       return "Very Poor";
   }
 }
-
-// Mode colors for visual distinction
-const MODE_COLORS: Record<string, string> = {
-  FT8: "text-cyan-400",
-  CW: "text-yellow-400",
-  SSB: "text-green-400",
-  RTTY: "text-purple-400",
-};
 
 /**
  * Get a contextual operating tip based on conditions
@@ -474,7 +467,7 @@ export function SolarSnapshot({
                   {optimal.band}
                 </span>
                 <span
-                  className={`text-sm font-semibold ${MODE_COLORS[mode] || "text-white"}`}
+                  className={`text-sm font-semibold ${MODE_COLORS_TAILWIND[mode] || "text-white"}`}
                 >
                   {mode}
                 </span>

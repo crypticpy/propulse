@@ -11,7 +11,7 @@
 
 import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
-import { useUserStore } from "@/stores/userStore";
+import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics } from "@/lib/utils/path";
 import {
@@ -20,11 +20,8 @@ import {
   type AzimuthalPoint,
 } from "@/lib/utils/azimuthal";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
-import {
-  resolveSpotLocations,
-  getModeColor,
-  type ResolvedSpot,
-} from "./LiveSpotArcs";
+import { resolveSpotLocations, type ResolvedSpot } from "./LiveSpotArcs";
+import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import {
   getDifficultyColor,
   DIFFICULTY_LABELS,
@@ -214,10 +211,10 @@ function drawTerminator(
     const lat = phi * (180 / Math.PI);
     let lon = lambda * (180 / Math.PI);
     while (lon > 180) {
-        lon -= 360;
+      lon -= 360;
     }
     while (lon < -180) {
-        lon += 360;
+      lon += 360;
     }
 
     const projected = azimuthalProject(lat, lon, centerLat, centerLon);
@@ -428,9 +425,10 @@ function drawSpotArcs(
   spots: ResolvedSpot[],
   centerLat: number,
   centerLon: number,
+  colorMode: SpotColorMode = "mode",
 ) {
   for (const spot of spots) {
-    const color = getModeColor(spot.mode);
+    const color = getSpotColor(spot, colorMode);
     const opacity = getSpotAgeOpacity(spot.time);
 
     // Project both endpoints
@@ -648,6 +646,8 @@ export function AzimuthalView({
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
   const { layers, target } = useMapStore();
   const { station } = useUserStore();
+  const uiPrefs = useUIInteractionPrefs();
+  const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
 
   // Track container size for responsive scaling
   const [displaySize, setDisplaySize] = useState(CANVAS_SIZE);
@@ -881,7 +881,7 @@ export function AzimuthalView({
 
     // Draw live spot arcs (straight lines in azimuthal projection)
     if (layers.spots && resolvedSpots.length > 0) {
-      drawSpotArcs(ctx, resolvedSpots, center.lat, center.lon);
+      drawSpotArcs(ctx, resolvedSpots, center.lat, center.lon, spotColorMode);
     }
 
     // Draw target and path if set
@@ -913,6 +913,7 @@ export function AzimuthalView({
     targetMarkerColor,
     pathDifficulty,
     zoom,
+    spotColorMode,
   ]);
 
   return (

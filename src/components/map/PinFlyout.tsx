@@ -17,6 +17,7 @@ import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import type { MapPin } from "@/types/pin";
 import { getCategoryMeta } from "@/types/pin";
 import type { DXSpot } from "@/types/dxcluster";
+import { getModeColor } from "@/lib/utils/spotColors";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -129,29 +130,6 @@ function formatExpiration(expiresAt: string): {
   return { text: `Expires in ${diffDays} days`, isExpired: false };
 }
 
-/**
- * Get a color for a mode. Used for band badges.
- */
-function getModeColor(mode: string | undefined): string {
-  if (!mode) {
-    return "#888";
-  }
-  const upper = mode.toUpperCase();
-  if (upper === "FT8" || upper === "FT4") {
-    return "#44DDFF";
-  }
-  if (upper === "CW") {
-    return "#FFD23F";
-  }
-  if (upper === "SSB" || upper === "LSB" || upper === "USB") {
-    return "#00FF88";
-  }
-  if (upper === "RTTY" || upper === "PSK" || upper === "PSK31") {
-    return "#AA44FF";
-  }
-  return "#888";
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -242,7 +220,7 @@ export function PinFlyout({
     // Build band map from all matching spots (most recent mode color wins)
     const bandMap = new Map<string, string>();
     for (const spot of sorted) {
-      const {band} = spot;
+      const { band } = spot;
       if (band && !bandMap.has(band)) {
         bandMap.set(band, getModeColor(spot.mode));
       }
@@ -395,24 +373,23 @@ export function PinFlyout({
         e.clientY <= rect.bottom + PROXIMITY_PADDING;
 
       if (isNear) {
-              mouseInFlyoutRef.current = true;
-              if (dismissTimerRef.current) {
-                clearTimeout(dismissTimerRef.current);
-                dismissTimerRef.current = null;
-              }
-              if (isFading) {
-                setIsFading(false);
-              }
-            }
-      else if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
-                mouseInFlyoutRef.current = false;
-                dismissTimerRef.current = setTimeout(() => {
-                  setIsFading(true);
-                  setTimeout(() => {
-                    onClose();
-                  }, 200);
-                }, autoDismissMs);
-              }
+        mouseInFlyoutRef.current = true;
+        if (dismissTimerRef.current) {
+          clearTimeout(dismissTimerRef.current);
+          dismissTimerRef.current = null;
+        }
+        if (isFading) {
+          setIsFading(false);
+        }
+      } else if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
+        mouseInFlyoutRef.current = false;
+        dismissTimerRef.current = setTimeout(() => {
+          setIsFading(true);
+          setTimeout(() => {
+            onClose();
+          }, 200);
+        }, autoDismissMs);
+      }
     };
 
     document.addEventListener("mousemove", handleMouseMove);

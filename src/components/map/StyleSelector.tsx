@@ -111,7 +111,7 @@ export function StyleSelector({
   if (compact) {
     return (
       <div
-        className={`flex flex-col gap-1 rounded-xl bg-white/[0.03] backdrop-blur-md
+        className={`flex flex-row gap-1 rounded-xl bg-white/[0.03] backdrop-blur-md
                      border border-white/10 p-1 ${className}`}
       >
         {/* Visual style toggle */}

@@ -652,10 +652,12 @@ export function PropSphere() {
               </div>
 
               {/* Region preset selector */}
-              <RegionPresetSelector
-                onOpenManager={() => setShowPresetManager(true)}
-                className="flex-shrink-0"
-              />
+              {viewMode !== "azimuthal" && (
+                <RegionPresetSelector
+                  onOpenManager={() => setShowPresetManager(true)}
+                  className="flex-shrink-0"
+                />
+              )}
 
               {/* Visual style selector */}
               <StyleSelector compact className="flex-shrink-0" />

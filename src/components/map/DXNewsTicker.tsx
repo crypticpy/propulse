@@ -21,7 +21,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
-import { useDXStore, selectSpotCountByBand } from "@/stores/dxStore";
+import { useDXStore } from "@/stores/dxStore";
 import { getGeomagneticCondition } from "@/lib/utils/solarConversions";
 
 // =============================================================================
@@ -135,7 +135,18 @@ export function DXNewsTicker({
   const { data: solarFluxData } = useSolarFlux();
   const { activeAlerts, hasAlerts } = useSolarAlerts({ enabled: true });
   const spots = useDXStore((s) => s.spots);
-  const spotCountByBand = useDXStore(selectSpotCountByBand);
+
+  // Compute spot count by band locally to avoid infinite loop from
+  // selector returning a new object reference on every call
+  const spotCountByBand = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const spot of spots) {
+      if (spot.band) {
+        counts[spot.band] = (counts[spot.band] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [spots]);
 
   // ---------------------------------------------------------------------------
   // Derived solar values

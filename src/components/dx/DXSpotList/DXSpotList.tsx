@@ -113,12 +113,12 @@ export function DXSpotList({
     >
       {/* Header */}
       {showHeader && (
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
               DX CLUSTER
             </h2>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-400">
               {displaySpots.length}
               {filters.neededOnly && displaySpots.length !== totalSpots
                 ? ` / ${totalSpots}`
@@ -166,7 +166,7 @@ export function DXSpotList({
             {(isLoading || isFetching) && <LoadingSpinner size="sm" />}
             <button
               onClick={refetch}
-              className="p-1.5 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/5"
+              className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
               title="Refresh spots"
             >
               <svg
@@ -186,7 +186,7 @@ export function DXSpotList({
             {onExpand && (
               <button
                 onClick={onExpand}
-                className="p-1.5 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/5"
+                className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
                 title="Expand"
               >
                 <svg
@@ -250,7 +250,7 @@ export function DXSpotList({
       >
         {/* Column Headers - sticky at top of scroll container */}
         <div
-          className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_56px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_56px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-400 uppercase tracking-wider`}
+          className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_56px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_56px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
           role="row"
           style={{ borderLeft: "3px solid transparent" }}
         >
@@ -269,7 +269,7 @@ export function DXSpotList({
             <LoadingSpinner size="lg" />
           </div>
         ) : displaySpots.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-gray-500">
+          <div className="flex items-center justify-center py-12 text-gray-400">
             No spots match your filters
           </div>
         ) : (
@@ -308,14 +308,14 @@ export function DXSpotList({
       </div>
 
       {/* Footer */}
-      <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-500">
+      <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
         <div>
           {lastUpdated && <span>Updated {formatTime(lastUpdated)} UTC</span>}
         </div>
         <div className="flex items-center gap-3">
           <span>{stats.total} total</span>
           {Object.keys(stats.byMode).length > 0 && (
-            <span className="text-gray-600">
+            <span className="text-gray-400">
               Top:{" "}
               {Object.entries(stats.byMode).sort((a, b) => b[1] - a[1])[0]?.[0]}
             </span>

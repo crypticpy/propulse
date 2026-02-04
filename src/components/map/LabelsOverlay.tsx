@@ -1,14 +1,17 @@
 /**
  * LabelsOverlay Component
  *
- * Renders country borders and major city labels on the 3D globe.
- * Country borders are rendered as 3D lines.
- * City labels use HTML overlays that face the camera.
+ * Renders country borders (from comprehensive world data) and labels on the 3D globe.
+ * Country borders are rendered as closed 3D line loops from imported polygon data.
+ * Country name labels are placed at centroids with zoom-based filtering.
+ * Major city labels are retained as secondary detail.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Line, Html } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { WORLD_COUNTRIES, type CountryData } from "@/lib/data/worldCountries";
 
 // Major world cities with coordinates
 const MAJOR_CITIES = [
@@ -34,113 +37,17 @@ const MAJOR_CITIES = [
   { name: "Bangkok", lat: 13.7563, lon: 100.5018 },
 ];
 
-// Simplified country border coordinates (key coastlines and borders)
-// These are simplified polylines for major landmass outlines
-const COUNTRY_BORDERS: Array<Array<[number, number]>> = [
-  // North America West Coast
-  [
-    [48.4, -124.7],
-    [42.0, -124.2],
-    [34.4, -120.5],
-    [32.5, -117.1],
-    [23.0, -110.0],
-  ],
-  // North America East Coast
-  [
-    [47.0, -67.0],
-    [42.0, -70.0],
-    [35.0, -75.5],
-    [25.0, -80.0],
-    [30.0, -88.0],
-  ],
-  // South America West Coast
-  [
-    [-5.0, -81.0],
-    [-15.0, -75.0],
-    [-33.0, -71.6],
-    [-54.8, -68.3],
-  ],
-  // South America East Coast
-  [
-    [5.0, -52.0],
-    [-3.0, -41.0],
-    [-23.0, -43.0],
-    [-34.0, -54.0],
-    [-54.8, -68.3],
-  ],
-  // Europe West Coast
-  [
-    [58.0, -6.0],
-    [50.0, -5.0],
-    [43.0, -9.0],
-    [36.0, -6.0],
-    [36.0, -5.3],
-  ],
-  // Mediterranean
-  [
-    [36.0, -5.3],
-    [37.0, 15.0],
-    [38.0, 24.0],
-    [41.0, 29.0],
-  ],
-  // Africa West Coast
-  [
-    [35.0, -6.0],
-    [14.0, -17.0],
-    [-5.0, 12.0],
-    [-34.0, 18.0],
-  ],
-  // Africa East Coast
-  [
-    [31.0, 32.0],
-    [12.0, 43.0],
-    [-5.0, 40.0],
-    [-26.0, 33.0],
-    [-34.0, 26.0],
-  ],
-  // Asia - India
-  [
-    [23.0, 68.0],
-    [8.0, 77.0],
-    [22.0, 88.0],
-  ],
-  // Asia - Southeast
-  [
-    [22.0, 88.0],
-    [10.0, 99.0],
-    [1.0, 103.0],
-    [6.0, 116.0],
-  ],
-  // Asia - China/Japan
-  [
-    [40.0, 120.0],
-    [35.0, 129.0],
-    [35.0, 140.0],
-    [45.0, 142.0],
-  ],
-  // Australia
-  [
-    [-12.0, 130.0],
-    [-20.0, 118.0],
-    [-35.0, 117.0],
-    [-38.0, 145.0],
-    [-28.0, 153.0],
-    [-12.0, 142.0],
-    [-12.0, 130.0],
-  ],
-  // US-Canada Border (simplified)
-  [
-    [49.0, -123.0],
-    [49.0, -95.0],
-    [45.0, -75.0],
-  ],
-  // US-Mexico Border (simplified)
-  [
-    [32.5, -117.0],
-    [29.0, -103.0],
-    [26.0, -97.0],
-  ],
-];
+// Zoom-level area thresholds for country label visibility (km²)
+const AREA_ALWAYS_VISIBLE = 1_000_000;
+const AREA_MEDIUM_THRESHOLD = 100_000;
+const AREA_SMALL_THRESHOLD = 10_000;
+
+// Camera distance thresholds
+const DISTANCE_FAR = 3.0;
+const DISTANCE_CLOSE = 2.0;
+
+// Hysteresis margin to prevent flickering at threshold boundaries
+const DISTANCE_HYSTERESIS = 0.05;
 
 /**
  * Convert lat/lon to 3D position on sphere
@@ -160,10 +67,38 @@ function latLonToVector3(
   );
 }
 
+/**
+ * Determine the zoom tier based on camera distance with hysteresis.
+ *   0 = far (only large countries)
+ *   1 = medium (medium+ countries)
+ *   2 = close (small+ countries)
+ */
+function getZoomTier(distance: number, currentTier: number): number {
+  if (currentTier === 0) {
+    if (distance < DISTANCE_FAR - DISTANCE_HYSTERESIS) return 1;
+    return 0;
+  }
+  if (currentTier === 1) {
+    if (distance >= DISTANCE_FAR + DISTANCE_HYSTERESIS) return 0;
+    if (distance < DISTANCE_CLOSE - DISTANCE_HYSTERESIS) return 2;
+    return 1;
+  }
+  // currentTier === 2
+  if (distance >= DISTANCE_CLOSE + DISTANCE_HYSTERESIS) return 1;
+  return 2;
+}
+
+function isCountryVisible(area: number, zoomTier: number): boolean {
+  if (area >= AREA_ALWAYS_VISIBLE) return true;
+  if (zoomTier >= 1 && area >= AREA_MEDIUM_THRESHOLD) return true;
+  if (zoomTier >= 2 && area >= AREA_SMALL_THRESHOLD) return true;
+  return false;
+}
+
 interface LabelsOverlayProps {
   /** Show country borders */
   showBorders?: boolean;
-  /** Show city labels */
+  /** Show city and country labels */
   showLabels?: boolean;
 }
 
@@ -171,17 +106,70 @@ export function LabelsOverlay({
   showBorders = true,
   showLabels = true,
 }: LabelsOverlayProps) {
-  // Convert border coordinates to 3D points
+  const [zoomTier, setZoomTier] = useState(0);
+  const zoomTierRef = useRef(0);
+
+  useFrame(({ camera }) => {
+    const distance = camera.position.length();
+    const newTier = getZoomTier(distance, zoomTierRef.current);
+    if (newTier !== zoomTierRef.current) {
+      zoomTierRef.current = newTier;
+      setZoomTier(newTier);
+    }
+  });
+
+  // Pre-compute border line geometry from country data
   const borderLines = useMemo(() => {
-    return COUNTRY_BORDERS.map((border) =>
-      border.map(([lat, lon]) => {
-        const vec = latLonToVector3(lat, lon, 1.003);
-        return [vec.x, vec.y, vec.z] as [number, number, number];
-      }),
-    );
+    const lines: { key: string; points: [number, number, number][] }[] = [];
+
+    WORLD_COUNTRIES.forEach((country: CountryData) => {
+      country.borders.forEach((ring, ringIdx) => {
+        if (ring.length < 2) return;
+
+        const points: [number, number, number][] = ring.map(([lat, lon]) => {
+          const vec = latLonToVector3(lat, lon, 1.003);
+          return [vec.x, vec.y, vec.z] as [number, number, number];
+        });
+
+        // Close the ring
+        const first = points[0];
+        const last = points[points.length - 1];
+        if (
+          first[0] !== last[0] ||
+          first[1] !== last[1] ||
+          first[2] !== last[2]
+        ) {
+          points.push([...first]);
+        }
+
+        lines.push({
+          key: `${country.iso}-${ringIdx}`,
+          points,
+        });
+      });
+    });
+
+    return lines;
   }, []);
 
-  // Convert city coordinates to 3D positions
+  // Pre-compute country label centroid positions
+  const countryLabels = useMemo(() => {
+    return WORLD_COUNTRIES.map((country: CountryData) => {
+      const position = latLonToVector3(
+        country.centroidLat,
+        country.centroidLon,
+        1.025,
+      );
+      return {
+        name: country.name,
+        iso: country.iso,
+        area: country.area,
+        position,
+      };
+    });
+  }, []);
+
+  // Pre-compute city 3D positions
   const cityPositions = useMemo(() => {
     return MAJOR_CITIES.map((city) => ({
       ...city,
@@ -189,19 +177,51 @@ export function LabelsOverlay({
     }));
   }, []);
 
+  // Filter visible country labels based on current zoom tier
+  const visibleCountryLabels = useMemo(() => {
+    return countryLabels.filter((c) => isCountryVisible(c.area, zoomTier));
+  }, [countryLabels, zoomTier]);
+
   return (
     <group>
-      {/* Country borders */}
+      {/* Country border polygons */}
       {showBorders &&
-        borderLines.map((points, index) => (
+        borderLines.map((line) => (
           <Line
-            key={`border-${index}`}
-            points={points}
+            key={line.key}
+            points={line.points}
             color="#ffffff"
-            lineWidth={0.5}
-            opacity={0.4}
+            lineWidth={0.6}
+            opacity={0.35}
             transparent
           />
+        ))}
+
+      {/* Country name labels (zoom-filtered) */}
+      {showLabels &&
+        visibleCountryLabels.map((country) => (
+          <Html
+            key={`country-${country.iso}`}
+            position={[
+              country.position.x,
+              country.position.y,
+              country.position.z,
+            ]}
+            center
+            occlude
+            style={{
+              pointerEvents: "none",
+              userSelect: "none",
+            }}
+          >
+            <div
+              className="text-[10px] font-medium whitespace-nowrap px-1 py-0.5
+                         text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]
+                         bg-black/30 rounded backdrop-blur-sm"
+            >
+              {country.name}
+            </div>
+          </Html>
         ))}
 
       {/* City labels */}

@@ -46,6 +46,7 @@ import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
+import { WORLD_COUNTRIES } from "@/lib/data/worldCountries";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -143,8 +144,9 @@ function drawGrid(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
+  highViz = false,
 ) {
-  ctx.strokeStyle = COLORS.grid;
+  ctx.strokeStyle = highViz ? "rgba(255, 255, 255, 0.25)" : COLORS.grid;
   ctx.lineWidth = 0.5;
 
   // Latitude lines every 30°
@@ -166,8 +168,10 @@ function drawGrid(
   }
 
   // Equator highlight
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = highViz
+    ? "rgba(255, 255, 255, 0.5)"
+    : "rgba(255, 255, 255, 0.3)";
+  ctx.lineWidth = highViz ? 1.5 : 1;
   const { y: equatorY } = latLonToCanvas(0, 0, width, height);
   ctx.beginPath();
   ctx.moveTo(0, equatorY);
@@ -393,13 +397,14 @@ function drawTerminator(
   date: Date,
   width: number,
   height: number,
+  highViz = false,
 ) {
   const subsolar = getSubsolarPoint(date);
 
   ctx.strokeStyle = COLORS.terminator;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = highViz ? 3 : 2;
   ctx.shadowColor = COLORS.terminator;
-  ctx.shadowBlur = 4;
+  ctx.shadowBlur = highViz ? 8 : 4;
 
   ctx.beginPath();
 
@@ -458,6 +463,7 @@ function drawGreyline(
   date: Date,
   width: number,
   height: number,
+  highViz = false,
 ) {
   const subsolar = getSubsolarPoint(date);
 
@@ -473,6 +479,10 @@ function drawGreyline(
   // Build greyline overlay with additive golden tint
   const imageData = offCtx.createImageData(width, height);
   const { data } = imageData;
+
+  // High-viz mode increases golden tint intensity and alpha
+  const tintMultiplier = highViz ? 1.5 : 1;
+  const alphaMultiplier = highViz ? 255 : 200;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -498,10 +508,10 @@ function drawGreyline(
         const intensity = 1 - distFromTerminator / 15;
 
         // Golden/amber overlay
-        data[idx] = Math.floor(60 * intensity);
-        data[idx + 1] = Math.floor(40 * intensity);
+        data[idx] = Math.floor(60 * intensity * tintMultiplier);
+        data[idx + 1] = Math.floor(40 * intensity * tintMultiplier);
         data[idx + 2] = 0;
-        data[idx + 3] = Math.floor(200 * intensity);
+        data[idx + 3] = Math.floor(alphaMultiplier * intensity);
       }
     }
   }
@@ -529,19 +539,26 @@ function drawMarker(
   pathInfo?: { bearing: number; distance: number },
   width: number = MAP_WIDTH,
   height: number = MAP_HEIGHT,
+  highViz = false,
 ) {
   const { x, y } = latLonToCanvas(lat, lon, width, height);
 
   // Outer glow
   ctx.fillStyle = color + "40";
   ctx.beginPath();
-  ctx.arc(x, y, isHome ? 10 : 14, 0, Math.PI * 2);
+  ctx.arc(
+    x,
+    y,
+    isHome ? (highViz ? 14 : 10) : highViz ? 18 : 14,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
 
   // Inner dot
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.arc(x, y, isHome ? 5 : 7, 0, Math.PI * 2);
+  ctx.arc(x, y, isHome ? (highViz ? 7 : 5) : highViz ? 10 : 7, 0, Math.PI * 2);
   ctx.fill();
 
   // Pulsing ring for target
@@ -549,7 +566,7 @@ function drawMarker(
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, 12, 0, Math.PI * 2);
+    ctx.arc(x, y, highViz ? 16 : 12, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -565,7 +582,7 @@ function drawMarker(
         : `${bearing}° / ${distKm}km`;
     }
 
-    ctx.font = "bold 11px monospace";
+    ctx.font = highViz ? "bold 13px monospace" : "bold 11px monospace";
     const textWidth = ctx.measureText(labelText).width + 12;
     const boxWidth = Math.max(60, textWidth);
 
@@ -790,6 +807,7 @@ function drawSpotArc(
   width: number,
   height: number,
   colorMode: SpotColorMode = "mode",
+  highViz = false,
 ) {
   const color = getSpotColor(spot, colorMode);
   const opacity = getSpotAgeOpacity(spot.time);
@@ -813,7 +831,7 @@ function drawSpotArc(
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = highViz ? 3 : 1.5;
   ctx.lineCap = "round";
 
   if (wrapAround) {
@@ -865,12 +883,12 @@ function drawSpotArc(
   // Spotter location (smaller)
   ctx.beginPath();
   ctx.fillStyle = color;
-  ctx.arc(start.x, start.y, 3, 0, Math.PI * 2);
+  ctx.arc(start.x, start.y, highViz ? 5 : 3, 0, Math.PI * 2);
   ctx.fill();
 
   // DX location (larger)
   ctx.beginPath();
-  ctx.arc(end.x, end.y, 4, 0, Math.PI * 2);
+  ctx.arc(end.x, end.y, highViz ? 6 : 4, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -885,9 +903,10 @@ function drawSpotArcs(
   width: number,
   height: number,
   colorMode: SpotColorMode = "mode",
+  highViz = false,
 ) {
   for (const spot of spots) {
-    drawSpotArc(ctx, spot, width, height, colorMode);
+    drawSpotArc(ctx, spot, width, height, colorMode, highViz);
   }
 }
 
@@ -1081,9 +1100,10 @@ function drawCallsignLabels(
   width: number,
   height: number,
   colorMode: SpotColorMode = "mode",
+  highViz = false,
 ) {
   const placedLabels: LabelBBox[] = [];
-  const fontSize = 10;
+  const fontSize = highViz ? 12 : 10;
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
   ctx.textBaseline = "bottom";
@@ -1117,7 +1137,9 @@ function drawCallsignLabels(
     ctx.globalAlpha = opacity;
 
     // Background pill with mode color accent
-    ctx.fillStyle = "rgba(10, 10, 26, 0.75)";
+    ctx.fillStyle = highViz
+      ? "rgba(10, 10, 26, 0.9)"
+      : "rgba(10, 10, 26, 0.75)";
     ctx.beginPath();
     const pillRadius = 3;
     // Rounded rect
@@ -1336,57 +1358,8 @@ function drawNightLights(
   ctx.restore();
 }
 
-// Simplified country border data for 2D map
-const BORDER_SEGMENTS = [
-  // North America West Coast
-  [
-    [48.4, -124.7],
-    [42.0, -124.2],
-    [34.4, -120.5],
-    [32.5, -117.1],
-    [23.0, -110.0],
-  ],
-  // North America East Coast
-  [
-    [47.0, -67.0],
-    [42.0, -70.0],
-    [35.0, -75.5],
-    [25.0, -80.0],
-    [30.0, -88.0],
-  ],
-  // Europe
-  [
-    [58.0, -6.0],
-    [50.0, -5.0],
-    [43.0, -9.0],
-    [36.0, -6.0],
-  ],
-  // Africa West
-  [
-    [35.0, -6.0],
-    [14.0, -17.0],
-    [-5.0, 12.0],
-    [-34.0, 18.0],
-  ],
-  // Asia - India outline
-  [
-    [23.0, 68.0],
-    [8.0, 77.0],
-    [22.0, 88.0],
-  ],
-  // Australia
-  [
-    [-12.0, 130.0],
-    [-20.0, 118.0],
-    [-35.0, 117.0],
-    [-38.0, 145.0],
-    [-28.0, 153.0],
-    [-12.0, 142.0],
-  ],
-];
-
 // City labels for 2D map
-const CITY_LABELS = [
+const CITY_LABELS_2D = [
   { name: "New York", lat: 40.7128, lon: -74.006 },
   { name: "London", lat: 51.5074, lon: -0.1278 },
   { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
@@ -1397,42 +1370,79 @@ const CITY_LABELS = [
   { name: "Cairo", lat: 30.0444, lon: 31.2357 },
   { name: "Rio", lat: -22.9068, lon: -43.1729 },
   { name: "LA", lat: 34.0522, lon: -118.2437 },
+  { name: "Paris", lat: 48.8566, lon: 2.3522 },
+  { name: "Beijing", lat: 39.9042, lon: 116.4074 },
+  { name: "Mumbai", lat: 19.076, lon: 72.8777 },
+  { name: "Toronto", lat: 43.6532, lon: -79.3832 },
+  { name: "Berlin", lat: 52.52, lon: 13.405 },
+  { name: "Seoul", lat: 37.5665, lon: 126.978 },
+  { name: "Mexico City", lat: 19.4326, lon: -99.1332 },
+  { name: "Cape Town", lat: -33.9249, lon: 18.4241 },
+  { name: "Buenos Aires", lat: -34.6037, lon: -58.3816 },
+  { name: "Bangkok", lat: 13.7563, lon: 100.5018 },
 ];
 
+// Area threshold — only render country name labels for countries above this size
+const LABEL_AREA_THRESHOLD = 100_000; // km²
+
 /**
- * Draw labels (country borders and city names)
+ * Draw labels (country borders from WORLD_COUNTRIES data and city/country names)
  */
 function drawLabels(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
 ) {
-  // Draw country borders
+  // Draw country border polygons from comprehensive world data
   ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 0.8;
 
-  for (const segment of BORDER_SEGMENTS) {
-    ctx.beginPath();
-    for (let i = 0; i < segment.length; i++) {
-      const [lat, lon] = segment[i];
-      const { x, y } = latLonToCanvas(lat, lon, width, height);
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
+  for (const country of WORLD_COUNTRIES) {
+    for (const ring of country.borders) {
+      if (ring.length < 2) continue;
+      ctx.beginPath();
+      for (let i = 0; i < ring.length; i++) {
+        const [lat, lon] = ring[i];
+        const { x, y } = latLonToCanvas(lat, lon, width, height);
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
       }
+      ctx.closePath();
+      ctx.stroke();
     }
-    ctx.stroke();
+  }
+
+  // Draw country name labels at centroids (only for countries above area threshold)
+  ctx.font = "bold 8px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (const country of WORLD_COUNTRIES) {
+    if (country.area < LABEL_AREA_THRESHOLD) continue;
+    const { x, y } = latLonToCanvas(
+      country.centroidLat,
+      country.centroidLon,
+      width,
+      height,
+    );
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.lineWidth = 2;
+    ctx.strokeText(country.name, x, y);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.fillText(country.name, x, y);
   }
 
   // Draw city labels
   ctx.font = "bold 9px sans-serif";
   ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
 
-  for (const city of CITY_LABELS) {
+  for (const city of CITY_LABELS_2D) {
     const { x, y } = latLonToCanvas(city.lat, city.lon, width, height);
 
-    // Draw text with dark outline for visibility on both light and dark backgrounds
     ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
     ctx.lineWidth = 3;
     ctx.strokeText(city.name, x, y - 8);
@@ -1577,6 +1587,7 @@ export function FlatMapView({
     preferences?.uiInteraction?.showSpotCallsignLabels ?? true;
   const spotColorMode: SpotColorMode =
     preferences?.uiInteraction?.spotColorMode ?? "mode";
+  const highViz = preferences?.uiInteraction?.visualStyle === "high-viz";
 
   // Pin store
   const { addPin } = usePinStore();
@@ -2090,18 +2101,14 @@ export function FlatMapView({
       return;
     }
 
-    // Calculate target offset from the preset's center (interpreting rotation as center offset)
-    const rotation = preset.rotation ?? {
-      x: preset.center.lat,
-      y: -preset.center.lon,
-    };
+    // Convert preset center lat/lon to map-space pixel position (equirectangular projection)
+    const mapX = ((preset.center.lon + 180) / 360) * displaySize.width;
+    const mapY = ((90 - preset.center.lat) / 180) * displaySize.height;
+
+    // Calculate offset to center the preset point in the viewport at the target scale
     const targetScale = Math.max(0.5, Math.min(4, preset.zoom));
-    const targetOffsetX =
-      -(-rotation.y) * (displaySize.width / 360) * targetScale +
-      (displaySize.width * (1 - targetScale)) / 2;
-    const targetOffsetY =
-      -rotation.x * (displaySize.height / 180) * targetScale +
-      (displaySize.height * (1 - targetScale)) / 2;
+    const targetOffsetX = displaySize.width / 2 - mapX * targetScale;
+    const targetOffsetY = displaySize.height / 2 - mapY * targetScale;
 
     const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
 
@@ -2328,12 +2335,12 @@ export function FlatMapView({
     // Draw night side and terminator
     if (layers.terminator) {
       drawNightSide(ctx, displayTime, renderWidth, renderHeight);
-      drawTerminator(ctx, displayTime, renderWidth, renderHeight);
+      drawTerminator(ctx, displayTime, renderWidth, renderHeight, highViz);
     }
 
     // Draw greyline band (twilight zone with enhanced propagation)
     if (layers.greyline) {
-      drawGreyline(ctx, displayTime, renderWidth, renderHeight);
+      drawGreyline(ctx, displayTime, renderWidth, renderHeight, highViz);
     }
 
     // Draw aurora overlay
@@ -2347,7 +2354,7 @@ export function FlatMapView({
     }
 
     // Draw grid
-    drawGrid(ctx, renderWidth, renderHeight);
+    drawGrid(ctx, renderWidth, renderHeight, highViz);
 
     // Draw labels (country borders and city names)
     if (layers.labels) {
@@ -2362,6 +2369,7 @@ export function FlatMapView({
         renderWidth,
         renderHeight,
         spotColorMode,
+        highViz,
       );
     }
 
@@ -2373,6 +2381,7 @@ export function FlatMapView({
         renderWidth,
         renderHeight,
         spotColorMode,
+        highViz,
       );
     }
 
@@ -2406,6 +2415,7 @@ export function FlatMapView({
         undefined,
         renderWidth,
         renderHeight,
+        highViz,
       );
     }
 
@@ -2426,6 +2436,7 @@ export function FlatMapView({
           : undefined,
         renderWidth,
         renderHeight,
+        highViz,
       );
     }
 
@@ -2484,6 +2495,7 @@ export function FlatMapView({
     compassRoseEnabled,
     showCallsignLabels,
     spotColorMode,
+    highViz,
   ]);
 
   return (

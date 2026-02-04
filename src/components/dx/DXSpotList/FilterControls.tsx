@@ -79,8 +79,8 @@ export const FilterControls = memo(function FilterControls({
   const [presetName, setPresetName] = useState("");
   const saveInputRef = useRef<HTMLInputElement>(null);
 
-  // Collapsible state
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Collapsible state - collapsed by default for space efficiency
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Focus input when shown
   useEffect(() => {
@@ -136,13 +136,18 @@ export const FilterControls = memo(function FilterControls({
     ],
   );
 
-  // Collapsed view: just a "Filters" badge with count
+  // Collapsed view: compact filter bar with search and key toggles
   if (isCollapsed) {
     return (
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-1">
         <button
           onClick={() => setIsCollapsed(false)}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white transition-all"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+            activeFilterCount > 0
+              ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
+              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+          }`}
+          title={`${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""} — click to expand`}
         >
           <svg
             className="w-3.5 h-3.5"
@@ -164,7 +169,7 @@ export const FilterControls = memo(function FilterControls({
             </span>
           )}
           <svg
-            className="w-3 h-3"
+            className="w-3 h-3 transition-transform"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -179,19 +184,53 @@ export const FilterControls = memo(function FilterControls({
         </button>
 
         {/* Quick access: search still visible when collapsed */}
-        <div className="relative flex-1 max-w-[200px]">
+        <div className="relative flex-1">
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search callsigns..."
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
           />
           {searchText && (
             <button
               onClick={() => onSearchChange("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
               aria-label="Clear search"
+            >
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Grid locator - quick access when collapsed */}
+        <div className="relative w-20">
+          <input
+            type="text"
+            placeholder="Grid..."
+            value={gridFilter}
+            onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
+            maxLength={MAX_GRID_INPUT_LENGTH}
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            title="Filter by Maidenhead grid locator"
+          />
+          {gridFilter && (
+            <button
+              onClick={() => onGridFilterChange("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              aria-label="Clear grid filter"
             >
               <svg
                 className="w-3 h-3"
@@ -224,12 +263,12 @@ export const FilterControls = memo(function FilterControls({
             placeholder="Search callsigns..."
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-400 focus:outline-none focus:border-plasma-orange/50"
           />
           {searchText && (
             <button
               onClick={() => onSearchChange("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
               aria-label="Clear search"
             >
               <svg
@@ -257,13 +296,13 @@ export const FilterControls = memo(function FilterControls({
             value={gridFilter}
             onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
             maxLength={MAX_GRID_INPUT_LENGTH}
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
             title="Filter by Maidenhead grid locator (e.g., CN87, FN31)"
           />
           {gridFilter && (
             <button
               onClick={() => onGridFilterChange("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
               aria-label="Clear grid filter"
             >
               <svg
@@ -289,7 +328,7 @@ export const FilterControls = memo(function FilterControls({
           className={`flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
             syncMode
               ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-              : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white"
+              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
           }`}
           title={
             syncMode
@@ -325,7 +364,7 @@ export const FilterControls = memo(function FilterControls({
           className={`flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
             neededOnly
               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/50"
-              : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white"
+              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
           }`}
           title={
             neededOnly
@@ -364,7 +403,7 @@ export const FilterControls = memo(function FilterControls({
         {/* Collapse toggle */}
         <button
           onClick={() => setIsCollapsed(true)}
-          className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
           title="Collapse filters"
           aria-label="Collapse filter panel"
         >
@@ -387,7 +426,7 @@ export const FilterControls = memo(function FilterControls({
       {/* Row 2: Time range + sort by needed */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-gray-500 uppercase tracking-wide">
+          <span className="text-[9px] text-gray-400 uppercase tracking-wide font-semibold">
             Time:
           </span>
           <div className="flex gap-0.5">
@@ -398,7 +437,7 @@ export const FilterControls = memo(function FilterControls({
                 className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all ${
                   maxAge === option.value
                     ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/50"
-                    : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
                 }`}
                 aria-pressed={maxAge === option.value}
                 aria-label={`Show spots from last ${option.label}`}
@@ -415,7 +454,7 @@ export const FilterControls = memo(function FilterControls({
           className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium transition-all ${
             sortByNeeded
               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40"
-              : "bg-white/5 text-gray-500 border border-white/10 hover:bg-white/10 hover:text-gray-300"
+              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
           }`}
           title={
             sortByNeeded
@@ -507,7 +546,7 @@ export const FilterControls = memo(function FilterControls({
                   onKeyDown={handleSaveKeyDown}
                   placeholder="Name..."
                   maxLength={MAX_PRESET_NAME_LENGTH}
-                  className="w-20 px-1 py-0.5 rounded text-[9px] bg-white/10 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                  className="w-20 px-1 py-0.5 rounded text-[9px] bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500/50"
                 />
                 <button
                   onClick={handleSavePreset}
@@ -521,7 +560,7 @@ export const FilterControls = memo(function FilterControls({
                     setShowSaveInput(false);
                     setPresetName("");
                   }}
-                  className="px-0.5 py-0.5 rounded text-[9px] text-gray-400 hover:text-white transition-colors"
+                  className="px-0.5 py-0.5 rounded text-[9px] text-gray-300 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
@@ -539,7 +578,7 @@ export const FilterControls = memo(function FilterControls({
         )}
         {selectedBands.length > 0 && bandPresets.length >= MAX_BAND_PRESETS && (
           <span
-            className="text-[8px] text-gray-500"
+            className="text-[8px] text-gray-400"
             title={`Maximum ${MAX_BAND_PRESETS} presets`}
           >
             (max)
@@ -609,7 +648,7 @@ export const FilterControls = memo(function FilterControls({
               className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all border border-white/20 ${
                 isActive
                   ? "bg-white/10 text-white"
-                  : "bg-transparent text-gray-500 opacity-50 hover:text-gray-300 hover:opacity-70"
+                  : "bg-transparent text-gray-400 opacity-60 hover:text-gray-200 hover:opacity-80"
               }`}
               aria-pressed={isActive}
               aria-label={`Filter by ${mode} mode`}

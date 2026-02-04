@@ -185,6 +185,9 @@ function CameraController() {
   const { targetPosition, isFocusing } = useSpotFocus();
   const centerLocation = useMapStore((state) => state.centerLocation);
   const clearCenterLocation = useMapStore((state) => state.clearCenterLocation);
+  const activePresetId = useMapStore((state) => state.activePresetId);
+  const regionPresets = useMapStore((state) => state.regionPresets);
+  const prevPresetIdRef = useRef<string | null>(null);
 
   // Animate camera to focus on selected spot
   useEffect(() => {
@@ -269,6 +272,58 @@ function CameraController() {
 
     animate();
   }, [centerLocation, camera, clearCenterLocation]);
+
+  // Animate camera to region preset when activePresetId changes
+  useEffect(() => {
+    // Skip if preset hasn't actually changed (avoids re-animation on re-renders)
+    if (activePresetId === prevPresetIdRef.current) {
+      return;
+    }
+    prevPresetIdRef.current = activePresetId;
+
+    if (!activePresetId || !controlsRef.current) {
+      return;
+    }
+
+    const preset = regionPresets.find((p) => p.id === activePresetId);
+    if (!preset) {
+      return;
+    }
+
+    const controls = controlsRef.current;
+    const startPosition = camera.position.clone();
+    const distance = 2.5 / preset.zoom;
+    const endPosition = latLonToCameraPosition(
+      preset.center.lat,
+      preset.center.lon,
+      distance,
+    );
+
+    // Smooth animation duration (500ms for responsive navigation)
+    const duration = 500;
+    const startTime = Date.now();
+
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease out cubic for smooth deceleration
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      // Lerp camera position
+      camera.position.lerpVectors(startPosition, endPosition, eased);
+
+      // Always look at center of globe
+      camera.lookAt(0, 0, 0);
+      controls.update();
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    }
+
+    animate();
+  }, [activePresetId, regionPresets, camera]);
 
   return (
     <OrbitControls

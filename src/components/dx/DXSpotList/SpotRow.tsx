@@ -420,9 +420,9 @@ export const SpotRow = memo(function SpotRow({
       </div>
 
       {/* Comment/Mode */}
-      <div className="flex items-center gap-1.5 text-[11px] text-gray-500 truncate">
+      <div className="flex items-center gap-1.5 text-[11px] text-gray-300 truncate">
         {spot.mode && (
-          <span className="px-1 py-0.5 rounded bg-white/5 text-gray-400 text-[10px] leading-none">
+          <span className="px-1 py-0.5 rounded bg-white/8 text-gray-300 text-[10px] leading-none font-medium">
             {spot.mode}
           </span>
         )}
@@ -445,7 +445,7 @@ export const SpotRow = memo(function SpotRow({
         {/* Target (crosshair) */}
         <button
           onClick={handleSetTarget}
-          className="p-0.5 rounded text-gray-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+          className="p-0.5 rounded text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
           title="Set as map target"
           aria-label="Set as map target"
         >
@@ -467,7 +467,7 @@ export const SpotRow = memo(function SpotRow({
         {/* Watch (eye) */}
         <button
           onClick={handleWatchCallsign}
-          className="p-0.5 rounded text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
+          className="p-0.5 rounded text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
           title="Watch this callsign"
           aria-label="Watch this callsign"
         >
@@ -494,7 +494,7 @@ export const SpotRow = memo(function SpotRow({
         {/* Hide (x) */}
         <button
           onClick={handleHideSpot}
-          className="p-0.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          className="p-0.5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
           title="Hide this spot"
           aria-label="Hide this spot"
         >

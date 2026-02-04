@@ -28,11 +28,13 @@ export { SpotLabel } from "./SpotLabel";
 export { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
 export { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 export { GlobeClickHandler } from "./GlobeClickHandler";
-export { GlobeTooltip } from "./GlobeTooltip";
-export { GlobeFlyout } from "./GlobeFlyout";
+export { MapTooltip } from "./MapTooltip";
+export { MapFlyout } from "./MapFlyout";
+export { PinFlyout, type PinFlyoutProps } from "./PinFlyout";
 
 // 2D Flat Map components
 export { FlatMapView } from "./FlatMapView";
+export { useFlatMapClickHandler } from "./FlatMapClickHandler";
 
 // Azimuthal projection view
 export { AzimuthalView } from "./AzimuthalView";
@@ -107,3 +109,7 @@ export {
   type MiniMapNavigatorProps,
   type MiniMapPosition,
 } from "./MiniMapNavigator";
+
+// Region preset components
+export { RegionPresetSelector } from "./RegionPresetSelector";
+export { RegionPresetManager } from "./RegionPresetManager";

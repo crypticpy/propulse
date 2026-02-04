@@ -6,12 +6,14 @@
  * - Teardrop/pin shape with vertical stem
  * - Category emoji display
  * - Unique animation (gentle bob instead of pulse)
+ * - Globe occlusion (fades on far side of globe)
  */
 
-import { useRef, useMemo, useState, useCallback } from "react";
+import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
+import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Default pin color - cyan to match app theme */
 const DEFAULT_COLOR = "#22D3EE";
@@ -30,6 +32,8 @@ export interface PinMarkerProps {
   lat: number;
   /** Longitude in degrees */
   lon: number;
+  /** Unique pin identifier */
+  pinId?: string;
   /** Pin color */
   color?: string;
   /** Pin size */
@@ -41,7 +45,11 @@ export interface PinMarkerProps {
   /** Click handler */
   onClick?: (lat: number, lon: number) => void;
   /** Hover handler */
-  onHover?: (isHovered: boolean, position: { x: number; y: number }) => void;
+  onHover?: (
+    isHovered: boolean,
+    position: { x: number; y: number },
+    pinId?: string,
+  ) => void;
 }
 
 /**
@@ -95,16 +103,25 @@ function getScreenPositionFromEvent(
 export function PinMarker({
   lat,
   lon,
+  pinId,
   color = DEFAULT_COLOR,
   size = DEFAULT_SIZE,
   label,
-  emoji = "📍",
+  emoji = "\uD83D\uDCCD",
   onClick,
   onHover,
 }: PinMarkerProps) {
   const groupRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Mesh>(null);
+  const stemMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const headMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const glowRingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const shadowCircleMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const [isHovered, setIsHovered] = useState(false);
+
+  // Globe occlusion - fade out pins on the far side
+  const { opacityRef: occlusionRef, opacity: occlusionOpacity } =
+    useGlobeOcclusion(lat, lon);
 
   // Calculate base position on globe surface
   const basePosition = useMemo(() => {
@@ -133,37 +150,58 @@ export function PinMarker({
 
       if (onHover) {
         const screenPos = getScreenPositionFromEvent(event);
-        onHover(true, screenPos);
+        onHover(true, screenPos, pinId);
       }
     },
-    [onHover],
+    [onHover, pinId],
   );
 
   // Handle pointer leave
   const handlePointerLeave = useCallback(() => {
     setIsHovered(false);
-    onHover?.(false, { x: 0, y: 0 });
-  }, [onHover]);
+    onHover?.(false, { x: 0, y: 0 }, pinId);
+  }, [onHover, pinId]);
 
-  // Animate pin (gentle bobbing motion)
+  // Animate pin (gentle bobbing motion) and apply globe occlusion
   useFrame(({ clock }) => {
     if (groupRef.current) {
       // Gentle bob animation
       const time = clock.elapsedTime * 1.5;
       const bobOffset = Math.sin(time) * 0.003;
 
-      // Apply bob along the up direction
-      const bobVec = upDirection.clone().multiplyScalar(bobOffset);
-      groupRef.current.position.copy(basePosition).add(bobVec);
+      // Apply bob along the up direction (reuse pre-allocated vector)
+      tempBobVec.copy(upDirection).multiplyScalar(bobOffset);
+      groupRef.current.position.copy(basePosition).add(tempBobVec);
 
-      // Scale up slightly when hovered
+      // Scale up slightly when hovered (reuse pre-allocated vector)
       const targetScale = isHovered ? 1.2 : 1;
-      groupRef.current.scale.lerp(
-        new THREE.Vector3(targetScale, targetScale, targetScale),
-        0.1,
-      );
+      tempScaleVec.set(targetScale, targetScale, targetScale);
+      groupRef.current.scale.lerp(tempScaleVec, 0.1);
+    }
+
+    // Apply globe occlusion to all materials
+    const occlusion = occlusionRef.current;
+
+    if (stemMaterialRef.current) {
+      stemMaterialRef.current.opacity = 0.8 * occlusion;
+    }
+
+    if (headMaterialRef.current) {
+      headMaterialRef.current.opacity = (isHovered ? 1 : 0.9) * occlusion;
+    }
+
+    if (glowRingMaterialRef.current) {
+      glowRingMaterialRef.current.opacity = (isHovered ? 0.5 : 0.3) * occlusion;
+    }
+
+    if (shadowCircleMaterialRef.current) {
+      shadowCircleMaterialRef.current.opacity = 0.3 * occlusion;
     }
   });
+
+  // Pre-allocate reusable vectors to avoid per-frame GC pressure
+  const tempBobVec = useMemo(() => new THREE.Vector3(), []);
+  const tempScaleVec = useMemo(() => new THREE.Vector3(), []);
 
   // Create pin head geometry (inverted cone/teardrop pointing down)
   const headGeometry = useMemo(() => {
@@ -177,6 +215,14 @@ export function PinMarker({
   const stemGeometry = useMemo(() => {
     return new THREE.CylinderGeometry(size * 0.15, size * 0.15, STEM_HEIGHT, 8);
   }, [size]);
+
+  // Dispose geometries on unmount to prevent GPU memory leaks
+  useEffect(() => {
+    return () => {
+      headGeometry.dispose();
+      stemGeometry.dispose();
+    };
+  }, [headGeometry, stemGeometry]);
 
   // Calculate rotation to align pin with surface normal
   const rotation = useMemo(() => {
@@ -192,6 +238,7 @@ export function PinMarker({
       <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
         <primitive object={stemGeometry} attach="geometry" />
         <meshBasicMaterial
+          ref={stemMaterialRef}
           color={color}
           transparent
           opacity={0.8}
@@ -210,6 +257,7 @@ export function PinMarker({
       >
         <primitive object={headGeometry} attach="geometry" />
         <meshBasicMaterial
+          ref={headMaterialRef}
           color={color}
           transparent
           opacity={isHovered ? 1 : 0.9}
@@ -221,6 +269,7 @@ export function PinMarker({
       <mesh rotation={[Math.PI / 2, 0, 0]} renderOrder={0}>
         <ringGeometry args={[size * 0.8, size * 1.2, 32]} />
         <meshBasicMaterial
+          ref={glowRingMaterialRef}
           color={color}
           transparent
           opacity={isHovered ? 0.5 : 0.3}
@@ -238,6 +287,7 @@ export function PinMarker({
       >
         <circleGeometry args={[size * 0.6, 16]} />
         <meshBasicMaterial
+          ref={shadowCircleMaterialRef}
           color="#000000"
           transparent
           opacity={0.3}
@@ -255,6 +305,7 @@ export function PinMarker({
           pointerEvents: "none",
           transition: "all 0.2s ease",
           transform: isHovered ? "scale(1.2)" : "scale(1)",
+          opacity: occlusionOpacity,
         }}
       >
         <div
@@ -278,7 +329,7 @@ export function PinMarker({
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",
-            opacity: isHovered ? 1 : 0.7,
+            opacity: (isHovered ? 1 : 0.7) * occlusionOpacity,
           }}
         >
           <div

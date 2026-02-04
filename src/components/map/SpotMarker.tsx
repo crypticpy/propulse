@@ -9,6 +9,7 @@ import { useRef, useMemo, useState, useCallback } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
+import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Default marker color - plasma orange */
 const DEFAULT_COLOR = "#FF6B35";
@@ -97,8 +98,14 @@ export function SpotMarker({
   const markerRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const markerMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   const [isHovered, setIsHovered] = useState(false);
+
+  // Globe occlusion - fade out markers on the far side
+  const { opacityRef: occlusionRef, opacity: occlusionOpacity } =
+    useGlobeOcclusion(lat, lon);
 
   // Calculate 3D position
   const position = useMemo(() => {
@@ -134,19 +141,32 @@ export function SpotMarker({
     onHover?.(false, { x: 0, y: 0 });
   }, [onHover]);
 
-  // Animate glow effect
+  // Animate glow effect and apply globe occlusion
   useFrame(({ clock }) => {
+    const occlusion = occlusionRef.current;
+
     if (glowRef.current && materialRef.current) {
       // Pulsing glow effect
       const time = clock.elapsedTime * 2;
       const pulse = 0.5 + Math.sin(time) * 0.3;
       const baseOpacity = glowIntensity * pulse;
 
-      materialRef.current.opacity = isHovered ? baseOpacity * 1.5 : baseOpacity;
+      materialRef.current.opacity =
+        (isHovered ? baseOpacity * 1.5 : baseOpacity) * occlusion;
 
       // Scale glow when hovered
       const glowScale = isHovered ? 1.5 : 1;
       glowRef.current.scale.setScalar(glowScale);
+    }
+
+    // Apply occlusion to main marker material
+    if (markerMaterialRef.current) {
+      markerMaterialRef.current.opacity = (isHovered ? 1 : 0.9) * occlusion;
+    }
+
+    // Apply occlusion to ring material
+    if (ringMaterialRef.current) {
+      ringMaterialRef.current.opacity = (isHovered ? 0.6 : 0.3) * occlusion;
     }
   });
 
@@ -178,6 +198,7 @@ export function SpotMarker({
       >
         <sphereGeometry args={[size, 16, 16]} />
         <meshBasicMaterial
+          ref={markerMaterialRef}
           color={color}
           transparent
           opacity={isHovered ? 1 : 0.9}
@@ -189,6 +210,7 @@ export function SpotMarker({
       <mesh renderOrder={0}>
         <ringGeometry args={[size * 1.2, size * 1.5, 32]} />
         <meshBasicMaterial
+          ref={ringMaterialRef}
           color={color}
           transparent
           opacity={isHovered ? 0.6 : 0.3}
@@ -206,7 +228,7 @@ export function SpotMarker({
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",
-            opacity: isHovered ? 1 : 0.8,
+            opacity: (isHovered ? 1 : 0.8) * occlusionOpacity,
           }}
         >
           <div

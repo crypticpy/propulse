@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 
@@ -199,6 +200,29 @@ interface MapState {
   setCenterLocation: (lat: number, lon: number) => void;
   clearCenterLocation: () => void;
 
+  // Region view presets
+  regionPresets: RegionPreset[];
+  activePresetId: string | null;
+  setActivePreset: (id: string) => void;
+  clearActivePreset: () => void;
+  addRegionPreset: (
+    preset: Omit<RegionPreset, "id" | "isBuiltIn" | "createdAt">,
+  ) => void;
+  updateRegionPreset: (
+    id: string,
+    updates: Partial<
+      Pick<
+        RegionPreset,
+        "name" | "icon" | "center" | "zoom" | "rotation" | "viewMode"
+      >
+    >,
+  ) => void;
+  deleteRegionPreset: (id: string) => void;
+  reorderRegionPresets: (orderedIds: string[]) => void;
+  saveCurrentAsPreset: (name: string, icon?: string) => void;
+  exportRegionPresets: () => string;
+  importRegionPresets: (json: string) => boolean;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -278,6 +302,56 @@ function savePanelStates(states: PanelStates): void {
   }
 }
 
+// Load saved region presets from localStorage, merging user presets with built-in defaults
+function loadRegionPresets(): RegionPreset[] {
+  const builtIns = DEFAULT_REGION_PRESETS.map((p) => ({ ...p }));
+  try {
+    const saved = localStorage.getItem("propulse-region-presets");
+    if (saved) {
+      const userPresets: RegionPreset[] = JSON.parse(saved);
+      return [...builtIns, ...userPresets];
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return builtIns;
+}
+
+// Save only non-built-in (user) presets to localStorage
+function saveRegionPresets(presets: RegionPreset[]): void {
+  try {
+    const userPresets = presets.filter((p) => !p.isBuiltIn);
+    localStorage.setItem(
+      "propulse-region-presets",
+      JSON.stringify(userPresets),
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// Load the active region preset id from localStorage
+function loadActivePresetId(): string | null {
+  try {
+    const saved = localStorage.getItem("propulse-active-preset-id");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+}
+
+// Save the active region preset id to localStorage
+function saveActivePresetId(id: string | null): void {
+  try {
+    localStorage.setItem("propulse-active-preset-id", JSON.stringify(id));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 const initialState = {
   viewMode: "globe" as ViewMode,
   timeOffset: 0,
@@ -308,12 +382,20 @@ const initialState = {
   pathMode: "short" as "short" | "long",
   panelStates: loadPanelStates(),
   centerLocation: null as CenterLocation | null,
+  regionPresets: loadRegionPresets(),
+  activePresetId: loadActivePresetId(),
 };
 
-export const useMapStore = create<MapState>((set) => ({
+export const useMapStore = create<MapState>((set, get) => ({
   ...initialState,
 
-  setViewMode: (viewMode) => set({ viewMode }),
+  setViewMode: (viewMode) =>
+    set((state) => {
+      if (state.activePresetId) {
+        saveActivePresetId(null);
+      }
+      return { viewMode, activePresetId: null };
+    }),
 
   setTimeOffset: (timeOffset) =>
     set({
@@ -391,9 +473,21 @@ export const useMapStore = create<MapState>((set) => ({
       return { recentTargets: [] };
     }),
 
-  setRotation: (rotation) => set({ rotation }),
+  setRotation: (rotation) =>
+    set((state) => {
+      if (state.activePresetId) {
+        saveActivePresetId(null);
+      }
+      return { rotation, activePresetId: null };
+    }),
 
-  setZoom: (zoom) => set({ zoom: Math.max(0.5, Math.min(3, zoom)) }),
+  setZoom: (zoom) =>
+    set((state) => {
+      if (state.activePresetId) {
+        saveActivePresetId(null);
+      }
+      return { zoom: Math.max(0.5, Math.min(4, zoom)), activePresetId: null };
+    }),
 
   setAutoRotate: (autoRotate) => set({ autoRotate }),
 
@@ -503,6 +597,165 @@ export const useMapStore = create<MapState>((set) => ({
     }),
 
   clearCenterLocation: () => set({ centerLocation: null }),
+
+  // Region view preset actions
+  setActivePreset: (id) =>
+    set((state) => {
+      const preset = state.regionPresets.find((p) => p.id === id);
+      if (!preset) return {};
+      const now = new Date().toISOString();
+      const updatedPresets = state.regionPresets.map((p) =>
+        p.id === id ? { ...p, lastUsed: now } : p,
+      );
+      saveRegionPresets(updatedPresets);
+      saveActivePresetId(id);
+      return {
+        regionPresets: updatedPresets,
+        activePresetId: id,
+        rotation: preset.rotation ?? {
+          x: preset.center.lat,
+          y: -preset.center.lon,
+        },
+        zoom: preset.zoom,
+        ...(preset.viewMode ? { viewMode: preset.viewMode } : {}),
+      };
+    }),
+
+  clearActivePreset: () =>
+    set(() => {
+      saveActivePresetId(null);
+      return { activePresetId: null };
+    }),
+
+  addRegionPreset: (preset) =>
+    set((state) => {
+      const newPreset: RegionPreset = {
+        ...preset,
+        id: `preset-user-${crypto.randomUUID()}`,
+        isBuiltIn: false,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [...state.regionPresets, newPreset];
+      saveRegionPresets(updated);
+      return { regionPresets: updated };
+    }),
+
+  updateRegionPreset: (id, updates) =>
+    set((state) => {
+      const preset = state.regionPresets.find((p) => p.id === id);
+      if (!preset || preset.isBuiltIn) return {};
+      const updated = state.regionPresets.map((p) =>
+        p.id === id ? { ...p, ...updates } : p,
+      );
+      saveRegionPresets(updated);
+      return { regionPresets: updated };
+    }),
+
+  deleteRegionPreset: (id) =>
+    set((state) => {
+      const preset = state.regionPresets.find((p) => p.id === id);
+      if (!preset || preset.isBuiltIn) return {};
+      const updated = state.regionPresets.filter((p) => p.id !== id);
+      saveRegionPresets(updated);
+      const clearActive = state.activePresetId === id;
+      if (clearActive) {
+        saveActivePresetId(null);
+      }
+      return {
+        regionPresets: updated,
+        ...(clearActive ? { activePresetId: null } : {}),
+      };
+    }),
+
+  reorderRegionPresets: (orderedIds) =>
+    set((state) => {
+      const presetMap = new Map(state.regionPresets.map((p) => [p.id, p]));
+      const reordered: RegionPreset[] = [];
+      for (const id of orderedIds) {
+        const preset = presetMap.get(id);
+        if (preset) {
+          reordered.push(preset);
+          presetMap.delete(id);
+        }
+      }
+      // Append any presets not included in orderedIds (safety fallback)
+      for (const preset of presetMap.values()) {
+        reordered.push(preset);
+      }
+      saveRegionPresets(reordered);
+      return { regionPresets: reordered };
+    }),
+
+  saveCurrentAsPreset: (name, icon) =>
+    set((state) => {
+      const newPreset: RegionPreset = {
+        id: `preset-user-${crypto.randomUUID()}`,
+        name,
+        icon,
+        center: {
+          lat: state.rotation.x,
+          lon: -state.rotation.y,
+        },
+        zoom: state.zoom,
+        rotation: { ...state.rotation },
+        viewMode: state.viewMode,
+        isBuiltIn: false,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [...state.regionPresets, newPreset];
+      saveRegionPresets(updated);
+      return { regionPresets: updated };
+    }),
+
+  exportRegionPresets: (): string => {
+    const { regionPresets } = get();
+    const userPresets = regionPresets.filter((p) => !p.isBuiltIn);
+    return JSON.stringify(userPresets, null, 2);
+  },
+
+  importRegionPresets: (json): boolean => {
+    try {
+      const parsed = JSON.parse(json);
+      if (!Array.isArray(parsed)) return false;
+      // Validate each entry has minimum required fields
+      for (const item of parsed) {
+        if (
+          typeof item !== "object" ||
+          item === null ||
+          typeof item.name !== "string" ||
+          typeof item.center !== "object" ||
+          typeof item.center?.lat !== "number" ||
+          typeof item.center?.lon !== "number" ||
+          typeof item.zoom !== "number"
+        ) {
+          return false;
+        }
+      }
+      const { regionPresets } = get();
+      const importedPresets: RegionPreset[] = parsed.map(
+        (item: Record<string, unknown>) => ({
+          id: `preset-user-${crypto.randomUUID()}`,
+          name: String(item.name).slice(0, 64),
+          icon: item.icon ? String(item.icon).slice(0, 8) : undefined,
+          center: {
+            lat: Number((item.center as { lat: number }).lat),
+            lon: Number((item.center as { lon: number }).lon),
+          },
+          zoom: Number(item.zoom),
+          rotation: item.rotation as { x: number; y: number } | undefined,
+          viewMode: item.viewMode as "globe" | "flat" | "azimuthal" | undefined,
+          isBuiltIn: false,
+          createdAt: new Date().toISOString(),
+        }),
+      );
+      const updated = [...regionPresets, ...importedPresets];
+      saveRegionPresets(updated);
+      set({ regionPresets: updated });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 
   reset: () => set(initialState),
 }));

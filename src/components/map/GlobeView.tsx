@@ -39,10 +39,12 @@ import {
 import { LiveSpotArcs } from "./LiveSpotArcs";
 import { SpotHighlight } from "./SpotHighlight";
 import { PinMarker } from "./PinMarker";
+import { PinFlyout } from "./PinFlyout";
 import { getCategoryMeta } from "@/types/pin";
+import type { MapPin } from "@/types/pin";
 import { GlobeClickHandler } from "./GlobeClickHandler";
-import { GlobeTooltip } from "./GlobeTooltip";
-import { GlobeFlyout, type GlobeFlyoutAction } from "./GlobeFlyout";
+import { MapTooltip } from "./MapTooltip";
+import { MapFlyout, type MapFlyoutAction } from "./MapFlyout";
 import { AddPinDialog } from "./AddPinDialog";
 import {
   GridResearchPanel,
@@ -287,6 +289,7 @@ function GlobeScene({
   onLocationHover,
   onHoverEnd,
   onPinHover,
+  onPinLeave,
 }: {
   displayTime: Date;
   onLocationClick?: (
@@ -306,13 +309,10 @@ function GlobeScene({
     screenPos: { x: number; y: number },
   ) => void;
   onHoverEnd?: () => void;
-  /** Called when hovering over a pin - shows flyout */
-  onPinHover?: (
-    lat: number,
-    lon: number,
-    grid: string,
-    screenPos: { x: number; y: number },
-  ) => void;
+  /** Called when hovering over a pin - shows pin-specific flyout */
+  onPinHover?: (pin: MapPin, screenPos: { x: number; y: number }) => void;
+  /** Called when leaving a pin hover */
+  onPinLeave?: () => void;
 }) {
   const { layers, target, autoRotate, pathMode } = useMapStore();
   const { station } = useUserStore();
@@ -423,6 +423,7 @@ function GlobeScene({
         return (
           <PinMarker
             key={pin.id}
+            pinId={pin.id}
             lat={pin.lat}
             lon={pin.lon}
             color={pin.color || catMeta.color}
@@ -431,7 +432,9 @@ function GlobeScene({
             size={0.02}
             onHover={(isHovered, screenPos) => {
               if (isHovered && onPinHover) {
-                onPinHover(pin.lat, pin.lon, pin.grid, screenPos);
+                onPinHover(pin, screenPos);
+              } else if (!isHovered && onPinLeave) {
+                onPinLeave();
               }
             }}
           />
@@ -505,6 +508,7 @@ function GlobeScene({
 export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   const {
     zoom,
+    target,
     tooltipPosition,
     setTooltipPosition,
     flyoutPosition,
@@ -536,6 +540,15 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // State for WatchListPanel
   const [watchListOpen, setWatchListOpen] = useState(false);
 
+  // State for pin-specific hover flyout
+  const [hoveredPinData, setHoveredPinData] = useState<{
+    pin: MapPin;
+    screenPos: { x: number; y: number };
+  } | null>(null);
+
+  // State for editing an existing pin
+  const [editingPin, setEditingPin] = useState<MapPin | null>(null);
+
   // Check watch activity when spots change
   useEffect(() => {
     if (allSpots.length > 0) {
@@ -563,6 +576,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       const grid = latLonToGrid(lat, lon);
       setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
       setTooltipPosition(null); // Hide tooltip when flyout opens
+      setHoveredPinData(null); // Clear pin flyout
       onLocationClick?.(lat, lon);
     },
     [setFlyoutPosition, setTooltipPosition, onLocationClick],
@@ -596,18 +610,42 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     setTooltipPosition(null);
   }, [setTooltipPosition]);
 
-  // Handle pin hover - show flyout on active spots/pins
+  // Handle pin hover - show pin-specific flyout
   const handlePinHover = useCallback(
-    (
-      lat: number,
-      lon: number,
-      grid: string,
-      screenPos: { x: number; y: number },
-    ) => {
-      setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
-      setTooltipPosition(null);
+    (pin: MapPin, screenPos: { x: number; y: number }) => {
+      setHoveredPinData({ pin, screenPos });
+      setFlyoutPosition(null); // Close generic flyout
+      setTooltipPosition(null); // Close tooltip
     },
     [setFlyoutPosition, setTooltipPosition],
+  );
+
+  // Handle pin hover leave
+  const handlePinLeave = useCallback(() => {
+    // Don't immediately clear - let auto-dismiss handle it
+    // PinFlyout manages its own proximity-based dismissal
+  }, []);
+
+  // Handle pin flyout close
+  const handlePinFlyoutClose = useCallback(() => {
+    setHoveredPinData(null);
+  }, []);
+
+  // Handle edit pin from PinFlyout
+  const handleEditPinFromFlyout = useCallback((pin: MapPin) => {
+    setEditingPin(pin);
+    setAddPinDialogOpen(true);
+    setAddPinData({ lat: pin.lat, lon: pin.lon, grid: pin.grid });
+    setHoveredPinData(null);
+  }, []);
+
+  // Handle set target from PinFlyout
+  const handleSetTargetFromFlyout = useCallback(
+    (lat: number, lon: number, grid: string) => {
+      setTarget({ lat, lon, grid });
+      setHoveredPinData(null);
+    },
+    [setTarget],
   );
 
   // Handle flyout close
@@ -683,7 +721,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
 
   // Handle flyout actions (fallback for unhandled actions)
   const handleFlyoutAction = useCallback(
-    (action: GlobeFlyoutAction) => {
+    (action: MapFlyoutAction) => {
       if (!flyoutPosition) return;
 
       switch (action) {
@@ -741,22 +779,23 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
               onLocationHover={handleGlobeHover}
               onHoverEnd={handleHoverEnd}
               onPinHover={handlePinHover}
+              onPinLeave={handlePinLeave}
             />
           </Suspense>
         </Canvas>
       </GlobeErrorBoundary>
 
       {/* Tooltip overlay - rendered outside Canvas */}
-      <GlobeTooltip
-        visible={!!tooltipPosition && !flyoutPosition}
+      <MapTooltip
+        visible={!!tooltipPosition && !flyoutPosition && !hoveredPinData}
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
         spots={tooltipSpots}
       />
 
       {/* Flyout menu overlay - rendered outside Canvas */}
-      <GlobeFlyout
-        visible={!!flyoutPosition}
+      <MapFlyout
+        visible={!!flyoutPosition && !hoveredPinData}
         position={flyoutPosition || { x: 0, y: 0 }}
         lat={flyoutPosition?.lat || 0}
         lon={flyoutPosition?.lon || 0}
@@ -768,6 +807,20 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
         onWatchGrid={handleWatchGrid}
       />
 
+      {/* Pin flyout - shown when hovering over an existing pin */}
+      {hoveredPinData && (
+        <PinFlyout
+          visible
+          position={hoveredPinData.screenPos}
+          pin={hoveredPinData.pin}
+          spots={allSpots}
+          currentTargetGrid={target?.grid}
+          onSetTarget={handleSetTargetFromFlyout}
+          onEditPin={handleEditPinFromFlyout}
+          onClose={handlePinFlyoutClose}
+        />
+      )}
+
       {/* Watch activity indicator - top right corner */}
       <div className="absolute top-3 right-3 z-10">
         <WatchIndicator onClick={() => setWatchListOpen(true)} />
@@ -776,15 +829,18 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       {/* AddPinDialog modal */}
       <AddPinDialog
         visible={addPinDialogOpen}
-        mode="add"
+        mode={editingPin ? "edit" : "add"}
+        pin={editingPin || undefined}
         location={addPinData || undefined}
         onClose={() => {
           setAddPinDialogOpen(false);
           setAddPinData(null);
+          setEditingPin(null);
         }}
         onSave={() => {
           setAddPinDialogOpen(false);
           setAddPinData(null);
+          setEditingPin(null);
         }}
       />
 

@@ -15,6 +15,7 @@
 import { useMemo } from "react";
 import { Html } from "@react-three/drei";
 import { getModeColor } from "./LiveSpotArcs";
+import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.012;
@@ -94,6 +95,9 @@ export function SpotLabel({
   // Validate coordinates
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
 
+  // Globe occlusion - fade out labels on the far side
+  const { opacity: occlusionOpacity } = useGlobeOcclusion(lat, lon);
+
   // Calculate 3D position
   const position = useMemo(
     () =>
@@ -106,9 +110,12 @@ export function SpotLabel({
   // Get mode color
   const color = getModeColor(mode);
 
-  // Size classes
+  // Combined opacity: age-based decay multiplied by globe occlusion
+  const combinedOpacity = opacity * occlusionOpacity;
+
+  // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
-    size === "sm" ? "text-[9px] px-1 py-0.5" : "text-[10px] px-1.5 py-0.5";
+    size === "sm" ? "text-[11px] px-1.5 py-0.5" : "text-[13px] px-2 py-1";
 
   if (!hasValidCoords) return null;
 
@@ -119,29 +126,35 @@ export function SpotLabel({
       style={{
         pointerEvents: "none",
         userSelect: "none",
-        opacity,
+        opacity: combinedOpacity,
         transition: "opacity 0.3s ease",
       }}
-      // Occlude behind globe (optional, can be expensive)
-      // occlude
     >
       <div
         className={`
           font-mono font-bold whitespace-nowrap rounded
           ${sizeClasses}
-          ${isSpotter ? "bg-transparent border border-current" : "text-white"}
+          ${isSpotter ? "bg-transparent" : "text-white"}
         `}
         style={{
-          color: isSpotter ? color : undefined,
-          backgroundColor: isSpotter ? "rgba(10, 10, 26, 0.7)" : color,
-          borderColor: isSpotter ? color : "transparent",
-          boxShadow: isSpotter ? `0 0 4px ${color}40` : `0 0 6px ${color}60`,
-          textShadow: isSpotter ? "none" : "0 1px 2px rgba(0,0,0,0.5)",
+          color: isSpotter ? color : "#FFFFFF",
+          backgroundColor: isSpotter ? "rgba(6, 6, 20, 0.92)" : color,
+          border: isSpotter
+            ? `1px solid ${color}`
+            : "1px solid rgba(0,0,0,0.4)",
+          boxShadow: isSpotter
+            ? `0 0 6px ${color}50`
+            : `0 2px 8px rgba(0,0,0,0.7), 0 0 6px ${color}60`,
+          textShadow: isSpotter
+            ? "none"
+            : "0 1px 2px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,0.8)",
+          letterSpacing: "0.03em",
+          lineHeight: 1.2,
         }}
       >
         {callsign}
         {frequency && (
-          <span className="ml-1 opacity-70" style={{ fontSize: "0.85em" }}>
+          <span className="ml-1 opacity-80" style={{ fontSize: "0.9em" }}>
             {formatFrequency(frequency)}
           </span>
         )}

@@ -265,15 +265,23 @@ function WatchListItem({
       `}
     >
       {/* Main content - clickable to expand */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggleExpand}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggleExpand();
+          }
+        }}
         className="
           w-full px-3 py-2.5
           flex items-start gap-3
           text-left
           hover:bg-white/5
           transition-colors duration-150
+          cursor-pointer
         "
         aria-expanded={isExpanded}
         aria-label={`${watch.name || watch.pattern}, ${config.label}. ${
@@ -345,7 +353,7 @@ function WatchListItem({
             />
           </svg>
         </button>
-      </button>
+      </div>
 
       {/* Expanded matches list */}
       {isExpanded && matches.length > 0 && (

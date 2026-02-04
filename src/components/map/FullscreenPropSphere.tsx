@@ -18,6 +18,8 @@ import {
   PathAnalysis,
   BandConditionsPanel,
   RecommendationsPanel,
+  RegionPresetSelector,
+  RegionPresetManager,
 } from "@/components/map";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -47,6 +49,7 @@ export function FullscreenPropSphere({
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [showBottomPanel, setShowBottomPanel] = useState(true);
+  const [showPresetManager, setShowPresetManager] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
 
   // Get live spots for the count indicator
@@ -203,6 +206,13 @@ export function FullscreenPropSphere({
                   {PRESET_CONFIG[preset].label}
                 </button>
               ))}
+            </div>
+
+            {/* Region Presets */}
+            <div className={`${glassPanel} rounded-lg p-2 pointer-events-auto`}>
+              <RegionPresetSelector
+                onOpenManager={() => setShowPresetManager(true)}
+              />
             </div>
 
             {/* Spacer */}
@@ -420,6 +430,12 @@ export function FullscreenPropSphere({
           </div>
         </div>
       </div>
+
+      {/* Region Preset Manager Modal */}
+      <RegionPresetManager
+        visible={showPresetManager}
+        onClose={() => setShowPresetManager(false)}
+      />
     </div>
   );
 }

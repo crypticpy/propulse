@@ -1,7 +1,7 @@
 /**
- * GlobeTooltip Component
+ * MapTooltip Component
  *
- * A hover tooltip overlay for the 3D globe showing grid information
+ * A hover tooltip overlay for map views showing grid information
  * and DX spot activity. Uses glassmorphism styling and smart positioning
  * to stay within viewport bounds.
  */
@@ -10,7 +10,7 @@ import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { DXSpot } from "@/types/dxcluster";
 
-export interface GlobeTooltipProps {
+export interface MapTooltipProps {
   /** Whether the tooltip is visible */
   visible: boolean;
   /** Screen coordinates for positioning */
@@ -91,18 +91,18 @@ function getRecentSpotInfo(spots: DXSpot[], maxCount: number = 3): SpotInfo[] {
 }
 
 /**
- * GlobeTooltip Component
+ * MapTooltip Component
  *
  * Renders a tooltip overlay showing grid information and spot activity.
  * Auto-positions to avoid screen edges.
  */
-export function GlobeTooltip({
+export function MapTooltip({
   visible,
   position,
   grid,
   spots = [],
   className = "",
-}: GlobeTooltipProps) {
+}: MapTooltipProps) {
   // Calculate adjusted position to keep tooltip on screen
   const adjustedPosition = useMemo(() => {
     const { x, y } = position;
@@ -216,6 +216,6 @@ export function GlobeTooltip({
   return createPortal(tooltipContent, document.body);
 }
 
-GlobeTooltip.displayName = "GlobeTooltip";
+MapTooltip.displayName = "MapTooltip";
 
-export default GlobeTooltip;
+export default MapTooltip;

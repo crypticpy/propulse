@@ -20,6 +20,7 @@ import {
   getClusterModes,
 } from "@/hooks/useSpotClustering";
 import { getModeColor } from "./LiveSpotArcs";
+import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Radius offset to prevent z-fighting with globe surface */
 const SURFACE_OFFSET = 1.025;
@@ -119,9 +120,17 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
   const markerRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const hexMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   const [isHovered, setIsHovered] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  // Globe occlusion - fade out clusters on the far side
+  const { opacityRef: occlusionRef } = useGlobeOcclusion(
+    cluster.center.lat,
+    cluster.center.lon,
+  );
 
   // Calculate 3D position from cluster center
   const position = useMemo(() => {
@@ -190,19 +199,32 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
     onHover?.(null, { x: 0, y: 0 });
   }, [onHover]);
 
-  // Animate glow effect
+  // Animate glow effect and apply globe occlusion
   useFrame(({ clock }) => {
+    const occlusion = occlusionRef.current;
+
     if (glowRef.current && materialRef.current) {
       // Pulsing glow effect
       const time = clock.elapsedTime * 2;
       const pulse = 0.5 + Math.sin(time) * 0.3;
       const baseOpacity = 0.6 * pulse;
 
-      materialRef.current.opacity = isHovered ? baseOpacity * 1.5 : baseOpacity;
+      materialRef.current.opacity =
+        (isHovered ? baseOpacity * 1.5 : baseOpacity) * occlusion;
 
       // Scale glow when hovered
       const glowScale = isHovered ? 1.5 : 1;
       glowRef.current.scale.setScalar(glowScale);
+    }
+
+    // Apply occlusion to hexagonal marker material
+    if (hexMaterialRef.current) {
+      hexMaterialRef.current.opacity = (isHovered ? 1 : 0.9) * occlusion;
+    }
+
+    // Apply occlusion to outer ring material
+    if (ringMaterialRef.current) {
+      ringMaterialRef.current.opacity = (isHovered ? 0.8 : 0.5) * occlusion;
     }
   });
 
@@ -239,6 +261,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         rotation={[0, 0, 0]}
       >
         <meshBasicMaterial
+          ref={hexMaterialRef}
           color={color}
           transparent
           opacity={isHovered ? 1 : 0.9}
@@ -250,6 +273,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
       <mesh renderOrder={1} scale={[sizeMultiplier, sizeMultiplier, 1]}>
         <ringGeometry args={[CLUSTER_SIZE * 1.1, CLUSTER_SIZE * 1.3, 6]} />
         <meshBasicMaterial
+          ref={ringMaterialRef}
           color={color}
           transparent
           opacity={isHovered ? 0.8 : 0.5}
@@ -269,7 +293,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         }}
       >
         <div
-          className="px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap"
+          className="px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap"
           style={{
             backgroundColor: color,
             color: "#0A0A1A",

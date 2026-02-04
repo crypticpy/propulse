@@ -1,7 +1,7 @@
 /**
- * GlobeFlyout Component
+ * MapFlyout Component
  *
- * A click action menu overlay for the 3D globe providing location-based
+ * A click action menu overlay for map views providing location-based
  * actions like setting a target, adding a pin, or researching a grid.
  * Uses glassmorphism styling and supports click-outside/escape dismissal.
  *
@@ -18,13 +18,13 @@ import { useFeasibility } from "@/hooks/useFeasibility";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 
 /** Action types available in the flyout menu */
-export type GlobeFlyoutAction =
+export type MapFlyoutAction =
   | "setTarget"
   | "addPin"
   | "researchGrid"
   | "watchGrid";
 
-export interface GlobeFlyoutProps {
+export interface MapFlyoutProps {
   /** Whether the flyout is visible */
   visible: boolean;
   /** Screen coordinates for positioning */
@@ -36,7 +36,7 @@ export interface GlobeFlyoutProps {
   /** Maidenhead grid locator */
   grid: string;
   /** Callback when an action is selected */
-  onAction: (action: GlobeFlyoutAction) => void;
+  onAction: (action: MapFlyoutAction) => void;
   /** Callback to close the flyout */
   onClose: () => void;
   /** Callback to open AddPinDialog with location data */
@@ -66,7 +66,7 @@ function formatCoord(val: number, isLat: boolean): string {
 
 /** Action button configuration */
 interface ActionButton {
-  action: GlobeFlyoutAction;
+  action: MapFlyoutAction;
   icon: string;
   label: string;
   title: string;
@@ -100,12 +100,12 @@ const ACTION_BUTTONS: ActionButton[] = [
 ];
 
 /**
- * GlobeFlyout Component
+ * MapFlyout Component
  *
  * Renders an action menu overlay with location-based actions.
  * Dismisses on click outside or Escape key press.
  */
-export function GlobeFlyout({
+export function MapFlyout({
   visible,
   position,
   lat,
@@ -117,7 +117,7 @@ export function GlobeFlyout({
   onOpenResearchPanel,
   onWatchGrid,
   className = "",
-}: GlobeFlyoutProps) {
+}: MapFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement>(null);
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
@@ -304,7 +304,7 @@ export function GlobeFlyout({
 
   // Handle action button click
   const handleActionClick = useCallback(
-    (action: GlobeFlyoutAction) => {
+    (action: MapFlyoutAction) => {
       // Handle special actions with dedicated callbacks
       switch (action) {
         case "addPin":
@@ -368,7 +368,7 @@ export function GlobeFlyout({
         minWidth: FLYOUT_WIDTH,
       }}
       role="menu"
-      aria-label="Globe location actions"
+      aria-label="Map location actions"
     >
       {/* Header with grid, coordinates, and feasibility */}
       <div className="px-3 py-2 border-b border-white/10">
@@ -425,6 +425,6 @@ export function GlobeFlyout({
   return createPortal(flyoutContent, document.body);
 }
 
-GlobeFlyout.displayName = "GlobeFlyout";
+MapFlyout.displayName = "MapFlyout";
 
-export default GlobeFlyout;
+export default MapFlyout;

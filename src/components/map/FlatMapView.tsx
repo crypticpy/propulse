@@ -27,6 +27,23 @@ import {
 } from "./LocationMarker";
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import type { AuroraData } from "@/lib/api/aurora";
+import { useFlatMapClickHandler } from "./FlatMapClickHandler";
+import { MapTooltip } from "./MapTooltip";
+import { MapFlyout, type MapFlyoutAction } from "./MapFlyout";
+import { AddPinDialog } from "./AddPinDialog";
+import {
+  GridResearchPanel,
+  type GridResearchAction,
+} from "./GridResearchPanel";
+import { WatchListPanel } from "./WatchListPanel";
+import { WatchIndicator } from "./WatchIndicator";
+import { latLonToGrid, gridToLatLon } from "@/lib/utils/grid";
+import { usePinStore } from "@/stores/pinStore";
+import { useWatchStore } from "@/stores/watchStore";
+import { useDXStore } from "@/stores/dxStore";
+import { useDXCluster } from "@/hooks/useDXCluster";
+import { getCategoryMeta } from "@/types/pin";
+import { useSpotFocus } from "@/hooks/useSpotFocus";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -38,6 +55,57 @@ interface FlatMapViewProps {
 // Map dimensions
 const MAP_WIDTH = 1024;
 const MAP_HEIGHT = 512;
+
+// Module-level night texture for city lights (loaded once, cached permanently)
+let nightTextureImage: HTMLImageElement | null = null;
+let nightTextureLoading = false;
+let nightTextureRetries = 0;
+const MAX_TEXTURE_RETRIES = 3;
+
+function ensureNightTextureLoaded(): HTMLImageElement | null {
+  if (nightTextureImage) return nightTextureImage;
+  if (nightTextureLoading || nightTextureRetries >= MAX_TEXTURE_RETRIES)
+    return null;
+  nightTextureLoading = true;
+  const img = new Image();
+  img.onload = () => {
+    nightTextureImage = img;
+    nightTextureLoading = false;
+    nightTextureRetries = 0;
+  };
+  img.onerror = () => {
+    nightTextureLoading = false;
+    nightTextureRetries++;
+  };
+  img.src = "/textures/earth-night.jpg";
+  return null;
+}
+
+// Night overlay cache: stores the three blend-mode overlay canvases
+let nightOverlayCache: {
+  desatCanvas: HTMLCanvasElement;
+  darkCanvas: HTMLCanvasElement;
+  blueCanvas: HTMLCanvasElement;
+  minute: number;
+  width: number;
+  height: number;
+} | null = null;
+
+// Night lights cache: stores the composite result and the minute it was computed for
+let nightLightsCache: {
+  canvas: HTMLCanvasElement;
+  minute: number;
+  width: number;
+  height: number;
+} | null = null;
+
+/**
+ * Get the minute-level timestamp for cache comparison.
+ * Night overlay only needs to update when time changes by >= 1 minute.
+ */
+function getTimeMinute(date: Date): number {
+  return Math.floor(date.getTime() / 60000);
+}
 
 // Colors
 const COLORS = {
@@ -52,109 +120,254 @@ const COLORS = {
 /**
  * Convert lat/lon to canvas coordinates
  */
-function latLonToCanvas(lat: number, lon: number): { x: number; y: number } {
-  const x = ((lon + 180) / 360) * MAP_WIDTH;
-  const y = ((90 - lat) / 180) * MAP_HEIGHT;
+function latLonToCanvas(
+  lat: number,
+  lon: number,
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
+): { x: number; y: number } {
+  const x = ((lon + 180) / 360) * width;
+  const y = ((90 - lat) / 180) * height;
   return { x, y };
-}
-
-/**
- * Convert canvas coordinates to lat/lon
- */
-function canvasToLatLon(
-  x: number,
-  y: number,
-  canvasWidth: number,
-  canvasHeight: number,
-): { lat: number; lon: number } {
-  const lon = (x / canvasWidth) * 360 - 180;
-  const lat = 90 - (y / canvasHeight) * 180;
-  return { lat, lon };
 }
 
 /**
  * Draw grid lines
  */
-function drawGrid(ctx: CanvasRenderingContext2D) {
+function drawGrid(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+) {
   ctx.strokeStyle = COLORS.grid;
   ctx.lineWidth = 0.5;
 
   // Latitude lines every 30°
   for (let lat = -60; lat <= 60; lat += 30) {
-    const { y } = latLonToCanvas(lat, 0);
+    const { y } = latLonToCanvas(lat, 0, width, height);
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.lineTo(MAP_WIDTH, y);
+    ctx.lineTo(width, y);
     ctx.stroke();
   }
 
   // Longitude lines every 30°
   for (let lon = -150; lon <= 180; lon += 30) {
-    const { x } = latLonToCanvas(0, lon);
+    const { x } = latLonToCanvas(0, lon, width, height);
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, MAP_HEIGHT);
+    ctx.lineTo(x, height);
     ctx.stroke();
   }
 
   // Equator highlight
   ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
   ctx.lineWidth = 1;
-  const { y: equatorY } = latLonToCanvas(0, 0);
+  const { y: equatorY } = latLonToCanvas(0, 0, width, height);
   ctx.beginPath();
   ctx.moveTo(0, equatorY);
-  ctx.lineTo(MAP_WIDTH, equatorY);
+  ctx.lineTo(width, equatorY);
   ctx.stroke();
 }
 
 /**
- * Draw night side overlay based on subsolar point
+ * Draw enhanced night side overlay with grayscale desaturation, blue color shift,
+ * and smooth twilight gradient. Uses multi-pass compositing with CSS blend modes
+ * for realistic day/night visualization.
+ *
+ * Pass 1: Desaturate night-side pixels via 'saturation' blend mode
+ * Pass 2: Darken and blue-tint via 'multiply' blend mode
+ * Pass 3: Additional cold blue atmosphere via 'screen' blend mode
+ *
+ * Uses offscreen canvases since getImageData/putImageData bypass canvas transforms
+ * (DPR scaling, zoom) and would produce incorrect results on HiDPI displays.
  */
-function drawNightSide(ctx: CanvasRenderingContext2D, date: Date) {
+function drawNightSide(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  width: number,
+  height: number,
+) {
+  // Check cache: reuse overlay canvases if time hasn't changed by >= 1 minute
+  const currentMinute = getTimeMinute(date);
+  if (
+    nightOverlayCache &&
+    nightOverlayCache.minute === currentMinute &&
+    nightOverlayCache.width === width &&
+    nightOverlayCache.height === height
+  ) {
+    // Apply cached overlays with their respective blend modes
+    ctx.save();
+    ctx.globalCompositeOperation = "saturation";
+    ctx.drawImage(nightOverlayCache.desatCanvas, 0, 0, width, height);
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.drawImage(nightOverlayCache.darkCanvas, 0, 0, width, height);
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.drawImage(nightOverlayCache.blueCanvas, 0, 0, width, height);
+    ctx.restore();
+    return;
+  }
+
   const subsolar = getSubsolarPoint(date);
 
-  // Create night overlay pixel by pixel for accuracy
-  const imageData = ctx.getImageData(0, 0, MAP_WIDTH, MAP_HEIGHT);
-  const data = imageData.data;
+  // Precompute subsolar trig values for the inner loop
+  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
+  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
+  const sinSubLat = Math.sin(subsolarLatRad);
+  const cosSubLat = Math.cos(subsolarLatRad);
 
-  for (let y = 0; y < MAP_HEIGHT; y++) {
-    for (let x = 0; x < MAP_WIDTH; x++) {
-      const lon = (x / MAP_WIDTH) * 360 - 180;
-      const lat = 90 - (y / MAP_HEIGHT) * 180;
+  // Precompute latitude trig values (rows share the same latitude)
+  const latSin = new Float32Array(height);
+  const latCos = new Float32Array(height);
+  for (let y = 0; y < height; y++) {
+    const latRad = (90 - (y / height) * 180) * (Math.PI / 180);
+    latSin[y] = Math.sin(latRad);
+    latCos[y] = Math.cos(latRad);
+  }
 
-      // Calculate angular distance from subsolar point
-      const phi1 = lat * (Math.PI / 180);
-      const phi2 = subsolar.lat * (Math.PI / 180);
-      const deltaLambda = (lon - subsolar.lon) * (Math.PI / 180);
+  // Precompute longitude delta cos values (columns share the same longitude)
+  const lonDeltaCos = new Float32Array(width);
+  for (let x = 0; x < width; x++) {
+    const lonRad = ((x / width) * 360 - 180) * (Math.PI / 180);
+    lonDeltaCos[x] = Math.cos(lonRad - subsolarLonRad);
+  }
 
-      const cosAngle =
-        Math.sin(phi1) * Math.sin(phi2) +
-        Math.cos(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
+  // --- Pass 1: Desaturation overlay using 'saturation' blend mode ---
+  // A gray overlay composited with 'saturation' mode removes color from the destination
+  const desatCanvas = document.createElement("canvas");
+  desatCanvas.width = width;
+  desatCanvas.height = height;
+  const desatCtx = desatCanvas.getContext("2d");
+  if (!desatCtx) return;
+
+  const desatData = desatCtx.createImageData(width, height);
+  const desatPixels = desatData.data;
+
+  // --- Pass 2: Darkening + blue tint overlay using 'multiply' blend mode ---
+  const darkCanvas = document.createElement("canvas");
+  darkCanvas.width = width;
+  darkCanvas.height = height;
+  const darkCtx = darkCanvas.getContext("2d");
+  if (!darkCtx) return;
+
+  const darkData = darkCtx.createImageData(width, height);
+  const darkPixels = darkData.data;
+
+  // --- Pass 3: Blue atmosphere screen overlay ---
+  const blueCanvas = document.createElement("canvas");
+  blueCanvas.width = width;
+  blueCanvas.height = height;
+  const blueCtx = blueCanvas.getContext("2d");
+  if (!blueCtx) return;
+
+  const blueData = blueCtx.createImageData(width, height);
+  const bluePixels = blueData.data;
+
+  // Twilight zone spans solar angles 85-95 degrees with smooth hermite interpolation
+  const TWILIGHT_START = 85;
+  const TWILIGHT_END = 95;
+  const TWILIGHT_RANGE = TWILIGHT_END - TWILIGHT_START;
+
+  for (let y = 0; y < height; y++) {
+    const sinLat = latSin[y];
+    const cosLat = latCos[y];
+    const rowOffset = y * width;
+
+    for (let x = 0; x < width; x++) {
+      // Solar angle: 0 = noon, 90 = terminator, 180 = midnight
+      const cosAngle = sinLat * sinSubLat + cosLat * cosSubLat * lonDeltaCos[x];
       const angle =
         Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
 
-      const idx = (y * MAP_WIDTH + x) * 4;
+      const idx = (rowOffset + x) * 4;
 
-      if (angle > 90) {
-        // Night side - darken
-        const darkness = Math.min(0.7, ((angle - 90) / 30) * 0.7);
-        data[idx] = Math.floor(data[idx] * (1 - darkness));
-        data[idx + 1] = Math.floor(data[idx + 1] * (1 - darkness));
-        data[idx + 2] = Math.floor(data[idx + 2] * (1 - darkness * 0.8));
-      } else if (angle > 85) {
-        // Twilight zone - slight darkening with orange tint
-        const twilight = ((angle - 85) / 5) * 0.2;
-        data[idx] = Math.min(
-          255,
-          Math.floor(data[idx] * (1 - twilight * 0.3) + 30 * twilight),
-        );
-        data[idx + 1] = Math.floor(data[idx + 1] * (1 - twilight * 0.5));
-        data[idx + 2] = Math.floor(data[idx + 2] * (1 - twilight * 0.6));
+      if (angle <= TWILIGHT_START) {
+        // Full daylight - no overlay needed (alpha = 0)
+        continue;
       }
+
+      // Smooth hermite interpolation for twilight transition (0 at 85deg, 1 at 95deg)
+      let nightBlend: number;
+      if (angle >= TWILIGHT_END) {
+        nightBlend = 1.0;
+      } else {
+        // Hermite smoothstep for ultra-smooth twilight gradient
+        const t = (angle - TWILIGHT_START) / TWILIGHT_RANGE;
+        nightBlend = t * t * (3 - 2 * t);
+      }
+
+      // Deepening darkness beyond the twilight zone (95-150 degrees)
+      const deepNight =
+        angle > TWILIGHT_END ? Math.min(1.0, (angle - TWILIGHT_END) / 55) : 0;
+
+      // --- Desaturation layer ---
+      // Gray at full alpha removes all saturation via 'saturation' blend
+      const desatAlpha = Math.floor(255 * nightBlend * 0.85);
+      desatPixels[idx] = 128;
+      desatPixels[idx + 1] = 128;
+      desatPixels[idx + 2] = 128;
+      desatPixels[idx + 3] = desatAlpha;
+
+      // --- Darkening + blue tint layer ---
+      // Multiply blend: destination * source/255
+      // Values < 255 darken; blue channel slightly higher preserves blue
+      const baseDark = 0.55 + deepNight * 0.2; // 0.55 -> 0.75 darkness factor
+      const darkAlpha = Math.floor(255 * nightBlend);
+      // Multiply factors: lower = darker. Blue channel stays higher for tint
+      darkPixels[idx] = Math.floor(255 * (1 - baseDark * 0.85)); // R darkened most
+      darkPixels[idx + 1] = Math.floor(255 * (1 - baseDark * 0.8)); // G slightly less
+      darkPixels[idx + 2] = Math.floor(255 * (1 - baseDark * 0.55)); // B preserved more
+      darkPixels[idx + 3] = darkAlpha;
+
+      // --- Blue atmosphere screen layer ---
+      // Screen blend adds a subtle cold blue glow, stronger in deep night.
+      // RGB channels define the hue (cold blue), alpha controls intensity.
+      const blueIntensity = nightBlend * (0.06 + deepNight * 0.08);
+      bluePixels[idx] = 15;
+      bluePixels[idx + 1] = 25;
+      bluePixels[idx + 2] = 60;
+      bluePixels[idx + 3] = Math.floor(255 * blueIntensity);
     }
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  // Finalize overlay canvases
+  desatCtx.putImageData(desatData, 0, 0);
+  darkCtx.putImageData(darkData, 0, 0);
+  blueCtx.putImageData(blueData, 0, 0);
+
+  // Cache the three overlay canvases for reuse
+  nightOverlayCache = {
+    desatCanvas,
+    darkCanvas,
+    blueCanvas,
+    minute: currentMinute,
+    width,
+    height,
+  };
+
+  // Composite Pass 1: Desaturation
+  ctx.save();
+  ctx.globalCompositeOperation = "saturation";
+  ctx.drawImage(desatCanvas, 0, 0, width, height);
+  ctx.restore();
+
+  // Composite Pass 2: Darkening with blue tint
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.drawImage(darkCanvas, 0, 0, width, height);
+  ctx.restore();
+
+  // Composite Pass 3: Blue atmosphere glow
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.drawImage(blueCanvas, 0, 0, width, height);
+  ctx.restore();
 }
 
 /**
@@ -164,7 +377,12 @@ function drawNightSide(ctx: CanvasRenderingContext2D, date: Date) {
  * Formula derived from: 0 = sin(lat)*sin(subsolarLat) + cos(lat)*cos(subsolarLat)*cos(Δlon)
  * Solving for lat: lat = atan(-cos(Δlon) / tan(subsolarLat))
  */
-function drawTerminator(ctx: CanvasRenderingContext2D, date: Date) {
+function drawTerminator(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  width: number,
+  height: number,
+) {
   const subsolar = getSubsolarPoint(date);
 
   ctx.strokeStyle = COLORS.terminator;
@@ -204,7 +422,7 @@ function drawTerminator(ctx: CanvasRenderingContext2D, date: Date) {
       lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
     }
 
-    const { x, y } = latLonToCanvas(lat, lon);
+    const { x, y } = latLonToCanvas(lat, lon, width, height);
 
     if (lon === -180) {
       ctx.moveTo(x, y);
@@ -218,21 +436,35 @@ function drawTerminator(ctx: CanvasRenderingContext2D, date: Date) {
 }
 
 /**
- * Draw greyline band (twilight zone around the terminator)
+ * Draw greyline band (twilight zone around the terminator).
  * The greyline is the area within ±15° of the terminator where
- * enhanced propagation conditions exist
+ * enhanced propagation conditions exist.
+ * Uses an offscreen canvas for pixel manipulation since getImageData/putImageData
+ * bypass canvas transforms (DPR scaling, zoom).
  */
-function drawGreyline(ctx: CanvasRenderingContext2D, date: Date) {
+function drawGreyline(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  width: number,
+  height: number,
+) {
   const subsolar = getSubsolarPoint(date);
 
-  // Create greyline overlay by marking twilight pixels
-  const imageData = ctx.getImageData(0, 0, MAP_WIDTH, MAP_HEIGHT);
+  // Create offscreen canvas for pixel manipulation
+  const offscreen = document.createElement("canvas");
+  offscreen.width = width;
+  offscreen.height = height;
+  const offCtx = offscreen.getContext("2d");
+  if (!offCtx) return;
+
+  // Build greyline overlay with additive golden tint
+  const imageData = offCtx.createImageData(width, height);
   const data = imageData.data;
 
-  for (let y = 0; y < MAP_HEIGHT; y++) {
-    for (let x = 0; x < MAP_WIDTH; x++) {
-      const lon = (x / MAP_WIDTH) * 360 - 180;
-      const lat = 90 - (y / MAP_HEIGHT) * 180;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const lon = (x / width) * 360 - 180;
+      const lat = 90 - (y / height) * 180;
 
       // Calculate angular distance from subsolar point
       const phi1 = lat * (Math.PI / 180);
@@ -245,27 +477,29 @@ function drawGreyline(ctx: CanvasRenderingContext2D, date: Date) {
       const angle =
         Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
 
-      const idx = (y * MAP_WIDTH + x) * 4;
+      const idx = (y * width + x) * 4;
 
       // Greyline band: 75° to 105° from subsolar point (±15° from terminator)
       if (angle >= 75 && angle <= 105) {
-        // Golden/amber tint for greyline
-        // Stronger effect closer to terminator (90°)
         const distFromTerminator = Math.abs(angle - 90);
         const intensity = 1 - distFromTerminator / 15;
 
-        // Add golden overlay
-        data[idx] = Math.min(255, data[idx] + Math.floor(60 * intensity)); // R
-        data[idx + 1] = Math.min(
-          255,
-          data[idx + 1] + Math.floor(40 * intensity),
-        ); // G
-        data[idx + 2] = Math.max(0, data[idx + 2] - Math.floor(20 * intensity)); // B (reduce for warmer tone)
+        // Golden/amber overlay
+        data[idx] = Math.floor(60 * intensity);
+        data[idx + 1] = Math.floor(40 * intensity);
+        data[idx + 2] = 0;
+        data[idx + 3] = Math.floor(200 * intensity);
       }
     }
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  offCtx.putImageData(imageData, 0, 0);
+
+  // Composite with additive blending for golden glow
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.drawImage(offscreen, 0, 0, width, height);
+  ctx.restore();
 }
 
 /**
@@ -280,8 +514,10 @@ function drawMarker(
   isHome: boolean = false,
   difficulty?: DifficultyLevel,
   pathInfo?: { bearing: number; distance: number },
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ) {
-  const { x, y } = latLonToCanvas(lat, lon);
+  const { x, y } = latLonToCanvas(lat, lon, width, height);
 
   // Outer glow
   ctx.fillStyle = color + "40";
@@ -363,6 +599,8 @@ function drawPath(
   endLat: number,
   endLon: number,
   color: string = COLORS.path,
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ) {
   const points = getPathPoints(startLat, startLon, endLat, endLon, 100);
 
@@ -377,10 +615,10 @@ function drawPath(
   let lastX = -1;
 
   for (const point of points) {
-    const { x, y } = latLonToCanvas(point.lat, point.lon);
+    const { x, y } = latLonToCanvas(point.lat, point.lon, width, height);
 
     // Handle wrap-around at date line
-    if (lastX >= 0 && Math.abs(x - lastX) > MAP_WIDTH / 2) {
+    if (lastX >= 0 && Math.abs(x - lastX) > width / 2) {
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(x, y);
@@ -438,6 +676,8 @@ function drawAurora(
   ctx: CanvasRenderingContext2D,
   auroraData: AuroraData,
   minProbability: number = 10,
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ) {
   // Filter coordinates with aurora above threshold
   const filteredCoords = auroraData.coordinates.filter(
@@ -451,7 +691,7 @@ function drawAurora(
   ctx.globalCompositeOperation = "lighter";
 
   for (const coord of filteredCoords) {
-    const { x, y } = latLonToCanvas(coord.lat, coord.lon);
+    const { x, y } = latLonToCanvas(coord.lat, coord.lon, width, height);
     const color = getAuroraColor(coord.aurora);
     const opacity = getAuroraOpacity(coord.aurora);
 
@@ -481,18 +721,20 @@ function drawMUF(
   sfi: number,
   date: Date,
   opacity: number = 0.45,
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ) {
   // Create a temporary canvas for the MUF overlay
   const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = MAP_WIDTH;
-  tempCanvas.height = MAP_HEIGHT;
+  tempCanvas.width = width;
+  tempCanvas.height = height;
   const tempCtx = tempCanvas.getContext("2d");
   if (!tempCtx) return;
 
   // Calculate MUF at lower resolution for performance, then scale up
   const resolution = 10; // degrees
-  const cellWidth = MAP_WIDTH / (360 / resolution);
-  const cellHeight = MAP_HEIGHT / (180 / resolution);
+  const cellWidth = width / (360 / resolution);
+  const cellHeight = height / (180 / resolution);
 
   for (let lat = 90; lat >= -90; lat -= resolution) {
     for (let lon = -180; lon < 180; lon += resolution) {
@@ -505,7 +747,7 @@ function drawMUF(
       const { color } = getMUFColor(muf);
 
       // Calculate canvas position
-      const { x, y } = latLonToCanvas(lat, lon);
+      const { x, y } = latLonToCanvas(lat, lon, width, height);
 
       // Draw cell with color
       tempCtx.fillStyle = color;
@@ -527,13 +769,18 @@ function drawMUF(
  * Draw a curved arc between two points using bezier curves
  * Creates a visually pleasing arc that curves away from the map surface
  */
-function drawSpotArc(ctx: CanvasRenderingContext2D, spot: ResolvedSpot) {
+function drawSpotArc(
+  ctx: CanvasRenderingContext2D,
+  spot: ResolvedSpot,
+  width: number,
+  height: number,
+) {
   const color = getModeColor(spot.mode);
   const opacity = getSpotAgeOpacity(spot.time);
 
   // Get start and end points
-  const start = latLonToCanvas(spot.spotterLat, spot.spotterLon);
-  const end = latLonToCanvas(spot.dxLat, spot.dxLon);
+  const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
+  const end = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
 
   // Calculate control point for bezier curve
   // The arc height is based on distance between points
@@ -543,7 +790,7 @@ function drawSpotArc(ctx: CanvasRenderingContext2D, spot: ResolvedSpot) {
 
   // Handle wrap-around at date line
   let wrapAround = false;
-  if (Math.abs(dx) > MAP_WIDTH / 2) {
+  if (Math.abs(dx) > width / 2) {
     wrapAround = true;
   }
 
@@ -568,9 +815,9 @@ function drawSpotArc(ctx: CanvasRenderingContext2D, spot: ResolvedSpot) {
     let lastX = -1;
 
     for (const point of points) {
-      const { x, y } = latLonToCanvas(point.lat, point.lon);
+      const { x, y } = latLonToCanvas(point.lat, point.lon, width, height);
 
-      if (lastX >= 0 && Math.abs(x - lastX) > MAP_WIDTH / 2) {
+      if (lastX >= 0 && Math.abs(x - lastX) > width / 2) {
         // Break at wrap point
         ctx.stroke();
         ctx.beginPath();
@@ -616,88 +863,446 @@ function drawSpotArc(ctx: CanvasRenderingContext2D, spot: ResolvedSpot) {
 /**
  * Draw all spot arcs on the 2D map
  */
-function drawSpotArcs(ctx: CanvasRenderingContext2D, spots: ResolvedSpot[]) {
+function drawSpotArcs(
+  ctx: CanvasRenderingContext2D,
+  spots: ResolvedSpot[],
+  width: number,
+  height: number,
+) {
   for (const spot of spots) {
-    drawSpotArc(ctx, spot);
+    drawSpotArc(ctx, spot, width, height);
   }
 }
 
-// Major cities for night lights display
-const NIGHT_LIGHT_CITIES = [
-  { lat: 40.7128, lon: -74.006, size: 8 }, // New York
-  { lat: 34.0522, lon: -118.2437, size: 7 }, // Los Angeles
-  { lat: 51.5074, lon: -0.1278, size: 7 }, // London
-  { lat: 48.8566, lon: 2.3522, size: 6 }, // Paris
-  { lat: 35.6762, lon: 139.6503, size: 8 }, // Tokyo
-  { lat: 39.9042, lon: 116.4074, size: 8 }, // Beijing
-  { lat: -33.8688, lon: 151.2093, size: 6 }, // Sydney
-  { lat: 55.7558, lon: 37.6173, size: 6 }, // Moscow
-  { lat: 25.2048, lon: 55.2708, size: 5 }, // Dubai
-  { lat: 1.3521, lon: 103.8198, size: 5 }, // Singapore
-  { lat: 19.076, lon: 72.8777, size: 7 }, // Mumbai
-  { lat: 30.0444, lon: 31.2357, size: 5 }, // Cairo
-  { lat: -22.9068, lon: -43.1729, size: 6 }, // Rio
-  { lat: 43.6532, lon: -79.3832, size: 5 }, // Toronto
-  { lat: 52.52, lon: 13.405, size: 5 }, // Berlin
-  { lat: 37.5665, lon: 126.978, size: 6 }, // Seoul
-  { lat: 19.4326, lon: -99.1332, size: 6 }, // Mexico City
-  { lat: 41.9028, lon: 12.4964, size: 5 }, // Rome
-  { lat: -34.6037, lon: -58.3816, size: 5 }, // Buenos Aires
-  { lat: 13.7563, lon: 100.5018, size: 5 }, // Bangkok
-  { lat: 22.3193, lon: 114.1694, size: 6 }, // Hong Kong
-  { lat: 31.2304, lon: 121.4737, size: 7 }, // Shanghai
-  { lat: 28.6139, lon: 77.209, size: 6 }, // Delhi
-  { lat: -6.2088, lon: 106.8456, size: 5 }, // Jakarta
-  { lat: 14.5995, lon: 120.9842, size: 5 }, // Manila
-  { lat: 23.8103, lon: 90.4125, size: 5 }, // Dhaka
-  { lat: 33.6844, lon: 73.0479, size: 4 }, // Islamabad
-  { lat: -23.5505, lon: -46.6333, size: 6 }, // Sao Paulo
-  { lat: 6.5244, lon: 3.3792, size: 5 }, // Lagos
-  { lat: -1.2921, lon: 36.8219, size: 4 }, // Nairobi
-];
+/**
+ * Ease-out cubic easing function: 1 - (1 - t)^3
+ * Provides smooth deceleration for animations.
+ */
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+/** Animation state for smooth zoom/pan transitions */
+interface ZoomAnimation {
+  startTime: number;
+  startScale: number;
+  targetScale: number;
+  startOffsetX: number;
+  startOffsetY: number;
+  targetOffsetX: number;
+  targetOffsetY: number;
+  duration: number;
+}
 
 /**
- * Draw night lights (city lights on dark side)
+ * Draw a compass rose at the home station QTH location.
+ * Shows N/E/S/W cardinal directions and optionally a bearing line to the target.
  */
-function drawNightLights(ctx: CanvasRenderingContext2D, date: Date) {
-  const subsolar = getSubsolarPoint(date);
+function drawCompassRose(
+  ctx: CanvasRenderingContext2D,
+  homeLat: number,
+  homeLon: number,
+  bearing: number | null,
+  width: number,
+  height: number,
+) {
+  const { x: cx, y: cy } = latLonToCanvas(homeLat, homeLon, width, height);
+  const radius = 22;
+
+  // Semi-transparent background circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(10, 10, 26, 0.65)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Draw tick marks for cardinal directions
+  const cardinals: Array<{ label: string; angle: number; isNorth: boolean }> = [
+    { label: "N", angle: -Math.PI / 2, isNorth: true },
+    { label: "E", angle: 0, isNorth: false },
+    { label: "S", angle: Math.PI / 2, isNorth: false },
+    { label: "W", angle: Math.PI, isNorth: false },
+  ];
+
+  for (const { label, angle, isNorth } of cardinals) {
+    // Tick line from edge inward
+    const outerR = radius - 2;
+    const innerR = radius - 7;
+    const ox = cx + Math.cos(angle) * outerR;
+    const oy = cy + Math.sin(angle) * outerR;
+    const ix = cx + Math.cos(angle) * innerR;
+    const iy = cy + Math.sin(angle) * innerR;
+
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(ix, iy);
+    ctx.strokeStyle = isNorth ? "#22D3EE" : "rgba(255, 255, 255, 0.6)";
+    ctx.lineWidth = isNorth ? 2 : 1;
+    ctx.stroke();
+
+    // Cardinal direction label
+    const labelR = radius - 12;
+    const lx = cx + Math.cos(angle) * labelR;
+    const ly = cy + Math.sin(angle) * labelR;
+
+    ctx.font = "bold 7px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = isNorth ? "#22D3EE" : "rgba(255, 255, 255, 0.85)";
+    ctx.fillText(label, lx, ly);
+  }
+
+  // Draw bearing line to target if available
+  if (bearing !== null) {
+    // Convert bearing (0=N, clockwise) to canvas angle (0=E, clockwise)
+    const bearingRad = (bearing - 90) * (Math.PI / 180);
+    const lineEnd = radius - 3;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(
+      cx + Math.cos(bearingRad) * lineEnd,
+      cy + Math.sin(bearingRad) * lineEnd,
+    );
+    ctx.strokeStyle = "#FF6B35";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Arrowhead at the end
+    const arrowLen = 5;
+    const arrowAngle = 0.4;
+    const tipX = cx + Math.cos(bearingRad) * lineEnd;
+    const tipY = cy + Math.sin(bearingRad) * lineEnd;
+
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(
+      tipX - Math.cos(bearingRad - arrowAngle) * arrowLen,
+      tipY - Math.sin(bearingRad - arrowAngle) * arrowLen,
+    );
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(
+      tipX - Math.cos(bearingRad + arrowAngle) * arrowLen,
+      tipY - Math.sin(bearingRad + arrowAngle) * arrowLen,
+    );
+    ctx.strokeStyle = "#FF6B35";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draw pulsing concentric ring effect at the focused spot's position.
+ * Uses sine-wave based expansion for smooth animation.
+ */
+function drawSpotHighlight(
+  ctx: CanvasRenderingContext2D,
+  lat: number,
+  lon: number,
+  width: number,
+  height: number,
+) {
+  const { x, y } = latLonToCanvas(lat, lon, width, height);
+  const now = Date.now();
 
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
 
-  for (const city of NIGHT_LIGHT_CITIES) {
-    // Calculate if city is on night side
-    const phi1 = city.lat * (Math.PI / 180);
-    const phi2 = subsolar.lat * (Math.PI / 180);
-    const deltaLambda = (city.lon - subsolar.lon) * (Math.PI / 180);
+  // Draw 3 concentric rings with staggered phase offsets
+  for (let i = 0; i < 3; i++) {
+    const phaseOffset = (i * Math.PI * 2) / 3;
+    // Sine-wave expansion: radius oscillates over time
+    const t = (now / 800 + phaseOffset) % (Math.PI * 2);
+    const expansion = (Math.sin(t) + 1) / 2; // 0 to 1
+    const ringRadius = 8 + expansion * 20;
+    const opacity = 0.6 - i * 0.15 - expansion * 0.3;
 
-    const cosAngle =
-      Math.sin(phi1) * Math.sin(phi2) +
-      Math.cos(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
-    const angle =
-      Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 107, 53, ${Math.max(0.05, opacity)})`;
+    ctx.lineWidth = 2 - i * 0.4;
+    ctx.stroke();
+  }
 
-    // Only show lights on night side (angle > 90 from subsolar)
-    if (angle > 85) {
-      const { x, y } = latLonToCanvas(city.lat, city.lon);
+  // Central glow dot
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255, 107, 53, 0.8)";
+  ctx.fill();
 
-      // Calculate intensity based on how deep into night
-      const nightDepth = Math.min((angle - 85) / 30, 1);
-      const intensity = nightDepth * 0.8;
+  ctx.restore();
+}
 
-      // Draw glowing city light
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, city.size);
-      gradient.addColorStop(0, `rgba(255, 200, 100, ${intensity})`);
-      gradient.addColorStop(0.3, `rgba(255, 180, 80, ${intensity * 0.6})`);
-      gradient.addColorStop(1, "transparent");
+/**
+ * Simple bounding box for label overlap detection
+ */
+interface LabelBBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(x, y, city.size, 0, Math.PI * 2);
-      ctx.fill();
+function bboxOverlaps(a: LabelBBox, b: LabelBBox): boolean {
+  return (
+    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+  );
+}
+
+/**
+ * Draw callsign labels near DX spot endpoint positions.
+ * Includes simple overlap avoidance via bounding box checks.
+ */
+function drawCallsignLabels(
+  ctx: CanvasRenderingContext2D,
+  spots: ResolvedSpot[],
+  width: number,
+  height: number,
+) {
+  const placedLabels: LabelBBox[] = [];
+  const fontSize = 10;
+  ctx.save();
+  ctx.font = `${fontSize}px monospace`;
+  ctx.textBaseline = "bottom";
+
+  for (const spot of spots) {
+    const callsign = spot.callsign;
+    if (!callsign) continue;
+
+    const { x, y } = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
+    const textMetrics = ctx.measureText(callsign);
+    const textW = textMetrics.width + 6; // padding
+    const textH = fontSize + 4;
+
+    // Position label above the spot endpoint
+    const labelX = x - textW / 2;
+    const labelY = y - 10 - textH;
+
+    const bbox: LabelBBox = { x: labelX, y: labelY, w: textW, h: textH };
+
+    // Skip if overlapping with an already-placed label
+    if (placedLabels.some((existing) => bboxOverlaps(existing, bbox))) {
+      continue;
+    }
+    placedLabels.push(bbox);
+
+    const modeColor = getModeColor(spot.mode);
+    const opacity = getSpotAgeOpacity(spot.time);
+
+    ctx.globalAlpha = opacity;
+
+    // Background pill with mode color accent
+    ctx.fillStyle = "rgba(10, 10, 26, 0.75)";
+    ctx.beginPath();
+    const pillRadius = 3;
+    // Rounded rect
+    ctx.moveTo(labelX + pillRadius, labelY);
+    ctx.lineTo(labelX + textW - pillRadius, labelY);
+    ctx.arcTo(
+      labelX + textW,
+      labelY,
+      labelX + textW,
+      labelY + pillRadius,
+      pillRadius,
+    );
+    ctx.lineTo(labelX + textW, labelY + textH - pillRadius);
+    ctx.arcTo(
+      labelX + textW,
+      labelY + textH,
+      labelX + textW - pillRadius,
+      labelY + textH,
+      pillRadius,
+    );
+    ctx.lineTo(labelX + pillRadius, labelY + textH);
+    ctx.arcTo(
+      labelX,
+      labelY + textH,
+      labelX,
+      labelY + textH - pillRadius,
+      pillRadius,
+    );
+    ctx.lineTo(labelX, labelY + pillRadius);
+    ctx.arcTo(labelX, labelY, labelX + pillRadius, labelY, pillRadius);
+    ctx.closePath();
+    ctx.fill();
+
+    // Mode color underline accent
+    ctx.fillStyle = modeColor;
+    ctx.fillRect(labelX + 2, labelY + textH - 2, textW - 4, 1.5);
+
+    // Callsign text with shadow for readability
+    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+    ctx.shadowBlur = 2;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.textAlign = "center";
+    ctx.fillText(callsign, x, labelY + textH - 3);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * Draw texture-based night lights (city lights on dark side).
+ * Uses the NASA Black Marble style earth-night.jpg texture for realistic city lights.
+ * The texture is equirectangular, matching the flat map projection 1:1.
+ *
+ * Processing pipeline:
+ * 1. Draw the night texture onto an offscreen canvas at render dimensions
+ * 2. Read pixel data and apply warm color tint (yellowish-orange glow)
+ * 3. Mask to night-side pixels only with smooth twilight fade
+ * 4. Composite with additive blending for glow effect
+ *
+ * Results are cached and only recalculated when time changes by >= 1 minute.
+ */
+function drawNightLights(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  width: number,
+  height: number,
+) {
+  // Ensure texture is loaded (triggers async load on first call)
+  const nightTexture = ensureNightTextureLoaded();
+  if (!nightTexture) return;
+
+  // Check cache: reuse if time hasn't changed by >= 1 minute and dimensions match
+  const currentMinute = getTimeMinute(date);
+  if (
+    nightLightsCache &&
+    nightLightsCache.minute === currentMinute &&
+    nightLightsCache.width === width &&
+    nightLightsCache.height === height
+  ) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.drawImage(nightLightsCache.canvas, 0, 0, width, height);
+    ctx.restore();
+    return;
+  }
+
+  const subsolar = getSubsolarPoint(date);
+
+  // Precompute subsolar trig values
+  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
+  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
+  const sinSubLat = Math.sin(subsolarLatRad);
+  const cosSubLat = Math.cos(subsolarLatRad);
+
+  // Precompute latitude trig values
+  const latSin = new Float32Array(height);
+  const latCos = new Float32Array(height);
+  for (let y = 0; y < height; y++) {
+    const latRad = (90 - (y / height) * 180) * (Math.PI / 180);
+    latSin[y] = Math.sin(latRad);
+    latCos[y] = Math.cos(latRad);
+  }
+
+  // Precompute longitude delta cos values
+  const lonDeltaCos = new Float32Array(width);
+  for (let x = 0; x < width; x++) {
+    const lonRad = ((x / width) * 360 - 180) * (Math.PI / 180);
+    lonDeltaCos[x] = Math.cos(lonRad - subsolarLonRad);
+  }
+
+  // Draw the night texture onto an offscreen canvas at render dimensions
+  const texCanvas = document.createElement("canvas");
+  texCanvas.width = width;
+  texCanvas.height = height;
+  const texCtx = texCanvas.getContext("2d");
+  if (!texCtx) return;
+
+  texCtx.drawImage(nightTexture, 0, 0, width, height);
+  const texData = texCtx.getImageData(0, 0, width, height);
+  const texPixels = texData.data;
+
+  // Create output canvas for the tinted, masked night lights
+  const outCanvas = document.createElement("canvas");
+  outCanvas.width = width;
+  outCanvas.height = height;
+  const outCtx = outCanvas.getContext("2d");
+  if (!outCtx) return;
+
+  const outData = outCtx.createImageData(width, height);
+  const outPixels = outData.data;
+
+  // Warm color tint multipliers (yellowish-orange glow matching 3D globe shader)
+  const warmR = 1.0;
+  const warmG = 0.85;
+  const warmB = 0.6;
+
+  // Contrast power curve to boost city visibility (matching 3D globe: pow(brightness, 0.6) * 1.5)
+  const contrastPower = 0.6;
+  const brightnessBoost = 1.5;
+
+  for (let y = 0; y < height; y++) {
+    const sinLat = latSin[y];
+    const cosLat = latCos[y];
+    const rowOffset = y * width;
+
+    for (let x = 0; x < width; x++) {
+      const idx = (rowOffset + x) * 4;
+
+      // Read texture pixel brightness (max of RGB for city light intensity)
+      const texR = texPixels[idx];
+      const texG = texPixels[idx + 1];
+      const texB = texPixels[idx + 2];
+      const lightBrightness = Math.max(texR, texG, texB) / 255;
+
+      // Skip very dark pixels (no city lights here)
+      if (lightBrightness < 0.02) continue;
+
+      // Solar angle for night masking
+      const cosAngle = sinLat * sinSubLat + cosLat * cosSubLat * lonDeltaCos[x];
+      const angle =
+        Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
+
+      // Only show lights on night side: fade in during twilight (85-95 degrees)
+      if (angle <= 85) continue;
+
+      let nightFade: number;
+      if (angle >= 95) {
+        nightFade = 1.0;
+      } else {
+        // Smooth fade-in during twilight
+        const t = (angle - 85) / 10;
+        nightFade = t * t * (3 - 2 * t);
+      }
+
+      // Apply contrast boost (power curve + brightness multiplier)
+      const boosted = Math.min(
+        1.0,
+        Math.pow(lightBrightness, contrastPower) * brightnessBoost,
+      );
+
+      // Apply warm color tint
+      outPixels[idx] = Math.min(255, Math.floor(boosted * warmR * 255));
+      outPixels[idx + 1] = Math.min(255, Math.floor(boosted * warmG * 255));
+      outPixels[idx + 2] = Math.min(255, Math.floor(boosted * warmB * 255));
+      outPixels[idx + 3] = Math.floor(boosted * nightFade * 255);
     }
   }
 
+  outCtx.putImageData(outData, 0, 0);
+
+  // Cache the result
+  nightLightsCache = {
+    canvas: outCanvas,
+    minute: currentMinute,
+    width,
+    height,
+  };
+
+  // Composite with additive blending so lights glow on top of the darkened base
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.drawImage(outCanvas, 0, 0, width, height);
   ctx.restore();
 }
 
@@ -767,7 +1372,11 @@ const CITY_LABELS = [
 /**
  * Draw labels (country borders and city names)
  */
-function drawLabels(ctx: CanvasRenderingContext2D) {
+function drawLabels(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+) {
   // Draw country borders
   ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
   ctx.lineWidth = 1;
@@ -776,7 +1385,7 @@ function drawLabels(ctx: CanvasRenderingContext2D) {
     ctx.beginPath();
     for (let i = 0; i < segment.length; i++) {
       const [lat, lon] = segment[i];
-      const { x, y } = latLonToCanvas(lat, lon);
+      const { x, y } = latLonToCanvas(lat, lon, width, height);
       if (i === 0) {
         ctx.moveTo(x, y);
       } else {
@@ -791,7 +1400,7 @@ function drawLabels(ctx: CanvasRenderingContext2D) {
   ctx.textAlign = "center";
 
   for (const city of CITY_LABELS) {
-    const { x, y } = latLonToCanvas(city.lat, city.lon);
+    const { x, y } = latLonToCanvas(city.lat, city.lon, width, height);
 
     // Draw text with dark outline for visibility on both light and dark backgrounds
     ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
@@ -809,28 +1418,125 @@ function drawLabels(ctx: CanvasRenderingContext2D) {
   }
 }
 
-// Zoom state type
-interface ZoomState {
-  scale: number;
-  offsetX: number;
-  offsetY: number;
+/**
+ * Draw a pin marker on the 2D map
+ */
+function drawPin(
+  ctx: CanvasRenderingContext2D,
+  lat: number,
+  lon: number,
+  icon: string,
+  color: string,
+  width: number,
+  height: number,
+) {
+  const { x, y } = latLonToCanvas(lat, lon, width, height);
+
+  // Pin base (small circle)
+  ctx.fillStyle = color + "40";
+  ctx.beginPath();
+  ctx.arc(x, y, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Icon label above
+  ctx.font = "12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(icon, x, y - 10);
 }
+
+// Re-use shared zoom state type
+import type { FlatMapZoomState } from "@/types/map";
 
 export function FlatMapView({
   displayTime,
   onLocationClick,
 }: FlatMapViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
-  const [zoom, setZoom] = useState<ZoomState>({
+  const [displaySize, setDisplaySize] = useState({
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+  });
+  const [zoom, setZoom] = useState<FlatMapZoomState>({
     scale: 1,
     offsetX: 0,
     offsetY: 0,
   });
-  const { layers, target } = useMapStore();
-  const { station } = useUserStore();
+  // Zoom animation ref for smooth transitions
+  const zoomAnimationRef = useRef<ZoomAnimation | null>(null);
+  const zoomRafRef = useRef<number>(0);
+
+  // Always-current zoom ref for animations that bypass React state
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
+  // Spot highlight overlay canvas (avoids full canvas re-render at 60fps)
+  const highlightCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Spot highlight animation ref
+  const spotHighlightRafRef = useRef<number>(0);
+
+  // Track previous preset ID for detecting changes
+  const prevPresetIdRef = useRef<string | null>(null);
+
+  const {
+    layers,
+    target,
+    tooltipPosition,
+    setTooltipPosition,
+    flyoutPosition,
+    setFlyoutPosition,
+    setTarget,
+    setCenterLocation,
+  } = useMapStore();
+  const centerLocation = useMapStore((s) => s.centerLocation);
+  const clearCenterLocation = useMapStore((s) => s.clearCenterLocation);
+  const activePresetId = useMapStore((s) => s.activePresetId);
+  const regionPresets = useMapStore((s) => s.regionPresets);
+  const { station, preferences } = useUserStore();
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
+
+  // Spot focus for pulsing ring effect
+  const { isFocusing, focusedSpot } = useSpotFocus();
+
+  // User preferences for compass rose and callsign labels
+  const compassRoseEnabled = preferences?.compassRose?.enabled ?? false;
+  const showCallsignLabels =
+    preferences?.uiInteraction?.showSpotCallsignLabels ?? true;
+
+  // Pin store
+  const { addPin } = usePinStore();
+  const pins = usePinStore((state) => state.pins);
+
+  // DX stores
+  const { updateFilter } = useDXStore();
+  const { allSpots } = useDXCluster();
+
+  // Watch store
+  const addWatch = useWatchStore((state) => state.addWatch);
+  const checkForActivity = useWatchStore((state) => state.checkForActivity);
+
+  // State for AddPinDialog
+  const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
+  const [addPinData, setAddPinData] = useState<{
+    lat: number;
+    lon: number;
+    grid: string;
+  } | null>(null);
+
+  // State for GridResearchPanel
+  const [researchPanelOpen, setResearchPanelOpen] = useState(false);
+  const [researchGrid, setResearchGrid] = useState<string | null>(null);
+
+  // State for WatchListPanel
+  const [watchListOpen, setWatchListOpen] = useState(false);
 
   // Fetch live spots when spots layer is enabled
   const { spots } = useLiveSpots({
@@ -859,51 +1565,301 @@ export function FlatMapView({
     ? getDifficultyColor(pathDifficulty)
     : COLORS.targetMarker;
 
-  // Handle scroll wheel zoom
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Check watch activity when spots change
+  useEffect(() => {
+    if (allSpots.length > 0) {
+      checkForActivity(allSpots);
+    }
+  }, [allSpots, checkForActivity]);
 
-    const rect = canvas.getBoundingClientRect();
+  // Get spots in the hovered grid for tooltip
+  // Matches if either DX or spotter grid starts with the hovered 4-char prefix
+  const tooltipSpots = useMemo(() => {
+    if (!tooltipPosition?.grid) return [];
+    const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
+    return allSpots.filter((spot) => {
+      const dxGrid = (spot.dxGrid || "").toUpperCase();
+      const spotterGrid = (spot.spotterGrid || "").toUpperCase();
+      return (
+        dxGrid.startsWith(gridPrefix) || spotterGrid.startsWith(gridPrefix)
+      );
+    });
+  }, [tooltipPosition?.grid, allSpots]);
 
-    // Mouse position relative to canvas (in display coordinates)
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+  // Handle map click - show flyout
+  const handleMapClick = useCallback(
+    (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      const grid = latLonToGrid(lat, lon);
+      setFlyoutPosition({ x: screenPos.x, y: screenPos.y, lat, lon, grid });
+      setTooltipPosition(null); // Hide tooltip when flyout opens
+      onLocationClick?.(lat, lon);
+    },
+    [setFlyoutPosition, setTooltipPosition, onLocationClick],
+  );
 
-    // Scale mouse position to canvas coordinates
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const canvasMouseX = mouseX * scaleX;
-    const canvasMouseY = mouseY * scaleY;
+  // Handle double-click - center view without setting target
+  const handleDoubleClick = useCallback(
+    (lat: number, lon: number) => {
+      // Close any open flyout/tooltip
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      // Center the view on this location
+      setCenterLocation(lat, lon);
+    },
+    [setFlyoutPosition, setTooltipPosition, setCenterLocation],
+  );
 
-    // Zoom factor
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  // Handle map hover - show tooltip
+  const handleMapHover = useCallback(
+    (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      // Don't show tooltip if flyout is open
+      if (flyoutPosition) return;
+      const grid = latLonToGrid(lat, lon);
+      setTooltipPosition({ x: screenPos.x, y: screenPos.y, grid });
+    },
+    [flyoutPosition, setTooltipPosition],
+  );
 
-    setZoom((prev) => {
-      const newScale = Math.max(0.5, Math.min(4, prev.scale * delta));
+  // Handle hover end
+  const handleHoverEnd = useCallback(() => {
+    setTooltipPosition(null);
+  }, [setTooltipPosition]);
+
+  // Handle flyout close
+  const handleFlyoutClose = useCallback(() => {
+    setFlyoutPosition(null);
+  }, [setFlyoutPosition]);
+
+  // Handle opening AddPinDialog from flyout
+  const handleOpenAddPinDialog = useCallback(
+    (lat: number, lon: number, grid: string) => {
+      setAddPinData({ lat, lon, grid });
+      setAddPinDialogOpen(true);
+      setFlyoutPosition(null);
+    },
+    [setFlyoutPosition],
+  );
+
+  // Handle opening GridResearchPanel from flyout
+  const handleOpenResearchPanel = useCallback(
+    (grid: string) => {
+      setResearchGrid(grid);
+      setResearchPanelOpen(true);
+      setFlyoutPosition(null);
+    },
+    [setFlyoutPosition],
+  );
+
+  // Handle adding a grid to watch list
+  const handleWatchGrid = useCallback(
+    (grid: string) => {
+      // Watch the 4-char grid prefix for broader matching
+      const gridPrefix = grid.slice(0, 4).toUpperCase();
+      addWatch("grid", gridPrefix);
+      setFlyoutPosition(null);
+    },
+    [addWatch, setFlyoutPosition],
+  );
+
+  // Handle GridResearchPanel actions
+  const handleResearchAction = useCallback(
+    (action: GridResearchAction, grid: string) => {
+      switch (action) {
+        case "watch":
+          handleWatchGrid(grid);
+          break;
+        case "pin": {
+          // Need to compute lat/lon from grid
+          try {
+            const { lat, lon } = gridToLatLon(grid);
+            handleOpenAddPinDialog(lat, lon, grid);
+          } catch {
+            // Grid conversion failed, ignore
+          }
+          break;
+        }
+        case "setTarget": {
+          try {
+            const { lat, lon } = gridToLatLon(grid);
+            setTarget({ lat, lon, grid });
+            setResearchPanelOpen(false);
+          } catch {
+            // Grid conversion failed, ignore
+          }
+          break;
+        }
+        case "close":
+          setResearchPanelOpen(false);
+          break;
+      }
+    },
+    [handleWatchGrid, handleOpenAddPinDialog, setTarget],
+  );
+
+  // Handle flyout actions (fallback for unhandled actions)
+  const handleFlyoutAction = useCallback(
+    (action: MapFlyoutAction) => {
+      if (!flyoutPosition) return;
+
+      switch (action) {
+        case "setTarget":
+          setTarget({
+            lat: flyoutPosition.lat,
+            lon: flyoutPosition.lon,
+            grid: flyoutPosition.grid,
+          });
+          break;
+        case "addPin":
+          // Fallback to simple add (dialog callback should handle this)
+          addPin(flyoutPosition.lat, flyoutPosition.lon, flyoutPosition.grid);
+          break;
+        case "researchGrid":
+          // Fallback to filter (panel callback should handle this)
+          updateFilter("gridFilter", flyoutPosition.grid);
+          break;
+        case "watchGrid":
+          // Fallback - should be handled by callback
+          handleWatchGrid(flyoutPosition.grid);
+          break;
+      }
+    },
+    [flyoutPosition, setTarget, addPin, updateFilter, handleWatchGrid],
+  );
+
+  // Clamp zoom offsets to prevent panning beyond map bounds
+  const clampOffsets = useCallback(
+    (scale: number, offX: number, offY: number) => {
+      const maxOffsetX = displaySize.width * (scale - 1);
+      const maxOffsetY = displaySize.height * (scale - 1);
+      return {
+        offsetX: Math.max(-maxOffsetX, Math.min(0, offX)),
+        offsetY: Math.max(-maxOffsetY, Math.min(0, offY)),
+      };
+    },
+    [displaySize],
+  );
+
+  // Smooth zoom animation loop driven by requestAnimationFrame
+  const runZoomAnimation = useCallback(() => {
+    const anim = zoomAnimationRef.current;
+    if (!anim) return;
+
+    const elapsed = performance.now() - anim.startTime;
+    const t = Math.min(1, elapsed / anim.duration);
+    const eased = easeOutCubic(t);
+
+    const currentScale =
+      anim.startScale + (anim.targetScale - anim.startScale) * eased;
+    const currentOffsetX =
+      anim.startOffsetX + (anim.targetOffsetX - anim.startOffsetX) * eased;
+    const currentOffsetY =
+      anim.startOffsetY + (anim.targetOffsetY - anim.startOffsetY) * eased;
+
+    const clamped = clampOffsets(currentScale, currentOffsetX, currentOffsetY);
+
+    setZoom({
+      scale: currentScale,
+      offsetX: clamped.offsetX,
+      offsetY: clamped.offsetY,
+    });
+
+    if (t < 1) {
+      zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
+    } else {
+      zoomAnimationRef.current = null;
+    }
+  }, [clampOffsets]);
+
+  // Handle scroll wheel zoom with smooth 300ms animation
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+
+      // Mouse position relative to canvas (in display coordinates)
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Scale mouse position to canvas coordinates
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const canvasMouseX = mouseX * scaleX;
+      const canvasMouseY = mouseY * scaleY;
+
+      // Zoom factor
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+
+      // Cancel any in-progress animation
+      if (zoomRafRef.current) {
+        cancelAnimationFrame(zoomRafRef.current);
+      }
+
+      // Compute current visual zoom position and base for target computation
+      const currentAnim = zoomAnimationRef.current;
+      let visualScale: number;
+      let visualOffsetX: number;
+      let visualOffsetY: number;
+      let baseScale: number;
+      let baseOffsetX: number;
+      let baseOffsetY: number;
+
+      if (currentAnim) {
+        // Interpolate where the animation currently IS (for smooth start)
+        const elapsed = performance.now() - currentAnim.startTime;
+        const t = Math.min(1, elapsed / currentAnim.duration);
+        const eased = easeOutCubic(t);
+        visualScale =
+          currentAnim.startScale +
+          (currentAnim.targetScale - currentAnim.startScale) * eased;
+        visualOffsetX =
+          currentAnim.startOffsetX +
+          (currentAnim.targetOffsetX - currentAnim.startOffsetX) * eased;
+        visualOffsetY =
+          currentAnim.startOffsetY +
+          (currentAnim.targetOffsetY - currentAnim.startOffsetY) * eased;
+        // Compound zoom deltas from animation target
+        baseScale = currentAnim.targetScale;
+        baseOffsetX = currentAnim.targetOffsetX;
+        baseOffsetY = currentAnim.targetOffsetY;
+      } else {
+        const z = zoomRef.current;
+        visualScale = z.scale;
+        visualOffsetX = z.offsetX;
+        visualOffsetY = z.offsetY;
+        baseScale = z.scale;
+        baseOffsetX = z.offsetX;
+        baseOffsetY = z.offsetY;
+      }
+
+      const targetScale = Math.max(0.5, Math.min(4, baseScale * delta));
 
       // Calculate new offset to zoom toward mouse position
-      // The point under the mouse should stay in the same place
-      const scaleFactor = newScale / prev.scale;
-      const newOffsetX =
-        canvasMouseX - (canvasMouseX - prev.offsetX) * scaleFactor;
-      const newOffsetY =
-        canvasMouseY - (canvasMouseY - prev.offsetY) * scaleFactor;
+      const scaleFactor = targetScale / baseScale;
+      const targetOffsetX =
+        canvasMouseX - (canvasMouseX - baseOffsetX) * scaleFactor;
+      const targetOffsetY =
+        canvasMouseY - (canvasMouseY - baseOffsetY) * scaleFactor;
 
-      // Clamp offsets to prevent panning too far
-      const maxOffsetX = MAP_WIDTH * (newScale - 1);
-      const maxOffsetY = MAP_HEIGHT * (newScale - 1);
-      const clampedOffsetX = Math.max(-maxOffsetX, Math.min(0, newOffsetX));
-      const clampedOffsetY = Math.max(-maxOffsetY, Math.min(0, newOffsetY));
+      const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
 
-      return {
-        scale: newScale,
-        offsetX: clampedOffsetX,
-        offsetY: clampedOffsetY,
+      zoomAnimationRef.current = {
+        startTime: performance.now(),
+        startScale: visualScale,
+        targetScale,
+        startOffsetX: visualOffsetX,
+        startOffsetY: visualOffsetY,
+        targetOffsetX: clamped.offsetX,
+        targetOffsetY: clamped.offsetY,
+        duration: 300,
       };
-    });
-  }, []);
+
+      zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
+    },
+    [clampOffsets, runZoomAnimation],
+  );
 
   // Attach wheel event listener with passive: false to allow preventDefault
   useEffect(() => {
@@ -923,31 +1879,234 @@ export function FlatMapView({
     img.src = "/textures/earth-flat.jpg";
   }, []);
 
-  // Handle canvas click (accounting for zoom transform)
-  const handleClick = useCallback(
-    (event: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas || !onLocationClick) return;
+  // Pre-load night lights texture (module-level singleton, loaded once)
+  useEffect(() => {
+    ensureNightTextureLoaded();
+  }, []);
 
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+  // Observe container resize for responsive display (debounced via rAF)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-      // Get click position in canvas coordinates
-      const canvasX = (event.clientX - rect.left) * scaleX;
-      const canvasY = (event.clientY - rect.top) * scaleY;
+    let rafId = 0;
+    const updateSize = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const rect = container.getBoundingClientRect();
+        const width = Math.max(300, Math.floor(rect.width));
+        const height = Math.max(150, Math.floor(width / 2));
+        setDisplaySize({ width, height });
+      });
+    };
 
-      // Reverse the zoom transform to get the actual map coordinates
-      // The zoom transform is: translate(offsetX, offsetY) then scale(zoom.scale)
-      // So we need to: un-translate by offset, then un-scale
-      const mapX = (canvasX - zoom.offsetX) / zoom.scale;
-      const mapY = (canvasY - zoom.offsetY) / zoom.scale;
+    // Initial synchronous size read
+    const rect = container.getBoundingClientRect();
+    const initWidth = Math.max(300, Math.floor(rect.width));
+    const initHeight = Math.max(150, Math.floor(initWidth / 2));
+    setDisplaySize({ width: initWidth, height: initHeight });
 
-      const { lat, lon } = canvasToLatLon(mapX, mapY, MAP_WIDTH, MAP_HEIGHT);
-      onLocationClick(lat, lon);
-    },
-    [onLocationClick, zoom],
-  );
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(container);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
+  }, []);
+
+  // Smooth pan-to-preset animation (500ms ease-out)
+  // When activePresetId changes, animate from current zoom to the preset view
+  useEffect(() => {
+    if (activePresetId === prevPresetIdRef.current) return;
+    prevPresetIdRef.current = activePresetId;
+
+    if (!activePresetId) return;
+
+    const preset = regionPresets.find((p) => p.id === activePresetId);
+    if (!preset) return;
+
+    // Calculate target offset from the preset's center (interpreting rotation as center offset)
+    const rotation = preset.rotation ?? {
+      x: preset.center.lat,
+      y: -preset.center.lon,
+    };
+    const targetScale = Math.max(0.5, Math.min(4, preset.zoom));
+    const targetOffsetX =
+      -(-rotation.y) * (displaySize.width / 360) * targetScale +
+      (displaySize.width * (1 - targetScale)) / 2;
+    const targetOffsetY =
+      -rotation.x * (displaySize.height / 180) * targetScale +
+      (displaySize.height * (1 - targetScale)) / 2;
+
+    const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
+
+    // Cancel any existing zoom animation
+    if (zoomRafRef.current) {
+      cancelAnimationFrame(zoomRafRef.current);
+    }
+
+    const z = zoomRef.current;
+    zoomAnimationRef.current = {
+      startTime: performance.now(),
+      startScale: z.scale,
+      targetScale,
+      startOffsetX: z.offsetX,
+      startOffsetY: z.offsetY,
+      targetOffsetX: clamped.offsetX,
+      targetOffsetY: clamped.offsetY,
+      duration: 500,
+    };
+
+    zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
+  }, [
+    activePresetId,
+    regionPresets,
+    displaySize,
+    clampOffsets,
+    runZoomAnimation,
+  ]);
+
+  // Double-click centering animation (500ms ease-out)
+  // When centerLocation changes, animate to center that lat/lon in the viewport
+  useEffect(() => {
+    if (!centerLocation) return;
+
+    // Convert lat/lon to map-space pixel position (equirectangular projection)
+    const mapX = ((centerLocation.lon + 180) / 360) * displaySize.width;
+    const mapY = ((90 - centerLocation.lat) / 180) * displaySize.height;
+
+    // Use current zoom scale (or bump to 2x if at 1x for a meaningful center)
+    const z = zoomRef.current;
+    const targetScale = Math.max(2, z.scale);
+
+    // Calculate offset to center the target point in the viewport
+    const targetOffsetX = displaySize.width / 2 - mapX * targetScale;
+    const targetOffsetY = displaySize.height / 2 - mapY * targetScale;
+
+    const clamped = clampOffsets(targetScale, targetOffsetX, targetOffsetY);
+
+    // Cancel any existing zoom animation
+    if (zoomRafRef.current) {
+      cancelAnimationFrame(zoomRafRef.current);
+    }
+
+    zoomAnimationRef.current = {
+      startTime: performance.now(),
+      startScale: z.scale,
+      targetScale,
+      startOffsetX: z.offsetX,
+      startOffsetY: z.offsetY,
+      targetOffsetX: clamped.offsetX,
+      targetOffsetY: clamped.offsetY,
+      duration: 500,
+    };
+
+    zoomRafRef.current = requestAnimationFrame(runZoomAnimation);
+
+    // Clear the center location after processing so the same location can be re-centered
+    clearCenterLocation();
+  }, [
+    centerLocation,
+    displaySize,
+    clampOffsets,
+    runZoomAnimation,
+    clearCenterLocation,
+  ]);
+
+  // Spot highlight pulsing ring animation via overlay canvas
+  // Draws directly to a transparent overlay canvas at 60fps without triggering React re-renders
+  useEffect(() => {
+    if (
+      !isFocusing ||
+      focusedSpot?.dxLat == null ||
+      focusedSpot?.dxLon == null
+    ) {
+      // Clear overlay canvas when not focusing
+      const hCanvas = highlightCanvasRef.current;
+      if (hCanvas) {
+        const hCtx = hCanvas.getContext("2d");
+        if (hCtx) hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+      }
+      if (spotHighlightRafRef.current) {
+        cancelAnimationFrame(spotHighlightRafRef.current);
+        spotHighlightRafRef.current = 0;
+      }
+      return;
+    }
+
+    const dxLat = focusedSpot.dxLat;
+    const dxLon = focusedSpot.dxLon;
+    let running = true;
+
+    const animate = () => {
+      if (!running) return;
+      const hCanvas = highlightCanvasRef.current;
+      if (!hCanvas) {
+        spotHighlightRafRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      const hCtx = hCanvas.getContext("2d");
+      if (!hCtx) {
+        spotHighlightRafRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      const { width: rw, height: rh } = displaySize;
+
+      // Match main canvas buffer size
+      if (hCanvas.width !== rw * dpr || hCanvas.height !== rh * dpr) {
+        hCanvas.width = rw * dpr;
+        hCanvas.height = rh * dpr;
+      }
+
+      hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+      hCtx.save();
+      hCtx.scale(dpr, dpr);
+
+      // Apply same zoom transform as main canvas
+      const z = zoomRef.current;
+      hCtx.translate(z.offsetX, z.offsetY);
+      hCtx.scale(z.scale, z.scale);
+
+      drawSpotHighlight(hCtx, dxLat, dxLon, rw, rh);
+
+      hCtx.restore();
+      spotHighlightRafRef.current = requestAnimationFrame(animate);
+    };
+
+    spotHighlightRafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      running = false;
+      if (spotHighlightRafRef.current) {
+        cancelAnimationFrame(spotHighlightRafRef.current);
+        spotHighlightRafRef.current = 0;
+      }
+    };
+  }, [isFocusing, focusedSpot?.dxLat, focusedSpot?.dxLon, displaySize]);
+
+  // Cleanup animation refs on unmount
+  useEffect(() => {
+    return () => {
+      if (zoomRafRef.current) cancelAnimationFrame(zoomRafRef.current);
+      if (spotHighlightRafRef.current)
+        cancelAnimationFrame(spotHighlightRafRef.current);
+    };
+  }, []);
+
+  // Integrate gesture-based interaction (press-and-hold, double-click, hover)
+  useFlatMapClickHandler({
+    canvasRef,
+    zoom,
+    displaySize,
+    onLocationClick: handleMapClick,
+    onDoubleClick: handleDoubleClick,
+    onLocationHover: handleMapHover,
+    onHoverEnd: handleHoverEnd,
+    holdDurationMs: 500,
+  });
 
   // Render map
   useEffect(() => {
@@ -957,8 +2116,24 @@ export function FlatMapView({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const dpr = window.devicePixelRatio || 1;
+    const renderWidth = displaySize.width;
+    const renderHeight = displaySize.height;
+
+    // Set canvas buffer size (accounting for DPR) - only resize when dimensions change
+    const bufferWidth = renderWidth * dpr;
+    const bufferHeight = renderHeight * dpr;
+    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+      canvas.width = bufferWidth;
+      canvas.height = bufferHeight;
+    }
+
     // Clear canvas before drawing
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Scale context for DPR
+    ctx.save();
+    ctx.scale(dpr, dpr);
 
     // Apply zoom transform
     ctx.save();
@@ -966,46 +2141,54 @@ export function FlatMapView({
     ctx.scale(zoom.scale, zoom.scale);
 
     // Draw base map image
-    ctx.drawImage(mapImage, 0, 0, MAP_WIDTH, MAP_HEIGHT);
+    ctx.drawImage(mapImage, 0, 0, renderWidth, renderHeight);
 
     // Draw MUF overlay (before night side so it's properly darkened)
     if (layers.muf && currentSFI) {
-      drawMUF(ctx, currentSFI, displayTime, 0.45);
+      drawMUF(ctx, currentSFI, displayTime, 0.45, renderWidth, renderHeight);
     }
 
     // Draw night side and terminator
     if (layers.terminator) {
-      drawNightSide(ctx, displayTime);
-      drawTerminator(ctx, displayTime);
+      drawNightSide(ctx, displayTime, renderWidth, renderHeight);
+      drawTerminator(ctx, displayTime, renderWidth, renderHeight);
     }
 
     // Draw greyline band (twilight zone with enhanced propagation)
     if (layers.greyline) {
-      drawGreyline(ctx, displayTime);
+      drawGreyline(ctx, displayTime, renderWidth, renderHeight);
     }
 
     // Draw aurora overlay
     if (layers.aurora && auroraData) {
-      drawAurora(ctx, auroraData, 10);
+      drawAurora(ctx, auroraData, 10, renderWidth, renderHeight);
     }
 
     // Draw night lights (city lights on dark side)
     if (layers.nightLights) {
-      drawNightLights(ctx, displayTime);
+      drawNightLights(ctx, displayTime, renderWidth, renderHeight);
     }
 
     // Draw grid
-    drawGrid(ctx);
+    drawGrid(ctx, renderWidth, renderHeight);
 
     // Draw labels (country borders and city names)
     if (layers.labels) {
-      drawLabels(ctx);
+      drawLabels(ctx, renderWidth, renderHeight);
     }
 
     // Draw live spot arcs
     if (layers.spots && resolvedSpots.length > 0) {
-      drawSpotArcs(ctx, resolvedSpots);
+      drawSpotArcs(ctx, resolvedSpots, renderWidth, renderHeight);
     }
+
+    // Draw callsign labels at DX spot positions (after arcs, before markers)
+    if (showCallsignLabels && layers.spots && resolvedSpots.length > 0) {
+      drawCallsignLabels(ctx, resolvedSpots, renderWidth, renderHeight);
+    }
+
+    // Spot highlight pulsing rings are drawn on a separate overlay canvas
+    // (see highlightCanvasRef) to avoid forcing full canvas re-renders at 60fps
 
     // Draw path if both home and target exist (use difficulty color)
     if (station && target) {
@@ -1016,6 +2199,8 @@ export function FlatMapView({
         target.lat,
         target.lon,
         targetMarkerColor,
+        renderWidth,
+        renderHeight,
       );
     }
 
@@ -1028,6 +2213,10 @@ export function FlatMapView({
         COLORS.homeMarker,
         station.callsign,
         true,
+        undefined,
+        undefined,
+        renderWidth,
+        renderHeight,
       );
     }
 
@@ -1046,10 +2235,44 @@ export function FlatMapView({
               distance: pathMetrics.shortPath.distance,
             }
           : undefined,
+        renderWidth,
+        renderHeight,
+      );
+    }
+
+    // Draw pinned locations
+    if (pins.length > 0) {
+      for (const pin of pins) {
+        const catMeta = getCategoryMeta(pin.category);
+        drawPin(
+          ctx,
+          pin.lat,
+          pin.lon,
+          catMeta.icon,
+          catMeta.color,
+          renderWidth,
+          renderHeight,
+        );
+      }
+    }
+
+    // Draw compass rose at home station QTH (after markers, on top)
+    if (compassRoseEnabled && station) {
+      const compassBearing = pathMetrics?.shortPath.bearing ?? null;
+      drawCompassRose(
+        ctx,
+        station.lat,
+        station.lon,
+        compassBearing,
+        renderWidth,
+        renderHeight,
       );
     }
 
     // Restore context after zoom transform
+    ctx.restore();
+
+    // Restore DPR context
     ctx.restore();
   }, [
     displayTime,
@@ -1063,11 +2286,18 @@ export function FlatMapView({
     targetMarkerColor,
     pathDifficulty,
     pathMetrics,
+    pins,
     zoom,
+    displaySize,
+    compassRoseEnabled,
+    showCallsignLabels,
   ]);
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center">
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center"
+    >
       {!mapImage && (
         <div className="absolute inset-0 flex items-center justify-center bg-deep-space">
           <div className="flex flex-col items-center gap-3">
@@ -1076,19 +2306,87 @@ export function FlatMapView({
           </div>
         </div>
       )}
-      <canvas
-        ref={canvasRef}
-        width={MAP_WIDTH}
-        height={MAP_HEIGHT}
-        onClick={handleClick}
-        className="cursor-crosshair max-w-full max-h-full"
-        aria-label="Interactive propagation map - click to select target location"
-        role="img"
-        style={{
-          imageRendering: "auto",
-          aspectRatio: `${MAP_WIDTH} / ${MAP_HEIGHT}`,
-          objectFit: "contain",
+      <div
+        className="relative"
+        style={{ width: displaySize.width, height: displaySize.height }}
+      >
+        <canvas
+          ref={canvasRef}
+          className="cursor-crosshair"
+          aria-label="Interactive propagation map - click to select target location"
+          role="img"
+          style={{
+            width: displaySize.width,
+            height: displaySize.height,
+            imageRendering: "auto",
+            touchAction: "none",
+          }}
+        />
+        {/* Spot highlight overlay canvas (animates at 60fps independently) */}
+        <canvas
+          ref={highlightCanvasRef}
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            width: displaySize.width,
+            height: displaySize.height,
+          }}
+        />
+      </div>
+
+      {/* Tooltip overlay */}
+      <MapTooltip
+        visible={!!tooltipPosition && !flyoutPosition}
+        position={tooltipPosition || { x: 0, y: 0 }}
+        grid={tooltipPosition?.grid || ""}
+        spots={tooltipSpots}
+      />
+
+      {/* Flyout menu overlay */}
+      <MapFlyout
+        visible={!!flyoutPosition}
+        position={flyoutPosition || { x: 0, y: 0 }}
+        lat={flyoutPosition?.lat || 0}
+        lon={flyoutPosition?.lon || 0}
+        grid={flyoutPosition?.grid || ""}
+        onAction={handleFlyoutAction}
+        onClose={handleFlyoutClose}
+        onOpenAddPinDialog={handleOpenAddPinDialog}
+        onOpenResearchPanel={handleOpenResearchPanel}
+        onWatchGrid={handleWatchGrid}
+      />
+
+      {/* Watch activity indicator */}
+      <div className="absolute top-3 right-3 z-10">
+        <WatchIndicator onClick={() => setWatchListOpen(true)} />
+      </div>
+
+      {/* AddPinDialog modal */}
+      <AddPinDialog
+        visible={addPinDialogOpen}
+        mode="add"
+        location={addPinData || undefined}
+        onClose={() => {
+          setAddPinDialogOpen(false);
+          setAddPinData(null);
         }}
+        onSave={() => {
+          setAddPinDialogOpen(false);
+          setAddPinData(null);
+        }}
+      />
+
+      {/* GridResearchPanel slide-out */}
+      <GridResearchPanel
+        visible={researchPanelOpen}
+        grid={researchGrid || ""}
+        onAction={handleResearchAction}
+        onClose={() => setResearchPanelOpen(false)}
+      />
+
+      {/* WatchListPanel slide-out */}
+      <WatchListPanel
+        visible={watchListOpen}
+        onClose={() => setWatchListOpen(false)}
       />
     </div>
   );

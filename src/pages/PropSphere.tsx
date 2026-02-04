@@ -28,6 +28,8 @@ import {
   QuickGridInput,
   GridResearchPanel,
   AddPinDialog,
+  RegionPresetSelector,
+  RegionPresetManager,
 } from "@/components/map";
 
 // Lazy load heavy components that aren't always visible
@@ -132,6 +134,9 @@ export function PropSphere() {
 
   // Add Pin Dialog state (for keyboard shortcut)
   const [showAddPin, setShowAddPin] = useState(false);
+
+  // Region Preset Manager modal state
+  const [showPresetManager, setShowPresetManager] = useState(false);
 
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
@@ -641,7 +646,13 @@ export function PropSphere() {
                 })}
               </div>
 
-              {/* Preset buttons */}
+              {/* Region preset selector */}
+              <RegionPresetSelector
+                onOpenManager={() => setShowPresetManager(true)}
+                className="flex-shrink-0"
+              />
+
+              {/* Layer preset buttons */}
               <div className="flex gap-1 flex-wrap justify-start sm:justify-end">
                 {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
                   <button
@@ -1157,6 +1168,12 @@ export function PropSphere() {
           });
           setShowGridInput(false);
         }}
+      />
+
+      {/* Region Preset Manager */}
+      <RegionPresetManager
+        visible={showPresetManager}
+        onClose={() => setShowPresetManager(false)}
       />
 
       {/* Grid Research Panel (keyboard shortcut R) */}

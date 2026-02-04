@@ -5,7 +5,7 @@
  * common operations like setting targets, watching callsigns/grids,
  * copying data, and opening external lookups.
  *
- * Uses glassmorphism styling consistent with GlobeFlyout.
+ * Uses glassmorphism styling consistent with MapFlyout.
  */
 
 import { useEffect, useRef, useCallback, useMemo } from "react";

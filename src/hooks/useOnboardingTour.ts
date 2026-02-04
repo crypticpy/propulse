@@ -106,7 +106,9 @@ export function useOnboardingTour({
 }: UseOnboardingTourOptions): UseOnboardingTourReturn {
   // Check localStorage for completion status
   const getStoredCompletion = useCallback((): boolean => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") {
+      return false;
+    }
     try {
       return localStorage.getItem(storageKey) === "true";
     } catch {

@@ -43,12 +43,16 @@ export function RecommendationsBadge({
   const { data: solarFluxData } = useSolarFlux();
 
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 

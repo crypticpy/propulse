@@ -151,12 +151,26 @@ export function apToKp(ap: number): number {
  * @returns Description of geomagnetic conditions
  */
 export function getGeomagneticCondition(kp: number): string {
-  if (kp < 2) return "Quiet";
-  if (kp < 4) return "Unsettled";
-  if (kp < 5) return "Active";
-  if (kp < 6) return "Minor Storm (G1)";
-  if (kp < 7) return "Moderate Storm (G2)";
-  if (kp < 8) return "Strong Storm (G3)";
-  if (kp < 9) return "Severe Storm (G4)";
+  if (kp < 2) {
+    return "Quiet";
+  }
+  if (kp < 4) {
+    return "Unsettled";
+  }
+  if (kp < 5) {
+    return "Active";
+  }
+  if (kp < 6) {
+    return "Minor Storm (G1)";
+  }
+  if (kp < 7) {
+    return "Moderate Storm (G2)";
+  }
+  if (kp < 8) {
+    return "Strong Storm (G3)";
+  }
+  if (kp < 9) {
+    return "Severe Storm (G4)";
+  }
   return "Extreme Storm (G5)";
 }

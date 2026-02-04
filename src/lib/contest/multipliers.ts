@@ -60,7 +60,9 @@ export function extractMultiplierValue(
   type: MultiplierType,
   source: "callsign" | "exchange",
 ): string | null {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
   const normalized = value.trim().toUpperCase();
 
@@ -111,14 +113,12 @@ export function extractMultiplierValue(
 
     case "STATE": {
       // US state from exchange
-      const state = getUSState(normalized);
-      return state;
+      return getUSState(normalized);
     }
 
     case "PROVINCE": {
       // Canadian province from exchange
-      const province = getCanadianProvince(normalized);
-      return province;
+      return getCanadianProvince(normalized);
     }
 
     case "GRID": {

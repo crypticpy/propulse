@@ -175,15 +175,17 @@ export function getPathMetrics(
 
   // Difficulty rating based on distance and path characteristics
   let difficulty: 1 | 2 | 3 | 4 | 5;
-  if (shortDistance < 2000)
-    difficulty = 1; // Local/regional
-  else if (shortDistance < 5000)
-    difficulty = 2; // Single hop DX
-  else if (shortDistance < 10000)
-    difficulty = 3; // Multi-hop DX
-  else if (shortDistance < 15000)
-    difficulty = 4; // Challenging DX
-  else difficulty = 5; // Extreme DX (antipodal)
+  if (shortDistance < 2000) {
+    difficulty = 1;
+  } else if (shortDistance < 5000) {
+           difficulty = 2;
+         } else if (shortDistance < 10000) {
+                  difficulty = 3;
+                } else if (shortDistance < 15000) {
+                         difficulty = 4;
+                       } else {
+                         difficulty = 5;
+                       } // Extreme DX (antipodal)
 
   return {
     shortPath: {
@@ -237,10 +239,14 @@ export function formatDistance(
 ): string {
   if (useImperial) {
     const miles = km * 0.621371;
-    if (miles < 1000) return `${Math.round(miles).toLocaleString()} mi`;
+    if (miles < 1000) {
+      return `${Math.round(miles).toLocaleString()} mi`;
+    }
     return `${(miles / 1000).toFixed(1)}k mi`;
   }
-  if (km < 1000) return `${Math.round(km).toLocaleString()} km`;
+  if (km < 1000) {
+    return `${Math.round(km).toLocaleString()} km`;
+  }
   return `${(km / 1000).toFixed(1)}k km`;
 }
 

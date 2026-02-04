@@ -63,7 +63,9 @@ function calculateRate(qsoCount: number, startTime: string): number {
   const now = Date.now();
   const hoursElapsed = (now - start) / (1000 * 60 * 60);
 
-  if (hoursElapsed < 0.01) return 0;
+  if (hoursElapsed < 0.01) {
+    return 0;
+  }
   return Math.round(qsoCount / hoursElapsed);
 }
 
@@ -75,7 +77,9 @@ function calculateRollingRate(
   qsos: ContestQSO[],
   windowMinutes: number,
 ): number {
-  if (qsos.length === 0) return 0;
+  if (qsos.length === 0) {
+    return 0;
+  }
 
   const now = Date.now();
   const windowStart = now - windowMinutes * 60 * 1000;
@@ -103,7 +107,9 @@ function calculatePointsRate(
   qsos: ContestQSO[],
   windowMinutes: number,
 ): number {
-  if (qsos.length === 0) return 0;
+  if (qsos.length === 0) {
+    return 0;
+  }
 
   const now = Date.now();
   const windowStart = now - windowMinutes * 60 * 1000;
@@ -127,7 +133,9 @@ function calculatePointsRate(
  * Calculate rolling multipliers rate over a time window
  */
 function calculateMultsRate(qsos: ContestQSO[], windowMinutes: number): number {
-  if (qsos.length === 0) return 0;
+  if (qsos.length === 0) {
+    return 0;
+  }
 
   const now = Date.now();
   const windowStart = now - windowMinutes * 60 * 1000;
@@ -155,7 +163,9 @@ function calculateProjectedScore(
   elapsedMinutes: number,
   contestDurationHours: number,
 ): number {
-  if (elapsedMinutes <= 0) return 0;
+  if (elapsedMinutes <= 0) {
+    return 0;
+  }
 
   const totalMinutes = contestDurationHours * 60;
   const projectionFactor = totalMinutes / elapsedMinutes;
@@ -172,10 +182,16 @@ function calculateProjectedScore(
 type TrendDirection = "up" | "down" | "stable";
 
 function getTrend(rate10min: number, rate60min: number): TrendDirection {
-  if (rate60min === 0) return "stable";
+  if (rate60min === 0) {
+    return "stable";
+  }
   const ratio = rate10min / rate60min;
-  if (ratio > 1.15) return "up";
-  if (ratio < 0.85) return "down";
+  if (ratio > 1.15) {
+    return "up";
+  }
+  if (ratio < 0.85) {
+    return "down";
+  }
   return "stable";
 }
 
@@ -190,7 +206,9 @@ interface LastQSODelta {
 }
 
 function getLastQSODelta(qsos: ContestQSO[]): LastQSODelta | null {
-  if (qsos.length === 0) return null;
+  if (qsos.length === 0) {
+    return null;
+  }
 
   const lastQso = qsos[qsos.length - 1];
   if (lastQso.isDupe) {
@@ -541,7 +559,9 @@ export function ContestScoreboard({
 
   // Update elapsed time every second
   useEffect(() => {
-    if (!startTime) return;
+    if (!startTime) {
+      return;
+    }
 
     const interval = setInterval(() => {
       setTick((t) => t + 1);
@@ -552,7 +572,9 @@ export function ContestScoreboard({
 
   // Get contest definition for duration
   const contestDef = useMemo(() => {
-    if (!contestId) return null;
+    if (!contestId) {
+      return null;
+    }
     return getContestById(contestId);
   }, [contestId]);
 
@@ -566,7 +588,9 @@ export function ContestScoreboard({
 
   // Calculate overall rate
   const overallRate = useMemo(() => {
-    if (!startTime) return 0;
+    if (!startTime) {
+      return 0;
+    }
     return calculateRate(qsoCount - dupeCount, startTime);
   }, [startTime, qsoCount, dupeCount]);
 
@@ -594,7 +618,9 @@ export function ContestScoreboard({
 
   // Calculate projected final score
   const projectedScore = useMemo(() => {
-    if (elapsedMinutes < 5) return null; // Don't project in first 5 minutes
+    if (elapsedMinutes < 5) {
+      return null;
+    } // Don't project in first 5 minutes
     return calculateProjectedScore(totalScore, elapsedMinutes, contestDuration);
   }, [totalScore, elapsedMinutes, contestDuration]);
 

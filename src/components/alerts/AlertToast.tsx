@@ -118,7 +118,9 @@ export const AlertToast: React.FC<AlertToastProps> = ({
    * Uses ref to check exiting state to avoid recreating callback on every render
    */
   const handleDismiss = useCallback(() => {
-    if (isExitingRef.current) return; // Prevent double dismiss
+    if (isExitingRef.current) {
+      return;
+    } // Prevent double dismiss
     isExitingRef.current = true;
     setIsExiting(true);
     // Wait for exit animation to complete before calling onDismiss
@@ -132,7 +134,9 @@ export const AlertToast: React.FC<AlertToastProps> = ({
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       // Don't trigger if clicking dismiss button
-      if ((e.target as HTMLElement).closest("button")) return;
+      if ((e.target as HTMLElement).closest("button")) {
+        return;
+      }
       onClick?.(alert.id);
     },
     [alert.id, onClick],
@@ -158,7 +162,9 @@ export const AlertToast: React.FC<AlertToastProps> = ({
    * Pause auto-dismiss on hover
    */
   const handleMouseEnter = useCallback(() => {
-    if (!autoDismissMs || intervalRef.current === null) return;
+    if (!autoDismissMs || intervalRef.current === null) {
+      return;
+    }
     pausedTimeRef.current = Date.now();
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -170,7 +176,9 @@ export const AlertToast: React.FC<AlertToastProps> = ({
    * Resume auto-dismiss on mouse leave
    */
   const handleMouseLeave = useCallback(() => {
-    if (!autoDismissMs || pausedTimeRef.current === null) return;
+    if (!autoDismissMs || pausedTimeRef.current === null) {
+      return;
+    }
 
     // Adjust start time to account for paused duration
     const pauseDuration = Date.now() - pausedTimeRef.current;
@@ -210,7 +218,9 @@ export const AlertToast: React.FC<AlertToastProps> = ({
    * Auto-dismiss timer effect
    */
   useEffect(() => {
-    if (!autoDismissMs) return;
+    if (!autoDismissMs) {
+      return;
+    }
 
     startTimeRef.current = Date.now();
 

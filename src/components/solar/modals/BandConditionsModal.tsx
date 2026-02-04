@@ -355,7 +355,9 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
           <div className="grid gap-4">
             {bands.map((band) => {
               const details = BAND_DETAILS[band.name];
-              if (!details) return null;
+              if (!details) {
+                return null;
+              }
 
               const currentCondition = isDaytime
                 ? band.dayCondition

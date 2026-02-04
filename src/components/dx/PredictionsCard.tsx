@@ -124,8 +124,12 @@ function isDaytime(): boolean {
 function getSignalStrength(
   condition: BandCondition | VHFCondition,
 ): "high" | "medium" | "low" {
-  if (condition === "Excellent" || condition === "Aurora") return "high";
-  if (condition === "Good") return "medium";
+  if (condition === "Excellent" || condition === "Aurora") {
+    return "high";
+  }
+  if (condition === "Good") {
+    return "medium";
+  }
   return "low";
 }
 
@@ -191,13 +195,17 @@ export function PredictionsCard({
 
   // Calculate current conditions
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return null;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return null;
+    }
     const latest = solarFluxData[solarFluxData.length - 1];
     return latest.flux;
   }, [solarFluxData]);
 
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return null;
+    if (!kIndexData || kIndexData.length === 0) {
+      return null;
+    }
     const latest = kIndexData[kIndexData.length - 1];
     return latest.kp_index;
   }, [kIndexData]);

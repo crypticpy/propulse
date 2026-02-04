@@ -147,16 +147,24 @@ export function PinList({
 
   // Format expiration date for display
   const formatExpiresAt = (expiresAt: string | undefined): string | null => {
-    if (!expiresAt) return null;
+    if (!expiresAt) {
+      return null;
+    }
     const date = new Date(expiresAt);
     const now = new Date();
     const diffDays = Math.ceil(
       (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
 
-    if (diffDays < 0) return "Expired";
-    if (diffDays === 0) return "Ends today";
-    if (diffDays === 1) return "Ends tomorrow";
+    if (diffDays < 0) {
+      return "Expired";
+    }
+    if (diffDays === 0) {
+      return "Ends today";
+    }
+    if (diffDays === 1) {
+      return "Ends tomorrow";
+    }
     return `Ends in ${diffDays} days`;
   };
 

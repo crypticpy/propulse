@@ -187,7 +187,9 @@ export function NVISCoverage3D({
     };
   }, [centerLat, centerLon, radiusKm, actualOptimalRadius]);
 
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
 
   return (
     <group>

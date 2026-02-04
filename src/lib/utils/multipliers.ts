@@ -1573,10 +1573,14 @@ const CANADIAN_PROVINCES: Set<string> = new Set([
  * Check if a prefix is valid by looking it up in DXCC_DATA
  */
 function isValidPrefix(prefix: string): boolean {
-  if (!prefix) return false;
+  if (!prefix) {
+    return false;
+  }
   // Try progressively shorter prefixes
   for (let len = Math.min(prefix.length, 4); len >= 1; len--) {
-    if (DXCC_DATA[prefix.slice(0, len)]) return true;
+    if (DXCC_DATA[prefix.slice(0, len)]) {
+      return true;
+    }
   }
   return false;
 }
@@ -1587,7 +1591,9 @@ function isValidPrefix(prefix: string): boolean {
  * and suffix-based calls like W1ABC/DL (also operating from Germany)
  */
 function getOperatingPrefix(callsign: string): string {
-  if (!callsign) return "";
+  if (!callsign) {
+    return "";
+  }
 
   const upper = callsign.toUpperCase().trim();
   const parts = upper.split("/");
@@ -1606,16 +1612,12 @@ function getOperatingPrefix(callsign: string): string {
 
   // Check if either is a short modifier (1-3 chars) that's a valid prefix
   // This handles both DL/W1ABC (first is prefix) and W1ABC/DL (second is prefix)
-  if (second && second.length <= 3 && /^[A-Z0-9]+$/.test(second)) {
-    if (isValidPrefix(second)) {
-      return second;
-    }
+  if (second && second.length <= 3 && /^[A-Z0-9]+$/.test(second) && isValidPrefix(second)) {
+        return second;
   }
 
-  if (first.length <= 3 && /^[A-Z0-9]+$/.test(first)) {
-    if (isValidPrefix(first)) {
-      return first;
-    }
+  if (first.length <= 3 && /^[A-Z0-9]+$/.test(first) && isValidPrefix(first)) {
+        return first;
   }
 
   // If second part validates as a known prefix, prefer it (suffix portable)
@@ -1632,7 +1634,9 @@ function getOperatingPrefix(callsign: string): string {
  * Returns the letters (+ optional digit) before the main number
  */
 function extractPrefixPattern(callsign: string): string {
-  if (!callsign) return "";
+  if (!callsign) {
+    return "";
+  }
 
   // Handle numeric prefixes (e.g., 3DA, 5B, 9M)
   const numericMatch = callsign.match(/^(\d[A-Z]{1,2})/);
@@ -1675,10 +1679,14 @@ function extractPrefixPattern(callsign: string): string {
  * ```
  */
 export function getDXCCEntity(callsign: string): DXCCEntity | null {
-  if (!callsign) return null;
+  if (!callsign) {
+    return null;
+  }
 
   const prefix = getOperatingPrefix(callsign);
-  if (!prefix) return null;
+  if (!prefix) {
+    return null;
+  }
 
   // Try progressively shorter prefixes (longest match first)
   // This handles cases like KP4 vs K, EA6 vs EA, etc.
@@ -1711,7 +1719,9 @@ export function getDXCCEntity(callsign: string): DXCCEntity | null {
  * Find prefix location from PREFIX_LOCATIONS data
  */
 function findPrefixLocation(prefix: string): PrefixLocation | null {
-  if (!prefix) return null;
+  if (!prefix) {
+    return null;
+  }
 
   const upper = prefix.toUpperCase();
 
@@ -1746,10 +1756,14 @@ function findPrefixLocation(prefix: string): PrefixLocation | null {
  * ```
  */
 export function getCQZone(callsign: string): number | null {
-  if (!callsign) return null;
+  if (!callsign) {
+    return null;
+  }
 
   const prefix = getOperatingPrefix(callsign);
-  if (!prefix) return null;
+  if (!prefix) {
+    return null;
+  }
 
   // Try progressively shorter prefixes
   for (let len = Math.min(prefix.length, 4); len >= 1; len--) {
@@ -1779,10 +1793,14 @@ export function getCQZone(callsign: string): number | null {
  * ```
  */
 export function getITUZone(callsign: string): number | null {
-  if (!callsign) return null;
+  if (!callsign) {
+    return null;
+  }
 
   const prefix = getOperatingPrefix(callsign);
-  if (!prefix) return null;
+  if (!prefix) {
+    return null;
+  }
 
   // Try progressively shorter prefixes
   for (let len = Math.min(prefix.length, 4); len >= 1; len--) {
@@ -1821,7 +1839,9 @@ export function getITUZone(callsign: string): number | null {
  * ```
  */
 export function getWPXPrefix(callsign: string): string {
-  if (!callsign) return "";
+  if (!callsign) {
+    return "";
+  }
 
   const upper = callsign.toUpperCase().trim();
   const parts = upper.split("/");
@@ -1860,7 +1880,9 @@ export function getWPXPrefix(callsign: string): string {
  * Extract WPX prefix from a base callsign (no slashes)
  */
 function extractWPXFromCall(call: string): string {
-  if (!call) return "";
+  if (!call) {
+    return "";
+  }
 
   // Find the last digit in the call
   let lastDigitIndex = -1;
@@ -1896,7 +1918,9 @@ function extractWPXFromCall(call: string): string {
  * ```
  */
 export function getUSState(callsignOrExchange: string): string | null {
-  if (!callsignOrExchange) return null;
+  if (!callsignOrExchange) {
+    return null;
+  }
 
   const upper = callsignOrExchange.toUpperCase().trim();
 
@@ -1923,7 +1947,9 @@ export function getUSState(callsignOrExchange: string): string | null {
  * @returns Two-letter province abbreviation or null
  */
 export function getCanadianProvince(exchange: string): string | null {
-  if (!exchange) return null;
+  if (!exchange) {
+    return null;
+  }
 
   const upper = exchange.toUpperCase().trim();
 
@@ -1959,10 +1985,14 @@ export function getCanadianProvince(exchange: string): string | null {
  * ```
  */
 export function getContinent(callsign: string): Continent | null {
-  if (!callsign) return null;
+  if (!callsign) {
+    return null;
+  }
 
   const prefix = getOperatingPrefix(callsign);
-  if (!prefix) return null;
+  if (!prefix) {
+    return null;
+  }
 
   // Try progressively shorter prefixes
   for (let len = Math.min(prefix.length, 4); len >= 1; len--) {
@@ -1987,7 +2017,9 @@ export function isSameDXCC(call1: string, call2: string): boolean {
   const entity1 = getDXCCEntity(call1);
   const entity2 = getDXCCEntity(call2);
 
-  if (!entity1 || !entity2) return false;
+  if (!entity1 || !entity2) {
+    return false;
+  }
 
   // Compare by ADIF number if available, otherwise by entity name
   if (entity1.adif && entity2.adif) {
@@ -2008,7 +2040,9 @@ export function isSameContinent(call1: string, call2: string): boolean {
   const cont1 = getContinent(call1);
   const cont2 = getContinent(call2);
 
-  if (!cont1 || !cont2) return false;
+  if (!cont1 || !cont2) {
+    return false;
+  }
 
   return cont1 === cont2;
 }

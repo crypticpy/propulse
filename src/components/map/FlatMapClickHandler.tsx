@@ -193,7 +193,9 @@ export function useFlatMapClickHandler(
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     // --- Gesture state machine refs (local to this effect) ---
     let gestureState: GestureState = "idle";
@@ -245,7 +247,9 @@ export function useFlatMapClickHandler(
      * Start the hold progress timer after the initial delay has passed.
      */
     function startHoldTimer(): void {
-      if (!targetLocation) return;
+      if (!targetLocation) {
+        return;
+      }
 
       const { lat, lon, screenPos } = targetLocation;
       gestureState = "holding";
@@ -299,7 +303,9 @@ export function useFlatMapClickHandler(
 
     function handlePointerDown(event: PointerEvent): void {
       const coords = eventToLatLon(event);
-      if (!coords) return;
+      if (!coords) {
+        return;
+      }
 
       pointerIsDown = true;
 
@@ -338,8 +344,12 @@ export function useFlatMapClickHandler(
       }
 
       // Debounced hover behavior only when idle (no active gesture)
-      if (gestureState !== "idle") return;
-      if (!onLocationHoverRef.current) return;
+      if (gestureState !== "idle") {
+        return;
+      }
+      if (!onLocationHoverRef.current) {
+        return;
+      }
 
       if (hoverTimer !== null) {
         clearTimeout(hoverTimer);
@@ -347,7 +357,9 @@ export function useFlatMapClickHandler(
 
       hoverTimer = setTimeout(() => {
         const coords = eventToLatLon(event);
-        if (!coords) return;
+        if (!coords) {
+          return;
+        }
 
         const screenPos = { x: event.clientX, y: event.clientY };
         onLocationHoverRef.current?.(coords.lat, coords.lon, screenPos);
@@ -443,7 +455,9 @@ export function useFlatMapClickHandler(
      * to track drag gestures that move outside the canvas bounds.
      */
     function handleDocumentPointerMove(event: PointerEvent): void {
-      if (!pointerIsDown) return;
+      if (!pointerIsDown) {
+        return;
+      }
       handlePointerMove(event);
     }
 
@@ -452,7 +466,9 @@ export function useFlatMapClickHandler(
      * the pointer is released outside the canvas bounds.
      */
     function handleDocumentPointerUp(event: PointerEvent): void {
-      if (!pointerIsDown) return;
+      if (!pointerIsDown) {
+        return;
+      }
       handlePointerUp(event);
     }
 
@@ -476,10 +492,18 @@ export function useFlatMapClickHandler(
       document.removeEventListener("pointerup", handleDocumentPointerUp);
 
       // Clean up all timers
-      if (holdStartTimer !== null) clearTimeout(holdStartTimer);
-      if (holdProgressTimer !== null) clearInterval(holdProgressTimer);
-      if (hoverTimer !== null) clearTimeout(hoverTimer);
-      if (doubleClickTimer !== null) clearTimeout(doubleClickTimer);
+      if (holdStartTimer !== null) {
+        clearTimeout(holdStartTimer);
+      }
+      if (holdProgressTimer !== null) {
+        clearInterval(holdProgressTimer);
+      }
+      if (hoverTimer !== null) {
+        clearTimeout(hoverTimer);
+      }
+      if (doubleClickTimer !== null) {
+        clearTimeout(doubleClickTimer);
+      }
     };
     // Only re-attach when the canvas ref identity changes.
     // All other values are accessed via refs to avoid stale closures.

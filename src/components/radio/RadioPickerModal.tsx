@@ -55,7 +55,9 @@ export function RadioPickerModal({
     () => new Set(),
   );
   const activeEquipmentId = useMemo(() => {
-    if (!activeRadioId) return null;
+    if (!activeRadioId) {
+      return null;
+    }
     const activeInstance = radios.find((r) => r.id === activeRadioId) ?? null;
     return activeInstance?.equipmentId ?? null;
   }, [activeRadioId, radios]);
@@ -66,7 +68,9 @@ export function RadioPickerModal({
   const [query, setQuery] = useState("");
 
   const databaseResults = useMemo(() => {
-    if (!query.trim()) return RADIO_DATABASE;
+    if (!query.trim()) {
+      return RADIO_DATABASE;
+    }
     return searchRadios(query);
   }, [query]);
 
@@ -372,8 +376,9 @@ export function RadioPickerModal({
                           onChange={() =>
                             setSelectedCustomIds((prev) => {
                               const next = new Set(prev);
-                              if (next.has(radio.id)) next.delete(radio.id);
-                              else next.add(radio.id);
+                              if (next.has(radio.id)) {
+                                next.delete(radio.id);
+                              } else next.add(radio.id);
                               return next;
                             })
                           }

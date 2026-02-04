@@ -30,7 +30,9 @@ const CLEANUP_INTERVAL = 60 * 1000; // 1 minute
  */
 let cleanupScheduled = false;
 function scheduleCleanup() {
-  if (cleanupScheduled) return;
+  if (cleanupScheduled) {
+    return;
+  }
   cleanupScheduled = true;
 
   setInterval(() => {
@@ -173,11 +175,15 @@ async function revalidateInBackground(
   maxAge: number,
 ): Promise<void> {
   // Don't revalidate if already in flight
-  if (inFlightRequests.has(cacheKey)) return;
+  if (inFlightRequests.has(cacheKey)) {
+    return;
+  }
 
   // Mark as revalidating
   const revalidateKey = `revalidate:${cacheKey}`;
-  if (inFlightRequests.has(revalidateKey)) return;
+  if (inFlightRequests.has(revalidateKey)) {
+    return;
+  }
 
   const request = (async () => {
     try {

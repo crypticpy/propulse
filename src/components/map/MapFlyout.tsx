@@ -206,7 +206,9 @@ export function MapFlyout({
 
   // Handle click outside to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (flyoutRef.current && !flyoutRef.current.contains(e.target as Node)) {
@@ -227,7 +229,9 @@ export function MapFlyout({
 
   // Handle Escape key to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -241,10 +245,14 @@ export function MapFlyout({
 
   // Auto-dismiss when mouse leaves flyout proximity area
   useEffect(() => {
-    if (!visible || !autoDismissEnabled) return;
+    if (!visible || !autoDismissEnabled) {
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!flyoutRef.current) return;
+      if (!flyoutRef.current) {
+        return;
+      }
 
       const rect = flyoutRef.current.getBoundingClientRect();
       const isNear =
@@ -254,30 +262,28 @@ export function MapFlyout({
         e.clientY <= rect.bottom + PROXIMITY_PADDING;
 
       if (isNear) {
-        // Mouse is near - clear any pending dismiss timer
-        mouseInFlyoutRef.current = true;
-        if (dismissTimerRef.current) {
-          clearTimeout(dismissTimerRef.current);
-          dismissTimerRef.current = null;
-        }
-        // Cancel fading if it started
-        if (isFading) {
-          setIsFading(false);
-        }
-      } else {
-        // Mouse moved away - start dismiss timer if not already running
-        if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
-          mouseInFlyoutRef.current = false;
-          dismissTimerRef.current = setTimeout(() => {
-            // Start fade animation
-            setIsFading(true);
-            // Close after fade completes
-            setTimeout(() => {
-              onClose();
-            }, 200); // Match CSS transition duration
-          }, autoDismissMs);
-        }
-      }
+              // Mouse is near - clear any pending dismiss timer
+              mouseInFlyoutRef.current = true;
+              if (dismissTimerRef.current) {
+                clearTimeout(dismissTimerRef.current);
+                dismissTimerRef.current = null;
+              }
+              // Cancel fading if it started
+              if (isFading) {
+                setIsFading(false);
+              }
+            }
+      else if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
+                mouseInFlyoutRef.current = false;
+                dismissTimerRef.current = setTimeout(() => {
+                  // Start fade animation
+                  setIsFading(true);
+                  // Close after fade completes
+                  setTimeout(() => {
+                    onClose();
+                  }, 200); // Match CSS transition duration
+                }, autoDismissMs);
+              }
     };
 
     // Track mouse movement

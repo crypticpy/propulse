@@ -115,13 +115,21 @@ export function getPriorityForValue(
 ): AlertPriority {
   if (isNegative) {
     // For negative thresholds (like Bz), lower values are worse
-    if (value <= thresholds.critical) return "CRITICAL";
-    if (value <= thresholds.warning) return "WARNING";
+    if (value <= thresholds.critical) {
+      return "CRITICAL";
+    }
+    if (value <= thresholds.warning) {
+      return "WARNING";
+    }
     return "INFO";
   } else {
     // For positive thresholds (like Kp), higher values are worse
-    if (value >= thresholds.critical) return "CRITICAL";
-    if (value >= thresholds.warning) return "WARNING";
+    if (value >= thresholds.critical) {
+      return "CRITICAL";
+    }
+    if (value >= thresholds.warning) {
+      return "WARNING";
+    }
     return "INFO";
   }
 }

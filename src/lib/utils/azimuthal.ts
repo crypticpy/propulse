@@ -180,8 +180,12 @@ export function azimuthalUnproject(
 
   // Normalize longitude to -180 to 180
   let lon = lambda * RAD_TO_DEG;
-  while (lon > 180) lon -= 360;
-  while (lon < -180) lon += 360;
+  while (lon > 180) {
+      lon -= 360;
+  }
+  while (lon < -180) {
+      lon += 360;
+  }
 
   return {
     lat: phi * RAD_TO_DEG,
@@ -231,8 +235,12 @@ export function getDistanceRingPoints(
 
     const lat = phi * RAD_TO_DEG;
     let lon = lambda * RAD_TO_DEG;
-    while (lon > 180) lon -= 360;
-    while (lon < -180) lon += 360;
+    while (lon > 180) {
+        lon -= 360;
+    }
+    while (lon < -180) {
+        lon += 360;
+    }
 
     const projected = azimuthalProject(lat, lon, centerLat, centerLon);
     points.push({

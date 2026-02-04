@@ -119,7 +119,9 @@ export class AzimuthalRenderer {
   private createShaderProgram(gl: WebGLRenderingContext): WebGLProgram | null {
     // Compile vertex shader
     const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    if (!vertexShader) return null;
+    if (!vertexShader) {
+      return null;
+    }
 
     gl.shaderSource(vertexShader, VERTEX_SHADER);
     gl.compileShader(vertexShader);
@@ -218,8 +220,10 @@ export class AzimuthalRenderer {
    * Load day and night textures
    */
   private async loadTextures(): Promise<void> {
-    const gl = this.gl;
-    if (!gl) return;
+    const {gl} = this;
+    if (!gl) {
+      return;
+    }
 
     const dayUrl = this.options.highRes
       ? DAY_TEXTURE_URL
@@ -234,7 +238,9 @@ export class AzimuthalRenderer {
     dayImage.crossOrigin = "anonymous";
 
     dayImage.onload = () => {
-      if (this.disposed || !this.gl) return;
+      if (this.disposed || !this.gl) {
+        return;
+      }
       this.updateTexture(this.gl, this.dayTexture!, dayImage);
       this.dayTextureLoaded = true;
       this.checkTexturesLoaded();
@@ -253,7 +259,9 @@ export class AzimuthalRenderer {
       nightImage.crossOrigin = "anonymous";
 
       nightImage.onload = () => {
-        if (this.disposed || !this.gl) return;
+        if (this.disposed || !this.gl) {
+          return;
+        }
         this.updateTexture(this.gl, this.nightTexture!, nightImage);
         this.nightTextureLoaded = true;
         this.checkTexturesLoaded();
@@ -350,8 +358,10 @@ export class AzimuthalRenderer {
    * Render the azimuthal projection
    */
   render(config: ShaderConfig): void {
-    const gl = this.gl;
-    if (!gl || !this.program || !this.uniformLocations) return;
+    const {gl} = this;
+    if (!gl || !this.program || !this.uniformLocations) {
+      return;
+    }
 
     // Clear and set viewport
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -414,7 +424,9 @@ export class AzimuthalRenderer {
    * Resize the canvas
    */
   resize(width: number, height: number): void {
-    if (!this.gl) return;
+    if (!this.gl) {
+      return;
+    }
 
     const canvas = this.gl.canvas as HTMLCanvasElement;
     canvas.width = width;
@@ -434,7 +446,9 @@ export class AzimuthalRenderer {
   dispose(): void {
     this.disposed = true;
 
-    if (!this.gl) return;
+    if (!this.gl) {
+      return;
+    }
 
     if (this.dayTexture) {
       this.gl.deleteTexture(this.dayTexture);

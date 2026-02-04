@@ -73,7 +73,7 @@ function getScreenPositionFromEvent(event: ThreeEvent<PointerEvent>): {
   x: number;
   y: number;
 } {
-  const nativeEvent = event.nativeEvent;
+  const {nativeEvent} = event;
   return {
     x: nativeEvent.clientX,
     y: nativeEvent.clientY,

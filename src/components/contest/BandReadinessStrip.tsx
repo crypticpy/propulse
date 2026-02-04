@@ -493,14 +493,18 @@ export function BandReadinessStrip({
 
   // Extract latest values
   const latestKIndex = useMemo(() => {
-    const data = kIndexQuery.data;
-    if (!data || data.length === 0) return null;
+    const {data} = kIndexQuery;
+    if (!data || data.length === 0) {
+      return null;
+    }
     return data[data.length - 1].kp_index;
   }, [kIndexQuery.data]);
 
   const latestSolarFlux = useMemo(() => {
-    const data = solarFluxQuery.data;
-    if (!data || data.length === 0) return null;
+    const {data} = solarFluxQuery;
+    if (!data || data.length === 0) {
+      return null;
+    }
     return data[data.length - 1].flux;
   }, [solarFluxQuery.data]);
 

@@ -428,7 +428,7 @@ function shouldSuppressHotkey(
   event: KeyboardEvent,
   hotkey: ContestHotkey,
 ): boolean {
-  const target = event.target;
+  const {target} = event;
   if (!target || !(target instanceof HTMLElement)) {
     return false;
   }

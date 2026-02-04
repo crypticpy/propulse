@@ -48,7 +48,9 @@ function sortAlertsByPriority(alerts: SolarAlert[]): SolarAlert[] {
     // First sort by priority
     const priorityDiff =
       PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-    if (priorityDiff !== 0) return priorityDiff;
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
 
     // Then by triggered time (most recent first)
     return (
@@ -105,7 +107,9 @@ export const AlertToastContainer: React.FC<AlertToastContainerProps> = ({
       setToastQueue((prev) => {
         const existingIds = new Set(prev.map((a) => a.id));
         const toAdd = newAlerts.filter((a) => !existingIds.has(a.id));
-        if (toAdd.length === 0) return prev;
+        if (toAdd.length === 0) {
+          return prev;
+        }
         return sortAlertsByPriority([...prev, ...toAdd]);
       });
 
@@ -128,7 +132,9 @@ export const AlertToastContainer: React.FC<AlertToastContainerProps> = ({
 
     setToastQueue((prev) => {
       const filtered = prev.filter((toast) => activeAlertIds.has(toast.id));
-      if (filtered.length === prev.length) return prev;
+      if (filtered.length === prev.length) {
+        return prev;
+      }
       return filtered;
     });
   }, [alerts]);

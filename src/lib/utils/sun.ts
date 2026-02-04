@@ -28,8 +28,12 @@ export function getSubsolarPoint(date: Date): { lat: number; lon: number } {
   let subsolarLon = (12 - utcHours) * 15;
 
   // Normalize to -180 to 180
-  if (subsolarLon > 180) subsolarLon -= 360;
-  if (subsolarLon < -180) subsolarLon += 360;
+  if (subsolarLon > 180) {
+    subsolarLon -= 360;
+  }
+  if (subsolarLon < -180) {
+    subsolarLon += 360;
+  }
 
   // Get sun position to find declination (subsolar latitude)
   // Check altitude at equator on the subsolar meridian

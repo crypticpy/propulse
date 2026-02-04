@@ -53,7 +53,9 @@ export function KeyboardShortcutsOverlay({
 }: KeyboardShortcutsOverlayProps) {
   // Prevent background scroll while modal is open
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -63,7 +65,9 @@ export function KeyboardShortcutsOverlay({
 
   // Handle Escape key to close
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -77,9 +81,13 @@ export function KeyboardShortcutsOverlay({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined") {
+    return null;
+  }
 
   // Group shortcuts by category
   const groupedShortcuts = groupShortcutsByCategory(DEFAULT_SHORTCUTS);
@@ -158,7 +166,9 @@ export function KeyboardShortcutsOverlay({
         <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
           {CATEGORY_ORDER.map((category) => {
             const shortcuts = groupedShortcuts.get(category);
-            if (!shortcuts || shortcuts.length === 0) return null;
+            if (!shortcuts || shortcuts.length === 0) {
+              return null;
+            }
 
             return (
               <div key={category}>

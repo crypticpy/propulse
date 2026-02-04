@@ -162,7 +162,9 @@ export function getShortAgeLabel(
   const ageMs = currentTime.getTime() - spotTime.getTime();
   const minutes = Math.floor(ageMs / 60000);
 
-  if (minutes < 1) return "<1m";
+  if (minutes < 1) {
+    return "<1m";
+  }
   if (minutes >= 60) {
     const hours = Math.floor(minutes / 60);
     return `${hours}h`;
@@ -232,7 +234,9 @@ export const MODE_COLORS: Record<string, string> = {
  * Get color for a given mode
  */
 export function getModeColor(mode: string | undefined): string {
-  if (!mode) return MODE_COLORS.default;
+  if (!mode) {
+    return MODE_COLORS.default;
+  }
   const upperMode = mode.toUpperCase();
 
   // Direct match
@@ -313,7 +317,9 @@ export interface ResolvedSpot {
 function getLocationFromGrid(
   grid: string | undefined,
 ): { lat: number; lon: number } | null {
-  if (!grid || !isValidGrid(grid)) return null;
+  if (!grid || !isValidGrid(grid)) {
+    return null;
+  }
   try {
     return gridToLatLon(grid);
   } catch {
@@ -357,7 +363,9 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
         : getLocationFromGrid(spot.dxGrid) || getLocationFromCallsign(spot.dx);
 
     // Skip if we couldn't resolve both locations
-    if (!spotterLoc || !dxLoc) continue;
+    if (!spotterLoc || !dxLoc) {
+      continue;
+    }
 
     resolved.push({
       id: spot.id,
@@ -447,7 +455,9 @@ function SpotArc({
     Number.isFinite(spot.dxLon);
 
   const points = useMemo(() => {
-    if (!hasValidCoords) return [];
+    if (!hasValidCoords) {
+      return [];
+    }
     try {
       const pathPoints = getPathPoints(
         spot.spotterLat,
@@ -483,7 +493,9 @@ function SpotArc({
   const lineWidth = ageVisualizationEnabled ? 1.5 * ageInfo.scale : 1.5;
 
   // Return null for invalid coordinates or insufficient points
-  if (!hasValidCoords || points.length < 2) return null;
+  if (!hasValidCoords || points.length < 2) {
+    return null;
+  }
 
   return (
     <Line
@@ -526,7 +538,9 @@ function SpotEndpoint({
     [lat, lon, hasValidCoords],
   );
 
-  if (!hasValidCoords) return null;
+  if (!hasValidCoords) {
+    return null;
+  }
 
   // Apply scale to size for age-based visual decay
   const scaledSize = size * scale;

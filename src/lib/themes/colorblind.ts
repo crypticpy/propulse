@@ -211,13 +211,17 @@ export function getStatusIcon(
   mode: ColorBlindMode,
   status: StatusType,
 ): string | null {
-  if (mode === "none") return null;
+  if (mode === "none") {
+    return null;
+  }
 
   // Normalize excellent to good
   const normalizedStatus = status === "excellent" ? "good" : status;
 
   const palette = COLOR_BLIND_PALETTES[mode];
-  if (!palette) return null;
+  if (!palette) {
+    return null;
+  }
 
   const iconKey = `${normalizedStatus}Icon` as keyof ColorBlindPalette;
   return palette[iconKey] as string;

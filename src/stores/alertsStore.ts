@@ -119,13 +119,17 @@ export const selectHighestPriorityAlert = (
   state: AlertsState,
 ): SolarAlert | null => {
   const active = state.alerts.filter((a) => a.status === "ACTIVE");
-  if (active.length === 0) return null;
+  if (active.length === 0) {
+    return null;
+  }
 
   // Priority order: CRITICAL > WARNING > INFO
   const priorityOrder: AlertPriority[] = ["CRITICAL", "WARNING", "INFO"];
   for (const priority of priorityOrder) {
     const match = active.find((a) => a.priority === priority);
-    if (match) return match;
+    if (match) {
+      return match;
+    }
   }
   return active[0];
 };
@@ -225,10 +229,14 @@ export const useAlertsStore = create<AlertsState>()(
       resolveAlert: (alertId) =>
         set((state) => {
           const alertIndex = state.alerts.findIndex((a) => a.id === alertId);
-          if (alertIndex === -1) return state;
+          if (alertIndex === -1) {
+            return state;
+          }
 
           const alert = state.alerts[alertIndex];
-          if (alert.status !== "ACTIVE") return state;
+          if (alert.status !== "ACTIVE") {
+            return state;
+          }
 
           const resolvedAlert: SolarAlert = {
             ...alert,
@@ -251,7 +259,9 @@ export const useAlertsStore = create<AlertsState>()(
       dismissAlert: (alertId) =>
         set((state) => {
           const alertIndex = state.alerts.findIndex((a) => a.id === alertId);
-          if (alertIndex === -1) return state;
+          if (alertIndex === -1) {
+            return state;
+          }
 
           const alert = state.alerts[alertIndex];
 
@@ -291,7 +301,9 @@ export const useAlertsStore = create<AlertsState>()(
 
           const filteredHistory = state.alertHistory.filter((alert) => {
             const timestamp = alert.resolvedAt || alert.dismissedAt;
-            if (!timestamp) return true;
+            if (!timestamp) {
+              return true;
+            }
             return new Date(timestamp).getTime() > cutoffTime;
           });
 
@@ -323,7 +335,9 @@ export const useAlertsStore = create<AlertsState>()(
       isInCooldown: (alertType, cooldownMs) => {
         const state = get();
         const lastFired = state.lastAlertByType[alertType];
-        if (!lastFired) return false;
+        if (!lastFired) {
+          return false;
+        }
         return Date.now() - lastFired < cooldownMs;
       },
 

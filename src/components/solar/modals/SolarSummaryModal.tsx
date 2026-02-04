@@ -377,16 +377,21 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
             {timeRecs.map((rec, i) => {
               // Determine if this is the current period
               let isCurrent = false;
-              if (rec.period.includes("Sunrise") && hour >= 6 && hour < 9)
+              if (rec.period.includes("Sunrise") && hour >= 6 && hour < 9) {
                 isCurrent = true;
-              if (rec.period.includes("Midday") && hour >= 10 && hour < 14)
+              }
+              if (rec.period.includes("Midday") && hour >= 10 && hour < 14) {
                 isCurrent = true;
-              if (rec.period === "Afternoon" && hour >= 14 && hour < 18)
+              }
+              if (rec.period === "Afternoon" && hour >= 14 && hour < 18) {
                 isCurrent = true;
-              if (rec.period.includes("Evening") && hour >= 18 && hour < 21)
+              }
+              if (rec.period.includes("Evening") && hour >= 18 && hour < 21) {
                 isCurrent = true;
-              if (rec.period === "Night" && (hour >= 21 || hour < 6))
+              }
+              if (rec.period === "Night" && (hour >= 21 || hour < 6)) {
                 isCurrent = true;
+              }
 
               return (
                 <div

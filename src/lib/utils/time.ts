@@ -234,7 +234,9 @@ export function getSunPosition(
 
   // Hour angle
   let hourAngle = trueSolarTime / 4 - 180;
-  if (hourAngle < -180) hourAngle += 360;
+  if (hourAngle < -180) {
+    hourAngle += 360;
+  }
 
   // Solar zenith and altitude
   const solarZenith =

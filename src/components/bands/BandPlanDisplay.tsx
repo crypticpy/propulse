@@ -134,7 +134,9 @@ export function BandPlanDisplay({
 
   // Calculate segment display info
   const segmentInfo = useMemo((): SegmentDisplayInfo[] => {
-    if (!bandPlan) return [];
+    if (!bandPlan) {
+      return [];
+    }
 
     const bandStartKHz = bandPlan.startMHz * 1000;
     const bandEndKHz = bandPlan.endMHz * 1000;
@@ -162,7 +164,9 @@ export function BandPlanDisplay({
 
   // Calculate highlight position
   const highlightPosition = useMemo(() => {
-    if (!bandPlan || highlightFrequency === undefined) return null;
+    if (!bandPlan || highlightFrequency === undefined) {
+      return null;
+    }
 
     const bandStartKHz = bandPlan.startMHz * 1000;
     const bandEndKHz = bandPlan.endMHz * 1000;
@@ -178,7 +182,9 @@ export function BandPlanDisplay({
   // Handle segment click
   const handleSegmentClick = useCallback(
     (segment: BandSegment) => {
-      if (!onFrequencySelect) return;
+      if (!onFrequencySelect) {
+        return;
+      }
 
       // Select the middle of the segment
       const midFreq = (segment.startKHz + segment.endKHz) / 2;

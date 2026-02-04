@@ -116,7 +116,9 @@ function AnimatedDashedLine({
   const dashOffsetRef = useRef(0);
 
   useFrame((_, delta) => {
-    if (!shouldAnimate || !lineRef.current) return;
+    if (!shouldAnimate || !lineRef.current) {
+      return;
+    }
 
     // Update dash offset for flowing animation
     dashOffsetRef.current -= delta * animationSpeed;
@@ -162,7 +164,9 @@ function GlowLine({
   const lineRef = useRef<any>(null);
 
   useFrame(({ clock }) => {
-    if (!shouldAnimate || !lineRef.current) return;
+    if (!shouldAnimate || !lineRef.current) {
+      return;
+    }
 
     const material = lineRef.current.material as THREE.Material;
     if (material && "opacity" in material) {
@@ -208,7 +212,9 @@ function DirectionChevron({
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
-    if (!shouldAnimate || !materialRef.current) return;
+    if (!shouldAnimate || !materialRef.current) {
+      return;
+    }
 
     // Subtle fade pulse synchronized with glow
     const pulse =
@@ -310,7 +316,9 @@ export function PathArc({
 
   // Calculate chevron positions and directions
   const chevrons = useMemo(() => {
-    if (points.length < 3) return [];
+    if (points.length < 3) {
+      return [];
+    }
 
     const count =
       pathMode === "long" ? CHEVRON_COUNT_LONG : CHEVRON_COUNT_SHORT;
@@ -347,7 +355,9 @@ export function PathArc({
     return result;
   }, [points, pathMode]);
 
-  if (points.length < 2) return null;
+  if (points.length < 2) {
+    return null;
+  }
 
   // Determine dash configuration based on path mode
   const isLongPath = pathMode === "long";

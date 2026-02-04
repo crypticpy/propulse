@@ -181,8 +181,12 @@ function getEffectivePreferTested(params: {
   specPreference?: "global" | "factory" | "tested";
 }): boolean {
   const { globalPreferTested, specPreference } = params;
-  if (specPreference === "factory") return false;
-  if (specPreference === "tested") return true;
+  if (specPreference === "factory") {
+    return false;
+  }
+  if (specPreference === "tested") {
+    return true;
+  }
   return globalPreferTested;
 }
 
@@ -310,7 +314,9 @@ export function RadioManager({
       return;
     }
     const id = addRadio(equipmentId);
-    if (id) setActiveRadio(id);
+    if (id) {
+      setActiveRadio(id);
+    }
   };
 
   const openEditInstance = (instanceId: string) => {
@@ -318,7 +324,9 @@ export function RadioManager({
       (useUserStore.getState().preferences.radios || []).find(
         (r) => r.id === instanceId,
       ) ?? null;
-    if (!instance) return;
+    if (!instance) {
+      return;
+    }
     setEditingInstanceId(instanceId);
     setInstanceModalError(null);
     setInstanceForm({
@@ -338,7 +346,9 @@ export function RadioManager({
   };
 
   const saveInstance = () => {
-    if (!editingInstanceId) return;
+    if (!editingInstanceId) {
+      return;
+    }
     setInstanceModalError(null);
 
     const limit =
@@ -423,15 +433,23 @@ export function RadioManager({
   };
 
   const handleDeleteCustomRadio = (id: string) => {
-    if (!window.confirm("Delete this custom radio?")) return;
+    if (!window.confirm("Delete this custom radio?")) {
+      return;
+    }
     removeCustomRadio(id);
   };
 
   const validateCustomRadioForm = (): string | null => {
     const name = customForm.displayName.trim();
-    if (!name) return "Custom radio name is required.";
-    if (!customForm.manufacturer.trim()) return "Manufacturer is required.";
-    if (!customForm.model.trim()) return "Model is required.";
+    if (!name) {
+      return "Custom radio name is required.";
+    }
+    if (!customForm.manufacturer.trim()) {
+      return "Manufacturer is required.";
+    }
+    if (!customForm.model.trim()) {
+      return "Model is required.";
+    }
 
     const maxPower = Number.parseFloat(customForm.maxPower);
     const minPower = Number.parseFloat(customForm.minPower);
@@ -441,18 +459,26 @@ export function RadioManager({
     if (!Number.isFinite(minPower) || minPower < 0) {
       return "Min power must be 0 or greater.";
     }
-    if (minPower > maxPower) return "Min power cannot exceed max power.";
-    if (customForm.bands.size === 0) return "Select at least one band.";
-    if (customForm.modes.size === 0) return "Select at least one mode.";
+    if (minPower > maxPower) {
+      return "Min power cannot exceed max power.";
+    }
+    if (customForm.bands.size === 0) {
+      return "Select at least one band.";
+    }
+    if (customForm.modes.size === 0) {
+      return "Select at least one mode.";
+    }
 
     const rmdr = Number.parseFloat(customForm.receiver.rmdr);
     const imdr3 = Number.parseFloat(customForm.receiver.imdr3);
     const blockingGain = Number.parseFloat(customForm.receiver.blockingGain);
     const sensitivity = Number.parseFloat(customForm.receiver.sensitivity);
-    if (!Number.isFinite(rmdr) || rmdr <= 0)
+    if (!Number.isFinite(rmdr) || rmdr <= 0) {
       return "RMDR must be a number > 0.";
-    if (!Number.isFinite(imdr3) || imdr3 <= 0)
+    }
+    if (!Number.isFinite(imdr3) || imdr3 <= 0) {
       return "IMDR3 must be a number > 0.";
+    }
     if (!Number.isFinite(blockingGain) || blockingGain <= 0) {
       return "Blocking gain must be a number > 0.";
     }
@@ -468,7 +494,9 @@ export function RadioManager({
     ];
     for (const field of optionalNumbers) {
       const trimmed = field.value.trim();
-      if (!trimmed) continue;
+      if (!trimmed) {
+        continue;
+      }
       const parsed = Number.parseFloat(trimmed);
       if (!Number.isFinite(parsed)) {
         return `${field.label} must be a valid number or left blank.`;
@@ -557,7 +585,9 @@ export function RadioManager({
   };
 
   const baseResults = useMemo(() => {
-    if (!customBaseQuery.trim()) return [];
+    if (!customBaseQuery.trim()) {
+      return [];
+    }
     return searchRadios(customBaseQuery).slice(0, 8);
   }, [customBaseQuery]);
 
@@ -679,7 +709,9 @@ export function RadioManager({
       {userRadios.length > 0 ? (
         <div className="space-y-2">
           {userRadios.map(({ userRadio, equipment }) => {
-            if (!equipment) return null;
+            if (!equipment) {
+              return null;
+            }
             const isActive = preferences.activeRadioId === userRadio.id;
             const hasTested = hasTestedSpecs(equipment);
             const effectivePreferTested = getEffectivePreferTested({
@@ -1413,8 +1445,9 @@ export function RadioManager({
                           onChange={() =>
                             setCustomForm((prev) => {
                               const next = new Set(prev.bands);
-                              if (next.has(band)) next.delete(band);
-                              else next.add(band);
+                              if (next.has(band)) {
+                                next.delete(band);
+                              } else next.add(band);
                               return { ...prev, bands: next };
                             })
                           }
@@ -1445,8 +1478,9 @@ export function RadioManager({
                           onChange={() =>
                             setCustomForm((prev) => {
                               const next = new Set(prev.modes);
-                              if (next.has(mode)) next.delete(mode);
-                              else next.add(mode);
+                              if (next.has(mode)) {
+                                next.delete(mode);
+                              } else next.add(mode);
                               return { ...prev, modes: next };
                             })
                           }

@@ -102,9 +102,15 @@ function safeCompileRegex(pattern: string, flags: string = "i"): RegExp | null {
  * Check if a value is empty (null, undefined, or empty array)
  */
 function isEmpty(value: unknown): boolean {
-  if (value === null || value === undefined) return true;
-  if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === "string") return value.trim().length === 0;
+  if (value === null || value === undefined) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  if (typeof value === "string") {
+    return value.trim().length === 0;
+  }
   return false;
 }
 
@@ -120,13 +126,19 @@ function matchesCallsignPattern(
   pattern: string | undefined,
 ): boolean {
   // If no pattern specified, match all
-  if (isEmpty(pattern)) return true;
+  if (isEmpty(pattern)) {
+    return true;
+  }
 
   // If spot has no callsign, can't match
-  if (!spotCallsign) return false;
+  if (!spotCallsign) {
+    return false;
+  }
 
   const regex = safeCompileRegex(pattern!, "i");
-  if (!regex) return false;
+  if (!regex) {
+    return false;
+  }
 
   return regex.test(spotCallsign);
 }
@@ -143,10 +155,14 @@ function matchesEntityPattern(
   pattern: string | undefined,
 ): boolean {
   // If no pattern specified, match all
-  if (isEmpty(pattern)) return true;
+  if (isEmpty(pattern)) {
+    return true;
+  }
 
   // If spot has no callsign, can't match
-  if (!spotCallsign) return false;
+  if (!spotCallsign) {
+    return false;
+  }
 
   // Extract prefix from callsign (characters before first digit, or up to first /)
   // Examples: W1ABC -> W, VK2ABC -> VK, 3Y/W1ABC -> 3Y
@@ -155,10 +171,14 @@ function matchesEntityPattern(
     ? prefixMatch[1]
     : spotCallsign.match(/^([A-Z]{1,2}|[0-9][A-Z])/i)?.[1];
 
-  if (!prefix) return false;
+  if (!prefix) {
+    return false;
+  }
 
   const regex = safeCompileRegex(pattern!, "i");
-  if (!regex) return false;
+  if (!regex) {
+    return false;
+  }
 
   return regex.test(prefix);
 }
@@ -175,10 +195,14 @@ function matchesBandFilter(
   allowedBands: string[] | undefined,
 ): boolean {
   // Empty array or undefined means match all bands
-  if (isEmpty(allowedBands)) return true;
+  if (isEmpty(allowedBands)) {
+    return true;
+  }
 
   // If spot has no band, can't match specific filter
-  if (!spotBand) return false;
+  if (!spotBand) {
+    return false;
+  }
 
   // Normalize band names for comparison (lowercase, trim whitespace)
   const normalizedSpotBand = spotBand.toLowerCase().trim();
@@ -199,10 +223,14 @@ function matchesModeFilter(
   allowedModes: string[] | undefined,
 ): boolean {
   // Empty array or undefined means match all modes
-  if (isEmpty(allowedModes)) return true;
+  if (isEmpty(allowedModes)) {
+    return true;
+  }
 
   // If spot has no mode, can't match specific filter
-  if (!spotMode) return false;
+  if (!spotMode) {
+    return false;
+  }
 
   // Normalize mode names for comparison (uppercase, trim whitespace)
   const normalizedSpotMode = spotMode.toUpperCase().trim();
@@ -223,10 +251,14 @@ function matchesSnrThreshold(
   minSnr: number | undefined,
 ): boolean {
   // If no threshold specified, match all
-  if (minSnr === undefined || minSnr === null) return true;
+  if (minSnr === undefined || minSnr === null) {
+    return true;
+  }
 
   // If spot has no SNR, can't match specific threshold
-  if (spotSnr === undefined || spotSnr === null) return false;
+  if (spotSnr === undefined || spotSnr === null) {
+    return false;
+  }
 
   return spotSnr >= minSnr;
 }
@@ -269,7 +301,7 @@ function matchesSnrThreshold(
  * ```
  */
 export function matchesRule(spot: LiveSpot, rule: AlertRule): boolean {
-  const conditions = rule.conditions;
+  const {conditions} = rule;
 
   // Check callsign pattern (uses spot.dx for DX station callsign)
   if (!matchesCallsignPattern(spot.dx, conditions.callsignPattern)) {

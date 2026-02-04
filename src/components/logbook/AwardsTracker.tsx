@@ -96,7 +96,9 @@ const US_STATES: Record<string, string> = {
  */
 function getDXCCEntity(callsign: string): string | null {
   const prefix = extractPrefixFromCallsign(callsign);
-  if (!prefix) return null;
+  if (!prefix) {
+    return null;
+  }
 
   // Try progressively shorter prefixes to find a match
   const upperPrefix = prefix.toUpperCase();
@@ -173,7 +175,9 @@ function getCQZone(entry: LogEntry): number | null {
 
   // Estimate zone from DXCC entity (simplified mapping)
   const entity = getDXCCEntity(entry.callsign);
-  if (!entity) return null;
+  if (!entity) {
+    return null;
+  }
 
   // Simplified CQ zone mapping based on entity
   const zoneMap: Record<string, number> = {
@@ -217,8 +221,12 @@ function getMilestoneColor(
   current: number,
   milestone: number,
 ): "green" | "orange" | "amber" {
-  if (current >= milestone) return "green";
-  if (current >= milestone * 0.75) return "amber";
+  if (current >= milestone) {
+    return "green";
+  }
+  if (current >= milestone * 0.75) {
+    return "amber";
+  }
   return "orange";
 }
 
@@ -232,14 +240,18 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
 
     for (const entry of entries) {
       const entity = getDXCCEntity(entry.callsign);
-      if (!entity) continue;
+      if (!entity) {
+        continue;
+      }
 
       const existing = worked.get(entity);
       const confirmed = isConfirmed(entry);
 
       if (existing) {
         existing.bands.add(entry.band);
-        if (confirmed) existing.confirmed = true;
+        if (confirmed) {
+          existing.confirmed = true;
+        }
       } else {
         worked.set(entity, {
           confirmed,
@@ -285,10 +297,14 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
     for (const entry of entries) {
       // Only count US callsigns
       const entity = getDXCCEntity(entry.callsign);
-      if (entity !== "USA") continue;
+      if (entity !== "USA") {
+        continue;
+      }
 
       const state = extractUSState(entry);
-      if (!state) continue;
+      if (!state) {
+        continue;
+      }
 
       const confirmed = isConfirmed(entry);
       const existing = worked.get(state);
@@ -314,7 +330,9 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
 
     for (const entry of entries) {
       const zone = getCQZone(entry);
-      if (!zone) continue;
+      if (!zone) {
+        continue;
+      }
 
       const confirmed = isConfirmed(entry);
       const existing = worked.get(zone);
@@ -338,7 +356,9 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
   const nextDXCCMilestone = useMemo(() => {
     const milestones = [100, 200, 300, 340];
     for (const m of milestones) {
-      if (dxccStats.totalConfirmed < m) return m;
+      if (dxccStats.totalConfirmed < m) {
+        return m;
+      }
     }
     return 340;
   }, [dxccStats.totalConfirmed]);

@@ -228,7 +228,9 @@ export function getSCPMatchesDetailed(
   const typeOrder = { prefix: 0, contains: 1, suffix: 2 };
   matches.sort((a, b) => {
     const typeComparison = typeOrder[a.matchType] - typeOrder[b.matchType];
-    if (typeComparison !== 0) return typeComparison;
+    if (typeComparison !== 0) {
+      return typeComparison;
+    }
 
     if (a.timesWorked !== b.timesWorked) {
       return b.timesWorked - a.timesWorked;

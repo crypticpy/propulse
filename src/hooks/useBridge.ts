@@ -153,7 +153,9 @@ export function useBridge(
     }
     clearTimers();
 
-    if (!mountedRef.current) return;
+    if (!mountedRef.current) {
+      return;
+    }
 
     setState("connecting");
     setError(null);
@@ -163,7 +165,9 @@ export function useBridge(
      * Schedule reconnection with exponential backoff
      */
     const scheduleReconnect = (attempt: number) => {
-      if (!mountedRef.current || manualDisconnectRef.current) return;
+      if (!mountedRef.current || manualDisconnectRef.current) {
+        return;
+      }
       if (
         currentOpts.maxReconnectAttempts > 0 &&
         attempt >= currentOpts.maxReconnectAttempts
@@ -191,7 +195,9 @@ export function useBridge(
      * Start ping interval
      */
     const startPing = () => {
-      if (currentOpts.pingInterval <= 0) return;
+      if (currentOpts.pingInterval <= 0) {
+        return;
+      }
 
       pingIntervalRef.current = setInterval(() => {
         send("bridge.ping", { timestamp: Date.now() });
@@ -236,7 +242,9 @@ export function useBridge(
         clearTimers();
         wsRef.current = null;
 
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) {
+          return;
+        }
 
         if (manualDisconnectRef.current) {
           setState("disconnected");
@@ -262,7 +270,9 @@ export function useBridge(
       };
 
       ws.onmessage = (event) => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) {
+          return;
+        }
 
         try {
           const message = JSON.parse(event.data) as BridgeMessage;

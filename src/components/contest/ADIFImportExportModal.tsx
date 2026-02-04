@@ -70,7 +70,9 @@ export function ADIFImportExportModal({
 
   // Generate export content when tab changes or options change
   const handleGenerateExport = useCallback(() => {
-    if (!activeSession) return;
+    if (!activeSession) {
+      return;
+    }
 
     const content = exportSessionToADIF(activeSession, {
       includeHeader,
@@ -102,7 +104,9 @@ export function ADIFImportExportModal({
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      if (!file) {
+        return;
+      }
 
       setImportFileName(file.name);
       setImportError("");
@@ -137,7 +141,9 @@ export function ADIFImportExportModal({
 
   // Handle export download
   const handleDownload = useCallback(() => {
-    if (!exportContent || !activeSession) return;
+    if (!exportContent || !activeSession) {
+      return;
+    }
 
     const contestName = contest?.cabrilloId || "contest";
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -148,7 +154,9 @@ export function ADIFImportExportModal({
 
   // Handle import confirmation
   const handleConfirmImport = useCallback(async () => {
-    if (!importResult || !activeSession) return;
+    if (!importResult || !activeSession) {
+      return;
+    }
 
     setIsImporting(true);
 
@@ -163,13 +171,17 @@ export function ADIFImportExportModal({
 
   // Copy export content to clipboard
   const handleCopyToClipboard = useCallback(async () => {
-    if (!exportContent) return;
+    if (!exportContent) {
+      return;
+    }
     await navigator.clipboard.writeText(exportContent);
   }, [exportContent]);
 
   // ADIF stats for preview
   const adifStats = useMemo(() => {
-    if (!importContent) return null;
+    if (!importContent) {
+      return null;
+    }
     return getADIFStats(importContent);
   }, [importContent]);
 
@@ -183,7 +195,9 @@ export function ADIFImportExportModal({
     onClose();
   }, [onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const inputClass =
     "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";

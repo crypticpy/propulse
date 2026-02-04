@@ -170,9 +170,15 @@ function getCondition(
   const baseScore = (sfi / 200) * (1 - kp / 9);
   const score = baseScore * multiplier;
 
-  if (score > 0.6) return "Excellent";
-  if (score > 0.45) return "Good";
-  if (score > 0.3) return "Fair";
+  if (score > 0.6) {
+    return "Excellent";
+  }
+  if (score > 0.45) {
+    return "Good";
+  }
+  if (score > 0.3) {
+    return "Fair";
+  }
   return "Poor";
 }
 
@@ -185,8 +191,12 @@ function getCondition(
  */
 function getVHFCondition(kp: number): VHFCondition {
   // High Kp can create aurora propagation opportunities
-  if (kp >= 5) return "Aurora";
-  if (kp >= 4) return "Fair";
+  if (kp >= 5) {
+    return "Aurora";
+  }
+  if (kp >= 4) {
+    return "Fair";
+  }
   return "Poor";
 }
 
@@ -251,10 +261,15 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
   // Calculate general HF condition
   const hfScore = (sfi / 200) * (1 - kp / 9);
   let hf: BandCondition;
-  if (hfScore > 0.6) hf = "Excellent";
-  else if (hfScore > 0.45) hf = "Good";
-  else if (hfScore > 0.3) hf = "Fair";
-  else hf = "Poor";
+  if (hfScore > 0.6) {
+    hf = "Excellent";
+  } else if (hfScore > 0.45) {
+           hf = "Good";
+         } else if (hfScore > 0.3) {
+                  hf = "Fair";
+                } else {
+                  hf = "Poor";
+                }
 
   // VHF condition
   const vhf = getVHFCondition(kp);
@@ -333,13 +348,27 @@ export function getConditionColor(
  * @returns Hex color code
  */
 export function getKIndexColor(kp: number): string {
-  if (kp <= 1) return "#00ff88";
-  if (kp <= 2) return "#44dd66";
-  if (kp <= 3) return "#88cc44";
-  if (kp <= 4) return "#ffaa00";
-  if (kp <= 5) return "#ff7700";
-  if (kp <= 6) return "#ff4400";
-  if (kp <= 7) return "#ff0044";
+  if (kp <= 1) {
+    return "#00ff88";
+  }
+  if (kp <= 2) {
+    return "#44dd66";
+  }
+  if (kp <= 3) {
+    return "#88cc44";
+  }
+  if (kp <= 4) {
+    return "#ffaa00";
+  }
+  if (kp <= 5) {
+    return "#ff7700";
+  }
+  if (kp <= 6) {
+    return "#ff4400";
+  }
+  if (kp <= 7) {
+    return "#ff0044";
+  }
   return "#ff0088";
 }
 
@@ -350,12 +379,24 @@ export function getKIndexColor(kp: number): string {
  * @returns Human-readable description
  */
 export function getKIndexDescription(kp: number): string {
-  if (kp <= 2) return "Quiet";
-  if (kp <= 4) return "Unsettled";
-  if (kp <= 5) return "Active";
-  if (kp <= 6) return "Minor Storm";
-  if (kp <= 7) return "Moderate Storm";
-  if (kp <= 8) return "Strong Storm";
+  if (kp <= 2) {
+    return "Quiet";
+  }
+  if (kp <= 4) {
+    return "Unsettled";
+  }
+  if (kp <= 5) {
+    return "Active";
+  }
+  if (kp <= 6) {
+    return "Minor Storm";
+  }
+  if (kp <= 7) {
+    return "Moderate Storm";
+  }
+  if (kp <= 8) {
+    return "Strong Storm";
+  }
   return "Severe Storm";
 }
 
@@ -800,10 +841,8 @@ export function getEnhancedBandConditions(
     }
 
     // SFI-based notes
-    if (sfi < band.minSfi) {
-      if (band.minSfi - sfi > 20) {
-        notes.push("Low SFI");
-      }
+    if (sfi < band.minSfi && band.minSfi - sfi > 20) {
+          notes.push("Low SFI");
     }
 
     // Geomagnetic notes
@@ -877,7 +916,7 @@ export function getEnhancedBandConditions(
     // Recalculate S-unit based on adjusted SNR
     // Approximate: SNR of -10 dB typically corresponds to around S5-S6 for FT8
     // We'll use the signal prediction's S-unit but note it's based on unadjusted path loss
-    const sUnit = signalPred.sUnit;
+    const {sUnit} = signalPred;
 
     return {
       band: band.name,
@@ -1018,8 +1057,12 @@ function getPathIlluminationAtTime(
     date.getUTCMinutes() / 60 +
     date.getUTCSeconds() / 3600;
   let subsolarLon = (12 - utcHours) * 15;
-  if (subsolarLon > 180) subsolarLon -= 360;
-  if (subsolarLon < -180) subsolarLon += 360;
+  if (subsolarLon > 180) {
+    subsolarLon -= 360;
+  }
+  if (subsolarLon < -180) {
+    subsolarLon += 360;
+  }
 
   // Sample points along path
   const numPoints = 10;
@@ -1149,7 +1192,9 @@ export function getBestWindows(forecast: HourlyForecast[]): BestWindow[] {
     }
 
     // Skip if band never opens
-    if (bestStatus === "closed" || bestSnr <= -24) continue;
+    if (bestStatus === "closed" || bestSnr <= -24) {
+      continue;
+    }
 
     // Find window around peak (consecutive hours with fair or better)
     let startHour = bestHour;

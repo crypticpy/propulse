@@ -356,33 +356,31 @@ export function getNeededMultipliers(
 
     for (const value of universe) {
       if (rule.perBand) {
-        // Check each band
-        const neededBands = getNeededBands(
-          worked,
-          rule.type,
-          value,
-          CONTEST_BANDS,
-        );
-        for (const band of neededBands) {
-          needed.push({
-            type: rule.type,
-            value: value.toUpperCase(),
-            band,
-            label: getMultiplierLabel(rule.type, value),
-            description: `${getTypeDescription(rule.type)} on ${band}`,
-          });
-        }
-      } else {
-        // Contest-wide multiplier
-        if (!isWorked(worked, rule.type, value)) {
-          needed.push({
-            type: rule.type,
-            value: value.toUpperCase(),
-            label: getMultiplierLabel(rule.type, value),
-            description: getTypeDescription(rule.type),
-          });
-        }
-      }
+              // Check each band
+              const neededBands = getNeededBands(
+                worked,
+                rule.type,
+                value,
+                CONTEST_BANDS,
+              );
+              for (const band of neededBands) {
+                needed.push({
+                  type: rule.type,
+                  value: value.toUpperCase(),
+                  band,
+                  label: getMultiplierLabel(rule.type, value),
+                  description: `${getTypeDescription(rule.type)} on ${band}`,
+                });
+              }
+            }
+      else if (!isWorked(worked, rule.type, value)) {
+                needed.push({
+                  type: rule.type,
+                  value: value.toUpperCase(),
+                  label: getMultiplierLabel(rule.type, value),
+                  description: getTypeDescription(rule.type),
+                });
+              }
     }
   }
 

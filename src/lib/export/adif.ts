@@ -26,7 +26,9 @@ function generateHeader(options: ADIFOptions): string {
  * Format a single ADIF field
  */
 function formatField(name: string, value: string | number | undefined): string {
-  if (value === undefined || value === null || value === "") return "";
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
   const strValue = String(value);
   return `<${name}:${strValue.length}>${strValue}`;
 }
@@ -40,7 +42,9 @@ export function formatADIFRecord(record: ADIFRecord): string {
   // Add all fields that have values
   for (const [key, value] of Object.entries(record)) {
     const field = formatField(key, value);
-    if (field) fields.push(field);
+    if (field) {
+      fields.push(field);
+    }
   }
 
   return fields.join("") + "<EOR>\n";

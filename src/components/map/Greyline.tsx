@@ -129,11 +129,13 @@ export function Greyline({
 
   // Animate pulsing effect
   useFrame((state) => {
-    if (!materialRef.current || !shouldPulse) return;
+    if (!materialRef.current || !shouldPulse) {
+      return;
+    }
 
     // Create smooth pulsing animation
     const time = state.clock.getElapsedTime();
-    const pulseSpeed = visualParams.pulseSpeed;
+    const {pulseSpeed} = visualParams;
     const pulse = Math.sin(time * pulseSpeed * 2) * 0.15 + 1; // Oscillate between 0.85 and 1.15
 
     materialRef.current.opacity = actualOpacity * pulse;

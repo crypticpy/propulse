@@ -93,13 +93,17 @@ export function ConditionMatchCard({
 
   // Calculate current conditions
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return null;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return null;
+    }
     const latest = solarFluxData[solarFluxData.length - 1];
     return latest.flux;
   }, [solarFluxData]);
 
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return null;
+    if (!kIndexData || kIndexData.length === 0) {
+      return null;
+    }
     const latest = kIndexData[kIndexData.length - 1];
     return latest.kp_index;
   }, [kIndexData]);
@@ -130,11 +134,15 @@ export function ConditionMatchCard({
 
     for (const [date, dateEntries] of entriesByDate) {
       // Skip today
-      if (date === today) continue;
+      if (date === today) {
+        continue;
+      }
 
       // Count QSOs and find top band
       const qsoCount = dateEntries.length;
-      if (qsoCount < 3) continue; // Skip days with few QSOs
+      if (qsoCount < 3) {
+        continue;
+      } // Skip days with few QSOs
 
       // Count by band
       const bandCounts = new Map<string, number>();

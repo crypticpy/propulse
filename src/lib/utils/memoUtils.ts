@@ -13,13 +13,19 @@ export function shallowEqual<T extends Record<string, unknown>>(
   objA: T,
   objB: T,
 ): boolean {
-  if (objA === objB) return true;
-  if (!objA || !objB) return false;
+  if (objA === objB) {
+    return true;
+  }
+  if (!objA || !objB) {
+    return false;
+  }
 
   const keysA = Object.keys(objA);
   const keysB = Object.keys(objB);
 
-  if (keysA.length !== keysB.length) return false;
+  if (keysA.length !== keysB.length) {
+    return false;
+  }
 
   for (const key of keysA) {
     if (objA[key] !== objB[key]) {
@@ -35,23 +41,37 @@ export function shallowEqual<T extends Record<string, unknown>>(
  * Handles objects, arrays, and primitive values
  */
 export function deepEqual<T>(a: T, b: T): boolean {
-  if (a === b) return true;
+  if (a === b) {
+    return true;
+  }
 
-  if (typeof a !== typeof b) return false;
-  if (a === null || b === null) return a === b;
-  if (typeof a !== "object") return false;
+  if (typeof a !== typeof b) {
+    return false;
+  }
+  if (a === null || b === null) {
+    return a === b;
+  }
+  if (typeof a !== "object") {
+    return false;
+  }
 
   if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
+    if (a.length !== b.length) {
+      return false;
+    }
     return a.every((item, index) => deepEqual(item, b[index]));
   }
 
-  if (Array.isArray(a) || Array.isArray(b)) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return false;
+  }
 
   const keysA = Object.keys(a as Record<string, unknown>);
   const keysB = Object.keys(b as Record<string, unknown>);
 
-  if (keysA.length !== keysB.length) return false;
+  if (keysA.length !== keysB.length) {
+    return false;
+  }
 
   return keysA.every((key) =>
     deepEqual(
@@ -89,7 +109,9 @@ export function createExcludeKeyCompare<T extends Record<string, unknown>>(
     const keysA = Object.keys(a).filter((k) => !excludeSet.has(k));
     const keysB = Object.keys(b).filter((k) => !excludeSet.has(k));
 
-    if (keysA.length !== keysB.length) return false;
+    if (keysA.length !== keysB.length) {
+      return false;
+    }
 
     for (const key of keysA) {
       if (a[key as keyof T] !== b[key as keyof T]) {
@@ -127,12 +149,20 @@ export function createCustomCompare<T extends Record<string, unknown>>(
  * Compare arrays by reference (useful for array props)
  */
 export function arrayRefEqual<T>(a: T[], b: T[]): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  if (a.length !== b.length) return false;
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
 
   for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
+    if (a[i] !== b[i]) {
+      return false;
+    }
   }
   return true;
 }
@@ -144,8 +174,12 @@ export function dateEqual(
   a: Date | null | undefined,
   b: Date | null | undefined,
 ): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
   return a.getTime() === b.getTime();
 }
 
@@ -193,7 +227,9 @@ export function memoize<Args extends unknown[], Result>(
     // Enforce max size (LRU eviction)
     if (cache.size >= maxSize) {
       const firstKey = cache.keys().next().value;
-      if (firstKey) cache.delete(firstKey);
+      if (firstKey) {
+        cache.delete(firstKey);
+      }
     }
 
     cache.set(key, { value: result, timestamp: Date.now() });

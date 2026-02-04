@@ -457,8 +457,12 @@ export function calculateLocalSolarHour(lon: number, date: Date): number {
   let solarHour = utcHours + lon / 15;
 
   // Normalize to 0-24
-  while (solarHour < 0) solarHour += 24;
-  while (solarHour >= 24) solarHour -= 24;
+  while (solarHour < 0) {
+      solarHour += 24;
+  }
+  while (solarHour >= 24) {
+      solarHour -= 24;
+  }
 
   return solarHour;
 }

@@ -187,7 +187,9 @@ const GRID_LOCATORS = {
 export function gridToLatLon(
   grid: string,
 ): { lat: number; lon: number } | null {
-  if (!grid || grid.length < 4) return null;
+  if (!grid || grid.length < 4) {
+    return null;
+  }
 
   const upperGrid = grid.toUpperCase();
   const lonField = upperGrid.charCodeAt(0) - 65; // A=0
@@ -195,7 +197,9 @@ export function gridToLatLon(
   const lonSquare = parseInt(upperGrid[2], 10);
   const latSquare = parseInt(upperGrid[3], 10);
 
-  if (isNaN(lonSquare) || isNaN(latSquare)) return null;
+  if (isNaN(lonSquare) || isNaN(latSquare)) {
+    return null;
+  }
 
   let lon = lonField * 20 + lonSquare * 2 - 180;
   let lat = latField * 10 + latSquare - 90;
@@ -401,7 +405,9 @@ export function parseDXSpiderSpot(line: string): DXSpot | null {
     /^DX de\s+([A-Z0-9/]+):\s+(\d+\.?\d*)\s+([A-Z0-9/]+)\s+(.+?)\s+(\d{4})Z?$/i;
   const match = line.match(regex);
 
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
 
   const [, spotter, freqStr, dx, comment, timeStr] = match;
   const frequency = Math.round(parseFloat(freqStr));
@@ -422,12 +428,17 @@ export function parseDXSpiderSpot(line: string): DXSpot | null {
 
   // Try to detect mode from frequency position or comment
   let mode: string | undefined;
-  if (comment.toLowerCase().includes("ft8")) mode = "FT8";
-  else if (comment.toLowerCase().includes("ft4")) mode = "FT4";
-  else if (comment.toLowerCase().includes("cw") || frequency % 1000 < 100)
-    mode = "CW";
-  else if (comment.toLowerCase().includes("ssb")) mode = "SSB";
-  else if (comment.toLowerCase().includes("rtty")) mode = "RTTY";
+  if (comment.toLowerCase().includes("ft8")) {
+    mode = "FT8";
+  } else if (comment.toLowerCase().includes("ft4")) {
+           mode = "FT4";
+         } else if (comment.toLowerCase().includes("cw") || frequency % 1000 < 100) {
+                  mode = "CW";
+                } else if (comment.toLowerCase().includes("ssb")) {
+                         mode = "SSB";
+                       } else if (comment.toLowerCase().includes("rtty")) {
+                                mode = "RTTY";
+                              }
 
   return {
     id: generateSpotId(),

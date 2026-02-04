@@ -88,7 +88,9 @@ function formatADIFField(
   name: string,
   value: string | number | undefined,
 ): string {
-  if (value === undefined || value === null || value === "") return "";
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
   const strValue = String(value);
   return `<${name}:${strValue.length}>${strValue}`;
 }
@@ -135,7 +137,9 @@ function isoToADIFTime(isoTimestamp: string, includeSeconds = false): string {
  * Convert ADIF date (YYYYMMDD) to ISO date (YYYY-MM-DD)
  */
 function adifToISODate(adifDate: string): string {
-  if (adifDate.length !== 8) return adifDate;
+  if (adifDate.length !== 8) {
+    return adifDate;
+  }
   return `${adifDate.slice(0, 4)}-${adifDate.slice(4, 6)}-${adifDate.slice(6, 8)}`;
 }
 
@@ -174,19 +178,45 @@ function bandToFrequencyKHz(band: string): number {
  * Get band from frequency in kHz
  */
 function frequencyToBand(freqKHz: number): string {
-  if (freqKHz >= 1800 && freqKHz <= 2000) return "160m";
-  if (freqKHz >= 3500 && freqKHz <= 4000) return "80m";
-  if (freqKHz >= 5250 && freqKHz <= 5450) return "60m";
-  if (freqKHz >= 7000 && freqKHz <= 7300) return "40m";
-  if (freqKHz >= 10100 && freqKHz <= 10150) return "30m";
-  if (freqKHz >= 14000 && freqKHz <= 14350) return "20m";
-  if (freqKHz >= 18068 && freqKHz <= 18168) return "17m";
-  if (freqKHz >= 21000 && freqKHz <= 21450) return "15m";
-  if (freqKHz >= 24890 && freqKHz <= 24990) return "12m";
-  if (freqKHz >= 28000 && freqKHz <= 29700) return "10m";
-  if (freqKHz >= 50000 && freqKHz <= 54000) return "6m";
-  if (freqKHz >= 144000 && freqKHz <= 148000) return "2m";
-  if (freqKHz >= 420000 && freqKHz <= 450000) return "70cm";
+  if (freqKHz >= 1800 && freqKHz <= 2000) {
+    return "160m";
+  }
+  if (freqKHz >= 3500 && freqKHz <= 4000) {
+    return "80m";
+  }
+  if (freqKHz >= 5250 && freqKHz <= 5450) {
+    return "60m";
+  }
+  if (freqKHz >= 7000 && freqKHz <= 7300) {
+    return "40m";
+  }
+  if (freqKHz >= 10100 && freqKHz <= 10150) {
+    return "30m";
+  }
+  if (freqKHz >= 14000 && freqKHz <= 14350) {
+    return "20m";
+  }
+  if (freqKHz >= 18068 && freqKHz <= 18168) {
+    return "17m";
+  }
+  if (freqKHz >= 21000 && freqKHz <= 21450) {
+    return "15m";
+  }
+  if (freqKHz >= 24890 && freqKHz <= 24990) {
+    return "12m";
+  }
+  if (freqKHz >= 28000 && freqKHz <= 29700) {
+    return "10m";
+  }
+  if (freqKHz >= 50000 && freqKHz <= 54000) {
+    return "6m";
+  }
+  if (freqKHz >= 144000 && freqKHz <= 148000) {
+    return "2m";
+  }
+  if (freqKHz >= 420000 && freqKHz <= 450000) {
+    return "70cm";
+  }
   return "20m"; // Default fallback
 }
 
@@ -250,7 +280,9 @@ function mapADIFModeToContest(adifMode: string): string {
  */
 function mapContestModeToADIF(contestMode: string): string {
   const mode = contestMode.toUpperCase();
-  if (mode === "DIGITAL" || mode === "DIGI") return "RTTY";
+  if (mode === "DIGITAL" || mode === "DIGI") {
+    return "RTTY";
+  }
   return mode;
 }
 

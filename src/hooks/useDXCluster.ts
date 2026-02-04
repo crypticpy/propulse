@@ -93,8 +93,7 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
   const query = useQuery({
     queryKey: DX_QUERY_KEYS.spots,
     queryFn: async () => {
-      const data = await fetchDemoSpots(maxSpots);
-      return data;
+      return await fetchDemoSpots(maxSpots);
     },
     staleTime: 30 * SECOND,
     refetchInterval: 60 * SECOND, // Refresh every minute
@@ -188,6 +187,5 @@ export function useDXSpotStats() {
  * Hook for a single selected spot
  */
 export function useSelectedSpot() {
-  const { selectedSpot, setSelectedSpot } = useDXStore();
-  return { selectedSpot, setSelectedSpot };
+  return useDXStore();
 }

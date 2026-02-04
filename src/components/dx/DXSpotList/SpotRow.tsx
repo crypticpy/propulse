@@ -197,7 +197,9 @@ export const SpotRow = memo(function SpotRow({
 
   // Calculate row opacity based on age (only when age visualization is enabled)
   const rowStyle = useMemo(() => {
-    if (!ageVisualizationEnabled) return {};
+    if (!ageVisualizationEnabled) {
+      return {};
+    }
     return { opacity: ageInfo.opacity };
   }, [ageVisualizationEnabled, ageInfo.opacity]);
 
@@ -225,14 +227,14 @@ export const SpotRow = memo(function SpotRow({
 
   // Show the "NEED" star badge for needed spots
   const neededBadge = useMemo(() => {
-    if (!isNeeded) return null;
+    if (!isNeeded) {
+      return null;
+    }
     return (
       <SpotBadge
         type="needed"
         title={
-          !workedStatus.isWorked
-            ? "Needed - never worked"
-            : `Needed on ${spot.band}`
+          workedStatus.isWorked ? `Needed on ${spot.band}` : "Needed - never worked"
         }
       />
     );

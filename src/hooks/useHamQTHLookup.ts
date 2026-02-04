@@ -154,7 +154,9 @@ export function useHamQTHLookup(callsign: string): CallsignLookupResult {
       // Sort by date descending (newest first)
       results.sort((a, b) => {
         const dateCompare = b.date.localeCompare(a.date);
-        if (dateCompare !== 0) return dateCompare;
+        if (dateCompare !== 0) {
+          return dateCompare;
+        }
         return b.timeOn.localeCompare(a.timeOn);
       });
 
@@ -163,7 +165,9 @@ export function useHamQTHLookup(callsign: string): CallsignLookupResult {
     enabled: shouldQuery,
     staleTime: 5 * MINUTE,
     select: (entries): LocalCallsignData | undefined => {
-      if (entries.length === 0) return undefined;
+      if (entries.length === 0) {
+        return undefined;
+      }
 
       const lastEntry = entries[0];
       const workedBands = Array.from(

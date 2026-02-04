@@ -303,23 +303,21 @@ export function validateZone(
   }
 
   if (type === "CQ") {
-    if (zoneNum < 1 || zoneNum > 40) {
-      return {
-        field: "zone",
-        message: `Invalid CQ zone: ${zone} (must be 1-40)`,
-        code: "INVALID_EXCHANGE",
-      };
+      if (zoneNum < 1 || zoneNum > 40) {
+        return {
+          field: "zone",
+          message: `Invalid CQ zone: ${zone} (must be 1-40)`,
+          code: "INVALID_EXCHANGE",
+        };
+      }
     }
-  } else {
-    // ITU
-    if (zoneNum < 1 || zoneNum > 90) {
-      return {
-        field: "zone",
-        message: `Invalid ITU zone: ${zone} (must be 1-90)`,
-        code: "INVALID_EXCHANGE",
-      };
-    }
-  }
+  else if (zoneNum < 1 || zoneNum > 90) {
+        return {
+          field: "zone",
+          message: `Invalid ITU zone: ${zone} (must be 1-90)`,
+          code: "INVALID_EXCHANGE",
+        };
+      }
 
   return null;
 }
@@ -672,7 +670,7 @@ function validateExchange(
   ctx: ContestContext,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  const contest = ctx.contest;
+  const {contest} = ctx;
   const contestId = contest.id.toLowerCase();
 
   // Check each field in the parsed exchange

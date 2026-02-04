@@ -455,12 +455,16 @@ export function ContestSpotsPanel({
 
   // Get contest definition and needed multipliers
   const contestDef = useMemo(() => {
-    if (!activeSession?.contestId) return null;
+    if (!activeSession?.contestId) {
+      return null;
+    }
     return getContestById(activeSession.contestId);
   }, [activeSession?.contestId]);
 
   const neededMults = useMemo(() => {
-    if (!activeSession || !contestDef) return [];
+    if (!activeSession || !contestDef) {
+      return [];
+    }
     return getNeededMultipliers(activeSession, contestDef);
   }, [activeSession, contestDef]);
 
@@ -571,12 +575,14 @@ export function ContestSpotsPanel({
   // Filter summary
   const filterSummary = useMemo(() => {
     const parts: string[] = [];
-    if (bandFilter === "current") parts.push(currentBand);
-    else if (bandFilter === "hf") parts.push("HF");
-    else parts.push("All bands");
+    if (bandFilter === "current") {
+      parts.push(currentBand);
+    } else if (bandFilter === "hf") parts.push("HF");
+        else parts.push("All bands");
 
-    if (modeFilter === "current") parts.push(currentMode);
-    else parts.push("All modes");
+    if (modeFilter === "current") {
+      parts.push(currentMode);
+    } else parts.push("All modes");
 
     return parts.join(" / ");
   }, [bandFilter, modeFilter, currentBand, currentMode]);

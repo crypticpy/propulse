@@ -87,9 +87,15 @@ const HISTORICAL_CONTEXT = {
  * Get severity level based on probability
  */
 function getSeverityLevel(prob: number): { level: string; color: string } {
-  if (prob >= 50) return { level: "High", color: "#ff4455" };
-  if (prob >= 25) return { level: "Moderate", color: "#ff7700" };
-  if (prob >= 10) return { level: "Low", color: "#ffaa00" };
+  if (prob >= 50) {
+    return { level: "High", color: "#ff4455" };
+  }
+  if (prob >= 25) {
+    return { level: "Moderate", color: "#ff7700" };
+  }
+  if (prob >= 10) {
+    return { level: "Low", color: "#ffaa00" };
+  }
   return { level: "Very Low", color: "#44dd66" };
 }
 

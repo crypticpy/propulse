@@ -268,11 +268,8 @@ export function calculateQSOPoints(
   let points = rules.differentContinent;
 
   // Some contests have different points for low bands
-  if (isLowBand(qso.band)) {
-    // CQ WPX gives 6 points on 160/80/40m for DX
-    if (contest.id.includes("WPX")) {
-      points = 6;
-    }
+  if (isLowBand(qso.band) && contest.id.includes("WPX")) {
+        points = 6;
   }
 
   return points;
@@ -308,21 +305,29 @@ export function isDupeQSO(
 
   for (const qso of workedLog) {
     // Skip duped QSOs in the log (don't double-count)
-    if (qso.isDupe) continue;
+    if (qso.isDupe) {
+      continue;
+    }
 
     const logCall = qso.callsign.toUpperCase().trim();
-    if (logCall !== normalizedCall) continue;
+    if (logCall !== normalizedCall) {
+      continue;
+    }
 
     // Check band if required
     if (perBand) {
       const logBand = normalizeBand(qso.band);
-      if (logBand !== normalizedBand) continue;
+      if (logBand !== normalizedBand) {
+        continue;
+      }
     }
 
     // Check mode if required
     if (perMode) {
       const logMode = normalizeMode(qso.mode);
-      if (logMode !== normalizedMode) continue;
+      if (logMode !== normalizedMode) {
+        continue;
+      }
     }
 
     // Match found - it's a dupe
@@ -465,14 +470,18 @@ export function calculateQSORate(
   startTime: string,
   endTime?: string,
 ): number {
-  if (qsoCount === 0) return 0;
+  if (qsoCount === 0) {
+    return 0;
+  }
 
   const start = new Date(startTime).getTime();
   const end = endTime ? new Date(endTime).getTime() : Date.now();
 
   const hoursElapsed = (end - start) / (1000 * 60 * 60);
 
-  if (hoursElapsed <= 0) return 0;
+  if (hoursElapsed <= 0) {
+    return 0;
+  }
 
   return Math.round((qsoCount / hoursElapsed) * 10) / 10;
 }
@@ -488,7 +497,9 @@ export function calculateRunningRate(
   qsos: ContestQSO[],
   windowMinutes: number = 60,
 ): number {
-  if (qsos.length === 0) return 0;
+  if (qsos.length === 0) {
+    return 0;
+  }
 
   const now = Date.now();
   const windowStart = now - windowMinutes * 60 * 1000;
@@ -653,7 +664,9 @@ function normalizeMode(mode: string): string {
  * Extract ARRL section from exchange
  */
 function extractSection(exchange: string): string | null {
-  if (!exchange) return null;
+  if (!exchange) {
+    return null;
+  }
 
   // Common ARRL/RAC sections
   const sections = [
@@ -773,7 +786,9 @@ function extractSection(exchange: string): string | null {
  * Extract grid square from exchange
  */
 function extractGrid(exchange: string): string | null {
-  if (!exchange) return null;
+  if (!exchange) {
+    return null;
+  }
 
   // Grid format: 2 letters + 2 digits + optional 2 letters
   const gridMatch = exchange.match(/\b([A-R]{2}[0-9]{2}([A-X]{2})?)\b/i);

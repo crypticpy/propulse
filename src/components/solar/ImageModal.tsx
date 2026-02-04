@@ -56,7 +56,9 @@ export const ImageModal: React.FC<ImageModalProps> = ({
     };
   }, [isOpen, handleKeyDown]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div

@@ -253,7 +253,9 @@ function drawMiniMap(
   ctx.strokeStyle = "rgba(100, 150, 180, 0.6)";
   ctx.lineWidth = 0.8;
   for (const coastline of WORLD_COASTLINES) {
-    if (coastline.length < 2) continue;
+    if (coastline.length < 2) {
+      continue;
+    }
     ctx.beginPath();
     const [firstLon, firstLat] = coastline[0];
     const firstPoint = latLonToCanvas(firstLat, firstLon, width, height);
@@ -357,9 +359,13 @@ export function MiniMapNavigator({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !isVisible) return;
+    if (!canvas || !isVisible) {
+      return;
+    }
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     drawMiniMap(ctx, MINI_MAP_WIDTH, MINI_MAP_HEIGHT, {
       viewportBounds,
@@ -382,7 +388,9 @@ export function MiniMapNavigator({
   const handleClick = useCallback(
     (e: ReactMouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
-      if (!canvas || isDragging) return;
+      if (!canvas || isDragging) {
+        return;
+      }
 
       const rect = canvas.getBoundingClientRect();
       const scaleX = MINI_MAP_WIDTH / rect.width;

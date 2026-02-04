@@ -236,10 +236,18 @@ function calculateGeomagneticFactor(kIndex: number): {
  * Convert score to feasibility level
  */
 function scoreToLevel(score: number): FeasibilityLevel {
-  if (score >= 80) return "excellent";
-  if (score >= 60) return "good";
-  if (score >= 40) return "fair";
-  if (score >= 20) return "poor";
+  if (score >= 80) {
+    return "excellent";
+  }
+  if (score >= 60) {
+    return "good";
+  }
+  if (score >= 40) {
+    return "fair";
+  }
+  if (score >= 20) {
+    return "poor";
+  }
   return "unlikely";
 }
 
@@ -313,10 +321,18 @@ function determineOptimalBand(
   const bandFreq = bandFrequencies[baseBand] || 14;
   if (bandFreq > muf) {
     // Step down to a band below MUF
-    if (muf > 21) return "15m";
-    if (muf > 14) return "20m";
-    if (muf > 10) return "30m";
-    if (muf > 7) return "40m";
+    if (muf > 21) {
+      return "15m";
+    }
+    if (muf > 14) {
+      return "20m";
+    }
+    if (muf > 10) {
+      return "30m";
+    }
+    if (muf > 7) {
+      return "40m";
+    }
     return "80m";
   }
 

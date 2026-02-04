@@ -40,8 +40,12 @@ export function getMinutesAgo(date: Date): number {
  * Format distance for display (e.g., "1,234 km" or "12,345 km")
  */
 export function formatDistance(km: number | null): string {
-  if (km === null) return "---";
-  if (km < 1000) return `${Math.round(km)} km`;
+  if (km === null) {
+    return "---";
+  }
+  if (km < 1000) {
+    return `${Math.round(km)} km`;
+  }
   return `${Math.round(km / 100) / 10}k km`;
 }
 

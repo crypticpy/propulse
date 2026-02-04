@@ -61,7 +61,9 @@ export function announceToScreenReader(
  * Respects the 'prefers-reduced-motion' media query.
  */
 export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") {
+    return false;
+  }
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
@@ -70,7 +72,9 @@ export function prefersReducedMotion(): boolean {
  * Respects the 'prefers-contrast' media query.
  */
 export function prefersHighContrast(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") {
+    return false;
+  }
   return window.matchMedia("(prefers-contrast: more)").matches;
 }
 
@@ -79,7 +83,9 @@ export function prefersHighContrast(): boolean {
  * PropSphere is dark by default, but this can be useful for adjustments.
  */
 export function prefersDarkMode(): boolean {
-  if (typeof window === "undefined") return true;
+  if (typeof window === "undefined") {
+    return true;
+  }
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -103,21 +109,21 @@ export function createFocusTrap(containerElement: HTMLElement): () => void {
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key !== "Tab") return;
+    if (e.key !== "Tab") {
+      return;
+    }
 
     if (e.shiftKey) {
-      // Shift + Tab
-      if (document.activeElement === firstFocusable) {
-        e.preventDefault();
-        lastFocusable?.focus();
-      }
-    } else {
-      // Tab
-      if (document.activeElement === lastFocusable) {
-        e.preventDefault();
-        firstFocusable?.focus();
-      }
-    }
+          // Shift + Tab
+          if (document.activeElement === firstFocusable) {
+            e.preventDefault();
+            lastFocusable?.focus();
+          }
+        }
+    else if (document.activeElement === lastFocusable) {
+            e.preventDefault();
+            firstFocusable?.focus();
+          }
   };
 
   containerElement.addEventListener("keydown", handleKeyDown);

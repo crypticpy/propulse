@@ -90,7 +90,7 @@ function getUpDirection(lat: number, lon: number): THREE.Vector3 {
 function getScreenPositionFromEvent(
   event: ThreeEvent<MouseEvent | PointerEvent>,
 ): { x: number; y: number } {
-  const nativeEvent = event.nativeEvent;
+  const {nativeEvent} = event;
   return {
     x: nativeEvent.clientX,
     y: nativeEvent.clientY,

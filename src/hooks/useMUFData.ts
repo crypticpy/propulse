@@ -19,7 +19,9 @@ export function useMUFData(displayTime: Date): MUFData | null {
   const { data: solarFluxData } = useSolarFlux();
 
   return useMemo(() => {
-    if (!solarFluxData?.length) return null;
+    if (!solarFluxData?.length) {
+      return null;
+    }
 
     // Use the most recent SFI value
     const latestSFI = solarFluxData[solarFluxData.length - 1];
@@ -38,7 +40,9 @@ export function useCurrentSFI(): number | null {
   const { data: solarFluxData } = useSolarFlux();
 
   return useMemo(() => {
-    if (!solarFluxData?.length) return null;
+    if (!solarFluxData?.length) {
+      return null;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 }

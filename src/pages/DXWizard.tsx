@@ -60,12 +60,16 @@ const DEFAULT_FREQS_KHZ: Record<string, Record<WizardMode, number[]>> = {
 };
 
 function formatKHz(khz: number): string {
-  if (khz >= 1000) return `${(khz / 1000).toFixed(3)} MHz`;
+  if (khz >= 1000) {
+    return `${(khz / 1000).toFixed(3)} MHz`;
+  }
   return `${khz} kHz`;
 }
 
 function clampWatts(value: number): number {
-  if (!Number.isFinite(value)) return 100;
+  if (!Number.isFinite(value)) {
+    return 100;
+  }
   return Math.max(1, Math.min(1500, Math.round(value)));
 }
 
@@ -74,7 +78,9 @@ function estimateRequiredPowerWatts(
   targetSnr: number,
 ): number {
   const deltaDb = targetSnr - snrAt100W;
-  if (deltaDb <= 0) return 10;
+  if (deltaDb <= 0) {
+    return 10;
+  }
   const scale = Math.pow(10, deltaDb / 10);
   return clampWatts(100 * scale);
 }
@@ -130,13 +136,17 @@ function pickAllowedFrequenciesKHz(params: {
   const { band, mode, region, licenseClass } = params;
   const planMode = MODE_TO_BANDPLAN[mode];
   const segments = getAvailableSegments(band, region, licenseClass, planMode);
-  if (segments.length === 0) return [];
+  if (segments.length === 0) {
+    return [];
+  }
 
   const preferred = DEFAULT_FREQS_KHZ[band]?.[mode] ?? [];
   const allowedPreferred = preferred.filter((khz) =>
     segments.some((s) => khz >= s.startKHz && khz <= s.endKHz),
   );
-  if (allowedPreferred.length > 0) return allowedPreferred;
+  if (allowedPreferred.length > 0) {
+    return allowedPreferred;
+  }
 
   const primary = segments.find((s) => s.isPrimary) ?? segments[0];
   const mid = Math.round((primary.startKHz + primary.endKHz) / 2);
@@ -152,7 +162,9 @@ function getMaxAllowedPowerWatts(params: {
   const { band, mode, region, licenseClass } = params;
   const planMode = MODE_TO_BANDPLAN[mode];
   const segments = getAvailableSegments(band, region, licenseClass, planMode);
-  if (segments.length === 0) return null;
+  if (segments.length === 0) {
+    return null;
+  }
   return Math.min(...segments.map((s) => s.maxPowerWatts));
 }
 
@@ -161,7 +173,9 @@ export function DXWizard() {
   const preferences = useUserStore((s) => s.preferences);
   const activeUserRadio = useUserStore((s) => {
     const id = s.preferences.activeRadioId;
-    if (!id) return null;
+    if (!id) {
+      return null;
+    }
     return (s.preferences.radios || []).find((r) => r.id === id) ?? null;
   });
   const userRadios = useUserRadios();
@@ -194,17 +208,23 @@ export function DXWizard() {
   const { data: solarFluxData, isError: solarFluxError } = useSolarFlux();
 
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return DEFAULT_KP;
+    if (!kIndexData || kIndexData.length === 0) {
+      return DEFAULT_KP;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return DEFAULT_SFI;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return DEFAULT_SFI;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
   const selectedRadio = useMemo(() => {
-    if (selectedRadioId === null) return activeRadio;
+    if (selectedRadioId === null) {
+      return activeRadio;
+    }
     const fromInstance =
       radioInstances.find((r) => r.id === selectedRadioId) ?? null;
     const selectedEquipmentId = fromInstance?.equipmentId ?? selectedRadioId;
@@ -219,7 +239,9 @@ export function DXWizard() {
   }, [activeRadio, customRadios, radioInstances, selectedRadioId, userRadios]);
 
   const selectedRadioInstance = useMemo(() => {
-    if (selectedRadioId === null) return null;
+    if (selectedRadioId === null) {
+      return null;
+    }
     return radioInstances.find((r) => r.id === selectedRadioId) ?? null;
   }, [radioInstances, selectedRadioId]);
 
@@ -328,7 +350,9 @@ export function DXWizard() {
   }, [callsignInput]);
 
   const recommendation = useMemo(() => {
-    if (!station || !target) return null;
+    if (!station || !target) {
+      return null;
+    }
 
     const txPowerBaseline = 100;
     const bands = getEnhancedBandConditions(
@@ -390,8 +414,12 @@ export function DXWizard() {
     }
 
     const best = [...candidates].sort((a, b) => {
-      if (a.withinCeiling !== b.withinCeiling) return a.withinCeiling ? -1 : 1;
-      if (a.requiredWatts !== b.requiredWatts) return a.requiredWatts - b.requiredWatts;
+      if (a.withinCeiling !== b.withinCeiling) {
+        return a.withinCeiling ? -1 : 1;
+      }
+      if (a.requiredWatts !== b.requiredWatts) {
+        return a.requiredWatts - b.requiredWatts;
+      }
       return b.snrEstimate - a.snrEstimate;
     })[0];
 

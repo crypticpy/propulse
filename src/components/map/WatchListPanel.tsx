@@ -51,23 +51,37 @@ const WATCH_TYPE_CONFIG: Record<
  * Format relative time (e.g., "2 min ago")
  */
 function formatRelativeTime(isoString: string | undefined): string {
-  if (!isoString) return "Never";
+  if (!isoString) {
+    return "Never";
+  }
 
   const date = new Date(isoString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
 
-  if (diffMins < 1) return "Just now";
-  if (diffMins === 1) return "1 min ago";
-  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffMins < 1) {
+    return "Just now";
+  }
+  if (diffMins === 1) {
+    return "1 min ago";
+  }
+  if (diffMins < 60) {
+    return `${diffMins} min ago`;
+  }
 
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours === 1) return "1 hour ago";
-  if (diffHours < 24) return `${diffHours} hours ago`;
+  if (diffHours === 1) {
+    return "1 hour ago";
+  }
+  if (diffHours < 24) {
+    return `${diffHours} hours ago`;
+  }
 
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "1 day ago";
+  if (diffDays === 1) {
+    return "1 day ago";
+  }
   return `${diffDays} days ago`;
 }
 
@@ -455,8 +469,12 @@ export function WatchListPanel({
   const sortedWatches = useMemo(() => {
     return [...watches].sort((a, b) => {
       // Active watches first
-      if (a.isActive && !b.isActive) return -1;
-      if (!a.isActive && b.isActive) return 1;
+      if (a.isActive && !b.isActive) {
+        return -1;
+      }
+      if (!a.isActive && b.isActive) {
+        return 1;
+      }
       // Then by creation date (newest first)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });

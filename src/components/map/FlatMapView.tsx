@@ -65,9 +65,12 @@ let nightTextureRetries = 0;
 const MAX_TEXTURE_RETRIES = 3;
 
 function ensureNightTextureLoaded(): HTMLImageElement | null {
-  if (nightTextureImage) return nightTextureImage;
-  if (nightTextureLoading || nightTextureRetries >= MAX_TEXTURE_RETRIES)
+  if (nightTextureImage) {
+    return nightTextureImage;
+  }
+  if (nightTextureLoading || nightTextureRetries >= MAX_TEXTURE_RETRIES) {
     return null;
+  }
   nightTextureLoading = true;
   const img = new Image();
   img.onload = () => {
@@ -246,7 +249,9 @@ function drawNightSide(
   desatCanvas.width = width;
   desatCanvas.height = height;
   const desatCtx = desatCanvas.getContext("2d");
-  if (!desatCtx) return;
+  if (!desatCtx) {
+    return;
+  }
 
   const desatData = desatCtx.createImageData(width, height);
   const desatPixels = desatData.data;
@@ -256,7 +261,9 @@ function drawNightSide(
   darkCanvas.width = width;
   darkCanvas.height = height;
   const darkCtx = darkCanvas.getContext("2d");
-  if (!darkCtx) return;
+  if (!darkCtx) {
+    return;
+  }
 
   const darkData = darkCtx.createImageData(width, height);
   const darkPixels = darkData.data;
@@ -266,7 +273,9 @@ function drawNightSide(
   blueCanvas.width = width;
   blueCanvas.height = height;
   const blueCtx = blueCanvas.getContext("2d");
-  if (!blueCtx) return;
+  if (!blueCtx) {
+    return;
+  }
 
   const blueData = blueCtx.createImageData(width, height);
   const bluePixels = blueData.data;
@@ -457,11 +466,13 @@ function drawGreyline(
   offscreen.width = width;
   offscreen.height = height;
   const offCtx = offscreen.getContext("2d");
-  if (!offCtx) return;
+  if (!offCtx) {
+    return;
+  }
 
   // Build greyline overlay with additive golden tint
   const imageData = offCtx.createImageData(width, height);
-  const data = imageData.data;
+  const {data} = imageData;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -731,7 +742,9 @@ function drawMUF(
   tempCanvas.width = width;
   tempCanvas.height = height;
   const tempCtx = tempCanvas.getContext("2d");
-  if (!tempCtx) return;
+  if (!tempCtx) {
+    return;
+  }
 
   // Calculate MUF at lower resolution for performance, then scale up
   const resolution = 10; // degrees
@@ -1073,8 +1086,10 @@ function drawCallsignLabels(
   ctx.textBaseline = "bottom";
 
   for (const spot of spots) {
-    const callsign = spot.callsign;
-    if (!callsign) continue;
+    const {callsign} = spot;
+    if (!callsign) {
+      continue;
+    }
 
     const { x, y } = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
     const textMetrics = ctx.measureText(callsign);
@@ -1172,7 +1187,9 @@ function drawNightLights(
 ) {
   // Ensure texture is loaded (triggers async load on first call)
   const nightTexture = ensureNightTextureLoaded();
-  if (!nightTexture) return;
+  if (!nightTexture) {
+    return;
+  }
 
   // Check cache: reuse if time hasn't changed by >= 1 minute and dimensions match
   const currentMinute = getTimeMinute(date);
@@ -1218,7 +1235,9 @@ function drawNightLights(
   texCanvas.width = width;
   texCanvas.height = height;
   const texCtx = texCanvas.getContext("2d");
-  if (!texCtx) return;
+  if (!texCtx) {
+    return;
+  }
 
   texCtx.drawImage(nightTexture, 0, 0, width, height);
   const texData = texCtx.getImageData(0, 0, width, height);
@@ -1229,7 +1248,9 @@ function drawNightLights(
   outCanvas.width = width;
   outCanvas.height = height;
   const outCtx = outCanvas.getContext("2d");
-  if (!outCtx) return;
+  if (!outCtx) {
+    return;
+  }
 
   const outData = outCtx.createImageData(width, height);
   const outPixels = outData.data;
@@ -1258,7 +1279,9 @@ function drawNightLights(
       const lightBrightness = Math.max(texR, texG, texB) / 255;
 
       // Skip very dark pixels (no city lights here)
-      if (lightBrightness < 0.02) continue;
+      if (lightBrightness < 0.02) {
+        continue;
+      }
 
       // Solar angle for night masking
       const cosAngle = sinLat * sinSubLat + cosLat * cosSubLat * lonDeltaCos[x];
@@ -1266,7 +1289,9 @@ function drawNightLights(
         Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
 
       // Only show lights on night side: fade in during twilight (85-95 degrees)
-      if (angle <= 85) continue;
+      if (angle <= 85) {
+        continue;
+      }
 
       let nightFade: number;
       if (angle >= 95) {
@@ -1591,13 +1616,17 @@ export function FlatMapView({
 
   // Resolve spot locations and limit to 50 for performance
   const resolvedSpots = useMemo(() => {
-    if (!layers.spots) return [];
+    if (!layers.spots) {
+      return [];
+    }
     return resolveSpotLocations(spots).slice(0, 50);
   }, [spots, layers.spots]);
 
   // Calculate path metrics for target marker display
   const pathMetrics = useMemo(() => {
-    if (!station || !target) return null;
+    if (!station || !target) {
+      return null;
+    }
     return getPathMetrics(station.lat, station.lon, target.lat, target.lon);
   }, [station, target]);
 
@@ -1619,7 +1648,9 @@ export function FlatMapView({
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
   const tooltipSpots = useMemo(() => {
-    if (!tooltipPosition?.grid) return [];
+    if (!tooltipPosition?.grid) {
+      return [];
+    }
     const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
     return allSpots.filter((spot) => {
       const dxGrid = (spot.dxGrid || "").toUpperCase();
@@ -1658,7 +1689,9 @@ export function FlatMapView({
   const findPinAtScreenPos = useCallback(
     (screenPos: { x: number; y: number }): MapPin | null => {
       const canvas = canvasRef.current;
-      if (!canvas || pins.length === 0) return null;
+      if (!canvas || pins.length === 0) {
+        return null;
+      }
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
 
@@ -1673,7 +1706,9 @@ export function FlatMapView({
         const sy = rect.top + cp.y * z.scale + z.offsetY;
         const dx = screenPos.x - sx;
         const dy = screenPos.y - sy;
-        if (dx * dx + dy * dy < PIN_HIT_RADIUS_SQ) return pin;
+        if (dx * dx + dy * dy < PIN_HIT_RADIUS_SQ) {
+          return pin;
+        }
       }
       return null;
     },
@@ -1691,10 +1726,14 @@ export function FlatMapView({
         return;
       }
       // Clear pin hover if we moved away from a pin
-      if (hoveredPinData) setHoveredPinData(null);
+      if (hoveredPinData) {
+        setHoveredPinData(null);
+      }
 
       // Don't show tooltip if flyout is open
-      if (flyoutPosition) return;
+      if (flyoutPosition) {
+        return;
+      }
       const grid = latLonToGrid(lat, lon);
       setTooltipPosition({ x: screenPos.x, y: screenPos.y, grid });
     },
@@ -1803,7 +1842,9 @@ export function FlatMapView({
   // Handle flyout actions (fallback for unhandled actions)
   const handleFlyoutAction = useCallback(
     (action: MapFlyoutAction) => {
-      if (!flyoutPosition) return;
+      if (!flyoutPosition) {
+        return;
+      }
 
       switch (action) {
         case "setTarget":
@@ -1846,7 +1887,9 @@ export function FlatMapView({
   // Smooth zoom animation loop driven by requestAnimationFrame
   const runZoomAnimation = useCallback(() => {
     const anim = zoomAnimationRef.current;
-    if (!anim) return;
+    if (!anim) {
+      return;
+    }
 
     const elapsed = performance.now() - anim.startTime;
     const t = Math.min(1, elapsed / anim.duration);
@@ -1879,7 +1922,9 @@ export function FlatMapView({
     (e: WheelEvent) => {
       e.preventDefault();
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (!canvas) {
+        return;
+      }
 
       const rect = canvas.getBoundingClientRect();
 
@@ -1968,7 +2013,9 @@ export function FlatMapView({
   // Attach wheel event listener with passive: false to allow preventDefault
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
@@ -1991,7 +2038,9 @@ export function FlatMapView({
   // Observe container resize for responsive display (debounced via rAF)
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     let rafId = 0;
     const updateSize = () => {
@@ -2022,13 +2071,19 @@ export function FlatMapView({
   // Smooth pan-to-preset animation (500ms ease-out)
   // When activePresetId changes, animate from current zoom to the preset view
   useEffect(() => {
-    if (activePresetId === prevPresetIdRef.current) return;
+    if (activePresetId === prevPresetIdRef.current) {
+      return;
+    }
     prevPresetIdRef.current = activePresetId;
 
-    if (!activePresetId) return;
+    if (!activePresetId) {
+      return;
+    }
 
     const preset = regionPresets.find((p) => p.id === activePresetId);
-    if (!preset) return;
+    if (!preset) {
+      return;
+    }
 
     // Calculate target offset from the preset's center (interpreting rotation as center offset)
     const rotation = preset.rotation ?? {
@@ -2074,7 +2129,9 @@ export function FlatMapView({
   // Double-click centering animation (500ms ease-out)
   // When centerLocation changes, animate to center that lat/lon in the viewport
   useEffect(() => {
-    if (!centerLocation) return;
+    if (!centerLocation) {
+      return;
+    }
 
     // Convert lat/lon to map-space pixel position (equirectangular projection)
     const mapX = ((centerLocation.lon + 180) / 360) * displaySize.width;
@@ -2130,7 +2187,9 @@ export function FlatMapView({
       const hCanvas = highlightCanvasRef.current;
       if (hCanvas) {
         const hCtx = hCanvas.getContext("2d");
-        if (hCtx) hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+        if (hCtx) {
+          hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+        }
       }
       if (spotHighlightRafRef.current) {
         cancelAnimationFrame(spotHighlightRafRef.current);
@@ -2139,12 +2198,14 @@ export function FlatMapView({
       return;
     }
 
-    const dxLat = focusedSpot.dxLat;
-    const dxLon = focusedSpot.dxLon;
+    const {dxLat} = focusedSpot;
+    const {dxLon} = focusedSpot;
     let running = true;
 
     const animate = () => {
-      if (!running) return;
+      if (!running) {
+        return;
+      }
       const hCanvas = highlightCanvasRef.current;
       if (!hCanvas) {
         spotHighlightRafRef.current = requestAnimationFrame(animate);
@@ -2194,9 +2255,12 @@ export function FlatMapView({
   // Cleanup animation refs on unmount
   useEffect(() => {
     return () => {
-      if (zoomRafRef.current) cancelAnimationFrame(zoomRafRef.current);
-      if (spotHighlightRafRef.current)
+      if (zoomRafRef.current) {
+        cancelAnimationFrame(zoomRafRef.current);
+      }
+      if (spotHighlightRafRef.current) {
         cancelAnimationFrame(spotHighlightRafRef.current);
+      }
     };
   }, []);
 
@@ -2215,10 +2279,14 @@ export function FlatMapView({
   // Render map
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !mapImage) return;
+    if (!canvas || !mapImage) {
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     const dpr = window.devicePixelRatio || 1;
     const renderWidth = displaySize.width;

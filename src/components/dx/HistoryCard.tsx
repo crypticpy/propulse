@@ -89,7 +89,9 @@ export function HistoryCard({ className = "" }: HistoryCardProps) {
   // Filter entries matching today's month-day from previous years
   // Sort by uniqueness (callsign prefix rarity) - prioritize rare prefixes
   const historyEntries = useMemo(() => {
-    if (!entries || entries.length === 0) return [];
+    if (!entries || entries.length === 0) {
+      return [];
+    }
 
     const matching: HistoryEntry[] = entries
       .filter((entry) => {
@@ -125,7 +127,9 @@ export function HistoryCard({ className = "" }: HistoryCardProps) {
 
   // Build the display string
   const displayText = useMemo(() => {
-    if (historyEntries.length === 0) return null;
+    if (historyEntries.length === 0) {
+      return null;
+    }
 
     const items = historyEntries
       .slice(0, 3) // Show up to 3 entries

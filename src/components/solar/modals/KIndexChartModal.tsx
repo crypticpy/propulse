@@ -71,9 +71,15 @@ const G_SCALE_LEVELS = [
  * Get bar color based on K-index severity
  */
 function getBarColor(kp: number): string {
-  if (kp <= 2) return "#00ff88";
-  if (kp <= 4) return "#ffaa00";
-  if (kp <= 6) return "#ff7700";
+  if (kp <= 2) {
+    return "#00ff88";
+  }
+  if (kp <= 4) {
+    return "#ffaa00";
+  }
+  if (kp <= 6) {
+    return "#ff7700";
+  }
   return "#ff4455";
 }
 
@@ -101,15 +107,17 @@ function calculateStormProbability(data: KIndexDataPoint[]): {
       : avgRecent;
 
   let trend: "increasing" | "decreasing" | "stable" = "stable";
-  if (avgRecent - avgOlder > 1) trend = "increasing";
-  else if (avgOlder - avgRecent > 1) trend = "decreasing";
+  if (avgRecent - avgOlder > 1) {
+    trend = "increasing";
+  } else if (avgOlder - avgRecent > 1) trend = "decreasing";
 
   // Estimate probability of storm (Kp >= 5) in next 6 hours
   let probability = 0;
-  if (currentKp >= 5) probability = 80;
-  else if (currentKp >= 4) probability = trend === "increasing" ? 50 : 25;
-  else if (currentKp >= 3) probability = trend === "increasing" ? 25 : 10;
-  else probability = trend === "increasing" ? 10 : 5;
+  if (currentKp >= 5) {
+    probability = 80;
+  } else if (currentKp >= 4) probability = trend === "increasing" ? 50 : 25;
+    else if (currentKp >= 3) probability = trend === "increasing" ? 25 : 10;
+    else probability = trend === "increasing" ? 10 : 5;
 
   const current =
     G_SCALE_LEVELS.find((g) => g.kpRange.includes(String(currentKp)))?.level ||
@@ -137,7 +145,9 @@ export const KIndexChartModal: React.FC<KIndexChartModalProps> = ({
   const innerHeight = chartHeight - padding.top - padding.bottom;
 
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!data || data.length === 0) {
+      return [];
+    }
 
     // Take last 8 data points (3-hour intervals for 24 hours)
     const recentData = data.slice(-8);

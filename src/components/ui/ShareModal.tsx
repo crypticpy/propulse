@@ -72,7 +72,7 @@ function generateQRMatrix(data: string): boolean[][] {
   let hash = 0;
   for (let i = 0; i < data.length; i++) {
     hash = (hash << 5) - hash + data.charCodeAt(i);
-    hash = hash & hash;
+    hash &= hash;
   }
 
   // Fill data area with pseudo-random pattern based on hash
@@ -168,7 +168,9 @@ export function ShareModal({
 
   // Handle ESC key
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -182,7 +184,9 @@ export function ShareModal({
 
   // Prevent background scroll
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -224,8 +228,12 @@ export function ShareModal({
     window.open(tweetUrl.toString(), "_blank", "noopener,noreferrer");
   }, [twitterText, shareURL]);
 
-  if (!isOpen) return null;
-  if (typeof document === "undefined") return null;
+  if (!isOpen) {
+    return null;
+  }
+  if (typeof document === "undefined") {
+    return null;
+  }
 
   const targetInfo = state.target
     ? `${state.target.name || state.target.grid || "Target"} (${state.target.lat.toFixed(2)}, ${state.target.lon.toFixed(2)})`

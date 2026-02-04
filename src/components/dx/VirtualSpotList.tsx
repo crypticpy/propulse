@@ -86,7 +86,9 @@ function VirtualListInner<T>({
   // Measure container height if given as CSS string
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const updateHeight = () => {
       setContainerHeightPx(container.clientHeight);
@@ -227,7 +229,9 @@ export function useVirtualList<T>(
 
   const scrollToIndex = useCallback(
     (index: number, containerElement: HTMLElement | null) => {
-      if (!containerElement) return;
+      if (!containerElement) {
+        return;
+      }
       const targetScrollTop = index * itemHeight;
       containerElement.scrollTop = targetScrollTop;
       setScrollTop(targetScrollTop);

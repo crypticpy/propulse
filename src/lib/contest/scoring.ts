@@ -60,8 +60,12 @@ function normalizeBandLocal(band: string): string {
 function normalizeModeLocal(mode: string): string {
   const cleaned = mode.trim().toUpperCase();
   const phoneModes = new Set(["SSB", "USB", "LSB", "PHONE", "AM", "FM"]);
-  if (phoneModes.has(cleaned)) return "SSB";
-  if (cleaned === "CW") return "CW";
+  if (phoneModes.has(cleaned)) {
+    return "SSB";
+  }
+  if (cleaned === "CW") {
+    return "CW";
+  }
   const digitalModes = new Set([
     "RTTY",
     "PSK31",
@@ -80,7 +84,9 @@ function normalizeModeLocal(mode: string): string {
     "DIGITAL",
     "DIGI",
   ]);
-  if (digitalModes.has(cleaned)) return "DIGITAL";
+  if (digitalModes.has(cleaned)) {
+    return "DIGITAL";
+  }
   return cleaned;
 }
 
@@ -122,7 +128,7 @@ export function computeQSOPoints(
     return 0;
   }
 
-  const scoring = contest.scoring;
+  const {scoring} = contest;
 
   switch (scoring.mode) {
     case "fixed":
@@ -197,7 +203,9 @@ export function computeRunningRate(
   qsos: ContestQSO[],
   windowMinutes: number = 60,
 ): number {
-  if (qsos.length === 0) return 0;
+  if (qsos.length === 0) {
+    return 0;
+  }
 
   // Get the most recent QSO time
   const sortedQsos = [...qsos].sort((a, b) => {
@@ -248,7 +256,9 @@ function parseQSODateTime(date: string, time: string): Date {
  * @returns Array of hourly rate data
  */
 export function computeHourlyRates(qsos: ContestQSO[]): HourlyRate[] {
-  if (qsos.length === 0) return [];
+  if (qsos.length === 0) {
+    return [];
+  }
 
   // Sort QSOs by time
   const sortedQsos = [...qsos].sort((a, b) => {
@@ -364,9 +374,15 @@ export function computeBandBreakdown(qsos: ContestQSO[]): BandScoreBreakdown[] {
   breakdowns.sort((a, b) => {
     const indexA = bandOrder.indexOf(a.band);
     const indexB = bandOrder.indexOf(b.band);
-    if (indexA === -1 && indexB === -1) return a.band.localeCompare(b.band);
-    if (indexA === -1) return 1;
-    if (indexB === -1) return -1;
+    if (indexA === -1 && indexB === -1) {
+      return a.band.localeCompare(b.band);
+    }
+    if (indexA === -1) {
+      return 1;
+    }
+    if (indexB === -1) {
+      return -1;
+    }
     return indexA - indexB;
   });
 
@@ -413,9 +429,15 @@ export function computeModeBreakdown(qsos: ContestQSO[]): ModeScoreBreakdown[] {
   breakdowns.sort((a, b) => {
     const indexA = modeOrder.indexOf(a.mode);
     const indexB = modeOrder.indexOf(b.mode);
-    if (indexA === -1 && indexB === -1) return a.mode.localeCompare(b.mode);
-    if (indexA === -1) return 1;
-    if (indexB === -1) return -1;
+    if (indexA === -1 && indexB === -1) {
+      return a.mode.localeCompare(b.mode);
+    }
+    if (indexA === -1) {
+      return 1;
+    }
+    if (indexB === -1) {
+      return -1;
+    }
     return indexA - indexB;
   });
 
@@ -439,7 +461,9 @@ export function projectFinalScore(
   elapsedMinutes: number,
   contestDuration: number,
 ): number {
-  if (elapsedMinutes <= 0) return 0;
+  if (elapsedMinutes <= 0) {
+    return 0;
+  }
 
   const totalMinutes = contestDuration * 60;
   const projectionFactor = totalMinutes / elapsedMinutes;

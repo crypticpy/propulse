@@ -20,9 +20,15 @@ export interface KIndexChartProps {
  * Get bar color based on K-index severity
  */
 function getBarColor(kp: number): string {
-  if (kp <= 2) return "#00ff88"; // Green - Quiet
-  if (kp <= 4) return "#ffaa00"; // Yellow - Unsettled
-  if (kp <= 6) return "#ff7700"; // Orange - Storm
+  if (kp <= 2) {
+    return "#00ff88";
+  } // Green - Quiet
+  if (kp <= 4) {
+    return "#ffaa00";
+  } // Yellow - Unsettled
+  if (kp <= 6) {
+    return "#ff7700";
+  } // Orange - Storm
   return "#ff4455"; // Red - Severe
 }
 
@@ -30,9 +36,15 @@ function getBarColor(kp: number): string {
  * Get severity label for K-index value
  */
 function getSeverityLabel(kp: number): string {
-  if (kp <= 2) return "Quiet";
-  if (kp <= 4) return "Unsettled";
-  if (kp <= 6) return "Storm";
+  if (kp <= 2) {
+    return "Quiet";
+  }
+  if (kp <= 4) {
+    return "Unsettled";
+  }
+  if (kp <= 6) {
+    return "Storm";
+  }
   return "Severe";
 }
 
@@ -61,7 +73,9 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
 
   // Process data for chart
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!data || data.length === 0) {
+      return [];
+    }
 
     // Take last 8 data points (3-hour intervals for 24 hours)
     const recentData = data.slice(-8);

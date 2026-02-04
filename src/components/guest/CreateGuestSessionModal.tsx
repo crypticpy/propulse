@@ -38,7 +38,9 @@ export function CreateGuestSessionModal({
   }, [createSession, stationCallsign, duration]);
 
   const handleCopyCode = useCallback(async () => {
-    if (!activeSession) return;
+    if (!activeSession) {
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(activeSession.shareCode);
@@ -68,7 +70,9 @@ export function CreateGuestSessionModal({
     onClose();
   }, [onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const hasActiveSession = !!activeSession;
 

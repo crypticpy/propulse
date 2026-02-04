@@ -92,7 +92,9 @@ export function Logbook() {
   const handleImportFile = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      if (!file) {
+        return;
+      }
 
       const reader = new FileReader();
       reader.onload = (event) => {

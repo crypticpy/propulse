@@ -65,12 +65,16 @@ export function RecommendationsPanel({
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
@@ -107,7 +111,9 @@ export function RecommendationsPanel({
 
   // Find the next best window if not currently optimal
   const nextBestWindow = useMemo(() => {
-    if (!recommendations) return null;
+    if (!recommendations) {
+      return null;
+    }
     const activeWindow = recommendations.timeWindows.find(
       (w) => w.hoursUntilStart === -1,
     );

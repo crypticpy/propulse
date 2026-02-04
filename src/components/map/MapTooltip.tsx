@@ -83,7 +83,9 @@ function getRecentSpotInfo(spots: DXSpot[], maxCount: number = 3): SpotInfo[] {
         mode: spot.mode,
       });
       seen.add(spot.dx);
-      if (spotInfos.length >= maxCount) break;
+      if (spotInfos.length >= maxCount) {
+        break;
+      }
     }
   }
 

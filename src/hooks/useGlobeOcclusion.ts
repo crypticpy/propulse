@@ -90,7 +90,9 @@ export function useGlobeOcclusion(lat: number, lon: number): GlobeOcclusion {
     const camLen = Math.sqrt(cx * cx + cy * cy + cz * cz);
 
     // Guard against zero-length (should never happen in practice)
-    if (camLen === 0) return;
+    if (camLen === 0) {
+      return;
+    }
 
     const dx = cx / camLen;
     const dy = cy / camLen;

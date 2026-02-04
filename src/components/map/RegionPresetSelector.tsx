@@ -141,7 +141,9 @@ export function RegionPresetSelector({
 
   // Find the currently active preset
   const activePreset = useMemo(() => {
-    if (!activePresetId || !regionPresets) return null;
+    if (!activePresetId || !regionPresets) {
+      return null;
+    }
     return (
       regionPresets.find((p: RegionPreset) => p.id === activePresetId) ?? null
     );
@@ -151,7 +153,9 @@ export function RegionPresetSelector({
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const updatePosition = useCallback(() => {
-    if (!buttonRef.current) return;
+    if (!buttonRef.current) {
+      return;
+    }
     const rect = buttonRef.current.getBoundingClientRect();
     setDropdownPos({
       top: rect.bottom + 4,
@@ -169,7 +173,9 @@ export function RegionPresetSelector({
 
   // Close on click outside
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as Node;
@@ -189,7 +195,9 @@ export function RegionPresetSelector({
 
   // Keyboard handler for the dropdown
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     function handleKeyDown(e: KeyboardEvent) {
       // Escape closes dropdown

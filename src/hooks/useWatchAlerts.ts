@@ -162,7 +162,9 @@ export function useWatchAlerts(
 
   // Initialize audio on first user interaction
   useEffect(() => {
-    if (!enabled || audioInitializedRef.current) return;
+    if (!enabled || audioInitializedRef.current) {
+      return;
+    }
 
     const handleUserInteraction = () => {
       if (!audioInitializedRef.current) {
@@ -227,7 +229,9 @@ export function useWatchAlerts(
   const isInCooldown = useCallback(
     (watchId: string): boolean => {
       const lastAlertTime = cooldownMap.current.get(watchId);
-      if (!lastAlertTime) return false;
+      if (!lastAlertTime) {
+        return false;
+      }
 
       const cooldownMs = watchAlertPrefs.cooldownSeconds * 1000;
       return Date.now() - lastAlertTime < cooldownMs;
@@ -307,16 +311,22 @@ export function useWatchAlerts(
     for (const [watchId, watchMatches] of matchesByWatch) {
       // Find the watch
       const watch = watches.find((w) => w.id === watchId);
-      if (!watch) continue;
+      if (!watch) {
+        continue;
+      }
 
       // Get alert type
       const alertType = getAlertType(watch);
 
       // Check if this alert type is enabled
-      if (!isAlertTypeEnabled(alertType)) continue;
+      if (!isAlertTypeEnabled(alertType)) {
+        continue;
+      }
 
       // Check cooldown
-      if (isInCooldown(watchId)) continue;
+      if (isInCooldown(watchId)) {
+        continue;
+      }
 
       // Play alert sound
       playAlertSound(alertType).then((success) => {

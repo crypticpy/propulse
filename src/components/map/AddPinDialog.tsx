@@ -108,7 +108,9 @@ export function AddPinDialog({
 
   // Handle click outside to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
@@ -128,7 +130,9 @@ export function AddPinDialog({
 
   // Handle Escape key to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

@@ -77,7 +77,9 @@ export function useRigBridge(
    * Handle incoming rig update messages
    */
   useEffect(() => {
-    if (!bridge.lastMessage) return;
+    if (!bridge.lastMessage) {
+      return;
+    }
 
     const message = bridge.lastMessage as BridgeMessage<RigUpdatePayload>;
 
@@ -98,7 +100,9 @@ export function useRigBridge(
    */
   const setFrequency = useCallback(
     (frequencyHz: number) => {
-      if (!bridge.connected) return;
+      if (!bridge.connected) {
+        return;
+      }
 
       const request: SetFrequencyRequest = {
         frequency: frequencyHz,
@@ -118,7 +122,9 @@ export function useRigBridge(
    */
   const setMode = useCallback(
     (newMode: RigMode | string) => {
-      if (!bridge.connected) return;
+      if (!bridge.connected) {
+        return;
+      }
 
       const request: SetModeRequest = {
         mode: newMode,
@@ -137,7 +143,9 @@ export function useRigBridge(
    */
   const setPTT = useCallback(
     (ptt: boolean) => {
-      if (!bridge.connected) return;
+      if (!bridge.connected) {
+        return;
+      }
 
       const request: SetPTTRequest = {
         ptt,

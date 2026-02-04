@@ -75,7 +75,9 @@ export interface BandMapProps {
  * Get the color for a mode
  */
 function getModeColor(mode?: string): string {
-  if (!mode) return MODE_COLORS.DEFAULT;
+  if (!mode) {
+    return MODE_COLORS.DEFAULT;
+  }
   return MODE_COLORS[mode.toUpperCase()] || MODE_COLORS.DEFAULT;
 }
 
@@ -86,8 +88,7 @@ function getSpotSize(spotTime: Date, now: number): number {
   const ageMs = now - spotTime.getTime();
   const ageMinutes = ageMs / 60000;
   // Size ranges from 8 (newest) to 4 (oldest)
-  const size = Math.max(4, 8 - (ageMinutes / TIME_WINDOW_MINUTES) * 4);
-  return size;
+  return Math.max(4, 8 - (ageMinutes / TIME_WINDOW_MINUTES) * 4);
 }
 
 /**
@@ -113,27 +114,37 @@ export function BandMap({
 
   // Filter spots for the selected band and time window
   const filteredSpots = useMemo(() => {
-    if (!selectedBand) return [];
+    if (!selectedBand) {
+      return [];
+    }
     const now = Date.now();
     const cutoffTime = now - TIME_WINDOW_MINUTES * 60 * 1000;
 
     return spots.filter((spot) => {
-      if (spot.band !== selectedBand) return false;
-      if (spot.time.getTime() < cutoffTime) return false;
+      if (spot.band !== selectedBand) {
+        return false;
+      }
+      if (spot.time.getTime() < cutoffTime) {
+        return false;
+      }
       return true;
     });
   }, [spots, selectedBand]);
 
   // Get frequency range for the selected band
   const frequencyRange = useMemo(() => {
-    if (!selectedBand) return null;
+    if (!selectedBand) {
+      return null;
+    }
     return BAND_FREQUENCY_RANGES[selectedBand] || null;
   }, [selectedBand]);
 
   // Handle canvas resize - track both width and height
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -160,7 +171,9 @@ export function BandMap({
   // Map frequency to X position
   const frequencyToX = useCallback(
     (frequency: number): number => {
-      if (!frequencyRange) return 0;
+      if (!frequencyRange) {
+        return 0;
+      }
       const plotWidth = canvasWidth - MARGINS.left - MARGINS.right;
       const normalized =
         (frequency - frequencyRange.min) /
@@ -186,10 +199,14 @@ export function BandMap({
   // Draw the canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = canvasWidth * dpr;
@@ -340,7 +357,9 @@ export function BandMap({
   const handleMouseMove = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
-      if (!canvas || !frequencyRange) return;
+      if (!canvas || !frequencyRange) {
+        return;
+      }
 
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -374,7 +393,9 @@ export function BandMap({
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
-      if (!canvas || !frequencyRange) return;
+      if (!canvas || !frequencyRange) {
+        return;
+      }
 
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -494,10 +515,18 @@ export function BandMap({
  * Calculate appropriate frequency step for grid lines
  */
 function getFrequencyStep(range: number): number {
-  if (range <= 100) return 10;
-  if (range <= 500) return 50;
-  if (range <= 1000) return 100;
-  if (range <= 5000) return 500;
+  if (range <= 100) {
+    return 10;
+  }
+  if (range <= 500) {
+    return 50;
+  }
+  if (range <= 1000) {
+    return 100;
+  }
+  if (range <= 5000) {
+    return 500;
+  }
   return 1000;
 }
 

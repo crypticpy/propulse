@@ -32,10 +32,18 @@ export interface SolarSnapshotProps {
  * Get color for propagation score value
  */
 function getScoreColor(score: number): string {
-  if (score >= 80) return "#00ff88";
-  if (score >= 60) return "#44dd66";
-  if (score >= 40) return "#ffaa00";
-  if (score >= 20) return "#ff7700";
+  if (score >= 80) {
+    return "#00ff88";
+  }
+  if (score >= 60) {
+    return "#44dd66";
+  }
+  if (score >= 40) {
+    return "#ffaa00";
+  }
+  if (score >= 20) {
+    return "#ff7700";
+  }
   return "#ff4455";
 }
 
@@ -43,8 +51,12 @@ function getScoreColor(score: number): string {
  * Get color for Solar Flux Index value
  */
 function getSfiColor(sfi: number): string {
-  if (sfi >= 150) return "#00ff88";
-  if (sfi >= 100) return "#ffaa00";
+  if (sfi >= 150) {
+    return "#00ff88";
+  }
+  if (sfi >= 100) {
+    return "#ffaa00";
+  }
   return "#ff4455";
 }
 
@@ -52,8 +64,12 @@ function getSfiColor(sfi: number): string {
  * Get color for Kp index value
  */
 function getKpColor(kp: number): string {
-  if (kp <= 2) return "#00ff88";
-  if (kp <= 4) return "#ffaa00";
+  if (kp <= 2) {
+    return "#00ff88";
+  }
+  if (kp <= 4) {
+    return "#ffaa00";
+  }
   return "#ff4455";
 }
 
@@ -61,9 +77,15 @@ function getKpColor(kp: number): string {
  * Get color for IMF Bz value
  */
 function getBzColor(bz: number | null): string {
-  if (bz === null) return "#888";
-  if (bz > 0) return "#00ff88";
-  if (bz > -5) return "#ffaa00";
+  if (bz === null) {
+    return "#888";
+  }
+  if (bz > 0) {
+    return "#00ff88";
+  }
+  if (bz > -5) {
+    return "#ffaa00";
+  }
   return "#ff4455";
 }
 
@@ -239,17 +261,23 @@ export function SolarSnapshot({
 
   // Extract current values with defaults
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
   const currentBz = useMemo(() => {
-    if (!magnetometerData || magnetometerData.length === 0) return null;
+    if (!magnetometerData || magnetometerData.length === 0) {
+      return null;
+    }
     return (
       magnetometerData
         .slice()

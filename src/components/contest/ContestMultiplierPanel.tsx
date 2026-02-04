@@ -31,14 +31,18 @@ export function ContestMultiplierPanel({
 
   // Get multiplier type from contest definition
   const multiplierType: MultiplierType = useMemo(() => {
-    if (!contestId) return "NONE";
+    if (!contestId) {
+      return "NONE";
+    }
     const def = getContestById(contestId);
     return def?.multiplierType ?? "NONE";
   }, [contestId]);
 
   // Get all multiplier types for contests with multiple mults
   const multiplierRules = useMemo(() => {
-    if (!contestId) return [];
+    if (!contestId) {
+      return [];
+    }
     const def = getContestById(contestId);
     return def?.multiplierRules ?? [];
   }, [contestId]);

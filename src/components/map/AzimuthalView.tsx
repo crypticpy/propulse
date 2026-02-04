@@ -213,8 +213,12 @@ function drawTerminator(
 
     const lat = phi * (180 / Math.PI);
     let lon = lambda * (180 / Math.PI);
-    while (lon > 180) lon -= 360;
-    while (lon < -180) lon += 360;
+    while (lon > 180) {
+        lon -= 360;
+    }
+    while (lon < -180) {
+        lon += 360;
+    }
 
     const projected = azimuthalProject(lat, lon, centerLat, centerLon);
     const canvas = projToCanvas(projected);
@@ -450,7 +454,9 @@ function drawSpotArcs(
     const dxDist = Math.sqrt(dxProj.x * dxProj.x + dxProj.y * dxProj.y);
 
     // Skip if both points are outside the circle
-    if (spotterDist > 1 && dxDist > 1) continue;
+    if (spotterDist > 1 && dxDist > 1) {
+      continue;
+    }
 
     const spotterCanvas = projToCanvas(spotterProj);
     const dxCanvas = projToCanvas(dxProj);
@@ -535,7 +541,9 @@ function drawAzimuthalNightLights(
     );
 
     // Skip if outside circle
-    if (dist > 1) continue;
+    if (dist > 1) {
+      continue;
+    }
 
     // Calculate if city is on night side
     const phi1 = city.lat * (Math.PI / 180);
@@ -608,7 +616,9 @@ function drawAzimuthalLabels(
     );
 
     // Skip if outside circle
-    if (dist > 0.95) continue;
+    if (dist > 0.95) {
+      continue;
+    }
 
     const canvas = projToCanvas(projected);
 
@@ -651,7 +661,9 @@ export function AzimuthalView({
   // Initialize WebGL renderer
   useEffect(() => {
     const canvas = webglCanvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     const renderer = new AzimuthalRenderer({
       highRes: true,
@@ -675,7 +687,9 @@ export function AzimuthalView({
   // Observe container resize for responsive display
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const updateSize = () => {
       const rect = container.getBoundingClientRect();
@@ -697,7 +711,9 @@ export function AzimuthalView({
 
   // Memoize the center coordinates
   const center = useMemo(() => {
-    if (!station) return null;
+    if (!station) {
+      return null;
+    }
     return { lat: station.lat, lon: station.lon };
   }, [station]);
 
@@ -713,13 +729,17 @@ export function AzimuthalView({
 
   // Resolve spot locations and limit to 50 for performance
   const resolvedSpots = useMemo(() => {
-    if (!layers.spots) return [];
+    if (!layers.spots) {
+      return [];
+    }
     return resolveSpotLocations(spots).slice(0, 50);
   }, [spots, layers.spots]);
 
   // Calculate path difficulty for target marker coloring
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
-    if (!station || !target) return undefined;
+    if (!station || !target) {
+      return undefined;
+    }
     const metrics = getPathMetrics(
       station.lat,
       station.lon,
@@ -737,7 +757,9 @@ export function AzimuthalView({
   // Handle scroll wheel zoom - use native listener for non-passive support
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -753,7 +775,9 @@ export function AzimuthalView({
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = overlayCanvasRef.current;
-      if (!canvas || !onLocationClick || !center) return;
+      if (!canvas || !onLocationClick || !center) {
+        return;
+      }
 
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -773,7 +797,9 @@ export function AzimuthalView({
 
       // Check if click is within the map circle
       const dist = Math.sqrt(proj.x * proj.x + proj.y * proj.y);
-      if (dist > 1) return;
+      if (dist > 1) {
+        return;
+      }
 
       // Unproject to lat/lon
       const { lat, lon } = azimuthalUnproject(
@@ -791,7 +817,9 @@ export function AzimuthalView({
   // Render WebGL background
   useEffect(() => {
     const renderer = rendererRef.current;
-    if (!renderer || !center) return;
+    if (!renderer || !center) {
+      return;
+    }
 
     renderer.render({
       centerLat: center.lat,
@@ -806,10 +834,14 @@ export function AzimuthalView({
   // Render 2D overlay (UI elements, paths, markers)
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     // Clear overlay canvas (transparent background)
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);

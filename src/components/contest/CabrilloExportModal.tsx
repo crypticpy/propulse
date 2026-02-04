@@ -103,19 +103,25 @@ export function CabrilloExportModal({
 
   // Get contest definition
   const contest = useMemo(() => {
-    if (!session) return null;
+    if (!session) {
+      return null;
+    }
     return getContestById(session.contestId);
   }, [session]);
 
   // Generate Cabrillo content
   const cabrilloResult = useMemo(() => {
-    if (!session || !contest) return null;
+    if (!session || !contest) {
+      return null;
+    }
     return generateCabrillo(session, contest, station);
   }, [session, contest, station]);
 
   // Validate header for warnings display
   const warnings = useMemo(() => {
-    if (!session || !contest) return [];
+    if (!session || !contest) {
+      return [];
+    }
     return validateCabrilloHeader(session, contest, station);
   }, [session, contest, station]);
 
@@ -145,7 +151,9 @@ export function CabrilloExportModal({
 
   // Handle copy to clipboard
   const handleCopy = useCallback(async () => {
-    if (!cabrilloResult) return;
+    if (!cabrilloResult) {
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(cabrilloResult.content);
@@ -166,7 +174,9 @@ export function CabrilloExportModal({
 
   // Handle download
   const handleDownload = useCallback(() => {
-    if (!cabrilloResult || !contest || !station?.callsign) return;
+    if (!cabrilloResult || !contest || !station?.callsign) {
+      return;
+    }
 
     const filename = generateCabrilloFilename(
       station.callsign,
@@ -191,7 +201,9 @@ export function CabrilloExportModal({
     onClose();
   }, [onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   // Check if we have a valid session to export
   const hasSession = session !== null;

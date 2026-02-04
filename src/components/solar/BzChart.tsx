@@ -79,11 +79,21 @@ function getBzCondition(bz: number): {
  * Get color for Bz value (gradient from green to red)
  */
 function getBzColor(bz: number): string {
-  if (bz >= 5) return "#00ff88";
-  if (bz >= 0) return "#44dd66";
-  if (bz >= -5) return "#ffaa00";
-  if (bz >= -10) return "#ff7700";
-  if (bz >= -20) return "#ff4455";
+  if (bz >= 5) {
+    return "#00ff88";
+  }
+  if (bz >= 0) {
+    return "#44dd66";
+  }
+  if (bz >= -5) {
+    return "#ffaa00";
+  }
+  if (bz >= -10) {
+    return "#ff7700";
+  }
+  if (bz >= -20) {
+    return "#ff4455";
+  }
   return "#ff0088";
 }
 
@@ -200,8 +210,11 @@ export const BzChart: React.FC<BzChartProps> = ({
         sampledData.slice(-5).reduce((sum, d) => sum + d.bz_gsm, 0) / 5;
       const olderAvg =
         sampledData.slice(-10, -5).reduce((sum, d) => sum + d.bz_gsm, 0) / 5;
-      if (recentAvg - olderAvg > 2) trend = "rising";
-      else if (olderAvg - recentAvg > 2) trend = "falling";
+      if (recentAvg - olderAvg > 2) {
+        trend = "rising";
+      } else if (olderAvg - recentAvg > 2) {
+               trend = "falling";
+             }
     }
 
     return {

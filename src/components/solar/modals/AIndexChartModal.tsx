@@ -74,11 +74,21 @@ const A_INDEX_SCALE = [
  * Get color based on A-index value
  */
 function getAIndexColor(ap: number): string {
-  if (ap <= 7) return "#00ff88";
-  if (ap <= 15) return "#88cc44";
-  if (ap <= 29) return "#ffaa00";
-  if (ap <= 49) return "#ff7700";
-  if (ap <= 99) return "#ff4455";
+  if (ap <= 7) {
+    return "#00ff88";
+  }
+  if (ap <= 15) {
+    return "#88cc44";
+  }
+  if (ap <= 29) {
+    return "#ffaa00";
+  }
+  if (ap <= 49) {
+    return "#ff7700";
+  }
+  if (ap <= 99) {
+    return "#ff4455";
+  }
   return "#ff0088";
 }
 
@@ -86,11 +96,21 @@ function getAIndexColor(ap: number): string {
  * Get condition label
  */
 function getAIndexCondition(ap: number): string {
-  if (ap <= 7) return "Quiet";
-  if (ap <= 15) return "Unsettled";
-  if (ap <= 29) return "Active";
-  if (ap <= 49) return "Minor Storm";
-  if (ap <= 99) return "Major Storm";
+  if (ap <= 7) {
+    return "Quiet";
+  }
+  if (ap <= 15) {
+    return "Unsettled";
+  }
+  if (ap <= 29) {
+    return "Active";
+  }
+  if (ap <= 49) {
+    return "Minor Storm";
+  }
+  if (ap <= 99) {
+    return "Major Storm";
+  }
   return "Severe Storm";
 }
 
@@ -113,7 +133,9 @@ export const AIndexChartModal: React.FC<AIndexChartModalProps> = ({
   const innerHeight = chartHeight - padding.top - padding.bottom;
 
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!data || data.length === 0) {
+      return [];
+    }
 
     // Take last 8 data points
     const recentData = data.slice(-8);

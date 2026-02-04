@@ -48,7 +48,9 @@ export function JoinGuestSessionModal({
 
   // Update lockout countdown
   useEffect(() => {
-    if (!lockoutTime) return;
+    if (!lockoutTime) {
+      return;
+    }
 
     const interval = setInterval(() => {
       const remaining = lockoutTime - Date.now();
@@ -155,10 +157,14 @@ export function JoinGuestSessionModal({
     onClose();
   }, [onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const getLockoutMessage = () => {
-    if (!lockoutTime) return "";
+    if (!lockoutTime) {
+      return "";
+    }
     const remaining = Math.ceil((lockoutTime - Date.now()) / 1000);
     const minutes = Math.floor(remaining / 60);
     const seconds = remaining % 60;

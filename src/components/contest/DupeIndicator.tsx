@@ -27,7 +27,9 @@ export function DupeIndicator({
   compact = false,
   className = "",
 }: DupeIndicatorProps) {
-  if (!isDupe) return null;
+  if (!isDupe) {
+    return null;
+  }
 
   if (compact) {
     return (

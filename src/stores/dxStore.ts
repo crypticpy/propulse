@@ -90,9 +90,7 @@ export const useDXStore = create<DXState>()(
         set((state) => {
           const newSpots = [spot, ...state.spots];
           // Keep only maxSpots
-          if (newSpots.length > state.maxSpots) {
-            newSpots.length = state.maxSpots;
-          }
+          newSpots.length = Math.min(newSpots.length, state.maxSpots);
           return { spots: newSpots };
         }),
       clearSpots: () =>
@@ -158,11 +156,15 @@ export const useDXStore = create<DXState>()(
         })),
       cycleSyncedBand: () =>
         set((state) => {
-          if (!state.syncMode) return state;
+          if (!state.syncMode) {
+            return state;
+          }
 
           // Get available bands from current spots
           const bands = selectAvailableBands(state);
-          if (bands.length === 0) return state;
+          if (bands.length === 0) {
+            return state;
+          }
 
           // Find current index and cycle to next
           const currentIndex = state.syncedBand

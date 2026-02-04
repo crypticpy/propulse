@@ -128,7 +128,9 @@ export function useLogbook(): UseLogbookResult {
       // Sort by date descending (newest first)
       allEntries.sort((a, b) => {
         const dateCompare = b.date.localeCompare(a.date);
-        if (dateCompare !== 0) return dateCompare;
+        if (dateCompare !== 0) {
+          return dateCompare;
+        }
         return b.timeOn.localeCompare(a.timeOn);
       });
       setEntries(allEntries);
@@ -352,7 +354,9 @@ export function useCallsignLookup(callsign: string) {
           // Sort by date descending
           results.sort((a, b) => {
             const dateCompare = b.date.localeCompare(a.date);
-            if (dateCompare !== 0) return dateCompare;
+            if (dateCompare !== 0) {
+              return dateCompare;
+            }
             return b.timeOn.localeCompare(a.timeOn);
           });
           setEntries(results);

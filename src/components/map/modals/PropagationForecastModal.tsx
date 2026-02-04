@@ -93,9 +93,13 @@ export function PropagationForecastModal({
 
   // Find current best band (right now)
   const currentBestBand = useMemo(() => {
-    if (forecast.length === 0) return null;
+    if (forecast.length === 0) {
+      return null;
+    }
     const currentData = forecast[currentHour];
-    if (!currentData) return null;
+    if (!currentData) {
+      return null;
+    }
 
     let best = null;
     let bestSnr = -40;

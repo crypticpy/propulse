@@ -94,8 +94,12 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
     ][];
     // Put US first, then sort alphabetically by display name
     return entries.sort((a, b) => {
-      if (a[0] === "US") return -1;
-      if (b[0] === "US") return 1;
+      if (a[0] === "US") {
+        return -1;
+      }
+      if (b[0] === "US") {
+        return 1;
+      }
       return a[1].localeCompare(b[1]);
     });
   }, []);

@@ -216,7 +216,9 @@ export function parseCSVCallHistory(content: string): ParseResult {
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line) continue;
+    if (!line) {
+      continue;
+    }
 
     const fields = parseCSVLine(line, delimiter);
     const callsign = fields[callIndex]?.trim().toUpperCase();
@@ -372,7 +374,9 @@ export function parseN1MMCallHistory(content: string): ParseResult {
   // Parse data rows
   for (let i = headerIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line || line.startsWith("#")) continue;
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
 
     const fields = line.split(delimiter);
     const callsign = fields[fieldIndices.callsign]?.trim().toUpperCase();
@@ -647,7 +651,9 @@ export function mergeWithSCP(
   // Get history matches
   const store = loadCallHistoryStore();
   for (const entry of Object.values(store.entries)) {
-    if (seen.has(entry.callsign)) continue;
+    if (seen.has(entry.callsign)) {
+      continue;
+    }
 
     if (matchesPartial(entry.callsign, normalizedPartial)) {
       seen.add(entry.callsign);

@@ -91,11 +91,17 @@ function formatSpotAge(spotTime: Date): string {
   const diffMs = now - spotTime.getTime();
   const diffMin = Math.max(0, Math.floor(diffMs / 60_000));
 
-  if (diffMin < 1) return "now";
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) {
+    return "now";
+  }
+  if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  }
 
   const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
 
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d ago`;
@@ -127,13 +133,22 @@ function formatExpiration(expiresAt: string): {
  * Get a color for a mode. Used for band badges.
  */
 function getModeColor(mode: string | undefined): string {
-  if (!mode) return "#888";
+  if (!mode) {
+    return "#888";
+  }
   const upper = mode.toUpperCase();
-  if (upper === "FT8" || upper === "FT4") return "#44DDFF";
-  if (upper === "CW") return "#FFD23F";
-  if (upper === "SSB" || upper === "LSB" || upper === "USB") return "#00FF88";
-  if (upper === "RTTY" || upper === "PSK" || upper === "PSK31")
+  if (upper === "FT8" || upper === "FT4") {
+    return "#44DDFF";
+  }
+  if (upper === "CW") {
+    return "#FFD23F";
+  }
+  if (upper === "SSB" || upper === "LSB" || upper === "USB") {
+    return "#00FF88";
+  }
+  if (upper === "RTTY" || upper === "PSK" || upper === "PSK31") {
     return "#AA44FF";
+  }
   return "#888";
 }
 
@@ -180,7 +195,9 @@ export function PinFlyout({
 
   // Whether this pin is the current target
   const isCurrentTarget = useMemo(() => {
-    if (!currentTargetGrid || !pin.grid) return false;
+    if (!currentTargetGrid || !pin.grid) {
+      return false;
+    }
     return pin.grid.toUpperCase() === currentTargetGrid.toUpperCase();
   }, [pin.grid, currentTargetGrid]);
 
@@ -199,11 +216,12 @@ export function PinFlyout({
 
   // Single pass: filter all matching spots, derive recent + bands
   const { nearbySpots, openBands } = useMemo(() => {
-    if (!gridPrefix)
+    if (!gridPrefix) {
       return {
         nearbySpots: [] as DXSpot[],
         openBands: [] as { band: string; color: string }[],
       };
+    }
 
     // Filter all spots matching this grid once
     const allMatching = spots.filter((spot) => {
@@ -224,7 +242,7 @@ export function PinFlyout({
     // Build band map from all matching spots (most recent mode color wins)
     const bandMap = new Map<string, string>();
     for (const spot of sorted) {
-      const band = spot.band;
+      const {band} = spot;
       if (band && !bandMap.has(band)) {
         bandMap.set(band, getModeColor(spot.mode));
       }
@@ -242,7 +260,9 @@ export function PinFlyout({
   // ------- Expiration -------
 
   const expirationInfo = useMemo(() => {
-    if (!pin.expiresAt) return null;
+    if (!pin.expiresAt) {
+      return null;
+    }
     return formatExpiration(pin.expiresAt);
   }, [pin.expiresAt]);
 
@@ -307,8 +327,12 @@ export function PinFlyout({
   // ------- Truncated notes -------
 
   const truncatedNotes = useMemo(() => {
-    if (!pin.notes) return null;
-    if (pin.notes.length <= 80) return pin.notes;
+    if (!pin.notes) {
+      return null;
+    }
+    if (pin.notes.length <= 80) {
+      return pin.notes;
+    }
     return pin.notes.substring(0, 80) + "...";
   }, [pin.notes]);
 
@@ -316,7 +340,9 @@ export function PinFlyout({
 
   // Click outside to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (flyoutRef.current && !flyoutRef.current.contains(e.target as Node)) {
@@ -336,7 +362,9 @@ export function PinFlyout({
 
   // Escape key to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -350,10 +378,14 @@ export function PinFlyout({
 
   // Auto-dismiss when mouse leaves flyout proximity area
   useEffect(() => {
-    if (!visible || !autoDismissEnabled) return;
+    if (!visible || !autoDismissEnabled) {
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!flyoutRef.current) return;
+      if (!flyoutRef.current) {
+        return;
+      }
 
       const rect = flyoutRef.current.getBoundingClientRect();
       const isNear =
@@ -363,25 +395,24 @@ export function PinFlyout({
         e.clientY <= rect.bottom + PROXIMITY_PADDING;
 
       if (isNear) {
-        mouseInFlyoutRef.current = true;
-        if (dismissTimerRef.current) {
-          clearTimeout(dismissTimerRef.current);
-          dismissTimerRef.current = null;
-        }
-        if (isFading) {
-          setIsFading(false);
-        }
-      } else {
-        if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
-          mouseInFlyoutRef.current = false;
-          dismissTimerRef.current = setTimeout(() => {
-            setIsFading(true);
-            setTimeout(() => {
-              onClose();
-            }, 200);
-          }, autoDismissMs);
-        }
-      }
+              mouseInFlyoutRef.current = true;
+              if (dismissTimerRef.current) {
+                clearTimeout(dismissTimerRef.current);
+                dismissTimerRef.current = null;
+              }
+              if (isFading) {
+                setIsFading(false);
+              }
+            }
+      else if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
+                mouseInFlyoutRef.current = false;
+                dismissTimerRef.current = setTimeout(() => {
+                  setIsFading(true);
+                  setTimeout(() => {
+                    onClose();
+                  }, 200);
+                }, autoDismissMs);
+              }
     };
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -406,7 +437,9 @@ export function PinFlyout({
   // ------- Action handlers -------
 
   const handleSetTarget = useCallback(() => {
-    if (isCurrentTarget) return;
+    if (isCurrentTarget) {
+      return;
+    }
     onSetTarget(pin.lat, pin.lon, pin.grid);
     onClose();
   }, [pin, isCurrentTarget, onSetTarget, onClose]);

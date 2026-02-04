@@ -55,7 +55,9 @@ export function ContestEditLastModal({
 
   // Handle save
   const handleSave = useCallback(() => {
-    if (!qso) return;
+    if (!qso) {
+      return;
+    }
 
     editQSO(qso.id, {
       callsign: callsign.toUpperCase().trim(),
@@ -91,7 +93,9 @@ export function ContestEditLastModal({
     [handleSave, onClose],
   );
 
-  if (!isOpen || !qso) return null;
+  if (!isOpen || !qso) {
+    return null;
+  }
 
   const inputClass =
     "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 font-mono";

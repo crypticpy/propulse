@@ -113,19 +113,25 @@ export function useGridResearch(
 
   // Get entity information
   const entity = useMemo(() => {
-    if (!validGrid) return null;
+    if (!validGrid) {
+      return null;
+    }
     return getEntityFromGrid(normalizedGrid);
   }, [validGrid, normalizedGrid]);
 
   // Calculate distance and bearing
   const distanceBearing = useMemo(() => {
-    if (!validGrid || !homeGrid || !isValidGrid(homeGrid)) return null;
+    if (!validGrid || !homeGrid || !isValidGrid(homeGrid)) {
+      return null;
+    }
     return getDistanceBearing(homeGrid, normalizedGrid);
   }, [validGrid, homeGrid, normalizedGrid]);
 
   // Parse distance
   const distance = useMemo(() => {
-    if (!distanceBearing) return null;
+    if (!distanceBearing) {
+      return null;
+    }
     return {
       km: distanceBearing.distanceKm,
       mi: distanceBearing.distanceMi,
@@ -134,7 +140,9 @@ export function useGridResearch(
 
   // Parse bearing
   const bearing = useMemo(() => {
-    if (!distanceBearing) return null;
+    if (!distanceBearing) {
+      return null;
+    }
     return {
       degrees: distanceBearing.bearing,
       reverse: distanceBearing.reverseBearing,
@@ -158,7 +166,9 @@ export function useGridResearch(
 
   // Calculate best contact time
   const bestTime = useMemo(() => {
-    if (!validGrid || !homeGrid || !isValidGrid(homeGrid)) return null;
+    if (!validGrid || !homeGrid || !isValidGrid(homeGrid)) {
+      return null;
+    }
     return getBestContactTime(homeGrid, normalizedGrid, currentSfi);
   }, [validGrid, homeGrid, normalizedGrid, currentSfi]);
 

@@ -115,14 +115,20 @@ export function getOptimalNVISFrequency(f0F2: number): number {
  */
 export function isNVISFrequency(frequency: number, f0F2: number): boolean {
   // Must be below critical frequency to be refracted back
-  if (frequency >= f0F2) return false;
+  if (frequency >= f0F2) {
+    return false;
+  }
 
   // Should be at least 50% of f0F2 for reasonable absorption
   // Below this, D-layer absorption becomes excessive during day
-  if (frequency < f0F2 * 0.4) return false;
+  if (frequency < f0F2 * 0.4) {
+    return false;
+  }
 
   // Frequency must be in a practical amateur range (1.8 - 10 MHz for NVIS)
-  if (frequency < 1.8 || frequency > 10) return false;
+  if (frequency < 1.8 || frequency > 10) {
+    return false;
+  }
 
   return true;
 }
@@ -231,7 +237,9 @@ function calculateNVISTakeoffAngle(distanceKm: number, hmF2: number): number {
   // The signal goes up to hmF2, bounces, and comes back down
   // For distance d and height h: tan(90 - angle) = d / (2 * h)
 
-  if (distanceKm <= 0) return 90; // Directly overhead
+  if (distanceKm <= 0) {
+    return 90;
+  } // Directly overhead
 
   const halfDistance = distanceKm / 2;
   const tanValue = halfDistance / hmF2;
@@ -306,26 +314,38 @@ export function analyzeNVIS(
   let reliability = 50; // Base reliability
 
   // Higher f0F2 = better reliability
-  if (f0F2 >= 8) reliability += 25;
-  else if (f0F2 >= 6) reliability += 15;
-  else if (f0F2 >= 4) reliability += 5;
-  else reliability -= 20;
+  if (f0F2 >= 8) {
+    reliability += 25;
+  } else if (f0F2 >= 6) {
+           reliability += 15;
+         } else if (f0F2 >= 4) {
+                  reliability += 5;
+                } else {
+                  reliability -= 20;
+                }
 
   // Daytime generally better (more ionization) but more absorption
   if (isDaytime) {
-    reliability += 10;
-    // High sun = more absorption, reduce reliability for lower frequencies
-    if (zenithAngle < 45) reliability -= 5;
-  } else {
-    // Night: less absorption but also less ionization
-    if (f0F2 >= 5) reliability += 5;
-    else reliability -= 10;
-  }
+      reliability += 10;
+      // High sun = more absorption, reduce reliability for lower frequencies
+      if (zenithAngle < 45) {
+        reliability -= 5;
+      }
+    }
+  else if (f0F2 >= 5) {
+         reliability += 5;
+       } else {
+         reliability -= 10;
+       }
 
   // Moderate solar activity is best for NVIS
-  if (sfi >= 100 && sfi <= 150) reliability += 5;
-  else if (sfi < 80) reliability -= 10;
-  else if (sfi > 200) reliability -= 5;
+  if (sfi >= 100 && sfi <= 150) {
+    reliability += 5;
+  } else if (sfi < 80) {
+           reliability -= 10;
+         } else if (sfi > 200) {
+                  reliability -= 5;
+                }
 
   // Clamp reliability
   reliability = Math.max(10, Math.min(95, reliability));
@@ -371,9 +391,15 @@ export function analyzeNVIS(
  * @returns Tailwind color class
  */
 export function getNVISConditionColor(reliability: number): string {
-  if (reliability >= 75) return "text-signal-green";
-  if (reliability >= 50) return "text-good";
-  if (reliability >= 30) return "text-caution-amber";
+  if (reliability >= 75) {
+    return "text-signal-green";
+  }
+  if (reliability >= 50) {
+    return "text-good";
+  }
+  if (reliability >= 30) {
+    return "text-caution-amber";
+  }
   return "text-alert-red";
 }
 
@@ -384,9 +410,15 @@ export function getNVISConditionColor(reliability: number): string {
  * @returns Condition label
  */
 export function getNVISConditionLabel(reliability: number): string {
-  if (reliability >= 75) return "Excellent";
-  if (reliability >= 50) return "Good";
-  if (reliability >= 30) return "Fair";
+  if (reliability >= 75) {
+    return "Excellent";
+  }
+  if (reliability >= 50) {
+    return "Good";
+  }
+  if (reliability >= 30) {
+    return "Fair";
+  }
   return "Poor";
 }
 

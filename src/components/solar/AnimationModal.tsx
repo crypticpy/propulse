@@ -127,7 +127,9 @@ export const AnimationModal: React.FC<AnimationModalProps> = ({
       const newPreloaded = new Set(preloadedFrames);
 
       for (let i = start; i < Math.min(start + count, frameList.length); i++) {
-        if (newPreloaded.has(i)) continue;
+        if (newPreloaded.has(i)) {
+          continue;
+        }
 
         const frame = frameList[i];
         const fullUrl = frame.url.startsWith("http")
@@ -163,7 +165,9 @@ export const AnimationModal: React.FC<AnimationModalProps> = ({
 
   // Load animation data
   const loadAnimation = useCallback(async () => {
-    if (!animationJsonUrl) return;
+    if (!animationJsonUrl) {
+      return;
+    }
 
     setPlayerState("loading");
     setLoadProgress(0);
@@ -312,7 +316,9 @@ export const AnimationModal: React.FC<AnimationModalProps> = ({
     setCurrentFrameIndex(0);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const hasAnimation = !!animationJsonUrl;
   const isAnimating = playerState === "playing" || playerState === "paused";

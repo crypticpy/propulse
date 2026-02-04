@@ -42,8 +42,12 @@ export interface PrimaryMetricsProps {
  * @returns Hex color code
  */
 function getSFIColor(sfi: number): string {
-  if (sfi >= 150) return "#00ff88"; // Excellent - signal-green
-  if (sfi >= 100) return "#ffaa00"; // Fair - caution-amber
+  if (sfi >= 150) {
+    return "#00ff88";
+  } // Excellent - signal-green
+  if (sfi >= 100) {
+    return "#ffaa00";
+  } // Fair - caution-amber
   return "#ff4455"; // Poor - alert-red
 }
 
@@ -54,10 +58,18 @@ function getSFIColor(sfi: number): string {
  * @returns Human-readable description
  */
 function getSFIDescription(sfi: number): string {
-  if (sfi >= 200) return "Very High";
-  if (sfi >= 150) return "High";
-  if (sfi >= 100) return "Moderate";
-  if (sfi >= 80) return "Low";
+  if (sfi >= 200) {
+    return "Very High";
+  }
+  if (sfi >= 150) {
+    return "High";
+  }
+  if (sfi >= 100) {
+    return "Moderate";
+  }
+  if (sfi >= 80) {
+    return "Low";
+  }
   return "Very Low";
 }
 
@@ -69,11 +81,21 @@ function getSFIDescription(sfi: number): string {
  * @returns Hex color code
  */
 function getAIndexColor(aIndex: number): string {
-  if (aIndex <= 7) return "#00ff88"; // Quiet - signal-green
-  if (aIndex <= 15) return "#44dd66"; // Unsettled - good
-  if (aIndex <= 29) return "#ffaa00"; // Active - caution-amber
-  if (aIndex <= 49) return "#ff7700"; // Minor storm
-  if (aIndex <= 99) return "#ff4455"; // Major storm - alert-red
+  if (aIndex <= 7) {
+    return "#00ff88";
+  } // Quiet - signal-green
+  if (aIndex <= 15) {
+    return "#44dd66";
+  } // Unsettled - good
+  if (aIndex <= 29) {
+    return "#ffaa00";
+  } // Active - caution-amber
+  if (aIndex <= 49) {
+    return "#ff7700";
+  } // Minor storm
+  if (aIndex <= 99) {
+    return "#ff4455";
+  } // Major storm - alert-red
   return "#ff0088"; // Severe storm
 }
 
@@ -84,11 +106,21 @@ function getAIndexColor(aIndex: number): string {
  * @returns Human-readable description
  */
 function getAIndexDescription(aIndex: number): string {
-  if (aIndex <= 7) return "Quiet";
-  if (aIndex <= 15) return "Unsettled";
-  if (aIndex <= 29) return "Active";
-  if (aIndex <= 49) return "Minor Storm";
-  if (aIndex <= 99) return "Major Storm";
+  if (aIndex <= 7) {
+    return "Quiet";
+  }
+  if (aIndex <= 15) {
+    return "Unsettled";
+  }
+  if (aIndex <= 29) {
+    return "Active";
+  }
+  if (aIndex <= 49) {
+    return "Minor Storm";
+  }
+  if (aIndex <= 99) {
+    return "Major Storm";
+  }
   return "Severe Storm";
 }
 
@@ -100,9 +132,15 @@ function getAIndexDescription(aIndex: number): string {
  * @returns Hex color code
  */
 function getSSNColor(ssn: number): string {
-  if (ssn >= 150) return "#3a86ff"; // High activity - sunspot-blue
-  if (ssn >= 100) return "#44ddff"; // Moderate - cosmic-cyan
-  if (ssn >= 50) return "#44ddff"; // Low-moderate
+  if (ssn >= 150) {
+    return "#3a86ff";
+  } // High activity - sunspot-blue
+  if (ssn >= 100) {
+    return "#44ddff";
+  } // Moderate - cosmic-cyan
+  if (ssn >= 50) {
+    return "#44ddff";
+  } // Low-moderate
   return "#888899"; // Low activity
 }
 
@@ -114,9 +152,15 @@ function getSSNColor(ssn: number): string {
  * @returns Hex color code
  */
 function getBzColor(bz: number | null): string {
-  if (bz === null) return "#888899"; // No data
-  if (bz > 0) return "#00ff88"; // Northward - quiet - signal-green
-  if (bz > -5) return "#ffaa00"; // Weakly south - caution-amber
+  if (bz === null) {
+    return "#888899";
+  } // No data
+  if (bz > 0) {
+    return "#00ff88";
+  } // Northward - quiet - signal-green
+  if (bz > -5) {
+    return "#ffaa00";
+  } // Weakly south - caution-amber
   return "#ff4455"; // Strongly south - alert-red
 }
 
@@ -127,9 +171,15 @@ function getBzColor(bz: number | null): string {
  * @returns Human-readable description
  */
 function getBzDescription(bz: number | null): string {
-  if (bz === null) return "No Data";
-  if (bz > 0) return "Northward";
-  if (bz > -5) return "Weakly South";
+  if (bz === null) {
+    return "No Data";
+  }
+  if (bz > 0) {
+    return "Northward";
+  }
+  if (bz > -5) {
+    return "Weakly South";
+  }
   return "Southward";
 }
 
@@ -140,9 +190,15 @@ function getBzDescription(bz: number | null): string {
  * @returns Human-readable description
  */
 function getSSNDescription(ssn: number): string {
-  if (ssn >= 150) return "Very Active";
-  if (ssn >= 100) return "Active";
-  if (ssn >= 50) return "Moderate";
+  if (ssn >= 150) {
+    return "Very Active";
+  }
+  if (ssn >= 100) {
+    return "Active";
+  }
+  if (ssn >= 50) {
+    return "Moderate";
+  }
   return "Quiet";
 }
 

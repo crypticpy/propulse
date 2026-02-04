@@ -70,12 +70,16 @@ export function PropagationForecast({
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
@@ -86,7 +90,9 @@ export function PropagationForecast({
 
   // Generate 24-hour forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
-    if (!station || !target) return [];
+    if (!station || !target) {
+      return [];
+    }
     return getForecastForPath(
       station.lat,
       station.lon,
@@ -100,13 +106,17 @@ export function PropagationForecast({
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {
-    if (forecast.length === 0) return [];
+    if (forecast.length === 0) {
+      return [];
+    }
     return getBestWindows(forecast);
   }, [forecast]);
 
   // Best recommendation (top window)
   const topRecommendation = useMemo(() => {
-    if (bestWindows.length === 0) return null;
+    if (bestWindows.length === 0) {
+      return null;
+    }
     const best = bestWindows[0];
     return {
       band: best.band,

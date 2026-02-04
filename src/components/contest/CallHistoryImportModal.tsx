@@ -206,7 +206,9 @@ export function CallHistoryImportModal({
   // Get sample entries for preview
   const sampleEntries = parseResult?.entries.slice(0, 5) || [];
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const selectClass =
     "px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";

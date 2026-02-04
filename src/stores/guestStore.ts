@@ -131,7 +131,9 @@ export const useGuestStore = create<GuestStore>()(
 
       endSession: (sessionId) => {
         set((state) => {
-          if (state.activeSession?.id !== sessionId) return state;
+          if (state.activeSession?.id !== sessionId) {
+            return state;
+          }
 
           const endedSession = { ...state.activeSession, isActive: false };
           let updatedHistory = [endedSession, ...state.sessionHistory];

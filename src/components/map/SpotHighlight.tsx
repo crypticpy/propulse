@@ -53,7 +53,9 @@ function PulsingRing({
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
-    if (!ringRef.current || !materialRef.current) return;
+    if (!ringRef.current || !materialRef.current) {
+      return;
+    }
 
     // Create pulsing effect with delay offset
     const time = clock.elapsedTime * PULSE_SPEED + delay;
@@ -100,7 +102,9 @@ function GlowPoint({
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
-    if (!meshRef.current || !materialRef.current) return;
+    if (!meshRef.current || !materialRef.current) {
+      return;
+    }
 
     // Subtle breathing effect
     const time = clock.elapsedTime * 2;
@@ -143,7 +147,9 @@ function GlowHalo({
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
-    if (!meshRef.current || !materialRef.current) return;
+    if (!meshRef.current || !materialRef.current) {
+      return;
+    }
 
     // Slow rotation for visual interest
     meshRef.current.rotation.z = clock.elapsedTime * 0.5;

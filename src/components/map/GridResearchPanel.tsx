@@ -535,7 +535,9 @@ function CallsignDetailView({
 
   // Format last QSO date
   const formattedLastQSODate = useMemo(() => {
-    if (!local?.lastQSO?.date) return null;
+    if (!local?.lastQSO?.date) {
+      return null;
+    }
     try {
       const date = new Date(local.lastQSO.date);
       return date.toLocaleDateString("en-US", {
@@ -806,7 +808,9 @@ export function GridResearchPanel({
 
   // Handle click outside to dismiss
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
@@ -827,7 +831,9 @@ export function GridResearchPanel({
 
   // Handle Escape key to dismiss or go back
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

@@ -765,7 +765,9 @@ export function getActivityStats(
     } else if (spot.spotterGrid?.toUpperCase().startsWith(normalizedPrefix)) {
       callsignSet.add(spot.spotter);
     }
-    if (callsignSet.size >= 10) break;
+    if (callsignSet.size >= 10) {
+      break;
+    }
   }
 
   return {

@@ -67,7 +67,9 @@ export function QuickGridInput({
 
   // Prevent background scroll while modal is open
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -88,7 +90,9 @@ export function QuickGridInput({
 
   // Handle keyboard events
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -130,9 +134,13 @@ export function QuickGridInput({
     return "border-alert-crimson focus:border-alert-crimson";
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined") {
+    return null;
+  }
 
   return createPortal(
     <div

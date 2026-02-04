@@ -74,13 +74,17 @@ function formatTimestamp(isoTimestamp: string): string {
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60)
+    if (diffMins < 1) {
+      return "Just now";
+    }
+    if (diffMins < 60) {
       return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+    }
 
     const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24)
+    if (diffHours < 24) {
       return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+    }
 
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -102,7 +106,9 @@ function sortAlerts(alerts: SolarAlert[]): SolarAlert[] {
   return [...alerts].sort((a, b) => {
     const priorityDiff =
       priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority);
-    if (priorityDiff !== 0) return priorityDiff;
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
     return (
       new Date(b.triggeredAt).getTime() - new Date(a.triggeredAt).getTime()
     );
@@ -359,7 +365,9 @@ export function AlertHistoryModal({ isOpen, onClose }: AlertHistoryModalProps) {
   // Filter by current tab's status
   const filteredAlerts = useMemo(() => {
     const tab = TABS.find((t) => t.id === activeTab);
-    if (!tab) return [];
+    if (!tab) {
+      return [];
+    }
     return allAlerts.filter((a) => a.status === tab.status);
   }, [allAlerts, activeTab]);
 

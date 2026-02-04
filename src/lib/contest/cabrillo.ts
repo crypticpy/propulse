@@ -72,8 +72,12 @@ function mapCategoryAssisted(assisted?: string): "ASSISTED" | "NON-ASSISTED" {
 
 function mapCategoryBand(band: string): string {
   const bandLower = band.toLowerCase();
-  if (bandLower === "all") return "ALL";
-  if (bandLower === "single") return "ALL"; // Single band but not specified which
+  if (bandLower === "all") {
+    return "ALL";
+  }
+  if (bandLower === "single") {
+    return "ALL";
+  } // Single band but not specified which
   // Specific bands
   const bandMap: Record<string, string> = {
     "160m": "160M",

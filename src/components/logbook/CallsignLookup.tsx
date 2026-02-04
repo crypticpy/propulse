@@ -125,7 +125,7 @@ function WorkedBeforeView({
   externalData,
   onAutoFill,
 }: WorkedBeforeViewProps) {
-  const lastQSO = localData.lastQSO;
+  const {lastQSO} = localData;
 
   // Prefer external data if available, fall back to local QSO data
   const displayName = externalData?.name || lastQSO?.name;
@@ -146,7 +146,9 @@ function WorkedBeforeView({
 
   // Format date for display
   const formattedDate = useMemo(() => {
-    if (!lastQSO?.date) return "";
+    if (!lastQSO?.date) {
+      return "";
+    }
     try {
       const date = new Date(lastQSO.date);
       return date.toLocaleDateString("en-US", {

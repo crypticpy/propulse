@@ -48,11 +48,13 @@ export function calculatePropagationIndex(
   // Bz >= 5 = 20 points (strong shield), Bz < -10 = 0 points (storm conditions)
   let bzScore = 10; // Default middle value if Bz unknown
   if (bz !== null) {
-    if (bz >= 5) bzScore = 20;
-    else if (bz >= 0) bzScore = 15;
-    else if (bz >= -5) bzScore = 10;
-    else if (bz >= -10) bzScore = 5;
-    else bzScore = 0;
+    if (bz >= 5) {
+      bzScore = 20;
+    } else if (bz >= 0) {
+             bzScore = 15;
+           } else if (bz >= -5) bzScore = 10;
+                   else if (bz >= -10) bzScore = 5;
+                   else bzScore = 0;
   }
 
   // Total score
@@ -86,10 +88,18 @@ export function calculatePropagationIndex(
  * Get color for score value
  */
 function getScoreColor(score: number): string {
-  if (score >= 80) return "#00ff88"; // Excellent - green
-  if (score >= 60) return "#44dd66"; // Good - light green
-  if (score >= 40) return "#ffaa00"; // Fair - amber
-  if (score >= 20) return "#ff7700"; // Poor - orange
+  if (score >= 80) {
+    return "#00ff88";
+  } // Excellent - green
+  if (score >= 60) {
+    return "#44dd66";
+  } // Good - light green
+  if (score >= 40) {
+    return "#ffaa00";
+  } // Fair - amber
+  if (score >= 20) {
+    return "#ff7700";
+  } // Poor - orange
   return "#ff4455"; // Very Poor - red
 }
 

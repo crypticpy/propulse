@@ -469,7 +469,9 @@ export function OnboardingTour({
 
   // Set up observers and listeners
   useEffect(() => {
-    if (!isActive || !currentStep) return;
+    if (!isActive || !currentStep) {
+      return;
+    }
 
     // Initial update
     updateTargetRect();
@@ -497,7 +499,9 @@ export function OnboardingTour({
 
   // Keyboard navigation
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
@@ -538,7 +542,9 @@ export function OnboardingTour({
 
   // Prevent body scroll while tour is active
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      return;
+    }
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -546,7 +552,9 @@ export function OnboardingTour({
     };
   }, [isActive]);
 
-  if (!isActive || !currentStep) return null;
+  if (!isActive || !currentStep) {
+    return null;
+  }
 
   const handleOverlayClick = () => {
     setShowSkipConfirm(true);

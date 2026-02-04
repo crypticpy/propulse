@@ -163,12 +163,16 @@ export function SpotDetailsFlyout({
 
   // Get age info for styling
   const ageInfo = useMemo(() => {
-    if (!spot) return null;
+    if (!spot) {
+      return null;
+    }
     return getSpotAgeInfo(spot.time);
   }, [spot]);
 
   const ageBadgeColors = useMemo(() => {
-    if (!ageInfo) return null;
+    if (!ageInfo) {
+      return null;
+    }
     return getAgeBadgeColors(ageInfo.ageCategory);
   }, [ageInfo]);
 

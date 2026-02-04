@@ -76,8 +76,12 @@ const getDistanceColor = (difficulty: number): string => {
  * 1-2 hops = green (easy), 3-4 = amber (moderate), 5+ = red (difficult)
  */
 const getHopsColor = (hops: number): string => {
-  if (hops <= 2) return "text-signal-green";
-  if (hops <= 4) return "text-caution-amber";
+  if (hops <= 2) {
+    return "text-signal-green";
+  }
+  if (hops <= 4) {
+    return "text-caution-amber";
+  }
   return "text-alert-red";
 };
 
@@ -86,8 +90,12 @@ const getHopsColor = (hops: number): string => {
  * >60% = green (good daylight), 40-60% = amber (mixed), <40% = red (mostly dark)
  */
 const getIlluminationColor = (illumination: number): string => {
-  if (illumination > 60) return "text-signal-green";
-  if (illumination >= 40) return "text-caution-amber";
+  if (illumination > 60) {
+    return "text-signal-green";
+  }
+  if (illumination >= 40) {
+    return "text-caution-amber";
+  }
   return "text-alert-red";
 };
 
@@ -123,7 +131,9 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
   // Calculate distance for a target (if station is available)
   const getDistance = useCallback(
     (target: TargetLocation): string | null => {
-      if (!station) return null;
+      if (!station) {
+        return null;
+      }
       const metrics = getPathMetrics(
         station.lat,
         station.lon,
@@ -138,7 +148,9 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
   // Check if a target is the current one
   const isCurrent = useCallback(
     (target: TargetLocation): boolean => {
-      if (!currentTarget) return false;
+      if (!currentTarget) {
+        return false;
+      }
       return (
         target.lat === currentTarget.lat && target.lon === currentTarget.lon
       );
@@ -244,7 +256,7 @@ export function PathAnalysis({
   const activeRadio = useActiveRadio();
   const preferTested = usePreferTestedSpecs();
   const useImperial = preferences.units === "imperial";
-  const customRadios = preferences.customRadios;
+  const {customRadios} = preferences;
   const radioInstances = useMemo(
     () => preferences.radios || [],
     [preferences.radios],
@@ -266,7 +278,9 @@ export function PathAnalysis({
   // Check if content overflows and handle scroll position
   const checkScroll = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     const hasOverflow = el.scrollHeight > el.clientHeight;
     const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 5;
     setShowScrollIndicator(hasOverflow && !isAtBottom);
@@ -275,7 +289,9 @@ export function PathAnalysis({
   // Set up scroll listener and initial check
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     checkScroll();
     el.addEventListener("scroll", checkScroll);
     const resizeObserver = new ResizeObserver(checkScroll);
@@ -288,7 +304,9 @@ export function PathAnalysis({
 
   // Close recent targets dropdown when clicking outside
   useEffect(() => {
-    if (!showRecentTargets) return;
+    if (!showRecentTargets) {
+      return;
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -304,7 +322,9 @@ export function PathAnalysis({
   }, [showRecentTargets]);
 
   const analysisRadio = useMemo(() => {
-    if (analysisRadioId === null) return activeRadio;
+    if (analysisRadioId === null) {
+      return activeRadio;
+    }
     const instance =
       radioInstances.find((r) => r.id === analysisRadioId) ?? null;
     const equipmentId = instance?.equipmentId ?? analysisRadioId;
@@ -316,7 +336,9 @@ export function PathAnalysis({
   }, [activeRadio, analysisRadioId, customRadios, radioInstances]);
 
   const analysisRadioInstance = useMemo(() => {
-    if (!analysisRadioId) return null;
+    if (!analysisRadioId) {
+      return null;
+    }
     return radioInstances.find((r) => r.id === analysisRadioId) ?? null;
   }, [analysisRadioId, radioInstances]);
 
@@ -324,13 +346,17 @@ export function PathAnalysis({
   const { data: solarFluxData } = useSolarFlux();
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
   // Check if current target is already saved
   const isTargetSaved = useMemo(() => {
-    if (!target) return false;
+    if (!target) {
+      return false;
+    }
     return savedTargets.some(
       (t) => t.lat === target.lat && t.lon === target.lon,
     );
@@ -338,7 +364,9 @@ export function PathAnalysis({
 
   // Handle save target
   const handleSaveTarget = useCallback(() => {
-    if (!target || !targetName.trim()) return;
+    if (!target || !targetName.trim()) {
+      return;
+    }
     addTarget({
       name: targetName.trim(),
       lat: target.lat,
@@ -351,20 +379,26 @@ export function PathAnalysis({
 
   // Open save modal with default name
   const openSaveModal = useCallback(() => {
-    if (!target) return;
+    if (!target) {
+      return;
+    }
     setTargetName(target.name || target.grid || "");
     setShowSaveModal(true);
   }, [target]);
 
   // Calculate path metrics
   const metrics = useMemo(() => {
-    if (!station || !target) return null;
+    if (!station || !target) {
+      return null;
+    }
     return getPathMetrics(station.lat, station.lon, target.lat, target.lon);
   }, [station, target]);
 
   // Calculate path illumination
   const illumination = useMemo(() => {
-    if (!station || !target) return 0;
+    if (!station || !target) {
+      return 0;
+    }
     return getPathIllumination(
       station.lat,
       station.lon,
@@ -376,7 +410,9 @@ export function PathAnalysis({
 
   // Calculate frequency limits (MUF, FOT, LUF, HPF) at path midpoint
   const frequencyLimits = useMemo((): FrequencyLimits | null => {
-    if (!station || !target || !metrics) return null;
+    if (!station || !target || !metrics) {
+      return null;
+    }
     try {
       return getFrequencyLimits(
         metrics.midpoint.lat,
@@ -1069,16 +1105,28 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
   }
 
   const getMufColor = (muf: number): string => {
-    if (muf >= 21) return "text-signal-green";
-    if (muf >= 14) return "text-good";
-    if (muf >= 7) return "text-caution-amber";
+    if (muf >= 21) {
+      return "text-signal-green";
+    }
+    if (muf >= 14) {
+      return "text-good";
+    }
+    if (muf >= 7) {
+      return "text-caution-amber";
+    }
     return "text-alert-red";
   };
 
   const getLufColor = (luf: number): string => {
-    if (luf <= 3) return "text-signal-green";
-    if (luf <= 5) return "text-good";
-    if (luf <= 8) return "text-caution-amber";
+    if (luf <= 3) {
+      return "text-signal-green";
+    }
+    if (luf <= 5) {
+      return "text-good";
+    }
+    if (luf <= 8) {
+      return "text-caution-amber";
+    }
     return "text-alert-red";
   };
 

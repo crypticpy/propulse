@@ -202,10 +202,18 @@ export function formatShortcut(shortcut: KeyboardShortcut): string {
   const parts: string[] = [];
 
   if (shortcut.modifiers) {
-    if (shortcut.modifiers.includes("ctrl")) parts.push("Ctrl");
-    if (shortcut.modifiers.includes("alt")) parts.push("Alt");
-    if (shortcut.modifiers.includes("shift")) parts.push("Shift");
-    if (shortcut.modifiers.includes("meta")) parts.push("Cmd");
+    if (shortcut.modifiers.includes("ctrl")) {
+      parts.push("Ctrl");
+    }
+    if (shortcut.modifiers.includes("alt")) {
+      parts.push("Alt");
+    }
+    if (shortcut.modifiers.includes("shift")) {
+      parts.push("Shift");
+    }
+    if (shortcut.modifiers.includes("meta")) {
+      parts.push("Cmd");
+    }
   }
 
   // Format special keys for display

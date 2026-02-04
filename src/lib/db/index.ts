@@ -75,28 +75,24 @@ export async function getDB(): Promise<IDBPDatabase<DBSchema>> {
       }
 
       // Version 2: Add compound index for efficient wasRecentlyAlerted queries
-      if (oldVersion < 2) {
-        if (db.objectStoreNames.contains(DB_CONFIG.stores.alertHistory)) {
-          const historyStore = transaction.objectStore(
-            DB_CONFIG.stores.alertHistory,
-          );
-          if (!historyStore.indexNames.contains("by-ruleId-spotId")) {
-            historyStore.createIndex("by-ruleId-spotId", ["ruleId", "spotId"]);
-          }
-        }
+      if (oldVersion < 2 && db.objectStoreNames.contains(DB_CONFIG.stores.alertHistory)) {
+            const historyStore = transaction.objectStore(
+              DB_CONFIG.stores.alertHistory,
+            );
+            if (!historyStore.indexNames.contains("by-ruleId-spotId")) {
+              historyStore.createIndex("by-ruleId-spotId", ["ruleId", "spotId"]);
+            }
       }
 
       // Version 3: Add indexes for guest logging feature
-      if (oldVersion < 3) {
-        if (db.objectStoreNames.contains(DB_CONFIG.stores.logEntries)) {
-          const logStore = transaction.objectStore(DB_CONFIG.stores.logEntries);
-          if (!logStore.indexNames.contains("by-operatorCallsign")) {
-            logStore.createIndex("by-operatorCallsign", "operatorCallsign");
-          }
-          if (!logStore.indexNames.contains("by-guestSessionId")) {
-            logStore.createIndex("by-guestSessionId", "guestSessionId");
-          }
-        }
+      if (oldVersion < 3 && db.objectStoreNames.contains(DB_CONFIG.stores.logEntries)) {
+            const logStore = transaction.objectStore(DB_CONFIG.stores.logEntries);
+            if (!logStore.indexNames.contains("by-operatorCallsign")) {
+              logStore.createIndex("by-operatorCallsign", "operatorCallsign");
+            }
+            if (!logStore.indexNames.contains("by-guestSessionId")) {
+              logStore.createIndex("by-guestSessionId", "guestSessionId");
+            }
       }
     },
     blocked() {

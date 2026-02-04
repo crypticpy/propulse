@@ -14,10 +14,18 @@ interface ConditionsPillProps {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return "#00ff88";
-  if (score >= 60) return "#44dd66";
-  if (score >= 40) return "#ffaa00";
-  if (score >= 20) return "#ff7700";
+  if (score >= 80) {
+    return "#00ff88";
+  }
+  if (score >= 60) {
+    return "#44dd66";
+  }
+  if (score >= 40) {
+    return "#ffaa00";
+  }
+  if (score >= 20) {
+    return "#ff7700";
+  }
   return "#ff4455";
 }
 
@@ -43,12 +51,16 @@ export function ConditionsPill({ className = "" }: ConditionsPillProps) {
   const { data: solarFluxData, isLoading: sfiLoading } = useSolarFlux();
 
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 

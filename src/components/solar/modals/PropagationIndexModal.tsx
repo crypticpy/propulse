@@ -14,10 +14,18 @@ export interface PropagationIndexModalProps {
  * Get color for score value
  */
 function getScoreColor(score: number): string {
-  if (score >= 80) return "#00ff88";
-  if (score >= 60) return "#44dd66";
-  if (score >= 40) return "#ffaa00";
-  if (score >= 20) return "#ff7700";
+  if (score >= 80) {
+    return "#00ff88";
+  }
+  if (score >= 60) {
+    return "#44dd66";
+  }
+  if (score >= 40) {
+    return "#ffaa00";
+  }
+  if (score >= 20) {
+    return "#ff7700";
+  }
   return "#ff4455";
 }
 

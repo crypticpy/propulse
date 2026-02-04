@@ -84,13 +84,17 @@ export function ContestEntryArea({ className }: ContestEntryAreaProps) {
 
   // Get contest definition
   const contestDefinition = useMemo(() => {
-    if (!activeSession) return null;
+    if (!activeSession) {
+      return null;
+    }
     return getContestById(activeSession.contestId);
   }, [activeSession]);
 
   // Check if current entry is a dupe
   const currentIsDupe = useMemo(() => {
-    if (!currentCallsign || currentCallsign.length < 3) return false;
+    if (!currentCallsign || currentCallsign.length < 3) {
+      return false;
+    }
     return isDupeCheck(currentCallsign, currentBand, currentMode);
   }, [currentCallsign, currentBand, currentMode, isDupeCheck]);
 
@@ -107,7 +111,9 @@ export function ContestEntryArea({ className }: ContestEntryAreaProps) {
   // Handle QSO submission
   const handleQSOSubmit = useCallback(
     (qsoData: Omit<ContestQSO, "id" | "timestamp">) => {
-      if (!activeSession || !contestDefinition) return;
+      if (!activeSession || !contestDefinition) {
+        return;
+      }
 
       // Check for dupe
       const dupeCheck = isDupeCheck(
@@ -115,7 +121,9 @@ export function ContestEntryArea({ className }: ContestEntryAreaProps) {
         qsoData.band,
         qsoData.mode,
       );
-      if (dupeCheck) return;
+      if (dupeCheck) {
+        return;
+      }
 
       // Determine multiplier
       let isNewMultiplier = false;

@@ -162,14 +162,27 @@ function getCurrentCondition(kIndex: number): {
  * Get aurora visibility based on Kp index
  */
 function getAuroraVisibility(kIndex: number): string {
-  if (kIndex <= 2) return "Arctic regions only (>65° latitude)";
-  if (kIndex === 3)
+  if (kIndex <= 2) {
+    return "Arctic regions only (>65° latitude)";
+  }
+  if (kIndex === 3) {
     return "Northern Canada, Alaska, Scandinavia (~60° latitude)";
-  if (kIndex === 4) return "Northern US, southern Canada (~55° latitude)";
-  if (kIndex === 5) return "Northern tier US states (~50° latitude)";
-  if (kIndex === 6) return "Central US, UK, central Europe (~45° latitude)";
-  if (kIndex === 7) return "Southern US states (~40° latitude)";
-  if (kIndex === 8) return "Texas, Florida, Mediterranean (~35° latitude)";
+  }
+  if (kIndex === 4) {
+    return "Northern US, southern Canada (~55° latitude)";
+  }
+  if (kIndex === 5) {
+    return "Northern tier US states (~50° latitude)";
+  }
+  if (kIndex === 6) {
+    return "Central US, UK, central Europe (~45° latitude)";
+  }
+  if (kIndex === 7) {
+    return "Southern US states (~40° latitude)";
+  }
+  if (kIndex === 8) {
+    return "Texas, Florida, Mediterranean (~35° latitude)";
+  }
   return "Visible from most of the world (equatorial regions)";
 }
 

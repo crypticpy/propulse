@@ -94,19 +94,18 @@ function calculateTooltipPosition(
     left = screenX + TOOLTIP_OFFSET;
     side = "right";
   } else if (spaceOnLeft >= TOOLTIP_WIDTH) {
-    // Use left side
-    left = screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH;
-    side = "left";
-  } else {
-    // Not enough room on either side - use whichever has more space
-    if (spaceOnRight >= spaceOnLeft) {
-      left = screenX + TOOLTIP_OFFSET;
-      side = "right";
-    } else {
-      left = Math.max(8, screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH);
-      side = "left";
-    }
-  }
+             // Use left side
+             left = screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH;
+             side = "left";
+           }
+         else if (spaceOnRight >= spaceOnLeft) {
+               left = screenX + TOOLTIP_OFFSET;
+               side = "right";
+             }
+         else {
+               left = Math.max(8, screenX - TOOLTIP_OFFSET - TOOLTIP_WIDTH);
+               side = "left";
+             }
 
   // Clamp left to viewport bounds
   left = Math.max(8, Math.min(left, viewportWidth - TOOLTIP_WIDTH - 8));
@@ -145,18 +144,24 @@ export function PropagationForecastMini({
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
   // Get current Bz value from magnetometer data
   const currentBz = useMemo(() => {
-    if (!magnetometerData || magnetometerData.length === 0) return null;
+    if (!magnetometerData || magnetometerData.length === 0) {
+      return null;
+    }
     return (
       magnetometerData
         .slice()
@@ -168,8 +173,12 @@ export function PropagationForecastMini({
 
   // Helper function to get SFI color
   const getSfiColor = (sfi: number): string => {
-    if (sfi >= 150) return "#00ff88"; // Green
-    if (sfi >= 100) return "#ffaa00"; // Amber
+    if (sfi >= 150) {
+      return "#00ff88";
+    } // Green
+    if (sfi >= 100) {
+      return "#ffaa00";
+    } // Amber
     return "#ff4455"; // Red
   };
 
@@ -177,9 +186,15 @@ export function PropagationForecastMini({
   const getBzDisplay = (
     bz: number | null,
   ): { arrow: string; color: string } => {
-    if (bz === null) return { arrow: "-", color: "#6b7280" }; // Gray for no data
-    if (bz > 0) return { arrow: "\u2191", color: "#00ff88" }; // Green northward
-    if (bz < -5) return { arrow: "\u2193", color: "#ff4455" }; // Red southward
+    if (bz === null) {
+      return { arrow: "-", color: "#6b7280" };
+    } // Gray for no data
+    if (bz > 0) {
+      return { arrow: "\u2191", color: "#00ff88" };
+    } // Green northward
+    if (bz < -5) {
+      return { arrow: "\u2193", color: "#ff4455" };
+    } // Red southward
     return { arrow: "\u2193", color: "#ffaa00" }; // Amber for slightly negative
   };
 
@@ -190,7 +205,9 @@ export function PropagationForecastMini({
 
   // Generate 24-hour forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
-    if (!station || !target) return [];
+    if (!station || !target) {
+      return [];
+    }
     return getForecastForPath(
       station.lat,
       station.lon,
@@ -204,13 +221,17 @@ export function PropagationForecastMini({
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {
-    if (forecast.length === 0) return [];
+    if (forecast.length === 0) {
+      return [];
+    }
     return getBestWindows(forecast);
   }, [forecast]);
 
   // Best recommendation (top window)
   const topRecommendation = useMemo(() => {
-    if (bestWindows.length === 0) return null;
+    if (bestWindows.length === 0) {
+      return null;
+    }
     const best = bestWindows[0];
     return {
       band: best.band,
@@ -231,14 +252,18 @@ export function PropagationForecastMini({
 
   // Calculate target sunrise/sunset times
   const targetSunTimes = useMemo(() => {
-    if (!target) return null;
+    if (!target) {
+      return null;
+    }
     return getSunTimes(target.lat, target.lon, displayTime);
   }, [target, displayTime]);
 
   // Get top 3 bands sorted by current conditions
   const topBandsNow = useMemo(() => {
     const hourData = forecast.find((f) => f.hour === currentHour);
-    if (!hourData) return [];
+    if (!hourData) {
+      return [];
+    }
     return hourData.bands
       .filter((b) => b.status !== "closed")
       .sort((a, b) => b.snrEstimate - a.snrEstimate)
@@ -270,8 +295,12 @@ export function PropagationForecastMini({
 
   // Generate plain English recommendation
   const getRecommendation = (): string => {
-    if (currentKp >= 5) return "Storm conditions - expect degraded HF";
-    if (topBandsNow.length === 0) return "No bands open - check back later";
+    if (currentKp >= 5) {
+      return "Storm conditions - expect degraded HF";
+    }
+    if (topBandsNow.length === 0) {
+      return "No bands open - check back later";
+    }
     const best = topBandsNow[0];
     if (best.status === "excellent") {
       return `Great time for ${best.band} - strong signals expected`;
@@ -296,7 +325,9 @@ export function PropagationForecastMini({
 
   // Calculate path distance (must be before early returns)
   const pathDistance = useMemo(() => {
-    if (!station || !target) return null;
+    if (!station || !target) {
+      return null;
+    }
     const R = 6371;
     const dLat = ((target.lat - station.lat) * Math.PI) / 180;
     const dLon = ((target.lon - station.lon) * Math.PI) / 180;

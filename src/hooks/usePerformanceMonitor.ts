@@ -56,7 +56,9 @@ export function clearPerformanceData(): void {
  * Log a performance summary to the console
  */
 export function logPerformanceSummary(): void {
-  if (!ENABLE_MONITORING) return;
+  if (!ENABLE_MONITORING) {
+    return;
+  }
 
   const report = getPerformanceReport();
 
@@ -123,7 +125,9 @@ export function usePerformanceMonitor(
   }
 
   useEffect(() => {
-    if (!ENABLE_MONITORING || !enabled) return;
+    if (!ENABLE_MONITORING || !enabled) {
+      return;
+    }
 
     const renderEnd = performance.now();
     const renderTime = renderEnd - renderStartRef.current;
@@ -183,12 +187,16 @@ export function usePerformanceMeasure(operationName: string) {
   });
 
   const start = useCallback(() => {
-    if (!ENABLE_MONITORING) return;
+    if (!ENABLE_MONITORING) {
+      return;
+    }
     measureRef.current.start = performance.now();
   }, []);
 
   const end = useCallback(() => {
-    if (!ENABLE_MONITORING) return 0;
+    if (!ENABLE_MONITORING) {
+      return 0;
+    }
     const duration = performance.now() - measureRef.current.start;
     measureRef.current.measurements.push(duration);
 
@@ -207,7 +215,7 @@ export function usePerformanceMeasure(operationName: string) {
   }, [operationName]);
 
   const getStats = useCallback(() => {
-    const measurements = measureRef.current.measurements;
+    const {measurements} = measureRef.current;
     if (measurements.length === 0) {
       return { avg: 0, min: 0, max: 0, count: 0 };
     }
@@ -230,7 +238,9 @@ export function usePerformanceMeasure(operationName: string) {
 export function withPerformanceTracking<
   T extends (...args: unknown[]) => unknown,
 >(fn: T, name: string): T {
-  if (!ENABLE_MONITORING) return fn;
+  if (!ENABLE_MONITORING) {
+    return fn;
+  }
 
   return ((...args: Parameters<T>) => {
     const start = performance.now();

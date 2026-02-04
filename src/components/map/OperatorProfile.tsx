@@ -151,7 +151,9 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
 
   // Determine polar condition label
   const getPolarLabel = (): string | null => {
-    if (operatorLat === null) return null;
+    if (operatorLat === null) {
+      return null;
+    }
     const month = new Date().getMonth();
     const isNorthernHemisphere = operatorLat > 0;
     const isSummerNorth = month >= 3 && month <= 8;

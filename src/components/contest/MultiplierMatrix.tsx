@@ -115,7 +115,9 @@ function getWorkedValuesForBand(
   const worked = new Set<string>();
 
   for (const mult of multipliers) {
-    if (mult.type !== type) continue;
+    if (mult.type !== type) {
+      continue;
+    }
 
     if (band === null) {
       // All bands (for non-perBand contests)

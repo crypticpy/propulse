@@ -70,11 +70,21 @@ const BZ_SCALE = [
  * Get color for Bz value
  */
 function getBzColor(bz: number): string {
-  if (bz >= 5) return "#00ff88";
-  if (bz >= 0) return "#44dd66";
-  if (bz >= -5) return "#ffaa00";
-  if (bz >= -10) return "#ff7700";
-  if (bz >= -20) return "#ff4455";
+  if (bz >= 5) {
+    return "#00ff88";
+  }
+  if (bz >= 0) {
+    return "#44dd66";
+  }
+  if (bz >= -5) {
+    return "#ffaa00";
+  }
+  if (bz >= -10) {
+    return "#ff7700";
+  }
+  if (bz >= -20) {
+    return "#ff4455";
+  }
   return "#ff0088";
 }
 
@@ -82,11 +92,21 @@ function getBzColor(bz: number): string {
  * Get condition label
  */
 function getBzCondition(bz: number): string {
-  if (bz >= 5) return "Strongly Northward";
-  if (bz >= 0) return "Northward";
-  if (bz >= -5) return "Weakly Southward";
-  if (bz >= -10) return "Southward";
-  if (bz >= -20) return "Strongly Southward";
+  if (bz >= 5) {
+    return "Strongly Northward";
+  }
+  if (bz >= 0) {
+    return "Northward";
+  }
+  if (bz >= -5) {
+    return "Weakly Southward";
+  }
+  if (bz >= -10) {
+    return "Southward";
+  }
+  if (bz >= -20) {
+    return "Strongly Southward";
+  }
   return "Extreme Southward";
 }
 
@@ -109,7 +129,9 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
   const innerHeight = chartHeight - padding.top - padding.bottom;
 
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return { points: [], stats: null };
+    if (!data || data.length === 0) {
+      return { points: [], stats: null };
+    }
 
     const sampledData = data.slice(-60);
     const bzValues = sampledData.map((d) => d.bz_gsm);
@@ -182,7 +204,9 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
 
   // Y-axis labels
   const yLabels = useMemo(() => {
-    if (!chartData.yMax) return [];
+    if (!chartData.yMax) {
+      return [];
+    }
     const labels: { value: number; y: number }[] = [];
     const step = chartData.yMax <= 15 ? 5 : 10;
     for (let v = chartData.yMin || -15; v <= chartData.yMax; v += step) {
@@ -199,13 +223,21 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
 
   // Find current scale level
   const currentScale = BZ_SCALE.find((s) => {
-    if (s.range.includes("+5 to +20")) return currentBz >= 5;
-    if (s.range.includes("0 to +5")) return currentBz >= 0 && currentBz < 5;
-    if (s.range.includes("0 to -5")) return currentBz < 0 && currentBz >= -5;
-    if (s.range.includes("-5 to -10"))
+    if (s.range.includes("+5 to +20")) {
+      return currentBz >= 5;
+    }
+    if (s.range.includes("0 to +5")) {
+      return currentBz >= 0 && currentBz < 5;
+    }
+    if (s.range.includes("0 to -5")) {
+      return currentBz < 0 && currentBz >= -5;
+    }
+    if (s.range.includes("-5 to -10")) {
       return currentBz < -5 && currentBz >= -10;
-    if (s.range.includes("-10 to -20"))
+    }
+    if (s.range.includes("-10 to -20")) {
       return currentBz < -10 && currentBz >= -20;
+    }
     return currentBz < -20;
   });
 

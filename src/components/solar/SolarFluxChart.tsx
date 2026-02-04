@@ -38,7 +38,9 @@ function formatDateLabel(dateStr: string): string {
 function calculateTrend(
   data: SolarFluxDataPoint[],
 ): "rising" | "falling" | "stable" {
-  if (data.length < 5) return "stable";
+  if (data.length < 5) {
+    return "stable";
+  }
 
   const recentAvg = data.slice(-5).reduce((sum, d) => sum + d.flux, 0) / 5;
   const olderAvg =
@@ -46,8 +48,12 @@ function calculateTrend(
     Math.min(5, data.slice(-10, -5).length || 1);
 
   const diff = recentAvg - olderAvg;
-  if (diff > 5) return "rising";
-  if (diff < -5) return "falling";
+  if (diff > 5) {
+    return "rising";
+  }
+  if (diff < -5) {
+    return "falling";
+  }
   return "stable";
 }
 

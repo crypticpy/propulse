@@ -16,7 +16,9 @@ const MAX_RECENT_GRIDS = 10;
  * This is a stricter check for UI feedback during typing.
  */
 export function isValidGridFormat(grid: string): boolean {
-  if (!grid || grid.length < 4) return false;
+  if (!grid || grid.length < 4) {
+    return false;
+  }
   return /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$/i.test(grid);
 }
 
@@ -29,8 +31,7 @@ export function gridToCoordinates(
 ): { lat: number; lon: number } | null {
   try {
     // Use the existing utility from the codebase
-    const result = gridToLatLon(grid);
-    return result;
+    return gridToLatLon(grid);
   } catch {
     return null;
   }

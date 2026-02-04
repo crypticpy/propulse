@@ -429,7 +429,9 @@ export const useMapStore = create<MapState>((set, get) => ({
   applyTimeScenario: (id) =>
     set((state) => {
       const scenario = state.timeScenarios.find((s) => s.id === id);
-      if (!scenario) return {};
+      if (!scenario) {
+        return {};
+      }
       return {
         absoluteTime: scenario.time,
         target: scenario.target || state.target,
@@ -602,7 +604,9 @@ export const useMapStore = create<MapState>((set, get) => ({
   setActivePreset: (id) =>
     set((state) => {
       const preset = state.regionPresets.find((p) => p.id === id);
-      if (!preset) return {};
+      if (!preset) {
+        return {};
+      }
       const now = new Date().toISOString();
       const updatedPresets = state.regionPresets.map((p) =>
         p.id === id ? { ...p, lastUsed: now } : p,
@@ -643,7 +647,9 @@ export const useMapStore = create<MapState>((set, get) => ({
   updateRegionPreset: (id, updates) =>
     set((state) => {
       const preset = state.regionPresets.find((p) => p.id === id);
-      if (!preset || preset.isBuiltIn) return {};
+      if (!preset || preset.isBuiltIn) {
+        return {};
+      }
       const updated = state.regionPresets.map((p) =>
         p.id === id ? { ...p, ...updates } : p,
       );
@@ -654,7 +660,9 @@ export const useMapStore = create<MapState>((set, get) => ({
   deleteRegionPreset: (id) =>
     set((state) => {
       const preset = state.regionPresets.find((p) => p.id === id);
-      if (!preset || preset.isBuiltIn) return {};
+      if (!preset || preset.isBuiltIn) {
+        return {};
+      }
       const updated = state.regionPresets.filter((p) => p.id !== id);
       saveRegionPresets(updated);
       const clearActive = state.activePresetId === id;
@@ -716,7 +724,9 @@ export const useMapStore = create<MapState>((set, get) => ({
   importRegionPresets: (json): boolean => {
     try {
       const parsed = JSON.parse(json);
-      if (!Array.isArray(parsed)) return false;
+      if (!Array.isArray(parsed)) {
+        return false;
+      }
       // Validate each entry has minimum required fields
       for (const item of parsed) {
         if (

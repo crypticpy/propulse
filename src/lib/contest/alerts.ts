@@ -141,10 +141,8 @@ export function updateSpotSnapshot(
   const cutoffTime = Date.now() - DEFAULT_TREND_WINDOW_MINUTES * 60 * 1000;
 
   for (const spot of spots) {
-    if (spot.band && spot.time.getTime() >= cutoffTime) {
-      if (bands.includes(spot.band as (typeof bands)[number])) {
-        counts[spot.band] = (counts[spot.band] || 0) + 1;
-      }
+    if (spot.band && spot.time.getTime() >= cutoffTime && bands.includes(spot.band as (typeof bands)[number])) {
+          counts[spot.band] = (counts[spot.band] || 0) + 1;
     }
   }
 
@@ -164,7 +162,9 @@ export function updateSpotSnapshot(
  */
 function isInCooldown(state: AlertState, alertKey: string): boolean {
   const lastFired = state.firedAlerts.get(alertKey);
-  if (!lastFired) return false;
+  if (!lastFired) {
+    return false;
+  }
   return Date.now() - lastFired.getTime() < state.cooldownMs;
 }
 
@@ -209,10 +209,8 @@ function detectBandTrending(
   }
 
   for (const spot of spots) {
-    if (spot.band && spot.time.getTime() >= cutoffTime) {
-      if (bands.includes(spot.band)) {
-        currentCounts[spot.band] = (currentCounts[spot.band] || 0) + 1;
-      }
+    if (spot.band && spot.time.getTime() >= cutoffTime && bands.includes(spot.band)) {
+          currentCounts[spot.band] = (currentCounts[spot.band] || 0) + 1;
     }
   }
 
@@ -322,7 +320,9 @@ function detectNeededMultSpotted(
       const multKey = `${match.type}:${match.value}`;
 
       // Skip if already spotted in this batch
-      if (spottedMults.has(multKey)) continue;
+      if (spottedMults.has(multKey)) {
+        continue;
+      }
       spottedMults.add(multKey);
 
       const alertKey = `NEEDED_MULT_SPOTTED:${multKey}`;
@@ -401,7 +401,9 @@ export function getActiveAlerts(
 
   allAlerts.sort((a, b) => {
     const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-    if (priorityDiff !== 0) return priorityDiff;
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
     return b.timestamp.getTime() - a.timestamp.getTime();
   });
 

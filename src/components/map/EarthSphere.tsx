@@ -48,8 +48,12 @@ function vector3ToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
   let lon = theta * (180 / Math.PI) - 180;
 
   // Normalize longitude to [-180, 180]
-  if (lon < -180) lon += 360;
-  if (lon > 180) lon -= 360;
+  if (lon < -180) {
+    lon += 360;
+  }
+  if (lon > 180) {
+    lon -= 360;
+  }
 
   return { lat, lon };
 }

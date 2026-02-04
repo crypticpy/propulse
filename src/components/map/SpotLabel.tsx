@@ -120,7 +120,9 @@ export function SpotLabel({
   const sizeClasses =
     size === "sm" ? "text-[11px] px-1.5 py-0.5" : "text-[13px] px-2 py-1";
 
-  if (!hasValidCoords) return null;
+  if (!hasValidCoords) {
+    return null;
+  }
 
   // Vertical pixel offset for stacked labels (each label ~22px tall)
   const stackOffsetY = stackIndex * -24;

@@ -544,7 +544,9 @@ const sherwoodBestByModel = (() => {
       (r.dynamicRangeWideDb ?? 0) * 2 +
       (r.blockingDb ?? 0);
 
-    if (score(entry) > score(existing)) best.set(key, entry);
+    if (score(entry) > score(existing)) {
+      best.set(key, entry);
+    }
   }
 
   return best;
@@ -586,7 +588,9 @@ function findSherwoodMatch(
   // Try exact match first
   const exactKey = `${radio.manufacturer}::${radio.model}`.toLowerCase();
   const exactMatch = sherwoodBestByModel.get(exactKey);
-  if (exactMatch) return exactMatch;
+  if (exactMatch) {
+    return exactMatch;
+  }
 
   // Try normalized match
   const normalizedModel = normalizeModelForMatch(radio.model);
@@ -641,7 +645,9 @@ const buildRadioDatabase = (): RadioEquipment[] => {
   // Add Sherwood-only radios (not in our curated database)
   for (const entry of sherwoodBestByModel.values()) {
     const key = `${entry.manufacturer}::${entry.model}`.toLowerCase();
-    if (usedSherwoodKeys.has(key)) continue;
+    if (usedSherwoodKeys.has(key)) {
+      continue;
+    }
 
     const sherwoodSpecs = sherwoodToReceiverPerformance(entry);
 
@@ -668,7 +674,9 @@ const buildRadioDatabase = (): RadioEquipment[] => {
   // Sort for stable output
   result.sort((a, b) => {
     const m = a.manufacturer.localeCompare(b.manufacturer);
-    if (m !== 0) return m;
+    if (m !== 0) {
+      return m;
+    }
     return a.model.localeCompare(b.model);
   });
 

@@ -107,7 +107,9 @@ export function OptimalBandsPanel({
 
   // Handle drag move
   useEffect(() => {
-    if (!isDragging) return;
+    if (!isDragging) {
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - dragStartRef.current.x;
@@ -155,24 +157,32 @@ export function OptimalBandsPanel({
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
   // Calculate path metrics
   const pathMetrics = useMemo(() => {
-    if (!station || !target) return null;
+    if (!station || !target) {
+      return null;
+    }
     return getPathMetrics(station.lat, station.lon, target.lat, target.lon);
   }, [station, target]);
 
   // Calculate enhanced band conditions
   const bandConditions = useMemo(() => {
-    if (!station || !target) return null;
+    if (!station || !target) {
+      return null;
+    }
     try {
       return getEnhancedBandConditions(
         station.lat,
@@ -192,13 +202,17 @@ export function OptimalBandsPanel({
 
   // Get optimal bands
   const optimalBands = useMemo(() => {
-    if (!bandConditions) return [];
+    if (!bandConditions) {
+      return [];
+    }
     return getOptimalBands(bandConditions, 2);
   }, [bandConditions]);
 
   // Calculate path illumination
   const illumination = useMemo(() => {
-    if (!station || !target) return 0;
+    if (!station || !target) {
+      return 0;
+    }
     return getPathIllumination(
       station.lat,
       station.lon,

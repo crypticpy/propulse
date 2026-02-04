@@ -69,14 +69,18 @@ function SpotMarker3D({
 
   // Pulse animation for selected/hovered markers
   useFrame(({ clock }) => {
-    if (!hasPosition) return;
+    if (!hasPosition) {
+      return;
+    }
     if (pulseRef.current && (isSelected || isHovered)) {
       const scale = 1 + Math.sin(clock.elapsedTime * 4) * 0.3;
       pulseRef.current.scale.set(scale, scale, scale);
     }
   });
 
-  if (!position) return null;
+  if (!position) {
+    return null;
+  }
 
   const markerSize = isSelected ? 0.02 : isHovered ? 0.018 : 0.012;
   const pulseSize = markerSize * 2.5;
@@ -199,7 +203,9 @@ function drawSpotMarker(
   isSelected: boolean,
   isHovered: boolean,
 ) {
-  if (spot.dxLat === undefined || spot.dxLon === undefined) return;
+  if (spot.dxLat === undefined || spot.dxLon === undefined) {
+    return;
+  }
 
   const { x, y } = latLonToCanvas(spot.dxLat, spot.dxLon);
   const bandColor = getBandColor(spot.band || "");
@@ -457,7 +463,9 @@ export function getSpotAtPoint(
   // Note: caller should provide already-scaled coordinates
 
   for (const spot of spots) {
-    if (spot.dxLat === undefined || spot.dxLon === undefined) continue;
+    if (spot.dxLat === undefined || spot.dxLon === undefined) {
+      continue;
+    }
 
     const spotPos = latLonToCanvas(spot.dxLat, spot.dxLon);
     const distance = Math.sqrt(

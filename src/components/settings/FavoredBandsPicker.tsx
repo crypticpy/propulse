@@ -23,8 +23,12 @@ function getBandState(
   primary: BandId[],
   hidden: BandId[],
 ): BandState {
-  if (primary.includes(band)) return "favored";
-  if (hidden.includes(band)) return "hidden";
+  if (primary.includes(band)) {
+    return "favored";
+  }
+  if (hidden.includes(band)) {
+    return "hidden";
+  }
   return "normal";
 }
 

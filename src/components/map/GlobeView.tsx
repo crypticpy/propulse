@@ -186,7 +186,9 @@ function CameraController() {
 
   // Animate camera to focus on selected spot
   useEffect(() => {
-    if (!targetPosition || !controlsRef.current || !isFocusing) return;
+    if (!targetPosition || !controlsRef.current || !isFocusing) {
+      return;
+    }
 
     const controls = controlsRef.current;
     const startPosition = camera.position.clone();
@@ -224,7 +226,9 @@ function CameraController() {
 
   // Q2: Animate camera to center on double-clicked location
   useEffect(() => {
-    if (!centerLocation || !controlsRef.current) return;
+    if (!centerLocation || !controlsRef.current) {
+      return;
+    }
 
     const controls = controlsRef.current;
     const startPosition = camera.position.clone();
@@ -323,7 +327,9 @@ function GlobeScene({
 
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
-    if (!station || !target) return undefined;
+    if (!station || !target) {
+      return undefined;
+    }
     const metrics = getPathMetrics(
       station.lat,
       station.lon,
@@ -335,13 +341,17 @@ function GlobeScene({
 
   // Calculate target bearing when station and target are set
   const targetBearing = useMemo((): number | undefined => {
-    if (!station || !target) return undefined;
+    if (!station || !target) {
+      return undefined;
+    }
     return getBearing(station.lat, station.lon, target.lat, target.lon);
   }, [station, target]);
 
   // Calculate greyline intensity based on station location
   const greylineIntensity = useMemo(() => {
-    if (!station) return "normal" as const;
+    if (!station) {
+      return "normal" as const;
+    }
     return getGreylineIntensity(station.lat, station.lon, displayTime);
   }, [station, displayTime]);
 
@@ -559,7 +569,9 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
   const tooltipSpots = useMemo(() => {
-    if (!tooltipPosition?.grid) return [];
+    if (!tooltipPosition?.grid) {
+      return [];
+    }
     const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
     return allSpots.filter((spot) => {
       const dxGrid = (spot.dxGrid || "").toUpperCase();
@@ -598,7 +610,9 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   const handleGlobeHover = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
       // Don't show tooltip if flyout is open
-      if (flyoutPosition) return;
+      if (flyoutPosition) {
+        return;
+      }
       const grid = latLonToGrid(lat, lon);
       setTooltipPosition({ x: screenPos.x, y: screenPos.y, grid });
     },
@@ -722,7 +736,9 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // Handle flyout actions (fallback for unhandled actions)
   const handleFlyoutAction = useCallback(
     (action: MapFlyoutAction) => {
-      if (!flyoutPosition) return;
+      if (!flyoutPosition) {
+        return;
+      }
 
       switch (action) {
         case "setTarget":

@@ -570,7 +570,9 @@ export function RegionPresetManager({
   // Reorder: move up within the full list
   const handleMoveUp = useCallback(
     (globalIndex: number) => {
-      if (!regionPresets || globalIndex <= 0) return;
+      if (!regionPresets || globalIndex <= 0) {
+        return;
+      }
       const newOrder = [...regionPresets];
       [newOrder[globalIndex - 1], newOrder[globalIndex]] = [
         newOrder[globalIndex],
@@ -584,7 +586,9 @@ export function RegionPresetManager({
   // Reorder: move down within the full list
   const handleMoveDown = useCallback(
     (globalIndex: number) => {
-      if (!regionPresets || globalIndex >= regionPresets.length - 1) return;
+      if (!regionPresets || globalIndex >= regionPresets.length - 1) {
+        return;
+      }
       const newOrder = [...regionPresets];
       [newOrder[globalIndex], newOrder[globalIndex + 1]] = [
         newOrder[globalIndex + 1],

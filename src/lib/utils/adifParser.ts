@@ -172,7 +172,9 @@ function freqKHzToMHz(freqKHz: number): string {
  * Parse QSL status from ADIF value
  */
 function parseQSLStatus(value: string | undefined): QSLStatus | undefined {
-  if (!value) return undefined;
+  if (!value) {
+    return undefined;
+  }
   const upper = value.toUpperCase();
   if (upper === "Y" || upper === "N" || upper === "R" || upper === "I") {
     return upper as QSLStatus;
@@ -184,7 +186,9 @@ function parseQSLStatus(value: string | undefined): QSLStatus | undefined {
  * Parse boolean from ADIF value (Y/N or empty)
  */
 function parseADIFBoolean(value: string | undefined): boolean | undefined {
-  if (!value) return undefined;
+  if (!value) {
+    return undefined;
+  }
   return value.toUpperCase() === "Y";
 }
 

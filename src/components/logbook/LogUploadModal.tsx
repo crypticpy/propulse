@@ -47,7 +47,9 @@ function filterEntriesByDateRange(
   customStart?: string,
   customEnd?: string,
 ): LogEntry[] {
-  if (range === "all") return entries;
+  if (range === "all") {
+    return entries;
+  }
 
   const now = new Date();
   let startDate: Date;
@@ -60,7 +62,9 @@ function filterEntriesByDateRange(
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       break;
     case "custom": {
-      if (!customStart || !customEnd) return entries;
+      if (!customStart || !customEnd) {
+        return entries;
+      }
       const start = new Date(customStart);
       const end = new Date(customEnd);
       return entries.filter((e) => {
@@ -161,8 +165,12 @@ export function LogUploadModal({
   // Check if a service is configured based on store credentials
   const isServiceConfigured = useCallback(
     (service: UploadService): boolean => {
-      if (service === "lotw") return true; // LoTW is always available (export only)
-      if (service === "qrz") return false; // QRZ not implemented yet
+      if (service === "lotw") {
+        return true;
+      } // LoTW is always available (export only)
+      if (service === "qrz") {
+        return false;
+      } // QRZ not implemented yet
 
       switch (service) {
         case "eqsl":
@@ -233,7 +241,9 @@ export function LogUploadModal({
   }, []);
 
   const handleUpload = useCallback(async () => {
-    if (filteredEntries.length === 0 || selectedServices.size === 0) return;
+    if (filteredEntries.length === 0 || selectedServices.size === 0) {
+      return;
+    }
 
     setUploading(true);
     const servicesToUpload = Array.from(selectedServices).filter(
@@ -346,7 +356,9 @@ export function LogUploadModal({
     onClose();
   }, [onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const hasUploadServices = Array.from(selectedServices).some(
     (s) => s !== "lotw",

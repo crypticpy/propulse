@@ -197,7 +197,9 @@ export function useDXSpotListState(
 
   // Q8: Scroll to selected spot and highlight it briefly
   useEffect(() => {
-    if (!selectedSpot?.id || !listContainerRef.current) return;
+    if (!selectedSpot?.id || !listContainerRef.current) {
+      return;
+    }
 
     // Find the row element with the matching spot id
     const row = listContainerRef.current.querySelector(
@@ -334,7 +336,9 @@ export function useDXSpotListState(
   const neededCount = useMemo(() => {
     let count = 0;
     for (const isNeeded of neededStatusMap.values()) {
-      if (isNeeded) count++;
+      if (isNeeded) {
+        count++;
+      }
     }
     return count;
   }, [neededStatusMap]);
@@ -361,7 +365,9 @@ export function useDXSpotListState(
         const aNeeded = neededStatusMap.get(a.id) ? 1 : 0;
         const bNeeded = neededStatusMap.get(b.id) ? 1 : 0;
         // Sort needed spots first (descending), then by time (newest first)
-        if (bNeeded !== aNeeded) return bNeeded - aNeeded;
+        if (bNeeded !== aNeeded) {
+          return bNeeded - aNeeded;
+        }
         return b.time.getTime() - a.time.getTime();
       });
     }

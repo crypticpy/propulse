@@ -337,17 +337,13 @@ function mapGenericExchange(
     if (i < fields.length) {
       const field = fields[i];
       parsedFields[field] = token.toUpperCase();
-    } else if (tokens.length > fields.length) {
-      // Extra token beyond expected fields
-      // Only add error once for extra tokens
-      if (i === fields.length) {
-        errors.push({
-          field: `token[${i}]`,
-          message: `Extra token(s) in exchange: ${tokens.slice(fields.length).join(" ")}`,
-          code: "EXTRA_TOKENS",
-        });
-      }
-    }
+    } else if (tokens.length > fields.length && i === fields.length) {
+                 errors.push({
+                   field: `token[${i}]`,
+                   message: `Extra token(s) in exchange: ${tokens.slice(fields.length).join(" ")}`,
+                   code: "EXTRA_TOKENS",
+                 });
+           }
   }
 }
 

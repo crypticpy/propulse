@@ -95,9 +95,15 @@ export function QSOEntryForm({
   // Handle auto-fill from callsign lookup
   const handleAutoFill = useCallback(
     (data: { name?: string; grid?: string; qth?: string }) => {
-      if (data.name && !name) setName(data.name);
-      if (data.grid && !grid) setGrid(data.grid.toUpperCase());
-      if (data.qth && !qth) setQth(data.qth);
+      if (data.name && !name) {
+        setName(data.name);
+      }
+      if (data.grid && !grid) {
+        setGrid(data.grid.toUpperCase());
+      }
+      if (data.qth && !qth) {
+        setQth(data.qth);
+      }
     },
     [name, grid, qth],
   );

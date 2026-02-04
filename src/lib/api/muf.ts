@@ -452,11 +452,11 @@ export function estimateMUFEnhanced(
   // At night, the ionosphere weakens but doesn't disappear immediately
   if (zenith > 90) {
     const nightDepth = Math.min((zenith - 90) / 90, 1);
-    muf = muf * (0.6 - nightDepth * 0.2);
+    muf *= 0.6 - nightDepth * 0.2;
   } else if (zenith > 80) {
     // Twilight transition
     const twilightFactor = (90 - zenith) / 10;
-    muf = muf * (0.6 + 0.4 * twilightFactor);
+    muf *= 0.6 + 0.4 * twilightFactor;
   }
 
   // Ensure minimum reasonable value

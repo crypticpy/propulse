@@ -56,34 +56,32 @@ export function QSOTable({
 
   // Sort entries
   const sortedEntries = useMemo(() => {
-    const sorted = [...entries].sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortField) {
-        case "date":
-          comparison = a.date.localeCompare(b.date);
-          if (comparison === 0) {
-            comparison = a.timeOn.localeCompare(b.timeOn);
+    return [...entries].sort((a, b) => {
+          let comparison = 0;
+    
+          switch (sortField) {
+            case "date":
+              comparison = a.date.localeCompare(b.date);
+              if (comparison === 0) {
+                comparison = a.timeOn.localeCompare(b.timeOn);
+              }
+              break;
+            case "callsign":
+              comparison = a.callsign.localeCompare(b.callsign);
+              break;
+            case "band":
+              comparison = parseBandNumber(a.band) - parseBandNumber(b.band);
+              break;
+            case "mode":
+              comparison = a.mode.localeCompare(b.mode);
+              break;
+            case "name":
+              comparison = (a.name || "").localeCompare(b.name || "");
+              break;
           }
-          break;
-        case "callsign":
-          comparison = a.callsign.localeCompare(b.callsign);
-          break;
-        case "band":
-          comparison = parseBandNumber(a.band) - parseBandNumber(b.band);
-          break;
-        case "mode":
-          comparison = a.mode.localeCompare(b.mode);
-          break;
-        case "name":
-          comparison = (a.name || "").localeCompare(b.name || "");
-          break;
-      }
-
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-
-    return sorted;
+    
+          return sortDirection === "asc" ? comparison : -comparison;
+        });
   }, [entries, sortField, sortDirection]);
 
   const handleSort = useCallback(

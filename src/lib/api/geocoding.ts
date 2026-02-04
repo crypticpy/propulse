@@ -161,7 +161,9 @@ export function parseCoordinateString(
     const lat = parseFloat(decimalMatch[1]);
     const lon = parseFloat(decimalMatch[2]);
     const error = validateCoordinates(lat, lon);
-    if (error) return { error };
+    if (error) {
+      return { error };
+    }
     return { lat, lon };
   }
 
@@ -184,11 +186,17 @@ export function parseCoordinateString(
     let lat = latDeg + latMin / 60 + latSec / 3600;
     let lon = lonDeg + lonMin / 60 + lonSec / 3600;
 
-    if (latDir === "S") lat = -lat;
-    if (lonDir === "W") lon = -lon;
+    if (latDir === "S") {
+      lat = -lat;
+    }
+    if (lonDir === "W") {
+      lon = -lon;
+    }
 
     const error = validateCoordinates(lat, lon);
-    if (error) return { error };
+    if (error) {
+      return { error };
+    }
     return { lat, lon };
   }
 

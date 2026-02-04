@@ -94,76 +94,76 @@ function getBandPredictions(sfi: number): Array<{
   const predictions = [];
 
   // 10m
-  if (sfi >= 150)
+  if (sfi >= 150) {
     predictions.push({
       band: "10m",
       status: "Open - Worldwide DX",
       color: "#00ff88",
     });
-  else if (sfi >= 120)
-    predictions.push({
-      band: "10m",
-      status: "Limited openings",
-      color: "#ffaa00",
-    });
-  else predictions.push({ band: "10m", status: "Closed", color: "#ff4455" });
+  } else if (sfi >= 120)
+      predictions.push({
+        band: "10m",
+        status: "Limited openings",
+        color: "#ffaa00",
+      });
+    else predictions.push({ band: "10m", status: "Closed", color: "#ff4455" });
 
   // 12m
-  if (sfi >= 130)
+  if (sfi >= 130) {
     predictions.push({
       band: "12m",
       status: "Open - Good DX",
       color: "#00ff88",
     });
-  else if (sfi >= 100)
-    predictions.push({
-      band: "12m",
-      status: "Limited openings",
-      color: "#ffaa00",
-    });
-  else predictions.push({ band: "12m", status: "Closed", color: "#ff4455" });
+  } else if (sfi >= 100)
+      predictions.push({
+        band: "12m",
+        status: "Limited openings",
+        color: "#ffaa00",
+      });
+    else predictions.push({ band: "12m", status: "Closed", color: "#ff4455" });
 
   // 15m
-  if (sfi >= 100)
+  if (sfi >= 100) {
     predictions.push({
       band: "15m",
       status: "Open - Strong DX",
       color: "#00ff88",
     });
-  else if (sfi >= 80)
-    predictions.push({ band: "15m", status: "Marginal", color: "#ffaa00" });
-  else
-    predictions.push({
-      band: "15m",
-      status: "Mostly closed",
-      color: "#ff4455",
-    });
+  } else if (sfi >= 80)
+      predictions.push({ band: "15m", status: "Marginal", color: "#ffaa00" });
+    else
+      predictions.push({
+        band: "15m",
+        status: "Mostly closed",
+        color: "#ff4455",
+      });
 
   // 17m
-  if (sfi >= 90)
+  if (sfi >= 90) {
     predictions.push({
       band: "17m",
       status: "Open - Reliable DX",
       color: "#00ff88",
     });
-  else if (sfi >= 75)
-    predictions.push({
-      band: "17m",
-      status: "Fair openings",
-      color: "#ffaa00",
-    });
-  else predictions.push({ band: "17m", status: "Limited", color: "#ff7700" });
+  } else if (sfi >= 75)
+      predictions.push({
+        band: "17m",
+        status: "Fair openings",
+        color: "#ffaa00",
+      });
+    else predictions.push({ band: "17m", status: "Limited", color: "#ff7700" });
 
   // 20m
-  if (sfi >= 80)
+  if (sfi >= 80) {
     predictions.push({ band: "20m", status: "Excellent", color: "#00ff88" });
-  else if (sfi >= 70)
-    predictions.push({
-      band: "20m",
-      status: "Good - Primary DX band",
-      color: "#44dd66",
-    });
-  else predictions.push({ band: "20m", status: "Fair", color: "#ffaa00" });
+  } else if (sfi >= 70)
+      predictions.push({
+        band: "20m",
+        status: "Good - Primary DX band",
+        color: "#44dd66",
+      });
+    else predictions.push({ band: "20m", status: "Fair", color: "#ffaa00" });
 
   // 40m
   predictions.push({
@@ -271,8 +271,9 @@ export const SolarFluxChartModal: React.FC<SolarFluxChartModalProps> = ({
         : recentAvg;
 
     let trend: "rising" | "falling" | "stable" = "stable";
-    if (recentAvg - olderAvg > 5) trend = "rising";
-    else if (olderAvg - recentAvg > 5) trend = "falling";
+    if (recentAvg - olderAvg > 5) {
+      trend = "rising";
+    } else if (olderAvg - recentAvg > 5) trend = "falling";
 
     return {
       points,
@@ -355,8 +356,9 @@ export const SolarFluxChartModal: React.FC<SolarFluxChartModalProps> = ({
                   ((threshold - chartData.yMin) /
                     (chartData.yMax - chartData.yMin)) *
                     INNER_HEIGHT;
-                if (y < PADDING.top || y > PADDING.top + INNER_HEIGHT)
+                if (y < PADDING.top || y > PADDING.top + INNER_HEIGHT) {
                   return null;
+                }
                 return (
                   <g key={threshold}>
                     <line

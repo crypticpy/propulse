@@ -76,7 +76,9 @@ export function BandPlanner() {
 
   // Calculate forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
-    if (!station || !targetCoords) return [];
+    if (!station || !targetCoords) {
+      return [];
+    }
 
     return getForecastForPath(
       station.lat,
@@ -91,7 +93,9 @@ export function BandPlanner() {
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {
-    if (forecast.length === 0) return [];
+    if (forecast.length === 0) {
+      return [];
+    }
     return getBestWindows(forecast);
   }, [forecast]);
 
@@ -118,9 +122,12 @@ export function BandPlanner() {
 
   // Confidence level based on conditions stability
   const getConfidenceLevel = (): "high" | "medium" | "low" => {
-    if (isStormConditions || isSouthwardBz) return "low";
-    if (isDisturbedConditions || (currentBz !== null && currentBz < 0))
+    if (isStormConditions || isSouthwardBz) {
+      return "low";
+    }
+    if (isDisturbedConditions || (currentBz !== null && currentBz < 0)) {
       return "medium";
+    }
     return "high";
   };
 

@@ -50,7 +50,9 @@ export function Contest() {
 
   // Get contest name
   const contestName = useMemo(() => {
-    if (!contestId) return null;
+    if (!contestId) {
+      return null;
+    }
     const def = getContestById(contestId);
     return def?.name ?? contestId;
   }, [contestId]);

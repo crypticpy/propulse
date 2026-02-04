@@ -23,20 +23,36 @@ function generateHeader(header: CabrilloHeader): string {
   lines.push(`CATEGORY-TRANSMITTER: ${header.CATEGORY_TRANSMITTER}`);
 
   // Optional fields
-  if (header.CLAIMED_SCORE)
+  if (header.CLAIMED_SCORE) {
     lines.push(`CLAIMED-SCORE: ${header.CLAIMED_SCORE}`);
-  if (header.CLUB) lines.push(`CLUB: ${header.CLUB}`);
-  if (header.LOCATION) lines.push(`LOCATION: ${header.LOCATION}`);
-  if (header.NAME) lines.push(`NAME: ${header.NAME}`);
-  if (header.ADDRESS) lines.push(`ADDRESS: ${header.ADDRESS}`);
-  if (header.ADDRESS_CITY) lines.push(`ADDRESS-CITY: ${header.ADDRESS_CITY}`);
-  if (header.ADDRESS_STATE_PROVINCE)
+  }
+  if (header.CLUB) {
+    lines.push(`CLUB: ${header.CLUB}`);
+  }
+  if (header.LOCATION) {
+    lines.push(`LOCATION: ${header.LOCATION}`);
+  }
+  if (header.NAME) {
+    lines.push(`NAME: ${header.NAME}`);
+  }
+  if (header.ADDRESS) {
+    lines.push(`ADDRESS: ${header.ADDRESS}`);
+  }
+  if (header.ADDRESS_CITY) {
+    lines.push(`ADDRESS-CITY: ${header.ADDRESS_CITY}`);
+  }
+  if (header.ADDRESS_STATE_PROVINCE) {
     lines.push(`ADDRESS-STATE-PROVINCE: ${header.ADDRESS_STATE_PROVINCE}`);
-  if (header.ADDRESS_POSTALCODE)
+  }
+  if (header.ADDRESS_POSTALCODE) {
     lines.push(`ADDRESS-POSTALCODE: ${header.ADDRESS_POSTALCODE}`);
-  if (header.ADDRESS_COUNTRY)
+  }
+  if (header.ADDRESS_COUNTRY) {
     lines.push(`ADDRESS-COUNTRY: ${header.ADDRESS_COUNTRY}`);
-  if (header.OPERATORS) lines.push(`OPERATORS: ${header.OPERATORS}`);
+  }
+  if (header.OPERATORS) {
+    lines.push(`OPERATORS: ${header.OPERATORS}`);
+  }
 
   // Soapbox (multiple lines)
   if (header.SOAPBOX) {
@@ -55,8 +71,7 @@ function generateHeader(header: CabrilloHeader): string {
 export function formatCabrilloQSO(qso: CabrilloQSO): string {
   const freq = qso.frequency.toString().padStart(5, " ");
   const mode = qso.mode.padEnd(2, " ");
-  const date = qso.date;
-  const time = qso.time;
+  const {date, time} = qso;
   const callSent = qso.callSent.padEnd(13, " ");
   const rstSent = qso.rstSent.padEnd(3, " ");
   const exchSent = qso.exchangeSent.padEnd(6, " ");
@@ -117,7 +132,11 @@ export function mhzToKhz(mhz: number): number {
  */
 export function modeToCabrillo(mode: string): "CW" | "PH" | "RY" {
   const upper = mode.toUpperCase();
-  if (upper === "CW") return "CW";
-  if (["SSB", "USB", "LSB", "AM", "FM", "PHONE"].includes(upper)) return "PH";
+  if (upper === "CW") {
+    return "CW";
+  }
+  if (["SSB", "USB", "LSB", "AM", "FM", "PHONE"].includes(upper)) {
+    return "PH";
+  }
   return "RY"; // RTTY, FT8, digital modes
 }

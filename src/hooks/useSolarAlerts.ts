@@ -206,8 +206,10 @@ export function useSolarAlerts(
    * Returns null if no data is available
    */
   const latestKp = useMemo(() => {
-    const data = kIndexQuery.data;
-    if (!data || data.length === 0) return null;
+    const {data} = kIndexQuery;
+    if (!data || data.length === 0) {
+      return null;
+    }
     return data[data.length - 1];
   }, [kIndexQuery.data]);
 
@@ -216,8 +218,10 @@ export function useSolarAlerts(
    * Bz can sometimes be null in the feed, so we search backward for a valid reading
    */
   const latestBz = useMemo(() => {
-    const data = magnetometerQuery.data;
-    if (!data || data.length === 0) return null;
+    const {data} = magnetometerQuery;
+    if (!data || data.length === 0) {
+      return null;
+    }
 
     // Find most recent entry with a valid Bz reading
     for (let i = data.length - 1; i >= 0; i--) {
@@ -275,7 +279,9 @@ export function useSolarAlerts(
    */
   const hasCrossedThresholdUp = useCallback(
     (previous: number | null, current: number, threshold: number): boolean => {
-      if (previous === null) return false; // No previous value, don't alert
+      if (previous === null) {
+        return false;
+      } // No previous value, don't alert
       return previous < threshold && current >= threshold;
     },
     [],
@@ -287,7 +293,9 @@ export function useSolarAlerts(
    */
   const hasCrossedThresholdDown = useCallback(
     (previous: number | null, current: number, threshold: number): boolean => {
-      if (previous === null) return false;
+      if (previous === null) {
+        return false;
+      }
       return previous > threshold && current <= threshold;
     },
     [],
@@ -299,7 +307,9 @@ export function useSolarAlerts(
 
   useEffect(() => {
     // Bail early if monitoring is disabled
-    if (!enabled) return;
+    if (!enabled) {
+      return;
+    }
 
     // Increment render count and skip initial renders
     renderCount.current += 1;
@@ -322,11 +332,15 @@ export function useSolarAlerts(
     }
 
     // Skip if not using live data
-    if (!isLiveData) return;
+    if (!isLiveData) {
+      return;
+    }
 
     // Debounce rapid evaluations
     const now = Date.now();
-    if (now - lastEvaluationTime.current < EVALUATION_DEBOUNCE_MS) return;
+    if (now - lastEvaluationTime.current < EVALUATION_DEBOUNCE_MS) {
+      return;
+    }
     lastEvaluationTime.current = now;
 
     // Update last check time in store

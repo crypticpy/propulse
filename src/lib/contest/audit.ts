@@ -212,22 +212,20 @@ function checkMissingExchange(
   }
 
   // Check for missing serial
-  if (exchangeFields.includes("serial")) {
-    if (qso.serialReceived === undefined || qso.serialReceived === null) {
-      const tokens = exchange.split(/\s+/).filter(Boolean);
-      const serialToken = tokens.find((t) => /^\d+$/.test(t));
-      if (!serialToken) {
-        flags.push({
-          id: `${qso.id}-missing-serial`,
-          code: "MISSING_SERIAL",
-          severity: "warning",
-          category: "exchange",
-          message: "Missing serial number in exchange",
-          field: "serialReceived",
-          actual: exchange,
-        });
-      }
-    }
+  if (exchangeFields.includes("serial") && (qso.serialReceived === undefined || qso.serialReceived === null)) {
+        const tokens = exchange.split(/\s+/).filter(Boolean);
+        const serialToken = tokens.find((t) => /^\d+$/.test(t));
+        if (!serialToken) {
+          flags.push({
+            id: `${qso.id}-missing-serial`,
+            code: "MISSING_SERIAL",
+            severity: "warning",
+            category: "exchange",
+            message: "Missing serial number in exchange",
+            field: "serialReceived",
+            actual: exchange,
+          });
+        }
   }
 
   // Check for missing class (Field Day)
@@ -361,21 +359,19 @@ function checkInvalidExchange(
   }
 
   // Validate serial
-  if (exchangeFields.includes("serial")) {
-    if (qso.serialReceived !== undefined) {
-      const issue = validateSerial(String(qso.serialReceived));
-      if (issue) {
-        flags.push({
-          id: `${qso.id}-invalid-serial`,
-          code: "INVALID_SERIAL",
-          severity: "warning",
-          category: "exchange",
-          message: issue.message,
-          field: "serialReceived",
-          actual: String(qso.serialReceived),
-        });
-      }
-    }
+  if (exchangeFields.includes("serial") && qso.serialReceived !== undefined) {
+        const issue = validateSerial(String(qso.serialReceived));
+        if (issue) {
+          flags.push({
+            id: `${qso.id}-invalid-serial`,
+            code: "INVALID_SERIAL",
+            severity: "warning",
+            category: "exchange",
+            message: issue.message,
+            field: "serialReceived",
+            actual: String(qso.serialReceived),
+          });
+        }
   }
 
   // Validate Field Day class
@@ -572,8 +568,11 @@ export function getAuditQueue(
       };
 
       let maxSeverity: AuditSeverity = "info";
-      if (severityCounts.error > 0) maxSeverity = "error";
-      else if (severityCounts.warning > 0) maxSeverity = "warning";
+      if (severityCounts.error > 0) {
+        maxSeverity = "error";
+      } else if (severityCounts.warning > 0) {
+               maxSeverity = "warning";
+             }
 
       flaggedQsos.push({
         qso,
@@ -589,7 +588,9 @@ export function getAuditQueue(
   flaggedQsos.sort((a, b) => {
     const severityDiff =
       severityOrder[a.maxSeverity] - severityOrder[b.maxSeverity];
-    if (severityDiff !== 0) return severityDiff;
+    if (severityDiff !== 0) {
+      return severityDiff;
+    }
 
     // More recent QSOs first
     return b.qso.timestamp.localeCompare(a.qso.timestamp);
@@ -637,7 +638,9 @@ export function hasAuditErrors(
   session: ContestSession | null,
   contestDef: ContestDefinition | null,
 ): boolean {
-  if (!session || !contestDef) return false;
+  if (!session || !contestDef) {
+    return false;
+  }
 
   for (const qso of session.qsos) {
     const flags = auditQSO(qso, contestDef);

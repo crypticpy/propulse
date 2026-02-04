@@ -18,7 +18,9 @@ export function useActiveLocation(): OperatingLocation | null {
   const station = useUserStore((state) => state.station);
 
   return useMemo(() => {
-    if (!station) return null;
+    if (!station) {
+      return null;
+    }
 
     // Handle legacy station objects without savedLocations
     if (!station.savedLocations || station.savedLocations.length === 0) {
@@ -50,7 +52,9 @@ export function useIsTemporaryActive(): boolean {
   const station = useUserStore((state) => state.station);
 
   return useMemo(() => {
-    if (!station) return false;
+    if (!station) {
+      return false;
+    }
     return station.activeLocationId !== null;
   }, [station]);
 }
@@ -122,7 +126,9 @@ export function useHomeLocation(): OperatingLocation | null {
   const station = useUserStore((state) => state.station);
 
   return useMemo(() => {
-    if (!station) return null;
+    if (!station) {
+      return null;
+    }
 
     // Handle legacy station objects without savedLocations
     if (!station.savedLocations || station.savedLocations.length === 0) {

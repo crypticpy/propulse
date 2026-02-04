@@ -202,7 +202,9 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
    * Handle toast dismissal with exit animation
    */
   const handleDismiss = useCallback(() => {
-    if (isExiting) return;
+    if (isExiting) {
+      return;
+    }
     setIsExiting(true);
     setTimeout(() => {
       clearToast();
@@ -247,7 +249,9 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
    * Resume auto-dismiss on mouse leave
    */
   const handleMouseLeave = useCallback(() => {
-    if (pausedTimeRef.current === null) return;
+    if (pausedTimeRef.current === null) {
+      return;
+    }
 
     const pauseDuration = Date.now() - pausedTimeRef.current;
     startTimeRef.current += pauseDuration;

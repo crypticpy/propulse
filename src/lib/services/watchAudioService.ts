@@ -242,8 +242,7 @@ export async function playAlertSound(type: WatchAlertType): Promise<boolean> {
     return false;
   }
 
-  const context = audioState.context;
-  const gainNode = audioState.gainNode;
+  const {context, gainNode} = audioState;
   const config = SOUND_CONFIGS[type];
 
   if (!config) {

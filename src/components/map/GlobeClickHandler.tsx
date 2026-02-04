@@ -86,7 +86,9 @@ function pointToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
   const lat = Math.asin(normalized.y) * (180 / Math.PI);
   const theta = Math.atan2(normalized.z, -normalized.x);
   let lon = theta * (180 / Math.PI) - 180;
-  if (lon < -180) lon += 360;
+  if (lon < -180) {
+    lon += 360;
+  }
   return { lat, lon };
 }
 
@@ -96,7 +98,7 @@ function pointToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
 function getScreenPositionFromEvent(
   event: ThreeEvent<MouseEvent | PointerEvent>,
 ): { x: number; y: number } {
-  const nativeEvent = event.nativeEvent;
+  const {nativeEvent} = event;
   return {
     x: nativeEvent.clientX,
     y: nativeEvent.clientY,
@@ -180,12 +182,18 @@ export function GlobeClickHandler({
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
-      if (holdStartTimerRef.current) clearTimeout(holdStartTimerRef.current);
-      if (holdProgressTimerRef.current)
+      if (holdStartTimerRef.current) {
+        clearTimeout(holdStartTimerRef.current);
+      }
+      if (holdProgressTimerRef.current) {
         clearInterval(holdProgressTimerRef.current);
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      if (doubleClickTimerRef.current)
+      }
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+      if (doubleClickTimerRef.current) {
         clearTimeout(doubleClickTimerRef.current);
+      }
     };
   }, []);
 
@@ -215,7 +223,9 @@ export function GlobeClickHandler({
    * Start the hold timer after delay
    */
   const startHoldTimer = useCallback(() => {
-    if (!targetLocationRef.current) return;
+    if (!targetLocationRef.current) {
+      return;
+    }
 
     const { lat, lon, screenPos } = targetLocationRef.current;
     gestureStateRef.current = "holding";
@@ -253,7 +263,9 @@ export function GlobeClickHandler({
    */
   const handlePointerDown = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
-      if (!event.point) return;
+      if (!event.point) {
+        return;
+      }
 
       // Reset gesture state
       gestureStateRef.current = "potential";
@@ -298,14 +310,18 @@ export function GlobeClickHandler({
       }
 
       // Continue with normal hover behavior (debounced)
-      if (!onLocationHover) return;
+      if (!onLocationHover) {
+        return;
+      }
 
       if (hoverTimerRef.current) {
         clearTimeout(hoverTimerRef.current);
       }
 
       hoverTimerRef.current = setTimeout(() => {
-        if (!event.point) return;
+        if (!event.point) {
+          return;
+        }
 
         const { lat, lon } = pointToLatLon(event.point);
         const screenPos = getScreenPositionFromEvent(event);

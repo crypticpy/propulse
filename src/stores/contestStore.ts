@@ -422,7 +422,9 @@ export const useContestStore = create<ContestStore>()(
 
       endContest: () => {
         set((state) => {
-          if (!state.activeSession) return state;
+          if (!state.activeSession) {
+            return state;
+          }
 
           const endedSession: ContestSession = {
             ...state.activeSession,
@@ -446,7 +448,9 @@ export const useContestStore = create<ContestStore>()(
 
       logQSO: (qso) => {
         set((state) => {
-          if (!state.activeSession) return state;
+          if (!state.activeSession) {
+            return state;
+          }
 
           // Get contest definition for dupe checking and multiplier extraction
           const contest = getContestById(state.activeSession.contestId);
@@ -557,12 +561,16 @@ export const useContestStore = create<ContestStore>()(
 
       editQSO: (id, updates) => {
         set((state) => {
-          if (!state.activeSession) return state;
+          if (!state.activeSession) {
+            return state;
+          }
 
           const qsoIndex = state.activeSession.qsos.findIndex(
             (qso) => qso.id === id,
           );
-          if (qsoIndex === -1) return state;
+          if (qsoIndex === -1) {
+            return state;
+          }
 
           const updatedQsos = [...state.activeSession.qsos];
           const existingQso = updatedQsos[qsoIndex];
@@ -585,8 +593,7 @@ export const useContestStore = create<ContestStore>()(
 
           // Recompute score if contest available
           const contest = getContestById(state.activeSession.contestId);
-          let scoreSummary = state.activeSession.scoreSummary;
-          let totalScore = state.activeSession.totalScore;
+          let {scoreSummary, totalScore} = state.activeSession;
 
           if (contest) {
             const engineQsos = convertToEngineQSOs(updatedQsos);
@@ -623,7 +630,9 @@ export const useContestStore = create<ContestStore>()(
           state.activeSession.qsos[state.activeSession.qsos.length - 1];
 
         set((s) => {
-          if (!s.activeSession) return s;
+          if (!s.activeSession) {
+            return s;
+          }
 
           const updatedQsos = s.activeSession.qsos.slice(0, -1);
 
@@ -641,7 +650,7 @@ export const useContestStore = create<ContestStore>()(
 
           // Recompute score if contest available
           const contest = getContestById(s.activeSession.contestId);
-          let scoreSummary = s.activeSession.scoreSummary;
+          let {scoreSummary} = s.activeSession;
           let totalScore = totalPoints * totalMultipliers;
 
           if (contest) {
@@ -673,12 +682,16 @@ export const useContestStore = create<ContestStore>()(
 
       incrementSerial: () => {
         const state = get();
-        if (!state.activeSession) return 1;
+        if (!state.activeSession) {
+          return 1;
+        }
 
         const nextSerial = state.activeSession.currentSerial;
 
         set((s) => {
-          if (!s.activeSession) return s;
+          if (!s.activeSession) {
+            return s;
+          }
           return {
             activeSession: {
               ...s.activeSession,
@@ -692,7 +705,9 @@ export const useContestStore = create<ContestStore>()(
 
       setRunMode: (mode) => {
         set((state) => {
-          if (!state.activeSession) return state;
+          if (!state.activeSession) {
+            return state;
+          }
 
           return {
             activeSession: {
@@ -705,7 +720,9 @@ export const useContestStore = create<ContestStore>()(
 
       addMultiplier: (type, value, band) => {
         const state = get();
-        if (!state.activeSession) return false;
+        if (!state.activeSession) {
+          return false;
+        }
 
         const normalizedType = normalizeMultiplierType(type);
         const key = makeMultiplierKey(normalizedType, value, band);
@@ -713,7 +730,9 @@ export const useContestStore = create<ContestStore>()(
           (m) => makeMultiplierKey(m.type, m.value, m.band) === key,
         );
 
-        if (existing) return false;
+        if (existing) {
+          return false;
+        }
 
         const newMultiplier: MultiplierEntry = {
           type: normalizedType,
@@ -723,7 +742,9 @@ export const useContestStore = create<ContestStore>()(
         };
 
         set((s) => {
-          if (!s.activeSession) return s;
+          if (!s.activeSession) {
+            return s;
+          }
 
           const updatedMultipliers = [
             ...s.activeSession.multipliers,
@@ -733,7 +754,7 @@ export const useContestStore = create<ContestStore>()(
 
           // Recompute score
           const contest = getContestById(s.activeSession.contestId);
-          let scoreSummary = s.activeSession.scoreSummary;
+          let {scoreSummary} = s.activeSession;
           let totalScore = s.activeSession.totalPoints * totalMultipliers;
 
           if (contest) {
@@ -763,7 +784,9 @@ export const useContestStore = create<ContestStore>()(
 
       isMultiplierWorked: (type, value, band) => {
         const state = get();
-        if (!state.activeSession) return false;
+        if (!state.activeSession) {
+          return false;
+        }
 
         const normalizedType = normalizeMultiplierType(type);
         const key = makeMultiplierKey(normalizedType, value, band);
@@ -774,7 +797,9 @@ export const useContestStore = create<ContestStore>()(
 
       updateScore: () => {
         set((state) => {
-          if (!state.activeSession) return state;
+          if (!state.activeSession) {
+            return state;
+          }
 
           const totalPoints = state.activeSession.qsos.reduce(
             (sum, qso) => sum + (qso.isDupe ? 0 : qso.points),
@@ -796,10 +821,14 @@ export const useContestStore = create<ContestStore>()(
 
       recomputeScore: () => {
         set((state) => {
-          if (!state.activeSession) return state;
+          if (!state.activeSession) {
+            return state;
+          }
 
           const contest = getContestById(state.activeSession.contestId);
-          if (!contest) return state;
+          if (!contest) {
+            return state;
+          }
 
           const engineQsos = convertToEngineQSOs(state.activeSession.qsos);
           const workedMults = buildWorkedMultsMap(
@@ -840,7 +869,9 @@ export const useContestStore = create<ContestStore>()(
 
       isDupe: (callsign, band, mode) => {
         const state = get();
-        if (!state.activeSession) return false;
+        if (!state.activeSession) {
+          return false;
+        }
 
         // Try to use contest engine for accurate dupe checking
         const contest = getContestById(state.activeSession.contestId);
@@ -851,7 +882,9 @@ export const useContestStore = create<ContestStore>()(
           // Build set of worked dupe keys
           const workedKeys = new Set<string>();
           for (const qso of state.activeSession.qsos) {
-            if (qso.isDupe) continue;
+            if (qso.isDupe) {
+              continue;
+            }
             const key = generateDupeKey(
               qso.callsign,
               qso.band,
@@ -873,7 +906,9 @@ export const useContestStore = create<ContestStore>()(
 
       getWorkedCallsigns: () => {
         const state = get();
-        if (!state.activeSession) return new Set<string>();
+        if (!state.activeSession) {
+          return new Set<string>();
+        }
 
         return new Set(
           state.activeSession.qsos.map((qso) => qso.callsign.toUpperCase()),
@@ -898,7 +933,9 @@ export const useContestStore = create<ContestStore>()(
         const normalizeSession = (
           session: ContestSession | null,
         ): ContestSession | null => {
-          if (!session) return null;
+          if (!session) {
+            return null;
+          }
 
           // Normalize multiplier types
           const normalizedMultipliers = session.multipliers.map((m) => ({

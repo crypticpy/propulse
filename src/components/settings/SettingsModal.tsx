@@ -293,7 +293,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Handle file selection for import
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     // Reset file input so the same file can be selected again
     if (fileInputRef.current) {
@@ -335,7 +337,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Handle confirming the import
   const handleConfirmImport = () => {
-    if (!pendingImport) return;
+    if (!pendingImport) {
+      return;
+    }
 
     setIsImporting(true);
     const result = importSettings(pendingImport.backup);

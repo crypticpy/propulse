@@ -169,7 +169,9 @@ export const useUndoStore = create<UndoState>((set, get) => ({
 
   undo: () => {
     const state = get();
-    if (state.history.length === 0) return null;
+    if (state.history.length === 0) {
+      return null;
+    }
 
     const action = state.history[state.history.length - 1];
 
@@ -188,7 +190,9 @@ export const useUndoStore = create<UndoState>((set, get) => ({
 
   redo: () => {
     const state = get();
-    if (state.redoStack.length === 0) return null;
+    if (state.redoStack.length === 0) {
+      return null;
+    }
 
     const action = state.redoStack[state.redoStack.length - 1];
 

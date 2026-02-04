@@ -128,10 +128,14 @@ function toNumber(v: unknown): number | null {
 function parseSwpcMatrixLatestRow(
   matrix: SwpcMatrix | null | undefined,
 ): Record<string, unknown> | null {
-  if (!matrix || matrix.length < 2) return null;
+  if (!matrix || matrix.length < 2) {
+    return null;
+  }
   const header = matrix[0];
   const last = matrix[matrix.length - 1];
-  if (!Array.isArray(header) || !Array.isArray(last)) return null;
+  if (!Array.isArray(header) || !Array.isArray(last)) {
+    return null;
+  }
   const obj: Record<string, unknown> = {};
   header.forEach((h, i) => {
     obj[String(h)] = last[i];
@@ -178,18 +182,30 @@ function parseNoaaScaleCode(message: string): string | null {
 function severityFromNoaaScaleCode(
   code: string | null,
 ): "minor" | "moderate" | "major" | "extreme" {
-  if (!code) return "minor";
+  if (!code) {
+    return "minor";
+  }
   const n = Number(code.slice(1));
-  if (!Number.isFinite(n)) return "minor";
-  if (n <= 1) return "minor";
-  if (n === 2) return "moderate";
-  if (n === 3) return "major";
+  if (!Number.isFinite(n)) {
+    return "minor";
+  }
+  if (n <= 1) {
+    return "minor";
+  }
+  if (n === 2) {
+    return "moderate";
+  }
+  if (n === 3) {
+    return "major";
+  }
   return "extreme";
 }
 
 async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal, cache: "no-store" });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
   return (await res.json()) as T;
 }
 

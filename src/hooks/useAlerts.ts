@@ -180,7 +180,9 @@ export function useAlerts(options: UseAlertsOptions = {}): UseAlertsResult {
 
   // Check for matching spots
   const matchingSpots = useMemo(() => {
-    if (!rules.length || !spots.length) return [];
+    if (!rules.length || !spots.length) {
+      return [];
+    }
     return checkSpotsForAlerts(spots, rules);
   }, [spots, rules]);
 
@@ -200,15 +202,21 @@ export function useAlerts(options: UseAlertsOptions = {}): UseAlertsResult {
     }
 
     // Only proceed if notifications are granted
-    if (!isNotificationPermissionGranted()) return;
+    if (!isNotificationPermissionGranted()) {
+      return;
+    }
 
     matchingSpots.forEach(({ spot, rules: matchedRules }) => {
       // Skip if already alerted
-      if (alertedSpotIds.has(spot.id)) return;
+      if (alertedSpotIds.has(spot.id)) {
+        return;
+      }
 
       // Skip if this spot existed before this session started
       // (only alert for truly new spots)
-      if (previousSpotIds.current.has(spot.id)) return;
+      if (previousSpotIds.current.has(spot.id)) {
+        return;
+      }
 
       // Find first rule that wants browser notification
       const notifyRule = matchedRules.find((r) => r.notification.browser);

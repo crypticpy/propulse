@@ -72,8 +72,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   }
 
   try {
-    const permission = await Notification.requestPermission();
-    return permission;
+    return await Notification.requestPermission();
   } catch (error) {
     // Some browsers throw errors on permission request
     console.error("Error requesting notification permission:", error);

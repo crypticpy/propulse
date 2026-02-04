@@ -61,10 +61,18 @@ const BZ_LEVELS = [
  * Northward (positive) is quiet, southward (negative) is active
  */
 export function getBzColor(bz: number | null): string {
-  if (bz === null) return "#888899";
-  if (bz > 0) return "#00ff88"; // Northward - quiet
-  if (bz > -5) return "#ffaa00"; // Weakly south - caution
-  if (bz > -10) return "#ff7700"; // Moderately south - active
+  if (bz === null) {
+    return "#888899";
+  }
+  if (bz > 0) {
+    return "#00ff88";
+  } // Northward - quiet
+  if (bz > -5) {
+    return "#ffaa00";
+  } // Weakly south - caution
+  if (bz > -10) {
+    return "#ff7700";
+  } // Moderately south - active
   return "#ff4455"; // Strongly south - storm
 }
 
@@ -72,10 +80,18 @@ export function getBzColor(bz: number | null): string {
  * Get description for Bz value
  */
 export function getBzDescription(bz: number | null): string {
-  if (bz === null) return "No Data";
-  if (bz > 0) return "Northward";
-  if (bz > -5) return "Weakly South";
-  if (bz > -10) return "Moderately South";
+  if (bz === null) {
+    return "No Data";
+  }
+  if (bz > 0) {
+    return "Northward";
+  }
+  if (bz > -5) {
+    return "Weakly South";
+  }
+  if (bz > -10) {
+    return "Moderately South";
+  }
   return "Strongly South";
 }
 
@@ -83,7 +99,9 @@ export function getBzDescription(bz: number | null): string {
  * Get current Bz level info
  */
 function getCurrentBzLevel(bz: number | null) {
-  if (bz === null) return null;
+  if (bz === null) {
+    return null;
+  }
   return BZ_LEVELS.find((level) => bz > level.minBz && bz <= level.maxBz);
 }
 
@@ -120,8 +138,9 @@ function calculateBzTrend(data: BzDataPoint[]): {
 
   // Bz going more positive = improving (less coupling)
   // Bz going more negative = worsening (more coupling)
-  if (diff > 2) trend = "improving";
-  else if (diff < -2) trend = "worsening";
+  if (diff > 2) {
+    trend = "improving";
+  } else if (diff < -2) trend = "worsening";
 
   return { trend, avgRecent, avgOlder };
 }
@@ -147,7 +166,9 @@ export const BzModal: React.FC<BzModalProps> = ({
   const innerHeight = chartHeight - padding.top - padding.bottom;
 
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!data || data.length === 0) {
+      return [];
+    }
 
     // Take last 60 data points (1 hour of 1-minute data)
     const recentData = data.slice(-60);
@@ -186,10 +207,14 @@ export const BzModal: React.FC<BzModalProps> = ({
 
   // Build SVG path for line chart
   const linePath = useMemo(() => {
-    if (chartData.length === 0) return "";
+    if (chartData.length === 0) {
+      return "";
+    }
 
     const validPoints = chartData.filter((d) => d.bz_gsm !== null);
-    if (validPoints.length === 0) return "";
+    if (validPoints.length === 0) {
+      return "";
+    }
 
     return validPoints
       .map((point, i) => {
@@ -202,10 +227,14 @@ export const BzModal: React.FC<BzModalProps> = ({
 
   // Build area path for fill
   const areaPath = useMemo(() => {
-    if (chartData.length === 0) return "";
+    if (chartData.length === 0) {
+      return "";
+    }
 
     const validPoints = chartData.filter((d) => d.bz_gsm !== null);
-    if (validPoints.length === 0) return "";
+    if (validPoints.length === 0) {
+      return "";
+    }
 
     const baseline = yScale(0);
     const pathStart = validPoints

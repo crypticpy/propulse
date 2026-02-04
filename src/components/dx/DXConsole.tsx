@@ -27,9 +27,15 @@ export interface DXConsoleProps {
  * Get K-index severity color based on value
  */
 function getKIndexColor(kp: number): { bg: string; text: string } {
-  if (kp >= 7) return { bg: "bg-alert-red/30", text: "text-alert-red" };
-  if (kp >= 5) return { bg: "bg-orange-500/30", text: "text-orange-400" };
-  if (kp >= 4) return { bg: "bg-yellow-500/30", text: "text-yellow-400" };
+  if (kp >= 7) {
+    return { bg: "bg-alert-red/30", text: "text-alert-red" };
+  }
+  if (kp >= 5) {
+    return { bg: "bg-orange-500/30", text: "text-orange-400" };
+  }
+  if (kp >= 4) {
+    return { bg: "bg-yellow-500/30", text: "text-yellow-400" };
+  }
   return { bg: "bg-signal-green/30", text: "text-signal-green" };
 }
 
@@ -37,11 +43,15 @@ function getKIndexColor(kp: number): { bg: string; text: string } {
  * Get SFI color based on value (higher is better for HF propagation)
  */
 function getSFIColor(sfi: number): { bg: string; text: string } {
-  if (sfi >= 150)
+  if (sfi >= 150) {
     return { bg: "bg-signal-green/30", text: "text-signal-green" };
-  if (sfi >= 100)
+  }
+  if (sfi >= 100) {
     return { bg: "bg-plasma-orange/30", text: "text-plasma-orange" };
-  if (sfi >= 70) return { bg: "bg-yellow-500/30", text: "text-yellow-400" };
+  }
+  if (sfi >= 70) {
+    return { bg: "bg-yellow-500/30", text: "text-yellow-400" };
+  }
   return { bg: "bg-gray-500/30", text: "text-gray-400" };
 }
 

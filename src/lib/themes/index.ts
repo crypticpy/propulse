@@ -145,7 +145,7 @@ export function getAccentPreset(id: string): AccentColor {
 
 export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
   const root = document.documentElement;
-  const colors = theme.colors;
+  const {colors} = theme;
   const accentPrimary = accent?.primary || colors.accentPrimary;
   const accentSecondary = accent?.secondary || colors.accentSecondary;
 

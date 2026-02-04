@@ -205,7 +205,9 @@ function TestSoundButton({
   const [isPlaying, setIsPlaying] = useState(false);
 
   const handleClick = useCallback(async () => {
-    if (isPlaying || disabled) return;
+    if (isPlaying || disabled) {
+      return;
+    }
 
     // Initialize audio context on user interaction
     initAudioContext();

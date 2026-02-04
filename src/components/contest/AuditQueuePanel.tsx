@@ -235,7 +235,9 @@ export function AuditQueuePanel({
 
   // Get contest definition
   const contestDef = useMemo(() => {
-    if (!session) return null;
+    if (!session) {
+      return null;
+    }
     return getContestById(session.contestId) ?? null;
   }, [session]);
 

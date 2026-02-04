@@ -52,7 +52,9 @@ const SMART_PRESETS: TimePreset[] = [
     icon: "sunrise",
     description: "Next sunrise at your location",
     getTime: (station) => {
-      if (!station) return null;
+      if (!station) {
+        return null;
+      }
       const now = new Date();
       const times = SunCalc.getTimes(now, station.lat, station.lon);
       if (times.sunrise && times.sunrise > now) {
@@ -74,7 +76,9 @@ const SMART_PRESETS: TimePreset[] = [
     icon: "sunset",
     description: "Next sunset at your location",
     getTime: (station) => {
-      if (!station) return null;
+      if (!station) {
+        return null;
+      }
       const now = new Date();
       const times = SunCalc.getTimes(now, station.lat, station.lon);
       if (times.sunset && times.sunset > now) {
@@ -96,7 +100,9 @@ const SMART_PRESETS: TimePreset[] = [
     icon: "target-sunrise",
     description: "Next sunrise at target location",
     getTime: (_, target) => {
-      if (!target) return null;
+      if (!target) {
+        return null;
+      }
       const now = new Date();
       const times = SunCalc.getTimes(now, target.lat, target.lon);
       if (times.sunrise && times.sunrise > now) {
@@ -114,7 +120,9 @@ const SMART_PRESETS: TimePreset[] = [
     icon: "target-sunset",
     description: "Next sunset at target location",
     getTime: (_, target) => {
-      if (!target) return null;
+      if (!target) {
+        return null;
+      }
       const now = new Date();
       const times = SunCalc.getTimes(now, target.lat, target.lon);
       if (times.sunset && times.sunset > now) {
@@ -153,7 +161,9 @@ const SMART_PRESETS: TimePreset[] = [
     icon: "greyline",
     description: "Optimal greyline time for path (both stations in twilight)",
     getTime: (station, target) => {
-      if (!station || !target) return null;
+      if (!station || !target) {
+        return null;
+      }
       const now = new Date();
       const stationTimes = SunCalc.getTimes(now, station.lat, station.lon);
       const targetTimes = SunCalc.getTimes(now, target.lat, target.lon);
@@ -162,13 +172,17 @@ const SMART_PRESETS: TimePreset[] = [
         const avgTime = new Date(
           (stationTimes.sunset.getTime() + targetTimes.sunrise.getTime()) / 2,
         );
-        if (avgTime > now) return avgTime;
+        if (avgTime > now) {
+          return avgTime;
+        }
       }
       if (stationTimes.sunrise && targetTimes.sunset) {
         const avgTime = new Date(
           (stationTimes.sunrise.getTime() + targetTimes.sunset.getTime()) / 2,
         );
-        if (avgTime > now) return avgTime;
+        if (avgTime > now) {
+          return avgTime;
+        }
       }
       return null;
     },
@@ -308,7 +322,9 @@ export function TimeControl({ className = "" }: TimeControlProps) {
 
   // Play/animate time
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying) {
+      return;
+    }
 
     const interval = setInterval(() => {
       const current = getDisplayTime();
@@ -356,7 +372,9 @@ export function TimeControl({ className = "" }: TimeControlProps) {
   );
 
   const handleSaveScenario = useCallback(() => {
-    if (!newScenarioName.trim()) return;
+    if (!newScenarioName.trim()) {
+      return;
+    }
     addTimeScenario(newScenarioName.trim(), displayTime, target);
     setNewScenarioName("");
     setShowScenarios(false);

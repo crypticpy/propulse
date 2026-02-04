@@ -134,7 +134,9 @@ export function useUndoRedo({
    */
   const performUndo = useCallback(() => {
     const action = undo();
-    if (!action) return;
+    if (!action) {
+      return;
+    }
 
     switch (action.type) {
       case "DELETE_PIN": {
@@ -214,7 +216,9 @@ export function useUndoRedo({
    */
   const performRedo = useCallback(() => {
     const action = redo();
-    if (!action) return;
+    if (!action) {
+      return;
+    }
 
     switch (action.type) {
       case "DELETE_PIN": {

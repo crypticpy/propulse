@@ -390,7 +390,7 @@ export function getSignalClass(
     Object.keys(MODE_PARAMETERS).includes(mode) ? mode : "SSB"
   ) as OperatingMode;
   const modeParams = MODE_PARAMETERS[modeKey];
-  const minSNR = modeParams.minSNR;
+  const {minSNR} = modeParams;
 
   // Thresholds relative to minimum required SNR
   const margin = snrDb - minSNR;

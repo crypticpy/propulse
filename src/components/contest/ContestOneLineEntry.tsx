@@ -119,17 +119,21 @@ export function ContestOneLineEntry({
 
   // ---- Contest definition ----
   const contestDefinition = useMemo(() => {
-    if (!activeSession) return null;
+    if (!activeSession) {
+      return null;
+    }
     return getContestById(activeSession.contestId);
   }, [activeSession]);
 
   // ---- Sending exchange display ----
   const sendingExchange = useMemo(() => {
-    if (!activeSession || !contestDefinition) return "";
+    if (!activeSession || !contestDefinition) {
+      return "";
+    }
 
     const rstSent = mode === "SSB" ? "59" : "599";
     const serial = activeSession.currentSerial;
-    const myExchange = activeSession.myExchange;
+    const {myExchange} = activeSession;
 
     // Build exchange based on contest format
     const exchangeFields = contestDefinition.exchange.fields;
@@ -154,7 +158,9 @@ export function ContestOneLineEntry({
 
   // ---- Build worked multipliers map for new mult checking ----
   const workedMultsMap = useMemo(() => {
-    if (!activeSession) return new Map<string, Set<string>>();
+    if (!activeSession) {
+      return new Map<string, Set<string>>();
+    }
 
     const map = new Map<string, Set<string>>();
     for (const mult of activeSession.multipliers) {
@@ -271,7 +277,9 @@ export function ContestOneLineEntry({
 
   // ---- Log the QSO ----
   const handleLog = useCallback(() => {
-    if (!input.trim() || !contestDefinition || !activeSession) return;
+    if (!input.trim() || !contestDefinition || !activeSession) {
+      return;
+    }
 
     // Parse final input
     const parsed = parseOneLineEntry({

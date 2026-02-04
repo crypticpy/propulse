@@ -47,7 +47,9 @@ interface BandConditionsPanelProps {
 function findBestBand(
   conditions: PathBandCondition[],
 ): PathBandCondition | null {
-  if (conditions.length === 0) return null;
+  if (conditions.length === 0) {
+    return null;
+  }
 
   const statusPriority: Record<PathBandCondition["status"], number> = {
     excellent: 5,
@@ -59,7 +61,9 @@ function findBestBand(
 
   const sorted = [...conditions].sort((a, b) => {
     const priorityDiff = statusPriority[b.status] - statusPriority[a.status];
-    if (priorityDiff !== 0) return priorityDiff;
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
     return b.snrEstimate - a.snrEstimate;
   });
 
@@ -72,7 +76,9 @@ function findBestBand(
 function getOverallStatus(
   conditions: PathBandCondition[],
 ): "good" | "fair" | "poor" {
-  if (conditions.length === 0) return "poor";
+  if (conditions.length === 0) {
+    return "poor";
+  }
 
   const statusCounts = conditions.reduce(
     (acc, c) => {
@@ -87,8 +93,12 @@ function getOverallStatus(
     (statusCounts["excellent"] || 0) + (statusCounts["good"] || 0);
   const fair = statusCounts["fair"] || 0;
 
-  if (excellentGood >= total * 0.4) return "good";
-  if (excellentGood + fair >= total * 0.5) return "fair";
+  if (excellentGood >= total * 0.4) {
+    return "good";
+  }
+  if (excellentGood + fair >= total * 0.5) {
+    return "fair";
+  }
   return "poor";
 }
 
@@ -109,7 +119,9 @@ export function BandConditionsPanel({
   // Check if content overflows and handle scroll position
   const checkScroll = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     const hasOverflow = el.scrollHeight > el.clientHeight;
     const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 5;
     setShowScrollIndicator(hasOverflow && !isAtBottom);
@@ -118,7 +130,9 @@ export function BandConditionsPanel({
   // Set up scroll listener and initial check
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     checkScroll();
     el.addEventListener("scroll", checkScroll);
     // Recheck on resize
@@ -159,24 +173,32 @@ export function BandConditionsPanel({
 
   // Format last updated time
   const lastUpdatedText = useMemo(() => {
-    if (!lastUpdatedAt) return "Never";
+    if (!lastUpdatedAt) {
+      return "Never";
+    }
     return formatDistanceToNow(new Date(lastUpdatedAt), { addSuffix: false });
   }, [lastUpdatedAt]);
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
-    if (!kIndexData || kIndexData.length === 0) return 3;
+    if (!kIndexData || kIndexData.length === 0) {
+      return 3;
+    }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
-    if (!solarFluxData || solarFluxData.length === 0) return 100;
+    if (!solarFluxData || solarFluxData.length === 0) {
+      return 100;
+    }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
   // Calculate path illumination
   const illumination = useMemo(() => {
-    if (!station || !target) return 0;
+    if (!station || !target) {
+      return 0;
+    }
     return getPathIllumination(
       station.lat,
       station.lon,
@@ -188,7 +210,9 @@ export function BandConditionsPanel({
 
   // Calculate basic band conditions (fallback)
   const basicBandConditions = useMemo(() => {
-    if (!station || !target) return [];
+    if (!station || !target) {
+      return [];
+    }
     return getBandConditionsForPath(
       station.lat,
       station.lon,
@@ -202,7 +226,9 @@ export function BandConditionsPanel({
 
   // Calculate enhanced band conditions with S-unit readings
   const enhancedBandConditions = useMemo(() => {
-    if (!station || !target) return null;
+    if (!station || !target) {
+      return null;
+    }
     try {
       return getEnhancedBandConditions(
         station.lat,
@@ -225,7 +251,9 @@ export function BandConditionsPanel({
 
   // Calculate greyline status based on station location
   const greylineIntensity = useMemo((): GreylineIntensity => {
-    if (!station) return "none";
+    if (!station) {
+      return "none";
+    }
     const status = getGreylineStatus(station.lat, station.lon, displayTime);
     return status.intensity;
   }, [station, displayTime]);
@@ -739,10 +767,16 @@ const BandConditionRow = memo(function BandConditionRow({
  * Get color class for S-unit display
  */
 function getSUnitColor(sUnit?: SUnit): string {
-  if (!sUnit) return "text-gray-400";
-  const value = sUnit.value;
-  if (value >= 8) return "text-signal-green";
-  if (value >= 5) return "text-caution-amber";
+  if (!sUnit) {
+    return "text-gray-400";
+  }
+  const {value} = sUnit;
+  if (value >= 8) {
+    return "text-signal-green";
+  }
+  if (value >= 5) {
+    return "text-caution-amber";
+  }
   return "text-alert-red";
 }
 
@@ -769,9 +803,15 @@ const SMeterIndicator = memo(function SMeterIndicator({
   const filledBars = Math.min(5, Math.max(1, Math.ceil(value / 2)));
 
   const getBarColor = (_barIndex: number, filled: boolean): string => {
-    if (!filled) return "bg-gray-700";
-    if (value >= 8) return "bg-signal-green";
-    if (value >= 5) return "bg-caution-amber";
+    if (!filled) {
+      return "bg-gray-700";
+    }
+    if (value >= 8) {
+      return "bg-signal-green";
+    }
+    if (value >= 5) {
+      return "bg-caution-amber";
+    }
     return "bg-alert-red";
   };
 

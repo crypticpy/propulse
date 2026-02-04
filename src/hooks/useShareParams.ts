@@ -21,7 +21,9 @@ export function useShareParams(): { wasSharedLink: boolean } {
 
   useEffect(() => {
     // Only apply once on mount
-    if (appliedRef.current) return;
+    if (appliedRef.current) {
+      return;
+    }
     appliedRef.current = true;
 
     // Check if URL has share params

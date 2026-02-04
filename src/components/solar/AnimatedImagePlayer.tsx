@@ -111,7 +111,9 @@ export const AnimatedImagePlayer: React.FC<AnimatedImagePlayerProps> = ({
       const newPreloaded = new Set(preloadedFrames);
 
       for (let i = start; i < Math.min(start + count, frameList.length); i++) {
-        if (newPreloaded.has(i)) continue;
+        if (newPreloaded.has(i)) {
+          continue;
+        }
 
         const frame = frameList[i];
         const fullUrl = frame.url.startsWith("http")

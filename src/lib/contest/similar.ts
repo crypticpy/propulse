@@ -79,8 +79,12 @@ export function levenshteinDistance(a: string, b: string): number {
   const n = b.length;
 
   // Early exits for edge cases
-  if (m === 0) return n;
-  if (n === 0) return m;
+  if (m === 0) {
+    return n;
+  }
+  if (n === 0) {
+    return m;
+  }
 
   // Create distance matrix
   const dp: number[][] = Array.from({ length: m + 1 }, () =>
@@ -120,8 +124,12 @@ export function damerauLevenshteinDistance(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
 
-  if (m === 0) return n;
-  if (n === 0) return m;
+  if (m === 0) {
+    return n;
+  }
+  if (n === 0) {
+    return m;
+  }
 
   const dp: number[][] = Array.from({ length: m + 1 }, () =>
     Array.from({ length: n + 1 }, () => 0),

@@ -267,7 +267,7 @@ function BearingLine({
   // Animate bearing line with subtle pulse
   useFrame(({ clock }) => {
     if (lineRef.current && lineRef.current.material) {
-      const material = lineRef.current.material;
+      const {material} = lineRef.current;
       if (material.opacity !== undefined) {
         const pulse = 0.7 + Math.sin(clock.elapsedTime * 3) * 0.3;
         material.opacity = pulse;
@@ -354,13 +354,17 @@ export function CompassRose({
 
   // Create target bearing line points
   const bearingLinePoints = useMemo(() => {
-    if (targetBearing === undefined) return null;
+    if (targetBearing === undefined) {
+      return null;
+    }
     return createBearingLinePoints(targetBearing, 0, size * 1.3);
   }, [targetBearing, size]);
 
   // Create beam width wedge geometry
   const beamWedgeGeometry = useMemo(() => {
-    if (targetBearing === undefined || !beamWidth) return null;
+    if (targetBearing === undefined || !beamWidth) {
+      return null;
+    }
     return createBeamWedgeGeometry(
       targetBearing,
       beamWidth,
@@ -376,7 +380,9 @@ export function CompassRose({
     };
   }, [beamWedgeGeometry]);
 
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
 
   return (
     <group position={position} quaternion={rotation}>

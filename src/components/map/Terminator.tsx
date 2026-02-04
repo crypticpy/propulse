@@ -56,7 +56,9 @@ export function Terminator({
     return coords;
   }, [date]);
 
-  if (points.length < 2) return null;
+  if (points.length < 2) {
+    return null;
+  }
 
   return (
     <Line

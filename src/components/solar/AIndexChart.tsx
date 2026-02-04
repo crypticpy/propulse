@@ -35,11 +35,21 @@ const INNER_HEIGHT = CHART_HEIGHT - PADDING.top - PADDING.bottom;
  * 50+: Major Storm (magenta)
  */
 function getAIndexColor(ap: number): string {
-  if (ap <= 7) return "#00ff88"; // Quiet - green
-  if (ap <= 15) return "#88cc44"; // Unsettled - yellow-green
-  if (ap <= 29) return "#ffaa00"; // Active - amber
-  if (ap <= 49) return "#ff7700"; // Minor storm - orange
-  if (ap <= 99) return "#ff4455"; // Major storm - red
+  if (ap <= 7) {
+    return "#00ff88";
+  } // Quiet - green
+  if (ap <= 15) {
+    return "#88cc44";
+  } // Unsettled - yellow-green
+  if (ap <= 29) {
+    return "#ffaa00";
+  } // Active - amber
+  if (ap <= 49) {
+    return "#ff7700";
+  } // Minor storm - orange
+  if (ap <= 99) {
+    return "#ff4455";
+  } // Major storm - red
   return "#ff0088"; // Severe - magenta
 }
 
@@ -47,11 +57,21 @@ function getAIndexColor(ap: number): string {
  * Get condition label based on A-index value
  */
 function getAIndexCondition(ap: number): string {
-  if (ap <= 7) return "Quiet";
-  if (ap <= 15) return "Unsettled";
-  if (ap <= 29) return "Active";
-  if (ap <= 49) return "Minor Storm";
-  if (ap <= 99) return "Major Storm";
+  if (ap <= 7) {
+    return "Quiet";
+  }
+  if (ap <= 15) {
+    return "Unsettled";
+  }
+  if (ap <= 29) {
+    return "Active";
+  }
+  if (ap <= 49) {
+    return "Minor Storm";
+  }
+  if (ap <= 99) {
+    return "Major Storm";
+  }
   return "Severe Storm";
 }
 
@@ -144,8 +164,11 @@ export const AIndexChart: React.FC<AIndexChartProps> = ({
         apValues.slice(-2).reduce((sum, d) => sum + d.ap, 0) / 2;
       const olderAvg =
         apValues.slice(-4, -2).reduce((sum, d) => sum + d.ap, 0) / 2;
-      if (recentAvg - olderAvg > 5) trend = "rising";
-      else if (olderAvg - recentAvg > 5) trend = "falling";
+      if (recentAvg - olderAvg > 5) {
+        trend = "rising";
+      } else if (olderAvg - recentAvg > 5) {
+               trend = "falling";
+             }
     }
 
     return {

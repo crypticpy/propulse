@@ -37,7 +37,9 @@ function calculateRate(qsoCount: number, startTime: string): number {
   const now = Date.now();
   const hoursElapsed = (now - start) / (1000 * 60 * 60);
 
-  if (hoursElapsed < 0.01) return 0; // Avoid division by tiny numbers
+  if (hoursElapsed < 0.01) {
+    return 0;
+  } // Avoid division by tiny numbers
   return Math.round(qsoCount / hoursElapsed);
 }
 
@@ -92,7 +94,9 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
 
   // Update elapsed time every second
   useEffect(() => {
-    if (!session) return;
+    if (!session) {
+      return;
+    }
 
     const interval = setInterval(() => {
       setTick((t) => t + 1);

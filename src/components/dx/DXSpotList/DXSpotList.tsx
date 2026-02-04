@@ -11,6 +11,7 @@
 import { useCallback } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
+import { SpotDetailPanel } from "../SpotDetailPanel";
 import { SpotRow } from "./SpotRow";
 import { FilterControls } from "./FilterControls";
 import { useDXSpotListState } from "./useDXSpotListState";
@@ -259,7 +260,7 @@ export function DXSpotList({
           <div>Band</div>
           <div>Freq</div>
           <div>DX</div>
-          <div className="text-right">Dist</div>
+          <div className="text-right">Dist-km</div>
           <div>Spotter</div>
           <div>Info</div>
           <div></div>
@@ -306,6 +307,9 @@ export function DXSpotList({
           ))
         )}
       </div>
+
+      {/* Spot Detail Panel - shows when a spot is selected */}
+      <SpotDetailPanel spot={selectedSpot} />
 
       {/* Footer */}
       <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">

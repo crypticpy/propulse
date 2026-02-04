@@ -38,3 +38,5 @@ export {
   useVariableHeightVirtualList,
 } from "./VirtualSpotList";
 export { BandActivityBar, type BandActivityBarProps } from "./BandActivityBar";
+export { TrendSparkline, type TrendSparklineProps } from "./TrendSparkline";
+export { SpotDetailPanel } from "./SpotDetailPanel";

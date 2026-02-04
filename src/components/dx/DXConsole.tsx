@@ -10,6 +10,8 @@ import { DXSpotList } from "./DXSpotList";
 import { BandMap } from "./BandMap";
 import { BandActivityBar } from "./BandActivityBar";
 import { InsightsBar } from "./InsightsBar";
+import { SpotStatsDashboard } from "./SpotStatsDashboard";
+import { TrendSparkline } from "./TrendSparkline";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useDXStore, selectAvailableBands } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -123,6 +125,16 @@ export function DXConsole({
   const currentSFI = solarFluxData?.[solarFluxData.length - 1]?.flux ?? null;
   const sfiColors = currentSFI !== null ? getSFIColor(currentSFI) : null;
 
+  // Extract trend data for sparklines
+  const kIndexTrend = useMemo(
+    () => kIndexData?.map((d) => d.kp_index) ?? [],
+    [kIndexData],
+  );
+  const sfiTrend = useMemo(
+    () => solarFluxData?.map((d) => d.flux) ?? [],
+    [solarFluxData],
+  );
+
   return (
     <div
       className={`flex flex-col h-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden ${className}`}
@@ -159,7 +171,7 @@ export function DXConsole({
                 </span>
               </div>
 
-              {/* K-index badge */}
+              {/* K-index badge with trend */}
               {currentKIndex !== null && kIndexColors && (
                 <div
                   className={`flex items-center gap-1 px-2 py-0.5 rounded ${kIndexColors.bg}`}
@@ -169,10 +181,22 @@ export function DXConsole({
                   <span className={`text-xs font-bold ${kIndexColors.text}`}>
                     {currentKIndex}
                   </span>
+                  <TrendSparkline
+                    data={kIndexTrend}
+                    color={
+                      kIndexColors.text.includes("red")
+                        ? "#ef4444"
+                        : kIndexColors.text.includes("orange")
+                          ? "#fb923c"
+                          : kIndexColors.text.includes("yellow")
+                            ? "#eab308"
+                            : "#22c55e"
+                    }
+                  />
                 </div>
               )}
 
-              {/* SFI badge */}
+              {/* SFI badge with trend */}
               {currentSFI !== null && sfiColors && (
                 <div
                   className={`flex items-center gap-1 px-2 py-0.5 rounded ${sfiColors.bg}`}
@@ -184,6 +208,18 @@ export function DXConsole({
                   <span className={`text-xs font-bold ${sfiColors.text}`}>
                     {currentSFI}
                   </span>
+                  <TrendSparkline
+                    data={sfiTrend}
+                    color={
+                      sfiColors.text.includes("green")
+                        ? "#22c55e"
+                        : sfiColors.text.includes("orange")
+                          ? "#ff6b35"
+                          : sfiColors.text.includes("yellow")
+                            ? "#eab308"
+                            : "#9ca3af"
+                    }
+                  />
                 </div>
               )}
             </>
@@ -240,8 +276,8 @@ export function DXConsole({
 
       {/* Content Area - Split View */}
       <div className="flex-1 flex min-h-0 gap-4 p-4">
-        {/* Left: DX Spot List (40%) */}
-        <div className="w-2/5 flex flex-col min-h-0">
+        {/* Left: DX Spot List (50%) */}
+        <div className="w-1/2 flex flex-col min-h-0">
           <DXSpotList
             showHeader={false}
             showFilters={true}
@@ -250,14 +286,19 @@ export function DXConsole({
           />
         </div>
 
-        {/* Right: Band Map (60%) - fills available height */}
-        <div className="w-3/5 flex flex-col min-h-0">
+        {/* Right: Band Map (50%) - fills available height */}
+        <div className="w-1/2 flex flex-col min-h-0">
           <BandMap
             spots={spots}
             selectedBand={selectedBand}
             className="flex-1 min-h-[250px]"
           />
         </div>
+      </div>
+
+      {/* Stats Strip - compact summary metrics */}
+      <div className="flex-shrink-0 px-4">
+        <SpotStatsDashboard compact />
       </div>
 
       {/* Insights Bar - Full width at bottom */}

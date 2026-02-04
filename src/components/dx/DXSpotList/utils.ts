@@ -37,16 +37,17 @@ export function getMinutesAgo(date: Date): number {
 }
 
 /**
- * Format distance for display (e.g., "1,234 km" or "12,345 km")
+ * Format distance for display as a bare number (no unit suffix).
+ * Unit (km) is shown in the column header instead.
  */
 export function formatDistance(km: number | null): string {
   if (km === null) {
     return "---";
   }
   if (km < 1000) {
-    return `${Math.round(km)} km`;
+    return `${Math.round(km)}`;
   }
-  return `${Math.round(km / 100) / 10}k km`;
+  return `${(Math.round(km / 100) / 10).toFixed(1)}k`;
 }
 
 /**

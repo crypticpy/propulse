@@ -87,7 +87,7 @@ export function SpotLabel({
   lon,
   callsign,
   mode,
-  isSpotter = false,
+  // isSpotter not used — both label types use unified dark-pill styling
   opacity = 1.0,
   size = "sm",
   frequency,
@@ -134,27 +134,23 @@ export function SpotLabel({
         className={`
           font-mono font-bold whitespace-nowrap rounded
           ${sizeClasses}
-          ${isSpotter ? "bg-transparent" : "text-white"}
         `}
         style={{
-          color: isSpotter ? color : "#FFFFFF",
-          backgroundColor: isSpotter ? "rgba(6, 6, 20, 0.92)" : color,
-          border: isSpotter
-            ? `1px solid ${color}`
-            : "1px solid rgba(0,0,0,0.4)",
-          boxShadow: isSpotter
-            ? `0 0 6px ${color}50`
-            : `0 2px 8px rgba(0,0,0,0.7), 0 0 6px ${color}60`,
-          textShadow: isSpotter
-            ? "none"
-            : "0 1px 2px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,0.8)",
+          color: "rgba(255, 255, 255, 0.95)",
+          backgroundColor: "rgba(10, 10, 26, 0.82)",
+          borderBottom: `2px solid ${color}`,
+          boxShadow: `0 2px 6px rgba(0,0,0,0.6)`,
+          textShadow: "0 1px 2px rgba(0,0,0,0.6)",
           letterSpacing: "0.03em",
           lineHeight: 1.2,
         }}
       >
         {callsign}
         {frequency && (
-          <span className="ml-1 opacity-80" style={{ fontSize: "0.9em" }}>
+          <span
+            className="ml-1"
+            style={{ fontSize: "0.9em", color: "rgba(255,255,255,0.7)" }}
+          >
             {formatFrequency(frequency)}
           </span>
         )}

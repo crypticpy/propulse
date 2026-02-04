@@ -41,8 +41,8 @@ The 3D Globe has evolved significantly with gesture detection, hover tooltips, c
 
 Analysis of competing amateur radio mapping software reveals standard expectations:
 
-| Competitor      | Key Differentiators                                      |
-| --------------- | -------------------------------------------------------- |
+| Competitor            | Key Differentiators                                      |
+| --------------------- | -------------------------------------------------------- |
 | **HamClock**    | Widget system, web API, real-time cluster display        |
 | **DX Atlas**    | Multiple projections, smooth zoom, prefix database       |
 | **Geochron 4K** | Premium visuals, 15-second updates, grid-level precision |
@@ -67,8 +67,8 @@ Users expect: grayline visualization, DX spots on map, band/mode filtering, hove
 
 #### Core Components
 
-| Component               | Purpose                                     | Complexity |
-| ----------------------- | ------------------------------------------- | ---------- |
+| Component                 | Purpose                                     | Complexity |
+| ------------------------- | ------------------------------------------- | ---------- |
 | `GlobeView.tsx`         | Main container with error boundary, portals | High       |
 | `EarthSphere.tsx`       | NASA Blue Marble textured sphere            | Medium     |
 | `GlobeClickHandler.tsx` | Gesture state machine (click/hold/drag)     | High       |
@@ -88,8 +88,8 @@ Users expect: grayline visualization, DX spots on map, band/mode filtering, hove
 
 #### Spot Visualization System
 
-| Component                 | Purpose                             |
-| ------------------------- | ----------------------------------- |
+| Component                   | Purpose                             |
+| --------------------------- | ----------------------------------- |
 | `LiveSpotArcs.tsx`        | Great circle paths with mode colors |
 | `SpotMarker.tsx`          | Clickable endpoint markers          |
 | `SpotCluster.tsx`         | Aggregated spot display             |
@@ -111,8 +111,8 @@ Users expect: grayline visualization, DX spots on map, band/mode filtering, hove
 
 #### Panel System
 
-| Panel               | Purpose                                       |
-| ------------------- | --------------------------------------------- |
+| Panel                 | Purpose                                       |
+| --------------------- | --------------------------------------------- |
 | `GlobeTooltip`      | Grid info + spot activity on hover            |
 | `GlobeFlyout`       | Actions: Set Target, Add Pin, Research, Watch |
 | `AddPinDialog`      | Pin creation modal                            |
@@ -139,7 +139,7 @@ UI State: isFullscreen, isLiteMode, tooltipPosition, flyoutPosition
 | Base map rendering  | Yes    | Fixed 1024x512 canvas       |
 | Day/night overlay   | Yes    | Pixel-by-pixel calculation  |
 | Terminator line     | Yes    | Orange glow at boundary     |
-| Greyline band       | Yes    | Golden tint ±15 degrees     |
+| Greyline band       | Yes    | Golden tint ±15 degrees    |
 | Aurora overlay      | Yes    | Same as globe               |
 | MUF overlay         | Yes    | 10-degree resolution cells  |
 | Night lights        | Yes    | 30 major cities only        |
@@ -152,21 +152,21 @@ UI State: isFullscreen, isLiteMode, tooltipPosition, flyoutPosition
 
 #### What's Missing (vs Globe)
 
-| Feature                  | Priority     | Impact                       |
-| ------------------------ | ------------ | ---------------------------- |
+| Feature                  | Priority           | Impact                       |
+| ------------------------ | ------------------ | ---------------------------- |
 | Hover tooltip system     | **Critical** | Core UX inconsistency        |
 | Click flyout menu        | **Critical** | No pin/watch/research access |
-| Pin markers display      | High         | Data not visible on map      |
-| Watch activity indicator | High         | Watch system unusable        |
-| Double-click to center   | Medium       | Navigation convenience       |
-| Compass rose             | Medium       | Orientation guidance         |
-| Spot highlight effect    | Medium       | Focus feedback               |
-| Panel integration        | High         | Modal dialogs missing        |
+| Pin markers display      | High               | Data not visible on map      |
+| Watch activity indicator | High               | Watch system unusable        |
+| Double-click to center   | Medium             | Navigation convenience       |
+| Compass rose             | Medium             | Orientation guidance         |
+| Spot highlight effect    | Medium             | Focus feedback               |
+| Panel integration        | High               | Modal dialogs missing        |
 | Responsive sizing        | **Critical** | Viewport issues              |
-| Smooth zoom transitions  | Low          | Polish                       |
-| Spot clustering          | Low          | Performance at scale         |
-| Spot labels              | Medium       | Callsign visibility          |
-| Spot hover detection     | High         | Spot info access             |
+| Smooth zoom transitions  | Low                | Polish                       |
+| Spot clustering          | Low                | Performance at scale         |
+| Spot labels              | Medium             | Callsign visibility          |
+| Spot hover detection     | High               | Spot info access             |
 
 ---
 
@@ -256,7 +256,7 @@ UI State: isFullscreen, isLiteMode, tooltipPosition, flyoutPosition
 
 | 3D Globe Feature            | 2D Map Equivalent    | Complexity   | Dependencies          | Priority |
 | --------------------------- | -------------------- | ------------ | --------------------- | -------- |
-| **Rendering**               |                      |              |                       |          |
+| **Rendering**         |                      |              |                       |          |
 | EarthSphere (WebGL)         | Canvas 2D texture    | Equivalent   | -                     | Done     |
 | NightOverlay (shader)       | Pixel iteration      | Equivalent   | -                     | Done     |
 | NightLightsOverlay (shader) | drawCityLights()     | Partial      | Texture loading       | High     |
@@ -264,7 +264,7 @@ UI State: isFullscreen, isLiteMode, tooltipPosition, flyoutPosition
 | Greyline (mesh)             | drawGreyline()       | Equivalent   | -                     | Done     |
 | Aurora (point cloud)        | Canvas scatter       | Equivalent   | -                     | Done     |
 | MUF (shader)                | Canvas grid          | Equivalent   | -                     | Done     |
-| **Spots**                   |                      |              |                       |          |
+| **Spots**             |                      |              |                       |          |
 | LiveSpotArcs                | drawSpotArc()        | Equivalent   | -                     | Done     |
 | SpotMarker                  | drawSpotDot()        | Simpler      | -                     | Done     |
 | SpotCluster                 | drawClusterMarker()  | Medium       | Clustering logic      | Low      |
@@ -272,25 +272,25 @@ UI State: isFullscreen, isLiteMode, tooltipPosition, flyoutPosition
 | SpotHighlight               | drawPulsingRings()   | Medium       | Animation loop        | Medium   |
 | SpotEndpointHitArea         | Hit test calculation | Medium       | Event handling        | High     |
 | SpotDetailsFlyout           | DOM overlay          | Medium       | Portal rendering      | High     |
-| **Interaction**             |                      |              |                       |          |
+| **Interaction**       |                      |              |                       |          |
 | GlobeClickHandler           | FlatMapClickHandler  | High         | Gesture detection     | Critical |
-| Hover → tooltip             | Mouse tracking       | High         | Coordinate conversion | Critical |
-| Press-hold → flyout         | Timer + state        | High         | UI feedback           | Critical |
-| Double-click → center       | Event detection      | Low          | View animation        | Medium   |
-| Drag → pan                  | Mouse delta tracking | Medium       | Bounds clamping       | Done     |
-| **Overlays**                |                      |              |                       |          |
+| Hover → tooltip            | Mouse tracking       | High         | Coordinate conversion | Critical |
+| Press-hold → flyout        | Timer + state        | High         | UI feedback           | Critical |
+| Double-click → center      | Event detection      | Low          | View animation        | Medium   |
+| Drag → pan                 | Mouse delta tracking | Medium       | Bounds clamping       | Done     |
+| **Overlays**          |                      |              |                       |          |
 | GlobeTooltip                | Reuse as-is          | Low          | Position conversion   | Critical |
 | GlobeFlyout                 | Reuse as-is          | Low          | Position conversion   | Critical |
 | AddPinDialog                | Reuse as-is          | None         | State wiring          | High     |
 | GridResearchPanel           | Reuse as-is          | None         | State wiring          | High     |
 | WatchListPanel              | Reuse as-is          | None         | State wiring          | High     |
 | WatchIndicator              | Reuse as-is          | None         | State wiring          | High     |
-| **Markers**                 |                      |              |                       |          |
+| **Markers**           |                      |              |                       |          |
 | LocationMarker (home)       | drawHomeMarker()     | Equivalent   | -                     | Done     |
 | LocationMarker (target)     | drawTargetMarker()   | Equivalent   | -                     | Done     |
 | CompassRose                 | Canvas arc + labels  | Medium       | Bearing calculation   | Medium   |
 | Pin markers                 | drawPin()            | Low          | Pin store integration | High     |
-| **Controls**                |                      |              |                       |          |
+| **Controls**          |                      |              |                       |          |
 | OrbitControls (zoom)        | Scroll wheel zoom    | Different UX | Bounds clamping       | Done     |
 | OrbitControls (rotate)      | N/A (pan instead)    | N/A          | -                     | N/A      |
 | Camera fly-to               | Smooth pan/zoom      | Medium       | Animation easing      | Low      |
@@ -340,8 +340,8 @@ interface RegionPreset {
 | South America  | -15, -60 | 1.6  | Full continent            |
 | Africa         | 5, 20    | 1.4  | Full continent            |
 | Oceania        | -25, 135 | 1.6  | Australia + NZ + Pacific  |
-| NA→EU Path     | 45, -30  | 1.2  | Atlantic propagation view |
-| NA→JA Path     | 40, -160 | 1.2  | Pacific propagation view  |
+| NA→EU Path    | 45, -30  | 1.2  | Atlantic propagation view |
+| NA→JA Path    | 40, -160 | 1.2  | Pacific propagation view  |
 
 #### UI Components Required
 
@@ -708,29 +708,22 @@ Target appearance should match:
 
 ### Product Questions
 
-1. **Should 2D map support auto-rotate?** Globe auto-rotate makes sense, but what would 2D equivalent be - auto-pan along grayline?
-
-2. **Keyboard shortcuts scope:** Should number keys 1-9 for presets work globally or only when map is focused?
-
-3. **Preset sharing:** Should users be able to export/import presets?
-
-4. **Touch gestures:** What gestures should we support on touch devices? Pinch-zoom, two-finger pan?
+1. **Should 2D map support auto-rotate?** Globe auto-rotate makes sense, but what would 2D equivalent be - auto-pan along grayline? 2D map should only need autopan if the viewable area is off screen , yes support that.
+2. **Keyboard shortcuts scope:** Should number keys 1-9 for presets work globally or only when map is focused? They hsould be the same across map viewws and work the same or work as they should be in spirit if they cant work exactly the same due to 3d vs 2d, refactor for 2d.
+3. **Preset sharing:** Should users be able to export/import presets? yes
+4. **Touch gestures:** What gestures should we support on touch devices? Pinch-zoom, two-finger pan? all of them 
 
 ### Technical Questions
 
-5. **Canvas vs WebGL:** Should we consider migrating FlatMapView to WebGL for better performance and visual effects? This would be a larger architectural change.
-
-6. **Shared components:** Should GlobeTooltip/GlobeFlyout be renamed to generic MapTooltip/MapFlyout since they'll be shared?
-
-7. **Layer caching strategy:** How frequently should night overlay be recalculated? Every frame, every minute, on time change only?
+5. **Canvas vs WebGL:** Should we consider migrating FlatMapView to WebGL for better performance and visual effects? This would be a larger architectural change. Yes
+6. **Shared components:** Should GlobeTooltip/GlobeFlyout be renamed to generic MapTooltip/MapFlyout since they'll be shared? yes
+7. **Layer caching strategy:** How frequently should night overlay be recalculated? Every frame, every minute, on time change only? we only ever need one CLEAN night overlay so we need to just gran a nice night view that has no blotches and cloudcover in it 1 time ands save that view. ITs not importanbt that it be super current. 
 
 ### Competitive Questions
 
-8. **Click-to-tune:** Should we add radio integration (click spot to tune transceiver)? This is expected in competitors but requires CAT control.
-
-9. **Award tracking overlays:** Should we add DXCC/Zone overlay toggles like GridTracker?
-
-10. **Offline mode:** Is offline functionality a requirement? Some competitors emphasize this for field operations.
+8. **Click-to-tune:** Should we add radio integration (click spot to tune transceiver)? This is expected in competitors but requires CAT control. This sound sliek a big feature add and we can add it later.
+9. **Award tracking overlays:** Should we add DXCC/Zone overlay toggles like GridTracker? yes
+10. **Offline mode:** Is offline functionality a requirement? Some competitors emphasize this for field operations. not at this time but we code with an eye towardfs migrating to online w supabase and also being able to work totally offline. 
 
 ---
 
@@ -753,16 +746,16 @@ Target appearance should match:
 
 ### New Files
 
-| File                                          | Purpose                  |
-| --------------------------------------------- | ------------------------ |
+| File                                            | Purpose                  |
+| ----------------------------------------------- | ------------------------ |
 | `src/components/map/FlatMapClickHandler.tsx`  | Gesture detection for 2D |
 | `src/components/map/RegionPresetSelector.tsx` | Preset dropdown UI       |
 | `src/components/map/RegionPresetManager.tsx`  | Preset CRUD panel        |
 
 ### Modified Files
 
-| File                                 | Changes                                              |
-| ------------------------------------ | ---------------------------------------------------- |
+| File                                   | Changes                                              |
+| -------------------------------------- | ---------------------------------------------------- |
 | `src/components/map/FlatMapView.tsx` | Resize handling, interaction system, panel rendering |
 | `src/stores/mapStore.ts`             | Region presets state + actions                       |
 | `src/types/map.ts`                   | RegionPreset type definition                         |
@@ -770,8 +763,8 @@ Target appearance should match:
 
 ### Reused Files (No Changes)
 
-| File                                       | Usage                   |
-| ------------------------------------------ | ----------------------- |
+| File                                         | Usage                   |
+| -------------------------------------------- | ----------------------- |
 | `src/components/map/GlobeTooltip.tsx`      | Rendered in FlatMapView |
 | `src/components/map/GlobeFlyout.tsx`       | Rendered in FlatMapView |
 | `src/components/map/AddPinDialog.tsx`      | Rendered in FlatMapView |

@@ -37,6 +37,8 @@ export interface SpotLabelProps {
   size?: "sm" | "md";
   /** Optional frequency to display */
   frequency?: number;
+  /** Stack offset index for nearby labels (0 = no offset) */
+  stackIndex?: number;
 }
 
 /**
@@ -91,6 +93,7 @@ export function SpotLabel({
   opacity = 1.0,
   size = "sm",
   frequency,
+  stackIndex = 0,
 }: SpotLabelProps) {
   // Validate coordinates
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
@@ -119,6 +122,9 @@ export function SpotLabel({
 
   if (!hasValidCoords) return null;
 
+  // Vertical pixel offset for stacked labels (each label ~22px tall)
+  const stackOffsetY = stackIndex * -24;
+
   return (
     <Html
       position={position}
@@ -128,6 +134,7 @@ export function SpotLabel({
         userSelect: "none",
         opacity: combinedOpacity,
         transition: "opacity 0.3s ease",
+        transform: stackOffsetY ? `translateY(${stackOffsetY}px)` : undefined,
       }}
     >
       <div

@@ -618,8 +618,11 @@ export function LiveSpotArcs({
 
       {/* Render non-clustered spots as individual arcs with age-based styling */}
       {(() => {
-        // Track callsigns that already have a label to prevent overlapping duplicates
+        // Track callsigns already labeled and positions for stacking
         const labeledCallsigns = new Set<string>();
+        // Track occupied label positions to assign stack indices
+        const labelPositions: Array<{ lat: number; lon: number }> = [];
+
         return resolvedSingles.map((spot) => {
           const color = getModeColor(spot.mode);
           // Calculate age info for endpoint styling
@@ -629,6 +632,22 @@ export function LiveSpotArcs({
             ? ageInfo.opacity * 0.8
             : 0.8;
           const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
+
+          // Compute stack index for this label position (proximity-based)
+          let stackIndex = 0;
+          if (
+            uiPrefs.showSpotCallsignLabels &&
+            !labeledCallsigns.has(spot.callsign)
+          ) {
+            for (const pos of labelPositions) {
+              const dlat = Math.abs(pos.lat - spot.dxLat);
+              const dlon = Math.abs(pos.lon - spot.dxLon);
+              if (dlat < 3 && dlon < 3) {
+                stackIndex++;
+              }
+            }
+            labelPositions.push({ lat: spot.dxLat, lon: spot.dxLon });
+          }
 
           return (
             <group key={spot.id}>
@@ -653,7 +672,7 @@ export function LiveSpotArcs({
                 opacity={endpointOpacity}
                 scale={endpointScale}
               />
-              {/* Callsign label at DX location — deduplicated by callsign */}
+              {/* Callsign label — deduplicated + stacked when nearby */}
               {uiPrefs.showSpotCallsignLabels &&
                 !labeledCallsigns.has(spot.callsign) &&
                 (() => {
@@ -664,8 +683,8 @@ export function LiveSpotArcs({
                       lon={spot.dxLon}
                       callsign={spot.callsign}
                       mode={spot.mode}
-                      opacity={endpointOpacity}
                       frequency={spot.frequency}
+                      stackIndex={stackIndex}
                     />
                   );
                 })()}

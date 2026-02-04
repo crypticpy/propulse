@@ -8,6 +8,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { DXSpotList } from "./DXSpotList";
 import { BandMap } from "./BandMap";
+import { BandActivityBar } from "./BandActivityBar";
 import { InsightsBar } from "./InsightsBar";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useDXStore, selectAvailableBands } from "@/stores/dxStore";
@@ -227,6 +228,14 @@ export function DXConsole({
             {band}
           </button>
         ))}
+      </div>
+
+      {/* Band Activity Bar */}
+      <div className="px-4 pt-2 flex-shrink-0">
+        <BandActivityBar
+          spots={spots}
+          onBandClick={(band) => setSelectedBand(band)}
+        />
       </div>
 
       {/* Content Area - Split View */}

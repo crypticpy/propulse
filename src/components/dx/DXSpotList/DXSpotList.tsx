@@ -8,6 +8,7 @@
  * This is the main orchestrator component that composes the modular pieces.
  */
 
+import { useCallback } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
 import { SpotRow } from "./SpotRow";
@@ -15,6 +16,7 @@ import { FilterControls } from "./FilterControls";
 import { useDXSpotListState } from "./useDXSpotListState";
 import { formatTime } from "./utils";
 import type { DXSpotListProps } from "./types";
+import type { DXSpot } from "@/types/dxcluster";
 
 /**
  * DXSpotList Component
@@ -78,6 +80,30 @@ export function DXSpotList({
     setHoveredSpot,
     refetch,
   } = state;
+
+  // Quick action: set map target from row button
+  const handleSetTarget = useCallback(
+    (spot: DXSpot) => {
+      handleContextAction("setTarget", spot);
+    },
+    [handleContextAction],
+  );
+
+  // Quick action: watch callsign from row button
+  const handleWatchCallsign = useCallback(
+    (spot: DXSpot) => {
+      handleContextAction("watchCallsign", spot);
+    },
+    [handleContextAction],
+  );
+
+  // Quick action: hide spot from row button
+  const handleHideSpot = useCallback(
+    (spot: DXSpot) => {
+      handleContextAction("hideSpot", spot);
+    },
+    [handleContextAction],
+  );
 
   return (
     <Card
@@ -214,22 +240,7 @@ export function DXSpotList({
         />
       )}
 
-      {/* Column Headers */}
-      <div
-        className={`grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[50px_40px_60px_70px_1fr_55px_70px_1fr]" : "grid-cols-[50px_60px_70px_1fr_55px_70px_1fr]"} gap-2 px-3 py-2 border-b border-white/10 text-xs font-semibold text-gray-400 uppercase tracking-wider`}
-        role="row"
-      >
-        <div>Time</div>
-        {spotAgePrefs.showAgeColumn && <div>Age</div>}
-        <div>Band</div>
-        <div>Freq</div>
-        <div>DX</div>
-        <div className="text-right">Dist</div>
-        <div>Spotter</div>
-        <div>Info</div>
-      </div>
-
-      {/* Spot List */}
+      {/* Spot List with sticky header */}
       <div
         ref={listContainerRef}
         className="flex-1 overflow-y-auto divide-y divide-white/5"
@@ -237,6 +248,22 @@ export function DXSpotList({
         role="table"
         aria-label="DX Spots"
       >
+        {/* Column Headers - sticky at top of scroll container */}
+        <div
+          className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_56px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_56px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-400 uppercase tracking-wider`}
+          role="row"
+          style={{ borderLeft: "3px solid transparent" }}
+        >
+          <div>Time</div>
+          {spotAgePrefs.showAgeColumn && <div>Age</div>}
+          <div>Band</div>
+          <div>Freq</div>
+          <div>DX</div>
+          <div className="text-right">Dist</div>
+          <div>Spotter</div>
+          <div>Info</div>
+          <div></div>
+        </div>
         {isLoading && displaySpots.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <LoadingSpinner size="lg" />
@@ -268,6 +295,9 @@ export function DXSpotList({
               onContextMenu={handleContextMenu}
               onGridClick={handleGridFilterChange}
               onBandClick={handleBandBadgeClick}
+              onSetTarget={handleSetTarget}
+              onWatchCallsign={handleWatchCallsign}
+              onHideSpot={handleHideSpot}
               showAgeColumn={spotAgePrefs.showAgeColumn}
               ageVisualizationEnabled={spotAgePrefs.enabled}
               activeBandFilter={activeBandFilter}

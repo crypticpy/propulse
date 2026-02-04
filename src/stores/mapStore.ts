@@ -14,6 +14,7 @@ export const LAYER_PRESETS = {
     spots: true,
     nightLights: true,
     labels: false,
+    satellites: false,
   },
   contest: {
     terminator: true,
@@ -24,6 +25,7 @@ export const LAYER_PRESETS = {
     spots: true,
     nightLights: false,
     labels: false,
+    satellites: false,
   },
   vhf: {
     terminator: true,
@@ -34,6 +36,7 @@ export const LAYER_PRESETS = {
     spots: false,
     nightLights: false,
     labels: false,
+    satellites: true,
   },
   emergency: {
     terminator: true,
@@ -44,6 +47,7 @@ export const LAYER_PRESETS = {
     spots: false,
     nightLights: true,
     labels: true,
+    satellites: false,
   },
 } as const;
 
@@ -150,6 +154,7 @@ interface MapState {
     spots: boolean;
     nightLights: boolean;
     labels: boolean;
+    satellites: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -371,6 +376,7 @@ const initialState = {
     spots: true,
     nightLights: true,
     labels: false,
+    satellites: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

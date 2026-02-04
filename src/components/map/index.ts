@@ -122,3 +122,7 @@ export {
 // Region preset components
 export { RegionPresetSelector } from "./RegionPresetSelector";
 export { RegionPresetManager } from "./RegionPresetManager";
+
+// Satellite tracking
+export { SatelliteOverlay } from "./SatelliteOverlay";
+export { SatellitePanel } from "./SatellitePanel";

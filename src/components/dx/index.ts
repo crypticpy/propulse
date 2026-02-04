@@ -37,3 +37,4 @@ export {
   useVirtualList,
   useVariableHeightVirtualList,
 } from "./VirtualSpotList";
+export { BandActivityBar, type BandActivityBarProps } from "./BandActivityBar";

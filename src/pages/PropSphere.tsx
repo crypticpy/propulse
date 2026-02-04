@@ -26,6 +26,7 @@ import {
   LiteModeToggle,
   StyleSelector,
   DXNewsTicker,
+  SatellitePanel,
   KeyboardShortcutsOverlay,
   QuickGridInput,
   GridResearchPanel,
@@ -620,6 +621,7 @@ export function PropSphere() {
                     "spots",
                     "nightLights",
                     "labels",
+                    "satellites",
                   ] as const
                 ).map((layer) => {
                   // Display names for layers
@@ -631,6 +633,7 @@ export function PropSphere() {
                     spots: "Spots",
                     nightLights: "Lights",
                     labels: "Labels",
+                    satellites: "Sats",
                   };
                   return (
                     <button
@@ -747,6 +750,13 @@ export function PropSphere() {
               {/* Optimal Bands Pop-out Panel (inside map container, below control bar) */}
               {viewMode === "globe" && !isLiteMode && (
                 <OptimalBandsPanel displayTime={displayTime} />
+              )}
+
+              {/* Satellite Panel (inside map container, top-left when sat layer active) */}
+              {layers.satellites && (
+                <div className="absolute top-2 left-2 z-10 w-[260px] max-h-[50%] overflow-y-auto">
+                  <SatellitePanel />
+                </div>
               )}
 
               {/* ═══════════════════════════════════════════════════════════════

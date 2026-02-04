@@ -38,6 +38,12 @@ export interface SpotRowProps {
   onGridClick?: (grid: string) => void;
   onBandClick?: (band: string) => void;
   onFrequencyCopied?: (frequency: number) => void;
+  /** Quick action: set target on map (crosshair icon) */
+  onSetTarget?: (spot: DXSpot) => void;
+  /** Quick action: watch callsign (eye icon) */
+  onWatchCallsign?: (spot: DXSpot) => void;
+  /** Quick action: hide spot (x icon) */
+  onHideSpot?: (spot: DXSpot) => void;
   /** Whether to show the age column */
   showAgeColumn?: boolean;
   /** Whether age-based row opacity is enabled */

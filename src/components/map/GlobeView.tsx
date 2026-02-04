@@ -31,6 +31,7 @@ import { LabelsOverlay } from "./LabelsOverlay";
 import { AuroraOverlay } from "./AuroraOverlay";
 import { MUFOverlay } from "./MUFOverlay";
 import { GrayLineZone } from "./GrayLineZone";
+import { SatelliteOverlay } from "./SatelliteOverlay";
 import { PathArc } from "./PathArc";
 import {
   LocationMarker,
@@ -427,6 +428,9 @@ function GlobeScene({
       {layers.muf && currentSFI && (
         <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
       )}
+
+      {/* Satellite overlay */}
+      {layers.satellites && <SatelliteOverlay />}
 
       {/* Live spot arcs */}
       {layers.spots && <LiveSpotArcs grid={station?.grid} maxArcs={50} />}

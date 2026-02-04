@@ -29,6 +29,7 @@ interface UniformLocations {
   uShowNight: WebGLUniformLocation | null;
   uAspect: WebGLUniformLocation | null;
   uMapScale: WebGLUniformLocation | null;
+  uGrayscale: WebGLUniformLocation | null;
 }
 
 export interface AzimuthalRendererOptions {
@@ -57,6 +58,7 @@ export class AzimuthalRenderer {
 
   private options: AzimuthalRendererOptions;
   private disposed = false;
+  private grayscale = false;
 
   constructor(options: AzimuthalRendererOptions = {}) {
     this.options = {
@@ -102,6 +104,7 @@ export class AzimuthalRenderer {
       uShowNight: gl.getUniformLocation(program, "uShowNight"),
       uAspect: gl.getUniformLocation(program, "uAspect"),
       uMapScale: gl.getUniformLocation(program, "uMapScale"),
+      uGrayscale: gl.getUniformLocation(program, "uGrayscale"),
     };
 
     // Create vertex buffer for fullscreen quad
@@ -220,7 +223,7 @@ export class AzimuthalRenderer {
    * Load day and night textures
    */
   private async loadTextures(): Promise<void> {
-    const {gl} = this;
+    const { gl } = this;
     if (!gl) {
       return;
     }
@@ -358,7 +361,7 @@ export class AzimuthalRenderer {
    * Render the azimuthal projection
    */
   render(config: ShaderConfig): void {
-    const {gl} = this;
+    const { gl } = this;
     if (!gl || !this.program || !this.uniformLocations) {
       return;
     }
@@ -407,6 +410,9 @@ export class AzimuthalRenderer {
     // Default: 260/300 ≈ 0.8667 for 40px margin on 600px canvas
     gl.uniform1f(u.uMapScale, config.mapScale ?? 260 / 300);
 
+    // Grayscale mode for standard map style
+    gl.uniform1i(u.uGrayscale, this.grayscale ? 1 : 0);
+
     // Bind textures
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.dayTexture);
@@ -438,6 +444,13 @@ export class AzimuthalRenderer {
    */
   isReady(): boolean {
     return this.texturesLoaded;
+  }
+
+  /**
+   * Set grayscale mode for standard map style
+   */
+  setGrayscale(value: boolean): void {
+    this.grayscale = value;
   }
 
   /**

@@ -25,6 +25,7 @@ import {
   SolarSnapshot,
   LiteModeToggle,
   StyleSelector,
+  MapStyleToggle,
   DXNewsTicker,
   SatellitePanel,
   LabelsPanel,
@@ -43,6 +44,7 @@ const FullscreenPropSphere = lazy(() =>
   })),
 );
 import { DXSpotList, DXConsole, SpotStatsDashboard } from "@/components/dx";
+import { ClusterPulseDetailModal } from "@/components/dx/modals/ClusterPulseDetailModal";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
@@ -144,6 +146,9 @@ export function PropSphere() {
 
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Stats modal state
+  const [showStatsModal, setShowStatsModal] = useState(false);
 
   // Get watch store for toggle watch action
   const watchStore = useWatchStore();
@@ -652,6 +657,9 @@ export function PropSphere() {
                 })}
               </div>
 
+              {/* Map style toggle (Satellite / Standard) */}
+              <MapStyleToggle className="flex-shrink-0" />
+
               {/* Region preset selector */}
               {viewMode !== "azimuthal" && (
                 <RegionPresetSelector
@@ -982,6 +990,7 @@ export function PropSphere() {
               <div className="flex flex-col h-full min-h-0">
                 <SpotStatsDashboard
                   compact
+                  onClick={() => setShowStatsModal(true)}
                   className="flex-shrink-0 rounded-b-none border-b-0"
                 />
                 <DXSpotList
@@ -1073,6 +1082,7 @@ export function PropSphere() {
                 >
                   <SpotStatsDashboard
                     compact
+                    onClick={() => setShowStatsModal(true)}
                     className="border-t-0 rounded-none"
                   />
                   <DXSpotList
@@ -1265,6 +1275,12 @@ export function PropSphere() {
         onPrev={tourPrevStep}
         onSkip={skipTour}
         onComplete={completeTour}
+      />
+
+      {/* Cluster Pulse Stats Modal */}
+      <ClusterPulseDetailModal
+        isOpen={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
       />
 
       {/* Share Modal */}

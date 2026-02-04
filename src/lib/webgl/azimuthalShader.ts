@@ -38,6 +38,7 @@ export const FRAGMENT_SHADER = `
   uniform float uZoom;          // Zoom factor (1.0 = normal)
   uniform vec2 uSubsolar;       // Subsolar point lat, lon in radians (for day/night)
   uniform bool uShowNight;      // Whether to blend night texture
+  uniform bool uGrayscale;      // Whether to apply grayscale conversion
   uniform float uAspect;        // Aspect ratio for non-square canvases
   uniform float uMapScale;      // Map scale factor (RADIUS/CENTER) to match 2D overlay
 
@@ -72,6 +73,10 @@ export const FRAGMENT_SHADER = `
       texCoord.x = fract(texCoord.x);
 
       vec4 dayColor = texture2D(uDayTexture, texCoord);
+      if (uGrayscale) {
+        float lum = dot(dayColor.rgb, vec3(0.299, 0.587, 0.114));
+        dayColor.rgb = vec3(lum) * 1.1;
+      }
       gl_FragColor = dayColor;
       return;
     }
@@ -115,6 +120,10 @@ export const FRAGMENT_SHADER = `
 
     // Sample day texture
     vec4 dayColor = texture2D(uDayTexture, texCoord);
+    if (uGrayscale) {
+      float lum = dot(dayColor.rgb, vec3(0.299, 0.587, 0.114));
+      dayColor.rgb = vec3(lum) * 1.1;
+    }
 
     // If night blending is enabled, calculate day/night mix
     if (uShowNight) {
@@ -131,6 +140,10 @@ export const FRAGMENT_SHADER = `
       float nightMix = smoothstep(0.1, -0.1, cosAngle);
 
       vec4 nightColor = texture2D(uNightTexture, texCoord);
+      if (uGrayscale) {
+        float lum = dot(nightColor.rgb, vec3(0.299, 0.587, 0.114));
+        nightColor.rgb = vec3(lum) * 1.1;
+      }
 
       // Blend day and night
       gl_FragColor = mix(dayColor, nightColor, nightMix);

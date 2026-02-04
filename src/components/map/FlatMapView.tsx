@@ -412,6 +412,7 @@ function drawTerminator(
   width: number,
   height: number,
   highViz = false,
+  dashed = false,
 ) {
   const subsolar = getSubsolarPoint(date);
 
@@ -419,6 +420,7 @@ function drawTerminator(
   ctx.lineWidth = highViz ? 3 : 2;
   ctx.shadowColor = COLORS.terminator;
   ctx.shadowBlur = highViz ? 8 : 4;
+  if (dashed) ctx.setLineDash([8, 4]);
 
   ctx.beginPath();
 
@@ -463,6 +465,7 @@ function drawTerminator(
 
   ctx.stroke();
   ctx.shadowBlur = 0;
+  if (dashed) ctx.setLineDash([]);
 }
 
 /**
@@ -1586,6 +1589,20 @@ export function FlatMapView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+
+  // Grayscale variant of the map image for standard mode (computed once from mapImage)
+  const grayscaleImage = useMemo(() => {
+    if (!mapImage) return null;
+    const offscreen = document.createElement("canvas");
+    offscreen.width = mapImage.naturalWidth;
+    offscreen.height = mapImage.naturalHeight;
+    const octx = offscreen.getContext("2d");
+    if (!octx) return null;
+    octx.filter = "grayscale(1) contrast(1.1) brightness(1.05)";
+    octx.drawImage(mapImage, 0, 0);
+    return offscreen;
+  }, [mapImage]);
+
   const [displaySize, setDisplaySize] = useState({
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
@@ -1615,6 +1632,7 @@ export function FlatMapView({
   const {
     layers,
     labelOptions,
+    mapStyle,
     target,
     tooltipPosition,
     setTooltipPosition,
@@ -2227,16 +2245,22 @@ export function FlatMapView({
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const rect = container.getBoundingClientRect();
-        const width = Math.max(300, Math.floor(rect.width));
-        const height = Math.max(150, Math.floor(width / 2));
+        const containerWidth = Math.max(300, Math.floor(rect.width));
+        const containerHeight = Math.max(150, Math.floor(rect.height));
+        // Fit the 2:1 map within both width AND height constraints
+        const width = Math.min(containerWidth, Math.floor(containerHeight * 2));
+        const height = Math.floor(width / 2);
         setDisplaySize({ width, height });
       });
     };
 
     // Initial synchronous size read
     const rect = container.getBoundingClientRect();
-    const initWidth = Math.max(300, Math.floor(rect.width));
-    const initHeight = Math.max(150, Math.floor(initWidth / 2));
+    const containerWidth = Math.max(300, Math.floor(rect.width));
+    const containerHeight = Math.max(150, Math.floor(rect.height));
+    // Fit the 2:1 map within both width AND height constraints
+    const initWidth = Math.min(containerWidth, Math.floor(containerHeight * 2));
+    const initHeight = Math.floor(initWidth / 2);
     setDisplaySize({ width: initWidth, height: initHeight });
 
     const observer = new ResizeObserver(updateSize);
@@ -2488,8 +2512,10 @@ export function FlatMapView({
     ctx.translate(zoom.offsetX, zoom.offsetY);
     ctx.scale(zoom.scale, zoom.scale);
 
-    // Draw base map image
-    ctx.drawImage(mapImage, 0, 0, renderWidth, renderHeight);
+    // Draw base map image (grayscale variant in standard mode)
+    const baseImage =
+      mapStyle === "standard" && grayscaleImage ? grayscaleImage : mapImage;
+    ctx.drawImage(baseImage, 0, 0, renderWidth, renderHeight);
 
     // Draw MUF overlay (before night side so it's properly darkened)
     if (layers.muf && currentSFI) {
@@ -2499,7 +2525,14 @@ export function FlatMapView({
     // Draw night side and terminator
     if (layers.terminator) {
       drawNightSide(ctx, displayTime, renderWidth, renderHeight);
-      drawTerminator(ctx, displayTime, renderWidth, renderHeight, highViz);
+      drawTerminator(
+        ctx,
+        displayTime,
+        renderWidth,
+        renderHeight,
+        highViz,
+        mapStyle === "standard",
+      );
     }
 
     // Draw greyline band (twilight zone with enhanced propagation)
@@ -2661,6 +2694,8 @@ export function FlatMapView({
     showCallsignLabels,
     spotColorMode,
     highViz,
+    mapStyle,
+    grayscaleImage,
   ]);
 
   return (

@@ -648,7 +648,7 @@ export function AzimuthalView({
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
-  const { layers, target } = useMapStore();
+  const { layers, target, mapStyle } = useMapStore();
   const { station } = useUserStore();
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
@@ -814,7 +814,14 @@ export function AzimuthalView({
     } catch {
       return null;
     }
-  }, [station, target, currentKp, currentSfi, displayTime, isEstimatedConditions]);
+  }, [
+    station,
+    target,
+    currentKp,
+    currentSfi,
+    displayTime,
+    isEstimatedConditions,
+  ]);
 
   const targetHitPoint = useMemo(() => {
     if (!center || !target) {
@@ -944,6 +951,7 @@ export function AzimuthalView({
       return;
     }
 
+    renderer.setGrayscale(mapStyle === "standard");
     renderer.render({
       centerLat: center.lat,
       centerLon: center.lon,
@@ -952,7 +960,7 @@ export function AzimuthalView({
       subsolarLon: subsolar.lon,
       showNight: layers.terminator,
     });
-  }, [center, zoom, subsolar, layers.terminator, webglReady]);
+  }, [center, zoom, subsolar, layers.terminator, webglReady, mapStyle]);
 
   // Render 2D overlay (UI elements, paths, markers)
   useEffect(() => {

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
+export type MapStyle = "satellite" | "standard";
 
 // Layer preset configurations for common use cases
 export const LAYER_PRESETS = {
@@ -208,6 +209,10 @@ interface MapState {
   setPanelCollapsed: (panelId: PanelId, collapsed: boolean) => void;
   resetPanelStates: () => void;
 
+  // Map style (satellite vs standard/grayscale, persisted)
+  mapStyle: MapStyle;
+  setMapStyle: (style: MapStyle) => void;
+
   // Label layer sub-options (persisted)
   labelOptions: LabelOptions;
   setLabelOption: (key: keyof LabelOptions, value: boolean) => void;
@@ -342,6 +347,21 @@ function saveLabelOptions(options: LabelOptions) {
   localStorage.setItem("propulse-label-options", JSON.stringify(options));
 }
 
+// Map style persistence
+function loadMapStyle(): MapStyle {
+  try {
+    const saved = localStorage.getItem("propulse-map-style");
+    if (saved === "satellite" || saved === "standard") return saved;
+  } catch {
+    /* ignore */
+  }
+  return "satellite";
+}
+
+function saveMapStyle(style: MapStyle) {
+  localStorage.setItem("propulse-map-style", style);
+}
+
 // Load saved region presets from localStorage, merging user presets with built-in defaults
 function loadRegionPresets(): RegionPreset[] {
   const builtIns = DEFAULT_REGION_PRESETS.map((p) => ({ ...p }));
@@ -422,6 +442,7 @@ const initialState = {
   flyoutPosition: null as FlyoutPosition | null,
   pathMode: "short" as "short" | "long",
   panelStates: loadPanelStates(),
+  mapStyle: loadMapStyle(),
   labelOptions: loadLabelOptions(),
   centerLocation: null as CenterLocation | null,
   regionPresets: loadRegionPresets(),
@@ -534,6 +555,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     }),
 
   setAutoRotate: (autoRotate) => set({ autoRotate }),
+
+  setMapStyle: (mapStyle) =>
+    set(() => {
+      saveMapStyle(mapStyle);
+      return { mapStyle };
+    }),
 
   toggleLayer: (layer) =>
     set((state) => ({

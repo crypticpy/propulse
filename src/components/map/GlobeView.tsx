@@ -385,7 +385,7 @@ function GlobeScene({
   /** Called when leaving the selected target marker */
   onTargetHoverEnd?: () => void;
 }) {
-  const { layers, target, autoRotate, pathMode } = useMapStore();
+  const { layers, target, autoRotate, pathMode, mapStyle } = useMapStore();
   const { station } = useUserStore();
   const { pins } = usePinStore();
   const { data: auroraData } = useAuroraData();
@@ -475,14 +475,20 @@ function GlobeScene({
         onHoverEnd={onHoverEnd}
       >
         {/* Earth sphere */}
-        <EarthSphere autoRotate={autoRotate} rotationSpeed={0.0005} />
+        <EarthSphere
+          autoRotate={autoRotate}
+          rotationSpeed={0.0005}
+          grayscale={mapStyle === "standard"}
+        />
       </GlobeClickHandler>
 
       {/* Night side darkening overlay */}
       {layers.terminator && <NightOverlay date={displayTime} opacity={0.6} />}
 
       {/* Day/night terminator line */}
-      {layers.terminator && <Terminator date={displayTime} />}
+      {layers.terminator && (
+        <Terminator date={displayTime} standardMode={mapStyle === "standard"} />
+      )}
 
       {/* Greyline band with intensity-based visualization */}
       {layers.greyline && (
@@ -768,7 +774,14 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     } catch {
       return null;
     }
-  }, [station, target, currentKp, currentSfi, displayTime, isEstimatedConditions]);
+  }, [
+    station,
+    target,
+    currentKp,
+    currentSfi,
+    displayTime,
+    isEstimatedConditions,
+  ]);
 
   // Handle globe click - show flyout
   const handleGlobeClick = useCallback(
@@ -1010,7 +1023,10 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       {/* Tooltip overlay - rendered outside Canvas */}
       <MapTooltip
         visible={
-          !!tooltipPosition && !flyoutPosition && !hoveredPinData && !hoveredTargetPos
+          !!tooltipPosition &&
+          !flyoutPosition &&
+          !hoveredPinData &&
+          !hoveredTargetPos
         }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}

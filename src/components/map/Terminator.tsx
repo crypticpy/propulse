@@ -16,6 +16,8 @@ interface TerminatorProps {
   color?: string;
   /** Line opacity */
   opacity?: number;
+  /** Use more visible dashing for standard/grayscale map mode */
+  standardMode?: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ export function Terminator({
   date,
   color = "#ff6b35",
   opacity = 0.8,
+  standardMode = false,
 }: TerminatorProps) {
   // Calculate terminator points
   const points = useMemo(() => {
@@ -68,9 +71,9 @@ export function Terminator({
       opacity={opacity}
       transparent
       dashed
-      dashScale={50}
-      dashSize={3}
-      gapSize={1}
+      dashScale={standardMode ? 30 : 50}
+      dashSize={standardMode ? 5 : 3}
+      gapSize={standardMode ? 3 : 1}
     />
   );
 }

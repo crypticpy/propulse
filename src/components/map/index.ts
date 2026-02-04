@@ -82,6 +82,9 @@ export { LiteModeToggle } from "./LiteModeToggle";
 // Visual style selector (Realistic / High-Viz, Mode / Band coloring)
 export { StyleSelector } from "./StyleSelector";
 
+// Map style toggle (Satellite / Standard grayscale)
+export { MapStyleToggle } from "./MapStyleToggle";
+
 // Gray line propagation zone (±5° from terminator)
 export { GrayLineZone } from "./GrayLineZone";
 

@@ -2,10 +2,8 @@
  * PinMarker Component
  *
  * Renders a distinctive pushpin-style marker on the 3D globe for user pins.
- * Visually distinct from SpotMarker (used for DX spots) with:
- * - Teardrop/pin shape with vertical stem
- * - Category emoji display
- * - Unique animation (gentle bob instead of pulse)
+ * The pin appears stuck into the globe surface, pointing straight up in world space,
+ * with a prominent glow halo surrounding it for visibility from any distance.
  */
 
 import { useRef, useMemo, useState, useCallback } from "react";
@@ -19,11 +17,17 @@ const DEFAULT_COLOR = "#22D3EE";
 /** Default pin size */
 const DEFAULT_SIZE = 0.025;
 
-/** Radius offset to prevent z-fighting with globe surface */
-const SURFACE_OFFSET = 1.02;
+/** Globe radius (unit sphere) */
+const GLOBE_RADIUS = 1.0;
 
-/** Height of the pin stem above the globe surface */
-const STEM_HEIGHT = 0.06;
+/** How much of the pin stem is embedded in the globe */
+const EMBED_DEPTH = 0.015;
+
+/** Total height of the pin needle above the surface */
+const NEEDLE_HEIGHT = 0.08;
+
+/** Size of the glow halo (multiplier of pin size) */
+const HALO_SIZE_MULTIPLIER = 3;
 
 export interface PinMarkerProps {
   /** Latitude in degrees */
@@ -63,9 +67,9 @@ function latLonToVector3(
 }
 
 /**
- * Get the "up" direction at a given lat/lon (normal to the sphere surface)
+ * Get the surface normal at a given lat/lon
  */
-function getUpDirection(lat: number, lon: number): THREE.Vector3 {
+function getSurfaceNormal(lat: number, lon: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
 
@@ -90,7 +94,7 @@ function getScreenPositionFromEvent(
 }
 
 /**
- * PinMarker renders a distinctive pushpin marker on the globe surface
+ * PinMarker renders a pushpin stuck into the globe surface
  */
 export function PinMarker({
   lat,
@@ -103,18 +107,26 @@ export function PinMarker({
   onHover,
 }: PinMarkerProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const headRef = useRef<THREE.Mesh>(null);
+  const glowRef = useRef<THREE.Mesh>(null);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Calculate base position on globe surface
-  const basePosition = useMemo(() => {
-    return latLonToVector3(lat, lon, SURFACE_OFFSET);
+  // Surface position (where pin enters the globe)
+  const surfacePosition = useMemo(() => {
+    return latLonToVector3(lat, lon, GLOBE_RADIUS);
   }, [lat, lon]);
 
-  // Calculate up direction for orienting the pin
-  const upDirection = useMemo(() => {
-    return getUpDirection(lat, lon);
+  // Surface normal for positioning the glow flat on the surface
+  const surfaceNormal = useMemo(() => {
+    return getSurfaceNormal(lat, lon);
   }, [lat, lon]);
+
+  // Calculate rotation to make glow lie flat on surface
+  const glowRotation = useMemo(() => {
+    const quaternion = new THREE.Quaternion();
+    const defaultUp = new THREE.Vector3(0, 1, 0);
+    quaternion.setFromUnitVectors(defaultUp, surfaceNormal);
+    return new THREE.Euler().setFromQuaternion(quaternion);
+  }, [surfaceNormal]);
 
   // Handle click event
   const handleClick = useCallback(
@@ -145,140 +157,160 @@ export function PinMarker({
     onHover?.(false, { x: 0, y: 0 });
   }, [onHover]);
 
-  // Animate pin (gentle bobbing motion)
+  // Animate glow pulsing
   useFrame(({ clock }) => {
-    if (groupRef.current) {
-      // Gentle bob animation
-      const time = clock.elapsedTime * 1.5;
-      const bobOffset = Math.sin(time) * 0.003;
-
-      // Apply bob along the up direction
-      const bobVec = upDirection.clone().multiplyScalar(bobOffset);
-      groupRef.current.position.copy(basePosition).add(bobVec);
-
-      // Scale up slightly when hovered
-      const targetScale = isHovered ? 1.2 : 1;
-      groupRef.current.scale.lerp(
-        new THREE.Vector3(targetScale, targetScale, targetScale),
-        0.1,
-      );
+    if (glowRef.current) {
+      const time = clock.elapsedTime * 2;
+      const pulse = 0.6 + Math.sin(time) * 0.2;
+      const material = glowRef.current.material as THREE.MeshBasicMaterial;
+      material.opacity = isHovered ? pulse * 1.3 : pulse * 0.8;
     }
   });
 
-  // Create pin head geometry (inverted cone/teardrop pointing down)
+  // Pin needle geometry (thin cylinder pointing up in world Y)
+  const needleGeometry = useMemo(() => {
+    // Create a cylinder for the needle
+    return new THREE.CylinderGeometry(
+      size * 0.08, // top radius (pointed)
+      size * 0.15, // bottom radius
+      NEEDLE_HEIGHT + EMBED_DEPTH,
+      8,
+    );
+  }, [size]);
+
+  // Pin head geometry (sphere at top)
   const headGeometry = useMemo(() => {
-    const geo = new THREE.ConeGeometry(size, size * 1.5, 16);
-    // Rotate so point faces outward from globe (along up direction)
-    geo.rotateX(Math.PI); // Point outward
-    return geo;
+    return new THREE.SphereGeometry(size * 0.6, 16, 16);
   }, [size]);
 
-  // Create stem geometry
-  const stemGeometry = useMemo(() => {
-    return new THREE.CylinderGeometry(size * 0.15, size * 0.15, STEM_HEIGHT, 8);
-  }, [size]);
-
-  // Calculate rotation to align pin with surface normal
-  const rotation = useMemo(() => {
-    const quaternion = new THREE.Quaternion();
-    const defaultUp = new THREE.Vector3(0, 1, 0);
-    quaternion.setFromUnitVectors(defaultUp, upDirection);
-    return new THREE.Euler().setFromQuaternion(quaternion);
-  }, [upDirection]);
+  // Halo size
+  const haloSize = size * HALO_SIZE_MULTIPLIER;
 
   return (
-    <group ref={groupRef} position={basePosition} rotation={rotation}>
-      {/* Pin stem (vertical line from surface) */}
-      <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
-        <primitive object={stemGeometry} attach="geometry" />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.8}
-          depthTest={false}
-        />
-      </mesh>
+    <group ref={groupRef}>
+      {/* Glow halo - lies flat on the globe surface */}
+      <group position={surfacePosition} rotation={glowRotation}>
+        {/* Outer glow ring */}
+        <mesh ref={glowRef} position={[0, 0.002, 0]} renderOrder={0}>
+          <ringGeometry args={[haloSize * 0.3, haloSize, 32]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={0.5}
+            side={THREE.DoubleSide}
+            depthTest={false}
+            depthWrite={false}
+          />
+        </mesh>
 
-      {/* Pin head (teardrop/cone shape) */}
+        {/* Inner glow circle */}
+        <mesh position={[0, 0.003, 0]} renderOrder={0}>
+          <circleGeometry args={[haloSize * 0.4, 32]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={isHovered ? 0.4 : 0.25}
+            side={THREE.DoubleSide}
+            depthTest={false}
+            depthWrite={false}
+          />
+        </mesh>
+
+        {/* Bright center point */}
+        <mesh position={[0, 0.004, 0]} renderOrder={1}>
+          <circleGeometry args={[size * 0.5, 16]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={isHovered ? 0.9 : 0.7}
+            side={THREE.DoubleSide}
+            depthTest={false}
+          />
+        </mesh>
+      </group>
+
+      {/* Pin needle - points straight up in world space (Y axis) */}
       <mesh
-        ref={headRef}
-        position={[0, STEM_HEIGHT + size * 0.75, 0]}
+        position={[
+          surfacePosition.x,
+          surfacePosition.y + NEEDLE_HEIGHT / 2 - EMBED_DEPTH / 2,
+          surfacePosition.z,
+        ]}
         onClick={handleClick}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
         renderOrder={2}
       >
+        <primitive object={needleGeometry} attach="geometry" />
+        <meshBasicMaterial
+          color={isHovered ? "#FFFFFF" : color}
+          transparent
+          opacity={0.95}
+          depthTest={false}
+        />
+      </mesh>
+
+      {/* Pin head (colored sphere at top) */}
+      <mesh
+        position={[
+          surfacePosition.x,
+          surfacePosition.y + NEEDLE_HEIGHT - EMBED_DEPTH + size * 0.6,
+          surfacePosition.z,
+        ]}
+        onClick={handleClick}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        renderOrder={3}
+      >
         <primitive object={headGeometry} attach="geometry" />
         <meshBasicMaterial
           color={color}
           transparent
-          opacity={isHovered ? 1 : 0.9}
+          opacity={isHovered ? 1 : 0.95}
           depthTest={false}
         />
       </mesh>
 
-      {/* Glow ring at base */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} renderOrder={0}>
-        <ringGeometry args={[size * 0.8, size * 1.2, 32]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={isHovered ? 0.5 : 0.3}
-          side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* Shadow/ground indicator circle */}
-      <mesh
-        rotation={[Math.PI / 2, 0, 0]}
-        position={[0, 0.001, 0]}
-        renderOrder={0}
-      >
-        <circleGeometry args={[size * 0.6, 16]} />
-        <meshBasicMaterial
-          color="#000000"
-          transparent
-          opacity={0.3}
-          side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* Emoji label using Html overlay */}
+      {/* Emoji above the pin head */}
       <Html
-        position={[0, STEM_HEIGHT + size * 2, 0]}
+        position={[
+          surfacePosition.x,
+          surfacePosition.y + NEEDLE_HEIGHT + size * 1.5,
+          surfacePosition.z,
+        ]}
         center
         style={{
           pointerEvents: "none",
           transition: "all 0.2s ease",
-          transform: isHovered ? "scale(1.2)" : "scale(1)",
+          transform: isHovered ? "scale(1.3)" : "scale(1)",
         }}
       >
         <div
           className="flex items-center justify-center"
           style={{
-            width: "24px",
-            height: "24px",
-            fontSize: "16px",
-            filter: `drop-shadow(0 0 4px ${color})`,
+            width: "28px",
+            height: "28px",
+            fontSize: "18px",
+            filter: `drop-shadow(0 0 6px ${color}) drop-shadow(0 0 12px ${color}50)`,
           }}
         >
           {emoji}
         </div>
       </Html>
 
-      {/* Label text (shown below emoji when hovered or always if provided) */}
+      {/* Label text */}
       {label && (
         <Html
-          position={[0, STEM_HEIGHT + size * 3.5, 0]}
+          position={[
+            surfacePosition.x,
+            surfacePosition.y + NEEDLE_HEIGHT + size * 3,
+            surfacePosition.z,
+          ]}
           center
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",
-            opacity: isHovered ? 1 : 0.7,
+            opacity: isHovered ? 1 : 0.8,
           }}
         >
           <div
@@ -287,7 +319,7 @@ export function PinMarker({
               backgroundColor: "rgba(10, 10, 26, 0.9)",
               color: color,
               border: `1px solid ${color}`,
-              boxShadow: `0 0 ${isHovered ? "15px" : "8px"} ${color}40`,
+              boxShadow: `0 0 ${isHovered ? "15px" : "10px"} ${color}40`,
             }}
           >
             {label}

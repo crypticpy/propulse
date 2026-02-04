@@ -40,3 +40,19 @@ export {
 export { BandActivityBar, type BandActivityBarProps } from "./BandActivityBar";
 export { TrendSparkline, type TrendSparklineProps } from "./TrendSparkline";
 export { SpotDetailPanel } from "./SpotDetailPanel";
+export {
+  ClusterPulseCard,
+  type ClusterPulseCardProps,
+} from "./ClusterPulseCard";
+export {
+  LogStatsDetailModal,
+  type LogStatsDetailModalProps,
+} from "./modals/LogStatsDetailModal";
+export {
+  HistoryDetailModal,
+  type HistoryDetailModalProps,
+} from "./modals/HistoryDetailModal";
+export {
+  ClusterPulseDetailModal,
+  type ClusterPulseDetailModalProps,
+} from "./modals/ClusterPulseDetailModal";

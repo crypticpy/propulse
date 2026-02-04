@@ -113,7 +113,7 @@ export function BandActivityBar({
 
   return (
     <div
-      className={`flex items-stretch h-[26px] rounded overflow-hidden ${className}`}
+      className={`flex items-stretch h-[30px] rounded-lg border-2 border-black bg-black gap-[2px] p-[2px] overflow-hidden ${className}`}
       role="toolbar"
       aria-label="Band activity distribution"
     >
@@ -122,27 +122,30 @@ export function BandActivityBar({
         const pct = (seg.count / totalCount) * 100;
         const isActive = !hasActiveFilter || activeBands!.includes(seg.band);
         // Only show text if segment is wide enough (heuristic: > 5% of total)
-        const showLabel = pct > 5;
+        const showLabel = pct > 3;
 
         return (
           <button
             key={seg.band}
             onClick={() => handleClick(seg.band)}
-            className="relative flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer border-r border-black/20 last:border-r-0 hover:brightness-125"
+            className={`relative flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer rounded-md hover:brightness-125 ${isActive && hasActiveFilter ? "ring-1 ring-white/40" : ""}`}
             style={{
               flex: `${seg.count} 0 0%`,
               minWidth: `${MIN_SEGMENT_WIDTH}px`,
               backgroundColor: seg.color,
-              opacity: isActive ? 1 : 0.4,
+              opacity: isActive ? 1 : 0.35,
             }}
             title={`${seg.band}: ${seg.count} spot${seg.count !== 1 ? "s" : ""}`}
             aria-label={`${seg.band}: ${seg.count} spots. Click to filter.`}
             aria-pressed={isActive}
           >
             {showLabel && (
-              <span className="font-mono text-[10px] font-bold text-black/70 select-none whitespace-nowrap drop-shadow-sm leading-none">
+              <span
+                className="font-mono text-xs font-bold text-white select-none whitespace-nowrap leading-none"
+                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}
+              >
                 {seg.band}
-                <span className="ml-0.5 text-[9px] font-medium opacity-80">
+                <span className="ml-1 text-[11px] font-semibold opacity-90">
                   {seg.count}
                 </span>
               </span>

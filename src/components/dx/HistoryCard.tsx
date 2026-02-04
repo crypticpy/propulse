@@ -13,6 +13,7 @@ import type { LogEntry } from "@/lib/db/types";
 
 export interface HistoryCardProps {
   className?: string;
+  onClick?: () => void;
 }
 
 /**
@@ -78,7 +79,7 @@ function isMatchingMonthDay(entryDate: string, today: Date): boolean {
  * <HistoryCard className="w-full" />
  * ```
  */
-export function HistoryCard({ className = "" }: HistoryCardProps) {
+export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
   const { entries, loading } = useLogbook();
 
   // Get today's month-day for matching
@@ -138,14 +139,28 @@ export function HistoryCard({ className = "" }: HistoryCardProps) {
     return items.join(", ");
   }, [historyEntries]);
 
+  // Keyboard handler for accessible click
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (onClick && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
-      <Card className={`p-3 ${className}`}>
+      <Card
+        className={`p-3 relative ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+        onClick={onClick}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={handleKeyDown}
+      >
         <div className="flex items-center gap-2">
-          <CalendarIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+          <CalendarIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="text-xs text-gray-500">Loading history...</span>
+            <span className="text-xs text-gray-400">Loading history...</span>
           </div>
         </div>
       </Card>
@@ -155,14 +170,20 @@ export function HistoryCard({ className = "" }: HistoryCardProps) {
   // Empty state - no history for this date
   if (!displayText) {
     return (
-      <Card className={`p-3 ${className}`}>
+      <Card
+        className={`p-3 relative ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+        onClick={onClick}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={handleKeyDown}
+      >
         <div className="flex items-center gap-2">
-          <CalendarIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+          <CalendarIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
               This Day in History
             </span>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-400 mt-0.5">
               No DX logged on {formattedDate} in previous years
             </p>
           </div>
@@ -173,7 +194,30 @@ export function HistoryCard({ className = "" }: HistoryCardProps) {
 
   // Normal state with history
   return (
-    <Card className={`p-3 ${className}`}>
+    <Card
+      className={`p-3 relative ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={handleKeyDown}
+    >
+      {onClick && (
+        <div className="absolute top-2 right-2 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
+          </svg>
+        </div>
+      )}
       <div className="flex items-start gap-2">
         <CalendarIcon className="w-4 h-4 text-plasma-orange flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
@@ -181,11 +225,11 @@ export function HistoryCard({ className = "" }: HistoryCardProps) {
             This Day in History
           </span>
           <p className="text-xs text-gray-300 mt-0.5">
-            <span className="text-gray-500">Best DX on {formattedDate}:</span>{" "}
+            <span className="text-gray-400">Best DX on {formattedDate}:</span>{" "}
             <span className="font-mono text-signal-green">{displayText}</span>
           </p>
           {historyEntries.length > 3 && (
-            <p className="text-[10px] text-gray-600 mt-0.5">
+            <p className="text-[10px] text-gray-400 mt-0.5">
               +{historyEntries.length - 3} more
             </p>
           )}

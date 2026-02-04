@@ -170,6 +170,8 @@ export interface PredictionsCardProps {
   className?: string;
   /** Maximum predictions to display */
   maxPredictions?: number;
+  /** Click handler — makes the card interactive */
+  onClick?: () => void;
 }
 
 /**
@@ -188,6 +190,7 @@ export interface PredictionsCardProps {
 export function PredictionsCard({
   className = "",
   maxPredictions = 3,
+  onClick,
 }: PredictionsCardProps) {
   // Get current solar data
   const { data: solarFluxData, isLoading: sfiLoading } = useSolarFlux();
@@ -261,7 +264,40 @@ export function PredictionsCard({
   const isDay = isDaytime();
 
   return (
-    <Card className={`relative overflow-hidden ${className}`}>
+    <Card
+      className={`relative overflow-hidden ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
+      {onClick && (
+        <div className="absolute top-3 right-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
+          </svg>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -270,7 +306,7 @@ export function PredictionsCard({
             Band Openings
           </span>
         </div>
-        <span className="text-[10px] text-gray-500 px-1.5 py-0.5 rounded bg-white/5">
+        <span className="text-[10px] text-gray-400 px-1.5 py-0.5 rounded bg-white/5">
           {isDay ? "Day" : "Night"}
         </span>
       </div>
@@ -281,11 +317,11 @@ export function PredictionsCard({
           <div className="w-5 h-5 border-2 border-signal-green/30 border-t-signal-green rounded-full animate-spin" />
         </div>
       ) : predictions.length === 0 ? (
-        <div className="text-sm text-gray-500 py-2">
+        <div className="text-sm text-gray-400 py-2">
           <div className="flex items-center gap-2">
             <span className="text-alert-red">No openings predicted</span>
           </div>
-          <div className="text-xs text-gray-600 mt-1">
+          <div className="text-xs text-gray-400 mt-1">
             {currentKp !== null && currentKp >= 5
               ? "High geomagnetic activity"
               : "Conditions unfavorable"}
@@ -331,7 +367,7 @@ export function PredictionsCard({
 
           {/* Time hint */}
           <div className="pt-2 border-t border-white/10 mt-2">
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-400">
               {isDay
                 ? "Higher bands favored during daylight"
                 : "Lower bands favored at night"}

@@ -214,7 +214,7 @@ export function ConditionMatchCard({
           <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
         </div>
       ) : matches.length === 0 ? (
-        <div className="text-sm text-gray-500 py-2">
+        <div className="text-sm text-gray-400 py-2">
           Log more QSOs to see patterns
         </div>
       ) : (
@@ -238,7 +238,7 @@ export function ConditionMatchCard({
                 <span className="text-sm text-signal-green font-mono">
                   {match.qsoCount}
                 </span>
-                <span className="text-xs text-gray-500">QSOs</span>
+                <span className="text-xs text-gray-400">QSOs</span>
                 {match.topBand && (
                   <span className="text-xs px-1.5 py-0.5 rounded bg-plasma-orange/20 text-plasma-orange font-bold">
                     {match.topBand}
@@ -251,7 +251,7 @@ export function ConditionMatchCard({
           {/* Current conditions indicator */}
           {currentSfi !== null && currentKp !== null && (
             <div className="pt-2 border-t border-white/10 mt-2">
-              <div className="flex items-center justify-between text-xs text-gray-500">
+              <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>Current: SFI {currentSfi}</span>
                 <span>Kp {currentKp}</span>
               </div>

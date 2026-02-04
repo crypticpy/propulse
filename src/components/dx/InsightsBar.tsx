@@ -3,14 +3,19 @@
  *
  * A horizontal bar containing insight cards for propagation and logging.
  * Features glass-morphism styling and scrollable layout on narrow widths.
- * Contains: LogStatsCard, ConditionMatchCard, PredictionsCard, HistoryCard
+ * Contains: LogStatsCard, ClusterPulseCard, PredictionsCard, HistoryCard
  */
 
 import { useState } from "react";
+import { useSolarFlux, useKIndex } from "@/hooks/useSolarData";
 import { LogStatsCard } from "./LogStatsCard";
-import { ConditionMatchCard } from "./ConditionMatchCard";
+import { ClusterPulseCard } from "./ClusterPulseCard";
 import { PredictionsCard } from "./PredictionsCard";
 import { HistoryCard } from "./HistoryCard";
+import { LogStatsDetailModal } from "./modals/LogStatsDetailModal";
+import { HistoryDetailModal } from "./modals/HistoryDetailModal";
+import { ClusterPulseDetailModal } from "./modals/ClusterPulseDetailModal";
+import { BandConditionsModal } from "@/components/solar/modals/BandConditionsModal";
 
 export interface InsightsBarProps {
   /** Current display time for time-sensitive data */
@@ -32,7 +37,7 @@ export interface InsightsBarProps {
  *
  * Cards included:
  * 1. LogStatsCard - QSO statistics (today, week, total)
- * 2. ConditionMatchCard - Historical dates with similar solar conditions
+ * 2. ClusterPulseCard - Real-time DX cluster activity pulse
  * 3. PredictionsCard - Band opening predictions
  * 4. HistoryCard - "This Day in History" DX contacts
  *
@@ -52,6 +57,14 @@ export function InsightsBar({
   void _displayTime;
 
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [activeModal, setActiveModal] = useState<
+    "logStats" | "bandConditions" | "history" | "clusterPulse" | null
+  >(null);
+
+  const { data: kIndexData } = useKIndex();
+  const { data: solarFluxData } = useSolarFlux();
+  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? 3;
+  const currentSfi = solarFluxData?.[solarFluxData.length - 1]?.flux ?? 100;
 
   return (
     <div
@@ -80,24 +93,55 @@ export function InsightsBar({
             autoRefresh={autoRefresh}
             onToggleAutoRefresh={setAutoRefresh}
             className="h-full"
+            onClick={() => setActiveModal("logStats")}
           />
         </div>
 
-        {/* Slot 2: Condition Match */}
+        {/* Slot 2: Cluster Pulse */}
         <div className="flex-1 min-w-[160px]">
-          <ConditionMatchCard className="h-full" maxMatches={2} />
+          <ClusterPulseCard
+            className="h-full"
+            onClick={() => setActiveModal("clusterPulse")}
+          />
         </div>
 
         {/* Slot 3: Band Predictions */}
         <div className="flex-1 min-w-[180px]">
-          <PredictionsCard className="h-full" maxPredictions={2} />
+          <PredictionsCard
+            className="h-full"
+            maxPredictions={2}
+            onClick={() => setActiveModal("bandConditions")}
+          />
         </div>
 
         {/* Slot 4: This Day in History */}
         <div className="flex-1 min-w-[160px]">
-          <HistoryCard className="h-full" />
+          <HistoryCard
+            className="h-full"
+            onClick={() => setActiveModal("history")}
+          />
         </div>
       </div>
+
+      {/* Detail Modals */}
+      <LogStatsDetailModal
+        isOpen={activeModal === "logStats"}
+        onClose={() => setActiveModal(null)}
+      />
+      <BandConditionsModal
+        isOpen={activeModal === "bandConditions"}
+        onClose={() => setActiveModal(null)}
+        kIndex={currentKp}
+        solarFlux={currentSfi}
+      />
+      <HistoryDetailModal
+        isOpen={activeModal === "history"}
+        onClose={() => setActiveModal(null)}
+      />
+      <ClusterPulseDetailModal
+        isOpen={activeModal === "clusterPulse"}
+        onClose={() => setActiveModal(null)}
+      />
     </div>
   );
 }

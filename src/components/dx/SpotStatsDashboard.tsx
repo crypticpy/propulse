@@ -9,7 +9,7 @@
  * - Summary statistics
  */
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { useDXStore } from "@/stores/dxStore";
 import { getBandColor } from "@/lib/api/dxcluster";
@@ -18,6 +18,8 @@ export interface SpotStatsDashboardProps {
   className?: string;
   /** Compact mode for smaller displays */
   compact?: boolean;
+  /** Click handler - makes the card clickable when provided */
+  onClick?: () => void;
 }
 
 interface BandStats {
@@ -390,28 +392,28 @@ function SummaryStats({ stats }: { stats: Stats }) {
   return (
     <div className="grid grid-cols-4 gap-2 text-center">
       <div className="bg-white/5 rounded-lg p-2">
-        <div className="text-lg font-bold text-white tabular-nums">
+        <div className="text-2xl font-bold text-white tabular-nums">
           {stats.total}
         </div>
-        <div className="text-[9px] text-gray-500 uppercase">Total</div>
+        <div className="text-[9px] text-gray-400 uppercase">Total</div>
       </div>
       <div className="bg-white/5 rounded-lg p-2">
-        <div className="text-lg font-bold text-cosmic-cyan tabular-nums">
+        <div className="text-2xl font-bold text-cosmic-cyan tabular-nums">
           {stats.uniqueCallsigns}
         </div>
-        <div className="text-[9px] text-gray-500 uppercase">Calls</div>
+        <div className="text-[9px] text-gray-400 uppercase">Calls</div>
       </div>
       <div className="bg-white/5 rounded-lg p-2">
-        <div className="text-lg font-bold text-signal-green tabular-nums">
+        <div className="text-2xl font-bold text-signal-green tabular-nums">
           {stats.uniqueGrids}
         </div>
-        <div className="text-[9px] text-gray-500 uppercase">Grids</div>
+        <div className="text-[9px] text-gray-400 uppercase">Grids</div>
       </div>
       <div className="bg-white/5 rounded-lg p-2">
-        <div className="text-lg font-bold text-plasma-orange tabular-nums">
+        <div className="text-2xl font-bold text-plasma-orange tabular-nums">
           {stats.avgPerHour.toFixed(0)}
         </div>
-        <div className="text-[9px] text-gray-500 uppercase">Avg/Hr</div>
+        <div className="text-[9px] text-gray-400 uppercase">Avg/Hr</div>
       </div>
     </div>
   );
@@ -425,6 +427,7 @@ function SummaryStats({ stats }: { stats: Stats }) {
 export function SpotStatsDashboard({
   className = "",
   compact = false,
+  onClick,
 }: SpotStatsDashboardProps) {
   const spots = useDXStore((state) => state.spots);
   const currentHour = new Date().getUTCHours();
@@ -434,10 +437,10 @@ export function SpotStatsDashboard({
   if (spots.length === 0) {
     return (
       <Card className={`p-4 ${className}`}>
-        <div className="text-center text-gray-500 py-8">
+        <div className="text-center text-gray-400 py-8">
           <div className="text-2xl mb-2">📊</div>
           <div className="text-sm">No spots to analyze</div>
-          <div className="text-xs text-gray-600">
+          <div className="text-xs text-gray-400">
             Statistics will appear when spots are loaded
           </div>
         </div>
@@ -447,7 +450,39 @@ export function SpotStatsDashboard({
 
   if (compact) {
     return (
-      <Card className={`p-3 ${className}`}>
+      <Card
+        className={`p-3 relative overflow-hidden ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+        onClick={onClick}
+        {...(onClick
+          ? {
+              role: "button",
+              tabIndex: 0,
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClick();
+                }
+              },
+            }
+          : {})}
+      >
+        {onClick && (
+          <div className="absolute top-2 right-2 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+              />
+            </svg>
+          </div>
+        )}
         <SummaryStats stats={stats} />
       </Card>
     );

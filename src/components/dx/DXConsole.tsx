@@ -11,11 +11,13 @@ import { BandMap } from "./BandMap";
 import { BandActivityBar } from "./BandActivityBar";
 import { InsightsBar } from "./InsightsBar";
 import { SpotStatsDashboard } from "./SpotStatsDashboard";
+import { ClusterPulseDetailModal } from "./modals/ClusterPulseDetailModal";
 import { TrendSparkline } from "./TrendSparkline";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useDXStore, selectAvailableBands } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
+import { BAND_COLORS } from "@/lib/utils/spotColors";
 
 export interface DXConsoleProps {
   /** Current display time */
@@ -88,12 +90,8 @@ export function DXConsole({
   // Selected band for BandMap filtering
   const [selectedBand, setSelectedBand] = useState<string | null>(null);
 
-  // Auto-select first available band if none selected
-  useEffect(() => {
-    if (!selectedBand && availableBands.length > 0) {
-      setSelectedBand(availableBands[0]);
-    }
-  }, [availableBands, selectedBand]);
+  // Stats modal state
+  const [showStatsModal, setShowStatsModal] = useState(false);
 
   // When a spot is selected with valid coordinates, update the map target
   // This shows the propagation path from QTH to the DX station
@@ -249,28 +247,14 @@ export function DXConsole({
         </button>
       </div>
 
-      {/* Band Tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-white/10 overflow-x-auto">
-        {availableBands.map((band) => (
-          <button
-            key={band}
-            onClick={() => setSelectedBand(band)}
-            className={`px-3 py-1 text-xs font-medium rounded transition-all whitespace-nowrap ${
-              selectedBand === band
-                ? "bg-plasma-orange text-white"
-                : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            {band}
-          </button>
-        ))}
-      </div>
-
-      {/* Band Activity Bar */}
-      <div className="px-4 pt-2 flex-shrink-0">
+      {/* Band Activity Bar — global overview at top */}
+      <div className="px-4 py-2 flex-shrink-0 border-b border-white/10">
         <BandActivityBar
           spots={spots}
-          onBandClick={(band) => setSelectedBand(band)}
+          activeBands={selectedBand ? [selectedBand] : []}
+          onBandClick={(band) =>
+            setSelectedBand(selectedBand === band ? null : band)
+          }
         />
       </div>
 
@@ -288,6 +272,37 @@ export function DXConsole({
 
         {/* Right: Band Map (50%) - fills available height */}
         <div className="w-1/2 flex flex-col min-h-0">
+          {/* Band Tabs — directly above the BandMap they control */}
+          <div className="flex items-center gap-1 pb-2 overflow-x-auto flex-shrink-0">
+            {availableBands.map((band) => (
+              <button
+                key={band}
+                onClick={() =>
+                  setSelectedBand(selectedBand === band ? null : band)
+                }
+                className={
+                  selectedBand === band
+                    ? "px-3 py-1 text-xs font-bold rounded border transition-all whitespace-nowrap"
+                    : "px-3 py-1 text-xs font-medium rounded border border-transparent transition-all whitespace-nowrap bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                }
+                style={
+                  selectedBand === band
+                    ? {
+                        backgroundColor: `${BAND_COLORS[band.toLowerCase()] ?? BAND_COLORS.default}33`,
+                        borderColor:
+                          BAND_COLORS[band.toLowerCase()] ??
+                          BAND_COLORS.default,
+                        color:
+                          BAND_COLORS[band.toLowerCase()] ??
+                          BAND_COLORS.default,
+                      }
+                    : undefined
+                }
+              >
+                {band}
+              </button>
+            ))}
+          </div>
           <BandMap
             spots={spots}
             selectedBand={selectedBand}
@@ -298,13 +313,18 @@ export function DXConsole({
 
       {/* Stats Strip - compact summary metrics */}
       <div className="flex-shrink-0 px-4">
-        <SpotStatsDashboard compact />
+        <SpotStatsDashboard compact onClick={() => setShowStatsModal(true)} />
       </div>
 
       {/* Insights Bar - Full width at bottom */}
       <div className="flex-shrink-0 px-4 pb-4">
         <InsightsBar displayTime={new Date()} />
       </div>
+
+      <ClusterPulseDetailModal
+        isOpen={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+      />
     </div>
   );
 }

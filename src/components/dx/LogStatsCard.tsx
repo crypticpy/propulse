@@ -8,6 +8,7 @@
 
 import { useMemo, useEffect, useRef } from "react";
 import { useLogbook } from "@/hooks/useLogbook";
+import { getEntityFromCallsign } from "@/lib/utils/gridUtils";
 
 export interface LogStatsCardProps {
   /** Additional CSS classes */
@@ -16,6 +17,8 @@ export interface LogStatsCardProps {
   autoRefresh?: boolean;
   /** Callback when auto-refresh is toggled */
   onToggleAutoRefresh?: (enabled: boolean) => void;
+  /** Callback when the card is clicked */
+  onClick?: () => void;
 }
 
 /**
@@ -98,6 +101,7 @@ export function LogStatsCard({
   className = "",
   autoRefresh = false,
   onToggleAutoRefresh,
+  onClick,
 }: LogStatsCardProps) {
   const { entries, loading, refresh, count } = useLogbook();
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -123,9 +127,12 @@ export function LogStatsCard({
   const stats = useMemo(() => {
     const today = getTodayDateString();
     const weekAgo = getWeekAgoDateString();
+    const monthPrefix = new Date().toISOString().slice(0, 7);
 
     let todayCount = 0;
     let weekCount = 0;
+    let monthCount = 0;
+    const entitySet = new Set<string>();
 
     for (const entry of entries) {
       if (entry.date === today) {
@@ -134,28 +141,69 @@ export function LogStatsCard({
       if (entry.date >= weekAgo) {
         weekCount++;
       }
+      if (entry.date?.startsWith(monthPrefix)) {
+        monthCount++;
+      }
+      const entity = getEntityFromCallsign(entry.callsign);
+      if (entity) {
+        entitySet.add(entity.name);
+      }
     }
 
     return {
       today: todayCount,
       week: weekCount,
+      month: monthCount,
+      entities: entitySet.size,
       total: count,
     };
   }, [entries, count]);
 
-  const handleToggleAutoRefresh = () => {
+  const handleToggleAutoRefresh = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
     onToggleAutoRefresh?.(!autoRefresh);
   };
 
   return (
     <div
       className={`
-        bg-white/[0.03] backdrop-blur-md border border-white/10
+        relative bg-white/[0.03] backdrop-blur-md border border-white/10
         rounded-xl p-3 min-w-[140px]
         transition-all duration-200 hover:border-white/20
+        ${onClick ? "cursor-pointer hover:border-white/30 group" : ""}
         ${className}
       `}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
+      {onClick && (
+        <div className="absolute top-2 right-2 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
+          </svg>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
@@ -174,7 +222,7 @@ export function LogStatsCard({
               ${
                 autoRefresh
                   ? "text-signal-green bg-signal-green/20"
-                  : "text-gray-500 hover:text-gray-400 hover:bg-white/5"
+                  : "text-gray-400 hover:text-gray-400 hover:bg-white/5"
               }
             `}
             title={autoRefresh ? "Auto-refresh enabled" : "Enable auto-refresh"}
@@ -192,16 +240,16 @@ export function LogStatsCard({
       {/* Stats content */}
       {loading ? (
         <div className="flex items-center justify-center py-2">
-          <div className="animate-pulse text-xs text-gray-500">Loading...</div>
+          <div className="animate-pulse text-xs text-gray-400">Loading...</div>
         </div>
       ) : (
         <div className="flex items-center gap-3">
           {/* Today */}
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold font-mono text-white leading-none">
+            <span className="text-2xl font-bold font-mono text-white leading-none">
               {stats.today}
             </span>
-            <span className="text-[9px] text-gray-500 uppercase">Today</span>
+            <span className="text-[9px] text-gray-400 uppercase">Today</span>
           </div>
 
           {/* Divider */}
@@ -209,10 +257,32 @@ export function LogStatsCard({
 
           {/* This Week */}
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold font-mono text-white leading-none">
+            <span className="text-2xl font-bold font-mono text-white leading-none">
               {stats.week}
             </span>
-            <span className="text-[9px] text-gray-500 uppercase">Week</span>
+            <span className="text-[9px] text-gray-400 uppercase">Week</span>
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-white/10" />
+
+          {/* This Month */}
+          <div className="flex flex-col items-center">
+            <span className="text-2xl font-bold font-mono text-white leading-none">
+              {stats.month}
+            </span>
+            <span className="text-[9px] text-gray-400 uppercase">Month</span>
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-white/10" />
+
+          {/* Entities */}
+          <div className="flex flex-col items-center">
+            <span className="text-2xl font-bold font-mono text-cosmic-cyan leading-none">
+              {stats.entities}
+            </span>
+            <span className="text-[9px] text-gray-400 uppercase">DXCC</span>
           </div>
 
           {/* Divider */}
@@ -220,10 +290,10 @@ export function LogStatsCard({
 
           {/* Total */}
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold font-mono text-plasma-orange leading-none">
+            <span className="text-2xl font-bold font-mono text-plasma-orange leading-none">
               {stats.total.toLocaleString()}
             </span>
-            <span className="text-[9px] text-gray-500 uppercase">Total</span>
+            <span className="text-[9px] text-gray-400 uppercase">Total</span>
           </div>
         </div>
       )}

@@ -23,6 +23,8 @@ export interface DXConsoleProps {
   displayTime: Date;
   /** Callback when the console is collapsed */
   onCollapse: () => void;
+  /** Whether to show the header bar (default: true) */
+  showHeader?: boolean;
   /** Additional CSS classes */
   className?: string;
 }
@@ -70,6 +72,7 @@ function getSFIColor(sfi: number): { bg: string; text: string } {
 export function DXConsole({
   displayTime: _displayTime,
   onCollapse,
+  showHeader = true,
   className = "",
 }: DXConsoleProps) {
   // displayTime reserved for future use (e.g., historical playback mode)
@@ -137,114 +140,119 @@ export function DXConsole({
       className={`flex flex-col h-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden ${className}`}
     >
       {/* Header Bar */}
-      <div className="flex items-center justify-between h-12 px-4 border-b border-white/10 flex-shrink-0">
-        {/* Left: Title */}
-        <h2 className="font-sans text-sm font-semibold text-white uppercase tracking-wide">
-          DX Operations Console
-        </h2>
+      {showHeader && (
+        <div className="flex items-center justify-between h-12 px-4 border-b border-white/10 flex-shrink-0">
+          {/* Left: Title */}
+          <h2 className="font-sans text-sm font-semibold text-white uppercase tracking-wide">
+            DX Operations Console
+          </h2>
 
-        {/* Center: Live indicator + indices OR selected frequency */}
-        <div className="flex items-center gap-3">
-          {selectedSpot ? (
-            // Show selected frequency prominently
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">FREQ:</span>
-              <span className="font-mono text-lg font-bold text-plasma-orange tracking-wider">
-                {selectedSpot.frequency?.toFixed(1) ?? "--"}
-              </span>
-              <span className="text-xs text-gray-500">kHz</span>
-            </div>
-          ) : (
-            // Show LIVE indicator and badges
-            <>
-              {/* LIVE indicator */}
-              <div className="flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal-green opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-signal-green" />
+          {/* Center: Live indicator + indices OR selected frequency */}
+          <div className="flex items-center gap-3">
+            {selectedSpot ? (
+              // Show selected frequency prominently
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">FREQ:</span>
+                <span className="font-mono text-lg font-bold text-plasma-orange tracking-wider">
+                  {selectedSpot.frequency?.toFixed(1) ?? "--"}
                 </span>
-                <span className="text-xs font-medium text-signal-green uppercase tracking-wide">
-                  Live
-                </span>
+                <span className="text-xs text-gray-500">kHz</span>
               </div>
-
-              {/* K-index badge with trend */}
-              {currentKIndex !== null && kIndexColors && (
-                <div
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded ${kIndexColors.bg}`}
-                  title={`K-index: ${currentKIndex} - Geomagnetic activity indicator`}
-                >
-                  <span className="text-[10px] text-gray-400 uppercase">K</span>
-                  <span className={`text-xs font-bold ${kIndexColors.text}`}>
-                    {currentKIndex}
+            ) : (
+              // Show LIVE indicator and badges
+              <>
+                {/* LIVE indicator */}
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal-green opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-signal-green" />
                   </span>
-                  <TrendSparkline
-                    data={kIndexTrend}
-                    color={
-                      kIndexColors.text.includes("red")
-                        ? "#ef4444"
-                        : kIndexColors.text.includes("orange")
-                          ? "#fb923c"
-                          : kIndexColors.text.includes("yellow")
-                            ? "#eab308"
-                            : "#22c55e"
-                    }
-                  />
+                  <span className="text-xs font-medium text-signal-green uppercase tracking-wide">
+                    Live
+                  </span>
                 </div>
-              )}
 
-              {/* SFI badge with trend */}
-              {currentSFI !== null && sfiColors && (
-                <div
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded ${sfiColors.bg}`}
-                  title={`Solar Flux Index: ${currentSFI} - Higher values indicate better HF propagation`}
-                >
-                  <span className="text-[10px] text-gray-400 uppercase">
-                    SFI
-                  </span>
-                  <span className={`text-xs font-bold ${sfiColors.text}`}>
-                    {currentSFI}
-                  </span>
-                  <TrendSparkline
-                    data={sfiTrend}
-                    color={
-                      sfiColors.text.includes("green")
-                        ? "#22c55e"
-                        : sfiColors.text.includes("orange")
-                          ? "#ff6b35"
-                          : sfiColors.text.includes("yellow")
-                            ? "#eab308"
-                            : "#9ca3af"
-                    }
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                {/* K-index badge with trend */}
+                {currentKIndex !== null && kIndexColors && (
+                  <div
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded ${kIndexColors.bg}`}
+                    title={`K-index: ${currentKIndex} - Geomagnetic activity indicator`}
+                  >
+                    <span className="text-[10px] text-gray-400 uppercase">
+                      K
+                    </span>
+                    <span className={`text-xs font-bold ${kIndexColors.text}`}>
+                      {currentKIndex}
+                    </span>
+                    <TrendSparkline
+                      data={kIndexTrend}
+                      color={
+                        kIndexColors.text.includes("red")
+                          ? "#ef4444"
+                          : kIndexColors.text.includes("orange")
+                            ? "#fb923c"
+                            : kIndexColors.text.includes("yellow")
+                              ? "#eab308"
+                              : "#22c55e"
+                      }
+                    />
+                  </div>
+                )}
 
-        {/* Right: Collapse button */}
-        <button
-          onClick={onCollapse}
-          className="p-1.5 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/5"
-          title="Collapse console"
-          aria-label="Collapse DX console"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+                {/* SFI badge with trend */}
+                {currentSFI !== null && sfiColors && (
+                  <div
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded ${sfiColors.bg}`}
+                    title={`Solar Flux Index: ${currentSFI} - Higher values indicate better HF propagation`}
+                  >
+                    <span className="text-[10px] text-gray-400 uppercase">
+                      SFI
+                    </span>
+                    <span className={`text-xs font-bold ${sfiColors.text}`}>
+                      {currentSFI}
+                    </span>
+                    <TrendSparkline
+                      data={sfiTrend}
+                      color={
+                        sfiColors.text.includes("green")
+                          ? "#22c55e"
+                          : sfiColors.text.includes("orange")
+                            ? "#ff6b35"
+                            : sfiColors.text.includes("yellow")
+                              ? "#eab308"
+                              : "#9ca3af"
+                      }
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Right: Collapse button */}
+          <button
+            onClick={onCollapse}
+            className="p-1.5 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/5"
+            title="Collapse console"
+            aria-label="Collapse DX console"
+            type="button"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
-      </div>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Band Activity Bar — global overview at top */}
       <div className="px-4 py-2 flex-shrink-0 border-b border-white/10">

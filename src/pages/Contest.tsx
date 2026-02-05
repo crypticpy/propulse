@@ -19,6 +19,7 @@ import {
   type ContestConfig,
 } from "@/components/contest";
 import { MobileContestEntry } from "@/components/contest/MobileContestEntry";
+import { ContestVoiceControls } from "@/components/contest/ContestVoiceControls";
 import type { OffTimeRules } from "@/lib/contest/offTimeTracker";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
@@ -28,6 +29,7 @@ import {
 } from "@/hooks/useContestHotkeys";
 import { useRigStore } from "@/stores/rigStore";
 import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
+import { useContestUIStore } from "@/stores/contestUIStore";
 
 const EMPTY_QSOS: ContestQSO[] = [];
 
@@ -100,6 +102,7 @@ export function Contest() {
   const sessionStartTime = useContestStore(
     (s) => s.activeSession?.startTime ?? null,
   );
+  const sessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const startContest = useContestStore((s) => s.startContest);
   const endContest = useContestStore((s) => s.endContest);
   const undoLastQSO = useContestStore((s) => s.undoLastQSO);
@@ -109,9 +112,30 @@ export function Contest() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [editingQSO, setEditingQSO] = useState<ContestQSO | null>(null);
 
-  // Band and mode state — CAT-driven when rig is connected
-  const [currentBand, setCurrentBand] = useState("20m");
-  const [currentMode, setCurrentMode] = useState("CW");
+  // Band and mode UI state (shared across /contest and /map via contestUIStore)
+  // CAT-driven when rig is connected
+  const currentBand = useContestUIStore((s) =>
+    sessionId ? (s.bandBySessionId[sessionId] ?? "20m") : "20m",
+  );
+  const currentMode = useContestUIStore((s) =>
+    sessionId ? (s.modeBySessionId[sessionId] ?? "CW") : "CW",
+  );
+  const setBand = useContestUIStore((s) => s.setBand);
+  const setMode = useContestUIStore((s) => s.setMode);
+
+  // Convenience wrappers that also update the shared UI store
+  const setCurrentBand = useCallback(
+    (band: string) => {
+      if (sessionId) setBand(sessionId, band);
+    },
+    [sessionId, setBand],
+  );
+  const setCurrentMode = useCallback(
+    (mode: string) => {
+      if (sessionId) setMode(sessionId, mode);
+    },
+    [sessionId, setMode],
+  );
 
   // Sync band/mode from CAT when rig is connected and CAT is enabled
   useEffect(() => {
@@ -221,9 +245,15 @@ export function Contest() {
     // ContestOneLineEntry maintains focus automatically
   }, [undoLastQSO]);
 
-  const handleBandChange = useCallback((band: string) => {
-    setCurrentBand(band);
-  }, []);
+  const handleBandChange = useCallback(
+    (band: string) => {
+      if (!sessionId) {
+        return;
+      }
+      setBand(sessionId, band);
+    },
+    [sessionId, setBand],
+  );
 
   const handleMacro = useCallback((_macroName: string) => {
     // Macro triggering deferred to Phase 7 (CAT integration)
@@ -445,6 +475,9 @@ export function Contest() {
                 setCurrentMode(mode);
               }}
             />
+            {sessionId && (
+              <ContestVoiceControls sessionId={sessionId} className="mt-3" />
+            )}
           </div>
 
           {/* Multiplier Panel */}

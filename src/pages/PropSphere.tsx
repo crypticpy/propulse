@@ -50,7 +50,8 @@ const FullscreenPropSphere = lazy(() =>
     default: m.FullscreenPropSphere,
   })),
 );
-import { DXSpotList, DXConsole } from "@/components/dx";
+import { DXSpotList } from "@/components/dx";
+import { OpsConsole } from "@/components/ops/OpsConsole";
 import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
 import { BandScope } from "@/components/dx/BandScope";
 import { useRigStore } from "@/stores/rigStore";
@@ -70,10 +71,15 @@ import { useOnboardingTour } from "@/hooks/useOnboardingTour";
 import { useWatchAlerts } from "@/hooks/useWatchAlerts";
 import { useShareParams } from "@/hooks/useShareParams";
 import { useSpotCountTitle } from "@/hooks/useDocumentTitle";
+import { useContestOverlayEngine } from "@/hooks/useContestOverlayEngine";
 import { gridToLatLon } from "@/lib/utils/grid";
 import type { ShareState } from "@/lib/utils/shareState";
 import { PROPSPHERE_TOUR_STEPS } from "@/config/tourSteps";
 import { useUndoStore } from "@/stores/undoStore";
+import { useContestStore } from "@/stores/contestStore";
+import { useContestUIStore } from "@/stores/contestUIStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
+import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -119,6 +125,21 @@ export function PropSphere() {
   } = useMapStore();
   const station = useUserStore((state) => state.station);
   const spotCount = useDXStore((state) => state.spots.length);
+  const contestSessionId = useContestStore((s) => s.activeSession?.id ?? null);
+  const contestDockTab = useContestUIStore((s) =>
+    contestSessionId
+      ? (s.dockTabBySessionId[contestSessionId] ?? "contest")
+      : "dx",
+  );
+  const contestFocusPreference = useContestUIStore(
+    (s) => s.focusEntryOnSpotPrefill,
+  );
+  const requestContestEntryFocus = useContestUIEphemeralStore(
+    (s) => s.requestEntryFocus,
+  );
+
+  // Contest-aware map overlays (needed mult markers, etc.)
+  useContestOverlayEngine({ enabled: Boolean(contestSessionId) });
 
   // Mount WSJT-X auto-log listener
   useWSJTXAutoLog();
@@ -437,12 +458,28 @@ export function PropSphere() {
         grid,
         name: grid,
       });
+
+      if (
+        contestSessionId &&
+        contestDockTab === "contest" &&
+        contestFocusPreference
+      ) {
+        requestContestEntryFocus();
+      }
     },
-    [setTarget],
+    [
+      contestDockTab,
+      contestFocusPreference,
+      contestSessionId,
+      requestContestEntryFocus,
+      setTarget,
+    ],
   );
 
   return (
     <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-hidden">
+      {isLiteMode && <ContestLiteHUD />}
+
       {/* Main Content - Framed Layout */}
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
         {/* Top Row: Lite Mode is EMPTY (controls move to map overlay), Default mode shows full cards */}
@@ -1004,10 +1041,10 @@ export function PropSphere() {
         {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
         {!isLiteMode && (
           <>
-            {/* DX Operations Console (when expanded) - takes full bottom area */}
+            {/* Ops Console (when expanded) - takes full bottom area */}
             {isDXConsoleExpanded && (
               <div className="hidden lg:block flex-1 min-h-[400px]">
-                <DXConsole
+                <OpsConsole
                   displayTime={displayTime}
                   onCollapse={() => setDXConsoleExpanded(false)}
                   className="h-full"
@@ -1092,8 +1129,8 @@ export function PropSphere() {
                         setDXConsoleExpanded(true);
                       }}
                       className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
-                      title="Expand to DX Operations Console"
-                      aria-label="Expand to DX Operations Console"
+                      title="Expand to Ops Console"
+                      aria-label="Expand to Ops Console"
                     >
                       <svg
                         className="w-4 h-4"

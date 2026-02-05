@@ -21,7 +21,11 @@ import {
 } from "@/lib/utils/azimuthal";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { resolveSpotLocations, type ResolvedSpot } from "./LiveSpotArcs";
+import {
+  getGreatCirclePoints,
+  resolveSpotLocations,
+  type ResolvedSpot,
+} from "./LiveSpotArcs";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import {
   getDifficultyColor,
@@ -880,8 +884,9 @@ export function AzimuthalView({
   const containerRef = useRef<HTMLDivElement>(null);
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const contestOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
-  const { layers, target, mapStyle, labelOptions } = useMapStore();
+  const { layers, target, mapStyle, labelOptions, overlayLayers } = useMapStore();
   const { station } = useUserStore();
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
@@ -961,6 +966,114 @@ export function AzimuthalView({
     }
     return { lat: station.lat, lon: station.lon };
   }, [station]);
+
+  // Draw renderer-agnostic overlay layers (contest overlays, etc.) on a separate canvas
+  useEffect(() => {
+    const canvas = contestOverlayCanvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!center) {
+      return;
+    }
+
+    // Apply the same zoom transform as the overlay canvas rendering
+    ctx.save();
+    ctx.translate(CENTER, CENTER);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-CENTER, -CENTER);
+
+    // Draw overlay arcs first (under markers)
+    for (const layer of Object.values(overlayLayers)) {
+      const arcs =
+        layer.type === "arcs"
+          ? layer.arcs
+          : layer.type === "mixed"
+            ? layer.arcs
+            : [];
+
+      for (const arc of arcs) {
+        const points = getGreatCirclePoints(
+          arc.fromLat,
+          arc.fromLon,
+          arc.toLat,
+          arc.toLon,
+          48,
+        );
+        if (points.length < 2) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = arc.opacity ?? 0.7;
+        ctx.strokeStyle = arc.color;
+        ctx.lineWidth = arc.width ?? 2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+
+        for (let i = 0; i < points.length; i++) {
+          const pt = points[i];
+          const projected = azimuthalProject(
+            pt.lat,
+            pt.lon,
+            center.lat,
+            center.lon,
+          );
+          const canvasPt = projToCanvas(projected);
+          if (i === 0) {
+            ctx.moveTo(canvasPt.x, canvasPt.y);
+          } else {
+            ctx.lineTo(canvasPt.x, canvasPt.y);
+          }
+        }
+
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    for (const layer of Object.values(overlayLayers)) {
+      const markers =
+        layer.type === "markers"
+          ? layer.markers
+          : layer.type === "mixed"
+            ? layer.markers
+            : [];
+
+      for (const marker of markers) {
+        const projected = azimuthalProject(
+          marker.lat,
+          marker.lon,
+          center.lat,
+          center.lon,
+        );
+        const pt = projToCanvas(projected);
+        const size = marker.size ?? 6;
+        const opacity = marker.opacity ?? 0.9;
+
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2);
+        ctx.fillStyle = marker.color;
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  }, [center, overlayLayers, zoom]);
 
   // Get subsolar point for day/night blending
   const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
@@ -1349,6 +1462,18 @@ export function AzimuthalView({
         className="absolute cursor-crosshair"
         aria-label="Azimuthal projection map centered on your location - click to select target, scroll to zoom"
         role="img"
+        style={{
+          imageRendering: "auto",
+          width: displaySize,
+          height: displaySize,
+        }}
+      />
+      {/* Renderer-agnostic overlay canvas (contest overlays, etc.) */}
+      <canvas
+        ref={contestOverlayCanvasRef}
+        width={CANVAS_SIZE}
+        height={CANVAS_SIZE}
+        className="absolute pointer-events-none"
         style={{
           imageRendering: "auto",
           width: displaySize,

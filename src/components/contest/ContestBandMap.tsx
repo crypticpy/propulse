@@ -35,6 +35,8 @@ export interface ContestBandMapProps {
   currentMode: string;
   /** Callback when a spot is selected - prefills callsign and optionally frequency */
   onSpotSelect: (callsign: string, frequency?: number) => void;
+  /** Optional callback with the full selected spot object */
+  onSpotClick?: (spot: DXSpot) => void;
   /** Current operating frequency in kHz (optional, for highlighting) */
   currentFrequency?: number;
   /** Additional CSS classes */
@@ -278,6 +280,7 @@ export function ContestBandMap({
   currentBand,
   currentMode,
   onSpotSelect,
+  onSpotClick,
   currentFrequency,
   className = "",
 }: ContestBandMapProps) {
@@ -638,6 +641,7 @@ export function ContestBandMap({
             setSelectedSpotId(spot.id);
             // Call onSpotSelect to prefill the entry form
             onSpotSelect(spot.dx, spot.frequency);
+            onSpotClick?.(spot);
           }
           return;
         }
@@ -653,6 +657,7 @@ export function ContestBandMap({
       timeToY,
       selectedSpotId,
       onSpotSelect,
+      onSpotClick,
     ],
   );
 

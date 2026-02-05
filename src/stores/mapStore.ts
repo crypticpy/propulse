@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
+import type { OverlayLayerModel, MapInteractionMode } from "@/types/mapOverlays";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -192,6 +193,15 @@ interface MapState {
   isDXConsoleExpanded: boolean;
   setDXConsoleExpanded: (value: boolean) => void;
   toggleDXConsoleExpanded: () => void;
+
+  // Renderer-agnostic interaction and overlays (used by Contest overlays, etc.)
+  interactionMode: MapInteractionMode;
+  setInteractionMode: (mode: MapInteractionMode) => void;
+  overlayLayers: Record<string, OverlayLayerModel>;
+  addOverlayLayer: (layerId: string, layerModel: OverlayLayerModel) => void;
+  updateOverlayLayer: (layerId: string, layerModel: OverlayLayerModel) => void;
+  removeOverlayLayer: (layerId: string) => void;
+  clearOverlayLayers: () => void;
 
   // Globe interaction overlays
   tooltipPosition: TooltipPosition | null;
@@ -453,6 +463,8 @@ const initialState = {
   isFullscreen: false,
   isLiteMode: false,
   isDXConsoleExpanded: false,
+  interactionMode: "normal" as MapInteractionMode,
+  overlayLayers: {} as Record<string, OverlayLayerModel>,
   tooltipPosition: null as TooltipPosition | null,
   flyoutPosition: null as FlyoutPosition | null,
   pathMode: "short" as "short" | "long",
@@ -644,6 +656,26 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   toggleDXConsoleExpanded: () =>
     set((state) => ({ isDXConsoleExpanded: !state.isDXConsoleExpanded })),
+
+  setInteractionMode: (interactionMode) => set({ interactionMode }),
+
+  addOverlayLayer: (layerId, layerModel) =>
+    set((state) => ({
+      overlayLayers: { ...state.overlayLayers, [layerId]: layerModel },
+    })),
+
+  updateOverlayLayer: (layerId, layerModel) =>
+    set((state) => ({
+      overlayLayers: { ...state.overlayLayers, [layerId]: layerModel },
+    })),
+
+  removeOverlayLayer: (layerId) =>
+    set((state) => {
+      const { [layerId]: _removed, ...rest } = state.overlayLayers;
+      return { overlayLayers: rest };
+    }),
+
+  clearOverlayLayers: () => set({ overlayLayers: {} }),
 
   setTooltipPosition: (tooltipPosition) => set({ tooltipPosition }),
 

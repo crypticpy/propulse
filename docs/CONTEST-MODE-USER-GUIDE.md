@@ -36,7 +36,7 @@ Contest Mode offers:
    - **Power**: High, Low, or QRP
    - **Mode**: CW, SSB, Digital, or Mixed
    - **Assisted**: Assisted or Non-Assisted (if applicable)
-6. Optionally expand **Cabrillo Export Info** to pre-fill:
+6. Optionally expand **Cabrillo Export Info** to prefill:
    - Operator name
    - Email address
    - Club affiliation
@@ -44,6 +44,45 @@ Contest Mode offers:
 7. Click **Start Contest**
 
 Your session begins immediately with the cursor focused on the entry field.
+
+## PropSphere Integration (Map-First Contesting)
+
+Contest Mode is also available inside **PropSphere** (`/map`) so you can operate without leaving the map context.
+
+### Ops Console (DX | Contest)
+
+1. Start (or resume) a contest session on the **Contest** page.
+2. Navigate to **PropSphere** (`/map`).
+3. Expand the bottom console (expand icon on the DX Cluster drawer) to open the **Ops Console**.
+4. Select the **Contest** tab to access:
+   - One-line entry + Run/S&P controls
+   - Contest-aware spots list + band map
+
+When a contest session is active, the Ops Console defaults to the **Contest** tab for that session (you can opt out by switching to **DX**).
+
+### Lite Mode Contest HUD
+
+In **Lite Mode** (map-first), PropSphere shows a minimal **Contest HUD** pill:
+
+- Open **Contest** to show the bottom sheet entry.
+- Use **Rec/Stop** to toggle voice capture.
+- Close the HUD with the **X** for the current session.
+
+### Focus and Prefill Rules
+
+- **Focus entry hotkey:** `Alt+E` (also available via the **Focus** button in the dock).
+- **Spot → prefill behavior:**
+  - In **S&P**, clicking a spot will set the map target and prefill the entry draft.
+  - In **RUN**, spot clicks do **not** prefill by default to avoid draft pollution (toggle **Prefill in RUN** in the dock if desired).
+- If you are actively typing, spot-based prefill will prompt before replacing the current draft.
+
+### Voice Entry (Optional)
+
+Voice entry is a helper workflow: **you must confirm/apply a candidate** before it affects your log.
+
+- **Voice toggle hotkey:** `Ctrl+Shift+.` (also available in the dock UI).
+- After recording, ProPulse generates one-line entry candidates you can **Apply** to the draft.
+- If voice transcription is unavailable in your browser, the UI will show **Voice N/A** and manual typing remains fully functional.
 
 ## One-Line Entry
 
@@ -346,7 +385,7 @@ Export from N1MM Logger+ via Tools > Generate Call History
 Once imported, call history enhances:
 
 - SCP suggestions as you type
-- Exchange pre-fill for known stations
+- Exchange prefill for known stations
 - Section/zone lookups
 
 ## Bridge Setup (Optional)

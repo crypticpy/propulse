@@ -249,6 +249,24 @@ Run these tests after any Contest Mode changes:
 - [ ] Responsive layout on mobile
 - [ ] No console errors during operation
 
+### PropSphere Integration (Ops Console)
+
+- [ ] With active contest, navigate to `/map` and open Ops Console
+- [ ] Ops Console defaults to Contest tab for the active session (opt-out by switching to DX)
+- [ ] Draft persists across `/contest` ↔ `/map` route changes
+- [ ] Map clicks do not steal entry focus (Alt+E always restores focus)
+- [ ] Spot click in S&P: sets map target + prefills entry draft
+- [ ] Spot click in RUN: does not prefill by default (unless Prefill in RUN is enabled)
+- [ ] Prefill never overwrites an actively-typed draft without confirmation
+- [ ] Lite Mode shows Contest HUD pill and bottom-sheet entry access
+
+### Voice Entry (Optional)
+
+- [ ] Voice toggle hotkey `Ctrl+Shift+.` starts/stops recording (when supported)
+- [ ] Voice candidates appear after recording and require explicit Apply
+- [ ] Applying a voice candidate updates the draft but does not auto-log
+- [ ] When voice is unavailable, UI degrades cleanly and manual entry is unaffected
+
 ### Data Integrity
 
 - [ ] QSOs persist across sessions

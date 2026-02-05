@@ -2061,6 +2061,8 @@ export function FlatMapView({
 
   // Spot highlight overlay canvas (avoids full canvas re-render at 60fps)
   const highlightCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Contest/renderer-agnostic overlay canvas (drawn on demand)
+  const contestOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Spot highlight animation ref
   const spotHighlightRafRef = useRef<number>(0);
@@ -2073,6 +2075,7 @@ export function FlatMapView({
     labelOptions,
     mapStyle,
     target,
+    overlayLayers,
     tooltipPosition,
     setTooltipPosition,
     flyoutPosition,
@@ -2968,6 +2971,110 @@ export function FlatMapView({
     };
   }, [isFocusing, focusedSpot?.dxLat, focusedSpot?.dxLon, displaySize]);
 
+  // Draw renderer-agnostic overlay layers (e.g., contest markers) on demand
+  useEffect(() => {
+    const oCanvas = contestOverlayCanvasRef.current;
+    if (!oCanvas) {
+      return;
+    }
+
+    const oCtx = oCanvas.getContext("2d");
+    if (!oCtx) {
+      return;
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const { width: rw, height: rh } = displaySize;
+
+    if (oCanvas.width !== rw * dpr || oCanvas.height !== rh * dpr) {
+      oCanvas.width = rw * dpr;
+      oCanvas.height = rh * dpr;
+    }
+
+    oCtx.clearRect(0, 0, oCanvas.width, oCanvas.height);
+    oCtx.save();
+    oCtx.scale(dpr, dpr);
+
+    // Apply the same zoom transform as the main canvas
+    const z = zoomRef.current;
+    oCtx.translate(z.offsetX, z.offsetY);
+    oCtx.scale(z.scale, z.scale);
+
+    // Draw overlay arcs first (under markers)
+    for (const layer of Object.values(overlayLayers)) {
+      const arcs =
+        layer.type === "arcs"
+          ? layer.arcs
+          : layer.type === "mixed"
+            ? layer.arcs
+            : [];
+
+      for (const arc of arcs) {
+        const points = getGreatCirclePoints(
+          arc.fromLat,
+          arc.fromLon,
+          arc.toLat,
+          arc.toLon,
+          48,
+        );
+        if (points.length < 2) {
+          continue;
+        }
+
+        oCtx.save();
+        oCtx.globalAlpha = arc.opacity ?? 0.7;
+        oCtx.strokeStyle = arc.color;
+        oCtx.lineWidth = arc.width ?? 2;
+        oCtx.lineCap = "round";
+        oCtx.lineJoin = "round";
+        oCtx.beginPath();
+
+        for (let i = 0; i < points.length; i++) {
+          const pt = points[i];
+          const { x, y } = latLonToCanvas(pt.lat, pt.lon, rw, rh);
+          if (i === 0) {
+            oCtx.moveTo(x, y);
+          } else {
+            oCtx.lineTo(x, y);
+          }
+        }
+
+        oCtx.stroke();
+        oCtx.restore();
+      }
+    }
+
+    // Draw overlay markers (on top)
+    for (const layer of Object.values(overlayLayers)) {
+      const markers =
+        layer.type === "markers"
+          ? layer.markers
+          : layer.type === "mixed"
+            ? layer.markers
+            : [];
+
+      for (const marker of markers) {
+        const x = ((marker.lon + 180) / 360) * rw;
+        const y = ((90 - marker.lat) / 180) * rh;
+        const size = marker.size ?? 6;
+        const opacity = marker.opacity ?? 0.9;
+
+        oCtx.save();
+        oCtx.globalAlpha = opacity;
+        oCtx.beginPath();
+        oCtx.arc(x, y, size, 0, Math.PI * 2);
+        oCtx.fillStyle = marker.color;
+        oCtx.fill();
+        oCtx.lineWidth = 1;
+        oCtx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+        oCtx.stroke();
+        oCtx.restore();
+      }
+    }
+
+    oCtx.restore();
+  }, [displaySize, overlayLayers, zoom]);
+
   // Cleanup animation refs on unmount
   useEffect(() => {
     return () => {
@@ -3334,6 +3441,15 @@ export function FlatMapView({
             height: displaySize.height,
             imageRendering: "auto",
             touchAction: "none",
+          }}
+        />
+        {/* Renderer-agnostic overlay canvas (contest overlays, etc.) */}
+        <canvas
+          ref={contestOverlayCanvasRef}
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            width: displaySize.width,
+            height: displaySize.height,
           }}
         />
         {/* Spot highlight overlay canvas (animates at 60fps independently) */}

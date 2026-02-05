@@ -40,6 +40,7 @@ import {
 } from "./LocationMarker";
 import { LiveSpotArcs } from "./LiveSpotArcs";
 import { SpotHighlight } from "./SpotHighlight";
+import { OverlayLayers3D } from "./OverlayLayers3D";
 import { PinMarker } from "./PinMarker";
 import { PinFlyout } from "./PinFlyout";
 import { getCategoryMeta } from "@/types/pin";
@@ -629,6 +630,9 @@ function GlobeScene({
 
       {/* Spot highlight effect */}
       <SpotHighlight />
+
+      {/* Renderer-agnostic overlay layers (contest overlays, etc.) */}
+      <OverlayLayers3D />
 
       {/* Compass rose overlay at operator's QTH */}
       {station && compassRosePrefs.enabled && (

@@ -47,11 +47,14 @@ export async function fetchPSKReporterSpots(
 
     const data = await response.json();
 
-    if (!data.spots || !Array.isArray(data.spots)) {
+    // Handle both Edge Function format (data.spots) and raw PSKReporter
+    // format (data.receptionReport) for dev proxy compatibility
+    const reports = data.spots || data.receptionReport || [];
+    if (!Array.isArray(reports) || reports.length === 0) {
       return [];
     }
 
-    return data.spots.map((spot: PSKReporterSpot) =>
+    return reports.map((spot: PSKReporterSpot) =>
       transformPSKReporterSpot(spot),
     );
   } catch (error) {

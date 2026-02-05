@@ -77,6 +77,55 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/json/ovation_aurora_latest.json",
       },
+      // DX Cluster spots proxy (dev only) - mirrors Vercel `/api/spots/dxcluster`
+      "/api/spots/dxcluster": {
+        target: "https://dxheat.com",
+        changeOrigin: true,
+        rewrite: (pathStr) => {
+          try {
+            const url = new URL(`http://local${pathStr}`);
+            const limit = url.searchParams.get("limit") || "50";
+            return `/dxc/data/get?limit=${limit}`;
+          } catch {
+            return "/dxc/data/get?limit=50";
+          }
+        },
+      },
+      // RBN spots proxy (dev only) - mirrors Vercel `/api/spots/rbn`
+      "/api/spots/rbn": {
+        target: "https://www.reversebeacon.net",
+        changeOrigin: true,
+        rewrite: (pathStr) => {
+          try {
+            const url = new URL(`http://local${pathStr}`);
+            const limit = url.searchParams.get("limit") || "50";
+            return `/spots.php?s=1&r=${limit}`;
+          } catch {
+            return "/spots.php?s=1&r=50";
+          }
+        },
+      },
+      // PSKReporter spots proxy (dev only) - mirrors Vercel `/api/spots/pskreporter`
+      "/api/spots/pskreporter": {
+        target: "https://retrieve.pskreporter.info",
+        changeOrigin: true,
+        rewrite: (pathStr) => {
+          try {
+            const url = new URL(`http://local${pathStr}`);
+            const params = new URLSearchParams();
+            params.set("flowStartSeconds", "-900");
+            params.set("rronly", "1");
+            params.set("noactive", "1");
+            const grid = url.searchParams.get("grid");
+            if (grid) params.set("receiverLocator", grid.substring(0, 4));
+            const mode = url.searchParams.get("mode");
+            if (mode) params.set("mode", mode);
+            return `/query?${params}`;
+          } catch {
+            return "/query?flowStartSeconds=-900&rronly=1&noactive=1";
+          }
+        },
+      },
       // Callsign lookup proxy (dev only) - mirrors Vercel `/api/callsign/lookup`
       "/api/callsign/lookup": {
         target: "https://callook.info",

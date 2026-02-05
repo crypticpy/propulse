@@ -182,30 +182,72 @@ export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
   try {
     const res = await fetch(`/api/spots/dxcluster?limit=${limit}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const contentType = res.headers.get("content-type");
+    if (!contentType?.includes("application/json")) {
+      return [];
+    }
+
     const data = await res.json();
-    return (data as Record<string, unknown>[]).map(
-      (item: Record<string, unknown>) => ({
+
+    // Handle both Edge Function format ({ spots: [...] }) and raw
+    // DXHeat format (flat array) for dev proxy compatibility
+    const items: Record<string, unknown>[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.spots)
+        ? data.spots
+        : [];
+
+    return items.map((item: Record<string, unknown>) => {
+      // Frequency: Edge Function uses "frequency" (number), DXHeat raw uses "freq" (string)
+      const rawFreq = item.frequency ?? item.freq;
+      const frequency =
+        typeof rawFreq === "number"
+          ? rawFreq
+          : parseFloat(String(rawFreq)) || 0;
+
+      // Time: Edge Function gives ISO string, DXHeat raw gives HHMM
+      const rawTime = String(item.time || "");
+      let time: Date;
+      if (/^\d{4}$/.test(rawTime)) {
+        const h = parseInt(rawTime.substring(0, 2), 10);
+        const m = parseInt(rawTime.substring(2, 4), 10);
+        time = new Date();
+        time.setUTCHours(h, m, 0, 0);
+        if (time.getTime() > Date.now() + 60_000) {
+          time.setDate(time.getDate() - 1);
+        }
+      } else {
+        time = new Date(rawTime);
+      }
+
+      const comment = String(item.comment ?? item.info ?? "");
+
+      // Mode: Edge Function provides it, DXHeat raw needs extraction from comment
+      let mode = item.mode as string | undefined;
+      if (!mode && comment) {
+        const upper = comment.toUpperCase();
+        for (const m of ["FT8", "FT4", "CW", "SSB", "RTTY"]) {
+          if (upper.includes(m)) {
+            mode = m;
+            break;
+          }
+        }
+      }
+
+      return {
         id: (item.id as string) || crypto.randomUUID(),
-        spotter: (item.spotter as string) || (item.de as string) || "",
-        dx: (item.dx as string) || "",
-        frequency:
-          typeof item.frequency === "number"
-            ? item.frequency
-            : parseFloat(item.frequency as string) || 0,
-        mode: (item.mode as string) || undefined,
-        comment: (item.comment as string) || (item.info as string) || "",
-        time: new Date(item.time as string),
-        band:
-          (item.band as string) ||
-          getBandFromFrequency(
-            typeof item.frequency === "number"
-              ? item.frequency
-              : parseFloat(item.frequency as string) || 0,
-          ),
+        spotter: String(item.spotter ?? item.de ?? ""),
+        dx: String(item.dx ?? ""),
+        frequency,
+        mode,
+        comment,
+        time,
+        band: String(item.band ?? "") || getBandFromFrequency(frequency),
         spotterGrid: item.spotterGrid as string | undefined,
         dxGrid: item.dxGrid as string | undefined,
-      }),
-    );
+      };
+    });
   } catch {
     return [];
   }

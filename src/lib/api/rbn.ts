@@ -39,11 +39,19 @@ export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
 
     const data = await response.json();
 
-    if (!data.spots || !Array.isArray(data.spots)) {
+    // Handle both Edge Function format ({ spots: [...] }) and raw RBN
+    // format (flat array) for dev proxy compatibility
+    const spots: RBNSpot[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.spots)
+        ? data.spots
+        : [];
+
+    if (spots.length === 0) {
       return [];
     }
 
-    return data.spots.map((spot: RBNSpot) => transformRBNSpot(spot));
+    return spots.map((spot: RBNSpot) => transformRBNSpot(spot));
   } catch (error) {
     console.warn("Failed to fetch RBN spots:", error);
     return [];

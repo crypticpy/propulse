@@ -146,6 +146,22 @@ const BAND_SORT_ORDER: Record<string, number> = {
   "80m": 7,
 };
 
+/**
+ * Adjust color saturation by mixing toward/away from perceptual gray.
+ * amount > 0: desaturate (toward gray). amount < 0: boost (away from gray).
+ */
+function adjustSaturation(hex: string, amount: number): string {
+  if (!hex.startsWith("#") || hex.length !== 7) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const gray = r * 0.299 + g * 0.587 + b * 0.114;
+  const nr = Math.max(0, Math.min(255, Math.round(r + (gray - r) * amount)));
+  const ng = Math.max(0, Math.min(255, Math.round(g + (gray - g) * amount)));
+  const nb = Math.max(0, Math.min(255, Math.round(b + (gray - b) * amount)));
+  return `rgb(${nr},${ng},${nb})`;
+}
+
 export function PropagationForecastMini({
   displayTime,
   className = "",
@@ -305,6 +321,17 @@ export function PropagationForecastMini({
     }
     return hours;
   }, [currentHour, hoursToShow]);
+
+  // Index of current hour in visible hours for caret + fade positioning
+  const currentHourIndex = visibleHours.indexOf(currentHour);
+  const fadeSpan = Math.max(Math.floor(hoursToShow / 2), 1);
+
+  // Caret center-on-column position (CSS calc)
+  const totalGapPx = (hoursToShow - 1) * 3;
+  const caretLeft =
+    currentHourIndex >= 0
+      ? `calc(${36 + currentHourIndex * 3}px + ${2 * currentHourIndex + 1} * (100% - ${36 + totalGapPx}px) / ${2 * hoursToShow} - 18px)`
+      : "0px";
 
   // Calculate target sunrise/sunset times
   const targetSunTimes = useMemo(() => {
@@ -626,64 +653,42 @@ export function PropagationForecastMini({
           }
         }}
       >
-        {/* Expand button - absolute top-right corner */}
-        <button
-          className="absolute -top-1 -right-1 z-10 p-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors"
-          title="Expand full forecast"
-          aria-label="Expand forecast"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleClick();
-          }}
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-            />
-          </svg>
-        </button>
-
         {/* TOP: Header with path metrics + Solar indices + Prop score + ACTION ICONS */}
         <div className="flex items-center justify-between gap-1.5 mb-0.5 text-xs">
-          {/* Left: Path metrics */}
-          <div className="flex items-center gap-3 font-mono min-w-0">
-            {pathDistance && (
-              <span className="text-gray-300">
-                <span className="text-gray-400">PATH</span>{" "}
-                {pathDistance.toLocaleString()}km
-                {hopCount && (
-                  <span className="text-gray-400"> {hopCount}F2</span>
-                )}
+          {/* Left: Path metrics + Solar indices */}
+          <div className="flex items-center gap-5 min-w-0">
+            <div className="flex items-center gap-3 font-mono min-w-0">
+              {pathDistance && (
+                <span className="text-gray-300">
+                  <span className="text-gray-400">PATH</span>{" "}
+                  {pathDistance.toLocaleString()}km
+                  {hopCount && (
+                    <span className="text-gray-400"> {hopCount}F2</span>
+                  )}
+                </span>
+              )}
+              <span>
+                <span className="text-gray-400">MUF</span>{" "}
+                <span className="text-cyan-400">{estimatedMuf.toFixed(1)}</span>
               </span>
-            )}
-            <span>
-              <span className="text-gray-400">MUF</span>{" "}
-              <span className="text-cyan-400">{estimatedMuf.toFixed(1)}</span>
-            </span>
-          </div>
-
-          {/* Center: Solar indices */}
-          <div className="flex items-center gap-2 font-mono">
-            <span
-              style={{ color: getSfiColor(currentSfi) }}
-              title="Solar Flux Index"
-            >
-              SFI {Math.round(currentSfi)}
-            </span>
-            <span style={{ color: getKIndexColor(currentKp) }} title="K-index">
-              Kp {currentKp.toFixed(1)}
-            </span>
-            <span style={{ color: bzDisplay.color }} title="IMF Bz">
-              Bz {bzDisplay.arrow}
-            </span>
+            </div>
+            <div className="flex items-center gap-2 font-mono">
+              <span
+                style={{ color: getSfiColor(currentSfi) }}
+                title="Solar Flux Index"
+              >
+                SFI {Math.round(currentSfi)}
+              </span>
+              <span
+                style={{ color: getKIndexColor(currentKp) }}
+                title="K-index"
+              >
+                Kp {currentKp.toFixed(1)}
+              </span>
+              <span style={{ color: bzDisplay.color }} title="IMF Bz">
+                Bz {bzDisplay.arrow}
+              </span>
+            </div>
           </div>
 
           {/* Propagation Score Pill */}
@@ -729,13 +734,69 @@ export function PropagationForecastMini({
                 <circle cx="12" cy="12" r="3" />
               </svg>
             </button>
+            <button
+              className="p-0.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-colors"
+              title="Expand full forecast"
+              aria-label="Expand forecast"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClick();
+              }}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </button>
           </div>
         </div>
 
         {/* MAIN: Full-width Heatmap */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Heatmap row: labels + grid */}
-          <div className="flex-1 flex gap-1 min-h-0">
+          <div className="flex-1 flex gap-1 min-h-0 relative">
+            {/* Current hour caret markers */}
+            {currentHourIndex >= 0 && (
+              <>
+                {/* Top caret - points down */}
+                <div
+                  className="absolute pointer-events-none z-20"
+                  style={{
+                    left: caretLeft,
+                    top: "-2px",
+                    width: 0,
+                    height: 0,
+                    borderLeft: "18px solid transparent",
+                    borderRight: "18px solid transparent",
+                    borderTop: "18px solid white",
+                    filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.9))",
+                  }}
+                />
+                {/* Bottom caret - points up */}
+                <div
+                  className="absolute pointer-events-none z-20"
+                  style={{
+                    left: caretLeft,
+                    bottom: "-2px",
+                    width: 0,
+                    height: 0,
+                    borderLeft: "18px solid transparent",
+                    borderRight: "18px solid transparent",
+                    borderBottom: "18px solid white",
+                    filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
+                  }}
+                />
+              </>
+            )}
             {/* Band labels - use CSS Grid to match heatmap rows exactly */}
             <div
               className="w-8 grid"
@@ -785,7 +846,7 @@ export function PropagationForecastMini({
               }}
             >
               {displayBands.map((band) =>
-                visibleHours.map((hour) => {
+                visibleHours.map((hour, colIdx) => {
                   const hourData = forecast.find((f) => f.hour === hour);
                   const bandData = hourData?.bands.find((b) => b.band === band);
                   const status = bandData?.status || "closed";
@@ -794,12 +855,20 @@ export function PropagationForecastMini({
                   const isCurrentHour = hour === currentHour;
                   const isSynced = syncMode && syncedBand === band;
 
+                  // Color intensity gradient: vivid at center, muted at edges
+                  const dist = Math.abs(colIdx - currentHourIndex);
+                  const t =
+                    currentHourIndex >= 0 ? Math.min(dist / fadeSpan, 1) : 0;
+                  // -0.15 = slight boost at center, 0.65 = desaturated at edge
+                  const desatAmount = -0.15 + t * 0.8;
+                  const adjustedColor = adjustSaturation(color, desatAmount);
+
                   return (
                     <div
                       key={`${band}-${hour}`}
                       className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative flex items-center justify-center ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-1 ring-cyan-400/60" : ""}`}
                       style={{
-                        backgroundColor: color,
+                        backgroundColor: adjustedColor,
                         opacity:
                           status === "closed" ? 0.25 : isSynced ? 1 : 0.9,
                       }}
@@ -828,7 +897,7 @@ export function PropagationForecastMini({
                     >
                       {forecastDisplay.showSnrValues && status !== "closed" && (
                         <span
-                          className={`${hoursToShow === 24 ? "text-[7px]" : "text-[8px]"} font-mono leading-none text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]`}
+                          className={`${hoursToShow === 24 ? "text-[14px]" : "text-[16px]"} font-mono font-bold leading-none text-black/80`}
                         >
                           {snr > 0 ? "+" : ""}
                           {snr}

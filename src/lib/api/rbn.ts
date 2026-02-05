@@ -119,18 +119,20 @@ export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
     const response = await fetch(`/api/spots/rbn?${params}`);
 
     if (!response.ok) {
-      // Silently fail in dev mode - API routes may not be available
       return [];
     }
 
-    // Check content-type to avoid parsing non-JSON responses
-    const contentType = response.headers.get("content-type");
-    if (!contentType?.includes("application/json")) {
-      // API route not available in dev mode
+    // HamQTH may return JSON with non-standard content-type headers
+    // (e.g., text/html). Parse as text first, then try JSON.
+    const text = await response.text();
+    if (!text.trim()) return [];
+
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
       return [];
     }
-
-    const data = await response.json();
 
     // Detect format:
     // 1. Edge Function format: { spots: [...] }
@@ -141,9 +143,16 @@ export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
       return data.map((spot: RBNSpot) => transformRBNSpot(spot));
     }
 
-    if (Array.isArray(data?.spots)) {
+    if (
+      data &&
+      typeof data === "object" &&
+      "spots" in data &&
+      Array.isArray((data as Record<string, unknown>).spots)
+    ) {
       // Wrapped array (Edge Function)
-      return data.spots.map((spot: RBNSpot) => transformRBNSpot(spot));
+      return ((data as Record<string, unknown>).spots as RBNSpot[]).map(
+        (spot: RBNSpot) => transformRBNSpot(spot),
+      );
     }
 
     // HamQTH object format: keys are callsigns, values have dxcall/freq/mode/age/lsn

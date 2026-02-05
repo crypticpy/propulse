@@ -9,6 +9,50 @@ import type { LiveSpot, PSKReporterSpot } from "@/types/livespot";
 import { gridToLatLon } from "./dxcluster";
 
 /**
+ * Parse PSKReporter XML response using DOMParser (browser).
+ * Extracts receptionReport elements and returns them as PSKReporterSpot[].
+ */
+function parsePSKReporterXML(xml: string): PSKReporterSpot[] {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, "text/xml");
+    const elements = doc.querySelectorAll("receptionReport");
+    if (elements.length === 0) return [];
+
+    const spots: PSKReporterSpot[] = [];
+    for (const el of elements) {
+      const senderCallsign = el.getAttribute("senderCallsign");
+      const receiverCallsign = el.getAttribute("receiverCallsign");
+      const frequencyStr = el.getAttribute("frequency");
+      if (!senderCallsign || !receiverCallsign || !frequencyStr) continue;
+
+      const frequency = parseInt(frequencyStr, 10);
+      if (isNaN(frequency)) continue;
+
+      const flowStartStr = el.getAttribute("flowStartSeconds") || "0";
+      const flowStartSeconds = parseInt(flowStartStr, 10);
+      const sNRStr = el.getAttribute("sNR");
+      const sNR =
+        sNRStr !== null && sNRStr !== "" ? parseInt(sNRStr, 10) : undefined;
+
+      spots.push({
+        senderCallsign,
+        senderLocator: el.getAttribute("senderLocator") || undefined,
+        receiverCallsign,
+        receiverLocator: el.getAttribute("receiverLocator") || undefined,
+        frequency,
+        flowStartSeconds: isNaN(flowStartSeconds) ? 0 : flowStartSeconds,
+        mode: el.getAttribute("mode") || "FT8",
+        sNR: sNR !== undefined && !isNaN(sNR) ? sNR : undefined,
+      });
+    }
+    return spots;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Fetch spots from PSKReporter via our Edge Function proxy
  *
  * @param grid - Receiver grid locator to query (4 or 6 char)
@@ -34,25 +78,26 @@ export async function fetchPSKReporterSpots(
     const response = await fetch(`/api/spots/pskreporter?${params}`);
 
     if (!response.ok) {
-      // Silently fail in dev mode - API routes may not be available
       return [];
     }
 
-    // Check content-type to avoid parsing non-JSON responses
-    const contentType = response.headers.get("content-type");
-    if (!contentType?.includes("application/json")) {
-      // API route not available in dev mode
-      return [];
+    const text = await response.text();
+    if (!text.trim()) return [];
+
+    // Try JSON first (Edge Function / production)
+    let reports: PSKReporterSpot[] = [];
+    try {
+      const data = JSON.parse(text);
+      const jsonReports = data.spots || data.receptionReport || [];
+      if (Array.isArray(jsonReports) && jsonReports.length > 0) {
+        reports = jsonReports;
+      }
+    } catch {
+      // Not JSON — try XML (dev mode via Vite proxy to PSKReporter)
+      reports = parsePSKReporterXML(text);
     }
 
-    const data = await response.json();
-
-    // Handle both Edge Function format (data.spots) and raw PSKReporter
-    // format (data.receptionReport) for dev proxy compatibility
-    const reports = data.spots || data.receptionReport || [];
-    if (!Array.isArray(reports) || reports.length === 0) {
-      return [];
-    }
+    if (reports.length === 0) return [];
 
     return reports.map((spot: PSKReporterSpot) =>
       transformPSKReporterSpot(spot),
@@ -77,7 +122,7 @@ function transformPSKReporterSpot(spot: PSKReporterSpot): LiveSpot {
   const band = getBandFromFrequency(freqKHz);
 
   return {
-    id: `psk_${spot.senderCallsign}_${spot.flowStartSeconds}`,
+    id: `psk_${spot.senderCallsign}_${spot.receiverCallsign}_${spot.flowStartSeconds}`,
     spotter: spot.receiverCallsign,
     spotterGrid: spot.receiverLocator,
     dx: spot.senderCallsign,

@@ -5,6 +5,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.10.1] — 2026-02-05
+
+### Spot API Robustness & Band Planner Real-Time UX
+
+#### Spot API Parsing Fixes
+
+- **PSKReporter XML parsing** — Added browser-native DOMParser support so the dev proxy (which returns raw XML from PSKReporter) works seamlessly alongside the JSON Edge Function format in production. Responses are tried as JSON first, falling back to XML automatically.
+- **RBN response handling** — HamQTH sometimes returns JSON with non-standard content-type headers (e.g. `text/html`). Responses are now parsed as text first and then attempted as JSON, preventing silent failures from strict content-type checking.
+- **Type-safe RBN data access** — Replaced unsafe optional chaining with proper `in` type guards and explicit casts for the RBN spot wrapper format.
+- **Unique PSKReporter spot IDs** — Spot IDs now include both sender and receiver callsigns, preventing deduplication collisions when the same station is heard by multiple receivers.
+
+#### Band Planner Enhancements
+
+- **"Right Now" card** — New prominent card at the top of the Band Planner showing the best band at the current UTC hour with status, SNR, and a plain-language operating suggestion.
+- **Smart window sorting** — Operating windows are now sorted by relevance: active windows first (ranked by current SNR), then upcoming, then passed. Past windows are dimmed at 50% opacity.
+- **Active/upcoming/passed labels** — Each window card shows whether it's currently active, when it opens, or that it has passed — replacing the static "Recommended" label on the first card.
+- **Real-time mode and power guidance** — The suggested modes and power guidance sections now reference the current best band's live SNR and status instead of the static peak values from the first window.
+
+---
+
 ## [0.10.0] — 2026-02-05
 
 ### Contest Mode PropSphere Integration — Ops Console, Voice Entry, and Map Overlays
@@ -244,6 +264,7 @@ A complete contest logging system and major DX operations improvements.
 
 ---
 
+[0.10.1]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/crypticpy/propulse/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/crypticpy/propulse/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/crypticpy/propulse/compare/v0.7.0...v0.8.0

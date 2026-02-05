@@ -16,6 +16,7 @@ import type {
   MultiplierType,
 } from "@/types/contest";
 import { getEffectiveScoreModel } from "@/types/contest";
+import { gridDistance } from "@/lib/utils/grid";
 import type {
   ScoreSummary,
   BandScoreBreakdown,
@@ -128,7 +129,7 @@ export function computeQSOPoints(
     return 0;
   }
 
-  const {scoring} = contest;
+  const { scoring } = contest;
 
   switch (scoring.mode) {
     case "fixed":
@@ -169,10 +170,27 @@ export function computeQSOPoints(
       }
     }
 
-    case "distance":
-      // Distance-based scoring not implemented yet
-      // Would require grid square calculation
-      return 1;
+    case "distance": {
+      // Distance-based scoring (Stew Perry Top Band Distance Challenge style)
+      // Points = ceil(distance_km / 500), minimum 1 point
+      // Requires grid squares in exchange (myGrid from contest config, their grid from exchange)
+      const theirGrid = qso.exchangeRcvd?.trim() || "";
+      if (!theirGrid || theirGrid.length < 4) {
+        return 1; // Default to 1 point if no grid available
+      }
+      try {
+        // Use myDXCC as a proxy - in practice, myGrid would be stored in session
+        // For distance scoring, the grid is extracted from the exchange
+        const myGrid = myDXCC || ""; // Caller should pass grid in myDXCC for distance contests
+        if (!myGrid || myGrid.length < 4) {
+          return 1;
+        }
+        const distanceKm = gridDistance(myGrid, theirGrid);
+        return Math.max(1, Math.ceil(distanceKm / 500));
+      } catch {
+        return 1;
+      }
+    }
 
     default:
       return 1;
@@ -520,6 +538,8 @@ export function computeContestScore(
     GRID: 0,
     SECTION: 0,
     PROVINCE: 0,
+    COUNTY: 0,
+    GRID_SQUARE: 0,
     NONE: 0,
   };
 
@@ -532,6 +552,8 @@ export function computeContestScore(
     GRID: [],
     SECTION: [],
     PROVINCE: [],
+    COUNTY: [],
+    GRID_SQUARE: [],
     NONE: [],
   };
 
@@ -612,6 +634,12 @@ export function computeContestScore(
 
     case "field_day": {
       // Field Day style: just points (bonuses would be added separately)
+      finalScore = totalPoints;
+      break;
+    }
+
+    case "distance_based": {
+      // Distance-based scoring (Stew Perry style): sum of QSO points, no multipliers
       finalScore = totalPoints;
       break;
     }

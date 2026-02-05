@@ -20,6 +20,8 @@ export type MultiplierType =
   | "GRID" // Maidenhead grid squares
   | "SECTION" // ARRL/RAC sections
   | "PROVINCE" // Canadian provinces
+  | "COUNTY" // US county (for State QSO Parties)
+  | "GRID_SQUARE" // 4-char Maidenhead grid (for VHF contests)
   | "NONE"; // No multipliers
 
 // ============================================================================
@@ -65,11 +67,13 @@ export interface MultiplierRule {
  * - "points_x_mults_per_band": CQWW style - Σ(bandPoints × bandMults)
  * - "points_x_mults_total": Sweepstakes style - totalPoints × totalMults
  * - "field_day": Field Day style - points + bonuses (no mult multiplication)
+ * - "distance_based": Stew Perry style - points based on grid-to-grid distance
  */
 export type ScoreModel =
   | "points_x_mults_per_band"
   | "points_x_mults_total"
-  | "field_day";
+  | "field_day"
+  | "distance_based";
 
 export function normalizeMultiplierType(value: string): MultiplierType {
   const normalized = value.trim().toUpperCase();
@@ -96,6 +100,10 @@ export function normalizeMultiplierType(value: string): MultiplierType {
       return "GRID";
     case "PROVINCE":
       return "PROVINCE";
+    case "COUNTY":
+      return "COUNTY";
+    case "GRID_SQUARE":
+      return "GRID_SQUARE";
     case "NONE":
       return "NONE";
     default:
@@ -133,6 +141,9 @@ export interface ExchangeFormat {
     | "section"
     | "class"
     | "power"
+    | "county"
+    | "island_ref"
+    | "age"
   )[];
 }
 
@@ -233,6 +244,25 @@ export interface ContestDefinition {
   rulesUrl?: string;
   /** Brief description of the contest */
   description?: string;
+
+  /**
+   * Off-time rules for contests with limited operating hours
+   * Defines maximum operating time within a longer contest window
+   */
+  offTimeRules?: {
+    /** Maximum hours of operating allowed */
+    maxOperatingHours: number;
+    /** Total contest duration in hours */
+    contestDurationHours: number;
+    /** Minimum gap in minutes that counts as off-time */
+    minOffTimePeriodMinutes: number;
+  };
+
+  /**
+   * State code for state QSO party contests
+   * Used to determine which county list to validate against
+   */
+  stateQsoParty?: string;
 }
 
 /**
@@ -268,9 +298,15 @@ export function getEffectiveMultiplierRules(
     {
       type: contest.multiplierType,
       // Legacy: zones come from exchange, DXCC/WPX from callsign, states from exchange
-      source: ["CQ_ZONE", "ITU_ZONE", "STATE", "SECTION", "GRID"].includes(
-        contest.multiplierType,
-      )
+      source: [
+        "CQ_ZONE",
+        "ITU_ZONE",
+        "STATE",
+        "SECTION",
+        "GRID",
+        "COUNTY",
+        "GRID_SQUARE",
+      ].includes(contest.multiplierType)
         ? "exchange"
         : "callsign",
       perBand: contest.multiplierPerBand,

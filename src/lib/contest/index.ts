@@ -76,11 +76,50 @@ export {
 export {
   getSCPMatches,
   getSCPMatchesDetailed,
+  getSCPMatchesMerged,
   buildSCPIndex,
   isCallInSCP,
   getSCPIndexSize,
 } from "./scp";
-export type { SCPOptions, SCPMatch } from "./scp";
+export type {
+  SCPOptions,
+  SCPMatch,
+  SCPDetailedMatch,
+  SCPMatchSource,
+} from "./scp";
+
+// Import and re-export from SCP Import (MASTER.SCP database)
+export {
+  loadSCPFile,
+  parseSCPFile,
+  loadCallHistoryFile,
+  parseCallHistoryFile,
+  saveSCPToIndexedDB,
+  loadSCPFromIndexedDB,
+  getSCPDatabaseSize,
+  clearSCPDatabase,
+  isCallInSCPDatabase,
+  getSCPDatabaseMatches,
+  downloadAndImportSCP,
+} from "./scpImport";
+export type {
+  CallHistoryImportEntry,
+  SCPImportResult,
+  CallHistoryImportResult,
+} from "./scpImport";
+
+// Import and re-export from Band Advisor
+export {
+  getBandChangeAdvice,
+  shouldNotify,
+  getBandContestFrequency,
+  computeRateTrend,
+} from "./bandAdvisor";
+export type {
+  BandAdvice,
+  NeededMultOnBand,
+  BandPrediction,
+} from "./bandAdvisor";
 
 // Import and re-export from similar call detection
 export {
@@ -194,6 +233,19 @@ export type {
   ADIFImportError,
   ADIFExportOptions,
 } from "./adif";
+
+// Import and re-export from off-time tracker
+export {
+  getOffTimeStatus,
+  detectOperatingPeriods,
+  formatOffTimeWarning,
+  formatMinutes as formatOffTimeMinutes,
+} from "./offTimeTracker";
+export type {
+  OperatingPeriod,
+  OffTimeStatus,
+  OffTimeRules,
+} from "./offTimeTracker";
 
 // ============================================================================
 // Normalization Functions

@@ -269,7 +269,7 @@ export function calculateQSOPoints(
 
   // Some contests have different points for low bands
   if (isLowBand(qso.band) && contest.id.includes("WPX")) {
-        points = 6;
+    points = 6;
   }
 
   return points;
@@ -362,6 +362,8 @@ export function calculateContestScore(session: ContestSession): ScoreSummary {
     SECTION: new Set(),
     GRID: new Set(),
     PROVINCE: new Set(),
+    COUNTY: new Set(),
+    GRID_SQUARE: new Set(),
     NONE: new Set(),
   };
 
@@ -427,6 +429,8 @@ export function calculateContestScore(session: ContestSession): ScoreSummary {
     SECTION: 0,
     GRID: 0,
     PROVINCE: 0,
+    COUNTY: 0,
+    GRID_SQUARE: 0,
     NONE: 0,
   };
 
@@ -828,6 +832,8 @@ export function createContestSession(
       SECTION: new Set(),
       GRID: new Set(),
       PROVINCE: new Set(),
+      COUNTY: new Set(),
+      GRID_SQUARE: new Set(),
       NONE: new Set(),
     },
     workedCallsigns: new Map(),
@@ -915,6 +921,8 @@ export function getNewMultipliers(
     SECTION: false,
     GRID: false,
     PROVINCE: false,
+    COUNTY: false,
+    GRID_SQUARE: false,
     NONE: false,
   };
 

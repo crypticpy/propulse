@@ -169,6 +169,36 @@ export function parseOneLineEntry(args: {
       errors,
       warnings,
     );
+  } else if (contestId.includes("sprint") && !contestId.includes("stew")) {
+    // NA Sprint: serial name state
+    // Example: 001 JOHN CA
+    mapSprintExchange(
+      exchangeOnlyTokens,
+      parsedFields,
+      exchangeTokens,
+      errors,
+      warnings,
+    );
+  } else if (contestId.includes("qso-party") || contestId.includes("qp")) {
+    // State QSO Party: serial county (or state for out-of-state)
+    // Example: 001 ALAM or 001 CA
+    mapCountyExchange(
+      exchangeOnlyTokens,
+      parsedFields,
+      exchangeTokens,
+      errors,
+      warnings,
+    );
+  } else if (contestId.includes("iota")) {
+    // IOTA: serial island_ref
+    // Example: 001 EU-005
+    mapIOTAExchange(
+      exchangeOnlyTokens,
+      parsedFields,
+      exchangeTokens,
+      errors,
+      warnings,
+    );
   } else {
     // Generic mapping: map tokens to fields in order
     mapGenericExchange(
@@ -338,12 +368,12 @@ function mapGenericExchange(
       const field = fields[i];
       parsedFields[field] = token.toUpperCase();
     } else if (tokens.length > fields.length && i === fields.length) {
-                 errors.push({
-                   field: `token[${i}]`,
-                   message: `Extra token(s) in exchange: ${tokens.slice(fields.length).join(" ")}`,
-                   code: "EXTRA_TOKENS",
-                 });
-           }
+      errors.push({
+        field: `token[${i}]`,
+        message: `Extra token(s) in exchange: ${tokens.slice(fields.length).join(" ")}`,
+        code: "EXTRA_TOKENS",
+      });
+    }
   }
 }
 
@@ -435,5 +465,98 @@ function mapFieldDayExchange(
         code: "EXTRA_TOKENS",
       });
     }
+  }
+}
+
+/**
+ * Map NA Sprint exchange fields
+ * Format: serial name state
+ */
+function mapSprintExchange(
+  tokens: string[],
+  parsedFields: Record<string, string>,
+  exchangeTokens: string[],
+  errors: ParseIssue[],
+  _warnings: ParseIssue[],
+): void {
+  // Expected: serial name state (e.g., "001 JOHN CA")
+  const expectedFields = ["serial", "name", "state"];
+
+  for (let i = 0; i < tokens.length && i < expectedFields.length; i++) {
+    const token = tokens[i];
+    const field = expectedFields[i];
+    exchangeTokens.push(token);
+    parsedFields[field] = token.toUpperCase();
+  }
+
+  // Check for extra tokens
+  if (tokens.length > expectedFields.length) {
+    errors.push({
+      field: `token[${expectedFields.length}]`,
+      message: `Extra token(s) in Sprint exchange: ${tokens.slice(expectedFields.length).join(" ")}`,
+      code: "EXTRA_TOKENS",
+    });
+  }
+}
+
+/**
+ * Map State QSO Party exchange fields
+ * Format: serial county (in-state) or serial state (out-of-state)
+ */
+function mapCountyExchange(
+  tokens: string[],
+  parsedFields: Record<string, string>,
+  exchangeTokens: string[],
+  errors: ParseIssue[],
+  _warnings: ParseIssue[],
+): void {
+  // Expected: serial county/state (e.g., "001 ALAM" or "001 CA")
+  const expectedFields = ["serial", "county"];
+
+  for (let i = 0; i < tokens.length && i < expectedFields.length; i++) {
+    const token = tokens[i];
+    const field = expectedFields[i];
+    exchangeTokens.push(token);
+    parsedFields[field] = token.toUpperCase();
+  }
+
+  // Check for extra tokens
+  if (tokens.length > expectedFields.length) {
+    errors.push({
+      field: `token[${expectedFields.length}]`,
+      message: `Extra token(s) in QSO Party exchange: ${tokens.slice(expectedFields.length).join(" ")}`,
+      code: "EXTRA_TOKENS",
+    });
+  }
+}
+
+/**
+ * Map IOTA exchange fields
+ * Format: serial island_ref (e.g., "001 EU-005")
+ */
+function mapIOTAExchange(
+  tokens: string[],
+  parsedFields: Record<string, string>,
+  exchangeTokens: string[],
+  errors: ParseIssue[],
+  _warnings: ParseIssue[],
+): void {
+  // Expected: serial island_ref (e.g., "001 EU-005")
+  const expectedFields = ["serial", "island_ref"];
+
+  for (let i = 0; i < tokens.length && i < expectedFields.length; i++) {
+    const token = tokens[i];
+    const field = expectedFields[i];
+    exchangeTokens.push(token);
+    parsedFields[field] = token.toUpperCase();
+  }
+
+  // Check for extra tokens
+  if (tokens.length > expectedFields.length) {
+    errors.push({
+      field: `token[${expectedFields.length}]`,
+      message: `Extra token(s) in IOTA exchange: ${tokens.slice(expectedFields.length).join(" ")}`,
+      code: "EXTRA_TOKENS",
+    });
   }
 }

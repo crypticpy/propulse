@@ -130,6 +130,25 @@ export function extractMultiplierValue(
       return null;
     }
 
+    case "GRID_SQUARE": {
+      // 4-character Maidenhead grid square (for VHF contests like CQ WW VHF)
+      // Extract first 4 characters if 6-char grid provided
+      const gridValue = normalized.slice(0, 4);
+      if (/^[A-R]{2}[0-9]{2}$/i.test(gridValue)) {
+        return gridValue.toUpperCase();
+      }
+      return null;
+    }
+
+    case "COUNTY": {
+      // County abbreviation (for State QSO Parties)
+      // Just normalize to uppercase; full validation requires state context
+      if (normalized.length >= 2 && normalized.length <= 5) {
+        return normalized;
+      }
+      return null;
+    }
+
     case "SECTION": {
       // ARRL/RAC section - just normalize to uppercase
       // Full validation would require a list of valid sections
@@ -179,6 +198,8 @@ function extractSingleMultiplier(
       STATE: ["state", "st"],
       PROVINCE: ["province", "prov"],
       GRID: ["grid", "locator"],
+      GRID_SQUARE: ["grid", "locator", "grid_square"],
+      COUNTY: ["county", "cnty"],
       SECTION: ["section", "sect", "sec"],
       DXCC: [],
       WPX_PREFIX: [],

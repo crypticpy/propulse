@@ -13,6 +13,81 @@ import type { ContestSession, ContestQSO } from "@/stores/contestStore";
 import type { UserStation } from "@/types/user";
 
 /**
+ * Exchange format handlers for different contest types
+ * Maps contest ID patterns to specialized exchange formatting functions
+ */
+const EXCHANGE_FORMATTERS: {
+  pattern: RegExp;
+  format: (
+    qso: ContestQSO,
+    myExchange: string,
+    myCallsign: string,
+  ) => { sent: string; received: string };
+}[] = [
+  {
+    // NA Sprint: exchange includes serial, name, state, and QTH
+    pattern: /sprint/i,
+    format: (qso, myExchange, _myCallsign) => {
+      const serial = qso.serialSent?.toString().padStart(3, "0") || "001";
+      return {
+        sent: `${serial} ${myExchange}`,
+        received: `${qso.serialReceived?.toString().padStart(3, "0") || "001"} ${qso.exchangeReceived}`,
+      };
+    },
+  },
+  {
+    // State QSO Party: serial + county or state
+    pattern: /qso-party|qp-/i,
+    format: (qso, myExchange) => {
+      const serial = qso.serialSent?.toString().padStart(3, "0") || "001";
+      return {
+        sent: `${serial} ${myExchange}`,
+        received: `${qso.serialReceived?.toString().padStart(3, "0") || "001"} ${qso.exchangeReceived}`,
+      };
+    },
+  },
+  {
+    // IOTA: RS(T) + serial + island reference
+    pattern: /iota/i,
+    format: (qso, myExchange) => {
+      const serial = qso.serialSent?.toString().padStart(3, "0") || "001";
+      return {
+        sent: `${serial} ${myExchange}`,
+        received: `${qso.serialReceived?.toString().padStart(3, "0") || "001"} ${qso.exchangeReceived}`,
+      };
+    },
+  },
+  {
+    // Stew Perry: grid square exchange
+    pattern: /stew.*perry|top.*band.*distance/i,
+    format: (qso, myExchange) => ({
+      sent: myExchange,
+      received: qso.exchangeReceived,
+    }),
+  },
+  {
+    // WAE: RS(T) + serial (QTCs are handled separately)
+    pattern: /wae/i,
+    format: (qso, _myExchange) => {
+      const serial = qso.serialSent?.toString().padStart(3, "0") || "001";
+      return {
+        sent: serial,
+        received:
+          qso.serialReceived?.toString().padStart(3, "0") ||
+          qso.exchangeReceived,
+      };
+    },
+  },
+];
+
+/**
+ * Get the exchange formatter for a contest, or undefined if using default format
+ */
+export function getExchangeFormatter(contestId: string) {
+  return EXCHANGE_FORMATTERS.find((f) => f.pattern.test(contestId));
+}
+
+/**
  * Validation warning for Cabrillo header fields
  */
 export interface CabrilloValidationWarning {

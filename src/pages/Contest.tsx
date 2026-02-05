@@ -3,6 +3,7 @@
  * Composable layout using modular panels for contest operation
  *
  * Phase 3 update: Keyboard-first entry with hotkeys and ESM support
+ * Phase 5 update: Contest timer with off-time tracking
  */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -14,8 +15,10 @@ import {
   ContestQSOTable,
   ContestConfigModal,
   ContestEditLastModal,
+  ContestTimer,
   type ContestConfig,
 } from "@/components/contest";
+import type { OffTimeRules } from "@/lib/contest/offTimeTracker";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
 import {
@@ -77,6 +80,9 @@ export function Contest() {
   const totalScore = useContestStore((s) => s.activeSession?.totalScore ?? 0);
   const qsos = useContestStore((s) => s.activeSession?.qsos) ?? EMPTY_QSOS;
   const runMode = useContestStore((s) => s.activeSession?.runMode ?? "run");
+  const sessionStartTime = useContestStore(
+    (s) => s.activeSession?.startTime ?? null,
+  );
   const startContest = useContestStore((s) => s.startContest);
   const endContest = useContestStore((s) => s.endContest);
   const undoLastQSO = useContestStore((s) => s.undoLastQSO);
@@ -106,6 +112,45 @@ export function Contest() {
     const def = getContestById(contestId);
     return def?.name ?? contestId;
   }, [contestId]);
+
+  // Derive contest timer data from session and contest definition
+  const contestTimerData = useMemo(() => {
+    if (!contestId || !sessionStartTime) return null;
+    const def = getContestById(contestId);
+    if (!def) return null;
+
+    const contestStart = new Date(sessionStartTime);
+    const contestEnd = new Date(
+      contestStart.getTime() + def.durationHours * 60 * 60 * 1000,
+    );
+
+    // Build off-time rules for single-op categories with limited operating time
+    // Standard rules: CQWW single-op = 36h operating in 48h contest
+    // Default: no off-time rules (unlimited operating)
+    let offTimeRules: OffTimeRules | undefined;
+    if (def.durationHours === 48) {
+      // 48-hour contests typically allow 36 hours for single-op
+      offTimeRules = {
+        maxOperatingHours: 36,
+        contestDurationHours: 48,
+        minOffTimePeriodMinutes: 60,
+      };
+    } else if (def.durationHours === 30) {
+      // 30-hour contests (e.g., Sweepstakes) allow 24 hours
+      offTimeRules = {
+        maxOperatingHours: 24,
+        contestDurationHours: 30,
+        minOffTimePeriodMinutes: 30,
+      };
+    }
+
+    return { contestStart, contestEnd, offTimeRules };
+  }, [contestId, sessionStartTime]);
+
+  // QSO timestamps for off-time calculation
+  const qsoTimestamps = useMemo(() => {
+    return qsos.map((qso) => new Date(qso.timestamp).getTime());
+  }, [qsos]);
 
   // Get last QSO for edit functionality
   const lastQSO = useMemo(() => {
@@ -260,6 +305,17 @@ export function Contest() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Contest Timer (compact mode in header) */}
+            {contestTimerData && (
+              <ContestTimer
+                contestStart={contestTimerData.contestStart}
+                contestEnd={contestTimerData.contestEnd}
+                offTimeRules={contestTimerData.offTimeRules}
+                qsoTimestamps={qsoTimestamps}
+                compact
+              />
+            )}
+
             {/* Band/Mode quick-select display */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-nebula-blue rounded-lg border border-white/10">
               {catActive && (
@@ -339,8 +395,21 @@ export function Contest() {
           </div>
         </div>
 
-        {/* Scoreboard Panel */}
-        <ContestScoreboard />
+        {/* Scoreboard + Timer Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-3">
+            <ContestScoreboard />
+          </div>
+          {/* Full Contest Timer with off-time tracking */}
+          {contestTimerData && (
+            <ContestTimer
+              contestStart={contestTimerData.contestStart}
+              contestEnd={contestTimerData.contestEnd}
+              offTimeRules={contestTimerData.offTimeRules}
+              qsoTimestamps={qsoTimestamps}
+            />
+          )}
+        </div>
 
         {/* One-Line Entry and Multiplier Tracker */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

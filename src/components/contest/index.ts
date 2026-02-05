@@ -92,3 +92,11 @@ export type { BridgeStatusIndicatorProps } from "./BridgeStatusIndicator";
 
 export { RigStatusBar } from "./RigStatusBar";
 export type { RigStatusBarProps } from "./RigStatusBar";
+
+// Phase 5 - Contest Timer and Off-Time Tracker
+export { ContestTimer } from "./ContestTimer";
+export type { ContestTimerProps } from "./ContestTimer";
+
+// Phase 5 - Band-Change Advisor
+export { BandAdvisor } from "./BandAdvisor";
+export type { BandAdvisorProps } from "./BandAdvisor";

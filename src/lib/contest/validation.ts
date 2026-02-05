@@ -19,6 +19,7 @@ import type {
   ValidationIssue,
 } from "./types";
 import { isValidCallsign } from "./parsing";
+import { isValidCounty } from "@/lib/data/counties";
 
 // ============================================================================
 // Constants
@@ -303,21 +304,20 @@ export function validateZone(
   }
 
   if (type === "CQ") {
-      if (zoneNum < 1 || zoneNum > 40) {
-        return {
-          field: "zone",
-          message: `Invalid CQ zone: ${zone} (must be 1-40)`,
-          code: "INVALID_EXCHANGE",
-        };
-      }
+    if (zoneNum < 1 || zoneNum > 40) {
+      return {
+        field: "zone",
+        message: `Invalid CQ zone: ${zone} (must be 1-40)`,
+        code: "INVALID_EXCHANGE",
+      };
     }
-  else if (zoneNum < 1 || zoneNum > 90) {
-        return {
-          field: "zone",
-          message: `Invalid ITU zone: ${zone} (must be 1-90)`,
-          code: "INVALID_EXCHANGE",
-        };
-      }
+  } else if (zoneNum < 1 || zoneNum > 90) {
+    return {
+      field: "zone",
+      message: `Invalid ITU zone: ${zone} (must be 1-90)`,
+      code: "INVALID_EXCHANGE",
+    };
+  }
 
   return null;
 }
@@ -444,6 +444,73 @@ export function validateState(state: string): ValidationIssue | null {
     return {
       field: "state",
       message: `Invalid US state: ${state}`,
+      code: "INVALID_EXCHANGE",
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Validate a county abbreviation for a specific state
+ *
+ * @param county - County abbreviation to validate
+ * @param state - US state code (e.g., "CA", "TX")
+ * @returns ValidationIssue if invalid, null if valid
+ */
+export function validateCounty(
+  county: string,
+  state: string,
+): ValidationIssue | null {
+  const normalizedCounty = county.toUpperCase().trim();
+  const normalizedState = state.toUpperCase().trim();
+
+  if (!isValidCounty(normalizedState, normalizedCounty)) {
+    return {
+      field: "county",
+      message: `Invalid county for ${normalizedState}: ${county}`,
+      code: "INVALID_EXCHANGE",
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Validate a 4-character Maidenhead grid square
+ *
+ * @param grid - Grid square to validate (e.g., "FN31", "EM10")
+ * @returns ValidationIssue if invalid, null if valid
+ */
+export function validateGridSquare(grid: string): ValidationIssue | null {
+  const normalized = grid.toUpperCase().trim();
+
+  // Must be exactly 4 characters: 2 letters (A-R) + 2 digits
+  if (!/^[A-R]{2}[0-9]{2}$/i.test(normalized)) {
+    return {
+      field: "grid",
+      message: `Invalid grid square: ${grid} (expected 4-char format like FN31)`,
+      code: "INVALID_EXCHANGE",
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Validate an IOTA island reference
+ *
+ * @param ref - IOTA reference to validate (e.g., "EU-005", "NA-001")
+ * @returns ValidationIssue if invalid, null if valid
+ */
+export function validateIOTAReference(ref: string): ValidationIssue | null {
+  const normalized = ref.toUpperCase().trim();
+
+  // IOTA format: XX-NNN (continent code + 3-digit number)
+  if (!/^(AF|AN|AS|EU|NA|OC|SA)-\d{3}$/.test(normalized)) {
+    return {
+      field: "island_ref",
+      message: `Invalid IOTA reference: ${ref} (expected format like EU-005)`,
       code: "INVALID_EXCHANGE",
     };
   }
@@ -670,7 +737,7 @@ function validateExchange(
   ctx: ContestContext,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  const {contest} = ctx;
+  const { contest } = ctx;
   const contestId = contest.id.toLowerCase();
 
   // Check each field in the parsed exchange
@@ -720,10 +787,34 @@ function validateExchange(
         issue = validateSerial(value);
         break;
 
-      // Grid, name, power - no specific validation needed beyond presence
+      case "county": {
+        // Validate county abbreviation if contest has a state QSO party code
+        const stateCode = contest.stateQsoParty;
+        if (stateCode) {
+          issue = validateCounty(value, stateCode);
+        }
+        break;
+      }
+
       case "grid":
+        // Validate 4-char grid square for VHF contests
+        if (
+          contestId.includes("vhf") ||
+          contestId.includes("stew") ||
+          contestId.includes("top-band")
+        ) {
+          issue = validateGridSquare(value);
+        }
+        break;
+
+      case "island_ref":
+        issue = validateIOTAReference(value);
+        break;
+
+      // Name, power, age - no specific validation needed beyond presence
       case "name":
       case "power":
+      case "age":
         // These are free-form or validated elsewhere
         break;
 

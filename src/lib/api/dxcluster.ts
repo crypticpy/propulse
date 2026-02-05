@@ -175,23 +175,115 @@ export function parseDXSpiderSpot(line: string): DXSpot | null {
 }
 
 /**
+ * Extract operating mode from a comment string
+ */
+function extractModeFromComment(comment: string): string | undefined {
+  const upper = comment.toUpperCase();
+  for (const m of ["FT8", "FT4", "CW", "SSB", "RTTY"]) {
+    if (upper.includes(m)) return m;
+  }
+  return undefined;
+}
+
+/**
+ * Parse HamQTH CSV (caret-delimited) text into DXSpot array.
+ *
+ * Each line has fields separated by `^`:
+ *   0: Spotter  1: Frequency  2: DX  3: Comment  4: TimeDate
+ *   5: LoTW  6: eQSL  7: Continent  8: Band  9: Country  10: DXCC#
+ *
+ * Example: W3LPL^28022.0^EA6EJ^Heard in NH^1606 2026-02-05^L^E^EU^10M^Balearic Islands^21
+ */
+function parseHamQTHCSV(text: string): DXSpot[] {
+  const lines = text.split("\n").filter((l) => l.trim().length > 0);
+  const spots: DXSpot[] = [];
+
+  for (const line of lines) {
+    const fields = line.split("^");
+    if (fields.length < 5) continue;
+
+    const spotter = fields[0]?.trim() || "";
+    const freqStr = fields[1]?.trim() || "0";
+    const dx = fields[2]?.trim() || "";
+    const comment = fields[3]?.trim() || "";
+    const timeStr = fields[4]?.trim() || "";
+    const bandRaw = fields[8]?.trim() || "";
+
+    // Skip header rows or clearly invalid lines
+    if (!spotter || !dx || spotter === "Spotter") continue;
+
+    const frequency = parseFloat(freqStr) || 0;
+
+    // Parse time: format is "HHMM YYYY-MM-DD"
+    let time: Date;
+    const timeMatch = timeStr.match(/^(\d{4})\s+(\d{4}-\d{2}-\d{2})$/);
+    if (timeMatch) {
+      const [, hhmm, datePart] = timeMatch;
+      const h = parseInt(hhmm.substring(0, 2), 10);
+      const m = parseInt(hhmm.substring(2, 4), 10);
+      time = new Date(
+        `${datePart}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`,
+      );
+    } else if (/^\d{4}$/.test(timeStr)) {
+      const h = parseInt(timeStr.substring(0, 2), 10);
+      const m = parseInt(timeStr.substring(2, 4), 10);
+      time = new Date();
+      time.setUTCHours(h, m, 0, 0);
+      if (time.getTime() > Date.now() + 60_000) {
+        time.setDate(time.getDate() - 1);
+      }
+    } else {
+      time = new Date();
+    }
+
+    // Band: HamQTH uses "10M" -> normalize to "10m"
+    const band = bandRaw
+      ? bandRaw.toLowerCase()
+      : getBandFromFrequency(frequency);
+
+    const mode = extractModeFromComment(comment);
+
+    spots.push({
+      id: crypto.randomUUID(),
+      spotter,
+      dx,
+      frequency,
+      mode,
+      comment,
+      time,
+      band,
+    });
+  }
+
+  return spots;
+}
+
+/**
  * Fetch real spots from the DX cluster REST proxy (Vercel Edge Function).
- * Falls back gracefully if the proxy is unavailable.
+ * Handles both Edge Function JSON responses (production) and HamQTH CSV
+ * responses (dev mode via Vite proxy). Falls back gracefully if unavailable.
  */
 export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
   try {
     const res = await fetch(`/api/spots/dxcluster?limit=${limit}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const contentType = res.headers.get("content-type");
-    if (!contentType?.includes("application/json")) {
+    const contentType = res.headers.get("content-type") || "";
+
+    // HamQTH CSV format (dev via Vite proxy) - text/html or text/plain with ^ delimiters
+    if (!contentType.includes("application/json")) {
+      const text = await res.text();
+      // Verify it looks like caret-delimited data before parsing
+      if (text.includes("^")) {
+        return parseHamQTHCSV(text);
+      }
       return [];
     }
 
+    // JSON format: Edge Function response
     const data = await res.json();
 
-    // Handle both Edge Function format ({ spots: [...] }) and raw
-    // DXHeat format (flat array) for dev proxy compatibility
+    // Handle both Edge Function format ({ spots: [...] }) and flat array
     const items: Record<string, unknown>[] = Array.isArray(data)
       ? data
       : Array.isArray(data?.spots)
@@ -199,14 +291,14 @@ export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
         : [];
 
     return items.map((item: Record<string, unknown>) => {
-      // Frequency: Edge Function uses "frequency" (number), DXHeat raw uses "freq" (string)
+      // Frequency: Edge Function uses "frequency" (number) or "freq" (string)
       const rawFreq = item.frequency ?? item.freq;
       const frequency =
         typeof rawFreq === "number"
           ? rawFreq
           : parseFloat(String(rawFreq)) || 0;
 
-      // Time: Edge Function gives ISO string, DXHeat raw gives HHMM
+      // Time: Edge Function gives ISO string or HHMM
       const rawTime = String(item.time || "");
       let time: Date;
       if (/^\d{4}$/.test(rawTime)) {
@@ -223,16 +315,10 @@ export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
 
       const comment = String(item.comment ?? item.info ?? "");
 
-      // Mode: Edge Function provides it, DXHeat raw needs extraction from comment
+      // Mode: Edge Function provides it, otherwise extract from comment
       let mode = item.mode as string | undefined;
       if (!mode && comment) {
-        const upper = comment.toUpperCase();
-        for (const m of ["FT8", "FT4", "CW", "SSB", "RTTY"]) {
-          if (upper.includes(m)) {
-            mode = m;
-            break;
-          }
-        }
+        mode = extractModeFromComment(comment);
       }
 
       return {

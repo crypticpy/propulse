@@ -79,31 +79,23 @@ export default defineConfig({
       },
       // DX Cluster spots proxy (dev only) - mirrors Vercel `/api/spots/dxcluster`
       "/api/spots/dxcluster": {
-        target: "https://dxheat.com",
+        target: "https://www.hamqth.com",
         changeOrigin: true,
         rewrite: (pathStr) => {
           try {
             const url = new URL(`http://local${pathStr}`);
             const limit = url.searchParams.get("limit") || "50";
-            return `/dxc/data/get?limit=${limit}`;
+            return `/dxc_csv.php?limit=${limit}`;
           } catch {
-            return "/dxc/data/get?limit=50";
+            return "/dxc_csv.php?limit=50";
           }
         },
       },
       // RBN spots proxy (dev only) - mirrors Vercel `/api/spots/rbn`
       "/api/spots/rbn": {
-        target: "https://www.reversebeacon.net",
+        target: "https://www.hamqth.com",
         changeOrigin: true,
-        rewrite: (pathStr) => {
-          try {
-            const url = new URL(`http://local${pathStr}`);
-            const limit = url.searchParams.get("limit") || "50";
-            return `/spots.php?s=1&r=${limit}`;
-          } catch {
-            return "/spots.php?s=1&r=50";
-          }
-        },
+        rewrite: () => `/rbn_data.php?data=1&age=900`,
       },
       // PSKReporter spots proxy (dev only) - mirrors Vercel `/api/spots/pskreporter`
       "/api/spots/pskreporter": {

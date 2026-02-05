@@ -2,7 +2,7 @@
  * PSKReporter API Proxy - Vercel Edge Function
  *
  * Proxies requests to PSKReporter.info to avoid CORS issues
- * Transforms response to unified spot format
+ * Parses XML response and transforms to unified spot JSON format
  */
 
 export const config = {
@@ -20,6 +20,89 @@ function getAllowedOrigin(): string {
 // Maidenhead grid locator regex: 2-8 alphanumeric characters
 // Format: AA00 or AA00aa or AA00aa00
 const GRID_REGEX = /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?$/;
+
+/**
+ * Extract an XML attribute value by name from an element string.
+ * Uses regex since no DOM parser is available in Edge Functions.
+ */
+function getAttr(element: string, name: string): string | undefined {
+  // Match both single and double quoted attribute values
+  const regex = new RegExp(`${name}=["']([^"']*)["']`);
+  const match = element.match(regex);
+  return match ? match[1] : undefined;
+}
+
+/**
+ * Parse receptionReport elements from PSKReporter XML response.
+ *
+ * Expected XML format:
+ * <receptionReports>
+ *   <receptionReport receiverCallsign="W1LP" receiverLocator="EL86XN"
+ *     senderCallsign="N9WD" senderLocator="EN51XU" frequency="14074585"
+ *     flowStartSeconds="1770307487" mode="FT8" sNR="-9" />
+ * </receptionReports>
+ */
+function parseReceptionReports(xml: string): Array<{
+  senderCallsign: string;
+  senderLocator?: string;
+  receiverCallsign: string;
+  receiverLocator?: string;
+  frequency: number;
+  flowStartSeconds: number;
+  mode: string;
+  sNR?: number;
+}> {
+  const reports: Array<{
+    senderCallsign: string;
+    senderLocator?: string;
+    receiverCallsign: string;
+    receiverLocator?: string;
+    frequency: number;
+    flowStartSeconds: number;
+    mode: string;
+    sNR?: number;
+  }> = [];
+
+  // Match all <receptionReport ... /> or <receptionReport ...>...</receptionReport> elements
+  const elementRegex = /<receptionReport\s+([^>]*)\/?>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = elementRegex.exec(xml)) !== null) {
+    const attrs = match[0];
+
+    const senderCallsign = getAttr(attrs, "senderCallsign");
+    const receiverCallsign = getAttr(attrs, "receiverCallsign");
+    const frequencyStr = getAttr(attrs, "frequency");
+    const flowStartStr = getAttr(attrs, "flowStartSeconds");
+
+    // Skip if required fields are missing
+    if (!senderCallsign || !receiverCallsign || !frequencyStr) {
+      continue;
+    }
+
+    const frequency = parseInt(frequencyStr, 10);
+    const flowStartSeconds = parseInt(flowStartStr || "0", 10);
+
+    if (isNaN(frequency)) continue;
+
+    const sNRStr = getAttr(attrs, "sNR");
+    const sNR =
+      sNRStr !== undefined && sNRStr !== "" ? parseInt(sNRStr, 10) : undefined;
+
+    reports.push({
+      senderCallsign,
+      senderLocator: getAttr(attrs, "senderLocator"),
+      receiverCallsign,
+      receiverLocator: getAttr(attrs, "receiverLocator"),
+      frequency,
+      flowStartSeconds: isNaN(flowStartSeconds) ? 0 : flowStartSeconds,
+      mode: getAttr(attrs, "mode") || "FT8",
+      sNR: sNR !== undefined && !isNaN(sNR) ? sNR : undefined,
+    });
+  }
+
+  return reports;
+}
 
 export default async function handler(req: Request) {
   // Handle CORS preflight
@@ -89,7 +172,6 @@ export default async function handler(req: Request) {
 
     const response = await fetch(apiUrl, {
       headers: {
-        Accept: "application/json",
         "User-Agent": "Propulse/1.0 (Ham Radio Toolset)",
       },
     });
@@ -108,48 +190,22 @@ export default async function handler(req: Request) {
       );
     }
 
-    // PSKReporter returns XML by default, but we requested JSON
     const text = await response.text();
 
-    // Try to parse as JSON first
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      // If not JSON, return empty (XML parsing would be complex)
-      return new Response(JSON.stringify({ spots: [] }), {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=60",
-          "Access-Control-Allow-Origin": getAllowedOrigin(),
-        },
-      });
-    }
+    // PSKReporter always returns XML - parse receptionReport elements
+    const reports = parseReceptionReports(text);
 
-    // Transform spots
-    const spots = (data.receptionReport || [])
-      .slice(0, limit)
-      .map(
-        (report: {
-          senderCallsign?: string;
-          senderLocator?: string;
-          receiverCallsign?: string;
-          receiverLocator?: string;
-          frequency?: number;
-          flowStartSeconds?: number;
-          mode?: string;
-          sNR?: number;
-        }) => ({
-          senderCallsign: report.senderCallsign || "",
-          senderLocator: report.senderLocator,
-          receiverCallsign: report.receiverCallsign || "",
-          receiverLocator: report.receiverLocator,
-          frequency: report.frequency || 0,
-          flowStartSeconds: report.flowStartSeconds || 0,
-          mode: report.mode || "FT8",
-          sNR: report.sNR,
-        }),
-      );
+    // Transform to unified spot format
+    const spots = reports.slice(0, limit).map((report) => ({
+      senderCallsign: report.senderCallsign,
+      senderLocator: report.senderLocator,
+      receiverCallsign: report.receiverCallsign,
+      receiverLocator: report.receiverLocator,
+      frequency: report.frequency,
+      flowStartSeconds: report.flowStartSeconds,
+      mode: report.mode,
+      sNR: report.sNR,
+    }));
 
     return new Response(JSON.stringify({ spots }), {
       headers: {

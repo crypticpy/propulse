@@ -11,6 +11,7 @@ import { BandMap } from "./BandMap";
 import { BandActivityBar } from "./BandActivityBar";
 import { InsightsBar } from "./InsightsBar";
 import { TrendSparkline } from "./TrendSparkline";
+import { SkedScheduler } from "./SkedScheduler";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useDXStore, selectAvailableBands } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -87,6 +88,9 @@ export function DXConsole({
 
   // Selected band for BandMap filtering
   const [selectedBand, setSelectedBand] = useState<string | null>(null);
+
+  // Right-panel tab: "bandmap" or "skeds"
+  const [rightTab, setRightTab] = useState<"bandmap" | "skeds">("bandmap");
 
   // When a spot is selected with valid coordinates, update the map target
   // This shows the propagation path from QTH to the DX station
@@ -265,44 +269,74 @@ export function DXConsole({
           />
         </div>
 
-        {/* Right: Band Map (50%) - fills available height */}
+        {/* Right: Band Map / Skeds (50%) - fills available height */}
         <div className="w-1/2 flex flex-col min-h-0">
-          {/* Band Tabs — directly above the BandMap they control */}
-          <div className="flex items-center gap-1 pb-2 overflow-x-auto flex-shrink-0">
-            {availableBands.map((band) => (
-              <button
-                key={band}
-                onClick={() =>
-                  setSelectedBand(selectedBand === band ? null : band)
-                }
-                className={
-                  selectedBand === band
-                    ? "px-3 py-1 text-xs font-bold rounded border transition-all whitespace-nowrap"
-                    : "px-3 py-1 text-xs font-medium rounded border border-transparent transition-all whitespace-nowrap bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-                }
-                style={
-                  selectedBand === band
-                    ? {
-                        backgroundColor: `${BAND_COLORS[band.toLowerCase()] ?? BAND_COLORS.default}33`,
-                        borderColor:
-                          BAND_COLORS[band.toLowerCase()] ??
-                          BAND_COLORS.default,
-                        color:
-                          BAND_COLORS[band.toLowerCase()] ??
-                          BAND_COLORS.default,
-                      }
-                    : undefined
-                }
-              >
-                {band}
-              </button>
-            ))}
+          {/* Panel tabs */}
+          <div className="flex items-center gap-2 pb-2 flex-shrink-0">
+            <button
+              onClick={() => setRightTab("bandmap")}
+              className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
+                rightTab === "bandmap"
+                  ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/40"
+                  : "bg-white/5 text-gray-400 border border-transparent hover:bg-white/10"
+              }`}
+            >
+              Band Map
+            </button>
+            <button
+              onClick={() => setRightTab("skeds")}
+              className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
+                rightTab === "skeds"
+                  ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/40"
+                  : "bg-white/5 text-gray-400 border border-transparent hover:bg-white/10"
+              }`}
+            >
+              Skeds
+            </button>
+            {rightTab === "bandmap" && (
+              <div className="flex items-center gap-1 ml-2 overflow-x-auto">
+                {availableBands.map((band) => (
+                  <button
+                    key={band}
+                    onClick={() =>
+                      setSelectedBand(selectedBand === band ? null : band)
+                    }
+                    className={
+                      selectedBand === band
+                        ? "px-3 py-1 text-xs font-bold rounded border transition-all whitespace-nowrap"
+                        : "px-3 py-1 text-xs font-medium rounded border border-transparent transition-all whitespace-nowrap bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                    }
+                    style={
+                      selectedBand === band
+                        ? {
+                            backgroundColor: `${BAND_COLORS[band.toLowerCase()] ?? BAND_COLORS.default}33`,
+                            borderColor:
+                              BAND_COLORS[band.toLowerCase()] ??
+                              BAND_COLORS.default,
+                            color:
+                              BAND_COLORS[band.toLowerCase()] ??
+                              BAND_COLORS.default,
+                          }
+                        : undefined
+                    }
+                  >
+                    {band}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <BandMap
-            spots={spots}
-            selectedBand={selectedBand}
-            className="flex-1 min-h-[250px]"
-          />
+          {rightTab === "bandmap" ? (
+            <BandMap
+              spots={spots}
+              selectedBand={selectedBand}
+              className="flex-1 min-h-[250px]"
+            />
+          ) : (
+            <div className="flex-1 overflow-y-auto min-h-[250px]">
+              <SkedScheduler />
+            </div>
+          )}
         </div>
       </div>
 

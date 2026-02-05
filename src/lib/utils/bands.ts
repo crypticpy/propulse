@@ -1056,6 +1056,8 @@ export interface HourlyForecast {
     band: string;
     status: "excellent" | "good" | "fair" | "poor" | "closed";
     snrEstimate: number;
+    /** Prediction confidence 0-100 (from signal model, if available) */
+    confidence?: number;
   }[];
 }
 
@@ -1208,6 +1210,7 @@ export function getForecastForPath(
         band: c.band,
         status: c.status,
         snrEstimate: c.snrEstimate,
+        confidence: c.signalPrediction?.confidence,
       }));
 
     forecasts.push({

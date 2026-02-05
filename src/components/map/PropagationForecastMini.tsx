@@ -62,6 +62,7 @@ interface HoverInfo {
   hour: number;
   status: string;
   snr: number;
+  confidence?: number;
   // Screen coordinates for smart positioning
   screenX: number;
   screenY: number;
@@ -851,6 +852,7 @@ export function PropagationForecastMini({
                   const bandData = hourData?.bands.find((b) => b.band === band);
                   const status = bandData?.status || "closed";
                   const snr = bandData?.snrEstimate ?? -30;
+                  const conf = bandData?.confidence;
                   const color = getForecastStatusColor(status);
                   const isCurrentHour = hour === currentHour;
                   const isSynced = syncMode && syncedBand === band;
@@ -878,6 +880,7 @@ export function PropagationForecastMini({
                           hour,
                           status,
                           snr,
+                          confidence: conf,
                           screenX: e.clientX,
                           screenY: e.clientY,
                         })
@@ -1381,6 +1384,16 @@ export function PropagationForecastMini({
                       {hoverInfo.snr}dB
                     </span>
                   </div>
+                  {hoverInfo.confidence != null && (
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-gray-400">Confidence</span>
+                      <span
+                        className={`font-mono font-bold ${hoverInfo.confidence >= 70 ? "text-signal-green" : hoverInfo.confidence >= 50 ? "text-caution-amber" : "text-plasma-orange"}`}
+                      >
+                        {hoverInfo.confidence}%
+                      </span>
+                    </div>
+                  )}
                   <div className="text-xs text-gray-400 border-t border-white/10 pt-2">
                     {STATUS_LABELS[hoverInfo.status]?.tip}
                   </div>

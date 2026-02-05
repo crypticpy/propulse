@@ -52,6 +52,8 @@ export interface SpotRowProps {
   activeBandFilter?: string | null;
   /** Q8: Whether this row is temporarily highlighted (scroll-to animation) */
   isHighlighted?: boolean;
+  /** QoL1: Whether this row has keyboard focus */
+  isFocused?: boolean;
 }
 
 /**

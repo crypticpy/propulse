@@ -124,6 +124,7 @@ export const SpotRow = memo(function SpotRow({
   ageVisualizationEnabled = true,
   activeBandFilter = null,
   isHighlighted = false,
+  isFocused = false,
 }: SpotRowProps) {
   const bandColor = getBandColor(spot.band || "");
   const bandHexColor = getBandHexColor(spot.band || "");
@@ -271,8 +272,13 @@ export const SpotRow = memo(function SpotRow({
       ? "ring-2 ring-cyan-400/60 ring-inset animate-pulse"
       : "";
 
+    // QoL1: Keyboard focus ring
+    const focusClass = isFocused
+      ? "ring-2 ring-cosmic-cyan/70 ring-inset bg-cosmic-cyan/10"
+      : "";
+
     if (isSelected) {
-      return `${base} bg-plasma-orange/20 ${highlightClass}`;
+      return `${base} bg-plasma-orange/20 ${highlightClass} ${focusClass}`;
     }
 
     if (isAlertMatch) {
@@ -292,7 +298,7 @@ export const SpotRow = memo(function SpotRow({
     }
 
     // Apply zebra stripe for default state
-    return `${base} ${zebraStripe} hover:bg-white/5 ${highlightClass}`;
+    return `${base} ${zebraStripe} hover:bg-white/5 ${highlightClass} ${focusClass}`;
   }, [
     isSelected,
     isHovered,
@@ -301,6 +307,7 @@ export const SpotRow = memo(function SpotRow({
     showAgeColumn,
     index,
     isHighlighted,
+    isFocused,
   ]);
 
   // Calculate row opacity based on age (only when age visualization is enabled)
@@ -368,7 +375,9 @@ export const SpotRow = memo(function SpotRow({
       onMouseLeave={handleMouseLeave}
       onContextMenu={handleContextMenu}
       role="row"
+      id={`spot-row-${spot.id}`}
       data-spot-id={spot.id}
+      aria-selected={isSelected || isFocused}
     >
       {/* Time */}
       <div

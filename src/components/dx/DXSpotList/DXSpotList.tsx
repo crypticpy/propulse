@@ -8,7 +8,7 @@
  * This is the main orchestrator component that composes the modular pieces.
  */
 
-import { useCallback } from "react";
+import { useCallback, useState, useRef } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
 import { SpotDetailPanel } from "../SpotDetailPanel";
@@ -136,6 +136,104 @@ export function DXSpotList({
     },
     [handleContextAction],
   );
+
+  // --- QoL1: Keyboard-first DX spot navigation ---
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const spotListRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const len = displaySpots.length;
+      if (len === 0) return;
+
+      switch (e.key) {
+        case "ArrowDown": {
+          e.preventDefault();
+          setFocusedIndex((prev) => Math.min(prev + 1, len - 1));
+          break;
+        }
+        case "ArrowUp": {
+          e.preventDefault();
+          setFocusedIndex((prev) => Math.max(prev - 1, 0));
+          break;
+        }
+        case "PageDown": {
+          e.preventDefault();
+          setFocusedIndex((prev) => Math.min(prev + 10, len - 1));
+          break;
+        }
+        case "PageUp": {
+          e.preventDefault();
+          setFocusedIndex((prev) => Math.max(prev - 10, 0));
+          break;
+        }
+        case "Home": {
+          e.preventDefault();
+          setFocusedIndex(0);
+          break;
+        }
+        case "End": {
+          e.preventDefault();
+          setFocusedIndex(len - 1);
+          break;
+        }
+        case "Enter": {
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < len) {
+            const spot = displaySpots[focusedIndex];
+            handleSelectSpot(spot);
+            handleSetTarget(spot);
+          }
+          break;
+        }
+        case "w":
+        case "W": {
+          if (focusedIndex >= 0 && focusedIndex < len) {
+            e.preventDefault();
+            handleWatchCallsign(displaySpots[focusedIndex]);
+          }
+          break;
+        }
+        case "b":
+        case "B": {
+          if (focusedIndex >= 0 && focusedIndex < len) {
+            e.preventDefault();
+            handleSetTarget(displaySpots[focusedIndex]);
+          }
+          break;
+        }
+        case "Escape": {
+          e.preventDefault();
+          setFocusedIndex(-1);
+          handleSelectSpot(null as unknown as DXSpot);
+          break;
+        }
+      }
+    },
+    [
+      displaySpots,
+      focusedIndex,
+      handleSelectSpot,
+      handleSetTarget,
+      handleWatchCallsign,
+    ],
+  );
+
+  // Scroll focused row into view
+  const scrollFocusedIntoView = useCallback((index: number) => {
+    if (index < 0 || !spotListRef.current) return;
+    const rows = spotListRef.current.querySelectorAll(
+      '[role="row"]:not(:first-child)',
+    );
+    rows[index]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
+
+  // Effect: scroll when focused index changes
+  const prevFocusedRef = useRef(focusedIndex);
+  if (prevFocusedRef.current !== focusedIndex) {
+    prevFocusedRef.current = focusedIndex;
+    scrollFocusedIntoView(focusedIndex);
+  }
 
   return (
     <Card
@@ -284,13 +382,28 @@ export function DXSpotList({
         />
       )}
 
-      {/* Spot List with sticky header */}
+      {/* Spot List with sticky header — QoL1: keyboard navigable */}
       <div
-        ref={listContainerRef}
-        className="flex-1 overflow-y-auto divide-y divide-white/5"
+        ref={(el) => {
+          // Combine both refs
+          (
+            listContainerRef as React.MutableRefObject<HTMLDivElement | null>
+          ).current = el;
+          (
+            spotListRef as React.MutableRefObject<HTMLDivElement | null>
+          ).current = el;
+        }}
+        className="flex-1 overflow-y-auto divide-y divide-white/5 focus:outline-none"
         style={{ maxHeight }}
         role="table"
         aria-label="DX Spots"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        aria-activedescendant={
+          focusedIndex >= 0
+            ? `spot-row-${displaySpots[focusedIndex]?.id}`
+            : undefined
+        }
       >
         {/* Column Headers - sticky at top of scroll container */}
         <div
@@ -324,6 +437,7 @@ export function DXSpotList({
               index={index}
               isSelected={selectedSpot?.id === spot.id}
               isHovered={hoveredSpot?.id === spot.id}
+              isFocused={focusedIndex === index}
               workedStatus={
                 workedStatusMap.get(spot.id) || {
                   isWorked: false,

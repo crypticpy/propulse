@@ -10,7 +10,14 @@ import { forwardRef } from "react";
 /**
  * Badge type variants for different spot statuses
  */
-export type SpotBadgeType = "new" | "band-new" | "worked" | "alert" | "needed";
+export type SpotBadgeType =
+  | "new"
+  | "band-new"
+  | "worked"
+  | "alert"
+  | "needed"
+  | "verified"
+  | "multi-spot";
 
 export interface SpotBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   /** Type of badge to display */
@@ -64,6 +71,18 @@ const badgeConfig: Record<
     bgColor: "bg-yellow-500/25",
     textColor: "text-yellow-400",
     borderColor: "border-yellow-500/50",
+  },
+  verified: {
+    label: "VFD",
+    bgColor: "bg-aurora-purple/20",
+    textColor: "text-aurora-purple",
+    borderColor: "border-aurora-purple/40",
+  },
+  "multi-spot": {
+    label: "MULTI",
+    bgColor: "bg-cosmic-cyan/20",
+    textColor: "text-cosmic-cyan",
+    borderColor: "border-cosmic-cyan/40",
   },
 };
 
@@ -163,6 +182,11 @@ export const SpotBadge = forwardRef<HTMLSpanElement, SpotBadgeProps>(
         ) : type === "needed" ? (
           <>
             <StarIcon className="w-2.5 h-2.5 mr-0.5" />
+            {displayLabel}
+          </>
+        ) : type === "verified" ? (
+          <>
+            <CheckmarkIcon className="w-2.5 h-2.5 mr-0.5" />
             {displayLabel}
           </>
         ) : (

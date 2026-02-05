@@ -212,6 +212,10 @@ export interface NotificationPreferences {
   bandOpeningBands: BandId[];
   /** Sound enabled for alerts */
   soundEnabled: boolean;
+  /** Quiet hours start (UTC hour 0-23, undefined = disabled) */
+  quietHoursStart?: number;
+  /** Quiet hours end (UTC hour 0-23, undefined = disabled) */
+  quietHoursEnd?: number;
 }
 
 /**

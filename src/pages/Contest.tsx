@@ -18,6 +18,7 @@ import {
   ContestTimer,
   type ContestConfig,
 } from "@/components/contest";
+import { MobileContestEntry } from "@/components/contest/MobileContestEntry";
 import type { OffTimeRules } from "@/lib/contest/offTimeTracker";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
@@ -62,7 +63,23 @@ function rigModeToContestMode(rigMode: string): string {
  * Contest Page Component
  * Composes all contest panels into a unified interface with keyboard-first operation
  */
+function useIsMobile(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    setIsMobile(mql.matches);
+    return () => mql.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export function Contest() {
+  const isMobile = useIsMobile();
+
   // Mount WSJT-X auto-log listener
   useWSJTXAutoLog();
 
@@ -289,6 +306,11 @@ export function Contest() {
         />
       </div>
     );
+  }
+
+  // Render mobile contest view for small screens
+  if (isMobile && hasActiveSession) {
+    return <MobileContestEntry />;
   }
 
   // Render active contest

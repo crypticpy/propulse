@@ -27,7 +27,25 @@ function jsonResponse(
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      ...extraHeaders,
+    },
+  });
+}
+
+function textResponse(
+  body: string,
+  status: number,
+  extraHeaders?: Record<string, string>,
+): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache, no-store",
+      "Access-Control-Allow-Origin": getAllowedOrigin(),
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       ...extraHeaders,
     },
@@ -108,6 +126,78 @@ function parseEqslResponse(html: string): {
   };
 }
 
+/**
+ * Handle GET requests for eQSL inbox checking.
+ * Downloads incoming QSL confirmations in ADIF format.
+ * No caching — credentials are in transit.
+ */
+async function handleGetRequest(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const username = url.searchParams.get("username");
+  const password = url.searchParams.get("password");
+  const since = url.searchParams.get("since");
+
+  if (!username || !password) {
+    return jsonResponse(
+      { error: "username and password query parameters are required" },
+      400,
+    );
+  }
+
+  try {
+    const eqslUrl = new URL("https://www.eqsl.cc/qslcard/DownloadInBox.cfm");
+    eqslUrl.searchParams.set("UserName", username);
+    eqslUrl.searchParams.set("Password", password);
+    if (since) {
+      // eQSL expects date in MM/DD/YYYY format for RcvdSince
+      eqslUrl.searchParams.set("RcvdSince", since);
+    }
+
+    const response = await fetch(eqslUrl.toString(), {
+      method: "GET",
+      headers: {
+        "User-Agent": "PropUlse/1.0 (Ham Radio eQSL Inbox Check)",
+      },
+    });
+
+    if (!response.ok) {
+      return jsonResponse(
+        {
+          success: false,
+          error: `eQSL server returned ${response.status}: ${response.statusText}`,
+        },
+        502,
+      );
+    }
+
+    const adifText = await response.text();
+
+    // Check for error responses embedded in the HTML/text
+    const lowerText = adifText.toLowerCase();
+    if (
+      lowerText.includes("invalid user") ||
+      lowerText.includes("login failed")
+    ) {
+      return jsonResponse(
+        { success: false, error: "Invalid eQSL username or password" },
+        401,
+      );
+    }
+
+    // Return raw ADIF text for client-side parsing
+    return textResponse(adifText, 200);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return jsonResponse(
+      {
+        success: false,
+        error: `Failed to connect to eQSL: ${message}`,
+      },
+      502,
+    );
+  }
+}
+
 export default async function handler(request: Request): Promise<Response> {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
@@ -115,13 +205,18 @@ export default async function handler(request: Request): Promise<Response> {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
   }
 
-  // Only allow POST
+  // Handle GET requests for inbox checking
+  if (request.method === "GET") {
+    return handleGetRequest(request);
+  }
+
+  // Only allow POST for uploads
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }

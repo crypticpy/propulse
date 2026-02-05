@@ -30,7 +30,7 @@ function jsonResponse(
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       ...extraHeaders,
     },
@@ -138,6 +138,63 @@ function normalizeCallsign(callsign: string): string {
   return callsign.trim().toUpperCase();
 }
 
+/**
+ * Handle GET requests for DXCC status queries.
+ * Fetches DXCC info for a callsign from Club Log's getdxcc endpoint.
+ * Caches responses for 5 minutes.
+ */
+async function handleGetRequest(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const callsign = url.searchParams.get("callsign");
+  const apiKey = url.searchParams.get("api_key");
+
+  if (!callsign) {
+    return jsonResponse({ error: "callsign query parameter is required" }, 400);
+  }
+
+  if (!apiKey) {
+    return jsonResponse({ error: "api_key query parameter is required" }, 400);
+  }
+
+  try {
+    const normalizedCall = normalizeCallsign(callsign);
+    const clublogUrl = `https://clublog.org/getdxcc.php?call=${encodeURIComponent(normalizedCall)}&api=${encodeURIComponent(apiKey)}&full=1`;
+
+    const response = await fetch(clublogUrl, {
+      method: "GET",
+      headers: {
+        "User-Agent": "PropUlse/1.0 (Ham Radio DXCC Lookup)",
+      },
+    });
+
+    if (!response.ok) {
+      return jsonResponse(
+        {
+          success: false,
+          error: `Club Log returned ${response.status}: ${response.statusText}`,
+        },
+        502,
+      );
+    }
+
+    // Club Log returns JSON for getdxcc with full=1
+    const data = await response.json();
+
+    return jsonResponse({ success: true, data }, 200, {
+      "Cache-Control": "public, max-age=300",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return jsonResponse(
+      {
+        success: false,
+        error: `Failed to query Club Log: ${message}`,
+      },
+      502,
+    );
+  }
+}
+
 export default async function handler(request: Request): Promise<Response> {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
@@ -145,13 +202,18 @@ export default async function handler(request: Request): Promise<Response> {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
   }
 
-  // Only allow POST
+  // Handle GET requests for status queries
+  if (request.method === "GET") {
+    return handleGetRequest(request);
+  }
+
+  // Only allow POST for uploads
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }

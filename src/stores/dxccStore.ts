@@ -111,6 +111,16 @@ interface DXCCState {
   /** Get per-band progress */
   getBandProgress: () => DXCCBandProgress[];
 
+  /** Bulk-mark confirmations from LoTW or other sync sources */
+  markBulkConfirmed: (
+    confirmations: Array<{
+      entityId: number;
+      band: DXCCBand;
+      mode: DXCCMode;
+      method: string;
+    }>,
+  ) => void;
+
   /** Rebuild tracking sets from the entries log */
   rebuildFromLog: () => void;
 
@@ -261,6 +271,48 @@ export const useDXCCStore = create<DXCCState>()(
             band,
             worked: workedIds.size,
             confirmed: confirmedIds.size,
+          };
+        });
+      },
+
+      markBulkConfirmed: (confirmations) => {
+        set((state) => {
+          // Clone entries once for batch mutation
+          const updatedEntries = [...state.workedEntries];
+          const newConfirmedIds = new Set(state.confirmedEntityIds);
+
+          // Build a lookup map for fast matching: "entityId-band-mode" -> index
+          const entryMap = new Map<string, number[]>();
+          for (let i = 0; i < updatedEntries.length; i++) {
+            const e = updatedEntries[i];
+            const key = `${e.entityId}-${e.band}-${e.mode}`;
+            const indices = entryMap.get(key);
+            if (indices) {
+              indices.push(i);
+            } else {
+              entryMap.set(key, [i]);
+            }
+          }
+
+          // Apply each confirmation
+          for (const conf of confirmations) {
+            const key = `${conf.entityId}-${conf.band}-${conf.mode}`;
+            const indices = entryMap.get(key);
+            if (indices) {
+              for (const idx of indices) {
+                updatedEntries[idx] = {
+                  ...updatedEntries[idx],
+                  confirmed: true,
+                  confirmationMethod: conf.method,
+                };
+              }
+            }
+            newConfirmedIds.add(conf.entityId);
+          }
+
+          return {
+            workedEntries: updatedEntries,
+            confirmedEntityIds: newConfirmedIds,
           };
         });
       },

@@ -246,6 +246,19 @@ interface MapState {
   exportRegionPresets: () => string;
   importRegionPresets: (json: string) => boolean;
 
+  // Phase 3 feature layer toggles
+  showEsLayer: boolean;
+  setShowEsLayer: (show: boolean) => void;
+  toggleEsLayer: () => void;
+
+  showObservedMUF: boolean;
+  observedMUFMode: "observed" | "divergence" | "off";
+  setObservedMUFMode: (mode: "observed" | "divergence" | "off") => void;
+
+  showCorrelation: boolean;
+  setShowCorrelation: (show: boolean) => void;
+  toggleCorrelation: () => void;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -449,6 +462,12 @@ const initialState = {
   centerLocation: null as CenterLocation | null,
   regionPresets: loadRegionPresets(),
   activePresetId: loadActivePresetId(),
+
+  // Phase 3 feature layer toggles
+  showEsLayer: false,
+  showObservedMUF: false,
+  observedMUFMode: "off" as "observed" | "divergence" | "off",
+  showCorrelation: true, // On by default
 };
 
 export const useMapStore = create<MapState>((set, get) => ({
@@ -844,6 +863,20 @@ export const useMapStore = create<MapState>((set, get) => ({
       return false;
     }
   },
+
+  // Phase 3 feature layer toggles
+  setShowEsLayer: (show) => set({ showEsLayer: show }),
+  toggleEsLayer: () => set((state) => ({ showEsLayer: !state.showEsLayer })),
+
+  setObservedMUFMode: (mode) =>
+    set({
+      observedMUFMode: mode,
+      showObservedMUF: mode !== "off",
+    }),
+
+  setShowCorrelation: (show) => set({ showCorrelation: show }),
+  toggleCorrelation: () =>
+    set((state) => ({ showCorrelation: !state.showCorrelation })),
 
   reset: () => set(initialState),
 }));

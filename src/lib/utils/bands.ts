@@ -14,6 +14,7 @@ import { predictSignalStrength } from "./signal";
 import type { SignalPrediction, SUnit } from "@/types/signal";
 import { traceRayPath } from "./rayTrace";
 import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
+import { getEsSeasonalProbability } from "./sporadicE";
 
 /**
  * Band configuration with frequency and propagation characteristics
@@ -687,6 +688,21 @@ export function getBandConditionsForPath(
       }
     }
 
+    // Sporadic E annotation for 6m and 10m
+    if (
+      (band.name === "6m" || band.name === "10m") &&
+      (status === "closed" || status === "poor")
+    ) {
+      const month = new Date().getMonth();
+      const midLat = (homeLat + targetLat) / 2;
+      const esProbability = getEsSeasonalProbability(month, midLat);
+      if (esProbability > 0.3) {
+        notes.push(
+          `Es possible (seasonal probability: ${Math.round(esProbability * 100)}%)`,
+        );
+      }
+    }
+
     return {
       band: band.name,
       frequency: band.freq,
@@ -930,6 +946,21 @@ export function getEnhancedBandConditions(
       adjustedSNR = -30;
       if (notes.length === 0) {
         notes.push("Band closed");
+      }
+    }
+
+    // Sporadic E annotation for 6m and 10m
+    if (
+      (band.name === "6m" || band.name === "10m") &&
+      (status === "closed" || status === "poor")
+    ) {
+      const month = date.getMonth();
+      const esMidLat = (homeLat + targetLat) / 2;
+      const esProbability = getEsSeasonalProbability(month, esMidLat);
+      if (esProbability > 0.3) {
+        notes.push(
+          `Es possible (seasonal probability: ${Math.round(esProbability * 100)}%)`,
+        );
       }
     }
 

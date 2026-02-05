@@ -30,6 +30,17 @@ import {
 import { Card } from "@/components/ui/Card";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import type { SUnit } from "@/types/signal";
+import { CorrelationIndicator } from "./CorrelationIndicator";
+import {
+  aggregateCorrelation,
+  type BandCorrelationSummary,
+} from "@/lib/utils/spotCorrelation";
+import { useLiveSpots } from "@/hooks/useLiveSpots";
+import { detectEsOpening, type EsDetection } from "@/lib/utils/sporadicE";
+import {
+  BandOpeningDetector,
+  type BandOpening,
+} from "@/lib/services/bandOpeningDetector";
 
 interface BandConditionsPanelProps {
   displayTime: Date;
@@ -141,6 +152,8 @@ const GRID_STATUS_COLORS: Record<
 interface BandConditionGridCellProps {
   condition: PathBandCondition;
   isSynced: boolean;
+  isEsActive?: boolean;
+  hasBandOpening?: boolean;
 }
 
 function gridCellPropsAreEqual(
@@ -150,13 +163,17 @@ function gridCellPropsAreEqual(
   return (
     prevProps.condition.band === nextProps.condition.band &&
     prevProps.condition.status === nextProps.condition.status &&
-    prevProps.isSynced === nextProps.isSynced
+    prevProps.isSynced === nextProps.isSynced &&
+    prevProps.isEsActive === nextProps.isEsActive &&
+    prevProps.hasBandOpening === nextProps.hasBandOpening
   );
 }
 
 const BandConditionGridCell = memo(function BandConditionGridCell({
   condition,
   isSynced,
+  isEsActive,
+  hasBandOpening,
 }: BandConditionGridCellProps) {
   const colors = GRID_STATUS_COLORS[condition.status];
   const statusLabel =
@@ -170,6 +187,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
         border: `1px solid ${colors.border}`,
         backgroundColor: colors.bg,
         textAlign: "center",
+        position: "relative",
         ...(isSynced
           ? { boxShadow: "inset 0 0 0 1px rgba(34, 211, 238, 0.5)" }
           : {}),
@@ -196,7 +214,13 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           letterSpacing: "0.03em",
         }}
       >
-        {statusLabel}
+        {isEsActive ? (
+          <span style={{ color: "#a855f7" }}>Es</span>
+        ) : hasBandOpening ? (
+          <span style={{ color: "#00ff88" }}>OPEN</span>
+        ) : (
+          statusLabel
+        )}
       </div>
     </div>
   );
@@ -213,7 +237,7 @@ export function BandConditionsPanel({
   collapsed = false,
   onToggleCollapse,
 }: BandConditionsPanelProps) {
-  const { target } = useMapStore();
+  const { target, showCorrelation } = useMapStore();
   const { station } = useUserStore();
   const { syncMode, syncedBand } = useDXStore();
   const uiPrefs = useUIInteractionPrefs();
@@ -363,6 +387,80 @@ export function BandConditionsPanel({
     const status = getGreylineStatus(station.lat, station.lon, displayTime);
     return status.intensity;
   }, [station, displayTime]);
+
+  // Fetch live spots for correlation analysis
+  const { spots: liveSpots } = useLiveSpots({
+    grid: station?.grid,
+    enabled: showCorrelation,
+  });
+
+  // Compute per-band correlation summaries from live spots and model predictions
+  const correlationMap = useMemo((): Map<string, BandCorrelationSummary> => {
+    if (!showCorrelation || !bandConditions.length || liveSpots.length === 0) {
+      return new Map();
+    }
+
+    // Build predictions map from current band conditions
+    const predictions: Record<string, string> = {};
+    for (const bc of bandConditions) {
+      predictions[bc.band] = bc.status;
+    }
+
+    const summaries = aggregateCorrelation(liveSpots, predictions);
+    const map = new Map<string, BandCorrelationSummary>();
+    for (const s of summaries) {
+      map.set(s.band, s);
+    }
+    return map;
+  }, [showCorrelation, bandConditions, liveSpots]);
+
+  // Detect sporadic E openings from live spots (works with LiveSpot which extends DXSpot)
+  const esDetection = useMemo((): EsDetection | null => {
+    if (liveSpots.length === 0) {
+      return null;
+    }
+    return detectEsOpening(liveSpots);
+  }, [liveSpots]);
+
+  // Band opening detector — singleton instance via ref
+  const bandOpeningDetectorRef = useRef<BandOpeningDetector | null>(null);
+  const [activeOpenings, setActiveOpenings] = useState<BandOpening[]>([]);
+
+  // Initialize the band opening detector once
+  useEffect(() => {
+    const detector = new BandOpeningDetector();
+    bandOpeningDetectorRef.current = detector;
+
+    const unsub = detector.subscribe(() => {
+      setActiveOpenings(detector.getCurrentOpenings());
+    });
+
+    return () => {
+      unsub();
+      detector.destroy();
+    };
+  }, []);
+
+  // Feed live spots to the band opening detector
+  useEffect(() => {
+    const detector = bandOpeningDetectorRef.current;
+    if (!detector || liveSpots.length === 0) {
+      return;
+    }
+    detector.update(liveSpots);
+    setActiveOpenings(detector.getCurrentOpenings());
+  }, [liveSpots]);
+
+  // Build a set of bands with active openings for quick lookup
+  const openingBands = useMemo((): Set<string> => {
+    const set = new Set<string>();
+    for (const opening of activeOpenings) {
+      if (opening.isActive) {
+        set.add(opening.band);
+      }
+    }
+    return set;
+  }, [activeOpenings]);
 
   // No station configured
   if (!station) {
@@ -647,6 +745,12 @@ export function BandConditionsPanel({
                       key={condition.band}
                       condition={condition}
                       isSynced={syncMode && syncedBand === condition.band}
+                      isEsActive={
+                        (condition.band === "6m" || condition.band === "10m") &&
+                        esDetection?.active === true &&
+                        esDetection.bands.includes(condition.band)
+                      }
+                      hasBandOpening={openingBands.has(condition.band)}
                     />
                   ))}
                 </div>
@@ -680,6 +784,20 @@ export function BandConditionsPanel({
                         compact={compact}
                         isSynced={syncMode && syncedBand === condition.band}
                         greylineIntensity={greylineIntensity}
+                        correlation={
+                          showCorrelation
+                            ? correlationMap.get(condition.band)
+                            : undefined
+                        }
+                        esDetection={
+                          (condition.band === "6m" ||
+                            condition.band === "10m") &&
+                          esDetection?.active &&
+                          esDetection.bands.includes(condition.band)
+                            ? esDetection
+                            : undefined
+                        }
+                        hasBandOpening={openingBands.has(condition.band)}
                       />
                     ))}
                   </tbody>
@@ -765,6 +883,12 @@ interface BandConditionRowProps {
   compact: boolean;
   isSynced: boolean;
   greylineIntensity: GreylineIntensity;
+  /** Correlation summary for this band (when showCorrelation is on) */
+  correlation?: BandCorrelationSummary;
+  /** Active Es detection for this band (6m/10m only) */
+  esDetection?: EsDetection;
+  /** Whether this band has an active opening detected */
+  hasBandOpening?: boolean;
 }
 
 /**
@@ -782,7 +906,11 @@ function bandConditionRowPropsAreEqual(
     prevProps.hasEnhancedData === nextProps.hasEnhancedData &&
     prevProps.compact === nextProps.compact &&
     prevProps.isSynced === nextProps.isSynced &&
-    prevProps.greylineIntensity === nextProps.greylineIntensity
+    prevProps.greylineIntensity === nextProps.greylineIntensity &&
+    prevProps.correlation?.agreement === nextProps.correlation?.agreement &&
+    prevProps.correlation?.spotCount === nextProps.correlation?.spotCount &&
+    prevProps.esDetection?.active === nextProps.esDetection?.active &&
+    prevProps.hasBandOpening === nextProps.hasBandOpening
   );
 }
 
@@ -796,6 +924,9 @@ const BandConditionRow = memo(function BandConditionRow({
   compact,
   isSynced,
   greylineIntensity,
+  correlation,
+  esDetection,
+  hasBandOpening,
 }: BandConditionRowProps) {
   const statusColor = getPathStatusColor(condition.status);
   const statusBgColor = getPathStatusBgColor(condition.status);
@@ -848,6 +979,24 @@ const BandConditionRow = memo(function BandConditionRow({
               GL
             </span>
           )}
+          {/* Es Active badge for 6m/10m */}
+          {esDetection?.active && (
+            <span
+              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-purple-500/20 text-purple-400 animate-pulse"
+              title={`Sporadic E detected: ${esDetection.spotCount} spots, est. MUF ${esDetection.estimatedMUFMHz} MHz`}
+            >
+              Es
+            </span>
+          )}
+          {/* Band opening indicator */}
+          {hasBandOpening && (
+            <span
+              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-signal-green/20 text-signal-green animate-pulse"
+              title="Band opening detected"
+            >
+              OPEN
+            </span>
+          )}
         </div>
         <div className="text-gray-400 text-xs">{condition.frequency}</div>
       </td>
@@ -858,6 +1007,16 @@ const BandConditionRow = memo(function BandConditionRow({
           >
             {statusLabel}
           </span>
+          {/* Correlation indicator beneath status */}
+          {correlation && (
+            <CorrelationIndicator
+              agreement={correlation.agreement}
+              confidence={correlation.confidence}
+              details={correlation.details}
+              spotCount={correlation.spotCount}
+              className="mt-0.5"
+            />
+          )}
         </div>
       </td>
       {!compact && (

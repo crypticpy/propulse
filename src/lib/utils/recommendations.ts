@@ -20,6 +20,7 @@ import {
   type BestWindow,
 } from "./bands";
 import { MODE_PARAMETERS } from "./signal";
+import type { BandCorrelationSummary } from "./spotCorrelation";
 
 /**
  * Mode-specific minimum SNR thresholds
@@ -121,6 +122,38 @@ function generateReason(
 }
 
 /**
+ * Annotate a recommendation reason with correlation data if available.
+ * Appends a correlation-specific suffix based on the agreement status.
+ */
+function annotateWithCorrelation(
+  reason: string,
+  bandName: string,
+  correlationData?: BandCorrelationSummary[],
+): string {
+  if (!correlationData || correlationData.length === 0) {
+    return reason;
+  }
+
+  const bandCorrelation = correlationData.find((c) => c.band === bandName);
+  if (!bandCorrelation) {
+    return reason;
+  }
+
+  switch (bandCorrelation.agreement) {
+    case "confirmed":
+      return `${reason} (confirmed by ${bandCorrelation.spotCount} spots)`;
+    case "surprise":
+      return `${reason} (surprise opening detected -- ${bandCorrelation.spotCount} spots despite model prediction)`;
+    case "discrepancy":
+      return `${reason} (caution: model predicts Good but no spots detected)`;
+    case "unverified":
+      return `${reason} (unverified -- no recent spots)`;
+    default:
+      return reason;
+  }
+}
+
+/**
  * Get the optimal band recommendation for a specific path
  *
  * @param homeLat - Home station latitude
@@ -142,6 +175,7 @@ export function getOptimalBand(
   sfi: number,
   time: Date,
   mode: OperatingMode,
+  correlationData?: BandCorrelationSummary[],
 ): BandRecommendation | null {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -169,13 +203,18 @@ export function getOptimalBand(
   }
 
   const best = scoredBands[0];
+  const reason = generateReason(best.condition, mode, true);
   return {
     band: best.condition.band,
     score: best.score,
     snr: best.condition.snrEstimate,
     sUnit: best.condition.sUnit?.text || "N/A",
     status: best.condition.status,
-    reason: generateReason(best.condition, mode, true),
+    reason: annotateWithCorrelation(
+      reason,
+      best.condition.band,
+      correlationData,
+    ),
   };
 }
 
@@ -193,6 +232,7 @@ export function getAlternateBands(
   sfi: number,
   time: Date,
   mode: OperatingMode,
+  correlationData?: BandCorrelationSummary[],
 ): BandRecommendation[] {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -216,14 +256,21 @@ export function getAlternateBands(
     .sort((a, b) => b.score - a.score);
 
   // Return 2nd, 3rd, 4th best (skip the optimal)
-  return scoredBands.slice(1, 4).map((sb) => ({
-    band: sb.condition.band,
-    score: sb.score,
-    snr: sb.condition.snrEstimate,
-    sUnit: sb.condition.sUnit?.text || "N/A",
-    status: sb.condition.status,
-    reason: generateReason(sb.condition, mode, false),
-  }));
+  return scoredBands.slice(1, 4).map((sb) => {
+    const reason = generateReason(sb.condition, mode, false);
+    return {
+      band: sb.condition.band,
+      score: sb.score,
+      snr: sb.condition.snrEstimate,
+      sUnit: sb.condition.sUnit?.text || "N/A",
+      status: sb.condition.status,
+      reason: annotateWithCorrelation(
+        reason,
+        sb.condition.band,
+        correlationData,
+      ),
+    };
+  });
 }
 
 /**
@@ -350,6 +397,7 @@ export function getRecommendations(
   sfi: number,
   time: Date,
   mode: OperatingMode,
+  correlationData?: BandCorrelationSummary[],
 ): PropagationRecommendations {
   const optimal = getOptimalBand(
     homeLat,
@@ -360,6 +408,7 @@ export function getRecommendations(
     sfi,
     time,
     mode,
+    correlationData,
   );
 
   const alternatives = getAlternateBands(
@@ -371,6 +420,7 @@ export function getRecommendations(
     sfi,
     time,
     mode,
+    correlationData,
   );
 
   const timeWindows = getBestTimeWindows(

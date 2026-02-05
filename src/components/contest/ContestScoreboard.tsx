@@ -25,6 +25,8 @@ import { Card } from "@/components/ui";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
 
+const EMPTY_QSOS: ContestQSO[] = [];
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
@@ -534,7 +536,7 @@ export function ContestScoreboard({
   // Narrow selectors for minimal re-renders
   const contestId = useContestStore((s) => s.activeSession?.contestId);
   const startTime = useContestStore((s) => s.activeSession?.startTime);
-  const qsos = useContestStore((s) => s.activeSession?.qsos ?? []);
+  const qsos = useContestStore((s) => s.activeSession?.qsos) ?? EMPTY_QSOS;
   const totalPoints = useContestStore((s) => s.activeSession?.totalPoints ?? 0);
   const totalMultipliers = useContestStore(
     (s) => s.activeSession?.totalMultipliers ?? 0,

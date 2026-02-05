@@ -10,8 +10,6 @@ import { DXSpotList } from "./DXSpotList";
 import { BandMap } from "./BandMap";
 import { BandActivityBar } from "./BandActivityBar";
 import { InsightsBar } from "./InsightsBar";
-import { SpotStatsDashboard } from "./SpotStatsDashboard";
-import { ClusterPulseDetailModal } from "./modals/ClusterPulseDetailModal";
 import { TrendSparkline } from "./TrendSparkline";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useDXStore, selectAvailableBands } from "@/stores/dxStore";
@@ -89,9 +87,6 @@ export function DXConsole({
 
   // Selected band for BandMap filtering
   const [selectedBand, setSelectedBand] = useState<string | null>(null);
-
-  // Stats modal state
-  const [showStatsModal, setShowStatsModal] = useState(false);
 
   // When a spot is selected with valid coordinates, update the map target
   // This shows the propagation path from QTH to the DX station
@@ -311,20 +306,10 @@ export function DXConsole({
         </div>
       </div>
 
-      {/* Stats Strip - compact summary metrics */}
-      <div className="flex-shrink-0 px-4">
-        <SpotStatsDashboard compact onClick={() => setShowStatsModal(true)} />
-      </div>
-
       {/* Insights Bar - Full width at bottom */}
       <div className="flex-shrink-0 px-4 pb-4">
         <InsightsBar displayTime={new Date()} />
       </div>
-
-      <ClusterPulseDetailModal
-        isOpen={showStatsModal}
-        onClose={() => setShowStatsModal(false)}
-      />
     </div>
   );
 }

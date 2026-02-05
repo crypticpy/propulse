@@ -23,6 +23,8 @@ import {
   BAND_QUICK_SELECT,
 } from "@/hooks/useContestHotkeys";
 
+const EMPTY_QSOS: ContestQSO[] = [];
+
 /**
  * Contest Page Component
  * Composes all contest panels into a unified interface with keyboard-first operation
@@ -33,7 +35,7 @@ export function Contest() {
   const contestId = useContestStore((s) => s.activeSession?.contestId);
   const qsoCount = useContestStore((s) => s.activeSession?.qsos.length ?? 0);
   const totalScore = useContestStore((s) => s.activeSession?.totalScore ?? 0);
-  const qsos = useContestStore((s) => s.activeSession?.qsos ?? []);
+  const qsos = useContestStore((s) => s.activeSession?.qsos) ?? EMPTY_QSOS;
   const runMode = useContestStore((s) => s.activeSession?.runMode ?? "run");
   const startContest = useContestStore((s) => s.startContest);
   const endContest = useContestStore((s) => s.endContest);

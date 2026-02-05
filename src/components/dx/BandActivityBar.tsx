@@ -141,8 +141,8 @@ export function BandActivityBar({
           >
             {showLabel && (
               <span
-                className="font-mono text-xs font-bold text-white select-none whitespace-nowrap leading-none"
-                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}
+                className="font-mono text-xs font-bold text-black select-none whitespace-nowrap leading-none"
+                style={{ textShadow: "0 1px 1px rgba(255,255,255,0.3)" }}
               >
                 {seg.band}
                 <span className="ml-1 text-[11px] font-semibold opacity-90">

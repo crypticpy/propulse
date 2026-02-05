@@ -10,6 +10,8 @@ import { useMemo, useCallback, useState, memo } from "react";
 import { Card } from "@/components/ui";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 
+const EMPTY_QSOS: ContestQSO[] = [];
+
 /**
  * Format time for QSO table display (HHMM)
  */
@@ -159,7 +161,7 @@ export function ContestQSOTable({
   onEditQSO,
 }: ContestQSOTableProps) {
   // Narrow selectors - only subscribe to what we need
-  const qsos = useContestStore((s) => s.activeSession?.qsos ?? []);
+  const qsos = useContestStore((s) => s.activeSession?.qsos) ?? EMPTY_QSOS;
   const totalQsos = qsos.length;
   const undoLastQSO = useContestStore((s) => s.undoLastQSO);
 

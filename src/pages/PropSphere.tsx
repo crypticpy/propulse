@@ -43,8 +43,7 @@ const FullscreenPropSphere = lazy(() =>
     default: m.FullscreenPropSphere,
   })),
 );
-import { DXSpotList, DXConsole, SpotStatsDashboard } from "@/components/dx";
-import { ClusterPulseDetailModal } from "@/components/dx/modals/ClusterPulseDetailModal";
+import { DXSpotList, DXConsole } from "@/components/dx";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
@@ -146,9 +145,6 @@ export function PropSphere() {
 
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
-
-  // Stats modal state
-  const [showStatsModal, setShowStatsModal] = useState(false);
 
   // Get watch store for toggle watch action
   const watchStore = useWatchStore();
@@ -986,18 +982,13 @@ export function PropSphere() {
                 </Card>
               )}
 
-              {/* DX Spots with Stats */}
+              {/* DX Spots */}
               <div className="flex flex-col h-full min-h-0">
-                <SpotStatsDashboard
-                  compact
-                  onClick={() => setShowStatsModal(true)}
-                  className="flex-shrink-0 rounded-b-none border-b-0"
-                />
                 <DXSpotList
                   maxHeight="100px"
                   showFilters={true}
                   showHeader={true}
-                  className="flex-1 min-h-0 rounded-t-none"
+                  className="flex-1 min-h-0"
                   onResearchGrid={handleResearchGrid}
                 />
               </div>
@@ -1077,19 +1068,14 @@ export function PropSphere() {
                 {/* Collapsible Content */}
                 <div
                   className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                    dxClusterExpanded ? "h-[340px]" : "h-0"
+                    dxClusterExpanded ? "h-[280px]" : "h-0"
                   }`}
                 >
-                  <SpotStatsDashboard
-                    compact
-                    onClick={() => setShowStatsModal(true)}
-                    className="border-t-0 rounded-none"
-                  />
                   <DXSpotList
-                    maxHeight="248px"
+                    maxHeight="268px"
                     showFilters={true}
                     showHeader={false}
-                    className="border-t-0 rounded-t-none h-full"
+                    className="rounded-t-none h-full"
                     onResearchGrid={handleResearchGrid}
                   />
                 </div>
@@ -1275,12 +1261,6 @@ export function PropSphere() {
         onPrev={tourPrevStep}
         onSkip={skipTour}
         onComplete={completeTour}
-      />
-
-      {/* Cluster Pulse Stats Modal */}
-      <ClusterPulseDetailModal
-        isOpen={showStatsModal}
-        onClose={() => setShowStatsModal(false)}
       />
 
       {/* Share Modal */}

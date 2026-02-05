@@ -105,6 +105,7 @@ export type PanelId = keyof PanelStates;
 /** Label layer sub-options */
 export interface LabelOptions {
   borders: boolean;
+  stateBorders: boolean;
   countryNames: boolean;
   cities: boolean;
   maidenheadGrid: boolean;
@@ -327,6 +328,7 @@ function savePanelStates(states: PanelStates): void {
 // Default label options
 const DEFAULT_LABEL_OPTIONS: LabelOptions = {
   borders: true,
+  stateBorders: false,
   countryNames: true,
   cities: true,
   maidenheadGrid: false,

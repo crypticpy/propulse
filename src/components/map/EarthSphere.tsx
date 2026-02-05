@@ -5,10 +5,11 @@
  * Supports day texture with optional night lights overlay.
  */
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 
 interface EarthSphereProps {
   /** Auto-rotate the Earth */
@@ -69,34 +70,24 @@ export function EarthSphere({
   const meshRef = useRef<THREE.Mesh>(null);
 
   // Load Earth textures
-  const [dayTexture, nightTexture] = useTexture([
-    "/textures/earth-day.jpg",
-    "/textures/earth-night.jpg",
-  ]);
+  const dayTexture = useTexture("/textures/earth-day.jpg");
 
-  // Create grayscale variant of day texture (with proper GPU disposal)
-  const [grayscaleTexture, setGrayscaleTexture] =
-    useState<THREE.CanvasTexture | null>(null);
-
-  useEffect(() => {
-    if (!dayTexture?.image) return;
-    const img = dayTexture.image as HTMLImageElement;
-    if (!img.naturalWidth) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.filter = "grayscale(1) contrast(1.1) brightness(1.05)";
-    ctx.drawImage(img, 0, 0);
+  // Standard-mode base map texture (vector-like land/ocean fills)
+  const standardTexture = useMemo(() => {
+    const canvas = getStandardMapCanvas();
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.needsUpdate = true;
-    setGrayscaleTexture(tex);
+    return tex;
+  }, []);
+
+  useEffect(() => {
     return () => {
-      tex.dispose();
+      standardTexture.dispose();
     };
-  }, [dayTexture]);
+  }, [standardTexture]);
 
   // Auto-rotation
   useFrame(() => {
@@ -125,14 +116,19 @@ export function EarthSphere({
       }}
     >
       <sphereGeometry args={[1, 64, 64]} />
-      <meshStandardMaterial
-        map={grayscale && grayscaleTexture ? grayscaleTexture : dayTexture}
-        emissiveMap={nightTexture}
-        emissive={new THREE.Color(0.3, 0.3, 0.4)}
-        emissiveIntensity={0.8}
-        roughness={0.7}
-        metalness={0.1}
-      />
+      {grayscale ? (
+        // Standard style: unlit material for a clean, lightweight "map" look
+        <meshBasicMaterial
+          map={standardTexture}
+          color={0xffffff}
+        />
+      ) : (
+        <meshStandardMaterial
+          map={dayTexture}
+          roughness={0.7}
+          metalness={0.1}
+        />
+      )}
     </mesh>
   );
 }

@@ -64,15 +64,20 @@ export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
 
           float nightAmount = smoothstep(0.1, -0.2, sunDot);
 
-          // Dark blue tint for night
-          vec3 nightColor = vec3(0.02, 0.02, 0.08);
+          // Multiply-blended darkening: output white on day side (no change),
+          // and a dark blue tint on night side.
+          vec3 nightColor = vec3(0.18, 0.18, 0.28);
+          float t = clamp(nightAmount * opacity, 0.0, 1.0);
+          vec3 outColor = mix(vec3(1.0), nightColor, t);
 
-          gl_FragColor = vec4(nightColor, nightAmount * opacity);
+          gl_FragColor = vec4(outColor, 1.0);
         }
       `,
       transparent: true,
       side: THREE.FrontSide,
       depthWrite: false,
+      blending: THREE.MultiplyBlending,
+      premultipliedAlpha: true,
     });
   }, [subsolar, opacity]);
 

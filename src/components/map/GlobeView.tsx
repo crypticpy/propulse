@@ -386,6 +386,7 @@ function GlobeScene({
   onTargetHoverEnd?: () => void;
 }) {
   const { layers, target, autoRotate, pathMode, mapStyle } = useMapStore();
+  const isStandard = mapStyle === "standard";
   const { station } = useUserStore();
   const { pins } = usePinStore();
   const { data: auroraData } = useAuroraData();
@@ -421,6 +422,9 @@ function GlobeScene({
     }
     return getGreylineIntensity(station.lat, station.lon, displayTime);
   }, [station, displayTime]);
+
+  // Subsolar point for night-side border enhancement
+  const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
 
   // Handle click on globe surface
   const handleGlobeClick = useCallback(
@@ -478,16 +482,18 @@ function GlobeScene({
         <EarthSphere
           autoRotate={autoRotate}
           rotationSpeed={0.0005}
-          grayscale={mapStyle === "standard"}
+          grayscale={isStandard}
         />
       </GlobeClickHandler>
 
       {/* Night side darkening overlay */}
-      {layers.terminator && <NightOverlay date={displayTime} opacity={0.6} />}
+      {layers.terminator && (
+        <NightOverlay date={displayTime} opacity={isStandard ? 0.75 : 0.6} />
+      )}
 
       {/* Day/night terminator line */}
       {layers.terminator && (
-        <Terminator date={displayTime} standardMode={mapStyle === "standard"} />
+        <Terminator date={displayTime} standardMode={isStandard} />
       )}
 
       {/* Greyline band with intensity-based visualization */}
@@ -504,10 +510,16 @@ function GlobeScene({
       )}
 
       {/* Night lights overlay - city lights on dark side */}
-      {layers.nightLights && <NightLightsOverlay date={displayTime} />}
+      {!isStandard && layers.nightLights && (
+        <NightLightsOverlay date={displayTime} />
+      )}
 
-      {/* Labels overlay - country borders and city names */}
-      {layers.labels && <LabelsOverlay />}
+      {/* Country borders + labels overlay */}
+      <LabelsOverlay
+        showLabels={layers.labels || isStandard}
+        subsolarLat={subsolar.lat}
+        subsolarLon={subsolar.lon}
+      />
 
       {/* MUF overlay */}
       {layers.muf && currentSFI && (

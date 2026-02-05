@@ -768,7 +768,7 @@ export function PropSphere() {
 
               {/* Labels Panel — appears when labels layer is active */}
               {layers.labels && (
-                <LabelsPanel className="absolute top-2 right-2 z-10" />
+                <LabelsPanel className="absolute bottom-2 right-2 z-10" />
               )}
 
               {/* ═══════════════════════════════════════════════════════════════

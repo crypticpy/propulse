@@ -19,6 +19,7 @@ import {
   WORLD_COUNTRIES,
   type CountryData,
 } from "@/lib/data/worldCountries.generated";
+import { US_STATES } from "@/lib/data/usStates.generated";
 import { useMapStore } from "@/stores/mapStore";
 import {
   getMaidenheadFields,
@@ -132,6 +133,59 @@ function buildMergedBorderGeometry(): THREE.BufferGeometry {
 
   for (const country of WORLD_COUNTRIES) {
     for (const ring of country.borders) {
+      if (ring.length < 2) continue;
+
+      // Convert all ring points to 3D
+      const pts: [number, number, number][] = ring.map(([lat, lon]) =>
+        latLonToXYZ(lat, lon, R),
+      );
+
+      // Emit segments: each consecutive pair + closing segment
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        positions[offset++] = a[0];
+        positions[offset++] = a[1];
+        positions[offset++] = a[2];
+        positions[offset++] = b[0];
+        positions[offset++] = b[1];
+        positions[offset++] = b[2];
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(positions.slice(0, offset), 3),
+  );
+  return geometry;
+}
+
+// ─── Merged state border geometry (built once) ───────────────────────────────
+
+/**
+ * Build a single THREE.BufferGeometry containing ALL US state border line
+ * segments. Uses LineSegments topology identical to buildMergedBorderGeometry().
+ */
+function buildMergedStateBorderGeometry(): THREE.BufferGeometry {
+  // First pass: count total segments to pre-allocate
+  let totalSegments = 0;
+  for (const state of US_STATES) {
+    for (const ring of state.borders) {
+      if (ring.length >= 2) {
+        totalSegments += ring.length; // N points → N segments (including close)
+      }
+    }
+  }
+
+  // Each segment = 2 vertices × 3 floats
+  const positions = new Float32Array(totalSegments * 2 * 3);
+  let offset = 0;
+  const R = 1.003;
+
+  for (const state of US_STATES) {
+    for (const ring of state.borders) {
       if (ring.length < 2) continue;
 
       // Convert all ring points to 3D
@@ -291,29 +345,122 @@ function BackfaceLabel({
   );
 }
 
+// ─── Night-aware border shader material ──────────────────────────────────────
+
+function buildNightAwareBorderMaterial(
+  subsolarLat: number,
+  subsolarLon: number,
+  baseOpacity: number,
+  nightBoost: number,
+): THREE.ShaderMaterial {
+  // Convert subsolar lat/lon to a unit vector (sun direction)
+  const phi = (90 - subsolarLat) * DEG2RAD;
+  const theta = (subsolarLon + 180) * DEG2RAD;
+  const sunDir = new THREE.Vector3(
+    -Math.sin(phi) * Math.cos(theta),
+    Math.cos(phi),
+    Math.sin(phi) * Math.sin(theta),
+  );
+
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      sunDirection: { value: sunDir },
+      baseOpacity: { value: baseOpacity },
+      nightBoost: { value: nightBoost },
+    },
+    vertexShader: `
+      varying vec3 vWorldNormal;
+      void main() {
+        vWorldNormal = normalize((modelMatrix * vec4(position, 1.0)).xyz);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 sunDirection;
+      uniform float baseOpacity;
+      uniform float nightBoost;
+      varying vec3 vWorldNormal;
+      void main() {
+        float sunDot = dot(vWorldNormal, sunDirection);
+        // Night: sunDot < 0, twilight: -0.1 to 0.1
+        float nightAmount = smoothstep(0.1, -0.2, sunDot);
+        float opacity = baseOpacity + nightBoost * nightAmount;
+        gl_FragColor = vec4(1.0, 1.0, 1.0, opacity);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+  });
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function LabelsOverlay() {
+interface LabelsOverlayProps {
+  /** Whether to show text labels (country names, cities, maidenhead grid) */
+  showLabels?: boolean;
+  /** Subsolar point latitude for night-side border enhancement */
+  subsolarLat?: number;
+  /** Subsolar point longitude for night-side border enhancement */
+  subsolarLon?: number;
+}
+
+export function LabelsOverlay({
+  showLabels,
+  subsolarLat,
+  subsolarLon,
+}: LabelsOverlayProps = {}) {
   const labelOptions = useMapStore((s) => s.labelOptions);
+  const effectiveOptions = useMemo(
+    () => ({
+      borders: labelOptions.borders,
+      stateBorders: labelOptions.stateBorders,
+      countryNames: showLabels !== false && labelOptions.countryNames,
+      cities: showLabels !== false && labelOptions.cities,
+      maidenheadGrid: showLabels !== false && labelOptions.maidenheadGrid,
+    }),
+    [labelOptions, showLabels],
+  );
   const zoomTierRef = useRef(0);
   const camDirRef = useRef(new THREE.Vector3(0, 0, 1));
 
   // Merged border geometry — ONE draw call for all countries
   const borderGeometry = useMemo(() => buildMergedBorderGeometry(), []);
 
+  // Night-aware country border material
   const borderMaterial = useMemo(
     () =>
-      new THREE.LineBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.35,
-        depthWrite: false,
-      }),
+      buildNightAwareBorderMaterial(
+        subsolarLat ?? 0,
+        subsolarLon ?? 0,
+        0.35,
+        0.4,
+      ),
+    [subsolarLat, subsolarLon],
+  );
+
+  // Merged state border geometry — ONE draw call for all US states
+  const stateBorderGeometry = useMemo(
+    () => buildMergedStateBorderGeometry(),
     [],
   );
 
+  // Night-aware state border material (lower opacity to distinguish from country borders)
+  const stateBorderMaterial = useMemo(
+    () =>
+      buildNightAwareBorderMaterial(
+        subsolarLat ?? 0,
+        subsolarLon ?? 0,
+        0.2,
+        0.4,
+      ),
+    [subsolarLat, subsolarLon],
+  );
+
   // Maidenhead grid geometry — ONE draw call for all grid lines
-  const gridGeometry = useMemo(() => buildMaidenheadGridGeometry(), []);
+  const gridGeometry = useMemo(() => {
+    if (!effectiveOptions.maidenheadGrid) return null;
+    return buildMaidenheadGridGeometry();
+  }, [effectiveOptions.maidenheadGrid]);
 
   const gridMaterial = useMemo(
     () =>
@@ -328,6 +475,7 @@ export function LabelsOverlay() {
 
   // Pre-compute all label data (positions + normals for backface culling)
   const allCountryLabels: LabelData[] = useMemo(() => {
+    if (!effectiveOptions.countryNames) return [];
     return WORLD_COUNTRIES.map((country: CountryData) => {
       const [nx, ny, nz] = latLonToXYZ(
         country.centroidLat,
@@ -351,9 +499,10 @@ export function LabelsOverlay() {
         pz,
       };
     });
-  }, []);
+  }, [effectiveOptions.countryNames]);
 
   const cityLabels: LabelData[] = useMemo(() => {
+    if (!effectiveOptions.cities) return [];
     return MAJOR_CITIES.map((city) => {
       const [nx, ny, nz] = latLonToXYZ(city.lat, city.lon, 1.0);
       const [px, py, pz] = latLonToXYZ(city.lat, city.lon, 1.02);
@@ -369,10 +518,11 @@ export function LabelsOverlay() {
         pz,
       };
     });
-  }, []);
+  }, [effectiveOptions.cities]);
 
   // Maidenhead field labels (324 total, backface culled)
   const maidenheadLabels: LabelData[] = useMemo(() => {
+    if (!effectiveOptions.maidenheadGrid) return [];
     const fields = getMaidenheadFields();
     return fields.map((field) => {
       const [nx, ny, nz] = latLonToXYZ(field.latCenter, field.lonCenter, 1.0);
@@ -389,12 +539,19 @@ export function LabelsOverlay() {
         pz,
       };
     });
-  }, []);
+  }, [effectiveOptions.maidenheadGrid]);
 
   // Force re-render callback for zoom tier changes
-  const [, setTick] = useState(0);
+  const [zoomTier, setZoomTier] = useState(0);
 
   useFrame(({ camera }) => {
+    if (
+      !effectiveOptions.countryNames &&
+      !effectiveOptions.cities &&
+      !effectiveOptions.maidenheadGrid
+    ) {
+      return;
+    }
     // Update camera direction (normalized) for backface culling
     camDirRef.current.copy(camera.position).normalize();
 
@@ -403,28 +560,33 @@ export function LabelsOverlay() {
     const newTier = getZoomTier(distance, zoomTierRef.current);
     if (newTier !== zoomTierRef.current) {
       zoomTierRef.current = newTier;
-      // Only trigger React re-render when zoom tier changes (affects which labels show)
-      setTick((t) => t + 1);
+      setZoomTier(newTier);
     }
   });
 
   // Filter country labels by zoom tier
   const visibleCountryLabels = useMemo(() => {
-    return allCountryLabels.filter((c) =>
-      isCountryVisible(c.area, zoomTierRef.current),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allCountryLabels, zoomTierRef.current]);
+    if (!effectiveOptions.countryNames) return [];
+    return allCountryLabels.filter((c) => isCountryVisible(c.area, zoomTier));
+  }, [allCountryLabels, effectiveOptions.countryNames, zoomTier]);
 
   return (
     <group>
       {/* ALL country borders — single draw call */}
-      {labelOptions.borders && (
+      {effectiveOptions.borders && (
         <lineSegments geometry={borderGeometry} material={borderMaterial} />
       )}
 
+      {/* ALL US state borders — single draw call */}
+      {effectiveOptions.stateBorders && (
+        <lineSegments
+          geometry={stateBorderGeometry}
+          material={stateBorderMaterial}
+        />
+      )}
+
       {/* Country name labels — backface culled, no occlude raycasting */}
-      {labelOptions.countryNames &&
+      {effectiveOptions.countryNames &&
         visibleCountryLabels.map((label) => (
           <BackfaceLabel
             key={label.key}
@@ -435,7 +597,7 @@ export function LabelsOverlay() {
         ))}
 
       {/* City labels — backface culled */}
-      {labelOptions.cities &&
+      {effectiveOptions.cities &&
         cityLabels.map((label) => (
           <BackfaceLabel
             key={label.key}
@@ -446,12 +608,12 @@ export function LabelsOverlay() {
         ))}
 
       {/* Maidenhead grid lines — single draw call */}
-      {labelOptions.maidenheadGrid && (
+      {effectiveOptions.maidenheadGrid && gridGeometry && (
         <lineSegments geometry={gridGeometry} material={gridMaterial} />
       )}
 
       {/* Maidenhead field labels — backface culled */}
-      {labelOptions.maidenheadGrid &&
+      {effectiveOptions.maidenheadGrid &&
         maidenheadLabels.map((label) => (
           <BackfaceLabel
             key={label.key}

@@ -15,6 +15,7 @@ import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { estimateMUF, getMUFColor } from "@/lib/api/muf";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
+import type { LiveSpot } from "@/types/livespot";
 import {
   resolveSpotLocations,
   getGreatCirclePoints,
@@ -26,7 +27,6 @@ import {
   DIFFICULTY_LABELS,
   type DifficultyLevel,
 } from "./LocationMarker";
-import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import type { AuroraData } from "@/lib/api/aurora";
 import { useFlatMapClickHandler } from "./FlatMapClickHandler";
 import { MapTooltip } from "./MapTooltip";
@@ -47,11 +47,14 @@ import { useDXCluster } from "@/hooks/useDXCluster";
 import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
+import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
+import { US_STATES } from "@/lib/data/usStates.generated";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { LabelOptions } from "@/stores/mapStore";
+import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 import {
   getMaidenheadFields,
   MAIDENHEAD_LON_LINES,
@@ -106,6 +109,7 @@ let nightOverlayCache: {
   desatCanvas: HTMLCanvasElement;
   darkCanvas: HTMLCanvasElement;
   blueCanvas: HTMLCanvasElement;
+  variant: "satellite" | "standard";
   minute: number;
   width: number;
   height: number;
@@ -149,6 +153,71 @@ function latLonToCanvas(
   const x = ((lon + 180) / 360) * width;
   const y = ((90 - lat) / 180) * height;
   return { x, y };
+}
+
+function addWrappedRingPath2D(
+  ctx: CanvasRenderingContext2D,
+  ring: [number, number][],
+  width: number,
+  height: number,
+): void {
+  if (ring.length < 2) return;
+
+  const baseXs: number[] = new Array(ring.length);
+  for (let i = 0; i < ring.length; i++) {
+    const lon = ring[i][1];
+    baseXs[i] = ((lon + 180) / 360) * width;
+  }
+
+  let maxDelta = 0;
+  let rotateStart = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const next = (i + 1) % ring.length;
+    const delta = Math.abs(baseXs[next] - baseXs[i]);
+    if (delta > maxDelta) {
+      maxDelta = delta;
+      rotateStart = i;
+    }
+  }
+
+  const needsRotation = maxDelta > width / 2 && rotateStart !== 0;
+  const points = needsRotation
+    ? [...ring.slice(rotateStart), ...ring.slice(0, rotateStart)]
+    : ring;
+  const pointsBaseXs = needsRotation
+    ? [...baseXs.slice(rotateStart), ...baseXs.slice(0, rotateStart)]
+    : baseXs;
+
+  const xs: number[] = new Array(points.length);
+  let prevX = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+
+  for (let i = 0; i < points.length; i++) {
+    let x = pointsBaseXs[i];
+    if (i > 0) {
+      const delta = x - prevX;
+      if (delta > width / 2) x -= width;
+      else if (delta < -width / 2) x += width;
+    }
+    xs[i] = x;
+    prevX = x;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+  }
+
+  const offsets = [-width, 0, width] as const;
+  for (const offset of offsets) {
+    if (maxX + offset < 0 || minX + offset > width) continue;
+    for (let i = 0; i < points.length; i++) {
+      const [lat] = points[i];
+      const y = ((90 - lat) / 180) * height;
+      const x = xs[i] + offset;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
 }
 
 /**
@@ -210,30 +279,36 @@ function drawNightSide(
   date: Date,
   width: number,
   height: number,
+  variant: "satellite" | "standard",
 ) {
   // Check cache: reuse overlay canvases if time hasn't changed by >= 1 minute
   const currentMinute = getTimeMinute(date);
   if (
     nightOverlayCache &&
+    nightOverlayCache.variant === variant &&
     nightOverlayCache.minute === currentMinute &&
     nightOverlayCache.width === width &&
     nightOverlayCache.height === height
   ) {
     // Apply cached overlays with their respective blend modes
-    ctx.save();
-    ctx.globalCompositeOperation = "saturation";
-    ctx.drawImage(nightOverlayCache.desatCanvas, 0, 0, width, height);
-    ctx.restore();
+    if (variant === "satellite") {
+      ctx.save();
+      ctx.globalCompositeOperation = "saturation";
+      ctx.drawImage(nightOverlayCache.desatCanvas, 0, 0, width, height);
+      ctx.restore();
+    }
 
     ctx.save();
     ctx.globalCompositeOperation = "multiply";
     ctx.drawImage(nightOverlayCache.darkCanvas, 0, 0, width, height);
     ctx.restore();
 
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    ctx.drawImage(nightOverlayCache.blueCanvas, 0, 0, width, height);
-    ctx.restore();
+    if (variant === "satellite") {
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.drawImage(nightOverlayCache.blueCanvas, 0, 0, width, height);
+      ctx.restore();
+    }
     return;
   }
 
@@ -335,56 +410,71 @@ function drawNightSide(
       const deepNight =
         angle > TWILIGHT_END ? Math.min(1.0, (angle - TWILIGHT_END) / 55) : 0;
 
-      // --- Desaturation layer ---
-      // Gray at full alpha removes all saturation via 'saturation' blend
-      const desatAlpha = Math.floor(255 * nightBlend * 0.85);
-      desatPixels[idx] = 128;
-      desatPixels[idx + 1] = 128;
-      desatPixels[idx + 2] = 128;
-      desatPixels[idx + 3] = desatAlpha;
+      // --- Desaturation layer (satellite only) ---
+      if (variant === "satellite") {
+        // Gray at full alpha removes all saturation via 'saturation' blend
+        const desatAlpha = Math.floor(255 * nightBlend * 0.85);
+        desatPixels[idx] = 128;
+        desatPixels[idx + 1] = 128;
+        desatPixels[idx + 2] = 128;
+        desatPixels[idx + 3] = desatAlpha;
+      }
 
       // --- Darkening + blue tint layer ---
       // Multiply blend: destination * source/255
       // Values < 255 darken; blue channel slightly higher preserves blue
-      const baseDark = 0.55 + deepNight * 0.2; // 0.55 -> 0.75 darkness factor
+      const baseDark =
+        variant === "standard"
+          ? 0.68 + deepNight * 0.25
+          : 0.55 + deepNight * 0.2; // 0.55 -> 0.75 darkness factor
       const darkAlpha = Math.floor(255 * nightBlend);
       // Multiply factors: lower = darker. Blue channel stays higher for tint
+      const bluePreserve = variant === "standard" ? 0.7 : 0.55;
       darkPixels[idx] = Math.floor(255 * (1 - baseDark * 0.85)); // R darkened most
       darkPixels[idx + 1] = Math.floor(255 * (1 - baseDark * 0.8)); // G slightly less
-      darkPixels[idx + 2] = Math.floor(255 * (1 - baseDark * 0.55)); // B preserved more
+      darkPixels[idx + 2] = Math.floor(255 * (1 - baseDark * bluePreserve)); // B preserved more
       darkPixels[idx + 3] = darkAlpha;
 
       // --- Blue atmosphere screen layer ---
       // Screen blend adds a subtle cold blue glow, stronger in deep night.
       // RGB channels define the hue (cold blue), alpha controls intensity.
-      const blueIntensity = nightBlend * (0.06 + deepNight * 0.08);
-      bluePixels[idx] = 15;
-      bluePixels[idx + 1] = 25;
-      bluePixels[idx + 2] = 60;
-      bluePixels[idx + 3] = Math.floor(255 * blueIntensity);
+      if (variant === "satellite") {
+        const blueIntensity = nightBlend * (0.06 + deepNight * 0.08);
+        bluePixels[idx] = 15;
+        bluePixels[idx + 1] = 25;
+        bluePixels[idx + 2] = 60;
+        bluePixels[idx + 3] = Math.floor(255 * blueIntensity);
+      }
     }
   }
 
   // Finalize overlay canvases
-  desatCtx.putImageData(desatData, 0, 0);
+  if (variant === "satellite") {
+    desatCtx.putImageData(desatData, 0, 0);
+  }
   darkCtx.putImageData(darkData, 0, 0);
-  blueCtx.putImageData(blueData, 0, 0);
+  if (variant === "satellite") {
+    blueCtx.putImageData(blueData, 0, 0);
+  }
 
   // Cache the three overlay canvases for reuse
   nightOverlayCache = {
     desatCanvas,
     darkCanvas,
     blueCanvas,
+    variant,
     minute: currentMinute,
     width,
     height,
   };
 
   // Composite Pass 1: Desaturation
-  ctx.save();
-  ctx.globalCompositeOperation = "saturation";
-  ctx.drawImage(desatCanvas, 0, 0, width, height);
-  ctx.restore();
+  if (variant === "satellite") {
+    ctx.save();
+    ctx.globalCompositeOperation = "saturation";
+    ctx.drawImage(desatCanvas, 0, 0, width, height);
+    ctx.restore();
+  }
 
   // Composite Pass 2: Darkening with blue tint
   ctx.save();
@@ -393,10 +483,12 @@ function drawNightSide(
   ctx.restore();
 
   // Composite Pass 3: Blue atmosphere glow
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  ctx.drawImage(blueCanvas, 0, 0, width, height);
-  ctx.restore();
+  if (variant === "satellite") {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.drawImage(blueCanvas, 0, 0, width, height);
+    ctx.restore();
+  }
 }
 
 /**
@@ -416,6 +508,7 @@ function drawTerminator(
 ) {
   const subsolar = getSubsolarPoint(date);
 
+  ctx.save();
   ctx.strokeStyle = COLORS.terminator;
   ctx.lineWidth = highViz ? 3 : 2;
   ctx.shadowColor = COLORS.terminator;
@@ -466,6 +559,7 @@ function drawTerminator(
   ctx.stroke();
   ctx.shadowBlur = 0;
   if (dashed) ctx.setLineDash([]);
+  ctx.restore();
 }
 
 /**
@@ -827,7 +921,7 @@ function drawSpotArc(
   highViz = false,
 ) {
   const color = getSpotColor(spot, colorMode);
-  const opacity = getSpotAgeOpacity(spot.time);
+  const opacity = 1;
 
   // Get start and end points
   const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
@@ -896,17 +990,24 @@ function drawSpotArc(
     ctx.stroke();
   }
 
-  // Draw endpoint dots
-  // Spotter location (smaller)
+  // Draw endpoint markers with distinct source/target styling
+  // Spotter (source): hollow ring — reads as origin/transmitter
   ctx.beginPath();
-  ctx.fillStyle = color;
-  ctx.arc(start.x, start.y, highViz ? 5 : 3, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.arc(start.x, start.y, highViz ? 5 : 3.5, 0, Math.PI * 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = highViz ? 2 : 1.5;
+  ctx.stroke();
 
-  // DX location (larger)
+  // DX (target): filled circle with white outer ring — reads as destination
   ctx.beginPath();
-  ctx.arc(end.x, end.y, highViz ? 6 : 4, 0, Math.PI * 2);
+  ctx.arc(end.x, end.y, highViz ? 5 : 4, 0, Math.PI * 2);
+  ctx.fillStyle = color;
   ctx.fill();
+  ctx.beginPath();
+  ctx.arc(end.x, end.y, highViz ? 7 : 5.5, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+  ctx.lineWidth = highViz ? 1.5 : 1;
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -1092,7 +1193,53 @@ function drawSpotHighlight(
 }
 
 /**
- * Simple bounding box for label overlap detection
+ * Highlight Maidenhead grid squares containing active spots.
+ * Draws subtle teal fills at the 4-char square level (2° lon × 1° lat).
+ */
+function drawSpotGridHighlights(
+  ctx: CanvasRenderingContext2D,
+  spots: ResolvedSpot[],
+  width: number,
+  height: number,
+) {
+  // Collect unique grid squares from spot lat/lons
+  const gridKeys = new Set<string>();
+  for (const spot of spots) {
+    // Compute 2° × 1° grid square bounds from lat/lon
+    const dxLonIdx = Math.floor((spot.dxLon + 180) / 2);
+    const dxLatIdx = Math.floor((spot.dxLat + 90) / 1);
+    gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
+
+    const spLonIdx = Math.floor((spot.spotterLon + 180) / 2);
+    const spLatIdx = Math.floor((spot.spotterLat + 90) / 1);
+    gridKeys.add(`${spLonIdx},${spLatIdx}`);
+  }
+
+  ctx.save();
+  for (const key of gridKeys) {
+    const [lonIdx, latIdx] = key.split(",").map(Number);
+    const lonStart = lonIdx * 2 - 180;
+    const latStart = latIdx * 1 - 90;
+
+    const topLeft = latLonToCanvas(latStart + 1, lonStart, width, height);
+    const bottomRight = latLonToCanvas(latStart, lonStart + 2, width, height);
+    const w = bottomRight.x - topLeft.x;
+    const h = bottomRight.y - topLeft.y;
+
+    // Subtle teal fill matching Maidenhead grid color scheme
+    ctx.fillStyle = "rgba(0, 204, 204, 0.06)";
+    ctx.fillRect(topLeft.x, topLeft.y, w, h);
+
+    // Slightly brighter border
+    ctx.strokeStyle = "rgba(0, 204, 204, 0.15)";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(topLeft.x, topLeft.y, w, h);
+  }
+  ctx.restore();
+}
+
+/**
+ * Bounding box for label overlap and hit-testing
  */
 interface LabelBBox {
   x: number;
@@ -1101,15 +1248,148 @@ interface LabelBBox {
   h: number;
 }
 
+/** Placed label metadata for connector lines and hover hit-testing */
+interface PlacedLabel {
+  bbox: LabelBBox;
+  spot: ResolvedSpot;
+  /** Which side the connector line anchors from */
+  anchorSide:
+    | "above"
+    | "below"
+    | "right"
+    | "left"
+    | "above-right"
+    | "above-left";
+  /** DX endpoint canvas position */
+  spotX: number;
+  spotY: number;
+}
+
+/** Module-level storage so the hover handler can hit-test placed labels */
+let lastPlacedLabels: PlacedLabel[] = [];
+
 function bboxOverlaps(a: LabelBBox, b: LabelBBox): boolean {
   return (
     a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
   );
 }
 
+/** Count how many boxes in the list overlap with the candidate */
+function countOverlaps(candidate: LabelBBox, boxes: LabelBBox[]): number {
+  let count = 0;
+  for (const box of boxes) {
+    if (bboxOverlaps(candidate, box)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 /**
- * Draw callsign labels near DX spot endpoint positions.
- * Includes simple overlap avoidance via bounding box checks.
+ * Generate candidate label positions around a DX endpoint.
+ * Returns positions in priority order: above, below, right, left, above-right, above-left.
+ */
+function getLabelCandidates(
+  spotX: number,
+  spotY: number,
+  textW: number,
+  textH: number,
+  gap: number,
+): Array<{ bbox: LabelBBox; anchorSide: PlacedLabel["anchorSide"] }> {
+  return [
+    {
+      bbox: {
+        x: spotX - textW / 2,
+        y: spotY - gap - textH,
+        w: textW,
+        h: textH,
+      },
+      anchorSide: "above" as const,
+    },
+    {
+      bbox: { x: spotX - textW / 2, y: spotY + gap, w: textW, h: textH },
+      anchorSide: "below" as const,
+    },
+    {
+      bbox: { x: spotX + gap, y: spotY - textH / 2, w: textW, h: textH },
+      anchorSide: "right" as const,
+    },
+    {
+      bbox: {
+        x: spotX - gap - textW,
+        y: spotY - textH / 2,
+        w: textW,
+        h: textH,
+      },
+      anchorSide: "left" as const,
+    },
+    {
+      bbox: { x: spotX + gap / 2, y: spotY - gap - textH, w: textW, h: textH },
+      anchorSide: "above-right" as const,
+    },
+    {
+      bbox: {
+        x: spotX - gap / 2 - textW,
+        y: spotY - gap - textH,
+        w: textW,
+        h: textH,
+      },
+      anchorSide: "above-left" as const,
+    },
+  ];
+}
+
+/** Get the connector line anchor point on the label edge for a given placement side */
+function getConnectorAnchor(
+  bbox: LabelBBox,
+  anchorSide: PlacedLabel["anchorSide"],
+): { x: number; y: number } {
+  switch (anchorSide) {
+    case "above":
+      return { x: bbox.x + bbox.w / 2, y: bbox.y + bbox.h };
+    case "below":
+      return { x: bbox.x + bbox.w / 2, y: bbox.y };
+    case "right":
+      return { x: bbox.x, y: bbox.y + bbox.h / 2 };
+    case "left":
+      return { x: bbox.x + bbox.w, y: bbox.y + bbox.h / 2 };
+    case "above-right":
+      return { x: bbox.x, y: bbox.y + bbox.h };
+    case "above-left":
+      return { x: bbox.x + bbox.w, y: bbox.y + bbox.h };
+  }
+}
+
+/** Draw a rounded rectangle path (pill shape) */
+function drawPillPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+/**
+ * Draw callsign labels near DX spot endpoints with multi-position collision
+ * avoidance and connector lines from displaced labels to their endpoints.
+ *
+ * Position candidates (tried in priority order):
+ * 1. Above  2. Below  3. Right  4. Left  5. Above-right  6. Above-left
+ *
+ * Stores placed label metadata in lastPlacedLabels for hover hit-testing.
  */
 function drawCallsignLabels(
   ctx: CanvasRenderingContext2D,
@@ -1119,12 +1399,27 @@ function drawCallsignLabels(
   colorMode: SpotColorMode = "mode",
   highViz = false,
 ) {
-  const placedLabels: LabelBBox[] = [];
+  const placed: PlacedLabel[] = [];
+  const placedBoxes: LabelBBox[] = [];
   const fontSize = highViz ? 12 : 10;
+  const gap = highViz ? 12 : 10;
+  const pillRadius = 3;
+
+  // Build exclusion zones for ALL spot endpoint dots (prevents labels covering dots)
+  const endpointZones: LabelBBox[] = [];
+  for (const spot of spots) {
+    const dx = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
+    const sp = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
+    const r = highViz ? 8 : 6;
+    endpointZones.push({ x: dx.x - r, y: dx.y - r, w: r * 2, h: r * 2 });
+    endpointZones.push({ x: sp.x - r, y: sp.y - r, w: r * 2, h: r * 2 });
+  }
+
   ctx.save();
   ctx.font = `${fontSize}px monospace`;
   ctx.textBaseline = "bottom";
 
+  // --- Pass 1: Determine placement for all labels ---
   for (const spot of spots) {
     const { callsign } = spot;
     if (!callsign) {
@@ -1132,80 +1427,114 @@ function drawCallsignLabels(
     }
 
     const { x, y } = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
-    const textMetrics = ctx.measureText(callsign);
-    const textW = textMetrics.width + 6; // padding
+    const textW = ctx.measureText(callsign).width + 6;
     const textH = fontSize + 4;
 
-    // Position label above the spot endpoint
-    const labelX = x - textW / 2;
-    const labelY = y - 10 - textH;
+    const candidates = getLabelCandidates(x, y, textW, textH, gap);
 
-    const bbox: LabelBBox = { x: labelX, y: labelY, w: textW, h: textH };
+    // Find first non-overlapping candidate
+    let bestCandidate = candidates[0]; // fallback to "above"
+    let bestOverlaps = Infinity;
+    let foundClean = false;
 
-    // Skip if overlapping with an already-placed label
-    if (placedLabels.some((existing) => bboxOverlaps(existing, bbox))) {
+    for (const candidate of candidates) {
+      // Clamp to canvas bounds
+      candidate.bbox.x = Math.max(0, Math.min(width - textW, candidate.bbox.x));
+      candidate.bbox.y = Math.max(
+        0,
+        Math.min(height - textH, candidate.bbox.y),
+      );
+
+      const labelOverlaps = countOverlaps(candidate.bbox, placedBoxes);
+      const endpointOverlaps = countOverlaps(candidate.bbox, endpointZones);
+      const totalOverlaps = labelOverlaps + endpointOverlaps;
+
+      if (totalOverlaps === 0) {
+        bestCandidate = candidate;
+        foundClean = true;
+        break;
+      }
+
+      if (totalOverlaps < bestOverlaps) {
+        bestOverlaps = totalOverlaps;
+        bestCandidate = candidate;
+      }
+    }
+
+    // If all candidates overlap other labels heavily, skip this label entirely
+    if (!foundClean && bestOverlaps > 2) {
       continue;
     }
-    placedLabels.push(bbox);
 
+    placedBoxes.push(bestCandidate.bbox);
+    placed.push({
+      bbox: bestCandidate.bbox,
+      spot,
+      anchorSide: bestCandidate.anchorSide,
+      spotX: x,
+      spotY: y,
+    });
+  }
+
+  // --- Pass 2: Draw connector lines (behind labels) ---
+  for (const label of placed) {
+    // Only draw connector for displaced labels (not default "above" position)
+    // or when label is far from the endpoint
+    const anchor = getConnectorAnchor(label.bbox, label.anchorSide);
+    const dist = Math.sqrt(
+      (anchor.x - label.spotX) ** 2 + (anchor.y - label.spotY) ** 2,
+    );
+
+    if (label.anchorSide !== "above" || dist > gap + 4) {
+      const modeColor = getSpotColor(label.spot, colorMode);
+      const opacity = 1;
+
+      ctx.save();
+      ctx.globalAlpha = opacity * 0.4;
+      ctx.strokeStyle = modeColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(anchor.x, anchor.y);
+      ctx.lineTo(label.spotX, label.spotY);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // --- Pass 3: Draw label pills and text ---
+  for (const label of placed) {
+    const { bbox, spot } = label;
     const modeColor = getSpotColor(spot, colorMode);
-    const opacity = getSpotAgeOpacity(spot.time);
+    const opacity = 1;
 
     ctx.globalAlpha = opacity;
 
-    // Background pill with mode color accent
+    // Background pill
     ctx.fillStyle = highViz
       ? "rgba(10, 10, 26, 0.9)"
       : "rgba(10, 10, 26, 0.75)";
-    ctx.beginPath();
-    const pillRadius = 3;
-    // Rounded rect
-    ctx.moveTo(labelX + pillRadius, labelY);
-    ctx.lineTo(labelX + textW - pillRadius, labelY);
-    ctx.arcTo(
-      labelX + textW,
-      labelY,
-      labelX + textW,
-      labelY + pillRadius,
-      pillRadius,
-    );
-    ctx.lineTo(labelX + textW, labelY + textH - pillRadius);
-    ctx.arcTo(
-      labelX + textW,
-      labelY + textH,
-      labelX + textW - pillRadius,
-      labelY + textH,
-      pillRadius,
-    );
-    ctx.lineTo(labelX + pillRadius, labelY + textH);
-    ctx.arcTo(
-      labelX,
-      labelY + textH,
-      labelX,
-      labelY + textH - pillRadius,
-      pillRadius,
-    );
-    ctx.lineTo(labelX, labelY + pillRadius);
-    ctx.arcTo(labelX, labelY, labelX + pillRadius, labelY, pillRadius);
-    ctx.closePath();
+    drawPillPath(ctx, bbox.x, bbox.y, bbox.w, bbox.h, pillRadius);
     ctx.fill();
 
     // Mode color underline accent
     ctx.fillStyle = modeColor;
-    ctx.fillRect(labelX + 2, labelY + textH - 2, textW - 4, 1.5);
+    ctx.fillRect(bbox.x + 2, bbox.y + bbox.h - 2, bbox.w - 4, 1.5);
 
-    // Callsign text with shadow for readability
+    // Callsign text with shadow
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
     ctx.shadowBlur = 2;
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
     ctx.textAlign = "center";
-    ctx.fillText(callsign, x, labelY + textH - 3);
+    ctx.fillText(spot.callsign, bbox.x + bbox.w / 2, bbox.y + bbox.h - 3);
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
   }
 
   ctx.globalAlpha = 1;
   ctx.restore();
+
+  // Store for hover hit-testing
+  lastPlacedLabels = placed;
 }
 
 /**
@@ -1410,25 +1739,21 @@ function drawLabels(
   width: number,
   height: number,
   opts: LabelOptions,
+  standardMode = false,
 ) {
   // Draw country border polygons
   if (opts.borders) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = standardMode
+      ? "rgba(255, 255, 255, 0.65)"
+      : "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = standardMode ? 1.0 : 0.8;
+    ctx.beginPath();
     for (const country of WORLD_COUNTRIES) {
       for (const ring of country.borders) {
-        if (ring.length < 2) continue;
-        ctx.beginPath();
-        for (let i = 0; i < ring.length; i++) {
-          const [lat, lon] = ring[i];
-          const { x, y } = latLonToCanvas(lat, lon, width, height);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.stroke();
+        addWrappedRingPath2D(ctx, ring, width, height);
       }
     }
+    ctx.stroke();
   }
 
   // Draw country name labels
@@ -1514,6 +1839,133 @@ function drawLabels(
 }
 
 /**
+ * Draw US state borders
+ */
+function drawStateBorders(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  standardMode: boolean,
+) {
+  ctx.strokeStyle = standardMode
+    ? "rgba(255, 255, 255, 0.45)"
+    : "rgba(255, 255, 255, 0.2)";
+  ctx.lineWidth = standardMode ? 0.7 : 0.5;
+  ctx.beginPath();
+  for (const state of US_STATES) {
+    for (const ring of state.borders) {
+      addWrappedRingPath2D(ctx, ring, width, height);
+    }
+  }
+  ctx.stroke();
+}
+
+/**
+ * Draw borders with boosted opacity within the night-side clip region.
+ * Uses the terminator to build a clip path, then re-draws country and/or
+ * state borders at higher opacity so they remain visible on the dark side.
+ */
+function drawNightBoostedBorders(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  width: number,
+  height: number,
+  drawCountry: boolean,
+  drawStates: boolean,
+) {
+  const subsolar = getSubsolarPoint(date);
+  const subsolarLatRad = subsolar.lat * (Math.PI / 180);
+  const subsolarLonRad = subsolar.lon * (Math.PI / 180);
+
+  // Build clip path for the night side using the terminator
+  ctx.save();
+  ctx.beginPath();
+
+  // Generate terminator boundary points
+  const tanSubsolarLat = Math.tan(subsolarLatRad);
+  const isNearEquinox = Math.abs(tanSubsolarLat) < 0.001;
+
+  const terminatorPoints: { x: number; y: number }[] = [];
+  for (let lon = -180; lon <= 180; lon += 2) {
+    const lonRad = lon * (Math.PI / 180);
+    const deltaLon = lonRad - subsolarLonRad;
+    let lat: number;
+    if (isNearEquinox) {
+      lat = 0;
+    } else {
+      lat = Math.atan(-Math.cos(deltaLon) / tanSubsolarLat) * (180 / Math.PI);
+    }
+    terminatorPoints.push(latLonToCanvas(lat, lon, width, height));
+  }
+
+  // Determine which side is the night side
+  // The anti-subsolar point is the center of the night side
+  const antiSubsolarLat = -subsolar.lat;
+  const antiSubsolarLon =
+    subsolar.lon > 0 ? subsolar.lon - 180 : subsolar.lon + 180;
+  const antiPoint = latLonToCanvas(
+    antiSubsolarLat,
+    antiSubsolarLon,
+    width,
+    height,
+  );
+
+  // Draw terminator as a path
+  for (let i = 0; i < terminatorPoints.length; i++) {
+    const p = terminatorPoints[i];
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+
+  // Close the night side: extend to the edge that contains the anti-subsolar point
+  if (antiPoint.y < height / 2) {
+    // Night side is at the top
+    const lastP = terminatorPoints[terminatorPoints.length - 1];
+    ctx.lineTo(width, lastP.y);
+    ctx.lineTo(width, 0);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(0, terminatorPoints[0].y);
+  } else {
+    // Night side is at the bottom
+    const lastP = terminatorPoints[terminatorPoints.length - 1];
+    ctx.lineTo(width, lastP.y);
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.lineTo(0, terminatorPoints[0].y);
+  }
+  ctx.closePath();
+  ctx.clip();
+
+  // Draw boosted country borders within the night clip
+  if (drawCountry) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    for (const country of WORLD_COUNTRIES) {
+      for (const ring of country.borders) {
+        addWrappedRingPath2D(ctx, ring, width, height);
+      }
+    }
+    ctx.stroke();
+  }
+
+  // Draw boosted state borders within the night clip
+  if (drawStates) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (const state of US_STATES) {
+      for (const ring of state.borders) {
+        addWrappedRingPath2D(ctx, ring, width, height);
+      }
+    }
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/**
  * Draw a pin marker on the 2D map
  */
 function drawPin(
@@ -1589,19 +2041,6 @@ export function FlatMapView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
-
-  // Grayscale variant of the map image for standard mode (computed once from mapImage)
-  const grayscaleImage = useMemo(() => {
-    if (!mapImage) return null;
-    const offscreen = document.createElement("canvas");
-    offscreen.width = mapImage.naturalWidth;
-    offscreen.height = mapImage.naturalHeight;
-    const octx = offscreen.getContext("2d");
-    if (!octx) return null;
-    octx.filter = "grayscale(1) contrast(1.1) brightness(1.05)";
-    octx.drawImage(mapImage, 0, 0);
-    return offscreen;
-  }, [mapImage]);
 
   const [displaySize, setDisplaySize] = useState({
     width: MAP_WIDTH,
@@ -1694,6 +2133,36 @@ export function FlatMapView({
     x: number;
     y: number;
   } | null>(null);
+
+  // State for spot label hover flyout
+  const [hoveredSpotData, setHoveredSpotData] = useState<{
+    spot: ResolvedSpot;
+    screenPos: { x: number; y: number };
+  } | null>(null);
+
+  // Build SpotDetailsData from hovered spot label
+  const hoveredSpotDetails = useMemo((): SpotDetailsData | null => {
+    if (!hoveredSpotData) return null;
+    const spot = hoveredSpotData.spot;
+    const liveSpot = allSpots.find(
+      (s) => s.id === spot.id || s.dx === spot.callsign,
+    ) as LiveSpot | undefined;
+    return {
+      callsign: spot.callsign,
+      dxGrid: liveSpot?.dxGrid,
+      dxLat: spot.dxLat,
+      dxLon: spot.dxLon,
+      spotter: liveSpot?.spotter,
+      spotterGrid: liveSpot?.spotterGrid,
+      frequency: spot.frequency,
+      band: liveSpot?.band,
+      mode: spot.mode,
+      time: spot.time,
+      source: spot.source,
+      snr: liveSpot?.snr,
+      wpm: liveSpot?.wpm,
+    };
+  }, [hoveredSpotData, allSpots]);
 
   // State for GridResearchPanel
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
@@ -1893,6 +2362,38 @@ export function FlatMapView({
     [target, displaySize],
   );
 
+  // Spot label hit-testing: check if screen position is inside any placed label
+  const findSpotLabelAtScreenPos = useCallback(
+    (screenPos: { x: number; y: number }): ResolvedSpot | null => {
+      const canvas = canvasRef.current;
+      if (!canvas || lastPlacedLabels.length === 0) {
+        return null;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const z = zoomRef.current;
+
+      for (const label of lastPlacedLabels) {
+        const { bbox } = label;
+        // Convert canvas-space bbox to screen-space
+        const sx = rect.left + bbox.x * z.scale + z.offsetX;
+        const sy = rect.top + bbox.y * z.scale + z.offsetY;
+        const sw = bbox.w * z.scale;
+        const sh = bbox.h * z.scale;
+
+        if (
+          screenPos.x >= sx &&
+          screenPos.x <= sx + sw &&
+          screenPos.y >= sy &&
+          screenPos.y <= sy + sh
+        ) {
+          return label.spot;
+        }
+      }
+      return null;
+    },
+    [displaySize],
+  );
+
   // Handle map hover - show tooltip or pin flyout
   const handleMapHover = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
@@ -1907,6 +2408,18 @@ export function FlatMapView({
       // Clear pin hover if we moved away from a pin
       if (hoveredPinData) {
         setHoveredPinData(null);
+      }
+
+      // Check spot label hover (between pin and target checks)
+      const hitSpotLabel = findSpotLabelAtScreenPos(screenPos);
+      if (hitSpotLabel) {
+        setHoveredSpotData({ spot: hitSpotLabel, screenPos });
+        setTooltipPosition(null);
+        setHoveredTargetPos(null);
+        return;
+      }
+      if (hoveredSpotData) {
+        setHoveredSpotData(null);
       }
 
       // Don't show tooltip if flyout is open
@@ -1932,6 +2445,8 @@ export function FlatMapView({
       setTooltipPosition,
       findPinAtScreenPos,
       hoveredPinData,
+      findSpotLabelAtScreenPos,
+      hoveredSpotData,
       isTargetAtScreenPos,
       hoveredTargetPos,
     ],
@@ -1942,6 +2457,7 @@ export function FlatMapView({
     setTooltipPosition(null);
     setHoveredPinData(null);
     setHoveredTargetPos(null);
+    setHoveredSpotData(null);
   }, [setTooltipPosition]);
 
   // Handle flyout close
@@ -2479,7 +2995,11 @@ export function FlatMapView({
   // Render map
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !mapImage) {
+    if (!canvas) {
+      return;
+    }
+    const isStandard = mapStyle === "standard";
+    if (!isStandard && !mapImage) {
       return;
     }
 
@@ -2512,9 +3032,10 @@ export function FlatMapView({
     ctx.translate(zoom.offsetX, zoom.offsetY);
     ctx.scale(zoom.scale, zoom.scale);
 
-    // Draw base map image (grayscale variant in standard mode)
-    const baseImage =
-      mapStyle === "standard" && grayscaleImage ? grayscaleImage : mapImage;
+    // Draw base map (vector-like standard map, or satellite imagery)
+    const baseImage: CanvasImageSource = isStandard
+      ? getStandardMapCanvas()
+      : mapImage!;
     ctx.drawImage(baseImage, 0, 0, renderWidth, renderHeight);
 
     // Draw MUF overlay (before night side so it's properly darkened)
@@ -2524,14 +3045,20 @@ export function FlatMapView({
 
     // Draw night side and terminator
     if (layers.terminator) {
-      drawNightSide(ctx, displayTime, renderWidth, renderHeight);
+      drawNightSide(
+        ctx,
+        displayTime,
+        renderWidth,
+        renderHeight,
+        isStandard ? "standard" : "satellite",
+      );
       drawTerminator(
         ctx,
         displayTime,
         renderWidth,
         renderHeight,
         highViz,
-        mapStyle === "standard",
+        isStandard,
       );
     }
 
@@ -2546,16 +3073,76 @@ export function FlatMapView({
     }
 
     // Draw night lights (city lights on dark side)
-    if (layers.nightLights) {
+    if (!isStandard && layers.nightLights) {
       drawNightLights(ctx, displayTime, renderWidth, renderHeight);
     }
 
     // Draw grid
     drawGrid(ctx, renderWidth, renderHeight, highViz);
 
-    // Draw labels (country borders, names, cities, Maidenhead grid)
-    if (layers.labels) {
-      drawLabels(ctx, renderWidth, renderHeight, labelOptions);
+    // Draw country borders (always when enabled, independent of labels toggle)
+    if (labelOptions.borders) {
+      drawLabels(
+        ctx,
+        renderWidth,
+        renderHeight,
+        {
+          borders: true,
+          stateBorders: false,
+          countryNames: false,
+          cities: false,
+          maidenheadGrid: false,
+        },
+        isStandard,
+      );
+    }
+
+    // Draw state borders
+    if (labelOptions.stateBorders) {
+      drawStateBorders(ctx, renderWidth, renderHeight, isStandard);
+    }
+
+    // Night-boosted border pass (clipped to night side)
+    if (
+      layers.terminator &&
+      (labelOptions.borders || labelOptions.stateBorders)
+    ) {
+      drawNightBoostedBorders(
+        ctx,
+        displayTime,
+        renderWidth,
+        renderHeight,
+        labelOptions.borders,
+        labelOptions.stateBorders,
+      );
+    }
+
+    // Draw text labels (country names, cities, maidenhead grid — only when labels layer is on)
+    const shouldDrawTextLabels = layers.labels || isStandard;
+    if (shouldDrawTextLabels) {
+      drawLabels(
+        ctx,
+        renderWidth,
+        renderHeight,
+        {
+          borders: false,
+          stateBorders: false,
+          countryNames: layers.labels ? labelOptions.countryNames : false,
+          cities: layers.labels ? labelOptions.cities : false,
+          maidenheadGrid: layers.labels ? labelOptions.maidenheadGrid : false,
+        },
+        isStandard,
+      );
+    }
+
+    // Highlight Maidenhead grid squares containing active spots
+    if (
+      layers.labels &&
+      labelOptions.maidenheadGrid &&
+      layers.spots &&
+      resolvedSpots.length > 0
+    ) {
+      drawSpotGridHighlights(ctx, resolvedSpots, renderWidth, renderHeight);
     }
 
     // Draw live spot arcs
@@ -2580,6 +3167,28 @@ export function FlatMapView({
         spotColorMode,
         highViz,
       );
+    }
+
+    // Draw highlight for hovered spot arc
+    if (hoveredSpotData && layers.spots) {
+      const hoveredSpot = resolvedSpots.find(
+        (s) => s.id === hoveredSpotData.spot.id,
+      );
+      if (hoveredSpot) {
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.shadowColor = getSpotColor(hoveredSpot, spotColorMode);
+        ctx.shadowBlur = 8;
+        drawSpotArc(
+          ctx,
+          hoveredSpot,
+          renderWidth,
+          renderHeight,
+          spotColorMode,
+          true, // force high-viz style for highlight
+        );
+        ctx.restore();
+      }
     }
 
     // Spot highlight pulsing rings are drawn on a separate overlay canvas
@@ -2688,6 +3297,7 @@ export function FlatMapView({
     pathMetrics,
     pins,
     hoveredPinData,
+    hoveredSpotData,
     zoom,
     displaySize,
     compassRoseEnabled,
@@ -2695,7 +3305,6 @@ export function FlatMapView({
     spotColorMode,
     highViz,
     mapStyle,
-    grayscaleImage,
   ]);
 
   return (
@@ -2703,7 +3312,7 @@ export function FlatMapView({
       ref={containerRef}
       className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center"
     >
-      {!mapImage && (
+      {!mapImage && mapStyle === "satellite" && (
         <div className="absolute inset-0 flex items-center justify-center bg-deep-space">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-plasma-orange border-t-transparent rounded-full animate-spin" />
@@ -2793,6 +3402,16 @@ export function FlatMapView({
           onSetTarget={handleSetTargetFromFlyout}
           onEditPin={handleEditPinFromFlyout}
           onClose={handlePinFlyoutClose}
+        />
+      )}
+
+      {/* Spot label hover flyout */}
+      {hoveredSpotDetails && hoveredSpotData && (
+        <SpotDetailsFlyout
+          visible
+          position={hoveredSpotData.screenPos}
+          spot={hoveredSpotDetails}
+          onClose={() => setHoveredSpotData(null)}
         />
       )}
 

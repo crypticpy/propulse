@@ -87,7 +87,10 @@ export function NightLightsOverlay({
 
           // Boost the lights to make cities more visible
           // Apply a power curve to increase contrast
-          float boostedLight = pow(lightBrightness, 0.6) * 1.5;
+          // Also apply a threshold mask so dark ocean/land pixels don't contribute
+          // (prevents JPEG macroblocking artifacts from showing in the night side).
+          float lightMask = smoothstep(0.18, 0.35, lightBrightness);
+          float boostedLight = pow(lightBrightness, 0.6) * 1.5 * lightMask;
 
           // Warm color tint for city lights (yellowish-orange glow)
           vec3 lightColor = vec3(1.0, 0.85, 0.6) * boostedLight;

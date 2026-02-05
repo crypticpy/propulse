@@ -12,6 +12,7 @@ import {
   degToRad,
   type ShaderConfig,
 } from "./azimuthalShader";
+import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 
 // Local texture paths (avoids CORS issues with NASA servers)
 const DAY_TEXTURE_URL = "/textures/earth-day.jpg";
@@ -48,6 +49,8 @@ export class AzimuthalRenderer {
   private program: WebGLProgram | null = null;
   private dayTexture: WebGLTexture | null = null;
   private nightTexture: WebGLTexture | null = null;
+  private standardTexture: WebGLTexture | null = null;
+  private standardNightTexture: WebGLTexture | null = null;
   private vertexBuffer: WebGLBuffer | null = null;
   private uniformLocations: UniformLocations | null = null;
 
@@ -58,7 +61,7 @@ export class AzimuthalRenderer {
 
   private options: AzimuthalRendererOptions;
   private disposed = false;
-  private grayscale = false;
+  private mapStyle: "satellite" | "standard" = "satellite";
 
   constructor(options: AzimuthalRendererOptions = {}) {
     this.options = {
@@ -235,6 +238,29 @@ export class AzimuthalRenderer {
     // Create placeholder textures
     this.dayTexture = this.createPlaceholderTexture(gl);
     this.nightTexture = this.createPlaceholderTexture(gl);
+    this.standardTexture = this.createPlaceholderTexture(gl);
+    this.standardNightTexture = this.createPlaceholderTexture(gl);
+
+    // Build lightweight standard texture immediately (no async network request)
+    try {
+      const standardCanvas = getStandardMapCanvas();
+      this.updateTexture(gl, this.standardTexture, standardCanvas);
+
+      const darkCanvas = document.createElement("canvas");
+      darkCanvas.width = standardCanvas.width;
+      darkCanvas.height = standardCanvas.height;
+      const darkCtx = darkCanvas.getContext("2d");
+      if (darkCtx) {
+        darkCtx.drawImage(standardCanvas, 0, 0);
+        // Darken for "night" using multiply so the style stays flat/vector-like.
+        darkCtx.globalCompositeOperation = "multiply";
+        darkCtx.fillStyle = "rgb(70, 75, 85)";
+        darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
+        this.updateTexture(gl, this.standardNightTexture, darkCanvas);
+      }
+    } catch (error) {
+      console.warn("Failed to build standard map texture:", error);
+    }
 
     // Load day texture
     const dayImage = new Image();
@@ -313,13 +339,31 @@ export class AzimuthalRenderer {
   private updateTexture(
     gl: WebGLRenderingContext,
     texture: WebGLTexture,
-    image: HTMLImageElement,
+    source: TexImageSource,
   ): void {
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+
+    const sourceWidth =
+      source instanceof HTMLImageElement
+        ? source.naturalWidth || source.width
+        : "width" in source
+          ? (source as { width: number }).width
+          : 0;
+    const sourceHeight =
+      source instanceof HTMLImageElement
+        ? source.naturalHeight || source.height
+        : "height" in source
+          ? (source as { height: number }).height
+          : 0;
 
     // Use mipmaps for better quality at different zoom levels
-    if (this.isPowerOfTwo(image.width) && this.isPowerOfTwo(image.height)) {
+    if (
+      this.isPowerOfTwo(sourceWidth) &&
+      this.isPowerOfTwo(sourceHeight) &&
+      sourceWidth > 0 &&
+      sourceHeight > 0
+    ) {
       gl.generateMipmap(gl.TEXTURE_2D);
       gl.texParameteri(
         gl.TEXTURE_2D,
@@ -388,6 +432,8 @@ export class AzimuthalRenderer {
     gl.uniform1f(u.uZoom, config.zoom);
 
     // Subsolar point for day/night blending
+    const useStandard =
+      this.mapStyle === "standard" && this.standardTexture !== null;
     if (
       config.showNight &&
       config.subsolarLat !== undefined &&
@@ -411,15 +457,23 @@ export class AzimuthalRenderer {
     gl.uniform1f(u.uMapScale, config.mapScale ?? 260 / 300);
 
     // Grayscale mode for standard map style
-    gl.uniform1i(u.uGrayscale, this.grayscale ? 1 : 0);
+    gl.uniform1i(u.uGrayscale, 0);
 
     // Bind textures
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.dayTexture);
+    gl.bindTexture(
+      gl.TEXTURE_2D,
+      useStandard ? this.standardTexture : this.dayTexture,
+    );
     gl.uniform1i(u.uDayTexture, 0);
 
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.nightTexture);
+    gl.bindTexture(
+      gl.TEXTURE_2D,
+      useStandard
+        ? this.standardNightTexture ?? this.standardTexture
+        : this.nightTexture,
+    );
     gl.uniform1i(u.uNightTexture, 1);
 
     // Draw fullscreen quad
@@ -447,10 +501,17 @@ export class AzimuthalRenderer {
   }
 
   /**
-   * Set grayscale mode for standard map style
+   * Set map style (satellite vs standard)
+   */
+  setMapStyle(value: "satellite" | "standard"): void {
+    this.mapStyle = value;
+  }
+
+  /**
+   * Back-compat: historically used to toggle standard map style.
    */
   setGrayscale(value: boolean): void {
-    this.grayscale = value;
+    this.mapStyle = value ? "standard" : "satellite";
   }
 
   /**
@@ -469,6 +530,12 @@ export class AzimuthalRenderer {
     if (this.nightTexture) {
       this.gl.deleteTexture(this.nightTexture);
     }
+    if (this.standardTexture) {
+      this.gl.deleteTexture(this.standardTexture);
+    }
+    if (this.standardNightTexture) {
+      this.gl.deleteTexture(this.standardNightTexture);
+    }
     if (this.vertexBuffer) {
       this.gl.deleteBuffer(this.vertexBuffer);
     }
@@ -480,6 +547,8 @@ export class AzimuthalRenderer {
     this.program = null;
     this.dayTexture = null;
     this.nightTexture = null;
+    this.standardTexture = null;
+    this.standardNightTexture = null;
     this.vertexBuffer = null;
     this.uniformLocations = null;
   }

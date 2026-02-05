@@ -15,6 +15,7 @@
 import { useEffect, useRef } from "react";
 import { useBridge } from "@/hooks/useBridge";
 import { useDXCCStore } from "@/stores/dxccStore";
+import { useUserStore } from "@/stores/userStore";
 import type { WSJTXQSOLoggedPayload } from "@/types/bridge";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -83,7 +84,10 @@ function formatBand(freqHz: number): string {
  * ```
  */
 export function useWSJTXAutoLog(): void {
-  const { lastMessage, connected } = useBridge();
+  const bridgeEnabled = useUserStore(
+    (s) => s.preferences.bridgeEnabled ?? false,
+  );
+  const { lastMessage, connected } = useBridge({ enabled: bridgeEnabled });
 
   // Track the last processed message ID to avoid duplicate processing
   const lastProcessedIdRef = useRef<string | null>(null);

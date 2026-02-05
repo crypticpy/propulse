@@ -22,6 +22,7 @@ const DEFAULT_BRIDGE_URL = "ws://127.0.0.1:9867";
 /** Default connection options */
 const DEFAULT_OPTIONS: Required<BridgeConnectionOptions> = {
   url: DEFAULT_BRIDGE_URL,
+  enabled: true,
   autoReconnect: true,
   maxReconnectAttempts: 0, // Unlimited
   reconnectDelay: 1000,
@@ -75,6 +76,7 @@ function calculateBackoff(
 export function useBridge(
   options: BridgeConnectionOptions = {},
 ): BridgeConnection {
+  const enabled = options.enabled ?? true;
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
   // Connection state
@@ -312,11 +314,9 @@ export function useBridge(
     setReconnectCount(0);
   }, [clearTimers]);
 
-  // Auto-connect on mount
+  // Track component mount lifecycle
   useEffect(() => {
     mountedRef.current = true;
-    connect();
-
     return () => {
       mountedRef.current = false;
       clearTimers();
@@ -325,9 +325,18 @@ export function useBridge(
         wsRef.current = null;
       }
     };
-    // Only run on mount/unmount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Connect when enabled, disconnect when disabled
+  useEffect(() => {
+    if (enabled) {
+      connect();
+    } else {
+      disconnect();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
 
   return {
     state,

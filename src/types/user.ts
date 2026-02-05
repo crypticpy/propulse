@@ -456,6 +456,8 @@ export interface UserPreferences {
   colorBlindMode?: ColorBlindMode;
   /** Forecast display preferences for the 24h propagation forecast mini */
   forecastDisplay?: ForecastDisplayPreferences;
+  /** Whether the ProPulse Bridge WebSocket connection is enabled (default: false) */
+  bridgeEnabled?: boolean;
 }
 
 // =============================================================================

@@ -142,6 +142,8 @@ export type BridgeMessageType =
 export interface BridgeConnectionOptions {
   /** WebSocket URL (defaults to ws://127.0.0.1:9867) */
   url?: string;
+  /** Whether the bridge connection is enabled (default: true) */
+  enabled?: boolean;
   /** Auto-reconnect on disconnect */
   autoReconnect?: boolean;
   /** Maximum reconnection attempts (0 = unlimited) */

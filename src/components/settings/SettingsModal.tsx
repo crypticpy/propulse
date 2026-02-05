@@ -243,9 +243,14 @@ const TABS: TabDef[] = [
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { station, setStation, preferences, updatePreferences } =
     useUserStore();
+  const bridgeEnabled = useUserStore(
+    (s) => s.preferences.bridgeEnabled ?? false,
+  );
 
-  // Bridge connection for Cluster and CAT settings
-  const { send: bridgeSend, connected: bridgeConnected } = useBridge();
+  // Bridge connection for Cluster and CAT settings (only when enabled)
+  const { send: bridgeSend, connected: bridgeConnected } = useBridge({
+    enabled: bridgeEnabled,
+  });
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
@@ -724,6 +729,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <CATSettings
               bridgeSend={bridgeSend}
               bridgeConnected={bridgeConnected}
+              bridgeEnabled={bridgeEnabled}
+              onBridgeEnabledChange={(enabled) =>
+                updatePreferences({ bridgeEnabled: enabled })
+              }
             />
           )}
 

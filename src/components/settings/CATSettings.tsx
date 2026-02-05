@@ -113,12 +113,18 @@ interface CATSettingsProps {
   bridgeSend?: <T>(type: string, payload: T) => boolean;
   /** Optional bridge connection state */
   bridgeConnected?: boolean;
+  /** Whether the ProPulse Bridge is enabled */
+  bridgeEnabled?: boolean;
+  /** Callback to toggle bridge enabled state */
+  onBridgeEnabledChange?: (enabled: boolean) => void;
 }
 
 export const CATSettings = memo(function CATSettings({
   className = "",
   bridgeSend,
   bridgeConnected = false,
+  bridgeEnabled = false,
+  onBridgeEnabledChange,
 }: CATSettingsProps) {
   const {
     connected,
@@ -248,6 +254,22 @@ export const CATSettings = memo(function CATSettings({
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Bridge Connection Toggle */}
+      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        ProPulse Bridge
+      </h3>
+      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+        <ToggleSwitch
+          checked={bridgeEnabled}
+          onChange={(enabled) => onBridgeEnabledChange?.(enabled)}
+          label="Enable Bridge Connection"
+          description="Connect to local ProPulse Bridge for rig control, WSJT-X, and DX cluster"
+        />
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-white/10" />
+
       {/* Header */}
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
         CAT Control
@@ -578,7 +600,7 @@ export const CATSettings = memo(function CATSettings({
           />
         </svg>
         <p className="text-xs text-gray-500">
-          CAT control requires the ProPulse Bridge and either{" "}
+          Enable the ProPulse Bridge above, then CAT control requires{" "}
           <strong className="text-gray-400">rigctld</strong> (Hamlib) or{" "}
           <strong className="text-gray-400">Flrig</strong> running on your
           machine. Auto-detect will try both backends automatically.

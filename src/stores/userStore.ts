@@ -248,6 +248,7 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   spotClustering: DEFAULT_SPOT_CLUSTERING,
   compassRose: DEFAULT_COMPASS_ROSE,
   spotAge: DEFAULT_SPOT_AGE,
+  bridgeEnabled: false,
 };
 
 function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
@@ -1171,7 +1172,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: "propulse-user",
-      version: 11,
+      version: 12,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -1406,6 +1407,11 @@ export const useUserStore = create<UserStore>()(
         // v10 -> v11: Add forecast display preferences
         if (!nextPreferences.forecastDisplay) {
           nextPreferences.forecastDisplay = DEFAULT_FORECAST_DISPLAY;
+        }
+
+        // v11 -> v12: Bridge disabled by default
+        if (nextPreferences.bridgeEnabled === undefined) {
+          nextPreferences.bridgeEnabled = false;
         }
 
         return {

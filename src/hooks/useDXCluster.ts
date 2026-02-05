@@ -18,6 +18,7 @@ import {
   clusterPayloadToSpot,
 } from "@/lib/api/dxcluster";
 import { useBridge } from "@/hooks/useBridge";
+import { useUserStore } from "@/stores/userStore";
 import { useDXStore, type DXSpotSource } from "@/stores/dxStore";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
 import type { ClusterSpotPayload } from "@/types/bridge";
@@ -107,8 +108,13 @@ export function useDXCluster(externalFilters?: DXClusterFilters) {
   } = useDXStore();
   const newSpotIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Bridge connection for real-time cluster spots
-  const { connected: bridgeConnected, lastMessage } = useBridge();
+  // Bridge connection for real-time cluster spots (only when enabled)
+  const bridgeEnabled = useUserStore(
+    (s) => s.preferences.bridgeEnabled ?? false,
+  );
+  const { connected: bridgeConnected, lastMessage } = useBridge({
+    enabled: bridgeEnabled,
+  });
   const [bridgeSpots, setBridgeSpots] = useState<DXSpot[]>([]);
 
   // Use external filters if provided, otherwise use store filters

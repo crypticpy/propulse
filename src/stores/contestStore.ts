@@ -27,11 +27,14 @@ import type {
   ContestContext,
 } from "@/lib/contest";
 import { getContestById } from "@/lib/data/contests";
+import { contestEventBus } from "@/lib/services/contestEventBus";
 
 export type { MultiplierType } from "@/types/contest";
 
 /** Maximum number of sessions to keep in history */
 const MAX_SESSION_HISTORY = 10;
+/** Maximum number of actionIds to keep for idempotency */
+const MAX_ACTION_ID_HISTORY = 200;
 
 /**
  * Contest category configuration
@@ -59,6 +62,8 @@ export interface QSOFlags {
  */
 export interface ContestQSO {
   id: string;
+  /** Client-generated idempotency token for a log action */
+  actionId?: string;
   timestamp: string;
   callsign: string;
   band: string;
@@ -117,6 +122,8 @@ export interface ContestSession {
   endTime?: string;
   isActive: boolean;
   qsos: ContestQSO[];
+  /** Recently processed action IDs (idempotency guard) */
+  processedActionIds?: string[];
   currentSerial: number;
   multipliers: MultiplierEntry[];
   totalPoints: number;
@@ -376,6 +383,7 @@ export const useContestStore = create<ContestStore>()(
 
       startContest: (contestId, myExchange, categories, cabrilloMeta) => {
         const now = new Date().toISOString();
+        const prevSessionId = get().activeSession?.id ?? null;
 
         const newSession: ContestSession = {
           id: crypto.randomUUID(),
@@ -385,6 +393,7 @@ export const useContestStore = create<ContestStore>()(
           startTime: now,
           isActive: true,
           qsos: [],
+          processedActionIds: [],
           currentSerial: 1,
           multipliers: [],
           totalPoints: 0,
@@ -418,9 +427,25 @@ export const useContestStore = create<ContestStore>()(
             sessionHistory: updatedHistory,
           };
         });
+
+        if (prevSessionId) {
+          contestEventBus.emit({
+            type: "SESSION_ENDED",
+            sessionId: prevSessionId,
+            ts: now,
+          });
+        }
+
+        contestEventBus.emit({
+          type: "SESSION_STARTED",
+          sessionId: newSession.id,
+          contestId: newSession.contestId,
+          ts: now,
+        });
       },
 
       endContest: () => {
+        const prevSessionId = get().activeSession?.id ?? null;
         set((state) => {
           if (!state.activeSession) {
             return state;
@@ -444,11 +469,29 @@ export const useContestStore = create<ContestStore>()(
             sessionHistory: updatedHistory,
           };
         });
+
+        if (prevSessionId) {
+          contestEventBus.emit({
+            type: "SESSION_ENDED",
+            sessionId: prevSessionId,
+            ts: new Date().toISOString(),
+          });
+        }
       },
 
       logQSO: (qso) => {
+        let didLog = false;
+        let sessionId: string | null = null;
         set((state) => {
           if (!state.activeSession) {
+            return state;
+          }
+
+          sessionId = state.activeSession.id;
+
+          // Idempotency guard: drop duplicate actionIds for this session
+          const processed = state.activeSession.processedActionIds ?? [];
+          if (qso.actionId && processed.includes(qso.actionId)) {
             return state;
           }
 
@@ -456,6 +499,7 @@ export const useContestStore = create<ContestStore>()(
           const contest = getContestById(state.activeSession.contestId);
 
           const finalQso = { ...qso };
+          didLog = true;
           const updatedMultipliers = [...state.activeSession.multipliers];
           let workedMults = buildWorkedMultsMap(updatedMultipliers);
 
@@ -522,6 +566,9 @@ export const useContestStore = create<ContestStore>()(
           }
 
           const updatedQsos = [...state.activeSession.qsos, finalQso];
+          const updatedActionIds = qso.actionId
+            ? [...processed, qso.actionId].slice(-MAX_ACTION_ID_HISTORY)
+            : processed;
 
           // Recalculate totals
           const totalPoints = updatedQsos.reduce(
@@ -549,6 +596,7 @@ export const useContestStore = create<ContestStore>()(
             activeSession: {
               ...state.activeSession,
               qsos: updatedQsos,
+              processedActionIds: updatedActionIds,
               multipliers: updatedMultipliers,
               totalPoints,
               totalMultipliers,
@@ -557,9 +605,21 @@ export const useContestStore = create<ContestStore>()(
             },
           };
         });
+
+        if (didLog && sessionId) {
+          contestEventBus.emit({
+            type: "QSO_LOGGED",
+            sessionId,
+            qsoId: qso.id,
+            actionId: qso.actionId,
+            ts: qso.timestamp,
+          });
+        }
       },
 
       editQSO: (id, updates) => {
+        let didEdit = false;
+        const sessionId = get().activeSession?.id ?? null;
         set((state) => {
           if (!state.activeSession) {
             return state;
@@ -584,6 +644,7 @@ export const useContestStore = create<ContestStore>()(
               edited: true,
             },
           };
+          didEdit = true;
 
           // Recalculate totals
           const totalPoints = updatedQsos.reduce(
@@ -593,7 +654,7 @@ export const useContestStore = create<ContestStore>()(
 
           // Recompute score if contest available
           const contest = getContestById(state.activeSession.contestId);
-          let {scoreSummary, totalScore} = state.activeSession;
+          let { scoreSummary, totalScore } = state.activeSession;
 
           if (contest) {
             const engineQsos = convertToEngineQSOs(updatedQsos);
@@ -618,6 +679,15 @@ export const useContestStore = create<ContestStore>()(
             },
           };
         });
+
+        if (didEdit && sessionId) {
+          contestEventBus.emit({
+            type: "QSO_EDITED",
+            sessionId,
+            qsoId: id,
+            ts: new Date().toISOString(),
+          });
+        }
       },
 
       undoLastQSO: () => {
@@ -626,6 +696,7 @@ export const useContestStore = create<ContestStore>()(
           return null;
         }
 
+        const sessionId = state.activeSession.id;
         const lastQso =
           state.activeSession.qsos[state.activeSession.qsos.length - 1];
 
@@ -650,7 +721,7 @@ export const useContestStore = create<ContestStore>()(
 
           // Recompute score if contest available
           const contest = getContestById(s.activeSession.contestId);
-          let {scoreSummary} = s.activeSession;
+          let { scoreSummary } = s.activeSession;
           let totalScore = totalPoints * totalMultipliers;
 
           if (contest) {
@@ -675,6 +746,13 @@ export const useContestStore = create<ContestStore>()(
               scoreSummary,
             },
           };
+        });
+
+        contestEventBus.emit({
+          type: "QSO_UNDONE",
+          sessionId,
+          qsoId: lastQso.id,
+          ts: new Date().toISOString(),
         });
 
         return lastQso;
@@ -704,6 +782,7 @@ export const useContestStore = create<ContestStore>()(
       },
 
       setRunMode: (mode) => {
+        const sessionId = get().activeSession?.id ?? null;
         set((state) => {
           if (!state.activeSession) {
             return state;
@@ -716,6 +795,15 @@ export const useContestStore = create<ContestStore>()(
             },
           };
         });
+
+        if (sessionId) {
+          contestEventBus.emit({
+            type: "RUN_MODE_CHANGED",
+            sessionId,
+            mode,
+            ts: new Date().toISOString(),
+          });
+        }
       },
 
       addMultiplier: (type, value, band) => {
@@ -754,7 +842,7 @@ export const useContestStore = create<ContestStore>()(
 
           // Recompute score
           const contest = getContestById(s.activeSession.contestId);
-          let {scoreSummary} = s.activeSession;
+          let { scoreSummary } = s.activeSession;
           let totalScore = s.activeSession.totalPoints * totalMultipliers;
 
           if (contest) {
@@ -917,7 +1005,7 @@ export const useContestStore = create<ContestStore>()(
     }),
     {
       name: "propulse-contest",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeSession: state.activeSession,
@@ -951,6 +1039,8 @@ export const useContestStore = create<ContestStore>()(
             runMode: session.runMode ?? "run",
             // Add scoreSummary if missing (v2 -> v3)
             scoreSummary: session.scoreSummary ?? undefined,
+            // Add processedActionIds if missing (v3 -> v4)
+            processedActionIds: session.processedActionIds ?? [],
             // Ensure QSOs have isDupe field
             qsos: session.qsos.map((qso) => ({
               ...qso,
@@ -960,7 +1050,7 @@ export const useContestStore = create<ContestStore>()(
         };
 
         // Apply migrations based on version
-        if (version < 3) {
+        if (version < 4) {
           return {
             ...state,
             activeSession: normalizeSession(state.activeSession),
@@ -970,7 +1060,7 @@ export const useContestStore = create<ContestStore>()(
           };
         }
 
-        // Already at v3, just normalize
+        // Already at v4, just normalize
         return {
           ...state,
           activeSession: normalizeSession(state.activeSession),

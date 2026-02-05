@@ -9,6 +9,8 @@ import {
 import { UndoToast } from "@/components/ui/UndoToast";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
+import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
 
 /**
  * Layout - Root layout component with header and background effects
@@ -33,6 +35,9 @@ export function Layout() {
 
       {/* Main content */}
       <div className="relative z-10">
+        <ContestVoiceManager />
+        <ContestGlobalHotkeys />
+
         <Header
           alertCount={activeAlerts.length}
           criticalAlertCount={criticalCount}

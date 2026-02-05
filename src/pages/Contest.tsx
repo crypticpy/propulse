@@ -16,12 +16,14 @@ import {
   ContestEditLastModal,
   type ContestConfig,
 } from "@/components/contest";
+import { ContestVoiceControls } from "@/components/contest/ContestVoiceControls";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
 import {
   useContestHotkeys,
   BAND_QUICK_SELECT,
 } from "@/hooks/useContestHotkeys";
+import { useContestUIStore } from "@/stores/contestUIStore";
 
 const EMPTY_QSOS: ContestQSO[] = [];
 
@@ -37,6 +39,7 @@ export function Contest() {
   const totalScore = useContestStore((s) => s.activeSession?.totalScore ?? 0);
   const qsos = useContestStore((s) => s.activeSession?.qsos) ?? EMPTY_QSOS;
   const runMode = useContestStore((s) => s.activeSession?.runMode ?? "run");
+  const sessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const startContest = useContestStore((s) => s.startContest);
   const endContest = useContestStore((s) => s.endContest);
   const undoLastQSO = useContestStore((s) => s.undoLastQSO);
@@ -46,9 +49,15 @@ export function Contest() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [editingQSO, setEditingQSO] = useState<ContestQSO | null>(null);
 
-  // Band and mode state (will be CAT-driven in Phase 7)
-  const [currentBand, setCurrentBand] = useState("20m");
-  const [currentMode, setCurrentMode] = useState("CW");
+  // Band and mode UI state (shared across /contest and /map until CAT drives it)
+  const currentBand = useContestUIStore((s) =>
+    sessionId ? s.bandBySessionId[sessionId] ?? "20m" : "20m",
+  );
+  const currentMode = useContestUIStore((s) =>
+    sessionId ? s.modeBySessionId[sessionId] ?? "CW" : "CW",
+  );
+  const setBand = useContestUIStore((s) => s.setBand);
+  const setMode = useContestUIStore((s) => s.setMode);
 
   // Get contest name
   const contestName = useMemo(() => {
@@ -111,9 +120,15 @@ export function Contest() {
     // ContestOneLineEntry maintains focus automatically
   }, [undoLastQSO]);
 
-  const handleBandChange = useCallback((band: string) => {
-    setCurrentBand(band);
-  }, []);
+  const handleBandChange = useCallback(
+    (band: string) => {
+      if (!sessionId) {
+        return;
+      }
+      setBand(sessionId, band);
+    },
+    [sessionId, setBand],
+  );
 
   const handleMacro = useCallback((_macroName: string) => {
     // Macro triggering deferred to Phase 7 (CAT integration)
@@ -216,7 +231,10 @@ export function Contest() {
             <div className="flex items-center gap-2 px-3 py-1.5 bg-nebula-blue rounded-lg border border-white/10">
               <select
                 value={currentBand}
-                onChange={(e) => setCurrentBand(e.target.value)}
+                onChange={(e) => {
+                  if (!sessionId) return;
+                  setBand(sessionId, e.target.value);
+                }}
                 className="bg-transparent text-cosmic-cyan font-mono text-sm focus:outline-none cursor-pointer"
               >
                 {Object.values(BAND_QUICK_SELECT).map((band) => (
@@ -228,7 +246,10 @@ export function Contest() {
               <span className="text-gray-500">/</span>
               <select
                 value={currentMode}
-                onChange={(e) => setCurrentMode(e.target.value)}
+                onChange={(e) => {
+                  if (!sessionId) return;
+                  setMode(sessionId, e.target.value);
+                }}
                 className="bg-transparent text-white font-mono text-sm focus:outline-none cursor-pointer"
               >
                 <option value="CW" className="bg-deep-space">
@@ -287,10 +308,14 @@ export function Contest() {
               band={currentBand}
               mode={currentMode}
               onBandModeChange={(band, mode) => {
-                setCurrentBand(band);
-                setCurrentMode(mode);
+                if (!sessionId) return;
+                setBand(sessionId, band);
+                setMode(sessionId, mode);
               }}
             />
+            {sessionId && (
+              <ContestVoiceControls sessionId={sessionId} className="mt-3" />
+            )}
           </div>
 
           {/* Multiplier Panel */}

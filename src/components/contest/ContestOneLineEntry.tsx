@@ -19,6 +19,7 @@ import {
 } from "react";
 import { Card } from "@/components/ui/Card";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
+import { useContestUIStore } from "@/stores/contestUIStore";
 // Reserved for future zone-based scoring enhancements
 // import { useUserStore } from "@/stores/userStore";
 import { getContestById } from "@/lib/data/contests";
@@ -100,12 +101,21 @@ export function ContestOneLineEntry({
   const logQSO = useContestStore((s) => s.logQSO);
   const incrementSerial = useContestStore((s) => s.incrementSerial);
   const isDupeCheck = useContestStore((s) => s.isDupe);
+  const setDraft = useContestUIStore((s) => s.setDraft);
+  const clearDraft = useContestUIStore((s) => s.clearDraft);
+  const setDraftSelection = useContestUIStore((s) => s.setDraftSelection);
+  const setDraftHasFocus = useContestUIStore((s) => s.setDraftHasFocus);
+  const entryFocusRequestId = useContestUIStore((s) => s.entryFocusRequestId);
   // Reserved for future use (CAT integration, zone-based scoring)
   // const isMultiplierWorked = useContestStore((s) => s.isMultiplierWorked);
   // const station = useUserStore((state) => state.station);
 
+  const sessionId = activeSession?.id ?? null;
+  const input = useContestUIStore(
+    (s) => (sessionId ? s.draftBySessionId[sessionId] ?? "" : ""),
+  );
+
   // ---- Local state ----
-  const [input, setInput] = useState("");
   const [status, setStatus] = useState<EntryStatus>({
     isDupe: false,
     isNewMult: false,
@@ -116,6 +126,11 @@ export function ContestOneLineEntry({
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastSubmitRef = useRef<{
+    actionId: string;
+    input: string;
+    at: number;
+  } | null>(null);
 
   // ---- Contest definition ----
   const contestDefinition = useMemo(() => {
@@ -133,7 +148,7 @@ export function ContestOneLineEntry({
 
     const rstSent = mode === "SSB" ? "59" : "599";
     const serial = activeSession.currentSerial;
-    const {myExchange} = activeSession;
+    const { myExchange } = activeSession;
 
     // Build exchange based on contest format
     const exchangeFields = contestDefinition.exchange.fields;
@@ -266,18 +281,24 @@ export function ContestOneLineEntry({
   );
 
   // ---- Update status on input change ----
+  useEffect(() => {
+    setStatus(parseAndValidate(input));
+  }, [input, parseAndValidate]);
+
   const handleInputChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
+      if (!sessionId) {
+        return;
+      }
       const value = e.target.value.toUpperCase();
-      setInput(value);
-      setStatus(parseAndValidate(value));
+      setDraft(sessionId, value);
     },
-    [parseAndValidate],
+    [sessionId, setDraft],
   );
 
   // ---- Log the QSO ----
   const handleLog = useCallback(() => {
-    if (!input.trim() || !contestDefinition || !activeSession) {
+    if (!sessionId || !input.trim() || !contestDefinition || !activeSession) {
       return;
     }
 
@@ -303,6 +324,15 @@ export function ContestOneLineEntry({
       // Block logging if configured
       return;
     }
+
+    // Idempotency token (prevents accidental double-submit)
+    const nowMs = Date.now();
+    const existing = lastSubmitRef.current;
+    if (existing && existing.input === input && nowMs - existing.at < 1500) {
+      return;
+    }
+    const actionId = crypto.randomUUID();
+    lastSubmitRef.current = { actionId, input, at: nowMs };
 
     // Get serial number (increments in store)
     const serialSent = incrementSerial();
@@ -347,6 +377,7 @@ export function ContestOneLineEntry({
     // Create QSO object
     const qso: ContestQSO = {
       id: crypto.randomUUID(),
+      actionId,
       timestamp,
       callsign: parsed.callsign,
       band,
@@ -369,7 +400,7 @@ export function ContestOneLineEntry({
     logQSO(qso);
 
     // Clear input and keep focus
-    setInput("");
+    clearDraft(sessionId);
     setStatus({
       isDupe: false,
       isNewMult: false,
@@ -383,6 +414,7 @@ export function ContestOneLineEntry({
     inputRef.current?.focus();
   }, [
     input,
+    sessionId,
     contestDefinition,
     activeSession,
     mode,
@@ -392,17 +424,23 @@ export function ContestOneLineEntry({
     blockDupes,
     incrementSerial,
     logQSO,
+    clearDraft,
   ]);
 
   // ---- Handle keyboard events ----
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
+        if (e.repeat) {
+          return;
+        }
         e.preventDefault();
         handleLog();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        setInput("");
+        if (sessionId) {
+          clearDraft(sessionId);
+        }
         setStatus({
           isDupe: false,
           isNewMult: false,
@@ -414,13 +452,29 @@ export function ContestOneLineEntry({
         inputRef.current?.focus();
       }
     },
-    [handleLog],
+    [handleLog, sessionId, clearDraft],
   );
 
-  // ---- Focus input on mount ----
+  // ---- Focus input on mount and when requested ----
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    if (!sessionId || !inputRef.current) {
+      return;
+    }
+    const selection =
+      useContestUIStore.getState().draftSelectionBySessionId[sessionId] ?? null;
+    if (selection) {
+      try {
+        inputRef.current.setSelectionRange(selection.start, selection.end);
+      } catch {
+        // ignore
+      }
+    }
+  }, [entryFocusRequestId, sessionId]);
 
   // ---- Render ----
   if (!activeSession || !contestDefinition) {
@@ -460,6 +514,27 @@ export function ContestOneLineEntry({
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          onSelect={(e) => {
+            if (!sessionId) {
+              return;
+            }
+            const el = e.currentTarget;
+            const start = el.selectionStart ?? 0;
+            const end = el.selectionEnd ?? start;
+            setDraftSelection(sessionId, { start, end });
+          }}
+          onFocus={() => {
+            if (!sessionId) {
+              return;
+            }
+            setDraftHasFocus(sessionId, true);
+          }}
+          onBlur={() => {
+            if (!sessionId) {
+              return;
+            }
+            setDraftHasFocus(sessionId, false);
+          }}
           placeholder="Callsign RST Exchange (e.g., K3LR 59 05)"
           autoComplete="off"
           autoCorrect="off"

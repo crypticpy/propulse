@@ -5,7 +5,6 @@
  * - PSKReporter (digital modes)
  * - Reverse Beacon Network (CW/RTTY)
  * - WSJT-X (local decodes via bridge)
- * - Demo spots (fallback)
  *
  * Features:
  * - Automatic deduplication
@@ -18,7 +17,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPSKReporterSpots } from "@/lib/api/pskreporter";
 import { fetchRBNSpots } from "@/lib/api/rbn";
-import { fetchDemoSpots, getBandFromFrequency } from "@/lib/api/dxcluster";
+import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
@@ -32,8 +31,6 @@ interface UseLiveSpotsOptions {
   refetchInterval?: number;
   /** Sources to include */
   sources?: SpotSource[];
-  /** Include demo spots as fallback */
-  includeDemo?: boolean;
 }
 
 interface UseLiveSpotsResult {
@@ -53,7 +50,7 @@ const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 
 /** Stable default sources array — avoids new reference on every hook call */
-const DEFAULT_SOURCES: SpotSource[] = ["PSKReporter", "RBN", "WSJT-X", "Demo"];
+const DEFAULT_SOURCES: SpotSource[] = ["PSKReporter", "RBN", "WSJT-X"];
 
 /**
  * Generate a deduplication key for a spot
@@ -67,21 +64,19 @@ function getSpotKey(spot: LiveSpot): string {
 
 /**
  * Deduplicate spots by callsign + frequency + time
- * Prioritizes real spots over demo spots.
  *
- * Priority: PSKReporter(0) > RBN(1) > WSJT-X(2) > Cluster(3) > Demo(4)
+ * Priority: PSKReporter(0) > RBN(1) > WSJT-X(2) > Cluster(3)
  */
 function deduplicateSpots(spots: LiveSpot[]): LiveSpot[] {
   const seen = new Map<string, LiveSpot>();
 
-  // Sort by source priority (real sources first)
+  // Sort by source priority
   const prioritized = [...spots].sort((a, b) => {
     const priority: Record<SpotSource, number> = {
       PSKReporter: 0,
       RBN: 1,
       "WSJT-X": 2,
       Cluster: 3,
-      Demo: 4,
     };
     return priority[a.source] - priority[b.source];
   });
@@ -129,7 +124,6 @@ export function useLiveSpots({
   enabled = true,
   refetchInterval = MINUTE,
   sources = DEFAULT_SOURCES,
-  includeDemo = true,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // Fetch PSKReporter spots
   const pskQuery = useQuery({
@@ -149,22 +143,6 @@ export function useLiveSpots({
     staleTime: 30 * SECOND,
     refetchInterval,
     retry: 2,
-  });
-
-  // Fetch demo spots as fallback
-  const demoQuery = useQuery({
-    queryKey: ["liveSpots", "demo"],
-    queryFn: async () => {
-      const spots = await fetchDemoSpots(30);
-      // Add source attribution
-      return spots.map((spot) => ({
-        ...spot,
-        source: "Demo" as SpotSource,
-      }));
-    },
-    enabled: enabled && includeDemo,
-    staleTime: MINUTE,
-    refetchInterval: MINUTE,
   });
 
   // WSJT-X decodes from the bridge (via store)
@@ -208,11 +186,6 @@ export function useLiveSpots({
       allSpots.push(...wsjtxSpots);
     }
 
-    // Only include demo spots if no real spots available or explicitly requested
-    if (demoQuery.data && (includeDemo || allSpots.length === 0)) {
-      allSpots.push(...demoQuery.data);
-    }
-
     // Deduplicate and sort by time (newest first)
     const deduplicated = deduplicateSpots(allSpots);
     const sorted = deduplicated.sort(
@@ -225,14 +198,7 @@ export function useLiveSpots({
     }
 
     return sorted;
-  }, [
-    pskQuery.data,
-    rbnQuery.data,
-    wsjtxSpots,
-    demoQuery.data,
-    includeDemo,
-    sources,
-  ]);
+  }, [pskQuery.data, rbnQuery.data, wsjtxSpots, sources]);
 
   // Group spots by source
   const spotsBySource = useMemo(() => {
@@ -241,7 +207,6 @@ export function useLiveSpots({
       RBN: [],
       Cluster: [],
       "WSJT-X": [],
-      Demo: [],
     };
 
     for (const spot of spots) {
@@ -257,9 +222,6 @@ export function useLiveSpots({
   const refetch = () => {
     pskQuery.refetch();
     rbnQuery.refetch();
-    if (includeDemo) {
-      demoQuery.refetch();
-    }
   };
 
   return {

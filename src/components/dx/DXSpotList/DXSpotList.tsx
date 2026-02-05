@@ -40,13 +40,6 @@ const SOURCE_BADGE_STYLES: Record<
     border: "border-blue-500/30",
     pulse: false,
   },
-  demo: {
-    label: "DEMO",
-    bg: "bg-amber-500/20",
-    text: "text-amber-400",
-    border: "border-amber-500/30",
-    pulse: false,
-  },
 };
 
 /**

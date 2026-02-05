@@ -8,7 +8,7 @@ import type { DXSpot } from "./dxcluster";
 /**
  * Source of the spot data
  */
-export type SpotSource = "PSKReporter" | "RBN" | "Cluster" | "Demo" | "WSJT-X";
+export type SpotSource = "PSKReporter" | "RBN" | "Cluster" | "WSJT-X";
 
 /**
  * Extended spot with source attribution and additional metadata
@@ -52,7 +52,6 @@ export const SPOT_SOURCE_COLORS: Record<
   PSKReporter: { color: "#54a0ff", bgColor: "rgba(84, 160, 255, 0.2)" },
   RBN: { color: "#1dd1a1", bgColor: "rgba(29, 209, 161, 0.2)" },
   Cluster: { color: "#ff9f43", bgColor: "rgba(255, 159, 67, 0.2)" },
-  Demo: { color: "#a5b1c2", bgColor: "rgba(165, 177, 194, 0.2)" },
   "WSJT-X": { color: "#22d3ee", bgColor: "rgba(34, 211, 238, 0.15)" },
 };
 

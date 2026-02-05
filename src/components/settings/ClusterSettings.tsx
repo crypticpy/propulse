@@ -130,8 +130,6 @@ function sourceLabel(source: DXSpotSource): string {
       return "Bridge (WebSocket)";
     case "rest":
       return "REST API";
-    case "demo":
-      return "Demo Data";
     default:
       return source;
   }

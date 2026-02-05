@@ -8,7 +8,7 @@ import { persist } from "zustand/middleware";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
 
 /** Primary source for spot data */
-export type DXSpotSource = "bridge" | "rest" | "demo";
+export type DXSpotSource = "bridge" | "rest";
 
 interface DXState {
   // Spot data
@@ -296,5 +296,4 @@ export const AVAILABLE_SOURCES = [
   "RBN",
   "Cluster",
   "WSJT-X",
-  "Demo",
 ] as const;

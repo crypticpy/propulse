@@ -1,14 +1,12 @@
 /**
- * DX Cluster API (Demo/Simulated)
+ * DX Cluster API
  *
- * Real DX clusters use Telnet protocol which browsers can't access directly.
- * This module provides simulated data for demonstration purposes.
- *
- * In production, you would need a backend proxy to connect to:
- * - dxc.ve7cc.net:7300
- * - dx.k1rfi.org:7300
- * - dxfun.com:8000
- * - etc.
+ * Provides utilities for DX spot data including:
+ * - Band/frequency lookups
+ * - Grid locator conversion
+ * - DX Spider spot parsing
+ * - REST proxy fetching (Vercel Edge Function)
+ * - Bridge payload conversion
  */
 
 import type { DXSpot, BandColorConfig } from "@/types/dxcluster";
@@ -30,20 +28,6 @@ const BANDS = [
   { name: "10m", min: 28000, max: 29700, center: 28850 },
   { name: "6m", min: 50000, max: 54000, center: 52000 },
   { name: "2m", min: 144000, max: 148000, center: 146000 },
-] as const;
-
-/**
- * Common operating modes
- */
-const MODES = [
-  "CW",
-  "SSB",
-  "FT8",
-  "FT4",
-  "RTTY",
-  "PSK31",
-  "JS8",
-  "FM",
 ] as const;
 
 /**
@@ -76,111 +60,6 @@ export function getBandColor(band: string): BandColorConfig {
     }
   );
 }
-
-/**
- * Sample callsign prefixes by region for realistic demo data
- */
-const CALLSIGN_PREFIXES = {
-  // North America
-  NA: [
-    "W1",
-    "W2",
-    "W3",
-    "W4",
-    "W5",
-    "W6",
-    "W7",
-    "W8",
-    "W9",
-    "W0",
-    "K",
-    "N",
-    "AA",
-    "VE",
-    "VA",
-    "XE",
-  ],
-  // Europe
-  EU: [
-    "G",
-    "GM",
-    "GW",
-    "DL",
-    "DJ",
-    "DK",
-    "F",
-    "I",
-    "EA",
-    "CT",
-    "PA",
-    "ON",
-    "OZ",
-    "SM",
-    "LA",
-    "OH",
-    "SP",
-    "OK",
-    "HA",
-    "YO",
-    "LZ",
-    "SV",
-    "9A",
-    "S5",
-  ],
-  // Asia
-  AS: ["JA", "JH", "JR", "HL", "BV", "BY", "VU", "9M", "9V", "HS", "YB", "DU"],
-  // Oceania
-  OC: ["VK", "ZL", "FK", "KH6", "KL7", "YJ", "A3"],
-  // South America
-  SA: ["LU", "PY", "CE", "HC", "OA", "YV", "HK", "CP"],
-  // Africa
-  AF: ["ZS", "5Z", "5H", "9J", "7Q", "5X", "CN", "EA8", "CT3", "3B8"],
-};
-
-/**
- * Sample grid locators by region for realistic positioning
- */
-const GRID_LOCATORS = {
-  NA: [
-    "FN31",
-    "FN42",
-    "EM73",
-    "DM79",
-    "CN87",
-    "FM18",
-    "EN91",
-    "DM04",
-    "EL96",
-    "DN70",
-  ],
-  EU: [
-    "JO21",
-    "IO91",
-    "JN48",
-    "JN58",
-    "JN65",
-    "JN47",
-    "KO85",
-    "KN95",
-    "JN99",
-    "KM17",
-  ],
-  AS: [
-    "PM95",
-    "PM96",
-    "QM05",
-    "PL04",
-    "OL72",
-    "OM29",
-    "PK04",
-    "NM83",
-    "OL92",
-    "PN11",
-  ],
-  OC: ["QF56", "RF80", "RH91", "BL11", "BP51", "QG62", "RK29", "RE78"],
-  SA: ["GF05", "GG87", "FH17", "FI09", "FF46", "FJ01", "FI18", "FH95"],
-  AF: ["KF25", "KI88", "JG71", "KH43", "KH62", "IM75", "IL38", "MG54"],
-};
 
 /**
  * Convert grid locator to approximate lat/lon
@@ -239,164 +118,6 @@ export function getBandCenterFrequency(band: string): number {
 }
 
 /**
- * Generate a random callsign
- */
-function generateCallsign(region: keyof typeof CALLSIGN_PREFIXES): string {
-  const prefixes = CALLSIGN_PREFIXES[region];
-  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-  const suffix =
-    Math.random() > 0.5
-      ? String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
-        String.fromCharCode(65 + Math.floor(Math.random() * 26))
-      : String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
-        String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
-        String.fromCharCode(65 + Math.floor(Math.random() * 26));
-
-  const number = Math.floor(Math.random() * 10);
-  return `${prefix}${number}${suffix}`;
-}
-
-/**
- * Generate a random grid locator
- */
-function getRandomGrid(region: keyof typeof GRID_LOCATORS): string {
-  const grids = GRID_LOCATORS[region];
-  return grids[Math.floor(Math.random() * grids.length)];
-}
-
-/**
- * Generate random frequency within a band
- */
-function generateFrequency(band: (typeof BANDS)[number]): number {
-  const range = band.max - band.min;
-  return Math.round(band.min + Math.random() * range);
-}
-
-/**
- * Spot comments for realistic demo data
- */
-const SPOT_COMMENTS = [
-  "CQ CQ CQ",
-  "5/9 in EU",
-  "Loud signal",
-  "Up 1",
-  "Up 2",
-  "599",
-  "59+10",
-  "QSX 14195",
-  "Good copy",
-  "TNX QSO",
-  "Nice signal",
-  "Weak but readable",
-  "DXCC needed",
-  "New one!",
-  "ATNO",
-  "Calling CQ DX",
-  "Pileup",
-  "Split up",
-  "Working NA",
-  "Working EU",
-  "Working JA",
-];
-
-/**
- * Generate a unique ID for a spot
- */
-function generateSpotId(): string {
-  return `spot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-/**
- * Generate realistic demo DX spots
- */
-export function generateDemoSpots(count: number = 20): DXSpot[] {
-  const spots: DXSpot[] = [];
-  const regions = Object.keys(CALLSIGN_PREFIXES) as Array<
-    keyof typeof CALLSIGN_PREFIXES
-  >;
-  const now = Date.now();
-
-  for (let i = 0; i < count; i++) {
-    // Random region for DX station
-    const dxRegion = regions[Math.floor(Math.random() * regions.length)];
-    // Spotter usually from NA or EU
-    const spotterRegion =
-      Math.random() > 0.3
-        ? Math.random() > 0.5
-          ? "NA"
-          : "EU"
-        : regions[Math.floor(Math.random() * regions.length)];
-
-    // Random band weighted towards popular bands
-    const bandWeights = [
-      0.02, 0.15, 0.02, 0.25, 0.05, 0.25, 0.05, 0.12, 0.02, 0.05, 0.02, 0,
-    ];
-    let bandIndex = 0;
-    let cumWeight = 0;
-    const randWeight = Math.random();
-    for (let j = 0; j < bandWeights.length; j++) {
-      cumWeight += bandWeights[j];
-      if (randWeight <= cumWeight) {
-        bandIndex = j;
-        break;
-      }
-    }
-    const band = BANDS[bandIndex];
-
-    // Random mode weighted towards common modes
-    const modeWeights = [0.25, 0.25, 0.35, 0.05, 0.05, 0.02, 0.02, 0.01];
-    let modeIndex = 0;
-    cumWeight = 0;
-    const randModeWeight = Math.random();
-    for (let j = 0; j < modeWeights.length; j++) {
-      cumWeight += modeWeights[j];
-      if (randModeWeight <= cumWeight) {
-        modeIndex = j;
-        break;
-      }
-    }
-    const mode = MODES[modeIndex];
-
-    // Generate callsigns and grids
-    const dx = generateCallsign(dxRegion);
-    const spotter = generateCallsign(spotterRegion);
-    const dxGrid = getRandomGrid(dxRegion);
-    const spotterGrid = getRandomGrid(spotterRegion);
-
-    // Calculate positions
-    const dxPos = gridToLatLon(dxGrid);
-    const spotterPos = gridToLatLon(spotterGrid);
-
-    // Random time within last 20 minutes (ensures spots aren't filtered by 30min maxAge)
-    const spotTime = new Date(now - Math.random() * 20 * 60 * 1000);
-
-    // Random comment
-    const comment =
-      SPOT_COMMENTS[Math.floor(Math.random() * SPOT_COMMENTS.length)];
-
-    spots.push({
-      id: generateSpotId(),
-      spotter,
-      spotterGrid,
-      dx,
-      dxGrid,
-      frequency: generateFrequency(band),
-      mode,
-      comment,
-      time: spotTime,
-      band: band.name,
-      dxLat: dxPos?.lat,
-      dxLon: dxPos?.lon,
-      spotterLat: spotterPos?.lat,
-      spotterLon: spotterPos?.lon,
-    });
-  }
-
-  // Sort by time, newest first
-  return spots.sort((a, b) => b.time.getTime() - a.time.getTime());
-}
-
-/**
  * Parse a DX Spider format spot line
  * Format: DX de SPOTTER: FREQ DX comment time
  * Example: "DX de W1AW:    14025.0  JA1YYY      CQ CQ CQ              1423Z"
@@ -442,7 +163,7 @@ export function parseDXSpiderSpot(line: string): DXSpot | null {
   }
 
   return {
-    id: generateSpotId(),
+    id: `spot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
     spotter: spotter.toUpperCase(),
     dx: dx.toUpperCase(),
     frequency,
@@ -451,27 +172,6 @@ export function parseDXSpiderSpot(line: string): DXSpot | null {
     time: spotTime,
     band,
   };
-}
-
-/**
- * Simulate fetching new spots (for demo purposes)
- * In production, this would connect to a backend WebSocket or API
- */
-export async function fetchDemoSpots(count: number = 20): Promise<DXSpot[]> {
-  // Simulate network delay
-  await new Promise((resolve) =>
-    setTimeout(resolve, 300 + Math.random() * 200),
-  );
-  return generateDemoSpots(count);
-}
-
-/**
- * Add a new simulated spot (for real-time demo)
- */
-export function generateNewSpot(): DXSpot {
-  const spots = generateDemoSpots(1);
-  spots[0].time = new Date(); // Just now
-  return spots[0];
 }
 
 /**

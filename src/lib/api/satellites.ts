@@ -548,6 +548,65 @@ export function getSimplePassPrediction(
 }
 
 // ---------------------------------------------------------------------------
+// Range-Rate Calculation (for Doppler shift)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute slant range from observer to satellite for Doppler calculations.
+ */
+function computeSlantRangeForDoppler(
+  satLat: number,
+  satLon: number,
+  satAlt: number,
+  obsLat: number,
+  obsLon: number,
+  obsAlt: number = 0,
+): number {
+  const oLR = obsLat * DEG_TO_RAD;
+  const oLoR = obsLon * DEG_TO_RAD;
+  const sLR = satLat * DEG_TO_RAD;
+  const sLoR = satLon * DEG_TO_RAD;
+  const oR = EARTH_RADIUS_KM + obsAlt;
+  const sR = EARTH_RADIUS_KM + satAlt;
+  const rx =
+    sR * Math.cos(sLR) * Math.cos(sLoR) - oR * Math.cos(oLR) * Math.cos(oLoR);
+  const ry =
+    sR * Math.cos(sLR) * Math.sin(sLoR) - oR * Math.cos(oLR) * Math.sin(oLoR);
+  const rz = sR * Math.sin(sLR) - oR * Math.sin(oLR);
+  return Math.sqrt(rx * rx + ry * ry + rz * rz);
+}
+
+/**
+ * Calculate range-rate between observer and satellite from two consecutive
+ * positions. Negative = satellite approaching (higher received frequency).
+ */
+export function calculateRangeRateForSat(
+  pos1: SatellitePosition,
+  pos2: SatellitePosition,
+  observer: { lat: number; lon: number; alt?: number },
+  dtSeconds: number,
+): number {
+  const obsAlt = observer.alt ?? 0;
+  const r1 = computeSlantRangeForDoppler(
+    pos1.lat,
+    pos1.lon,
+    pos1.alt,
+    observer.lat,
+    observer.lon,
+    obsAlt,
+  );
+  const r2 = computeSlantRangeForDoppler(
+    pos2.lat,
+    pos2.lon,
+    pos2.alt,
+    observer.lat,
+    observer.lon,
+    obsAlt,
+  );
+  return (r2 - r1) / dtSeconds;
+}
+
+// ---------------------------------------------------------------------------
 // TLE Data Fetching
 // ---------------------------------------------------------------------------
 

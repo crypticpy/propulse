@@ -33,6 +33,13 @@ import type { FrequencyLimits } from "@/types/propagation";
 import type { RadioEquipment } from "@/types/radio";
 import { getRadioById, getEffectiveReceiverSpecs } from "@/lib/data/radios";
 import { useUndoStore } from "@/stores/undoStore";
+import {
+  classifyTerrain,
+  getTerrainIcon,
+  getTerrainLabel,
+  getPathTerrainLoss,
+} from "@/lib/utils/terrain";
+import type { TerrainType } from "@/lib/utils/terrain";
 
 interface PathAnalysisProps {
   /** Current display time for illumination calculation */
@@ -925,6 +932,17 @@ export function PathAnalysis({
                 subValue={`${metrics.midpoint.lon.toFixed(0)}°`}
               />
             </div>
+
+            {/* Terrain at Bounce Points */}
+            {metrics.hops > 1 && (
+              <TerrainBounceDisplay
+                startLat={station.lat}
+                startLon={station.lon}
+                endLat={target.lat}
+                endLon={target.lon}
+                hops={metrics.hops}
+              />
+            )}
           </div>
 
           {/* Frequency Limits Section */}
@@ -1339,6 +1357,67 @@ const RadioSuggestions = memo(function RadioSuggestions({
             Consider narrow filters or quieter bands for this difficult path.
           </p>
         )}
+      </div>
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Terrain bounce display
+// ---------------------------------------------------------------------------
+
+const TerrainBounceDisplay = memo(function TerrainBounceDisplay({
+  startLat,
+  startLon,
+  endLat,
+  endLon,
+  hops,
+}: {
+  startLat: number;
+  startLon: number;
+  endLat: number;
+  endLon: number;
+  hops: number;
+}) {
+  const terrainData = useMemo(() => {
+    const numBounces = hops - 1;
+    if (numBounces <= 0) return null;
+
+    const types: TerrainType[] = [];
+    for (let i = 1; i < hops; i++) {
+      const fraction = i / hops;
+      const lat = startLat + (endLat - startLat) * fraction;
+      const lon = startLon + (endLon - startLon) * fraction;
+      types.push(classifyTerrain(lat, lon));
+    }
+    const totalLoss = getPathTerrainLoss(types, 14);
+    return { types, totalLoss };
+  }, [startLat, startLon, endLat, endLon, hops]);
+
+  if (!terrainData) return null;
+
+  return (
+    <div className="mt-2 p-2 rounded-lg border border-white/10 bg-white/5">
+      <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">
+        Ground Bounce Terrain
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {terrainData.types.map((t, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center gap-0.5 text-xs text-gray-300"
+            title={`Bounce ${i + 1}: ${getTerrainLabel(t)}`}
+          >
+            <span>{getTerrainIcon(t)}</span>
+            <span className="font-mono text-[10px]">{getTerrainLabel(t)}</span>
+          </span>
+        ))}
+      </div>
+      <div className="flex justify-between text-[10px] font-mono mt-1">
+        <span className="text-gray-400">Terrain loss:</span>
+        <span className="text-caution-amber">
+          {terrainData.totalLoss.toFixed(1)} dB
+        </span>
       </div>
     </div>
   );

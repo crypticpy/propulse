@@ -530,19 +530,23 @@ export function predictSignalStrength(
   mode: OperatingMode,
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
+  terrainLossDb?: number,
 ): SignalPrediction {
   // Calculate individual loss components
   const freeSpaceLoss = calculateFreeSpaceLoss(frequencyMHz, distanceKm);
   const groundReflectionLoss = calculateGroundReflectionLoss(hops, "mixed");
 
-  // Total path loss
-  const pathLoss = calculateTotalPathLoss(
+  // Total path loss (swap default ground loss for terrain-specific if available)
+  let pathLoss = calculateTotalPathLoss(
     frequencyMHz,
     distanceKm,
     hops,
     absorptionDb,
     "mixed",
   );
+  if (terrainLossDb !== undefined) {
+    pathLoss = pathLoss - groundReflectionLoss + terrainLossDb;
+  }
 
   // Calculate expected SNR
   const expectedSNR = calculateExpectedSNR(

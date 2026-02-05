@@ -14,6 +14,9 @@
  * - Hop quality scoring combining MUF margin, absorption, and Kp effects
  */
 
+import { classifyTerrain, getPathTerrainLoss } from "./terrain";
+import type { TerrainType } from "./terrain";
+
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 const EARTH_RADIUS_KM = 6371;
@@ -64,6 +67,8 @@ export interface RayTraceResult {
   limitingHop: number;
   overallScore: number;
   summary: string;
+  terrainTypes?: TerrainType[];
+  terrainLoss?: number;
 }
 
 export type PathViability =
@@ -399,13 +404,24 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
   }
 
   const fspl = freeSpacePathLoss(frequencyMHz, totalDistanceKm);
-  const groundReflections = Math.max(0, numHops - 1);
-  const groundReflectionLossDb = groundReflections * 2;
   const polarisationLossDb = 1.5;
+
+  // Classify terrain at each ground-bounce point (between hops)
+  const bouncePoints: Array<{ lat: number; lon: number }> = [];
+  for (let i = 1; i < numHops; i++) {
+    const fraction = i / numHops;
+    const pt = slerp(startLat, startLon, endLat, endLon, fraction);
+    bouncePoints.push(pt);
+  }
+  const terrainTypes = bouncePoints.map((p) => classifyTerrain(p.lat, p.lon));
+  const terrainLoss =
+    terrainTypes.length > 0
+      ? getPathTerrainLoss(terrainTypes, frequencyMHz)
+      : 0;
+
   const totalPathLossDb =
     Math.round(
-      (fspl + totalAbsorptionDb + groundReflectionLossDb + polarisationLossDb) *
-        10,
+      (fspl + totalAbsorptionDb + terrainLoss + polarisationLossDb) * 10,
     ) / 10;
 
   let overallScore: number;
@@ -447,6 +463,8 @@ export function traceRayPath(params: RayTraceInput): RayTraceResult {
     limitingHop,
     overallScore,
     summary,
+    terrainTypes,
+    terrainLoss,
   };
 }
 

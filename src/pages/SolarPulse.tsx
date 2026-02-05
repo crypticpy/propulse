@@ -29,6 +29,7 @@ import {
 } from "@/hooks/useSolarData";
 import { useSolarStore } from "@/stores/solarStore";
 import { kpToAp } from "@/lib/utils/solarConversions";
+import { SolarCycleContext } from "@/components/solar/SolarCycleContext";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -483,6 +484,13 @@ export function SolarPulse() {
           bz={currentBz}
           loading={isLoading}
           onExpand={() => setPropagationIndexOpen(true)}
+        />
+
+        {/* Solar Cycle Context */}
+        <SolarCycleContext
+          currentSFI={currentFlux}
+          recentSFI={fluxData?.map((d) => d.flux)}
+          loading={isLoading}
         />
 
         {/* Summary */}

@@ -21,6 +21,7 @@ import {
 } from "./bands";
 import { MODE_PARAMETERS } from "./signal";
 import type { BandCorrelationSummary } from "./spotCorrelation";
+import { getHistoricalNote } from "@/lib/data/historicalPropagation";
 
 /**
  * Mode-specific minimum SNR thresholds
@@ -510,4 +511,12 @@ export function getStatusBgColorClass(
     case "closed":
       return "bg-gray-500/20";
   }
+}
+
+/**
+ * Get historical propagation note for current conditions
+ */
+export function getHistoricalContext(sfi: number, band: string): string | null {
+  const month = new Date().getUTCMonth() + 1;
+  return getHistoricalNote(sfi, month, band);
 }

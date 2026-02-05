@@ -18,6 +18,18 @@ import type {
   SatelliteCategory,
   PassPrediction,
 } from "@/types/satellite";
+import {
+  getTransponder,
+  type SatelliteTransponder,
+  type Transponder,
+} from "@/lib/data/satelliteTransponders";
+import {
+  getCorrectedFrequencies,
+  type CorrectedFrequencies,
+} from "@/lib/utils/doppler";
+import { calculatePosition } from "@/lib/api/satellites";
+import { useUserStore } from "@/stores/userStore";
+import { useRigStore } from "@/stores/rigStore";
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -41,6 +53,23 @@ function formatAzimuth(az: number): string {
   const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
   const index = Math.round(az / 45) % 8;
   return `${Math.round(az)}° ${directions[index]}`;
+}
+
+/** Format frequency in Hz to a readable string */
+function formatFreqMHz(hz: number): string {
+  if (hz >= 1_000_000_000) {
+    return `${(hz / 1_000_000_000).toFixed(3)} GHz`;
+  }
+  return `${(hz / 1_000_000).toFixed(3)} MHz`;
+}
+
+/** Format Doppler shift for display */
+function formatShift(hz: number): string {
+  const prefix = hz >= 0 ? "+" : "";
+  if (Math.abs(hz) >= 1000) {
+    return `${prefix}${(hz / 1000).toFixed(1)} kHz`;
+  }
+  return `${prefix}${Math.round(hz)} Hz`;
 }
 
 /** Format lat/lon for display */
@@ -158,6 +187,146 @@ function PassRow({ pass }: { pass: PassPrediction }) {
 // Selected Satellite Detail View
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Transponder & Doppler Sub-component
+// ---------------------------------------------------------------------------
+
+function TransponderInfo({
+  satellite,
+  transponderData,
+}: {
+  satellite: SatelliteInfo;
+  transponderData: SatelliteTransponder;
+}) {
+  const { station } = useUserStore();
+  const rigConnected = useRigStore((s) => s.connected);
+  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
+
+  // Compute Doppler-corrected frequencies for the primary transponder
+  const dopplerInfo = useMemo((): CorrectedFrequencies | null => {
+    if (!station || !satellite.isVisible) return null;
+    const xpdr = transponderData.transponders[0];
+    if (!xpdr) return null;
+
+    const now = new Date();
+    const prevTime = new Date(now.getTime() - 1000);
+    const prevPos = calculatePosition(satellite, prevTime);
+
+    try {
+      return getCorrectedFrequencies(
+        satellite.position,
+        prevPos,
+        { lat: station.lat, lon: station.lon, alt: 0 },
+        xpdr,
+        1,
+      );
+    } catch {
+      return null;
+    }
+  }, [satellite, station, transponderData]);
+
+  return (
+    <div className="mt-2">
+      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+        Transponders
+      </div>
+      {transponderData.transponders.map((xpdr: Transponder, idx: number) => (
+        <div key={idx} className="bg-white/[0.03] rounded-md px-2 py-1.5 mb-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium text-gray-300">
+              {xpdr.name}
+            </span>
+            <span
+              className={`text-[9px] px-1 py-0.5 rounded uppercase font-semibold ${
+                xpdr.mode === "FM"
+                  ? "bg-green-400/20 text-green-400"
+                  : xpdr.mode === "linear"
+                    ? "bg-cyan-400/20 text-cyan-400"
+                    : "bg-orange-400/20 text-orange-400"
+              }`}
+            >
+              {xpdr.mode}
+              {xpdr.inverted ? " INV" : ""}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+            <div>
+              <span className="text-gray-500">UP: </span>
+              <span className="text-gray-300">
+                {formatFreqMHz(xpdr.uplinkRangeHz[0])}
+                {xpdr.uplinkRangeHz[0] !== xpdr.uplinkRangeHz[1] &&
+                  ` - ${formatFreqMHz(xpdr.uplinkRangeHz[1])}`}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-500">DN: </span>
+              <span className="text-gray-300">
+                {formatFreqMHz(xpdr.downlinkRangeHz[0])}
+                {xpdr.downlinkRangeHz[0] !== xpdr.downlinkRangeHz[1] &&
+                  ` - ${formatFreqMHz(xpdr.downlinkRangeHz[1])}`}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {transponderData.beaconHz && (
+        <div className="text-[10px] font-mono text-gray-400 mt-1">
+          Beacon: {formatFreqMHz(transponderData.beaconHz)}
+        </div>
+      )}
+
+      {transponderData.notes && (
+        <div className="text-[10px] text-gray-500 mt-1 italic">
+          {transponderData.notes}
+        </div>
+      )}
+
+      {/* Real-time Doppler correction (visible pass only) */}
+      {dopplerInfo && (
+        <div className="mt-2 bg-cyan-400/5 border border-cyan-400/20 rounded-md px-2 py-1.5">
+          <div className="text-[10px] text-cyan-400 uppercase tracking-wider mb-1 font-semibold">
+            Doppler-Corrected
+          </div>
+          <div className="grid grid-cols-2 gap-1 text-[10px] font-mono">
+            <div>
+              <span className="text-gray-500">TX: </span>
+              <span className="text-white">
+                {formatFreqMHz(dopplerInfo.uplinkHz)}
+              </span>
+              <div className="text-gray-500">
+                {formatShift(dopplerInfo.uplinkShiftHz)}
+              </div>
+            </div>
+            <div>
+              <span className="text-gray-500">RX: </span>
+              <span className="text-white">
+                {formatFreqMHz(dopplerInfo.downlinkHz)}
+              </span>
+              <div className="text-gray-500">
+                {formatShift(dopplerInfo.downlinkShiftHz)}
+              </div>
+            </div>
+          </div>
+
+          {rigConnected && (
+            <button
+              onClick={() => setPendingFrequency(dopplerInfo.downlinkHz)}
+              className="mt-1.5 w-full text-[10px] font-medium px-2 py-1 rounded bg-cyan-400/20 text-cyan-400 hover:bg-cyan-400/30 transition-colors"
+            >
+              Tune RX to {formatFreqMHz(dopplerInfo.downlinkHz)}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Satellite Detail View
+// ---------------------------------------------------------------------------
+
 function SatelliteDetail({
   satellite,
   passes,
@@ -168,6 +337,12 @@ function SatelliteDetail({
   onBack: () => void;
 }) {
   const { lat, lon, alt, velocity } = satellite.position;
+
+  // Look up transponder data
+  const transponderData = useMemo(
+    () => getTransponder(satellite.name, satellite.noradId),
+    [satellite.name, satellite.noradId],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -248,6 +423,14 @@ function SatelliteDetail({
           </div>
         </div>
       </div>
+
+      {/* Transponder & Doppler info */}
+      {transponderData && (
+        <TransponderInfo
+          satellite={satellite}
+          transponderData={transponderData}
+        />
+      )}
 
       {/* Pass predictions */}
       <div className="flex-1 min-h-0">

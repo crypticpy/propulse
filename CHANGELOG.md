@@ -4,6 +4,48 @@ All notable changes to **Propulse** are documented here. Propulse is a real-time
 
 ---
 
+## [0.10.0] — 2026-02-05
+
+### Contest Mode PropSphere Integration — Ops Console, Voice Entry, and Map Overlays
+
+Deep integration of contest operations into the PropSphere map experience, replacing the DX-only console with a unified operations hub and adding voice-assisted logging.
+
+#### Unified Ops Console
+
+- **Ops Console with DX + Contest tabs** — The bottom panel now switches between DX cluster operations and full contest controls without leaving the map. Run a contest while watching propagation in real time — no more jumping between pages.
+- **Contest Dock** — A dockable contest panel that sits alongside the map with entry form, log preview, and score summary. Collapse it when you're hunting DX, expand it when the contest heats up.
+- **Contest Run Controls** — Dedicated run/search-and-pounce mode toggle with visual indicators so you always know your operating posture.
+- **End Contest Modal** — Clean session wrap-up with confirmation dialog showing final stats before closing out.
+
+#### Voice-Driven Contest Entry
+
+- **Voice entry via Web Speech API** — Say "november one mike mike five nine oh five" and watch it populate the callsign and exchange fields. Uses the browser's built-in speech recognition — no external services or API keys needed.
+- **Transcript-to-entry pipeline** — Raw voice transcripts are parsed into candidate entries with callsign, RST, and exchange extraction. Review before applying so misheard words don't cost you a QSO.
+- **Voice controls and hotkeys** — Toggle voice on/off with a global hotkey. Visual indicators show when the mic is active and what's been recognized.
+- **Contest Voice Manager** — Coordinates voice state across components — handles mic access, transcript buffering, and automatic silence detection.
+
+#### Contest Map Overlays
+
+- **Renderer-agnostic overlay system** — A shared overlay model that works across globe, flat map, and azimuthal views. Contest markers render consistently regardless of which projection you're using.
+- **Contest overlay engine** — Highlights needed multipliers directly on the map. See at a glance which DXCC entities or zones you still need, color-coded by priority.
+- **3D overlay layers** — Globe-specific overlay rendering with proper occlusion and depth so contest markers don't float in space.
+
+#### Lite Mode & Mobile Contest
+
+- **Contest Lite HUD** — A minimal heads-up display pill that floats over the map showing your score, QSO count, and current rate. Maximum map visibility with just enough contest info.
+- **Lite HUD bottom sheet** — Swipe up from the Lite HUD pill to get a quick-entry form without leaving the map view. Log a contact and dismiss — the map never leaves your sight.
+- **Pending draft replace banner** — When a spot prefills your entry form while you're mid-contact, a banner warns you instead of silently overwriting your work.
+
+#### Shared State & Reliability
+
+- **Contest UI Store** — Per-session band, mode, one-line drafts, and dock tab selection persist across route changes and component remounts. Switch from Contest page to PropSphere and back without losing your place.
+- **Contest event bus** — Typed events for session lifecycle, QSO mutations, and mode changes. Optional BroadcastChannel mirroring lets multiple browser tabs stay in sync.
+- **Idempotent QSO logging** — Action IDs prevent duplicate submissions from double-clicks, key repeats, or race conditions. Every contact is logged exactly once.
+- **Spot-to-entry prefill** — Click a DX spot on the map or band map to prefill the contest entry form with callsign, band, and mode. Respects your run/S&P preference.
+- **Global contest hotkeys** — Focus the entry field and toggle voice from anywhere in the app, not just the Contest page.
+
+---
+
 ## [0.9.0] — 2026-02-05
 
 ### 37-Feature Implementation — Propagation Physics, QSL Services, Contest Engine, and Advanced Dashboard

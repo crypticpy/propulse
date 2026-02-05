@@ -66,6 +66,7 @@ import { PROPSPHERE_TOUR_STEPS } from "@/config/tourSteps";
 import { useUndoStore } from "@/stores/undoStore";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 
 /**
@@ -119,7 +120,7 @@ export function PropSphere() {
   const contestFocusPreference = useContestUIStore(
     (s) => s.focusEntryOnSpotPrefill,
   );
-  const requestContestEntryFocus = useContestUIStore(
+  const requestContestEntryFocus = useContestUIEphemeralStore(
     (s) => s.requestEntryFocus,
   );
 

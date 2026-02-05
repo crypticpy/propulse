@@ -119,6 +119,29 @@ export function getTimeAgo(date: Date): string {
 }
 
 /**
+ * Format a time delta since an ISO timestamp.
+ *
+ * @example
+ * ```ts
+ * formatDeltaSince("2026-02-05T12:00:00.000Z") // "3:21" or "1h05m"
+ * ```
+ */
+export function formatDeltaSince(timestampIso: string): string {
+  const deltaMs = Date.now() - new Date(timestampIso).getTime();
+  const deltaSec = Math.max(0, Math.floor(deltaMs / 1000));
+  const minutes = Math.floor(deltaSec / 60);
+  const seconds = deltaSec % 60;
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remMin = minutes % 60;
+    return `${hours}h${remMin.toString().padStart(2, "0")}m`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+/**
  * Check if the sun is currently up at a given location
  * Uses a simplified solar position algorithm
  *

@@ -12,7 +12,8 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useContestStore } from "@/stores/contestStore";
-import { useContestUIStore } from "@/stores/contestUIStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
+import { useContestVoiceStore } from "@/stores/contestVoiceStore";
 import { contestEventBus } from "@/lib/services/contestEventBus";
 import {
   getSpeechRecognitionCtor,
@@ -24,8 +25,15 @@ import {
 
 export function ContestVoiceManager() {
   const activeSessionId = useContestStore((s) => s.activeSession?.id ?? null);
-  const voiceCommand = useContestUIStore((s) => s.voiceCommand);
-  const setVoiceState = useContestUIStore((s) => s.setVoiceState);
+  const voiceCommand = useContestUIEphemeralStore((s) => s.voiceCommand);
+  const clearVoiceCommand = useContestUIEphemeralStore(
+    (s) => s.clearVoiceCommand,
+  );
+  const issueVoiceCommand = useContestUIEphemeralStore(
+    (s) => s.issueVoiceCommand,
+  );
+  const setVoiceState = useContestVoiceStore((s) => s.setVoiceState);
+  const resetVoiceState = useContestVoiceStore((s) => s.resetVoiceState);
 
   const speechCtor = useMemo(() => getSpeechRecognitionCtor(), []);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -44,11 +52,12 @@ export function ContestVoiceManager() {
       return;
     }
     // If we previously marked unavailable, reset to idle when ctor becomes available.
-    const state = useContestUIStore.getState().voiceBySessionId[activeSessionId];
+    const state =
+      useContestVoiceStore.getState().voiceBySessionId[activeSessionId];
     if (state?.status === "unavailable") {
-      useContestUIStore.getState().resetVoiceState(activeSessionId);
+      resetVoiceState(activeSessionId);
     }
-  }, [activeSessionId, setVoiceState, speechCtor]);
+  }, [activeSessionId, resetVoiceState, setVoiceState, speechCtor]);
 
   const cleanupRecognition = useCallback(() => {
     const rec = recognitionRef.current;
@@ -192,7 +201,7 @@ export function ContestVoiceManager() {
       return;
     }
     // Always clear the command (one-shot)
-    useContestUIStore.setState({ voiceCommand: null });
+    clearVoiceCommand();
 
     if (!voiceCommand.sessionId) {
       return;
@@ -209,7 +218,13 @@ export function ContestVoiceManager() {
       stopRecognition();
       return;
     }
-  }, [setVoiceState, startRecognition, stopRecognition, voiceCommand]);
+  }, [
+    clearVoiceCommand,
+    setVoiceState,
+    startRecognition,
+    stopRecognition,
+    voiceCommand,
+  ]);
 
   // Global hotkey: Ctrl+Shift+. toggles recording
   useEffect(() => {
@@ -220,19 +235,20 @@ export function ContestVoiceManager() {
 
       if (event.ctrlKey && event.shiftKey && event.key === ".") {
         event.preventDefault();
-        const voice = useContestUIStore.getState().voiceBySessionId[activeSessionId];
+        const voice =
+          useContestVoiceStore.getState().voiceBySessionId[activeSessionId];
         const status = voice?.status ?? "idle";
         if (status === "recording" || status === "processing") {
-          useContestUIStore.getState().issueVoiceCommand("stop", activeSessionId);
+          issueVoiceCommand("stop", activeSessionId);
         } else {
-          useContestUIStore.getState().issueVoiceCommand("start", activeSessionId);
+          issueVoiceCommand("start", activeSessionId);
         }
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeSessionId]);
+  }, [activeSessionId, issueVoiceCommand]);
 
   // Cleanup on unmount
   useEffect(() => {

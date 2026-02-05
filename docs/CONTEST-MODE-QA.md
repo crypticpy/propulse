@@ -256,7 +256,7 @@ Run these tests after any Contest Mode changes:
 - [ ] Draft persists across `/contest` ↔ `/map` route changes
 - [ ] Map clicks do not steal entry focus (Alt+E always restores focus)
 - [ ] Spot click in S&P: sets map target + prefills entry draft
-- [ ] Spot click in RUN: does not prefill by default (unless Prefill-in-RUN enabled)
+- [ ] Spot click in RUN: does not prefill by default (unless Prefill in RUN is enabled)
 - [ ] Prefill never overwrites an actively-typed draft without confirmation
 - [ ] Lite Mode shows Contest HUD pill and bottom-sheet entry access
 

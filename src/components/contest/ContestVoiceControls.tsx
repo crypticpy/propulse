@@ -7,6 +7,8 @@
 
 import { useCallback, useMemo } from "react";
 import { useContestUIStore } from "@/stores/contestUIStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
+import { useContestVoiceStore } from "@/stores/contestVoiceStore";
 
 export interface ContestVoiceControlsProps {
   sessionId: string;
@@ -25,13 +27,11 @@ export function ContestVoiceControls({
   sessionId,
   className = "",
 }: ContestVoiceControlsProps) {
-  const voice = useContestUIStore(
-    (s) => s.voiceBySessionId[sessionId] ?? null,
-  );
-  const issueVoiceCommand = useContestUIStore((s) => s.issueVoiceCommand);
-  const resetVoiceState = useContestUIStore((s) => s.resetVoiceState);
+  const voice = useContestVoiceStore((s) => s.voiceBySessionId[sessionId] ?? null);
+  const resetVoiceState = useContestVoiceStore((s) => s.resetVoiceState);
+  const issueVoiceCommand = useContestUIEphemeralStore((s) => s.issueVoiceCommand);
   const setDraft = useContestUIStore((s) => s.setDraft);
-  const requestEntryFocus = useContestUIStore((s) => s.requestEntryFocus);
+  const requestEntryFocus = useContestUIEphemeralStore((s) => s.requestEntryFocus);
 
   const status = voice?.status ?? "idle";
   const transcript = voice?.transcript ?? "";
@@ -172,4 +172,3 @@ export function ContestVoiceControls({
 }
 
 export default ContestVoiceControls;
-

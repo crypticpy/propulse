@@ -7,15 +7,9 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 
 export type OpsDockTab = "dx" | "contest";
-export type VoiceStatus =
-  | "idle"
-  | "recording"
-  | "processing"
-  | "candidates"
-  | "error"
-  | "unavailable";
 
 export interface DraftSelection {
   start: number;
@@ -26,15 +20,6 @@ export interface PendingDraftReplace {
   sessionId: string;
   nextText: string;
   source: "spot" | "voice";
-}
-
-export interface VoiceState {
-  status: VoiceStatus;
-  transcript: string;
-  interimTranscript: string;
-  candidates: string[];
-  error: string | null;
-  updatedAt: number;
 }
 
 interface ContestUIState {
@@ -76,8 +61,7 @@ interface ContestUIState {
   // ---------------------------------------------------------------------------
   // Focus control
   // ---------------------------------------------------------------------------
-  entryFocusRequestId: number;
-  requestEntryFocus: () => void;
+  // Note: focus signaling lives in useContestUIEphemeralStore.
 
   // ---------------------------------------------------------------------------
   // Spot prefill preferences (user-level)
@@ -97,32 +81,10 @@ interface ContestUIState {
   liteHudDismissedBySessionId: Record<string, boolean>;
   dismissLiteHud: (sessionId: string) => void;
   showLiteHud: (sessionId: string) => void;
-
-  // ---------------------------------------------------------------------------
-  // Voice pipeline state (managed by ContestVoiceManager)
-  // ---------------------------------------------------------------------------
-  voiceBySessionId: Record<string, VoiceState>;
-  setVoiceState: (sessionId: string, partial: Partial<VoiceState>) => void;
-  resetVoiceState: (sessionId: string) => void;
-  voiceCommand:
-    | { action: "start" | "stop"; sessionId: string; commandId: number }
-    | null;
-  issueVoiceCommand: (action: "start" | "stop", sessionId: string) => void;
 }
 
 const DEFAULT_BAND = "20m";
 const DEFAULT_MODE = "CW";
-
-function initialVoiceState(): VoiceState {
-  return {
-    status: "idle",
-    transcript: "",
-    interimTranscript: "",
-    candidates: [],
-    error: null,
-    updatedAt: Date.now(),
-  };
-}
 
 export const useContestUIStore = create<ContestUIState>()(
   persist(
@@ -210,12 +172,8 @@ export const useContestUIStore = create<ContestUIState>()(
         }
         get().setDraft(pending.sessionId, pending.nextText);
         set({ pendingDraftReplace: null });
-        get().requestEntryFocus();
+        useContestUIEphemeralStore.getState().requestEntryFocus();
       },
-
-      entryFocusRequestId: 0,
-      requestEntryFocus: () =>
-        set((state) => ({ entryFocusRequestId: state.entryFocusRequestId + 1 })),
 
       spotPrefillInRun: false,
       setSpotPrefillInRun: (enabled) => set({ spotPrefillInRun: enabled }),
@@ -242,50 +200,43 @@ export const useContestUIStore = create<ContestUIState>()(
             [sessionId]: false,
           },
         })),
-
-      voiceBySessionId: {},
-      setVoiceState: (sessionId, partial) =>
-        set((state) => ({
-          voiceBySessionId: {
-            ...state.voiceBySessionId,
-            [sessionId]: {
-              ...(state.voiceBySessionId[sessionId] ?? initialVoiceState()),
-              ...partial,
-              updatedAt: Date.now(),
-            },
-          },
-        })),
-      resetVoiceState: (sessionId) =>
-        set((state) => ({
-          voiceBySessionId: {
-            ...state.voiceBySessionId,
-            [sessionId]: initialVoiceState(),
-          },
-        })),
-      voiceCommand: null,
-      issueVoiceCommand: (action, sessionId) =>
-        set((state) => ({
-          voiceCommand: {
-            action,
-            sessionId,
-            commandId:
-              typeof state.voiceCommand?.commandId === "number"
-                ? state.voiceCommand.commandId + 1
-                : 1,
-          },
-        })),
     }),
     {
       name: "propulse-contest-ui",
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
+      migrate: (persisted, version) => {
+        if (version >= 2) {
+          return persisted as ContestUIState;
+        }
+
+        const state = persisted as Partial<ContestUIState>;
+        return {
+          dockTabBySessionId: state.dockTabBySessionId ?? {},
+          bandBySessionId: state.bandBySessionId ?? {},
+          modeBySessionId: state.modeBySessionId ?? {},
+          draftBySessionId: state.draftBySessionId ?? {},
+          // Intentionally drop selection + updatedAt on migration to avoid
+          // surprising restores of highly-ephemeral UI state.
+          draftSelectionBySessionId: {},
+          draftUpdatedAtBySessionId: {},
+          draftHasFocusBySessionId: {},
+
+          pendingDraftReplace: null,
+
+          spotPrefillInRun: state.spotPrefillInRun ?? false,
+          adoptBandFromSpot: state.adoptBandFromSpot ?? true,
+          adoptModeFromSpot: state.adoptModeFromSpot ?? true,
+          focusEntryOnSpotPrefill: state.focusEntryOnSpotPrefill ?? true,
+
+          liteHudDismissedBySessionId: state.liteHudDismissedBySessionId ?? {},
+        } as ContestUIState;
+      },
       partialize: (state) => ({
         dockTabBySessionId: state.dockTabBySessionId,
         bandBySessionId: state.bandBySessionId,
         modeBySessionId: state.modeBySessionId,
         draftBySessionId: state.draftBySessionId,
-        draftSelectionBySessionId: state.draftSelectionBySessionId,
-        draftUpdatedAtBySessionId: state.draftUpdatedAtBySessionId,
         spotPrefillInRun: state.spotPrefillInRun,
         adoptBandFromSpot: state.adoptBandFromSpot,
         adoptModeFromSpot: state.adoptModeFromSpot,
@@ -295,4 +246,3 @@ export const useContestUIStore = create<ContestUIState>()(
     },
   ),
 );
-

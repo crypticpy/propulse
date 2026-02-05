@@ -20,6 +20,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 // Reserved for future zone-based scoring enhancements
 // import { useUserStore } from "@/stores/userStore";
 import { getContestById } from "@/lib/data/contests";
@@ -105,7 +106,9 @@ export function ContestOneLineEntry({
   const clearDraft = useContestUIStore((s) => s.clearDraft);
   const setDraftSelection = useContestUIStore((s) => s.setDraftSelection);
   const setDraftHasFocus = useContestUIStore((s) => s.setDraftHasFocus);
-  const entryFocusRequestId = useContestUIStore((s) => s.entryFocusRequestId);
+  const entryFocusRequestId = useContestUIEphemeralStore(
+    (s) => s.entryFocusRequestId,
+  );
   // Reserved for future use (CAT integration, zone-based scoring)
   // const isMultiplierWorked = useContestStore((s) => s.isMultiplierWorked);
   // const station = useUserStore((state) => state.station);

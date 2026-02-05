@@ -36,7 +36,7 @@ Contest Mode offers:
    - **Power**: High, Low, or QRP
    - **Mode**: CW, SSB, Digital, or Mixed
    - **Assisted**: Assisted or Non-Assisted (if applicable)
-6. Optionally expand **Cabrillo Export Info** to pre-fill:
+6. Optionally expand **Cabrillo Export Info** to prefill:
    - Operator name
    - Email address
    - Club affiliation
@@ -64,9 +64,9 @@ When a contest session is active, the Ops Console defaults to the **Contest** ta
 
 In **Lite Mode** (map-first), PropSphere shows a minimal **Contest HUD** pill:
 
-- Tap **Contest** to open the bottom sheet entry.
-- Tap **Rec/Stop** to toggle voice capture.
-- Tap the **X** to hide the HUD for the current session.
+- Open **Contest** to show the bottom sheet entry.
+- Use **Rec/Stop** to toggle voice capture.
+- Close the HUD with the **X** for the current session.
 
 ### Focus and Prefill Rules
 
@@ -385,7 +385,7 @@ Export from N1MM Logger+ via Tools > Generate Call History
 Once imported, call history enhances:
 
 - SCP suggestions as you type
-- Exchange pre-fill for known stations
+- Exchange prefill for known stations
 - Section/zone lookups
 
 ## Bridge Setup (Optional)

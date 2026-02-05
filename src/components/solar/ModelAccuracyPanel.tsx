@@ -10,7 +10,6 @@ import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import type { LiveSpot } from "@/types/livespot";
 import { getBandConditionsForPath } from "@/lib/utils/bands";
 import {
   aggregateCorrelation,
@@ -159,15 +158,15 @@ export function ModelAccuracyPanel() {
     return pred;
   }, [location, target, kp, sfi]);
 
-  // Aggregate correlation (cast DXSpot[] to LiveSpot[] - only band/frequency/snr used)
+  // Aggregate correlation
   const bandSummaries = useMemo(
-    () => aggregateCorrelation(spots as unknown as LiveSpot[], predictions),
+    () => aggregateCorrelation(spots, predictions),
     [spots, predictions],
   );
 
   // Detect anomalies
   const anomalies = useMemo(
-    () => detectAnomalies(spots as unknown as LiveSpot[], predictions),
+    () => detectAnomalies(spots, predictions),
     [spots, predictions],
   );
 

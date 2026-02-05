@@ -96,7 +96,7 @@ export interface DXSpotListState {
   handleSourceToggle: (source: SpotSourceType) => void;
   handleGridFilterChange: (grid: string) => void;
   handleMaxAgeChange: (age: number) => void;
-  handleSelectSpot: (spot: DXSpot) => void;
+  handleSelectSpot: (spot: DXSpot | null) => void;
   handleNeededOnlyToggle: () => void;
   handleSortByNeededToggle: () => void;
   handleSavePreset: (name: string) => void;
@@ -446,7 +446,11 @@ export function useDXSpotListState(
   );
 
   const handleSelectSpot = useCallback(
-    (spot: DXSpot) => {
+    (spot: DXSpot | null) => {
+      if (!spot) {
+        setSelectedSpot(null);
+        return;
+      }
       const isDeselecting = selectedSpot?.id === spot.id;
       setSelectedSpot(isDeselecting ? null : spot);
 

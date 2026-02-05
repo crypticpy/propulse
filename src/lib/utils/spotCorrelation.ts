@@ -6,7 +6,16 @@
  * surprise band openings, model overestimates, and sudden activity changes.
  */
 
-import type { LiveSpot } from "@/types/livespot";
+/**
+ * Minimal spot shape needed by the correlation engine.
+ * Satisfied by both CorrelationSpot and LiveSpot.
+ */
+export interface CorrelationSpot {
+  band?: string;
+  frequency: number;
+  snr?: number;
+  time?: Date;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,10 +100,10 @@ function mean(values: number[]): number | null {
 }
 
 /**
- * Derive a band label from a LiveSpot.
+ * Derive a band label from a CorrelationSpot.
  * Prefers the explicit `.band` field; falls back to frequency-based lookup.
  */
-function spotBand(spot: LiveSpot): string | undefined {
+function spotBand(spot: CorrelationSpot): string | undefined {
   if (spot.band) return spot.band;
   // Frequency is in kHz
   const f = spot.frequency;
@@ -267,11 +276,11 @@ export function getModelConfidence(
  * @returns            - Per-band correlation summaries
  */
 export function aggregateCorrelation(
-  spots: LiveSpot[],
+  spots: CorrelationSpot[],
   predictions: Record<string, string>,
 ): BandCorrelationSummary[] {
   // Group spots by band
-  const spotsByBand = new Map<string, LiveSpot[]>();
+  const spotsByBand = new Map<string, CorrelationSpot[]>();
   for (const spot of spots) {
     const band = spotBand(spot);
     if (!band) continue;
@@ -373,7 +382,7 @@ export function aggregateCorrelation(
  * @param timeWindowMs   - Analysis window in milliseconds (default 10 min)
  */
 export function detectAnomalies(
-  spots: LiveSpot[],
+  spots: CorrelationSpot[],
   predictions: Record<string, string>,
   timeWindowMs: number = 10 * 60 * 1000,
 ): PropagationAnomaly[] {
@@ -388,7 +397,7 @@ export function detectAnomalies(
   });
 
   // Group recent spots by band
-  const spotsByBand = new Map<string, LiveSpot[]>();
+  const spotsByBand = new Map<string, CorrelationSpot[]>();
   for (const spot of recentSpots) {
     const band = spotBand(spot);
     if (!band) continue;

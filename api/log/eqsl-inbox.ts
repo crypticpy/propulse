@@ -43,21 +43,36 @@ export default async function handler(request: Request): Promise<Response> {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
   }
 
-  // Only allow GET
-  if (request.method !== "GET") {
+  let username: string | null = null;
+  let password: string | null = null;
+  let since: string | null = null;
+
+  if (request.method === "POST") {
+    // Preferred: credentials in POST body
+    let body: { username?: string; password?: string; since?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+    username = body.username ?? null;
+    password = body.password ?? null;
+    since = body.since ?? null;
+  } else if (request.method === "GET") {
+    // Deprecated: query params
+    const url = new URL(request.url);
+    username = url.searchParams.get("username");
+    password = url.searchParams.get("password");
+    since = url.searchParams.get("since");
+  } else {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
-
-  const url = new URL(request.url);
-  const username = url.searchParams.get("username");
-  const password = url.searchParams.get("password");
-  const since = url.searchParams.get("since");
 
   // Validate required params
   if (!username) {

@@ -502,33 +502,125 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const handleSyncService = useCallback(
+    async (id: ServiceId) => {
+      setSyncError(null);
+      const svc = services.find((s) => s.id === id);
+      if (!svc || svc.status === "not_configured") {
+        setSyncError(
+          `${id} is not configured. Set up credentials in Settings.`,
+        );
+        return;
+      }
+      setSyncingService(id);
+      try {
+        switch (id) {
+          case "lotw":
+            // LoTW sync requires credential vault access (passphrase-gated).
+            // Use Settings > QSL Services > LoTW to initiate authenticated sync.
+            // The downloadFromLoTW/syncLoTWConfirmations APIs need credentials
+            // that are stored in the encrypted credential vault.
+            setSyncError(
+              "LoTW sync is available via Settings > QSL Services after passphrase verification.",
+            );
+            break;
+          case "eqsl": {
+            const creds = serviceCredentials?.eqsl;
+            if (!creds?.username || !creds?.password) {
+              setSyncError("eQSL credentials missing. Configure in Settings.");
+              break;
+            }
+            // Fetch eQSL inbox to check for new confirmations
+            const resp = await fetch("/api/log/eqsl-inbox", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                username: creds.username,
+                password: creds.password,
+              }),
+            });
+            if (!resp.ok) throw new Error(`eQSL sync failed: ${resp.status}`);
+            break;
+          }
+          case "clublog":
+            // Club Log API integration not yet available
+            setSyncError("Club Log sync is not yet available.");
+            break;
+        }
+      } catch (err) {
+        setSyncError(
+          err instanceof Error ? err.message : `Sync failed for ${id}`,
+        );
+      } finally {
+        setSyncingService(null);
+      }
+    },
+    [services, serviceCredentials],
+  );
+
   const handleSyncAll = useCallback(async () => {
     setSyncingAll(true);
-    // In a full implementation, this would trigger sync for all configured services
-    // via lotwService, clublog edge function, and eqsl edge function.
-    // For now, simulate a brief sync delay.
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setSyncError(null);
+    const configured = services.filter((s) => s.status !== "not_configured");
+    for (const svc of configured) {
+      await handleSyncService(svc.id);
+    }
     setSyncingAll(false);
-  }, []);
+  }, [services, handleSyncService]);
 
-  const handleSyncService = useCallback(async (id: ServiceId) => {
-    setSyncingService(id);
-    // Individual service sync — placeholder for actual API integration
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSyncingService(null);
-  }, []);
-
-  const handleUploadService = useCallback(async (id: ServiceId) => {
-    setSyncingService(id);
-    // Individual service upload — placeholder for actual API integration
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSyncingService(null);
-  }, []);
+  const handleUploadService = useCallback(
+    async (id: ServiceId) => {
+      setSyncError(null);
+      const svc = services.find((s) => s.id === id);
+      if (!svc || svc.status === "not_configured") {
+        setSyncError(`${id} is not configured.`);
+        return;
+      }
+      setSyncingService(id);
+      try {
+        switch (id) {
+          case "lotw":
+            // LoTW upload uses ADIF export, handled via LogUploadModal
+            setSyncError(
+              "Use the Upload button in your Logbook to export ADIF for LoTW.",
+            );
+            break;
+          case "eqsl": {
+            const creds = serviceCredentials?.eqsl;
+            if (!creds?.username || !creds?.password) {
+              setSyncError("eQSL credentials missing.");
+              break;
+            }
+            // eQSL upload handled via LogUploadModal's upload flow
+            break;
+          }
+          case "clublog":
+            setSyncError("Club Log upload is not yet available.");
+            break;
+        }
+      } catch (err) {
+        setSyncError(
+          err instanceof Error ? err.message : `Upload failed for ${id}`,
+        );
+      } finally {
+        setSyncingService(null);
+      }
+    },
+    [services, serviceCredentials],
+  );
 
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Sync status message */}
+      {syncError && (
+        <div className="rounded-lg bg-caution-amber/10 border border-caution-amber/30 px-3 py-2 text-xs text-caution-amber">
+          {syncError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -173,7 +173,11 @@ export function ConditionMatchCard({
       const estimatedSfiDiff = highBandActivity
         ? Math.abs(currentSfi - 120) / 10
         : Math.abs(currentSfi - 90) / 10;
-      const estimatedKpDiff = Math.random() * 2; // Placeholder
+      // Estimate historical Kp from band activity patterns:
+      // High-band activity (10m-17m) implies quiet conditions (low Kp ~1-2)
+      // Low-band-only activity (40m-80m) can occur under disturbed conditions (Kp ~3-4)
+      const estimatedHistoricalKp = highBandActivity ? 1.5 : 3.5;
+      const estimatedKpDiff = Math.abs(currentKp - estimatedHistoricalKp);
 
       candidates.push({
         date,

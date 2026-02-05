@@ -52,6 +52,7 @@ const FullscreenPropSphere = lazy(() =>
 );
 import { DXSpotList, DXConsole } from "@/components/dx";
 import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
+import { BandScope } from "@/components/dx/BandScope";
 import { useRigStore } from "@/stores/rigStore";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
@@ -1047,10 +1048,11 @@ export function PropSphere() {
               </div>
             </div>
 
-            {/* WSJT-X Status Panel - shown when connected and DX Console not expanded */}
+            {/* WSJT-X Status Panel + BandScope - shown when connected and DX Console not expanded */}
             {wsjtxConnected && !isDXConsoleExpanded && (
-              <div className="hidden xl:block flex-shrink-0">
-                <WSJTXStatusPanel defaultCollapsed className="mb-2" />
+              <div className="hidden xl:block flex-shrink-0 space-y-2">
+                <WSJTXStatusPanel defaultCollapsed className="" />
+                <BandScope className="h-40" />
               </div>
             )}
 

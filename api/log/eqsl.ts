@@ -127,19 +127,32 @@ function parseEqslResponse(html: string): {
 }
 
 /**
- * Handle GET requests for eQSL inbox checking.
- * Downloads incoming QSL confirmations in ADIF format.
- * No caching — credentials are in transit.
+ * Handle inbox download requests for eQSL.
+ * Accepts POST body: { username, password, since? }
+ * Falls back to GET query params for backwards compatibility (deprecated).
  */
-async function handleGetRequest(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const username = url.searchParams.get("username");
-  const password = url.searchParams.get("password");
-  const since = url.searchParams.get("since");
+async function handleInboxRequest(
+  request: Request,
+  preBody?: { username?: string; password?: string; since?: string },
+): Promise<Response> {
+  let username: string | null = null;
+  let password: string | null = null;
+  let since: string | null = null;
+
+  if (preBody) {
+    username = preBody.username ?? null;
+    password = preBody.password ?? null;
+    since = preBody.since ?? null;
+  } else {
+    const url = new URL(request.url);
+    username = url.searchParams.get("username");
+    password = url.searchParams.get("password");
+    since = url.searchParams.get("since");
+  }
 
   if (!username || !password) {
     return jsonResponse(
-      { error: "username and password query parameters are required" },
+      { error: "eQSL username and password are required" },
       400,
     );
   }
@@ -205,34 +218,44 @@ export default async function handler(request: Request): Promise<Response> {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
   }
 
-  // Handle GET requests for inbox checking
+  // Deprecated: GET with query params for inbox checking
   if (request.method === "GET") {
-    return handleGetRequest(request);
+    return handleInboxRequest(request);
   }
 
-  // Only allow POST for uploads
+  // Only allow POST
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  // Parse request body
-  let body: { adifContent?: string; username?: string; password?: string };
+  // Parse request body once — route: upload (has adifContent) vs inbox (no adifContent)
+  let body: {
+    adifContent?: string;
+    username?: string;
+    password?: string;
+    since?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
+  // If no adifContent, treat as inbox download request
+  if (!body.adifContent) {
+    return handleInboxRequest(request, body);
+  }
+
   const { adifContent, username, password } = body;
 
-  // Validate required fields
-  if (!adifContent || adifContent.trim().length === 0) {
+  // Validate required fields for upload
+  if (adifContent.trim().length === 0) {
     return jsonResponse({ error: "ADIF content is required" }, 400);
   }
 

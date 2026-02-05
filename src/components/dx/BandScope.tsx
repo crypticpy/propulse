@@ -265,12 +265,16 @@ export function BandScope({ className = "" }: BandScopeProps) {
     let animId: number | undefined;
 
     const render = () => {
+      const dpr = window.devicePixelRatio || 1;
       const w = container.clientWidth;
       const h = container.clientHeight;
 
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w;
-        canvas.height = h;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        ctx.scale(dpr, dpr);
       }
 
       drawScope(ctx, w, h, recentDecodes, txDF, rxDF, hoveredDecode);

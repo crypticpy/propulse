@@ -30,6 +30,8 @@ import {
 import { useSolarStore } from "@/stores/solarStore";
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { SolarCycleContext } from "@/components/solar/SolarCycleContext";
+import { ModelAccuracyPanel } from "@/components/solar/ModelAccuracyPanel";
+import { DraggablePanel } from "@/components/layout/DraggablePanel";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -1072,6 +1074,15 @@ export function SolarPulse() {
             onExpand={() => setBandConditionsOpen(true)}
           />
         </div>
+
+        {/* Model Accuracy Panel - spot correlation with draggable support */}
+        <DraggablePanel
+          id="model-accuracy"
+          title="Model Accuracy"
+          draggable={false}
+        >
+          <ModelAccuracyPanel />
+        </DraggablePanel>
       </main>
 
       {/* Footer */}

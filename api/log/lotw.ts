@@ -126,12 +126,14 @@ function parseUploadResponse(text: string): {
 
 /**
  * Handle POST requests — upload ADIF to LoTW
+ * Accepts a pre-parsed body to avoid double-reading the request stream.
  */
-async function handleUpload(request: Request): Promise<Response> {
-  let body: { adif?: string; username?: string; password?: string };
-  try {
-    body = await request.json();
-  } catch {
+async function handleUpload(
+  _request: Request,
+  preBody?: { adif?: string; username?: string; password?: string },
+): Promise<Response> {
+  const body = preBody ?? (await _request.json().catch(() => null));
+  if (!body) {
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
@@ -195,13 +197,30 @@ async function handleUpload(request: Request): Promise<Response> {
 }
 
 /**
- * Handle GET requests — download QSL confirmations from LoTW
+ * Handle download requests — download QSL confirmations from LoTW
+ * Accepts POST with JSON body: { username, password, since? }
+ * Also accepts GET with query params for backwards compatibility (deprecated).
  */
-async function handleDownload(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const username = url.searchParams.get("username");
-  const password = url.searchParams.get("password");
-  const since = url.searchParams.get("since");
+async function handleDownload(
+  request: Request,
+  preBody?: { username?: string; password?: string; since?: string },
+): Promise<Response> {
+  let username: string | null = null;
+  let password: string | null = null;
+  let since: string | null = null;
+
+  if (preBody) {
+    // Pre-parsed POST body
+    username = preBody.username ?? null;
+    password = preBody.password ?? null;
+    since = preBody.since ?? null;
+  } else {
+    // GET — deprecated path, query params
+    const url = new URL(request.url);
+    username = url.searchParams.get("username");
+    password = url.searchParams.get("password");
+    since = url.searchParams.get("since");
+  }
 
   if (!username) {
     return jsonResponse({ error: "LoTW username is required" }, 400);
@@ -284,16 +303,32 @@ export default async function handler(request: Request): Promise<Response> {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
   }
 
   if (request.method === "POST") {
-    return handleUpload(request);
+    // Parse body once and route: upload (has adif) vs download (no adif)
+    let body: {
+      adif?: string;
+      username?: string;
+      password?: string;
+      since?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+    if (body.adif) {
+      return handleUpload(request, body);
+    }
+    return handleDownload(request, body);
   }
 
+  // Deprecated: GET with query params still works for backwards compat
   if (request.method === "GET") {
     return handleDownload(request);
   }

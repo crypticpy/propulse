@@ -205,7 +205,7 @@ export function DXSpotList({
         case "Escape": {
           e.preventDefault();
           setFocusedIndex(-1);
-          handleSelectSpot(null as unknown as DXSpot);
+          handleSelectSpot(null);
           break;
         }
       }

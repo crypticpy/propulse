@@ -6,7 +6,7 @@
  * Renders when viewport < 768px.
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import type { ContestQSO } from "@/stores/contestStore";
 
@@ -102,10 +102,18 @@ export function MobileContestEntry() {
   const logQso = useContestStore((s) => s.logQSO);
 
   const [callsign, setCallsign] = useState("");
-  const [rst, setRst] = useState("59");
   const [exchange, setExchange] = useState("");
   const [band, setBand] = useState("20m");
   const [mode, setMode] = useState("SSB");
+
+  // RST default depends on mode: "59" for phone, "599" for CW/digital
+  const isPhoneMode = mode === "SSB" || mode === "FM" || mode === "AM";
+  const [rst, setRst] = useState(isPhoneMode ? "59" : "599");
+
+  // Update RST when mode changes
+  useEffect(() => {
+    setRst(isPhoneMode ? "59" : "599");
+  }, [isPhoneMode]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {

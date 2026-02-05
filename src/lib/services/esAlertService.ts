@@ -295,6 +295,12 @@ export class EsAlertService {
         alert.dismissed = true;
       }
     }
+
+    // Prune dismissed alerts older than 1 hour to prevent unbounded growth
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    this.alerts = this.alerts.filter(
+      (a) => !a.dismissed || now - a.createdAt < ONE_HOUR_MS,
+    );
   }
 }
 

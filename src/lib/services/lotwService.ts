@@ -283,16 +283,20 @@ export async function downloadFromLoTW(
   credentials: LoTWCredentials,
   since?: string,
 ): Promise<LoTWRecord[]> {
-  const params = new URLSearchParams({
+  const body: { username: string; password: string; since?: string } = {
     username: credentials.username,
     password: credentials.password,
-  });
+  };
 
   if (since) {
-    params.set("since", since);
+    body.since = since;
   }
 
-  const response = await fetch(`${LOTW_API_BASE}?${params.toString()}`);
+  const response = await fetch(LOTW_API_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);

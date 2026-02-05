@@ -180,21 +180,29 @@ export function PropagationForecastMini({
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   // Fetch current solar data
-  const { data: kIndexData, isLoading: kLoading } = useKIndex();
-  const { data: solarFluxData, isLoading: sfiLoading } = useSolarFlux();
+  const {
+    data: kIndexData,
+    isLoading: kLoading,
+    isError: kError,
+  } = useKIndex();
+  const {
+    data: solarFluxData,
+    isLoading: sfiLoading,
+    isError: sfiError,
+  } = useSolarFlux();
   const { data: magnetometerData } = useMagnetometer();
 
-  // Get current Kp and SFI values
+  // Get current Kp and SFI values (null when data unavailable)
   const currentKp = useMemo(() => {
     if (!kIndexData || kIndexData.length === 0) {
-      return 3;
+      return null;
     }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
     if (!solarFluxData || solarFluxData.length === 0) {
-      return 100;
+      return null;
     }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
@@ -270,7 +278,7 @@ export function PropagationForecastMini({
 
   // Generate 24-hour forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
-    if (!station || !target) {
+    if (!station || !target || currentKp === null || currentSfi === null) {
       return [];
     }
     return getForecastForPath(
@@ -405,12 +413,13 @@ export function PropagationForecastMini({
     }
 
     // Kp penalty: 0-2 points deducted for high Kp
+    const kp = currentKp ?? 0;
     let kpPenalty = 0;
-    if (currentKp >= 5) {
+    if (kp >= 5) {
       kpPenalty = 2;
-    } else if (currentKp >= 4) {
+    } else if (kp >= 4) {
       kpPenalty = 1;
-    } else if (currentKp >= 3) {
+    } else if (kp >= 3) {
       kpPenalty = 0.5;
     }
 
@@ -475,7 +484,7 @@ export function PropagationForecastMini({
 
   // Generate plain English recommendation
   const getRecommendation = (): string => {
-    if (currentKp >= 5) {
+    if (currentKp !== null && currentKp >= 5) {
       return "Storm conditions - expect degraded HF";
     }
     if (topBandsNow.length === 0) {
@@ -522,6 +531,7 @@ export function PropagationForecastMini({
   const hopCount = pathDistance ? Math.ceil(pathDistance / 3000) : null;
 
   const estimatedMuf = useMemo(() => {
+    if (currentSfi === null || currentKp === null) return null;
     const baseMuf = 8 + (currentSfi - 70) * 0.12;
     const kpPenalty = currentKp > 4 ? (currentKp - 4) * 2 : 0;
     return Math.max(5, Math.min(35, baseMuf - kpPenalty));
@@ -611,6 +621,33 @@ export function PropagationForecastMini({
     );
   }
 
+  // Solar data unavailable (API failed after retries)
+  if (currentKp === null || currentSfi === null) {
+    return (
+      <>
+        <div
+          className={`${className} h-full flex items-center justify-center relative`}
+        >
+          <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
+            <HelpButton onClick={() => setShowHelp(true)} />
+          </div>
+          <div className="text-xs text-gray-400">
+            {kError || sfiError
+              ? "Solar data unavailable — NOAA API error"
+              : "Waiting for solar data..."}
+          </div>
+        </div>
+
+        <HelpModal
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          title={HELP_CONTENT.forecast.title}
+          sections={HELP_CONTENT.forecast.sections}
+        />
+      </>
+    );
+  }
+
   // No station or target
   if (!station || !target) {
     return (
@@ -668,10 +705,14 @@ export function PropagationForecastMini({
                   )}
                 </span>
               )}
-              <span>
-                <span className="text-gray-400">MUF</span>{" "}
-                <span className="text-cyan-400">{estimatedMuf.toFixed(1)}</span>
-              </span>
+              {estimatedMuf !== null && (
+                <span>
+                  <span className="text-gray-400">MUF</span>{" "}
+                  <span className="text-cyan-400">
+                    {estimatedMuf.toFixed(1)}
+                  </span>
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 font-mono">
               <span

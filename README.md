@@ -1,0 +1,296 @@
+<p align="center">
+  <img src="public/propulse.svg" alt="Propulse" width="100" height="100">
+</p>
+
+<h1 align="center">Propulse</h1>
+
+<p align="center">
+  <strong>The Ionosphere, Visualized.</strong><br>
+  A real-time ham radio propagation dashboard, DX operations console, and contest logging platform.
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> &bull;
+  <a href="#getting-started">Getting Started</a> &bull;
+  <a href="#architecture">Architecture</a> &bull;
+  <a href="#propsphere-bridge">Bridge Server</a> &bull;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+---
+
+## Overview
+
+Propulse gives amateur radio operators a single interface for monitoring solar weather, visualizing HF propagation, hunting DX, and running contests. It combines real-time data from NOAA, DX cluster networks, PSK Reporter, and the Reverse Beacon Network with physics-based propagation modeling to deliver actionable operating guidance.
+
+**Key capabilities:**
+
+- **PropSphere** -- Interactive 3D globe, 2D flat map, and azimuthal equidistant projection with live DX spot overlays, great circle paths, and day/night terminator
+- **Solar Pulse** -- Real-time K-index, solar flux, sunspot, and Bz charts with geomagnetic storm alerts
+- **DX Wizard** -- Enter a target location and get recommended band, power, frequency, and operating tips based on propagation physics
+- **Contest Engine** -- 19 built-in contest definitions with real-time scoring, dupe checking, multiplier tracking, and Cabrillo export
+- **Logbook** -- QSO logging with DXCC tracking, ADIF import/export, and unified QSL management (LoTW, eQSL, Club Log)
+- **ProPulse Bridge** -- Local WebSocket server for rig control (CAT), WSJT-X integration, and DX cluster telnet
+
+---
+
+## Features
+
+### PropSphere -- Interactive Propagation Map
+
+| View            | Description                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| **3D Globe**    | Photorealistic Earth with day/night terminator, night lights, country labels, and real-time DX spot plotting |
+| **2D Flat Map** | Mercator projection with full feature parity -- spot overlays, paths, pins, and panels                       |
+| **Azimuthal**   | Hardware-accelerated WebGL projection centered on your QTH showing true bearings and distances               |
+
+- Live DX spots from DXHeat, PSK Reporter, and Reverse Beacon Network
+- Great circle path rendering with bearing and distance
+- MUF overlay, Sporadic-E visualization, and Aurora (OVATION) layer
+- Satellite tracking with orbit traces
+- Band conditions panel with propagation forecasts
+- Time scrubber to visualize propagation changes throughout the day
+- Pin markers, spot clustering, compass rose, and mini-map navigator
+- Contest overlay engine showing needed multipliers on the map
+
+### Solar Pulse -- Space Weather Dashboard
+
+- Real-time K-index, A-index, solar flux, and sunspot number charts
+- Bz (interplanetary magnetic field) monitoring
+- Solar flare probability and geomagnetic storm alerts with severity classification
+- Composite Propagation Index for quick condition assessment
+- SOHO/SDO animated solar image player
+- Model accuracy panel (spot-model correlation)
+
+### DX Wizard -- Propagation Analysis
+
+- Target input by grid square, coordinates, city name, or callsign
+- Multi-hop ray trace engine (Martyn's secant law) with D-layer absorption
+- IGRF-13 geomagnetic latitude model
+- ITU-R P.372 noise model for atmospheric and man-made noise floors
+- Antenna pattern library (dipole, vertical, Yagi, loop)
+- Radio-aware recommendations using the Sherwood Engineering database (200+ radios)
+- NVIS analysis for near-vertical incidence skywave
+
+### Contest Engine
+
+- **19 contest definitions** -- ARRL DX, CQ WPX, CQWW, IARU HF, Field Day, Sweepstakes, All Asian, WAE, NAQP, Sprint, and more
+- Real-time scoring with automatic multiplier extraction
+- Automatic dupe checking per contest-specific rules
+- Keyboard-first entry (Tab/Enter flow) and mobile-optimized touch interface
+- Band map with DX cluster integration and one-click QSY
+- Super Check Partial (SCP) for fast callsign lookup
+- Cabrillo export, ADIF export, N1MM-compatible UDP broadcast
+- Voice-driven contest entry via Web Speech API
+- Contest Lite HUD and Contest Dock for map-integrated operation
+- Multi-tab sync via BroadcastChannel
+- Off-time tracking, QTC handling, call history import, and audit queue
+
+### Logbook & QSL Services
+
+- QSO entry with HamQTH callbook integration
+- DXCC tracking (worked + confirmed per entity/band/mode)
+- ADIF import/export with configurable field mapping
+- Unified QSL Manager for LoTW, eQSL, and Club Log
+- AES-256-GCM encrypted credential vault with PBKDF2 key derivation
+- Guest logging for Field Day and shack visitors
+
+### Band Planner
+
+- Current HF/VHF/UHF band conditions overview
+- License class filtering (Technician, General, Extra)
+- ITU region awareness for international regulatory compliance
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Node.js** 18 or later
+- **npm** 9 or later
+
+### Installation
+
+```bash
+git clone https://github.com/crypticpy/propulse.git
+cd propulse
+npm install
+```
+
+### Development
+
+```bash
+npm run dev
+```
+
+Opens the app at `http://localhost:5173` with hot module replacement.
+
+### Production Build
+
+```bash
+npm run build
+npm run preview   # serve the production build locally
+```
+
+### Linting
+
+```bash
+npm run lint
+```
+
+### ProPulse Bridge (Optional)
+
+The bridge server enables rig control, WSJT-X integration, and DX cluster telnet. It runs locally and communicates with the frontend via WebSocket.
+
+```bash
+cd bridge
+npm install
+npm run dev       # starts on ws://localhost:9867
+```
+
+See [bridge/README.md](bridge/README.md) for protocol documentation and architecture details.
+
+---
+
+## Architecture
+
+```
+propulse/
+├── api/                    Vercel Edge Functions (API proxies)
+│   ├── solar/              NOAA SWPC data (K-index, flux, sunspots, Bz)
+│   ├── spots/              DX cluster, PSK Reporter, RBN
+│   ├── callsign/           HamQTH, callook.info, Club Log
+│   ├── log/                LoTW, eQSL, Club Log upload
+│   └── contest/            Super Check Partial lookup
+│
+├── bridge/                 Local WebSocket server (Node.js)
+│   └── src/
+│       ├── server.ts       WebSocket server + message routing
+│       ├── cluster.ts      DX Cluster telnet client
+│       ├── wsjtx.ts        WSJT-X UDP listener
+│       └── rig.ts          Rig control (CAT via Hamlib)
+│
+├── src/
+│   ├── pages/              7 route-level pages
+│   ├── components/         Feature and UI components
+│   │   ├── map/            Globe, flat map, azimuthal, overlays (75 files)
+│   │   ├── contest/        Contest entry, scoring, band map (36 files)
+│   │   ├── dx/             DX console, spots, band scope (24 files)
+│   │   ├── solar/          Charts, metrics, propagation index (22 files)
+│   │   ├── settings/       Settings panels and modals (13 files)
+│   │   ├── ui/             Shared primitives (Badge, Card, Modal)
+│   │   └── ...
+│   ├── hooks/              34 custom hooks (data fetching, UI logic)
+│   ├── stores/             19 Zustand stores (client state)
+│   ├── lib/
+│   │   ├── utils/          Propagation physics, scoring, helpers
+│   │   ├── contest/        Contest engine (scoring, dupes, SCP)
+│   │   ├── api/            API client modules
+│   │   ├── data/           Static data (band plans, DXCC, radios)
+│   │   ├── db/             IndexedDB (credential vault, log store)
+│   │   └── services/       Alert service, band opening detection
+│   └── types/              TypeScript type definitions
+│
+├── public/                 Static assets (textures, icon)
+├── scripts/                Data generation scripts
+└── docs/                   Design documents and PRDs
+```
+
+### Tech Stack
+
+| Layer             | Technology                                      |
+| ----------------- | ----------------------------------------------- |
+| **UI**            | React 18, TypeScript, Tailwind CSS              |
+| **3D Rendering**  | Three.js, @react-three/fiber, @react-three/drei |
+| **State**         | Zustand (19 stores)                             |
+| **Server State**  | TanStack React Query                            |
+| **Routing**       | React Router DOM 7                              |
+| **Build**         | Vite 6                                          |
+| **Deployment**    | Vercel (Edge Functions + SPA)                   |
+| **Bridge Server** | Node.js, ws (WebSocket)                         |
+| **Local Storage** | IndexedDB (via idb)                             |
+| **Encryption**    | Web Crypto API (AES-256-GCM, PBKDF2)            |
+
+### Data Sources
+
+| Source                 | Data                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| NOAA SWPC              | K-index, solar flux, sunspot number, Bz, flare probabilities |
+| NOAA OVATION           | Aurora oval data                                             |
+| DXHeat                 | DX cluster spots                                             |
+| PSK Reporter           | Digital mode reception reports                               |
+| Reverse Beacon Network | CW/digital skimmer spots                                     |
+| HamQTH / callook.info  | Callsign lookup                                              |
+| LoTW / eQSL / Club Log | QSL confirmation services                                    |
+| Sherwood Engineering   | Radio receiver performance data                              |
+
+### Local Integrations (via Bridge)
+
+| System       | Protocol         | Purpose                          |
+| ------------ | ---------------- | -------------------------------- |
+| Hamlib       | CAT (serial/TCP) | Rig frequency, mode, PTT control |
+| WSJT-X       | UDP (port 2237)  | Decode reception, auto-logging   |
+| DX Cluster   | Telnet           | Real-time DX spots               |
+| N1MM Logger+ | UDP broadcast    | Contest interoperability         |
+
+---
+
+## Deployment
+
+Propulse is configured for deployment on [Vercel](https://vercel.com):
+
+```bash
+npm run build           # produces dist/
+vercel --prod           # deploy to production
+```
+
+The `api/` directory contains Vercel Edge Functions that proxy external APIs (NOAA, DXHeat, callsign services, QSL services) to avoid CORS restrictions. These functions run at the edge with no cold start.
+
+---
+
+## Accessibility
+
+- WCAG 2.1 keyboard focus indicators
+- Configurable text scaling (small / medium / large)
+- High contrast mode
+- Colorblind-friendly theme options
+- `prefers-reduced-motion` and `prefers-contrast: more` support
+- 44px minimum touch targets for mobile contest entry
+
+---
+
+## Security
+
+- AES-256-GCM encrypted credential vault for QSL service passwords
+- PBKDF2 key derivation with 100,000 iterations
+- Auto-lock after 30 minutes of inactivity
+- Bridge server binds to localhost only (127.0.0.1)
+- All credential-bearing API requests use POST with JSON body
+- CORS-aware Edge Functions with explicit origin allowlist
+- No secrets in client-side code
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/my-feature`)
+3. Make your changes following the existing code style (TypeScript strict, 2-space indent, Tailwind CSS)
+4. Verify: `npm run lint && npm run build`
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `refactor:`, `docs:`)
+6. Open a pull request with a summary, testing notes, and screenshots for UI changes
+
+See [AGENTS.md](AGENTS.md) for detailed repository guidelines.
+
+---
+
+## License
+
+This project is not yet licensed. All rights reserved.
+
+---
+
+<p align="center">
+  Built for the amateur radio community. 73 de Propulse.
+</p>

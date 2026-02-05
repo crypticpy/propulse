@@ -16,6 +16,8 @@ import type {
   OperatingMode,
   ModeParameters,
 } from "../../types/signal";
+import { getExternalNoiseFigure } from "./noiseModel";
+import type { NoiseEnvironment } from "./noiseModel";
 
 /**
  * Mode-specific parameters for signal calculations
@@ -298,10 +300,16 @@ export function sUnitsTodBm(sUnits: number): number {
 function calculateNoiseFloor(
   bandwidthHz: number,
   externalNoiseDb: number = 15,
+  frequencyMHz?: number,
+  noiseEnvironment?: NoiseEnvironment,
 ): number {
-  // Thermal noise + bandwidth factor + external noise
   const thermalNoise = THERMAL_NOISE_DBM_PER_HZ + 10 * Math.log10(bandwidthHz);
-  return thermalNoise + externalNoiseDb;
+  // Use ITU-R P.372 noise model when frequency is available
+  const effectiveNoiseDb =
+    frequencyMHz && noiseEnvironment
+      ? getExternalNoiseFigure(frequencyMHz, noiseEnvironment)
+      : externalNoiseDb;
+  return thermalNoise + effectiveNoiseDb;
 }
 
 /**
@@ -337,6 +345,8 @@ export function calculateExpectedSNR(
   pathLossDb: number,
   mode: OperatingMode,
   antennaGainDbi: number = 0,
+  frequencyMHz?: number,
+  noiseEnvironment?: NoiseEnvironment,
 ): number {
   // Guard against invalid inputs
   if (txPowerWatts <= 0) {
@@ -348,7 +358,12 @@ export function calculateExpectedSNR(
 
   // Get mode bandwidth for noise calculation
   const modeParams = MODE_PARAMETERS[mode];
-  const noiseFloor = calculateNoiseFloor(modeParams.bandwidth);
+  const noiseFloor = calculateNoiseFloor(
+    modeParams.bandwidth,
+    15,
+    frequencyMHz,
+    noiseEnvironment,
+  );
 
   // Received signal level
   const rxSignalDbm = txPowerDbm + antennaGainDbi - pathLossDb;
@@ -390,7 +405,7 @@ export function getSignalClass(
     Object.keys(MODE_PARAMETERS).includes(mode) ? mode : "SSB"
   ) as OperatingMode;
   const modeParams = MODE_PARAMETERS[modeKey];
-  const {minSNR} = modeParams;
+  const { minSNR } = modeParams;
 
   // Thresholds relative to minimum required SNR
   const margin = snrDb - minSNR;
@@ -514,6 +529,7 @@ export function predictSignalStrength(
   txPowerWatts: number,
   mode: OperatingMode,
   antennaGainDbi: number = 0,
+  noiseEnvironment?: NoiseEnvironment,
 ): SignalPrediction {
   // Calculate individual loss components
   const freeSpaceLoss = calculateFreeSpaceLoss(frequencyMHz, distanceKm);
@@ -534,6 +550,8 @@ export function predictSignalStrength(
     pathLoss,
     mode,
     antennaGainDbi,
+    frequencyMHz,
+    noiseEnvironment,
   );
 
   // Calculate received signal level for S-meter reading
@@ -668,3 +686,5 @@ export function isSignalDecodable(snrDb: number, mode: OperatingMode): boolean {
   // Allow 3 dB margin for fading
   return snrDb >= modeParams.minSNR - 3;
 }
+
+export type { NoiseEnvironment } from "./noiseModel";

@@ -19,6 +19,7 @@
  */
 
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import { getGeomagneticLatitude } from "./geomagnetic";
 
 /**
  * Degree to radian conversion constant
@@ -56,6 +57,8 @@ export interface IonosphericParameters {
   isDaytime: boolean;
   /** Local solar hour (0-24) */
   localSolarHour: number;
+  /** Geomagnetic latitude at the location (when computed) */
+  geomagneticLatitude?: number;
 }
 
 /**
@@ -101,6 +104,7 @@ export function calculateF0F2(
   lat: number,
   hour: number,
   month: number,
+  geomagLat?: number,
 ): number {
   // Ensure SFI has a reasonable minimum (quiet sun conditions)
   const effectiveSFI = Math.max(sfi, 65);
@@ -118,18 +122,21 @@ export function calculateF0F2(
   // Latitude variation
   // Equatorial anomaly: f0F2 peaks at ~15-20 degrees from magnetic equator
   // Polar regions have lower f0F2
+  // Use geomagnetic latitude for equatorial anomaly (if available), geographic for general
+  const absGeomagLat =
+    geomagLat !== undefined ? Math.abs(geomagLat) : Math.abs(lat);
   const absLat = Math.abs(lat);
   let latFactor: number;
 
-  if (absLat < 20) {
-    // Equatorial region with anomaly crests
-    latFactor = 1.0 + 0.15 * Math.sin((absLat / 20) * (Math.PI / 2));
-  } else if (absLat < 50) {
+  if (absGeomagLat < 20) {
+    // Equatorial region with anomaly crests (based on geomagnetic equator)
+    latFactor = 1.0 + 0.15 * Math.sin((absGeomagLat / 20) * (Math.PI / 2));
+  } else if (absGeomagLat < 50) {
     // Mid-latitudes - relatively stable
-    latFactor = 1.1 - 0.002 * (absLat - 20);
+    latFactor = 1.1 - 0.002 * (absGeomagLat - 20);
   } else {
     // High latitudes - decreasing f0F2
-    latFactor = 1.04 - 0.008 * (absLat - 50);
+    latFactor = 1.04 - 0.008 * (absGeomagLat - 50);
   }
   latFactor = Math.max(0.6, latFactor);
 
@@ -458,10 +465,10 @@ export function calculateLocalSolarHour(lon: number, date: Date): number {
 
   // Normalize to 0-24
   while (solarHour < 0) {
-      solarHour += 24;
+    solarHour += 24;
   }
   while (solarHour >= 24) {
-      solarHour -= 24;
+    solarHour -= 24;
   }
 
   return solarHour;
@@ -508,11 +515,14 @@ export function getIonosphericParameters(
   // Get month for seasonal calculations
   const month = date.getUTCMonth() + 1; // 1-12
 
+  // Compute geomagnetic latitude for equatorial anomaly
+  const geomagLat = getGeomagneticLatitude(lat, lon);
+
   // Calculate layer heights
   const heights = calculateLayerHeights(lat, month, sfi);
 
   // Calculate critical frequencies
-  const f0F2 = calculateF0F2(sfi, lat, localSolarHour, month);
+  const f0F2 = calculateF0F2(sfi, lat, localSolarHour, month, geomagLat);
   const f0E = calculateF0E(zenithAngle);
   const f0F1 = calculateF0F1(zenithAngle, sfi);
 
@@ -534,6 +544,7 @@ export function getIonosphericParameters(
     zenithAngle,
     isDaytime,
     localSolarHour,
+    geomagneticLatitude: geomagLat,
   };
 }
 

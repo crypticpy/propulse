@@ -9,12 +9,11 @@ import type {
   OverallCondition,
   VHFCondition,
 } from "../../types/solar";
-import {
-  getIonosphericParameters,
-  getAbsorptionAtLocation,
-} from "./ionosphere";
-import { predictSignalStrength, estimateHops } from "./signal";
+import { getIonosphericParameters } from "./ionosphere";
+import { predictSignalStrength } from "./signal";
 import type { SignalPrediction, SUnit } from "@/types/signal";
+import { traceRayPath } from "./rayTrace";
+import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
 
 /**
  * Band configuration with frequency and propagation characteristics
@@ -264,12 +263,12 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
   if (hfScore > 0.6) {
     hf = "Excellent";
   } else if (hfScore > 0.45) {
-           hf = "Good";
-         } else if (hfScore > 0.3) {
-                  hf = "Fair";
-                } else {
-                  hf = "Poor";
-                }
+    hf = "Good";
+  } else if (hfScore > 0.3) {
+    hf = "Fair";
+  } else {
+    hf = "Poor";
+  }
 
   // VHF condition
   const vhf = getVHFCondition(kp);
@@ -644,9 +643,14 @@ export function getBandConditionsForPath(
       }
     }
 
-    // 6. Polar path penalty for high-latitude paths
-    const avgLat = Math.abs((homeLat + targetLat) / 2);
-    if (avgLat > 55) {
+    // 6. Polar path penalty (using geomagnetic latitude)
+    const maxGeomagLat = Math.abs(
+      Math.max(
+        getGeomagneticLatitude(homeLat, homeLon),
+        getGeomagneticLatitude(targetLat, targetLon),
+      ),
+    );
+    if (maxGeomagLat > 60) {
       snr -= 4;
       notes.push("Polar path");
     }
@@ -787,20 +791,32 @@ export function getEnhancedBandConditions(
   // Get ionospheric parameters at path midpoint
   const ionoParams = getIonosphericParameters(midLat, midLon, date, sfi);
 
+  // Compute geomagnetic-based polar path assessment
+  const crossesAuroral = pathCrossesAuroralZone(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+  );
+
   return PATH_BANDS.map((band) => {
     const frequencyMHz = BAND_FREQUENCIES[band.name] || 14.0;
 
-    // Calculate D-layer absorption at path midpoint
-    const absorptionDb = getAbsorptionAtLocation(
-      midLat,
-      midLon,
-      date,
+    // Use multi-hop ray trace for more accurate absorption and viability
+    const rayResult = traceRayPath({
+      startLat: homeLat,
+      startLon: homeLon,
+      endLat: targetLat,
+      endLon: targetLon,
       frequencyMHz,
+      date,
       sfi,
-    );
+      kp,
+    });
 
-    // Estimate number of hops based on distance and ionospheric layer height
-    const hops = estimateHops(distance, ionoParams.hmF2);
+    // Use ray trace absorption (summed across all hops) instead of midpoint-only
+    const absorptionDb = rayResult.totalAbsorptionDb;
+    const hops = rayResult.hops.length;
 
     // Get full signal prediction using the signal.ts model
     const signalPred = predictSignalStrength(
@@ -842,7 +858,7 @@ export function getEnhancedBandConditions(
 
     // SFI-based notes
     if (sfi < band.minSfi && band.minSfi - sfi > 20) {
-          notes.push("Low SFI");
+      notes.push("Low SFI");
     }
 
     // Geomagnetic notes
@@ -852,10 +868,14 @@ export function getEnhancedBandConditions(
       notes.push("Disturbed");
     }
 
-    // Polar path notes
-    const avgLat = Math.abs((homeLat + targetLat) / 2);
-    if (avgLat > 55) {
+    // Polar path notes (using geomagnetic latitude)
+    if (crossesAuroral) {
       notes.push("Polar path");
+    }
+
+    // Ray trace viability note
+    if (!rayResult.isPathViable) {
+      notes.push(`MUF exceeded at hop ${rayResult.limitingHop + 1}`);
     }
 
     // Absorption note for high absorption
@@ -916,7 +936,7 @@ export function getEnhancedBandConditions(
     // Recalculate S-unit based on adjusted SNR
     // Approximate: SNR of -10 dB typically corresponds to around S5-S6 for FT8
     // We'll use the signal prediction's S-unit but note it's based on unadjusted path loss
-    const {sUnit} = signalPred;
+    const { sUnit } = signalPred;
 
     return {
       band: band.name,

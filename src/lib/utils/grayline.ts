@@ -149,3 +149,204 @@ export function isInGrayLineZone(
   // The terminator is at 90 degrees; the zone extends from 85 to 95
   return angularDistance >= 85 && angularDistance <= 95;
 }
+
+// ─── Gray Line Enhancement Quantification ────────────────────────────────────
+
+/**
+ * Quantified gray line propagation enhancement at a point.
+ */
+export interface GrayLineEnhancement {
+  /** Whether this point is currently in the gray line zone */
+  inZone: boolean;
+  /** D-layer absorption reduction in dB (0 at edge, up to 15 dB at zone center) */
+  absorptionReduction: number;
+  /** Enhancement factor 0.0 (no enhancement) to 1.0 (maximum enhancement at terminator) */
+  enhancementFactor: number;
+  /** Angular distance from the subsolar point in degrees */
+  angularDistanceFromSubsolar: number;
+  /** Estimated gray line duration at this latitude in minutes */
+  durationMinutes: number;
+}
+
+/**
+ * Mutual gray line window for a two-station path.
+ */
+export interface GrayLineWindow {
+  /** Whether both endpoints are currently in gray line simultaneously */
+  isActive: boolean;
+  /** Next mutual gray line window start (within 24h), or null if none */
+  windowStart: Date | null;
+  /** Next mutual gray line window end, or null if none */
+  windowEnd: Date | null;
+  /** Peak enhancement in dB during the mutual window */
+  peakEnhancement: number;
+  /** Time of maximum mutual enhancement, or null if none */
+  optimalTime: Date | null;
+}
+
+/**
+ * Calculate the angular distance from a point to the subsolar point.
+ */
+function angularDistanceFromSubsolar(
+  lat: number,
+  lon: number,
+  date: Date,
+): number {
+  const subsolar = getSubsolarPoint(date);
+  const phi1 = lat * DEG_TO_RAD;
+  const phi2 = subsolar.lat * DEG_TO_RAD;
+  const deltaLambda = (lon - subsolar.lon) * DEG_TO_RAD;
+
+  const cosAngle =
+    Math.sin(phi1) * Math.sin(phi2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
+
+  return Math.acos(Math.max(-1, Math.min(1, cosAngle))) * RAD_TO_DEG;
+}
+
+/**
+ * Estimate the gray line zone duration at a given latitude.
+ *
+ * At the equator, the terminator moves fastest (~27.8 km/min at the equator,
+ * or about 0.25°/min). The ±5° zone takes ~40 minutes to pass.
+ * At high latitudes, the terminator moves slower, and gray line lasts longer.
+ * Near the poles during equinoxes, it can last hours.
+ */
+function estimateGrayLineDuration(latDeg: number): number {
+  const absLat = Math.abs(latDeg);
+  // Base duration at equator: ~40 minutes for 10-degree zone
+  // Increases with latitude due to slower terminator movement
+  // cos(lat) factor for terminator speed, plus extra time at high latitudes
+  const cosLat = Math.cos(absLat * DEG_TO_RAD);
+  if (cosLat < 0.05) {
+    // Near poles, gray line can last very long during equinox
+    return 360;
+  }
+  const baseDuration = 40;
+  return Math.round(baseDuration / cosLat);
+}
+
+/**
+ * Get quantified gray line propagation enhancement at a specific point.
+ *
+ * The enhancement is strongest at the terminator center (90° from subsolar)
+ * and tapers to zero at the zone edges (85° and 95° from subsolar).
+ *
+ * Maximum absorption reduction is ~15 dB at the terminator center,
+ * primarily benefiting low-frequency bands (160m, 80m) where D-layer
+ * absorption is the dominant loss factor.
+ */
+export function getGrayLineEnhancement(
+  lat: number,
+  lon: number,
+  date: Date,
+): GrayLineEnhancement {
+  const angDist = angularDistanceFromSubsolar(lat, lon, date);
+  const durationMinutes = estimateGrayLineDuration(lat);
+
+  // Check if in the ±5° gray line zone (85° to 95° from subsolar)
+  const inZone = angDist >= 85 && angDist <= 95;
+
+  if (!inZone) {
+    return {
+      inZone: false,
+      absorptionReduction: 0,
+      enhancementFactor: 0,
+      angularDistanceFromSubsolar: angDist,
+      durationMinutes,
+    };
+  }
+
+  // Enhancement factor: peaks at 90° (terminator center), 0 at 85° and 95°
+  // Use a cosine taper for smooth transition
+  const distFromTerminator = Math.abs(angDist - 90); // 0 at center, 5 at edge
+  const enhancementFactor = Math.cos((distFromTerminator / 5) * (Math.PI / 2));
+
+  // Maximum absorption reduction at center: ~15 dB
+  // This reflects the D-layer collapse at the day/night boundary
+  const MAX_ABSORPTION_REDUCTION_DB = 15;
+  const absorptionReduction = MAX_ABSORPTION_REDUCTION_DB * enhancementFactor;
+
+  return {
+    inZone: true,
+    absorptionReduction: Math.round(absorptionReduction * 10) / 10,
+    enhancementFactor: Math.round(enhancementFactor * 1000) / 1000,
+    angularDistanceFromSubsolar: Math.round(angDist * 100) / 100,
+    durationMinutes,
+  };
+}
+
+/**
+ * Find the mutual gray line window for a two-station path.
+ *
+ * Scans the next 24 hours in 5-minute increments looking for times when
+ * both endpoints are simultaneously in the gray line zone.
+ */
+export function getPathGrayLineWindow(
+  startLat: number,
+  startLon: number,
+  endLat: number,
+  endLon: number,
+  date: Date,
+): GrayLineWindow {
+  const SCAN_HOURS = 24;
+  const STEP_MINUTES = 5;
+  const totalSteps = (SCAN_HOURS * 60) / STEP_MINUTES;
+
+  let windowStart: Date | null = null;
+  let windowEnd: Date | null = null;
+  let peakEnhancement = 0;
+  let optimalTime: Date | null = null;
+  let isCurrentlyActive = false;
+  let inWindow = false;
+
+  for (let step = 0; step <= totalSteps; step++) {
+    const checkTime = new Date(date.getTime() + step * STEP_MINUTES * 60_000);
+    const startEnh = getGrayLineEnhancement(startLat, startLon, checkTime);
+    const endEnh = getGrayLineEnhancement(endLat, endLon, checkTime);
+
+    const bothInZone = startEnh.inZone && endEnh.inZone;
+
+    if (bothInZone) {
+      const mutualEnhancement =
+        (startEnh.absorptionReduction + endEnh.absorptionReduction) / 2;
+
+      if (!inWindow) {
+        // Window just started
+        inWindow = true;
+        if (!windowStart) {
+          windowStart = checkTime;
+        }
+        if (step === 0) {
+          isCurrentlyActive = true;
+        }
+      }
+
+      if (mutualEnhancement > peakEnhancement) {
+        peakEnhancement = mutualEnhancement;
+        optimalTime = checkTime;
+      }
+    } else if (inWindow) {
+      // Window just ended
+      inWindow = false;
+      if (!windowEnd) {
+        windowEnd = checkTime;
+      }
+      // Only find the first window
+      break;
+    }
+  }
+
+  // If window was still active at end of scan
+  if (inWindow && !windowEnd && windowStart) {
+    windowEnd = new Date(date.getTime() + SCAN_HOURS * 60 * 60_000);
+  }
+
+  return {
+    isActive: isCurrentlyActive,
+    windowStart,
+    windowEnd,
+    peakEnhancement: Math.round(peakEnhancement * 10) / 10,
+    optimalTime,
+  };
+}

@@ -9,6 +9,9 @@ import { LocationManager } from "./LocationManager";
 import { LicenseSection } from "./LicenseSection";
 import { FavoredBandsPicker } from "./FavoredBandsPicker";
 import { NotificationSettings } from "./NotificationSettings";
+import { ClusterSettings } from "./ClusterSettings";
+import { CATSettings } from "./CATSettings";
+import { useBridge } from "@/hooks/useBridge";
 import {
   downloadSettingsBackup,
   readBackupFile,
@@ -36,6 +39,8 @@ type SettingsTab =
   | "locations"
   | "license"
   | "equipment"
+  | "cluster"
+  | "cat"
   | "preferences"
   | "notifications"
   | "backup";
@@ -130,6 +135,44 @@ const TABS: TabDef[] = [
     ),
   },
   {
+    id: "cluster",
+    label: "Cluster",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "cat",
+    label: "CAT",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 15.828a5 5 0 010-7.072m5.656 0a5 5 0 010 7.072M13 12a1 1 0 11-2 0 1 1 0 012 0z"
+        />
+      </svg>
+    ),
+  },
+  {
     id: "preferences",
     label: "Preferences",
     icon: (
@@ -200,6 +243,9 @@ const TABS: TabDef[] = [
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { station, setStation, preferences, updatePreferences } =
     useUserStore();
+
+  // Bridge connection for Cluster and CAT settings
+  const { send: bridgeSend, connected: bridgeConnected } = useBridge();
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
@@ -663,6 +709,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </button>
               </div>
             </div>
+          )}
+
+          {/* Cluster Tab */}
+          {activeTab === "cluster" && (
+            <ClusterSettings
+              bridgeSend={bridgeSend}
+              bridgeConnected={bridgeConnected}
+            />
+          )}
+
+          {/* CAT Control Tab */}
+          {activeTab === "cat" && (
+            <CATSettings
+              bridgeSend={bridgeSend}
+              bridgeConnected={bridgeConnected}
+            />
           )}
 
           {/* Preferences Tab */}

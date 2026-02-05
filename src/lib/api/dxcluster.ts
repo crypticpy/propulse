@@ -12,6 +12,7 @@
  */
 
 import type { DXSpot, BandColorConfig } from "@/types/dxcluster";
+import type { ClusterSpotPayload } from "@/types/bridge";
 
 /**
  * Amateur radio band definitions with frequency ranges
@@ -431,14 +432,14 @@ export function parseDXSpiderSpot(line: string): DXSpot | null {
   if (comment.toLowerCase().includes("ft8")) {
     mode = "FT8";
   } else if (comment.toLowerCase().includes("ft4")) {
-           mode = "FT4";
-         } else if (comment.toLowerCase().includes("cw") || frequency % 1000 < 100) {
-                  mode = "CW";
-                } else if (comment.toLowerCase().includes("ssb")) {
-                         mode = "SSB";
-                       } else if (comment.toLowerCase().includes("rtty")) {
-                                mode = "RTTY";
-                              }
+    mode = "FT4";
+  } else if (comment.toLowerCase().includes("cw") || frequency % 1000 < 100) {
+    mode = "CW";
+  } else if (comment.toLowerCase().includes("ssb")) {
+    mode = "SSB";
+  } else if (comment.toLowerCase().includes("rtty")) {
+    mode = "RTTY";
+  }
 
   return {
     id: generateSpotId(),
@@ -471,4 +472,59 @@ export function generateNewSpot(): DXSpot {
   const spots = generateDemoSpots(1);
   spots[0].time = new Date(); // Just now
   return spots[0];
+}
+
+/**
+ * Fetch real spots from the DX cluster REST proxy (Vercel Edge Function).
+ * Falls back gracefully if the proxy is unavailable.
+ */
+export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
+  try {
+    const res = await fetch(`/api/spots/dxcluster?limit=${limit}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return (data as Record<string, unknown>[]).map(
+      (item: Record<string, unknown>) => ({
+        id: (item.id as string) || crypto.randomUUID(),
+        spotter: (item.spotter as string) || (item.de as string) || "",
+        dx: (item.dx as string) || "",
+        frequency:
+          typeof item.frequency === "number"
+            ? item.frequency
+            : parseFloat(item.frequency as string) || 0,
+        mode: (item.mode as string) || undefined,
+        comment: (item.comment as string) || (item.info as string) || "",
+        time: new Date(item.time as string),
+        band:
+          (item.band as string) ||
+          getBandFromFrequency(
+            typeof item.frequency === "number"
+              ? item.frequency
+              : parseFloat(item.frequency as string) || 0,
+          ),
+        spotterGrid: item.spotterGrid as string | undefined,
+        dxGrid: item.dxGrid as string | undefined,
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Convert a bridge ClusterSpotPayload to a DXSpot.
+ */
+export function clusterPayloadToSpot(payload: ClusterSpotPayload): DXSpot {
+  return {
+    id: payload.id,
+    spotter: payload.spotter,
+    spotterGrid: payload.spotterGrid,
+    dx: payload.dx,
+    dxGrid: payload.dxGrid,
+    frequency: payload.frequency,
+    mode: payload.mode,
+    comment: payload.comment,
+    time: new Date(payload.time),
+    band: payload.band || getBandFromFrequency(payload.frequency),
+  };
 }

@@ -2,11 +2,21 @@
  * ProPulse Bridge Server
  *
  * WebSocket server for CAT control, multi-operator synchronization,
- * and external integrations. Binds to localhost only for security.
+ * DX cluster spots, WSJT-X decodes, and external integrations.
+ * Binds to localhost only for security.
  */
 
 import { WebSocketServer, WebSocket } from "ws";
-import { createMessage, isMessageEnvelope, MessageEnvelope } from "./types.js";
+import {
+  createMessage,
+  isMessageEnvelope,
+  MessageEnvelope,
+  MessageTypes,
+} from "./types.js";
+import type { ClusterConfig, RigUpdateRequest, WSJTXConfig } from "./types.js";
+import { DXClusterClient } from "./cluster.js";
+import { WSJTXListener } from "./wsjtx.js";
+import { RigController } from "./rig.js";
 
 // ============================================================================
 // Configuration
@@ -101,8 +111,166 @@ function generateClientId(): string {
   return `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/** Broadcast a message envelope to all connected clients */
+function broadcast(envelope: MessageEnvelope): void {
+  const json = JSON.stringify(envelope);
+  for (const client of clients.values()) {
+    if (client.socket.readyState === WebSocket.OPEN) {
+      client.socket.send(json);
+    }
+  }
+}
+
+/** Send a message envelope to a single client */
+function sendToClient(
+  client: ConnectedClient,
+  envelope: MessageEnvelope,
+): void {
+  if (client.socket.readyState === WebSocket.OPEN) {
+    client.socket.send(JSON.stringify(envelope));
+  }
+}
+
 // ============================================================================
-// Message Handling
+// Integration Modules
+// ============================================================================
+
+let clusterClient: DXClusterClient | null = null;
+let wsjtxListener: WSJTXListener | null = null;
+let rigController: RigController | null = null;
+
+// --------------------------------------------------------------------------
+// DX Cluster Integration
+// --------------------------------------------------------------------------
+
+function startCluster(config: ClusterConfig): void {
+  // Disconnect existing client if any
+  stopCluster();
+
+  const node = config.nodes[0];
+  if (!node) {
+    logger.warn("Cluster connect requested but no nodes provided");
+    return;
+  }
+
+  clusterClient = new DXClusterClient({
+    host: node.host,
+    port: node.port,
+    callsign: config.callsign,
+    password: config.password,
+    filters: config.filters,
+  });
+
+  clusterClient.onSpot((spot) => {
+    broadcast(createMessage(MessageTypes.CLUSTER_SPOT, spot));
+  });
+
+  clusterClient.onStatus((status) => {
+    broadcast(createMessage(MessageTypes.CLUSTER_STATUS, status));
+  });
+
+  clusterClient.onError((error) => {
+    logger.error("DX Cluster error", { error: error.message });
+  });
+
+  clusterClient.connect();
+
+  logger.info("DX Cluster client started", {
+    host: node.host,
+    port: node.port,
+    callsign: config.callsign,
+  });
+}
+
+function stopCluster(): void {
+  if (clusterClient) {
+    clusterClient.disconnect();
+    clusterClient = null;
+    logger.info("DX Cluster client stopped");
+  }
+}
+
+// --------------------------------------------------------------------------
+// WSJT-X Integration
+// --------------------------------------------------------------------------
+
+function startWSJTX(config: WSJTXConfig): void {
+  stopWSJTX();
+
+  if (!config.enabled) return;
+
+  wsjtxListener = new WSJTXListener(config.port);
+
+  wsjtxListener.onStatus((status, instanceId) => {
+    broadcast(
+      createMessage(MessageTypes.WSJTX_STATUS, { ...status, instanceId }),
+    );
+  });
+
+  wsjtxListener.onDecode((decode, instanceId) => {
+    broadcast(
+      createMessage(MessageTypes.WSJTX_DECODE, { ...decode, instanceId }),
+    );
+  });
+
+  wsjtxListener.onQSOLogged((qso, instanceId) => {
+    broadcast(
+      createMessage(MessageTypes.WSJTX_QSO_LOGGED, { ...qso, instanceId }),
+    );
+  });
+
+  wsjtxListener.onClear((window, instanceId) => {
+    broadcast(createMessage(MessageTypes.WSJTX_CLEAR, { window, instanceId }));
+  });
+
+  wsjtxListener.onError((error) => {
+    logger.error("WSJT-X listener error", { error: error.message });
+  });
+
+  wsjtxListener.start();
+
+  logger.info("WSJT-X listener started", { port: config.port });
+}
+
+function stopWSJTX(): void {
+  if (wsjtxListener) {
+    wsjtxListener.stop();
+    wsjtxListener = null;
+    logger.info("WSJT-X listener stopped");
+  }
+}
+
+// --------------------------------------------------------------------------
+// Rig Control Integration
+// --------------------------------------------------------------------------
+
+async function startRig(): Promise<void> {
+  stopRig();
+
+  rigController = new RigController();
+
+  rigController.onStatus((status) => {
+    broadcast(createMessage(MessageTypes.RIG_STATUS, status));
+  });
+
+  rigController.onError((error) => {
+    logger.error("Rig controller error", { error: error.message });
+  });
+
+  const backend = await rigController.start();
+  logger.info("Rig controller started", { backend });
+}
+
+function stopRig(): void {
+  if (rigController) {
+    rigController.stop();
+    rigController = null;
+    logger.info("Rig controller stopped");
+  }
+}
+
+// ============================================================================
+// Message Routing
 // ============================================================================
 
 function handleMessage(client: ConnectedClient, rawMessage: string): void {
@@ -116,12 +284,13 @@ function handleMessage(client: ConnectedClient, rawMessage: string): void {
       preview: rawMessage.substring(0, 100),
     });
 
-    const errorResponse = createMessage("error", {
-      code: "INVALID_JSON",
-      message: "Message must be valid JSON",
-    });
-
-    client.socket.send(JSON.stringify(errorResponse));
+    sendToClient(
+      client,
+      createMessage("error", {
+        code: "INVALID_JSON",
+        message: "Message must be valid JSON",
+      }),
+    );
     return;
   }
 
@@ -130,35 +299,284 @@ function handleMessage(client: ConnectedClient, rawMessage: string): void {
       clientId: client.id,
     });
 
-    const errorResponse = createMessage("error", {
-      code: "INVALID_ENVELOPE",
-      message: "Message must have type, ts, and payload fields",
-    });
-
-    client.socket.send(JSON.stringify(errorResponse));
+    sendToClient(
+      client,
+      createMessage("error", {
+        code: "INVALID_ENVELOPE",
+        message: "Message must have type, ts, and payload fields",
+      }),
+    );
     return;
   }
 
   const message = parsed as MessageEnvelope;
 
-  logger.info("Received message", {
+  logger.debug("Received message", {
     clientId: client.id,
     messageType: message.type,
     messageId: message.id,
   });
 
-  // Echo the message back for testing purposes
-  // In the future, this will route to appropriate handlers
-  const echoResponse = createMessage(
-    `${message.type}.ack`,
-    {
-      received: true,
-      originalPayload: message.payload,
-    },
-    message.id,
-  );
+  routeMessage(client, message);
+}
 
-  client.socket.send(JSON.stringify(echoResponse));
+function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
+  switch (message.type) {
+    // ------------------------------------------------------------------
+    // DX Cluster
+    // ------------------------------------------------------------------
+    case MessageTypes.CLUSTER_CONNECT: {
+      const config = message.payload as ClusterConfig;
+      startCluster(config);
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { started: true }, message.id),
+      );
+      break;
+    }
+
+    case MessageTypes.CLUSTER_DISCONNECT: {
+      stopCluster();
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { stopped: true }, message.id),
+      );
+      break;
+    }
+
+    // ------------------------------------------------------------------
+    // WSJT-X
+    // ------------------------------------------------------------------
+    case MessageTypes.WSJTX_CONFIGURE: {
+      const config = message.payload as WSJTXConfig;
+      startWSJTX(config);
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { configured: true }, message.id),
+      );
+      break;
+    }
+
+    // ------------------------------------------------------------------
+    // Rig Control
+    // ------------------------------------------------------------------
+    case MessageTypes.RIG_SET: {
+      const update = message.payload as RigUpdateRequest;
+      handleRigSet(client, message, update);
+      break;
+    }
+
+    case MessageTypes.RIG_SET_FREQUENCY: {
+      const payload = message.payload as { frequency: number };
+      handleRigSetFrequency(client, message, payload.frequency);
+      break;
+    }
+
+    case MessageTypes.RIG_SET_MODE: {
+      const payload = message.payload as { mode: string };
+      handleRigSetMode(client, message, payload.mode);
+      break;
+    }
+
+    case MessageTypes.RIG_SET_PTT: {
+      const payload = message.payload as { enabled: boolean };
+      handleRigSetPTT(client, message, payload.enabled);
+      break;
+    }
+
+    // ------------------------------------------------------------------
+    // Default: acknowledge unknown message types
+    // ------------------------------------------------------------------
+    default: {
+      logger.debug("Unhandled message type, sending ack", {
+        messageType: message.type,
+      });
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { received: true, originalPayload: message.payload },
+          message.id,
+        ),
+      );
+      break;
+    }
+  }
+}
+
+// --------------------------------------------------------------------------
+// Rig Command Handlers
+// --------------------------------------------------------------------------
+
+function handleRigSet(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+  update: RigUpdateRequest,
+): void {
+  if (!rigController) {
+    sendToClient(
+      client,
+      createMessage(
+        "error",
+        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
+        message.id,
+      ),
+    );
+    return;
+  }
+
+  const promises: Promise<void>[] = [];
+  if (update.frequency !== undefined) {
+    promises.push(rigController.setFrequency(update.frequency));
+  }
+  if (update.mode !== undefined) {
+    promises.push(rigController.setMode(update.mode));
+  }
+
+  Promise.all(promises)
+    .then(() => {
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { success: true }, message.id),
+      );
+    })
+    .catch((err: unknown) => {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      sendToClient(
+        client,
+        createMessage(
+          "error",
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          message.id,
+        ),
+      );
+    });
+}
+
+function handleRigSetFrequency(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+  frequency: number,
+): void {
+  if (!rigController) {
+    sendToClient(
+      client,
+      createMessage(
+        "error",
+        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
+        message.id,
+      ),
+    );
+    return;
+  }
+
+  rigController
+    .setFrequency(frequency)
+    .then(() => {
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, frequency },
+          message.id,
+        ),
+      );
+    })
+    .catch((err: unknown) => {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      sendToClient(
+        client,
+        createMessage(
+          "error",
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          message.id,
+        ),
+      );
+    });
+}
+
+function handleRigSetMode(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+  mode: string,
+): void {
+  if (!rigController) {
+    sendToClient(
+      client,
+      createMessage(
+        "error",
+        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
+        message.id,
+      ),
+    );
+    return;
+  }
+
+  rigController
+    .setMode(mode)
+    .then(() => {
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, mode },
+          message.id,
+        ),
+      );
+    })
+    .catch((err: unknown) => {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      sendToClient(
+        client,
+        createMessage(
+          "error",
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          message.id,
+        ),
+      );
+    });
+}
+
+function handleRigSetPTT(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+  enabled: boolean,
+): void {
+  if (!rigController) {
+    sendToClient(
+      client,
+      createMessage(
+        "error",
+        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
+        message.id,
+      ),
+    );
+    return;
+  }
+
+  rigController
+    .setPTT(enabled)
+    .then(() => {
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, ptt: enabled },
+          message.id,
+        ),
+      );
+    })
+    .catch((err: unknown) => {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      sendToClient(
+        client,
+        createMessage(
+          "error",
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          message.id,
+        ),
+      );
+    });
 }
 
 // ============================================================================
@@ -184,6 +602,14 @@ function startServer(): void {
       port: config.port,
       securityNote: "Bound to localhost only - remote connections blocked",
     });
+
+    // Auto-start rig controller (non-blocking — if no rig is found, that is fine)
+    startRig().catch((err: unknown) => {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.warn("Rig controller auto-start failed (will retry on demand)", {
+        error: errMsg,
+      });
+    });
   });
 
   wss.on("connection", (socket, request) => {
@@ -205,11 +631,14 @@ function startServer(): void {
       totalClients: clients.size,
     });
 
-    // Send welcome message
+    // Send welcome message with expanded capabilities
     const welcomeMessage = createMessage("bridge.welcome", {
       clientId,
-      serverVersion: "0.1.0",
-      capabilities: ["rig", "contest", "sync"],
+      serverVersion: "0.2.0",
+      capabilities: ["rig", "contest", "sync", "cluster", "wsjtx"],
+      rigBackend: rigController?.getBackend() ?? "none",
+      clusterConnected: clusterClient?.getStatus().connected ?? false,
+      wsjtxListening: wsjtxListener !== null,
     });
 
     socket.send(JSON.stringify(welcomeMessage));
@@ -247,6 +676,11 @@ function startServer(): void {
   // Graceful shutdown
   const shutdown = (signal: string) => {
     logger.info("Shutdown signal received", { signal });
+
+    // Clean up integration modules
+    stopCluster();
+    stopWSJTX();
+    stopRig();
 
     // Close all client connections
     for (const client of clients.values()) {

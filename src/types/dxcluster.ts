@@ -40,7 +40,12 @@ export interface DXSpot {
 /**
  * Spot source types for multi-source filtering
  */
-export type SpotSourceType = "PSKReporter" | "RBN" | "Cluster" | "Demo";
+export type SpotSourceType =
+  | "PSKReporter"
+  | "RBN"
+  | "Cluster"
+  | "Demo"
+  | "WSJT-X";
 
 /**
  * Filter options for DX spots

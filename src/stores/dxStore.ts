@@ -7,12 +7,19 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
 
+/** Primary source for spot data */
+export type DXSpotSource = "bridge" | "rest" | "demo";
+
 interface DXState {
   // Spot data
   spots: DXSpot[];
   setSpots: (spots: DXSpot[]) => void;
   addSpot: (spot: DXSpot) => void;
   clearSpots: () => void;
+
+  // Spot source
+  spotSource: DXSpotSource;
+  setSpotSource: (source: DXSpotSource) => void;
 
   // Hidden spots (filtered from display)
   hiddenSpotIds: Set<string>;
@@ -85,6 +92,8 @@ export const useDXStore = create<DXState>()(
     (set, get) => ({
       // Spot data
       spots: [],
+      spotSource: "rest",
+      setSpotSource: (source) => set({ spotSource: source }),
       setSpots: (spots) => set({ spots }),
       addSpot: (spot) =>
         set((state) => {
@@ -277,11 +286,15 @@ export function selectHiddenSpotCount(state: DXState): number {
 }
 
 /**
- * Available spot sources for filtering
+ * Available spot sources for filtering.
+ * Note: "WSJT-X" is included for bridge-sourced spots from WSJT-X decodes.
+ * The SpotSourceType in dxcluster.ts defines the base types; WSJT-X is
+ * additionally supported via the LiveSpot/SpotSource type in livespot.ts.
  */
 export const AVAILABLE_SOURCES = [
   "PSKReporter",
   "RBN",
   "Cluster",
+  "WSJT-X",
   "Demo",
 ] as const;

@@ -5,7 +5,7 @@
  * Phase 3 update: Keyboard-first entry with hotkeys and ESM support
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui";
 import {
   ContestScoreboard,
@@ -22,14 +22,54 @@ import {
   useContestHotkeys,
   BAND_QUICK_SELECT,
 } from "@/hooks/useContestHotkeys";
+import { useRigStore } from "@/stores/rigStore";
+import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
 
 const EMPTY_QSOS: ContestQSO[] = [];
+
+/**
+ * Map rig mode strings to contest-compatible mode labels.
+ * Contest selectors use: CW, SSB, RTTY, FT8
+ */
+function rigModeToContestMode(rigMode: string): string {
+  switch (rigMode) {
+    case "CW":
+    case "CW-R":
+      return "CW";
+    case "LSB":
+    case "USB":
+    case "AM":
+    case "FM":
+      return "SSB";
+    case "RTTY":
+    case "RTTY-R":
+      return "RTTY";
+    case "FT8":
+    case "FT4":
+    case "DATA":
+    case "DATA-R":
+    case "PSK":
+      return "FT8";
+    default:
+      return "SSB";
+  }
+}
 
 /**
  * Contest Page Component
  * Composes all contest panels into a unified interface with keyboard-first operation
  */
 export function Contest() {
+  // Mount WSJT-X auto-log listener
+  useWSJTXAutoLog();
+
+  // CAT control state
+  const rigConnected = useRigStore((s) => s.connected);
+  const rigCatEnabled = useRigStore((s) => s.catEnabled);
+  const rigBand = useRigStore((s) => s.band);
+  const rigMode = useRigStore((s) => s.mode);
+  const catActive = rigCatEnabled && rigConnected;
+
   // Narrow selectors to minimize re-renders
   const hasActiveSession = useContestStore((s) => s.activeSession !== null);
   const contestId = useContestStore((s) => s.activeSession?.contestId);
@@ -46,9 +86,17 @@ export function Contest() {
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [editingQSO, setEditingQSO] = useState<ContestQSO | null>(null);
 
-  // Band and mode state (will be CAT-driven in Phase 7)
+  // Band and mode state — CAT-driven when rig is connected
   const [currentBand, setCurrentBand] = useState("20m");
   const [currentMode, setCurrentMode] = useState("CW");
+
+  // Sync band/mode from CAT when rig is connected and CAT is enabled
+  useEffect(() => {
+    if (catActive) {
+      setCurrentBand(rigBand);
+      setCurrentMode(rigModeToContestMode(rigMode));
+    }
+  }, [catActive, rigBand, rigMode]);
 
   // Get contest name
   const contestName = useMemo(() => {
@@ -214,10 +262,20 @@ export function Contest() {
           <div className="flex items-center gap-3">
             {/* Band/Mode quick-select display */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-nebula-blue rounded-lg border border-white/10">
+              {catActive && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-signal-green/20 text-signal-green border border-signal-green/30">
+                  CAT
+                </span>
+              )}
               <select
                 value={currentBand}
                 onChange={(e) => setCurrentBand(e.target.value)}
-                className="bg-transparent text-cosmic-cyan font-mono text-sm focus:outline-none cursor-pointer"
+                disabled={catActive}
+                className={`bg-transparent font-mono text-sm focus:outline-none ${
+                  catActive
+                    ? "text-cosmic-cyan/70 cursor-not-allowed"
+                    : "text-cosmic-cyan cursor-pointer"
+                }`}
               >
                 {Object.values(BAND_QUICK_SELECT).map((band) => (
                   <option key={band} value={band} className="bg-deep-space">
@@ -229,7 +287,12 @@ export function Contest() {
               <select
                 value={currentMode}
                 onChange={(e) => setCurrentMode(e.target.value)}
-                className="bg-transparent text-white font-mono text-sm focus:outline-none cursor-pointer"
+                disabled={catActive}
+                className={`bg-transparent font-mono text-sm focus:outline-none ${
+                  catActive
+                    ? "text-white/70 cursor-not-allowed"
+                    : "text-white cursor-pointer"
+                }`}
               >
                 <option value="CW" className="bg-deep-space">
                   CW

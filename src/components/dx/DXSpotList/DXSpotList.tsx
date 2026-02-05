@@ -18,6 +18,36 @@ import { useDXSpotListState } from "./useDXSpotListState";
 import { formatTime } from "./utils";
 import type { DXSpotListProps } from "./types";
 import type { DXSpot } from "@/types/dxcluster";
+import { useDXStore } from "@/stores/dxStore";
+import type { DXSpotSource } from "@/stores/dxStore";
+
+/** Source badge styling map */
+const SOURCE_BADGE_STYLES: Record<
+  DXSpotSource,
+  { label: string; bg: string; text: string; border: string; pulse: boolean }
+> = {
+  bridge: {
+    label: "LIVE",
+    bg: "bg-green-500/20",
+    text: "text-green-400",
+    border: "border-green-500/30",
+    pulse: true,
+  },
+  rest: {
+    label: "REST",
+    bg: "bg-blue-500/20",
+    text: "text-blue-400",
+    border: "border-blue-500/30",
+    pulse: false,
+  },
+  demo: {
+    label: "DEMO",
+    bg: "bg-amber-500/20",
+    text: "text-amber-400",
+    border: "border-amber-500/30",
+    pulse: false,
+  },
+};
 
 /**
  * DXSpotList Component
@@ -33,6 +63,7 @@ export function DXSpotList({
   onExpand,
   onResearchGrid,
 }: DXSpotListProps) {
+  const spotSource = useDXStore((s) => s.spotSource);
   const state = useDXSpotListState(onResearchGrid);
 
   const {
@@ -125,6 +156,18 @@ export function DXSpotList({
                 ? ` / ${totalSpots}`
                 : ""}{" "}
               spots
+            </span>
+            {/* Data source indicator badge */}
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full border flex items-center gap-1 ${SOURCE_BADGE_STYLES[spotSource].bg} ${SOURCE_BADGE_STYLES[spotSource].text} ${SOURCE_BADGE_STYLES[spotSource].border}`}
+            >
+              {SOURCE_BADGE_STYLES[spotSource].pulse && (
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
+                </span>
+              )}
+              {SOURCE_BADGE_STYLES[spotSource].label}
             </span>
             {syncMode && syncedBand && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1">

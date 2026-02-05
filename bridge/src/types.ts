@@ -127,6 +127,112 @@ export interface ContestNoteAddRequest {
 export type ContestNoteAddMessage = MessageEnvelope<ContestNoteAddRequest>;
 
 // ============================================================================
+// DX Cluster Messages
+// ============================================================================
+
+/** Configuration for a DX cluster node */
+export interface ClusterNodeConfig {
+  host: string;
+  port: number;
+  name: string;
+}
+
+/** Full cluster connection configuration */
+export interface ClusterConfig {
+  nodes: ClusterNodeConfig[];
+  callsign: string;
+  password?: string;
+  filters?: {
+    bands?: number[];
+    modes?: string[];
+    minSNR?: number;
+  };
+}
+
+/** A single DX cluster spot */
+export interface ClusterSpot {
+  id: string;
+  spotter: string;
+  spotterGrid?: string;
+  dx: string;
+  dxGrid?: string;
+  frequency: number;
+  mode?: string;
+  comment: string;
+  time: string;
+  band?: string;
+}
+
+/** DX cluster connection status */
+export interface ClusterStatus {
+  connected: boolean;
+  node?: string;
+  spotsReceived: number;
+  lastSpotTime?: string;
+}
+
+export type ClusterSpotMessage = MessageEnvelope<ClusterSpot>;
+export type ClusterStatusMessage = MessageEnvelope<ClusterStatus>;
+export type ClusterConnectMessage = MessageEnvelope<ClusterConfig>;
+export type ClusterDisconnectMessage = MessageEnvelope<Record<string, never>>;
+
+// ============================================================================
+// WSJT-X Messages
+// ============================================================================
+
+/** WSJT-X application status */
+export interface WSJTXStatus {
+  frequency: number;
+  mode: string;
+  dxCall?: string;
+  dxGrid?: string;
+  txEnabled: boolean;
+  decoding: boolean;
+  rxDF: number;
+  txDF: number;
+}
+
+/** A single WSJT-X decode */
+export interface WSJTXDecode {
+  isNew: boolean;
+  time: number;
+  snr: number;
+  deltaTime: number;
+  deltaFrequency: number;
+  mode: string;
+  message: string;
+  lowConfidence: boolean;
+  callsign?: string;
+  grid?: string;
+  dxcc?: number;
+}
+
+/** WSJT-X logged QSO */
+export interface WSJTXQSOLogged {
+  callsign: string;
+  grid?: string;
+  frequency: number;
+  mode: string;
+  reportSent: string;
+  reportReceived: string;
+  txPower: string;
+  comments: string;
+  timestamp: string;
+  adifRecord?: string;
+}
+
+/** WSJT-X listener configuration */
+export interface WSJTXConfig {
+  port: number;
+  enabled: boolean;
+}
+
+export type WSJTXStatusMessage = MessageEnvelope<WSJTXStatus>;
+export type WSJTXDecodeMessage = MessageEnvelope<WSJTXDecode>;
+export type WSJTXQSOLoggedMessage = MessageEnvelope<WSJTXQSOLogged>;
+export type WSJTXClearMessage = MessageEnvelope<{ window?: string }>;
+
+// ============================================================================
 // Message Type Constants
 // ============================================================================
 
@@ -135,6 +241,9 @@ export const MessageTypes = {
   RIG_STATUS: "rig.status",
   RIG_UPDATE: "rig.update",
   RIG_SET: "rig.set",
+  RIG_SET_FREQUENCY: "rig.setFrequency",
+  RIG_SET_MODE: "rig.setMode",
+  RIG_SET_PTT: "rig.setPTT",
 
   // Contest session management
   CONTEST_SESSION_CREATE: "contest.session.create",
@@ -147,6 +256,19 @@ export const MessageTypes = {
 
   // Contest notes
   CONTEST_NOTE_ADD: "contest.note.add",
+
+  // DX Cluster
+  CLUSTER_SPOT: "cluster.spot",
+  CLUSTER_STATUS: "cluster.status",
+  CLUSTER_CONNECT: "cluster.connect",
+  CLUSTER_DISCONNECT: "cluster.disconnect",
+
+  // WSJT-X
+  WSJTX_STATUS: "wsjtx.status",
+  WSJTX_DECODE: "wsjtx.decode",
+  WSJTX_QSO_LOGGED: "wsjtx.qso_logged",
+  WSJTX_CLEAR: "wsjtx.clear",
+  WSJTX_CONFIGURE: "wsjtx.configure",
 } as const;
 
 export type MessageType = (typeof MessageTypes)[keyof typeof MessageTypes];

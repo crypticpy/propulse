@@ -8,7 +8,14 @@
  * Performance optimized with lazy loading for heavy components.
  */
 
-import { useCallback, useMemo, useState, lazy, Suspense } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  lazy,
+  Suspense,
+} from "react";
 import { addHours } from "date-fns";
 import {
   GlobeView,
@@ -44,6 +51,10 @@ const FullscreenPropSphere = lazy(() =>
   })),
 );
 import { DXSpotList, DXConsole } from "@/components/dx";
+import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
+import { useRigStore } from "@/stores/rigStore";
+import { useWSJTXStore } from "@/stores/wsjtxStore";
+import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
 import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
@@ -107,6 +118,26 @@ export function PropSphere() {
   } = useMapStore();
   const station = useUserStore((state) => state.station);
   const spotCount = useDXStore((state) => state.spots.length);
+
+  // Mount WSJT-X auto-log listener
+  useWSJTXAutoLog();
+
+  // Rig CAT state
+  const rigConnected = useRigStore((s) => s.connected);
+  const rigCatEnabled = useRigStore((s) => s.catEnabled);
+  const rigBand = useRigStore((s) => s.band);
+  const getSMeterText = useRigStore((s) => s.getSMeterText);
+  const catActive = rigCatEnabled && rigConnected;
+
+  // WSJT-X connection state
+  const wsjtxConnected = useWSJTXStore((s) => s.connected);
+
+  // Sync DX Store band filter with rig band when CAT is active
+  useEffect(() => {
+    if (catActive && rigBand) {
+      useDXStore.getState().setSyncedBand(rigBand);
+    }
+  }, [catActive, rigBand]);
 
   // Update browser tab title with spot count
   useSpotCountTitle(spotCount);
@@ -510,6 +541,18 @@ export function PropSphere() {
               data-tour="operator-profile"
             >
               <OperatorProfile className="h-full" />
+              {/* S-meter reading when rig is connected via CAT */}
+              {catActive && (
+                <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-white/5 border border-white/10">
+                  <div className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">
+                    S-Meter
+                  </span>
+                  <span className="text-xs font-mono font-medium text-white ml-auto">
+                    {getSMeterText()}
+                  </span>
+                </div>
+              )}
             </Card>
 
             {/* 24h Forecast (hidden on mobile, shown on lg+) */}
@@ -856,15 +899,25 @@ export function PropSphere() {
                       )}
                     </div>
 
-                    {/* Right: Callsign badge */}
-                    {station && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
-                        <div className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-                        <span className="text-xs font-mono font-medium text-white tracking-wide">
-                          {station.callsign}
-                        </span>
-                      </div>
-                    )}
+                    {/* Right: Callsign badge + S-meter */}
+                    <div className="flex items-center gap-2">
+                      {catActive && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
+                          <span className="text-[10px] text-gray-500">S</span>
+                          <span className="text-xs font-mono font-medium text-signal-green">
+                            {getSMeterText()}
+                          </span>
+                        </div>
+                      )}
+                      {station && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
+                          <div className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
+                          <span className="text-xs font-mono font-medium text-white tracking-wide">
+                            {station.callsign}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* ─── BOTTOM LEFT: Band Conditions Summary ─── */}
@@ -993,6 +1046,13 @@ export function PropSphere() {
                 />
               </div>
             </div>
+
+            {/* WSJT-X Status Panel - shown when connected and DX Console not expanded */}
+            {wsjtxConnected && !isDXConsoleExpanded && (
+              <div className="hidden xl:block flex-shrink-0">
+                <WSJTXStatusPanel defaultCollapsed className="mb-2" />
+              </div>
+            )}
 
             {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
             {/* Hidden when DX Console is expanded */}

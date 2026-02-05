@@ -126,7 +126,15 @@ export type BridgeMessageType =
   | "bridge.pong"
   | "bridge.subscribe"
   | "bridge.unsubscribe"
-  | "bridge.error";
+  | "bridge.error"
+  | "cluster.spot"
+  | "cluster.status"
+  | "cluster.connect"
+  | "cluster.disconnect"
+  | "wsjtx.status"
+  | "wsjtx.decode"
+  | "wsjtx.qso_logged"
+  | "wsjtx.clear";
 
 /**
  * Options for bridge connection
@@ -277,4 +285,94 @@ export function formatFrequency(frequencyHz: number): string {
 export function formatFrequencyCompact(frequencyHz: number): string {
   const freqMHz = frequencyHz / 1_000_000;
   return freqMHz.toFixed(3);
+}
+
+// === Cluster types ===
+
+/**
+ * Configuration for DX cluster connection via bridge
+ */
+export interface ClusterConfig {
+  nodes: Array<{ host: string; port: number; name: string }>;
+  callsign: string;
+  password?: string;
+  filters?: {
+    bands?: string[];
+    modes?: string[];
+    minSNR?: number;
+  };
+}
+
+/**
+ * Cluster spot payload delivered over bridge WebSocket
+ */
+export interface ClusterSpotPayload {
+  id: string;
+  spotter: string;
+  spotterGrid?: string;
+  dx: string;
+  dxGrid?: string;
+  frequency: number; // kHz
+  mode?: string;
+  comment: string;
+  time: string; // ISO timestamp
+  band?: string;
+}
+
+/**
+ * Cluster connection status payload
+ */
+export interface ClusterStatusPayload {
+  connected: boolean;
+  node?: string;
+  spotsReceived: number;
+  lastSpotTime?: string;
+}
+
+// === WSJT-X types ===
+
+/**
+ * WSJT-X application status payload
+ */
+export interface WSJTXStatusPayload {
+  frequency: number; // Hz
+  mode: string;
+  dxCall?: string;
+  dxGrid?: string;
+  txEnabled: boolean;
+  decoding: boolean;
+  rxDF: number;
+  txDF: number;
+}
+
+/**
+ * WSJT-X decoded message payload
+ */
+export interface WSJTXDecodePayload {
+  isNew: boolean;
+  time: number; // ms since midnight
+  snr: number;
+  deltaTime: number;
+  deltaFrequency: number;
+  mode: string;
+  message: string;
+  lowConfidence: boolean;
+  callsign?: string; // extracted from message
+  grid?: string; // extracted from message
+}
+
+/**
+ * WSJT-X QSO logged payload
+ */
+export interface WSJTXQSOLoggedPayload {
+  callsign: string;
+  grid?: string;
+  frequency: number;
+  mode: string;
+  reportSent: string;
+  reportReceived: string;
+  txPower: string;
+  comments: string;
+  timestamp: string;
+  adifRecord?: string;
 }

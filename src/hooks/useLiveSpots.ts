@@ -4,6 +4,7 @@
  * Unified hook for fetching and merging spots from multiple sources:
  * - PSKReporter (digital modes)
  * - Reverse Beacon Network (CW/RTTY)
+ * - WSJT-X (local decodes via bridge)
  * - Demo spots (fallback)
  *
  * Features:
@@ -17,7 +18,9 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPSKReporterSpots } from "@/lib/api/pskreporter";
 import { fetchRBNSpots } from "@/lib/api/rbn";
-import { fetchDemoSpots } from "@/lib/api/dxcluster";
+import { fetchDemoSpots, getBandFromFrequency } from "@/lib/api/dxcluster";
+import { useWSJTXStore } from "@/stores/wsjtxStore";
+import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 
 interface UseLiveSpotsOptions {
@@ -61,7 +64,9 @@ function getSpotKey(spot: LiveSpot): string {
 
 /**
  * Deduplicate spots by callsign + frequency + time
- * Prioritizes real spots over demo spots
+ * Prioritizes real spots over demo spots.
+ *
+ * Priority: PSKReporter(0) > RBN(1) > WSJT-X(2) > Cluster(3) > Demo(4)
  */
 function deduplicateSpots(spots: LiveSpot[]): LiveSpot[] {
   const seen = new Map<string, LiveSpot>();
@@ -69,8 +74,9 @@ function deduplicateSpots(spots: LiveSpot[]): LiveSpot[] {
   // Sort by source priority (real sources first)
   const prioritized = [...spots].sort((a, b) => {
     const priority: Record<SpotSource, number> = {
-      PSKReporter: 1,
-      RBN: 2,
+      PSKReporter: 0,
+      RBN: 1,
+      "WSJT-X": 2,
       Cluster: 3,
       Demo: 4,
     };
@@ -87,11 +93,39 @@ function deduplicateSpots(spots: LiveSpot[]): LiveSpot[] {
   return Array.from(seen.values());
 }
 
+/**
+ * Convert a WSJT-X decode into a LiveSpot.
+ *
+ * The WSJT-X decode carries an audio frequency offset (deltaFrequency)
+ * relative to the dial frequency from the WSJT-X status. The spot frequency
+ * is computed as: dial (in kHz) + audio offset (in kHz).
+ */
+function wsjtxDecodeToLiveSpot(
+  decode: WSJTXDecode,
+  statusFreqHz: number,
+): LiveSpot {
+  const frequencyKHz = statusFreqHz / 1000; // DXSpot uses kHz
+  const spotFrequencyKHz = frequencyKHz + decode.deltaFrequency / 1000;
+  return {
+    id: `wsjtx-${decode.receivedAt}-${decode.callsign || decode.message}`,
+    spotter: "WSJT-X", // local receiver
+    dx: decode.callsign || "",
+    dxGrid: decode.grid,
+    frequency: spotFrequencyKHz,
+    mode: decode.mode,
+    comment: decode.message,
+    time: new Date(decode.receivedAt), // use receivedAt timestamp
+    band: getBandFromFrequency(frequencyKHz),
+    source: "WSJT-X",
+    snr: decode.snr,
+  };
+}
+
 export function useLiveSpots({
   grid,
   enabled = true,
   refetchInterval = MINUTE,
-  sources = ["PSKReporter", "RBN", "Demo"],
+  sources = ["PSKReporter", "RBN", "WSJT-X", "Demo"],
   includeDemo = true,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // Fetch PSKReporter spots
@@ -130,6 +164,30 @@ export function useLiveSpots({
     refetchInterval: MINUTE,
   });
 
+  // WSJT-X decodes from the bridge (via store)
+  const wsjtxDecodes = useWSJTXStore((s) => s.decodes);
+  const wsjtxStatus = useWSJTXStore((s) => s.status);
+  const wsjtxConnected = useWSJTXStore((s) => s.connected);
+
+  // Convert WSJT-X decodes to LiveSpots
+  const wsjtxSpots = useMemo<LiveSpot[]>(() => {
+    if (
+      !wsjtxConnected ||
+      !wsjtxStatus ||
+      !sources.includes("WSJT-X") ||
+      wsjtxDecodes.length === 0
+    ) {
+      return [];
+    }
+
+    // Only convert decodes that have an extracted callsign (skip noise)
+    // and limit to the most recent 50 for performance
+    return wsjtxDecodes
+      .filter((d) => d.callsign)
+      .slice(0, 50)
+      .map((d) => wsjtxDecodeToLiveSpot(d, wsjtxStatus.frequency));
+  }, [wsjtxDecodes, wsjtxStatus, wsjtxConnected, sources]);
+
   // Combine and deduplicate spots
   const spots = useMemo(() => {
     const allSpots: LiveSpot[] = [];
@@ -140,6 +198,11 @@ export function useLiveSpots({
 
     if (rbnQuery.data) {
       allSpots.push(...rbnQuery.data);
+    }
+
+    // Include WSJT-X spots
+    if (wsjtxSpots.length > 0) {
+      allSpots.push(...wsjtxSpots);
     }
 
     // Only include demo spots if no real spots available or explicitly requested
@@ -159,7 +222,14 @@ export function useLiveSpots({
     }
 
     return sorted;
-  }, [pskQuery.data, rbnQuery.data, demoQuery.data, includeDemo, sources]);
+  }, [
+    pskQuery.data,
+    rbnQuery.data,
+    wsjtxSpots,
+    demoQuery.data,
+    includeDemo,
+    sources,
+  ]);
 
   // Group spots by source
   const spotsBySource = useMemo(() => {
@@ -167,6 +237,7 @@ export function useLiveSpots({
       PSKReporter: [],
       RBN: [],
       Cluster: [],
+      "WSJT-X": [],
       Demo: [],
     };
 

@@ -3000,7 +3000,51 @@ export function FlatMapView({
     oCtx.translate(z.offsetX, z.offsetY);
     oCtx.scale(z.scale, z.scale);
 
-    // Flatten all marker overlays
+    // Draw overlay arcs first (under markers)
+    for (const layer of Object.values(overlayLayers)) {
+      const arcs =
+        layer.type === "arcs"
+          ? layer.arcs
+          : layer.type === "mixed"
+            ? layer.arcs
+            : [];
+
+      for (const arc of arcs) {
+        const points = getGreatCirclePoints(
+          arc.fromLat,
+          arc.fromLon,
+          arc.toLat,
+          arc.toLon,
+          48,
+        );
+        if (points.length < 2) {
+          continue;
+        }
+
+        oCtx.save();
+        oCtx.globalAlpha = arc.opacity ?? 0.7;
+        oCtx.strokeStyle = arc.color;
+        oCtx.lineWidth = arc.width ?? 2;
+        oCtx.lineCap = "round";
+        oCtx.lineJoin = "round";
+        oCtx.beginPath();
+
+        for (let i = 0; i < points.length; i++) {
+          const pt = points[i];
+          const { x, y } = latLonToCanvas(pt.lat, pt.lon, rw, rh);
+          if (i === 0) {
+            oCtx.moveTo(x, y);
+          } else {
+            oCtx.lineTo(x, y);
+          }
+        }
+
+        oCtx.stroke();
+        oCtx.restore();
+      }
+    }
+
+    // Draw overlay markers (on top)
     for (const layer of Object.values(overlayLayers)) {
       const markers =
         layer.type === "markers"

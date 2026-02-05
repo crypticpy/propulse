@@ -167,8 +167,16 @@ function buildCallsign(mappedTokens: string[]): {
 
     const candidate = callChars.join("");
     if (hasDigit && hasLetter && candidate.length >= 3) {
-      callEndIndex = i;
-      break;
+      const next = mappedTokens[i + 1];
+      // If the next token is a single-character token, keep consuming to avoid
+      // truncating spelled callsigns like "K 3 L R" -> "K3LR".
+      //
+      // Stop early when the next token likely begins the exchange (digits),
+      // or when the next token is not a single-character token.
+      if (!next || !/^[A-Z0-9]$/.test(next) || /^[0-9]$/.test(next)) {
+        callEndIndex = i;
+        break;
+      }
     }
   }
 

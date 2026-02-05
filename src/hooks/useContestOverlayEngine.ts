@@ -12,15 +12,33 @@ import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useMapStore } from "@/stores/mapStore";
 import { getContestById } from "@/lib/data/contests";
+import { extractMultiplierValue } from "@/lib/contest";
 import { getNeededMultipliers } from "@/lib/contest/strategy";
 import type { OverlayMarker } from "@/types/mapOverlays";
 
 const LAYER_ID = "contest-needed-mults";
 const MAX_MARKERS = 180;
 
-function extractDxccPrefix(callsign: string): string | null {
-  const match = callsign.match(/^([A-Z]{1,3}[0-9]{0,2})/i);
-  return match ? match[1].toUpperCase() : null;
+function resolveDxccPrefix(
+  callsign: string,
+  neededPrefixesByLength: string[],
+): string | null {
+  const upper = callsign.toUpperCase().trim();
+  const parts = upper.split("/").map((p) => p.trim()).filter(Boolean);
+
+  // Fast path: match directly against the contest's needed DXCC prefix set.
+  // Longest-first avoids collapsing EA8 -> EA, KP4 -> K, etc.
+  for (const prefix of neededPrefixesByLength) {
+    for (const part of parts) {
+      if (part.startsWith(prefix)) {
+        return prefix;
+      }
+    }
+  }
+
+  // Fallback: use the same DXCC resolver as multiplier extraction/scoring.
+  const resolved = extractMultiplierValue(upper, "DXCC", "callsign");
+  return resolved ? resolved.toUpperCase() : null;
 }
 
 export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
@@ -52,6 +70,9 @@ export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
     const needed = getNeededMultipliers(activeSession, contest);
     const neededDxcc = new Set(
       needed.filter((m) => m.type === "DXCC").map((m) => m.value.toUpperCase()),
+    );
+    const neededDxccPrefixesByLength = [...neededDxcc].sort(
+      (a, b) => b.length - a.length,
     );
 
     // Build a quick "worked DXCC" set so we can distinguish NEW vs NEEDED.
@@ -85,21 +106,25 @@ export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
         continue;
       }
 
-      const prefix = extractDxccPrefix(callsign);
-      if (!prefix || !neededDxcc.has(prefix)) {
+      const resolvedPrefix = resolveDxccPrefix(
+        callsign,
+        neededDxccPrefixesByLength,
+      );
+
+      if (!resolvedPrefix || !neededDxcc.has(resolvedPrefix)) {
         continue;
       }
 
-      const isNew = !workedDxcc.has(prefix);
+      const isNew = !workedDxcc.has(resolvedPrefix);
 
       markers.push({
-        id: `dxcc-${prefix}-${spot.id}`,
+        id: `dxcc-${resolvedPrefix}-${spot.id}`,
         lat: spot.dxLat as number,
         lon: spot.dxLon as number,
         color: isNew ? "#ff6b35" : "#22d3ee",
         opacity: isNew ? 0.95 : 0.7,
         size: isNew ? 7 : 5,
-        label: prefix,
+        label: resolvedPrefix,
       });
     }
 
@@ -117,4 +142,3 @@ export function useContestOverlayEngine({ enabled }: { enabled: boolean }) {
 }
 
 export default useContestOverlayEngine;
-

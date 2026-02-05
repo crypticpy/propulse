@@ -21,7 +21,11 @@ import {
 } from "@/lib/utils/azimuthal";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { resolveSpotLocations, type ResolvedSpot } from "./LiveSpotArcs";
+import {
+  getGreatCirclePoints,
+  resolveSpotLocations,
+  type ResolvedSpot,
+} from "./LiveSpotArcs";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import {
   getDifficultyColor,
@@ -985,6 +989,56 @@ export function AzimuthalView({
     ctx.translate(CENTER, CENTER);
     ctx.scale(zoom, zoom);
     ctx.translate(-CENTER, -CENTER);
+
+    // Draw overlay arcs first (under markers)
+    for (const layer of Object.values(overlayLayers)) {
+      const arcs =
+        layer.type === "arcs"
+          ? layer.arcs
+          : layer.type === "mixed"
+            ? layer.arcs
+            : [];
+
+      for (const arc of arcs) {
+        const points = getGreatCirclePoints(
+          arc.fromLat,
+          arc.fromLon,
+          arc.toLat,
+          arc.toLon,
+          48,
+        );
+        if (points.length < 2) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = arc.opacity ?? 0.7;
+        ctx.strokeStyle = arc.color;
+        ctx.lineWidth = arc.width ?? 2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+
+        for (let i = 0; i < points.length; i++) {
+          const pt = points[i];
+          const projected = azimuthalProject(
+            pt.lat,
+            pt.lon,
+            center.lat,
+            center.lon,
+          );
+          const canvasPt = projToCanvas(projected);
+          if (i === 0) {
+            ctx.moveTo(canvasPt.x, canvasPt.y);
+          } else {
+            ctx.lineTo(canvasPt.x, canvasPt.y);
+          }
+        }
+
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
 
     for (const layer of Object.values(overlayLayers)) {
       const markers =

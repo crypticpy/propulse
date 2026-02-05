@@ -237,9 +237,11 @@ export function BandConditionsPanel({
   collapsed = false,
   onToggleCollapse,
 }: BandConditionsPanelProps) {
-  const { target, showCorrelation } = useMapStore();
-  const { station } = useUserStore();
-  const { syncMode, syncedBand } = useDXStore();
+  const target = useMapStore((s) => s.target);
+  const showCorrelation = useMapStore((s) => s.showCorrelation);
+  const station = useUserStore((s) => s.station);
+  const syncMode = useDXStore((s) => s.syncMode);
+  const syncedBand = useDXStore((s) => s.syncedBand);
   const uiPrefs = useUIInteractionPrefs();
   const isGridView = uiPrefs.visualStyle === "high-viz";
   const [showHelp, setShowHelp] = useState(false);

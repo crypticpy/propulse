@@ -52,6 +52,9 @@ interface UseLiveSpotsResult {
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 
+/** Stable default sources array — avoids new reference on every hook call */
+const DEFAULT_SOURCES: SpotSource[] = ["PSKReporter", "RBN", "WSJT-X", "Demo"];
+
 /**
  * Generate a deduplication key for a spot
  * Same callsign on same frequency within 1 minute = same spot
@@ -125,7 +128,7 @@ export function useLiveSpots({
   grid,
   enabled = true,
   refetchInterval = MINUTE,
-  sources = ["PSKReporter", "RBN", "WSJT-X", "Demo"],
+  sources = DEFAULT_SOURCES,
   includeDemo = true,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // Fetch PSKReporter spots

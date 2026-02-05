@@ -102,6 +102,52 @@ export function BandPlanner() {
   // Current UTC hour
   const currentHour = new Date().getUTCHours();
 
+  // Best band at the current hour (for "right now" display)
+  const bestBandNow = useMemo(() => {
+    if (forecast.length === 0) return null;
+    const hourData = forecast[currentHour];
+    if (!hourData) return null;
+
+    const open = [...hourData.bands]
+      .filter((b) => b.status !== "closed")
+      .sort((a, b) => b.snrEstimate - a.snrEstimate);
+
+    return open[0] || null;
+  }, [forecast, currentHour]);
+
+  // Sort windows: active now first, then upcoming, then passed
+  const sortedWindows = useMemo(() => {
+    if (bestWindows.length === 0) return [];
+
+    const active: BestWindow[] = [];
+    const upcoming: BestWindow[] = [];
+    const passed: BestWindow[] = [];
+
+    for (const w of bestWindows) {
+      if (currentHour >= w.startHour && currentHour <= w.endHour) {
+        active.push(w);
+      } else if (w.startHour > currentHour) {
+        upcoming.push(w);
+      } else {
+        passed.push(w);
+      }
+    }
+
+    // Sort active windows by current-hour SNR for that band
+    const hourData = forecast[currentHour];
+    if (hourData) {
+      active.sort((a, b) => {
+        const aSnr =
+          hourData.bands.find((bd) => bd.band === a.band)?.snrEstimate ?? -30;
+        const bSnr =
+          hourData.bands.find((bd) => bd.band === b.band)?.snrEstimate ?? -30;
+        return bSnr - aSnr;
+      });
+    }
+
+    return [...active, ...upcoming, ...passed];
+  }, [bestWindows, currentHour, forecast]);
+
   // Bands to display
   const bands = [
     "160m",
@@ -431,6 +477,59 @@ export function BandPlanner() {
 
             {targetCoords && !isLoading && forecast.length > 0 && (
               <>
+                {/* Right Now */}
+                <Card>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white">
+                      Right Now
+                    </h3>
+                    <span className="text-xs text-gray-400 font-mono">
+                      {currentHour.toString().padStart(2, "0")}:00 UTC
+                    </span>
+                  </div>
+                  {bestBandNow ? (
+                    <div className="mt-3 flex items-center gap-4">
+                      <div
+                        className="text-3xl font-mono font-bold"
+                        style={{
+                          color: getForecastStatusColor(bestBandNow.status),
+                        }}
+                      >
+                        {bestBandNow.band}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-sm font-medium px-2 py-0.5 rounded"
+                            style={{
+                              backgroundColor: `${getForecastStatusColor(bestBandNow.status)}20`,
+                              color: getForecastStatusColor(bestBandNow.status),
+                            }}
+                          >
+                            {bestBandNow.status}
+                          </span>
+                          <span className="text-sm text-gray-400">
+                            SNR {bestBandNow.snrEstimate} dB
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {bestBandNow.status === "excellent" ||
+                          bestBandNow.status === "good"
+                            ? "Good conditions — SSB, CW, and digital modes viable"
+                            : bestBandNow.status === "fair"
+                              ? "Marginal conditions — digital modes recommended"
+                              : "Poor conditions — consider waiting for a better window"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-gray-400">
+                      No bands currently open on this path. Check the forecast
+                      below for upcoming windows.
+                    </div>
+                  )}
+                </Card>
+
                 {/* Best Windows */}
                 <Card>
                   <h3 className="text-lg font-semibold text-white mb-4">
@@ -444,52 +543,76 @@ export function BandPlanner() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {bestWindows.slice(0, 6).map((window, idx) => (
-                        <div
-                          key={window.band}
-                          className={`p-4 rounded-lg border transition-colors cursor-pointer ${
-                            selectedBand === window.band
-                              ? "bg-plasma-orange/10 border-plasma-orange/40"
-                              : "bg-white/5 border-white/10 hover:border-white/20"
-                          }`}
-                          onClick={() =>
-                            setSelectedBand(
-                              selectedBand === window.band ? null : window.band,
-                            )
-                          }
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xl font-mono font-bold text-white">
-                              {window.band}
-                            </span>
-                            <span
-                              className="text-xs px-2 py-0.5 rounded"
-                              style={{
-                                backgroundColor: `${getForecastStatusColor(window.peakStatus)}20`,
-                                color: getForecastStatusColor(
-                                  window.peakStatus,
-                                ),
-                              }}
-                            >
-                              {window.peakStatus}
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-300">
-                            {window.startHour.toString().padStart(2, "0")}:00 -{" "}
-                            {window.endHour.toString().padStart(2, "0")}:00 UTC
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            Peak at{" "}
-                            {window.peakHour.toString().padStart(2, "0")}:00 •
-                            SNR {window.peakSnr} dB
-                          </div>
-                          {idx === 0 && (
-                            <div className="mt-2 text-xs text-plasma-orange font-medium">
-                              Recommended
+                      {sortedWindows.slice(0, 6).map((window) => {
+                        const isActive =
+                          currentHour >= window.startHour &&
+                          currentHour <= window.endHour;
+                        const isPassed = window.endHour < currentHour;
+
+                        return (
+                          <div
+                            key={window.band}
+                            className={`p-4 rounded-lg border transition-colors cursor-pointer ${
+                              isPassed ? "opacity-50 " : ""
+                            }${
+                              selectedBand === window.band
+                                ? "bg-plasma-orange/10 border-plasma-orange/40"
+                                : "bg-white/5 border-white/10 hover:border-white/20"
+                            }`}
+                            onClick={() =>
+                              setSelectedBand(
+                                selectedBand === window.band
+                                  ? null
+                                  : window.band,
+                              )
+                            }
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xl font-mono font-bold text-white">
+                                {window.band}
+                              </span>
+                              <span
+                                className="text-xs px-2 py-0.5 rounded"
+                                style={{
+                                  backgroundColor: `${getForecastStatusColor(window.peakStatus)}20`,
+                                  color: getForecastStatusColor(
+                                    window.peakStatus,
+                                  ),
+                                }}
+                              >
+                                {window.peakStatus}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      ))}
+                            <div className="text-sm text-gray-300">
+                              {window.startHour.toString().padStart(2, "0")}
+                              :00 - {window.endHour.toString().padStart(2, "0")}
+                              :00 UTC
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              Peak at{" "}
+                              {window.peakHour.toString().padStart(2, "0")}:00 •
+                              SNR {window.peakSnr} dB
+                            </div>
+                            {isActive && (
+                              <div className="mt-2 text-xs text-signal-green font-medium">
+                                Active now
+                              </div>
+                            )}
+                            {!isActive && !isPassed && (
+                              <div className="mt-2 text-xs text-gray-400">
+                                Opens at{" "}
+                                {window.startHour.toString().padStart(2, "0")}
+                                :00 UTC
+                              </div>
+                            )}
+                            {isPassed && (
+                              <div className="mt-2 text-xs text-gray-500">
+                                Passed
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </Card>
@@ -562,9 +685,6 @@ export function BandPlanner() {
                       </thead>
                       <tbody>
                         {bands.map((band) => {
-                          const bandWindow = bestWindows.find(
-                            (w) => w.band === band,
-                          );
                           return (
                             <tr
                               key={band}
@@ -579,7 +699,7 @@ export function BandPlanner() {
                             >
                               <td
                                 className={`py-2 pr-4 font-mono font-semibold sticky left-0 bg-deep-space/95 z-10 cursor-pointer ${
-                                  bandWindow && bandWindow === bestWindows[0]
+                                  bestBandNow && band === bestBandNow.band
                                     ? "text-plasma-orange"
                                     : "text-white"
                                 }`}
@@ -637,31 +757,32 @@ export function BandPlanner() {
                         Suggested Modes
                       </h4>
                       <div className="space-y-2">
-                        {bestWindows.length > 0 &&
-                          bestWindows[0].peakStatus === "excellent" && (
+                        {bestBandNow &&
+                          (bestBandNow.status === "excellent" ||
+                            bestBandNow.status === "good") && (
                             <div className="flex items-center gap-2">
                               <span className="w-2 h-2 rounded-full bg-signal-green" />
                               <span className="text-gray-300">
-                                SSB/CW - Strong signals expected
+                                SSB/CW — strong signals on {bestBandNow.band}
                               </span>
                             </div>
                           )}
-                        {bestWindows.length > 0 &&
-                          (bestWindows[0].peakStatus === "good" ||
-                            bestWindows[0].peakStatus === "fair") && (
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-caution-amber" />
-                              <span className="text-gray-300">
-                                FT8/FT4 recommended for reliable contacts
-                              </span>
-                            </div>
-                          )}
-                        {(bestWindows.length === 0 ||
-                          bestWindows[0].peakStatus === "poor") && (
+                        {bestBandNow && bestBandNow.status === "fair" && (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-caution-amber" />
+                            <span className="text-gray-300">
+                              FT8/FT4 recommended — marginal on{" "}
+                              {bestBandNow.band}
+                            </span>
+                          </div>
+                        )}
+                        {(!bestBandNow || bestBandNow.status === "poor") && (
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-alert-red" />
                             <span className="text-gray-300">
-                              Digital modes only - marginal conditions
+                              {bestBandNow
+                                ? "Digital modes only — poor conditions"
+                                : "No bands open — wait for better conditions"}
                             </span>
                           </div>
                         )}
@@ -674,32 +795,29 @@ export function BandPlanner() {
                         Power Guidance
                       </h4>
                       <div className="space-y-2 text-gray-300">
-                        {bestWindows.length > 0 &&
-                          bestWindows[0].peakSnr >= -10 && (
-                            <p>
-                              50-100W should be sufficient for contacts on{" "}
-                              {bestWindows[0].band}
-                            </p>
-                          )}
-                        {bestWindows.length > 0 &&
-                          bestWindows[0].peakSnr < -10 &&
-                          bestWindows[0].peakSnr >= -18 && (
+                        {bestBandNow && bestBandNow.snrEstimate >= -10 && (
+                          <p>
+                            50-100W should be sufficient for contacts on{" "}
+                            {bestBandNow.band}
+                          </p>
+                        )}
+                        {bestBandNow &&
+                          bestBandNow.snrEstimate < -10 &&
+                          bestBandNow.snrEstimate >= -18 && (
                             <p>
                               100W recommended, higher power may help on
                               marginal paths
                             </p>
                           )}
-                        {bestWindows.length > 0 &&
-                          bestWindows[0].peakSnr < -18 && (
-                            <p>
-                              Maximum legal power recommended - weak signal
-                              conditions
-                            </p>
-                          )}
-                        {bestWindows.length === 0 && (
+                        {bestBandNow && bestBandNow.snrEstimate < -18 && (
+                          <p>
+                            Maximum legal power recommended — weak signal
+                            conditions
+                          </p>
+                        )}
+                        {!bestBandNow && (
                           <p className="text-gray-400">
-                            Conditions unfavorable - save power for better
-                            openings
+                            No bands open — save power for better openings
                           </p>
                         )}
                       </div>

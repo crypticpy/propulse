@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { DataFreshnessIndicator } from "@/components/ui";
 import {
   useActiveRadio,
   useUserStore,
@@ -219,8 +220,28 @@ export function DXWizard() {
   const [showRadioPicker, setShowRadioPicker] = useState(false);
   const [txPowerCeilingWatts, setTxPowerCeilingWatts] = useState<number>(100);
 
-  const { data: kIndexData, isError: kIndexError } = useKIndex();
-  const { data: solarFluxData, isError: solarFluxError } = useSolarFlux();
+  const {
+    data: kIndexData,
+    isError: kIndexError,
+    dataUpdatedAt: kUpdatedAt,
+    refetch: refetchK,
+    isRefetching: kRefetching,
+  } = useKIndex();
+  const {
+    data: solarFluxData,
+    isError: solarFluxError,
+    dataUpdatedAt: fluxUpdatedAt,
+    refetch: refetchFlux,
+    isRefetching: fluxRefetching,
+  } = useSolarFlux();
+
+  const wizardDataUpdatedAt =
+    Math.max(kUpdatedAt || 0, fluxUpdatedAt || 0) || undefined;
+  const wizardIsRefetching = kRefetching || fluxRefetching;
+  const refetchWizardData = () => {
+    refetchK();
+    refetchFlux();
+  };
 
   const currentKp = useMemo(() => {
     if (!kIndexData || kIndexData.length === 0) {
@@ -473,15 +494,22 @@ export function DXWizard() {
               transmit guidance.
             </p>
           </div>
-          <div className="text-right text-xs text-gray-500">
-            <div className="font-mono">
-              Kp={currentKp} SFI={currentSfi}
-            </div>
-            {(kIndexError || solarFluxError) && (
-              <div className="text-caution-amber mt-1">
-                Solar data fetch issue — using cached/demo values
+          <div className="flex items-start gap-4">
+            <DataFreshnessIndicator
+              dataUpdatedAt={wizardDataUpdatedAt}
+              onRefresh={refetchWizardData}
+              isRefetching={wizardIsRefetching}
+            />
+            <div className="text-right text-xs text-gray-500">
+              <div className="font-mono">
+                Kp={currentKp} SFI={currentSfi}
               </div>
-            )}
+              {(kIndexError || solarFluxError) && (
+                <div className="text-caution-amber mt-1">
+                  Solar data fetch issue — using cached/demo values
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

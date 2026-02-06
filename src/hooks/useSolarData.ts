@@ -4,6 +4,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
 import {
   fetchKIndex,
   fetchSolarFlux,
@@ -168,6 +169,27 @@ export function useAllSolarData() {
     probabilities.isFetching ||
     sunspots.isFetching;
 
+  const isRefetching =
+    kIndex.isRefetching ||
+    solarFlux.isRefetching ||
+    probabilities.isRefetching ||
+    sunspots.isRefetching;
+
+  const dataUpdatedAt =
+    Math.max(
+      kIndex.dataUpdatedAt || 0,
+      solarFlux.dataUpdatedAt || 0,
+      probabilities.dataUpdatedAt || 0,
+      sunspots.dataUpdatedAt || 0,
+    ) || undefined;
+
+  const refetchAll = useCallback(() => {
+    kIndex.refetch();
+    solarFlux.refetch();
+    probabilities.refetch();
+    sunspots.refetch();
+  }, [kIndex, solarFlux, probabilities, sunspots]);
+
   return {
     kIndex,
     solarFlux,
@@ -176,5 +198,8 @@ export function useAllSolarData() {
     isLoading,
     isError,
     isFetching,
+    isRefetching,
+    dataUpdatedAt,
+    refetchAll,
   };
 }

@@ -5,17 +5,29 @@
  * Shows branding, station callsign/grid, and live status indicator.
  */
 
+import { useState, useEffect } from "react";
 import { useUserStore } from "@/stores/userStore";
 
+const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+
 export interface DashboardHeaderProps {
-  isLive?: boolean;
+  dataUpdatedAt?: number;
   className?: string;
 }
 
 export function DashboardHeader({
-  isLive = false,
+  dataUpdatedAt,
   className = "",
 }: DashboardHeaderProps) {
+  // Re-evaluate staleness every 30 seconds
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const isLive =
+    dataUpdatedAt != null && Date.now() - dataUpdatedAt < STALE_THRESHOLD_MS;
   const station = useUserStore((state) => state.station);
 
   return (

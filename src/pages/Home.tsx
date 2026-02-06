@@ -14,6 +14,7 @@ import {
   AlertsSummary,
   QuickActions,
 } from "@/components/dashboard";
+import { DataFreshnessIndicator } from "@/components/ui";
 import { PropagationIndexModal } from "@/components/solar/modals/PropagationIndexModal";
 import { SolarSummaryModal } from "@/components/solar/modals/SolarSummaryModal";
 import { BandConditionsModal } from "@/components/solar/modals/BandConditionsModal";
@@ -39,9 +40,12 @@ export function Home() {
     solarFlux: solarFluxQuery,
     sunspots: sunspotQuery,
     isLoading,
-    isError,
+    dataUpdatedAt,
+    isRefetching,
+    refetchAll,
   } = useAllSolarData();
-  const { data: magnetometerData } = useMagnetometer();
+  const { data: magnetometerData, dataUpdatedAt: magUpdatedAt } =
+    useMagnetometer();
 
   const kIndexData = kIndexQuery.data;
   const fluxData = solarFluxQuery.data;
@@ -57,11 +61,22 @@ export function Home() {
       .find((d) => typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm))
       ?.bz_gsm ?? null;
 
+  const combinedUpdatedAt =
+    Math.max(dataUpdatedAt || 0, magUpdatedAt || 0) || undefined;
+
   return (
     <div className="min-h-screen px-4">
       <main className="max-w-7xl mx-auto py-4 space-y-6">
         {/* Section 1: Dashboard Header */}
-        <DashboardHeader isLive={!isError && !isLoading} />
+        <DashboardHeader dataUpdatedAt={combinedUpdatedAt} />
+
+        <div className="flex justify-end -mt-3">
+          <DataFreshnessIndicator
+            dataUpdatedAt={combinedUpdatedAt}
+            onRefresh={refetchAll}
+            isRefetching={isRefetching}
+          />
+        </div>
 
         {/* Section 2: Alerts Summary */}
         <AlertsSummary />

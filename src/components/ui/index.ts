@@ -56,3 +56,9 @@ export { TimeDisplay, type TimeDisplayProps } from "./TimeDisplay";
 
 // UndoToast Component
 export { UndoToast, type UndoToastProps } from "./UndoToast";
+
+// DataFreshnessIndicator Component
+export {
+  DataFreshnessIndicator,
+  type DataFreshnessIndicatorProps,
+} from "./DataFreshnessIndicator";

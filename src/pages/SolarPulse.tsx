@@ -32,6 +32,7 @@ import { kpToAp } from "@/lib/utils/solarConversions";
 import { SolarCycleContext } from "@/components/solar/SolarCycleContext";
 import { ModelAccuracyPanel } from "@/components/solar/ModelAccuracyPanel";
 import { DraggablePanel } from "@/components/layout/DraggablePanel";
+import { DataFreshnessIndicator } from "@/components/ui";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -218,11 +219,38 @@ export function SolarPulse() {
     data: kIndexData,
     isLoading: kLoading,
     isError: kError,
+    dataUpdatedAt: kUpdatedAt,
+    refetch: refetchK,
+    isRefetching: kRefetching,
   } = useKIndex();
-  const { data: fluxData, isLoading: fluxLoading } = useSolarFlux();
-  const { data: probData, isLoading: probLoading } = useProbabilities();
-  const { data: sunspotData, isLoading: sunspotLoading } = useSunspots();
-  const { data: magnetometerData, isLoading: magLoading } = useMagnetometer();
+  const {
+    data: fluxData,
+    isLoading: fluxLoading,
+    dataUpdatedAt: fluxUpdatedAt,
+    refetch: refetchFlux,
+    isRefetching: fluxRefetching,
+  } = useSolarFlux();
+  const {
+    data: probData,
+    isLoading: probLoading,
+    dataUpdatedAt: probUpdatedAt,
+    refetch: refetchProb,
+    isRefetching: probRefetching,
+  } = useProbabilities();
+  const {
+    data: sunspotData,
+    isLoading: sunspotLoading,
+    dataUpdatedAt: sunspotUpdatedAt,
+    refetch: refetchSunspot,
+    isRefetching: sunspotRefetching,
+  } = useSunspots();
+  const {
+    data: magnetometerData,
+    isLoading: magLoading,
+    dataUpdatedAt: magUpdatedAt,
+    refetch: refetchMag,
+    isRefetching: magRefetching,
+  } = useMagnetometer();
 
   // --- Live SWPC additions (scales, alerts, x-ray, 5-min solar wind) ---
   const [noaaScales, setNoaaScales] = useState<NoaaScalesResponse | null>(null);
@@ -403,6 +431,30 @@ export function SolarPulse() {
   const isLoading =
     kLoading || fluxLoading || probLoading || sunspotLoading || magLoading;
 
+  const solarDataUpdatedAt =
+    Math.max(
+      kUpdatedAt || 0,
+      fluxUpdatedAt || 0,
+      probUpdatedAt || 0,
+      sunspotUpdatedAt || 0,
+      magUpdatedAt || 0,
+    ) || undefined;
+
+  const solarIsRefetching =
+    kRefetching ||
+    fluxRefetching ||
+    probRefetching ||
+    sunspotRefetching ||
+    magRefetching;
+
+  const refetchAllSolar = () => {
+    refetchK();
+    refetchFlux();
+    refetchProb();
+    refetchSunspot();
+    refetchMag();
+  };
+
   // --- Derived: ops banner + cards ---
   const latestHamAlert = (alerts ?? []).find(isHamRelevantAlert) ?? null;
   const latestHamAlertScale = latestHamAlert
@@ -448,6 +500,14 @@ export function SolarPulse() {
     <div className="min-h-screen px-4">
       {/* Main content */}
       <main className="max-w-7xl mx-auto py-4 space-y-6">
+        <div className="flex justify-end">
+          <DataFreshnessIndicator
+            dataUpdatedAt={solarDataUpdatedAt}
+            onRefresh={refetchAllSolar}
+            isRefetching={solarIsRefetching}
+          />
+        </div>
+
         {/* Event Alert (SWPC alerts feed, ham-relevant only) */}
         {latestHamAlertText ? (
           <EventAlert

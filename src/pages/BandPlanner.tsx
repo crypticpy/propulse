@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Card, LoadingSpinner } from "@/components/ui";
+import { Card, LoadingSpinner, DataFreshnessIndicator } from "@/components/ui";
 import { useUserStore } from "@/stores/userStore";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import {
@@ -38,9 +38,26 @@ export function BandPlanner() {
   const [selectedBand, setSelectedBand] = useState<string | null>(null);
 
   // Fetch solar data
-  const { data: kIndexData, isLoading: kLoading } = useKIndex();
-  const { data: fluxData, isLoading: fluxLoading } = useSolarFlux();
-  const { data: magnetometerData } = useMagnetometer();
+  const {
+    data: kIndexData,
+    isLoading: kLoading,
+    dataUpdatedAt: kUpdatedAt,
+    refetch: refetchK,
+    isRefetching: kRefetching,
+  } = useKIndex();
+  const {
+    data: fluxData,
+    isLoading: fluxLoading,
+    dataUpdatedAt: fluxUpdatedAt,
+    refetch: refetchFlux,
+    isRefetching: fluxRefetching,
+  } = useSolarFlux();
+  const {
+    data: magnetometerData,
+    dataUpdatedAt: magUpdatedAt,
+    refetch: refetchMag,
+    isRefetching: magRefetching,
+  } = useMagnetometer();
 
   // Current conditions
   const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
@@ -53,6 +70,16 @@ export function BandPlanner() {
       ?.bz_gsm ?? null;
 
   const isLoading = kLoading || fluxLoading;
+
+  const bandDataUpdatedAt =
+    Math.max(kUpdatedAt || 0, fluxUpdatedAt || 0, magUpdatedAt || 0) ||
+    undefined;
+  const bandIsRefetching = kRefetching || fluxRefetching || magRefetching;
+  const refetchBandData = () => {
+    refetchK();
+    refetchFlux();
+    refetchMag();
+  };
 
   // Parse target grid and calculate coordinates
   const handleTargetChange = useCallback((value: string) => {
@@ -197,6 +224,14 @@ export function BandPlanner() {
             <p className="text-sm text-gray-400 mt-1">
               Plan your operating session with 24-hour propagation forecasts
             </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <DataFreshnessIndicator
+              dataUpdatedAt={bandDataUpdatedAt}
+              onRefresh={refetchBandData}
+              isRefetching={bandIsRefetching}
+            />
           </div>
 
           {/* Current conditions summary */}

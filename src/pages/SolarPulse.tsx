@@ -390,9 +390,9 @@ export function SolarPulse() {
   }, [kIndexData, kError, setLastUpdate, setIsLive]);
 
   // Extract current values
-  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? 3;
-  const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? 100;
-  const currentSsn = sunspotData?.[sunspotData.length - 1]?.ssn ?? 0;
+  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
+  const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? null;
+  const currentSsn = sunspotData?.[sunspotData.length - 1]?.ssn ?? null;
   const currentBz =
     magnetometerData
       ?.slice()
@@ -462,7 +462,7 @@ export function SolarPulse() {
           kIndex={currentKp}
           solarFlux={currentFlux}
           sunspotNumber={currentSsn}
-          aIndex={kpToAp(currentKp)}
+          aIndex={currentKp !== null ? kpToAp(currentKp) : undefined}
           bz={currentBz}
           bzData={
             magnetometerData?.map((d) => ({
@@ -738,6 +738,15 @@ export function SolarPulse() {
                   alt="SWPC D-RAP global"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = document.createElement("div");
+                    fallback.className =
+                      "flex items-center justify-center h-full text-gray-500 text-sm";
+                    fallback.textContent = "Image unavailable";
+                    target.parentElement?.appendChild(fallback);
+                  }}
                 />
                 {/* Animated badge */}
                 <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-plasma-orange/80 rounded text-[10px] font-mono text-white uppercase tracking-wider">
@@ -775,6 +784,15 @@ export function SolarPulse() {
                   alt="SWPC D-RAP 20 MHz"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = document.createElement("div");
+                    fallback.className =
+                      "flex items-center justify-center h-full text-gray-500 text-sm";
+                    fallback.textContent = "Image unavailable";
+                    target.parentElement?.appendChild(fallback);
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
                   <span className="text-xs text-white font-medium">
@@ -801,6 +819,15 @@ export function SolarPulse() {
                   alt="SWPC D-RAP 10 MHz"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = document.createElement("div");
+                    fallback.className =
+                      "flex items-center justify-center h-full text-gray-500 text-sm";
+                    fallback.textContent = "Image unavailable";
+                    target.parentElement?.appendChild(fallback);
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
                   <span className="text-xs text-white font-medium">
@@ -827,6 +854,15 @@ export function SolarPulse() {
                   alt="Aurora forecast"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = document.createElement("div");
+                    fallback.className =
+                      "flex items-center justify-center h-full text-gray-500 text-sm";
+                    fallback.textContent = "Image unavailable";
+                    target.parentElement?.appendChild(fallback);
+                  }}
                 />
                 {/* Animated badge */}
                 <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-aurora-purple/80 rounded text-[10px] font-mono text-white uppercase tracking-wider">
@@ -864,6 +900,15 @@ export function SolarPulse() {
                   alt="Solar synoptic map"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = document.createElement("div");
+                    fallback.className =
+                      "flex items-center justify-center h-full text-gray-500 text-sm";
+                    fallback.textContent = "Image unavailable";
+                    target.parentElement?.appendChild(fallback);
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
                   <span className="text-xs text-white font-medium">

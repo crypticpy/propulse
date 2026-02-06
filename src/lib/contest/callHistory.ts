@@ -577,7 +577,11 @@ export function getCallHistoryStats(): {
  * Clear all call history data
  */
 export function clearCallHistory(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Silently handle storage errors
+  }
 }
 
 /**

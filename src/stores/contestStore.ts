@@ -253,30 +253,48 @@ function buildWorkedMultsMap(
 }
 
 /**
+ * Normalize a timestamp string to ISO 8601 format.
+ * Falls back to current time if the input is not parseable.
+ */
+function normalizeTimestamp(timestamp: string): string {
+  if (timestamp.includes("T")) {
+    return timestamp;
+  }
+  const parsed = new Date(timestamp);
+  if (isNaN(parsed.getTime())) {
+    return new Date().toISOString();
+  }
+  return parsed.toISOString();
+}
+
+/**
  * Convert store QSOs to contest engine QSO format
  */
 function convertToEngineQSOs(
   qsos: ContestQSO[],
 ): import("@/types/contest").ContestQSO[] {
-  return qsos.map((qso) => ({
-    id: qso.id,
-    callsign: qso.callsign,
-    frequency: qso.frequencyKHz ?? 0,
-    band: qso.band,
-    mode: qso.mode,
-    date: qso.timestamp.split("T")[0],
-    time: qso.timestamp.split("T")[1]?.slice(0, 5).replace(":", "") ?? "0000",
-    rstSent: qso.rstSent,
-    rstRcvd: qso.rstReceived,
-    serialSent: qso.serialSent,
-    serialRcvd: qso.serialReceived,
-    exchangeSent: qso.exchangeSent,
-    exchangeRcvd: qso.exchangeReceived,
-    points: qso.points,
-    isMultiplier: qso.isMultiplier,
-    isDupe: qso.isDupe ?? false,
-    multiplierValue: qso.multipliers?.[0],
-  }));
+  return qsos.map((qso) => {
+    const isoTimestamp = normalizeTimestamp(qso.timestamp);
+    return {
+      id: qso.id,
+      callsign: qso.callsign,
+      frequency: qso.frequencyKHz ?? 0,
+      band: qso.band,
+      mode: qso.mode,
+      date: isoTimestamp.split("T")[0],
+      time: isoTimestamp.split("T")[1]?.slice(0, 5).replace(":", "") ?? "0000",
+      rstSent: qso.rstSent,
+      rstRcvd: qso.rstReceived,
+      serialSent: qso.serialSent,
+      serialRcvd: qso.serialReceived,
+      exchangeSent: qso.exchangeSent,
+      exchangeRcvd: qso.exchangeReceived,
+      points: qso.points,
+      isMultiplier: qso.isMultiplier,
+      isDupe: qso.isDupe ?? false,
+      multiplierValue: qso.multipliers?.[0],
+    };
+  });
 }
 
 /**
@@ -509,15 +527,15 @@ export const useContestStore = create<ContestStore>()(
 
             if (ctx) {
               // Create draft for dupe checking
+              const isoTs = normalizeTimestamp(qso.timestamp);
               const draft: ContestQSODraft = {
                 callsign: qso.callsign,
                 frequency: qso.frequencyKHz ?? 0,
                 band: qso.band,
                 mode: qso.mode,
-                date: qso.timestamp.split("T")[0],
+                date: isoTs.split("T")[0],
                 time:
-                  qso.timestamp.split("T")[1]?.slice(0, 5).replace(":", "") ??
-                  "0000",
+                  isoTs.split("T")[1]?.slice(0, 5).replace(":", "") ?? "0000",
                 rstSent: qso.rstSent,
                 rstRcvd: qso.rstReceived,
                 serialSent: qso.serialSent,

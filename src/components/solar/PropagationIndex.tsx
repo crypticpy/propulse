@@ -2,10 +2,10 @@ import React, { useMemo } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 
 export interface PropagationIndexProps {
-  /** Current Solar Flux Index (typically 70-300) */
-  solarFlux: number;
-  /** Current K-index (0-9) */
-  kIndex: number;
+  /** Current Solar Flux Index (typically 70-300), null if unavailable */
+  solarFlux: number | null;
+  /** Current K-index (0-9), null if unavailable */
+  kIndex: number | null;
   /** Current IMF Bz in nT (positive = northward, negative = southward) */
   bz: number | null;
   /** Show loading state */
@@ -51,10 +51,10 @@ export function calculatePropagationIndex(
     if (bz >= 5) {
       bzScore = 20;
     } else if (bz >= 0) {
-             bzScore = 15;
-           } else if (bz >= -5) bzScore = 10;
-                   else if (bz >= -10) bzScore = 5;
-                   else bzScore = 0;
+      bzScore = 15;
+    } else if (bz >= -5) bzScore = 10;
+    else if (bz >= -10) bzScore = 5;
+    else bzScore = 0;
   }
 
   // Total score
@@ -149,12 +149,13 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
   loading = false,
   onExpand,
 }) => {
+  const hasData = solarFlux !== null && kIndex !== null;
   const result = useMemo(
-    () => calculatePropagationIndex(solarFlux, kIndex, bz),
-    [solarFlux, kIndex, bz],
+    () => (hasData ? calculatePropagationIndex(solarFlux, kIndex, bz) : null),
+    [solarFlux, kIndex, bz, hasData],
   );
 
-  const scoreColor = getScoreColor(result.score);
+  const scoreColor = result ? getScoreColor(result.score) : "#888899";
 
   function polarToCartesian(
     cx: number,
@@ -219,7 +220,8 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
   });
 
   // Score marker position (a small indicator on the arc rather than a center needle)
-  const markerAngle = gaugeStartAngle + (result.score / 100) * gaugeSweepAngle;
+  const markerAngle =
+    gaugeStartAngle + ((result?.score ?? 0) / 100) * gaugeSweepAngle;
   const markerRad = (markerAngle * Math.PI) / 180;
   const markerInnerRadius = gaugeRadius - (gaugeStrokeWidth - 4) / 2 - 2;
   const markerOuterRadius = gaugeRadius + (gaugeStrokeWidth - 4) / 2 + 4;
@@ -275,6 +277,10 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
         {loading ? (
           <div className="flex items-center justify-center min-h-[240px]">
             <LoadingSpinner size="lg" />
+          </div>
+        ) : !result ? (
+          <div className="flex items-center justify-center min-h-[240px] text-gray-500 text-sm">
+            Solar data unavailable
           </div>
         ) : (
           <div className="flex flex-col md:flex-row items-center gap-6">
@@ -497,13 +503,13 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                 <div className="text-center">
                   <div className="text-xs text-gray-400">SFI</div>
                   <div className="font-mono text-sm text-plasma-orange">
-                    {solarFlux}
+                    {solarFlux ?? "—"}
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-xs text-gray-400">Kp</div>
                   <div className="font-mono text-sm text-signal-green">
-                    {kIndex}
+                    {kIndex ?? "—"}
                   </div>
                 </div>
                 <div className="text-center">

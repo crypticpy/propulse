@@ -1,10 +1,17 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { useActiveRadio, useUserStore, useUserRadios } from "@/stores/userStore";
+import {
+  useActiveRadio,
+  useUserStore,
+  useUserRadios,
+} from "@/stores/userStore";
 import { isValidGrid, gridToLatLon, latLonToGrid } from "@/lib/utils/grid";
 import { geocodeAddress, parseCoordinateString } from "@/lib/api/geocoding";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { getEnhancedBandConditions, getPathStatusColor } from "@/lib/utils/bands";
+import {
+  getEnhancedBandConditions,
+  getPathStatusColor,
+} from "@/lib/utils/bands";
 import { getAvailableSegments } from "@/lib/data/bandplans";
 import { RADIO_DATABASE } from "@/lib/data/radios";
 import { RadioPickerModal } from "@/components/radio/RadioPickerModal";
@@ -85,7 +92,9 @@ function estimateRequiredPowerWatts(
   return clampWatts(100 * scale);
 }
 
-function getModeTips(mode: WizardMode): Array<{ label: string; value: string }> {
+function getModeTips(
+  mode: WizardMode,
+): Array<{ label: string; value: string }> {
   switch (mode) {
     case "FT8":
       return [
@@ -102,7 +111,10 @@ function getModeTips(mode: WizardMode): Array<{ label: string; value: string }> 
     case "SSB":
       return [
         { label: "Bandwidth", value: "2.1–2.4 kHz (narrower if noisy)" },
-        { label: "Compression", value: "Moderate processing; avoid distortion" },
+        {
+          label: "Compression",
+          value: "Moderate processing; avoid distortion",
+        },
         { label: "Technique", value: "Short calls, listen between overs" },
       ];
   }
@@ -110,7 +122,9 @@ function getModeTips(mode: WizardMode): Array<{ label: string; value: string }> 
 
 async function lookupCallsign(callsign: string): Promise<CallsignLookupResult> {
   const normalized = callsign.trim().toUpperCase();
-  const res = await fetch(`/api/callsign/lookup?callsign=${normalized}`);
+  const res = await fetch(
+    `/api/callsign/lookup?callsign=${encodeURIComponent(normalized)}`,
+  );
   const data = (await res.json()) as unknown;
   if (!res.ok) {
     const message =
@@ -123,7 +137,8 @@ async function lookupCallsign(callsign: string): Promise<CallsignLookupResult> {
 }
 
 function getRadioLabel(radio: RadioEquipment, nickname?: string) {
-  const base = radio.displayName?.trim() || `${radio.manufacturer} ${radio.model}`;
+  const base =
+    radio.displayName?.trim() || `${radio.manufacturer} ${radio.model}`;
   return nickname?.trim() ? `${nickname} — ${base}` : base;
 }
 
@@ -318,7 +333,9 @@ export function DXWizard() {
         const grid = result.grid.toUpperCase();
         const { lat, lon } = gridToLatLon(grid);
         setTarget({
-          label: result.name ? `${result.callsign} — ${result.name}` : result.callsign,
+          label: result.name
+            ? `${result.callsign} — ${result.name}`
+            : result.callsign,
           grid,
           lat,
           lon,
@@ -331,7 +348,9 @@ export function DXWizard() {
       if (typeof result.lat === "number" && typeof result.lon === "number") {
         const grid = latLonToGrid(result.lat, result.lon);
         setTarget({
-          label: result.name ? `${result.callsign} — ${result.name}` : result.callsign,
+          label: result.name
+            ? `${result.callsign} — ${result.name}`
+            : result.callsign,
           grid,
           lat: result.lat,
           lon: result.lon,
@@ -372,7 +391,10 @@ export function DXWizard() {
     const candidates = bands
       .filter((b) => b.status !== "closed")
       .map((b) => {
-        const requiredWatts = estimateRequiredPowerWatts(b.snrEstimate, snrTarget);
+        const requiredWatts = estimateRequiredPowerWatts(
+          b.snrEstimate,
+          snrTarget,
+        );
         const legalMax = getMaxAllowedPowerWatts({
           band: b.band,
           mode,
@@ -447,7 +469,8 @@ export function DXWizard() {
               DX Wizard
             </h2>
             <p className="text-gray-400 text-sm">
-              Enter a target, pick your mode and constraints, and get actionable transmit guidance.
+              Enter a target, pick your mode and constraints, and get actionable
+              transmit guidance.
             </p>
           </div>
           <div className="text-right text-xs text-gray-500">
@@ -466,7 +489,8 @@ export function DXWizard() {
           <Card className="p-5" variant="alert">
             <div className="text-white font-semibold mb-1">Station not set</div>
             <div className="text-sm text-gray-200">
-              Set your callsign and grid square in Settings to enable path calculations.
+              Set your callsign and grid square in Settings to enable path
+              calculations.
             </div>
           </Card>
         )}
@@ -534,7 +558,9 @@ export function DXWizard() {
                     </button>
                   </div>
                   {callsignError && (
-                    <div className="text-xs text-alert-red mt-2">{callsignError}</div>
+                    <div className="text-xs text-alert-red mt-2">
+                      {callsignError}
+                    </div>
                   )}
                 </div>
 
@@ -545,7 +571,8 @@ export function DXWizard() {
                       {target.label}
                     </div>
                     <div className="text-xs text-gray-300 font-mono mt-1">
-                      {target.grid} • {target.lat.toFixed(3)}°, {target.lon.toFixed(3)}°
+                      {target.grid} • {target.lat.toFixed(3)}°,{" "}
+                      {target.lon.toFixed(3)}°
                     </div>
                   </div>
                 )}
@@ -593,17 +620,25 @@ export function DXWizard() {
                   </label>
                   <select
                     value={licenseClass}
-                    onChange={(e) => setLicenseClass(e.target.value as LicenseClass)}
+                    onChange={(e) =>
+                      setLicenseClass(e.target.value as LicenseClass)
+                    }
                     className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
                                text-white text-sm focus:outline-none focus:border-plasma-orange/50"
                   >
-                    {(["TECHNICIAN", "GENERAL", "EXTRA", "ADVANCED", "NOVICE"] as const).map(
-                      (c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ),
-                    )}
+                    {(
+                      [
+                        "TECHNICIAN",
+                        "GENERAL",
+                        "EXTRA",
+                        "ADVANCED",
+                        "NOVICE",
+                      ] as const
+                    ).map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -669,7 +704,9 @@ export function DXWizard() {
                       min={1}
                       max={effectiveMaxPower}
                       value={txPowerCeilingWatts}
-                      onChange={(e) => setTxPowerCeilingWatts(Number(e.target.value))}
+                      onChange={(e) =>
+                        setTxPowerCeilingWatts(Number(e.target.value))
+                      }
                       className="flex-1"
                     />
                     <div className="w-20 text-right font-mono text-sm text-white">
@@ -677,7 +714,8 @@ export function DXWizard() {
                     </div>
                   </div>
                   <div className="text-[10px] text-gray-500 mt-1">
-                    Ceiling is also capped by band plan limits for your license/mode.
+                    Ceiling is also capped by band plan limits for your
+                    license/mode.
                   </div>
                 </div>
               </div>
@@ -703,7 +741,8 @@ export function DXWizard() {
                     No viable band/mode options found
                   </div>
                   <div className="text-sm text-gray-300">
-                    Try FT8, reduce constraints, or wait for improved conditions.
+                    Try FT8, reduce constraints, or wait for improved
+                    conditions.
                   </div>
                 </div>
               ) : recommendation?.type === "ok" ? (
@@ -758,10 +797,18 @@ export function DXWizard() {
                     <div className="mt-2 text-[10px] text-gray-400 font-mono">
                       Est. SNR @100W: {recommendation.best.snrEstimate} dB
                       {recommendation.best.pathLoss !== undefined && (
-                        <> • Path loss: {Math.round(recommendation.best.pathLoss)} dB</>
+                        <>
+                          {" "}
+                          • Path loss:{" "}
+                          {Math.round(recommendation.best.pathLoss)} dB
+                        </>
                       )}
                       {recommendation.best.absorptionLoss !== undefined && (
-                        <> • Abs: {Math.round(recommendation.best.absorptionLoss)} dB</>
+                        <>
+                          {" "}
+                          • Abs:{" "}
+                          {Math.round(recommendation.best.absorptionLoss)} dB
+                        </>
                       )}
                     </div>
                   </div>
@@ -807,12 +854,11 @@ export function DXWizard() {
             </Card>
 
             <Card className="p-5">
-              <div className="text-xs text-gray-400">
-                Notes
-              </div>
+              <div className="text-xs text-gray-400">Notes</div>
               <div className="text-sm text-gray-300 mt-1">
-                Recommendations are estimates based on current solar indices and a simplified path model.
-                Always comply with your local regulations and band plans.
+                Recommendations are estimates based on current solar indices and
+                a simplified path model. Always comply with your local
+                regulations and band plans.
               </div>
             </Card>
           </div>

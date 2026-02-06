@@ -24,7 +24,16 @@ export function ContestLiteHudSheet({
   );
 
   return (
-    <div className="fixed inset-0 z-[130] flex flex-col justify-end">
+    <div
+      className="fixed inset-0 z-[130] flex flex-col justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Contest HUD"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+    >
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       <div className="relative w-full max-h-[70dvh] bg-deep-space/95 backdrop-blur-md border-t border-white/10 rounded-t-2xl overflow-hidden">
@@ -74,4 +83,3 @@ export function ContestLiteHudSheet({
 }
 
 export default ContestLiteHudSheet;
-

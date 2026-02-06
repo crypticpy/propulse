@@ -23,6 +23,9 @@
  * ```
  */
 export function gridToLatLon(grid: string): { lat: number; lon: number } {
+  if (!grid || typeof grid !== "string") {
+    throw new Error("Grid square must be a non-empty string");
+  }
   const normalized = grid.toUpperCase();
 
   // Validate grid format (4 or 6 characters)

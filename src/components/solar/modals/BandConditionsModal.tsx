@@ -7,8 +7,8 @@ import type { BandCondition, VHFCondition } from "@/types/solar";
 export interface BandConditionsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  kIndex: number;
-  solarFlux: number;
+  kIndex: number | null;
+  solarFlux: number | null;
 }
 
 /**
@@ -209,6 +209,22 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
   kIndex,
   solarFlux,
 }) => {
+  if (kIndex === null || solarFlux === null) {
+    return (
+      <DetailModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="HF Band Conditions"
+        subtitle="Complete band analysis and propagation guide"
+        size="full"
+      >
+        <div className="text-center py-12 text-gray-500">
+          Solar data unavailable — cannot calculate band conditions.
+        </div>
+      </DetailModal>
+    );
+  }
+
   const bands = calculateBandConditions(kIndex, solarFlux);
 
   // Determine current time for recommendations

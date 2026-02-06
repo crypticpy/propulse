@@ -542,6 +542,21 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
               }),
             });
             if (!resp.ok) throw new Error(`eQSL sync failed: ${resp.status}`);
+            const data = await resp.json();
+            if (data.error) {
+              setSyncError(data.error);
+            } else if (data.adif) {
+              const recordCount = (data.adif.match(/<eor>/gi) || []).length;
+              setSyncError(
+                recordCount > 0
+                  ? `eQSL: ${recordCount} confirmation${recordCount !== 1 ? "s" : ""} received`
+                  : data.message || "eQSL sync complete — no new records",
+              );
+            } else {
+              setSyncError(
+                data.message || "eQSL sync complete — no new records",
+              );
+            }
             break;
           }
           case "clublog":

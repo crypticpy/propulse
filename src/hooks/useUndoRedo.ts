@@ -203,9 +203,7 @@ export function useUndoRedo({
       }
 
       case "DELETE_ALERT": {
-        // Alerts are typically not restorable in the same way
-        // This is a placeholder for future implementation
-        console.warn("Undo for DELETE_ALERT not implemented");
+        // Filtered out by undoStore.pushAction; should never reach here
         break;
       }
     }
@@ -257,8 +255,7 @@ export function useUndoRedo({
       }
 
       case "DELETE_ALERT": {
-        // Alerts are typically not restorable
-        console.warn("Redo for DELETE_ALERT not implemented");
+        // Filtered out by undoStore.pushAction; should never reach here
         break;
       }
     }

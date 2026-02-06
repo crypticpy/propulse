@@ -359,6 +359,7 @@ export class BandOpeningDetector {
 
     // Parse key to extract band and regions
     const [band, regionPair] = key.split(":");
+    if (!regionPair || !regionPair.includes("-")) return;
     const [fromRegion, toRegion] = regionPair.split("-");
 
     // Calculate average SNR

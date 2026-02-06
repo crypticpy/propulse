@@ -5,8 +5,8 @@ import { calculatePropagationIndex } from "../PropagationIndex";
 export interface PropagationIndexModalProps {
   isOpen: boolean;
   onClose: () => void;
-  solarFlux: number;
-  kIndex: number;
+  solarFlux: number | null;
+  kIndex: number | null;
   bz: number | null;
 }
 
@@ -83,10 +83,27 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
   kIndex,
   bz,
 }) => {
+  const hasData = solarFlux !== null && kIndex !== null;
   const result = useMemo(
-    () => calculatePropagationIndex(solarFlux, kIndex, bz),
-    [solarFlux, kIndex, bz],
+    () => (hasData ? calculatePropagationIndex(solarFlux, kIndex, bz) : null),
+    [solarFlux, kIndex, bz, hasData],
   );
+
+  if (!result) {
+    return (
+      <DetailModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Propagation Index Details"
+        subtitle="Understanding your current HF propagation conditions"
+        size="xl"
+      >
+        <div className="text-center py-12 text-gray-500">
+          Solar data unavailable — cannot calculate propagation index.
+        </div>
+      </DetailModal>
+    );
+  }
 
   const scoreColor = getScoreColor(result.score);
 

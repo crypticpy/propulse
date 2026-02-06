@@ -153,7 +153,11 @@ export const useUndoStore = create<UndoState>((set, get) => ({
   redoStack: [],
   activeToast: null,
 
-  pushAction: (action) =>
+  pushAction: (action) => {
+    // Alert deletion is not undoable — skip to avoid consuming undo stack space
+    if (action.type === "DELETE_ALERT") {
+      return;
+    }
     set((state) => ({
       // Keep only the most recent (MAX_HISTORY - 1) actions, then add the new one
       history: [...state.history.slice(-(MAX_HISTORY - 1)), action],
@@ -165,7 +169,8 @@ export const useUndoStore = create<UndoState>((set, get) => ({
         type: "action",
         timestamp: Date.now(),
       },
-    })),
+    }));
+  },
 
   undo: () => {
     const state = get();

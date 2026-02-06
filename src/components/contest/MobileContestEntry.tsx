@@ -168,6 +168,7 @@ export function MobileContestEntry() {
             className="w-full px-4 bg-white/5 border border-white/20 rounded-xl text-white font-mono font-bold text-xl focus:border-cosmic-cyan/50 focus:outline-none focus:ring-2 focus:ring-cosmic-cyan/20"
             style={{ height: "48px", fontSize: "20px" }}
             placeholder="CALLSIGN"
+            aria-label="Callsign"
             autoFocus
             autoComplete="off"
             autoCapitalize="characters"
@@ -219,6 +220,7 @@ export function MobileContestEntry() {
             className="px-3 bg-white/5 border border-white/10 rounded-lg text-white font-mono text-base focus:border-cosmic-cyan/50 focus:outline-none"
             style={{ height: "44px" }}
             placeholder="RST"
+            aria-label="Signal report"
           />
           <input
             type="text"
@@ -227,6 +229,7 @@ export function MobileContestEntry() {
             className="px-3 bg-white/5 border border-white/10 rounded-lg text-white font-mono text-base focus:border-cosmic-cyan/50 focus:outline-none"
             style={{ height: "44px" }}
             placeholder="Exchange"
+            aria-label="Exchange"
           />
         </div>
 

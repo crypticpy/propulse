@@ -10,8 +10,8 @@ import type { BandCondition, VHFCondition } from "@/types/solar";
 export interface SolarSummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  kIndex: number;
-  solarFlux: number;
+  kIndex: number | null;
+  solarFlux: number | null;
 }
 
 /**
@@ -201,6 +201,22 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
   kIndex,
   solarFlux,
 }) => {
+  if (kIndex === null || solarFlux === null) {
+    return (
+      <DetailModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Propagation Analysis"
+        subtitle="Detailed conditions and recommendations"
+        size="xl"
+      >
+        <div className="text-center py-12 text-gray-500">
+          Solar data unavailable — cannot generate propagation analysis.
+        </div>
+      </DetailModal>
+    );
+  }
+
   const overall = getOverallCondition(kIndex, solarFlux);
   const bands = calculateBandConditions(kIndex, solarFlux);
   const timeRecs = getTimeRecommendations(kIndex, solarFlux);

@@ -9,10 +9,10 @@ import {
 import type { BandCondition } from "@/types/solar";
 
 export interface SolarSummaryProps {
-  /** Current K-index value (0-9) */
-  kIndex: number;
-  /** Solar Flux Index (typically 70-300 sfu) */
-  solarFlux: number;
+  /** Current K-index value (0-9), null if unavailable */
+  kIndex: number | null;
+  /** Solar Flux Index (typically 70-300 sfu), null if unavailable */
+  solarFlux: number | null;
   /** Show loading state */
   loading?: boolean;
   /** Callback when expand button is clicked */
@@ -126,6 +126,44 @@ export const SolarSummary: React.FC<SolarSummaryProps> = ({
       <Card animate className="min-h-[180px]">
         <div className="flex items-center justify-center h-full min-h-[140px]">
           <LoadingSpinner size="md" text="Analyzing conditions..." />
+        </div>
+      </Card>
+    );
+  }
+
+  if (kIndex === null || solarFlux === null) {
+    return (
+      <Card animate>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+              Propagation Summary
+            </h2>
+            {onExpand && (
+              <button
+                onClick={onExpand}
+                className="p-1 text-gray-500 hover:text-white transition-colors"
+                aria-label="Expand summary"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+          <p className="text-base font-sans text-gray-400 leading-relaxed">
+            Solar data unavailable — cannot generate propagation summary.
+          </p>
         </div>
       </Card>
     );

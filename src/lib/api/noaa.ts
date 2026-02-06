@@ -23,12 +23,10 @@ async function fetchFromProxy<T>(endpoint: string): Promise<T> {
     const response = await fetch(url);
 
     if (!response.ok) {
-      const error: ApiError = {
-        message: `HTTP error ${response.status}: ${response.statusText}`,
-        status: response.status,
-        endpoint,
-      };
-      throw error;
+      throw Object.assign(
+        new Error(`HTTP error ${response.status}: ${response.statusText}`),
+        { status: response.status, endpoint },
+      );
     }
 
     const data = await response.json();
@@ -38,12 +36,12 @@ async function fetchFromProxy<T>(endpoint: string): Promise<T> {
       throw error;
     }
 
-    const apiError: ApiError = {
-      message:
+    throw Object.assign(
+      new Error(
         error instanceof Error ? error.message : "Unknown error occurred",
-      endpoint,
-    };
-    throw apiError;
+      ),
+      { endpoint },
+    );
   }
 }
 
@@ -101,10 +99,9 @@ export async function fetchProbabilities(): Promise<SolarProbabilities> {
       proton_prob: latest["10mev_protons_1_day"],
     };
   }
-  throw {
-    message: "No probability data available",
+  throw Object.assign(new Error("No probability data available"), {
     endpoint: "probabilities",
-  } as ApiError;
+  });
 }
 
 /**

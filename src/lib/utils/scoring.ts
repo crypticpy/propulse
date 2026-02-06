@@ -987,7 +987,7 @@ export function evaluateQSOValue(
 
   // Create a mock QSO to calculate potential value
   const mockQSO: ContestQSO = {
-    id: "mock",
+    id: `_estimate_${callsign}_${band}_${mode}`,
     callsign,
     band,
     mode,

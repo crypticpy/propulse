@@ -235,41 +235,51 @@ export async function uploadToLoTW(
 
   const adif = formatADIFForUpload(adifRecords);
 
-  const response = await fetch(LOTW_API_BASE, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      adif,
-      username: credentials.username,
-      password: credentials.password,
-    }),
-  });
+  try {
+    const response = await fetch(LOTW_API_BASE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        adif,
+        username: credentials.username,
+        password: credentials.password,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      return {
+        success: false,
+        message:
+          (errorData as { error?: string } | null)?.error ??
+          `LoTW upload failed (HTTP ${response.status})`,
+        recordsAccepted: 0,
+        recordsRejected: adifRecords.length,
+      };
+    }
+
+    const data = (await response.json()) as {
+      success: boolean;
+      message: string;
+      recordsAccepted?: number;
+      recordsRejected?: number;
+    };
+
+    return {
+      success: data.success,
+      message: data.message,
+      recordsAccepted: data.recordsAccepted ?? 0,
+      recordsRejected: data.recordsRejected ?? 0,
+    };
+  } catch (error) {
     return {
       success: false,
       message:
-        (errorData as { error?: string } | null)?.error ??
-        `LoTW upload failed (HTTP ${response.status})`,
+        error instanceof Error ? error.message : "Unknown error occurred",
       recordsAccepted: 0,
       recordsRejected: adifRecords.length,
     };
   }
-
-  const data = (await response.json()) as {
-    success: boolean;
-    message: string;
-    recordsAccepted?: number;
-    recordsRejected?: number;
-  };
-
-  return {
-    success: data.success,
-    message: data.message,
-    recordsAccepted: data.recordsAccepted ?? 0,
-    recordsRejected: data.recordsRejected ?? 0,
-  };
 }
 
 /**
@@ -292,22 +302,28 @@ export async function downloadFromLoTW(
     body.since = since;
   }
 
-  const response = await fetch(LOTW_API_BASE, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  try {
+    const response = await fetch(LOTW_API_BASE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(
+        (errorData as { error?: string } | null)?.error ??
+          `LoTW download failed (HTTP ${response.status})`,
+      );
+    }
+
+    const data = (await response.json()) as { adif: string };
+    return parseLoTWResponse(data.adif);
+  } catch (error) {
     throw new Error(
-      (errorData as { error?: string } | null)?.error ??
-        `LoTW download failed (HTTP ${response.status})`,
+      `LoTW download failed: ${error instanceof Error ? error.message : "Unknown error occurred"}`,
     );
   }
-
-  const data = (await response.json()) as { adif: string };
-  return parseLoTWResponse(data.adif);
 }
 
 /**

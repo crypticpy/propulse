@@ -6,7 +6,7 @@ import {
 } from "@/lib/data/historicalPropagation";
 
 interface SolarCycleContextProps {
-  currentSFI: number;
+  currentSFI: number | null;
   recentSFI?: number[];
   loading?: boolean;
 }
@@ -17,7 +17,13 @@ export function SolarCycleContext({
   loading,
 }: SolarCycleContextProps) {
   const cyclePos = useMemo(() => getSolarCyclePosition(), []);
-  const comparison = useMemo(() => compareToCycle24(currentSFI), [currentSFI]);
+  const comparison = useMemo(
+    () =>
+      currentSFI !== null
+        ? compareToCycle24(currentSFI)
+        : "SFI data unavailable",
+    [currentSFI],
+  );
   const trend = useMemo(() => getSolarCycleTrend(recentSFI ?? []), [recentSFI]);
 
   // Phase icon and color

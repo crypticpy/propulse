@@ -329,17 +329,19 @@ export function useWatchAlerts(
       }
 
       // Play alert sound
-      playAlertSound(alertType).then((success) => {
-        if (success) {
-          recordAlert(watchId);
+      playAlertSound(alertType)
+        .then((success) => {
+          if (success) {
+            recordAlert(watchId);
 
-          // Log for debugging
-          console.debug(
-            `[WatchAlerts] Played ${alertType} alert for watch "${watch.name || watch.pattern}"`,
-            `(${watchMatches.length} new spots)`,
-          );
-        }
-      });
+            // Log for debugging
+            console.debug(
+              `[WatchAlerts] Played ${alertType} alert for watch "${watch.name || watch.pattern}"`,
+              `(${watchMatches.length} new spots)`,
+            );
+          }
+        })
+        .catch(() => {});
     }
   }, [
     enabled,

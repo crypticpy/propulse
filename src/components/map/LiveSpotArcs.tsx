@@ -11,7 +11,7 @@
  * are present in the same geographic area.
  */
 
-import { useMemo, useCallback } from "react";
+import { useMemo } from "react";
 import { Line } from "@react-three/drei";
 import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
@@ -30,7 +30,6 @@ import { useSpotClustering } from "@/hooks/useSpotClustering";
 import { SpotCluster } from "./SpotCluster";
 import { SpotLabel } from "./SpotLabel";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
-import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
@@ -567,11 +566,6 @@ export function LiveSpotArcs({
     return map;
   }, [singles]);
 
-  // Handler for cluster click - placeholder for future zoom/expand functionality
-  const handleClusterClick = useCallback((_cluster: SpotClusterType) => {
-    // Future enhancement: zoom to cluster center or expand to show individual spots
-  }, []);
-
   if (isLoading || (resolvedSingles.length === 0 && clusters.length === 0)) {
     return null;
   }
@@ -580,11 +574,7 @@ export function LiveSpotArcs({
     <group name="live-spot-arcs">
       {/* Render clustered spots as cluster markers */}
       {clusters.map((cluster) => (
-        <SpotCluster
-          key={cluster.id}
-          cluster={cluster}
-          onClick={handleClusterClick}
-        />
+        <SpotCluster key={cluster.id} cluster={cluster} />
       ))}
 
       {/* Render non-clustered spots as individual arcs with age-based styling */}

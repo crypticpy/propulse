@@ -198,6 +198,17 @@ export function computeQSOPoints(
 }
 
 // ============================================================================
+// Time Helpers
+// ============================================================================
+
+/**
+ * Pad an HHMM time string to exactly 4 characters, filling with "0".
+ */
+function padTime(t: string): string {
+  return t.padEnd(4, "0");
+}
+
+// ============================================================================
 // Rate Calculations
 // ============================================================================
 
@@ -225,10 +236,16 @@ export function computeRunningRate(
     return 0;
   }
 
+  if (windowMinutes <= 0) {
+    return 0;
+  }
+
   // Get the most recent QSO time
   const sortedQsos = [...qsos].sort((a, b) => {
-    const timeA = `${a.date}T${a.time.slice(0, 2)}:${a.time.slice(2)}:00Z`;
-    const timeB = `${b.date}T${b.time.slice(0, 2)}:${b.time.slice(2)}:00Z`;
+    const tA = padTime(a.time);
+    const tB = padTime(b.time);
+    const timeA = `${a.date}T${tA.slice(0, 2)}:${tA.slice(2)}:00Z`;
+    const timeB = `${b.date}T${tB.slice(0, 2)}:${tB.slice(2)}:00Z`;
     return new Date(timeB).getTime() - new Date(timeA).getTime();
   });
 
@@ -262,9 +279,14 @@ export function computeRunningRate(
  */
 function parseQSODateTime(date: string, time: string): Date {
   // date format: YYYY-MM-DD, time format: HHMM
-  const hours = time.slice(0, 2);
-  const minutes = time.slice(2, 4);
-  return new Date(`${date}T${hours}:${minutes}:00Z`);
+  const padded = padTime(time);
+  const hours = padded.slice(0, 2);
+  const minutes = padded.slice(2, 4);
+  const result = new Date(`${date}T${hours}:${minutes}:00Z`);
+  if (isNaN(result.getTime())) {
+    return new Date();
+  }
+  return result;
 }
 
 /**
@@ -280,8 +302,10 @@ export function computeHourlyRates(qsos: ContestQSO[]): HourlyRate[] {
 
   // Sort QSOs by time
   const sortedQsos = [...qsos].sort((a, b) => {
-    const timeA = `${a.date}T${a.time.slice(0, 2)}:${a.time.slice(2)}:00Z`;
-    const timeB = `${b.date}T${b.time.slice(0, 2)}:${b.time.slice(2)}:00Z`;
+    const tA = padTime(a.time);
+    const tB = padTime(b.time);
+    const timeA = `${a.date}T${tA.slice(0, 2)}:${tA.slice(2)}:00Z`;
+    const timeB = `${b.date}T${tB.slice(0, 2)}:${tB.slice(2)}:00Z`;
     return new Date(timeA).getTime() - new Date(timeB).getTime();
   });
 
@@ -664,8 +688,10 @@ export function computeContestScore(
   let elapsedMinutes = 0;
   if (qsos.length >= 2) {
     const sortedQsos = [...qsos].sort((a, b) => {
-      const timeA = `${a.date}T${a.time.slice(0, 2)}:${a.time.slice(2)}:00Z`;
-      const timeB = `${b.date}T${b.time.slice(0, 2)}:${b.time.slice(2)}:00Z`;
+      const tA = padTime(a.time);
+      const tB = padTime(b.time);
+      const timeA = `${a.date}T${tA.slice(0, 2)}:${tA.slice(2)}:00Z`;
+      const timeB = `${b.date}T${tB.slice(0, 2)}:${tB.slice(2)}:00Z`;
       return new Date(timeA).getTime() - new Date(timeB).getTime();
     });
 

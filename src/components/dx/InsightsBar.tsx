@@ -111,8 +111,8 @@ export function InsightsBar({
   const { data: kIndexData } = useKIndex();
   const { data: solarFluxData } = useSolarFlux();
 
-  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? 3;
-  const currentSfi = solarFluxData?.[solarFluxData.length - 1]?.flux ?? 100;
+  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
+  const currentSfi = solarFluxData?.[solarFluxData.length - 1]?.flux ?? null;
 
   // =====================================================================
   // CLUSTER section computations
@@ -201,6 +201,7 @@ export function InsightsBar({
   // BANDS section computations
   // =====================================================================
   const goodBands = useMemo(() => {
+    if (currentKp === null || currentSfi === null) return [];
     const allBands = calculateBandConditions(currentKp, currentSfi);
     return allBands.filter(
       (b) =>
@@ -337,7 +338,9 @@ export function InsightsBar({
           Bands
         </span>
         {goodBands.length === 0 ? (
-          <span className="text-[10px] text-gray-500 italic">none good</span>
+          <span className="text-[10px] text-gray-500 italic">
+            {currentKp === null || currentSfi === null ? "N/A" : "none good"}
+          </span>
         ) : (
           goodBands.map((b) => {
             const bestCondition =

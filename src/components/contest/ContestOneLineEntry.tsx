@@ -114,8 +114,8 @@ export function ContestOneLineEntry({
   // const station = useUserStore((state) => state.station);
 
   const sessionId = activeSession?.id ?? null;
-  const input = useContestUIStore(
-    (s) => (sessionId ? s.draftBySessionId[sessionId] ?? "" : ""),
+  const input = useContestUIStore((s) =>
+    sessionId ? (s.draftBySessionId[sessionId] ?? "") : "",
   );
 
   // ---- Local state ----
@@ -539,6 +539,7 @@ export function ContestOneLineEntry({
             setDraftHasFocus(sessionId, false);
           }}
           placeholder="Callsign RST Exchange (e.g., K3LR 59 05)"
+          aria-label="Contest entry - Callsign RST Exchange"
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="characters"

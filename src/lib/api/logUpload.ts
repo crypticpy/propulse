@@ -85,15 +85,16 @@ export async function uploadToEqsl(
       }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const data = await response.json().catch(() => null);
       return {
         success: false,
         service: "eqsl",
-        message: data.error || `HTTP error ${response.status}`,
+        message: data?.error || `HTTP error ${response.status}`,
       };
     }
+
+    const data = await response.json();
 
     return {
       success: data.success,
@@ -152,15 +153,16 @@ export async function uploadToClublog(
       }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const data = await response.json().catch(() => null);
       return {
         success: false,
         service: "clublog",
-        message: data.error || `HTTP error ${response.status}`,
+        message: data?.error || `HTTP error ${response.status}`,
       };
     }
+
+    const data = await response.json();
 
     return {
       success: data.success,

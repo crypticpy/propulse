@@ -43,8 +43,8 @@ export function BandPlanner() {
   const { data: magnetometerData } = useMagnetometer();
 
   // Current conditions
-  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? 3;
-  const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? 100;
+  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
+  const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? null;
   const currentBz =
     magnetometerData
       ?.slice()
@@ -76,7 +76,12 @@ export function BandPlanner() {
 
   // Calculate forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
-    if (!station || !targetCoords) {
+    if (
+      !station ||
+      !targetCoords ||
+      currentKp === null ||
+      currentFlux === null
+    ) {
       return [];
     }
 
@@ -162,12 +167,15 @@ export function BandPlanner() {
   ];
 
   // Storm warning
-  const isStormConditions = currentKp >= 5;
-  const isDisturbedConditions = currentKp >= 4;
+  const isStormConditions = currentKp !== null && currentKp >= 5;
+  const isDisturbedConditions = currentKp !== null && currentKp >= 4;
   const isSouthwardBz = currentBz !== null && currentBz < -5;
 
   // Confidence level based on conditions stability
   const getConfidenceLevel = (): "high" | "medium" | "low" => {
+    if (currentKp === null || currentFlux === null) {
+      return "low";
+    }
     if (isStormConditions || isSouthwardBz) {
       return "low";
     }
@@ -196,7 +204,7 @@ export function BandPlanner() {
             <div className="flex items-center gap-2">
               <span className="text-gray-400">SFI:</span>
               <span className="font-mono text-plasma-orange">
-                {currentFlux}
+                {currentFlux ?? "—"}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -205,14 +213,16 @@ export function BandPlanner() {
                 className="font-mono"
                 style={{
                   color:
-                    currentKp >= 5
-                      ? "#ff4455"
-                      : currentKp >= 4
-                        ? "#ffaa00"
-                        : "#00ff88",
+                    currentKp === null
+                      ? "#888"
+                      : currentKp >= 5
+                        ? "#ff4455"
+                        : currentKp >= 4
+                          ? "#ffaa00"
+                          : "#00ff88",
                 }}
               >
-                {currentKp}
+                {currentKp ?? "—"}
               </span>
             </div>
             {currentBz !== null && (
@@ -249,7 +259,7 @@ export function BandPlanner() {
                 Geomagnetic Storm in Progress
               </div>
               <p className="text-sm text-gray-300">
-                K-index is {currentKp}. Expect significant HF propagation
+                K-index is {currentKp ?? "—"}. Expect significant HF propagation
                 degradation. Consider lower bands (40m, 80m) and digital modes.
               </p>
             </div>
@@ -552,6 +562,9 @@ export function BandPlanner() {
                         return (
                           <div
                             key={window.band}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Select ${window.band} band`}
                             className={`p-4 rounded-lg border transition-colors cursor-pointer ${
                               isPassed ? "opacity-50 " : ""
                             }${
@@ -566,6 +579,16 @@ export function BandPlanner() {
                                   : window.band,
                               )
                             }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSelectedBand(
+                                  selectedBand === window.band
+                                    ? null
+                                    : window.band,
+                                );
+                              }
+                            }}
                           >
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xl font-mono font-bold text-white">
@@ -688,6 +711,9 @@ export function BandPlanner() {
                           return (
                             <tr
                               key={band}
+                              tabIndex={0}
+                              aria-selected={selectedBand === band}
+                              style={{ cursor: "pointer" }}
                               className={`border-t border-white/5 ${
                                 selectedBand === band ? "bg-white/5" : ""
                               }`}
@@ -696,6 +722,14 @@ export function BandPlanner() {
                                   selectedBand === band ? null : band,
                                 )
                               }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setSelectedBand(
+                                    selectedBand === band ? null : band,
+                                  );
+                                }
+                              }}
                             >
                               <td
                                 className={`py-2 pr-4 font-mono font-semibold sticky left-0 bg-deep-space/95 z-10 cursor-pointer ${
@@ -865,7 +899,7 @@ export function BandPlanner() {
                     <div>
                       <div className="text-xs text-gray-400 mb-1">A-Index</div>
                       <div className="font-mono text-white">
-                        {kpToAp(currentKp)}
+                        {currentKp !== null ? kpToAp(currentKp) : "—"}
                       </div>
                     </div>
                   </div>

@@ -32,12 +32,12 @@ function transformHamQTHRBNEntry(
   entry: HamQTHRBNEntry,
 ): LiveSpot {
   // Parse frequency: "14 004.3" -> 14004.3
-  const freq = parseFloat(entry.freq.replace(/\s/g, "")) || 0;
+  const freq = parseFloat((entry.freq ?? "").replace(/\s/g, "")) || 0;
   const frequency = Math.round(freq);
   const band = getBandFromFrequency(frequency);
 
   // Get highest SNR spotter from lsn object
-  let maxSnr = 0;
+  let maxSnr = -Infinity;
   let bestSpotter = "";
   if (entry.lsn && typeof entry.lsn === "object") {
     for (const [spotter, snr] of Object.entries(entry.lsn)) {

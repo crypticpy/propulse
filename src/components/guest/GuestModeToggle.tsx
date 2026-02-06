@@ -2,6 +2,7 @@
  * GuestModeToggle - Header indicator showing current mode (owner vs guest)
  */
 
+import { useState, useEffect, useRef } from "react";
 import { useGuestStore } from "@/stores/guestStore";
 
 export interface GuestModeToggleProps {
@@ -15,6 +16,23 @@ export function GuestModeToggle({
 }: GuestModeToggleProps) {
   const { activeSession, guestInfo, isGuestMode, endSession, exitGuestMode } =
     useGuestStore();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
 
   // Hosting a guest session
   if (activeSession && !isGuestMode) {
@@ -71,8 +89,19 @@ export function GuestModeToggle({
 
   // Default - show dropdown menu
   return (
-    <div className="relative group">
-      <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-nebula-blue border border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 transition-colors">
+    <div
+      className="relative group"
+      ref={dropdownRef}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setIsOpen(false);
+      }}
+    >
+      <button
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-nebula-blue border border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+      >
         <svg
           className="w-4 h-4"
           fill="none"
@@ -101,9 +130,20 @@ export function GuestModeToggle({
           />
         </svg>
       </button>
-      <div className="absolute right-0 top-full mt-1 w-48 py-1 bg-deep-space border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+      <div
+        className={`absolute right-0 top-full mt-1 w-48 py-1 bg-deep-space border border-white/10 rounded-lg shadow-xl transition-all duration-200 z-50 ${
+          isOpen
+            ? "opacity-100 visible"
+            : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
+        }`}
+        role="menu"
+      >
         <button
-          onClick={onCreateSession}
+          onClick={() => {
+            onCreateSession();
+            setIsOpen(false);
+          }}
+          role="menuitem"
           className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
         >
           <svg
@@ -122,7 +162,11 @@ export function GuestModeToggle({
           Host Guest Session
         </button>
         <button
-          onClick={onJoinSession}
+          onClick={() => {
+            onJoinSession();
+            setIsOpen(false);
+          }}
+          role="menuitem"
           className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
         >
           <svg

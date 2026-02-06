@@ -8,6 +8,7 @@ export default {
         "plasma-orange": "#ff6b35",
         "signal-green": "#00ff88",
         "caution-amber": "#ffd23f",
+        "caution-yellow": "#ffd23f",
         "alert-red": "#ff4455",
         "aurora-purple": "#aa44ff",
         "cosmic-cyan": "#44ddff",
@@ -16,7 +17,9 @@ export default {
         "deep-space": "#0a0a1a",
         "nebula-blue": "#1a1a2e",
         void: "#16213e",
+        "void-black": "#0d1527",
         panel: "#0f0f23",
+        "space-900": "#0a0e1a",
 
         // Condition colors
         excellent: "#00ff88",

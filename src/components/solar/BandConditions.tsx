@@ -4,10 +4,10 @@ import { BandRow } from "./BandRow";
 import { calculateBandConditions } from "@/lib/utils/bands";
 
 export interface BandConditionsProps {
-  /** Current K-index value (0-9) */
-  kIndex: number;
-  /** Current Solar Flux Index */
-  solarFlux: number;
+  /** Current K-index value (0-9), null if unavailable */
+  kIndex: number | null;
+  /** Current Solar Flux Index, null if unavailable */
+  solarFlux: number | null;
   /** Show loading state */
   loading?: boolean;
   /** Callback when expand button is clicked */
@@ -31,6 +31,42 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
   loading = false,
   onExpand,
 }) => {
+  if (kIndex === null || solarFlux === null) {
+    return (
+      <Card className="h-full">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+            HF BAND CONDITIONS
+          </h2>
+          {onExpand && (
+            <button
+              onClick={onExpand}
+              className="p-1 text-gray-500 hover:text-white transition-colors"
+              aria-label="Expand band conditions"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="text-center py-8 text-gray-500 text-sm">
+          Solar data unavailable — cannot calculate band conditions.
+        </div>
+      </Card>
+    );
+  }
+
   const bands = calculateBandConditions(kIndex, solarFlux);
 
   // Night-only bands (160m only truly night-only based on bands.ts)

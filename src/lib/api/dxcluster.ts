@@ -311,6 +311,7 @@ export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
         }
       } else {
         time = new Date(rawTime);
+        if (isNaN(time.getTime())) time = new Date();
       }
 
       const comment = String(item.comment ?? item.info ?? "");

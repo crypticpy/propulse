@@ -16,12 +16,12 @@ export interface SolarFluxDataPoint {
 }
 
 export interface PrimaryMetricsProps {
-  /** Current K-index value (0-9) */
-  kIndex: number;
-  /** Solar Flux Index (typically 70-300 sfu) */
-  solarFlux: number;
-  /** Daily sunspot number */
-  sunspotNumber: number;
+  /** Current K-index value (0-9), null if unavailable */
+  kIndex: number | null;
+  /** Solar Flux Index (typically 70-300 sfu), null if unavailable */
+  solarFlux: number | null;
+  /** Daily sunspot number, null if unavailable */
+  sunspotNumber: number | null;
   /** A-index (24-hour geomagnetic activity) */
   aIndex?: number;
   /** IMF Bz component in nT (null if unavailable) */
@@ -238,9 +238,9 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
   const [bzModalOpen, setBzModalOpen] = useState(false);
 
   // Format values for display
-  const formattedKIndex = kIndex.toFixed(1);
-  const formattedSFI = Math.round(solarFlux);
-  const formattedSSN = Math.round(sunspotNumber);
+  const formattedKIndex = kIndex !== null ? kIndex.toFixed(1) : "—";
+  const formattedSFI = solarFlux !== null ? Math.round(solarFlux) : "—";
+  const formattedSSN = sunspotNumber !== null ? Math.round(sunspotNumber) : "—";
   const formattedAIndex = Math.round(aIndex);
   const formattedBz = bz !== null ? bz.toFixed(1) : "N/A";
 
@@ -252,8 +252,10 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           label="SOLAR FLUX"
           value={formattedSFI}
           unit="sfu"
-          description={getSFIDescription(solarFlux)}
-          color={getSFIColor(solarFlux)}
+          description={
+            solarFlux !== null ? getSFIDescription(solarFlux) : "No Data"
+          }
+          color={solarFlux !== null ? getSFIColor(solarFlux) : "#888899"}
           delay={0}
           loading={loading}
           onClick={() => setSolarFluxModalOpen(true)}
@@ -264,8 +266,10 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           label="K-INDEX"
           value={formattedKIndex}
           unit="Kp"
-          description={getKIndexDescription(kIndex)}
-          color={getKIndexColor(kIndex)}
+          description={
+            kIndex !== null ? getKIndexDescription(kIndex) : "No Data"
+          }
+          color={kIndex !== null ? getKIndexColor(kIndex) : "#888899"}
           delay={100}
           loading={loading}
           onClick={() => setKIndexModalOpen(true)}
@@ -276,8 +280,14 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           label="SUNSPOT NUMBER"
           value={formattedSSN}
           unit="SSN"
-          description={getSSNDescription(sunspotNumber)}
-          color={getSSNColor(sunspotNumber)}
+          description={
+            sunspotNumber !== null
+              ? getSSNDescription(sunspotNumber)
+              : "No Data"
+          }
+          color={
+            sunspotNumber !== null ? getSSNColor(sunspotNumber) : "#888899"
+          }
           delay={200}
           loading={loading}
           onClick={() => setSunspotModalOpen(true)}
@@ -312,27 +322,27 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
       <SolarFluxModal
         isOpen={solarFluxModalOpen}
         onClose={() => setSolarFluxModalOpen(false)}
-        currentValue={Math.round(solarFlux)}
+        currentValue={solarFlux !== null ? Math.round(solarFlux) : 0}
         data={solarFluxData}
       />
 
       <KIndexModal
         isOpen={kIndexModalOpen}
         onClose={() => setKIndexModalOpen(false)}
-        currentValue={kIndex}
+        currentValue={kIndex ?? 0}
       />
 
       <SunspotModal
         isOpen={sunspotModalOpen}
         onClose={() => setSunspotModalOpen(false)}
-        currentValue={Math.round(sunspotNumber)}
+        currentValue={sunspotNumber !== null ? Math.round(sunspotNumber) : 0}
       />
 
       <AIndexModal
         isOpen={aIndexModalOpen}
         onClose={() => setAIndexModalOpen(false)}
         currentValue={aIndex}
-        kIndex={kIndex}
+        kIndex={kIndex ?? 0}
       />
 
       <BzModal

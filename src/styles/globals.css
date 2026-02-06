@@ -45,6 +45,35 @@
     display: none;
   }
 
+  /* Thin scrollbar utilities */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-thumb-white\/10 {
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  }
+  .scrollbar-thumb-white\/10::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+  }
+  .scrollbar-thumb-gray-700 {
+    scrollbar-color: #374151 transparent;
+  }
+  .scrollbar-thumb-gray-700::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 9999px;
+  }
+  .scrollbar-track-transparent {
+    scrollbar-color: auto transparent;
+  }
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   .bg-stars {
     background-image:
       radial-gradient(2px 2px at 20px 30px, #fff, transparent),
@@ -54,6 +83,34 @@
       radial-gradient(1px 1px at 160px 120px, #fff, transparent);
     background-size: 200px 200px;
   }
+}
+
+/* Entrance animation utilities */
+@keyframes animateIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes zoomIn95 {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+@keyframes slideInFromTop1 {
+  from { transform: translateY(-0.25rem); }
+  to { transform: translateY(0); }
+}
+.animate-in {
+  animation-duration: 150ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+.fade-in {
+  animation-name: animateIn;
+}
+.zoom-in-95 {
+  animation-name: animateIn, zoomIn95;
+}
+.slide-in-from-top-1 {
+  animation-name: animateIn, slideInFromTop1;
 }
 
 /* Glass morphism card effect */

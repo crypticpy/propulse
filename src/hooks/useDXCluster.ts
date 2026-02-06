@@ -49,7 +49,13 @@ function filterSpots(spots: DXSpot[], filters: DXClusterFilters): DXSpot[] {
   // Filter by max age
   if (filters.maxAge && filters.maxAge > 0) {
     const cutoff = Date.now() - filters.maxAge * 60 * SECOND;
-    filtered = filtered.filter((spot) => spot.time.getTime() >= cutoff);
+    filtered = filtered.filter((spot) => {
+      const t =
+        spot.time instanceof Date
+          ? spot.time.getTime()
+          : new Date(spot.time).getTime();
+      return t >= cutoff;
+    });
   }
 
   // Filter by search text

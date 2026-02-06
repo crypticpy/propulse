@@ -177,6 +177,7 @@ export function getOptimalBand(
   time: Date,
   mode: OperatingMode,
   correlationData?: BandCorrelationSummary[],
+  antennaGainDbi: number = 0,
 ): BandRecommendation | null {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -188,6 +189,7 @@ export function getOptimalBand(
     time,
     100, // Default 100W
     mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
+    antennaGainDbi,
   );
 
   // Filter out closed bands and score the rest
@@ -234,6 +236,7 @@ export function getAlternateBands(
   time: Date,
   mode: OperatingMode,
   correlationData?: BandCorrelationSummary[],
+  antennaGainDbi: number = 0,
 ): BandRecommendation[] {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -245,6 +248,7 @@ export function getAlternateBands(
     time,
     100,
     mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
+    antennaGainDbi,
   );
 
   // Score and sort all non-closed bands
@@ -399,6 +403,7 @@ export function getRecommendations(
   time: Date,
   mode: OperatingMode,
   correlationData?: BandCorrelationSummary[],
+  antennaGainDbi: number = 0,
 ): PropagationRecommendations {
   const optimal = getOptimalBand(
     homeLat,
@@ -410,6 +415,7 @@ export function getRecommendations(
     time,
     mode,
     correlationData,
+    antennaGainDbi,
   );
 
   const alternatives = getAlternateBands(
@@ -422,6 +428,7 @@ export function getRecommendations(
     time,
     mode,
     correlationData,
+    antennaGainDbi,
   );
 
   const timeWindows = getBestTimeWindows(

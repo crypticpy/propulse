@@ -19,7 +19,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics, getBearing } from "@/lib/utils/path";
+import { getPathMetrics, getBearing, getDistance } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { CompassRose } from "./CompassRose";
@@ -68,6 +68,7 @@ import { useDXCluster } from "@/hooks/useDXCluster";
 import { getGreylineIntensity } from "@/lib/utils/greyline";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
+import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
@@ -668,6 +669,9 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     setCenterLocation,
   } = useMapStore();
   const { station } = useUserStore();
+  const antennaType = useUserStore(
+    (s) => s.preferences.antennaType ?? "isotropic",
+  );
   const { addPin } = usePinStore();
   const { updateFilter } = useDXStore();
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
@@ -763,6 +767,13 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       return null;
     }
     try {
+      const distance = getDistance(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+      );
+      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
       const conditions = getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -773,6 +784,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
         displayTime,
         100,
         "FT8",
+        antennaGainDbi,
       );
       const best = pickOptimalBandCondition(conditions);
       if (!best) {
@@ -797,6 +809,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     currentSfi,
     displayTime,
     isEstimatedConditions,
+    antennaType,
   ]);
 
   // Handle globe click - show flyout

@@ -9,6 +9,7 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
   getPathMetrics,
@@ -66,6 +67,9 @@ export function OptimalBandsPanel({
 }: OptimalBandsPanelProps) {
   const { target } = useMapStore();
   const { station } = useUserStore();
+  const antennaType = useUserStore(
+    (s) => s.preferences.antennaType ?? "isotropic",
+  );
   const [isExpanded, setIsExpanded] = useState(true);
 
   // Draggable position state - default to top-left
@@ -179,10 +183,14 @@ export function OptimalBandsPanel({
 
   // Calculate enhanced band conditions
   const bandConditions = useMemo(() => {
-    if (!station || !target) {
+    if (!station || !target || !pathMetrics) {
       return null;
     }
     try {
+      const antennaGainDbi = getAntennaGainForPath(
+        antennaType,
+        pathMetrics.shortPath.distance,
+      );
       return getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -193,11 +201,20 @@ export function OptimalBandsPanel({
         displayTime,
         100,
         "FT8",
+        antennaGainDbi,
       );
     } catch {
       return null;
     }
-  }, [station, target, currentKp, currentSfi, displayTime]);
+  }, [
+    station,
+    target,
+    pathMetrics,
+    currentKp,
+    currentSfi,
+    displayTime,
+    antennaType,
+  ]);
 
   // Get optimal bands
   const optimalBands = useMemo(() => {

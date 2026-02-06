@@ -422,6 +422,8 @@ export interface PathBandCondition {
   absorptionLoss?: number;
   /** Full signal prediction object (from enhanced calculation) */
   signalPrediction?: SignalPrediction;
+  /** Antenna gain in dBi used for this prediction */
+  antennaGainDbi?: number;
 }
 
 /**
@@ -791,6 +793,7 @@ export function getEnhancedBandConditions(
   date: Date,
   txPowerWatts: number = 100,
   mode: "SSB" | "CW" | "FT8" = "FT8",
+  antennaGainDbi: number = 0,
 ): PathBandCondition[] {
   // Calculate great circle distance
   const distance = calculateGreatCircleDistance(
@@ -842,7 +845,7 @@ export function getEnhancedBandConditions(
       absorptionDb,
       txPowerWatts,
       mode,
-      0, // Default antenna gain
+      antennaGainDbi,
     );
 
     // Build notes array
@@ -979,6 +982,7 @@ export function getEnhancedBandConditions(
       pathLoss: signalPred.pathLoss,
       absorptionLoss: absorptionDb,
       signalPrediction: signalPred,
+      antennaGainDbi,
     };
   });
 }

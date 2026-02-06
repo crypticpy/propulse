@@ -9,7 +9,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathPoints, getPathMetrics } from "@/lib/utils/path";
+import { getPathPoints, getPathMetrics, getDistance } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -52,6 +52,7 @@ import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
+import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { LabelOptions } from "@/stores/mapStore";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
@@ -2088,6 +2089,9 @@ export function FlatMapView({
   const activePresetId = useMapStore((s) => s.activePresetId);
   const regionPresets = useMapStore((s) => s.regionPresets);
   const { station, preferences } = useUserStore();
+  const antennaType = useUserStore(
+    (s) => s.preferences.antennaType ?? "isotropic",
+  );
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
   const kIndexQuery = useKIndex();
@@ -2226,6 +2230,13 @@ export function FlatMapView({
       return null;
     }
     try {
+      const distance = getDistance(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+      );
+      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
       const conditions = getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -2236,6 +2247,7 @@ export function FlatMapView({
         displayTime,
         100,
         "FT8",
+        antennaGainDbi,
       );
       const best = pickOptimalBandCondition(conditions);
       if (!best) {
@@ -2260,6 +2272,7 @@ export function FlatMapView({
     currentSfi,
     displayTime,
     isEstimatedConditions,
+    antennaType,
   ]);
 
   // Check watch activity when spots change

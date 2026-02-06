@@ -20,6 +20,7 @@ import {
   type SettingsBackup,
   type ValidationResult,
 } from "@/lib/utils/settingsBackup";
+import { ANTENNA_TYPES, type AntennaType } from "@/lib/data/antennas";
 import type { UserStation, TextScale } from "@/types/user";
 import type { ColorBlindMode, StatusType } from "@/lib/themes/colorblind";
 import {
@@ -245,6 +246,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     useUserStore();
   const bridgeEnabled = useUserStore(
     (s) => s.preferences.bridgeEnabled ?? false,
+  );
+  const antennaType = useUserStore(
+    (s) => s.preferences.antennaType ?? "isotropic",
   );
 
   // Bridge connection for Cluster and CAT settings (only when enabled)
@@ -712,6 +716,46 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 >
                   Open full radio manager
                 </button>
+              </div>
+
+              {/* Antenna Selection */}
+              <div className="mt-6 space-y-3">
+                <h4 className="text-sm font-medium text-white">Antenna Type</h4>
+                <p className="text-xs text-gray-400">
+                  Used for propagation predictions — affects gain calculations
+                  based on path takeoff angle
+                </p>
+                <select
+                  value={antennaType}
+                  onChange={(e) =>
+                    useUserStore
+                      .getState()
+                      .setAntennaType(e.target.value as AntennaType)
+                  }
+                  className="w-full bg-deep-space/70 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-plasma-orange/50 focus:outline-none"
+                >
+                  {ANTENNA_TYPES.map((ant) => (
+                    <option key={ant.type} value={ant.type}>
+                      {ant.name} ({ant.peakGainDbi > 0 ? "+" : ""}
+                      {ant.peakGainDbi} dBi peak)
+                    </option>
+                  ))}
+                </select>
+                {/* Show selected antenna details */}
+                {(() => {
+                  const selected = ANTENNA_TYPES.find(
+                    (a) => a.type === antennaType,
+                  );
+                  if (!selected) return null;
+                  return (
+                    <div className="text-xs text-gray-400 space-y-1 pl-1">
+                      <p>{selected.description}</p>
+                      <p className="font-mono">
+                        Optimal elevation: {selected.optimalElevationDeg}°
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

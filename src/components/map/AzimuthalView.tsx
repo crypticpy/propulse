@@ -13,7 +13,7 @@ import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathMetrics } from "@/lib/utils/path";
+import { getPathMetrics, getDistance } from "@/lib/utils/path";
 import {
   azimuthalProject,
   azimuthalUnproject,
@@ -35,6 +35,7 @@ import {
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
 import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
+import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
@@ -886,8 +887,12 @@ export function AzimuthalView({
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const contestOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
-  const { layers, target, mapStyle, labelOptions, overlayLayers } = useMapStore();
+  const { layers, target, mapStyle, labelOptions, overlayLayers } =
+    useMapStore();
   const { station } = useUserStore();
+  const antennaType = useUserStore(
+    (s) => s.preferences.antennaType ?? "isotropic",
+  );
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
   const kIndexQuery = useKIndex();
@@ -1133,6 +1138,13 @@ export function AzimuthalView({
       return null;
     }
     try {
+      const distance = getDistance(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+      );
+      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
       const conditions = getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -1143,6 +1155,7 @@ export function AzimuthalView({
         displayTime,
         100,
         "FT8",
+        antennaGainDbi,
       );
       const best = pickOptimalBandCondition(conditions);
       if (!best) {
@@ -1167,6 +1180,7 @@ export function AzimuthalView({
     currentSfi,
     displayTime,
     isEstimatedConditions,
+    antennaType,
   ]);
 
   const targetHitPoint = useMemo(() => {

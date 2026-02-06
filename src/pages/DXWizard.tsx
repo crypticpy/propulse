@@ -12,7 +12,9 @@ import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
   getEnhancedBandConditions,
   getPathStatusColor,
+  calculateGreatCircleDistance,
 } from "@/lib/utils/bands";
+import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { getAvailableSegments } from "@/lib/data/bandplans";
 import { RADIO_DATABASE } from "@/lib/data/radios";
 import { RadioPickerModal } from "@/components/radio/RadioPickerModal";
@@ -198,6 +200,9 @@ export function DXWizard() {
   const activeRadio = useActiveRadio();
   const customRadios = useUserStore((s) => s.preferences.customRadios || []);
   const radioInstances = useUserStore((s) => s.preferences.radios || []);
+  const antennaType = useUserStore(
+    (s) => s.preferences.antennaType ?? "isotropic",
+  );
 
   const [targetQuery, setTargetQuery] = useState("");
   const [targetError, setTargetError] = useState<string | null>(null);
@@ -395,6 +400,13 @@ export function DXWizard() {
     }
 
     const txPowerBaseline = 100;
+    const distanceKm = calculateGreatCircleDistance(
+      station.lat,
+      station.lon,
+      target.lat,
+      target.lon,
+    );
+    const antennaGainDbi = getAntennaGainForPath(antennaType, distanceKm);
     const bands = getEnhancedBandConditions(
       station.lat,
       station.lon,
@@ -405,6 +417,7 @@ export function DXWizard() {
       new Date(),
       txPowerBaseline,
       mode,
+      antennaGainDbi,
     );
 
     const snrTarget = MODE_SNR_TARGET_DB[mode];
@@ -453,7 +466,7 @@ export function DXWizard() {
       .filter((b) => b.freqsKHz.length > 0);
 
     if (candidates.length === 0) {
-      return { type: "none" as const, bands };
+      return { type: "none" as const, bands, antennaGainDbi };
     }
 
     const best = [...candidates].sort((a, b) => {
@@ -466,7 +479,7 @@ export function DXWizard() {
       return b.snrEstimate - a.snrEstimate;
     })[0];
 
-    return { type: "ok" as const, best, bands };
+    return { type: "ok" as const, best, bands, antennaGainDbi };
   }, [
     station,
     target,
@@ -477,6 +490,7 @@ export function DXWizard() {
     licenseClass,
     selectedRadio?.maxPower,
     txPowerCeilingWatts,
+    antennaType,
   ]);
 
   const tips = useMemo(() => getModeTips(mode), [mode]);
@@ -837,6 +851,12 @@ export function DXWizard() {
                           • Abs:{" "}
                           {Math.round(recommendation.best.absorptionLoss)} dB
                         </>
+                      )}
+                      {recommendation.antennaGainDbi !== 0 && (
+                        <span className="text-gray-500 text-[10px] font-mono ml-1">
+                          • Ant: {recommendation.antennaGainDbi > 0 ? "+" : ""}
+                          {recommendation.antennaGainDbi.toFixed(1)} dBi
+                        </span>
                       )}
                     </div>
                   </div>

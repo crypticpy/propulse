@@ -14,7 +14,8 @@ import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
-import { getPathIllumination } from "@/lib/utils/path";
+import { getPathIllumination, getDistance } from "@/lib/utils/path";
+import { getAntennaGainForPath } from "@/lib/data/antennas";
 import {
   getBandConditionsForPath,
   getEnhancedBandConditions,
@@ -240,6 +241,9 @@ export function BandConditionsPanel({
   const target = useMapStore((s) => s.target);
   const showCorrelation = useMapStore((s) => s.showCorrelation);
   const station = useUserStore((s) => s.station);
+  const antennaType = useUserStore(
+    (s) => s.preferences.antennaType ?? "isotropic",
+  );
   const syncMode = useDXStore((s) => s.syncMode);
   const syncedBand = useDXStore((s) => s.syncedBand);
   const uiPrefs = useUIInteractionPrefs();
@@ -362,6 +366,13 @@ export function BandConditionsPanel({
       return null;
     }
     try {
+      const distance = getDistance(
+        station.lat,
+        station.lon,
+        target.lat,
+        target.lon,
+      );
+      const antennaGainDbi = getAntennaGainForPath(antennaType, distance);
       return getEnhancedBandConditions(
         station.lat,
         station.lon,
@@ -372,11 +383,12 @@ export function BandConditionsPanel({
         displayTime,
         100, // Default 100W TX power
         "FT8", // Default to FT8 mode
+        antennaGainDbi,
       );
     } catch {
       return null;
     }
-  }, [station, target, currentKp, currentSfi, displayTime]);
+  }, [station, target, currentKp, currentSfi, displayTime, antennaType]);
 
   // Use enhanced conditions if available
   const bandConditions = enhancedBandConditions || basicBandConditions;

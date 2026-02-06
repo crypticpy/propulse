@@ -25,6 +25,7 @@ import type {
   ForecastDisplayPreferences,
 } from "../types/user";
 import type { ColorBlindMode } from "../lib/themes/colorblind";
+import type { AntennaType } from "../lib/data/antennas";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_FAVORED_BANDS,
@@ -226,6 +227,8 @@ interface UserStore {
 
   /** Set color blind mode for accessibility */
   setColorBlindMode: (mode: ColorBlindMode) => void;
+  /** Set antenna type for propagation gain patterns */
+  setAntennaType: (type: AntennaType) => void;
 }
 
 /**
@@ -249,6 +252,7 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   compassRose: DEFAULT_COMPASS_ROSE,
   spotAge: DEFAULT_SPOT_AGE,
   bridgeEnabled: false,
+  antennaType: "isotropic" as AntennaType,
 };
 
 function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
@@ -1169,10 +1173,18 @@ export const useUserStore = create<UserStore>()(
             colorBlindMode: mode,
           },
         })),
+
+      setAntennaType: (type) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            antennaType: type,
+          },
+        })),
     }),
     {
       name: "propulse-user",
-      version: 12,
+      version: 13,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -1412,6 +1424,11 @@ export const useUserStore = create<UserStore>()(
         // v11 -> v12: Bridge disabled by default
         if (nextPreferences.bridgeEnabled === undefined) {
           nextPreferences.bridgeEnabled = false;
+        }
+
+        // v12 -> v13: Add antenna type preference
+        if (!nextPreferences.antennaType) {
+          nextPreferences.antennaType = "isotropic";
         }
 
         return {

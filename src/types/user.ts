@@ -5,6 +5,7 @@
 
 import type { UserRadio, RadioEquipment } from "./radio";
 import type { ColorBlindMode } from "@/lib/themes/colorblind";
+import type { AntennaType } from "@/lib/data/antennas";
 
 // =============================================================================
 // LOCATION TYPES
@@ -458,6 +459,8 @@ export interface UserPreferences {
   forecastDisplay?: ForecastDisplayPreferences;
   /** Whether the ProPulse Bridge WebSocket connection is enabled (default: false) */
   bridgeEnabled?: boolean;
+  /** Antenna type for propagation gain pattern calculations */
+  antennaType?: AntennaType;
 }
 
 // =============================================================================

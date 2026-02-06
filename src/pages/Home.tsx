@@ -1,27 +1,161 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useAllSolarData, useMagnetometer } from "@/hooks/useSolarData";
+import { kpToAp } from "@/lib/utils/solarConversions";
+import { PrimaryMetrics } from "@/components/solar/PrimaryMetrics";
+import { PropagationIndex } from "@/components/solar/PropagationIndex";
+import { SolarSummary } from "@/components/solar/SolarSummary";
+import { BandConditions } from "@/components/solar/BandConditions";
+import { ClusterPulseCard } from "@/components/dx/ClusterPulseCard";
+import { LogStatsCard } from "@/components/dx/LogStatsCard";
+import { PredictionsCard } from "@/components/dx/PredictionsCard";
+import { HistoryCard } from "@/components/dx/HistoryCard";
+import {
+  DashboardHeader,
+  AlertsSummary,
+  QuickActions,
+} from "@/components/dashboard";
+import { PropagationIndexModal } from "@/components/solar/modals/PropagationIndexModal";
+import { SolarSummaryModal } from "@/components/solar/modals/SolarSummaryModal";
+import { BandConditionsModal } from "@/components/solar/modals/BandConditionsModal";
+import { ClusterPulseDetailModal } from "@/components/dx/modals/ClusterPulseDetailModal";
+import { LogStatsDetailModal } from "@/components/dx/modals/LogStatsDetailModal";
+import { HistoryDetailModal } from "@/components/dx/modals/HistoryDetailModal";
+
+type ActiveModal =
+  | "propagation"
+  | "summary"
+  | "bands"
+  | "cluster"
+  | "logStats"
+  | "predictions"
+  | "history"
+  | null;
 
 export function Home() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8">
-      <div className="text-center space-y-6">
-        <div className="text-6xl animate-pulse-glow">☀️</div>
-        <h1 className="font-orbitron text-4xl md:text-5xl font-black text-gradient-orange tracking-wider">
-          PROPULSE
-        </h1>
-        <p className="text-gray-400 text-lg tracking-wide">
-          The ionosphere, visualized
-        </p>
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
-        <div className="pt-8">
-          <Link
-            to="/solar"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-plasma-orange/20 border border-plasma-orange/50 rounded-xl text-plasma-orange font-semibold hover:bg-plasma-orange/30 transition-colors"
-          >
-            <span>Enter Solar Dashboard</span>
-            <span>→</span>
-          </Link>
+  // --- Data fetching (same pattern as SolarPulse.tsx) ---
+  const {
+    kIndex: kIndexQuery,
+    solarFlux: solarFluxQuery,
+    sunspots: sunspotQuery,
+    isLoading,
+    isError,
+  } = useAllSolarData();
+  const { data: magnetometerData } = useMagnetometer();
+
+  const kIndexData = kIndexQuery.data;
+  const fluxData = solarFluxQuery.data;
+  const sunspotData = sunspotQuery.data;
+
+  const currentKp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? null;
+  const currentFlux = fluxData?.[fluxData.length - 1]?.flux ?? null;
+  const currentSsn = sunspotData?.[sunspotData.length - 1]?.ssn ?? null;
+  const currentBz =
+    magnetometerData
+      ?.slice()
+      .reverse()
+      .find((d) => typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm))
+      ?.bz_gsm ?? null;
+
+  return (
+    <div className="min-h-screen px-4">
+      <main className="max-w-7xl mx-auto py-4 space-y-6">
+        {/* Section 1: Dashboard Header */}
+        <DashboardHeader isLive={!isError && !isLoading} />
+
+        {/* Section 2: Alerts Summary */}
+        <AlertsSummary />
+
+        {/* Section 3: Primary Solar Metrics */}
+        <PrimaryMetrics
+          kIndex={currentKp}
+          solarFlux={currentFlux}
+          sunspotNumber={currentSsn}
+          aIndex={currentKp !== null ? kpToAp(currentKp) : undefined}
+          bz={currentBz}
+          bzData={
+            magnetometerData?.map((d) => ({
+              time_tag: d.time_tag,
+              bz_gsm: d.bz_gsm,
+            })) ?? []
+          }
+          loading={isLoading}
+          solarFluxData={
+            fluxData?.map((d) => ({
+              time_tag: d.time_tag,
+              flux: d.flux,
+            })) ?? []
+          }
+        />
+
+        {/* Section 4: Three-column operational view */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <PropagationIndex
+            solarFlux={currentFlux}
+            kIndex={currentKp}
+            bz={currentBz}
+            loading={isLoading}
+            onExpand={() => setActiveModal("propagation")}
+          />
+          <SolarSummary
+            kIndex={currentKp}
+            solarFlux={currentFlux}
+            loading={isLoading}
+            onExpand={() => setActiveModal("summary")}
+          />
+          <BandConditions
+            kIndex={currentKp}
+            solarFlux={currentFlux}
+            loading={isLoading}
+            onExpand={() => setActiveModal("bands")}
+          />
         </div>
-      </div>
+
+        {/* Section 5: Four-column activity cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <ClusterPulseCard onClick={() => setActiveModal("cluster")} />
+          <LogStatsCard onClick={() => setActiveModal("logStats")} />
+          <PredictionsCard onClick={() => setActiveModal("predictions")} />
+          <HistoryCard onClick={() => setActiveModal("history")} />
+        </div>
+
+        {/* Section 6: Quick Actions */}
+        <QuickActions />
+      </main>
+
+      {/* Section 7: Detail Modals */}
+      <PropagationIndexModal
+        isOpen={activeModal === "propagation"}
+        onClose={() => setActiveModal(null)}
+        solarFlux={currentFlux}
+        kIndex={currentKp}
+        bz={currentBz}
+      />
+      <SolarSummaryModal
+        isOpen={activeModal === "summary"}
+        onClose={() => setActiveModal(null)}
+        kIndex={currentKp}
+        solarFlux={currentFlux}
+      />
+      <BandConditionsModal
+        isOpen={activeModal === "bands"}
+        onClose={() => setActiveModal(null)}
+        kIndex={currentKp}
+        solarFlux={currentFlux}
+      />
+      <ClusterPulseDetailModal
+        isOpen={activeModal === "cluster"}
+        onClose={() => setActiveModal(null)}
+      />
+      <LogStatsDetailModal
+        isOpen={activeModal === "logStats"}
+        onClose={() => setActiveModal(null)}
+      />
+      <HistoryDetailModal
+        isOpen={activeModal === "history"}
+        onClose={() => setActiveModal(null)}
+      />
     </div>
   );
 }

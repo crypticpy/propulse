@@ -1,0 +1,69 @@
+/**
+ * DashboardHeader Component
+ *
+ * A compact welcome strip at the top of the dashboard.
+ * Shows branding, station callsign/grid, and live status indicator.
+ */
+
+import { Link } from "react-router-dom";
+import { useUserStore } from "@/stores/userStore";
+
+export interface DashboardHeaderProps {
+  isLive?: boolean;
+  className?: string;
+}
+
+export function DashboardHeader({
+  isLive = false,
+  className = "",
+}: DashboardHeaderProps) {
+  const station = useUserStore((state) => state.station);
+
+  return (
+    <div
+      className={`bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-3 ${className}`}
+    >
+      {/* Left: Branding */}
+      <span className="font-orbitron text-sm tracking-wider text-gradient-orange">
+        PROPULSE DASHBOARD
+      </span>
+
+      {/* Center: Station info */}
+      <div className="flex items-center gap-2 text-sm">
+        {station?.callsign ? (
+          <>
+            <span className="font-mono font-medium text-white">
+              {station.callsign}
+            </span>
+            {station.grid && (
+              <span className="font-mono text-gray-400">{station.grid}</span>
+            )}
+          </>
+        ) : (
+          <Link
+            to="/settings"
+            className="text-gray-400 hover:text-plasma-orange transition-colors"
+          >
+            No Station Configured
+          </Link>
+        )}
+      </div>
+
+      {/* Right: Live indicator */}
+      <div className="flex items-center gap-2">
+        <span
+          className={`w-2 h-2 rounded-full ${
+            isLive ? "bg-signal-green animate-pulse" : "bg-gray-500"
+          }`}
+        />
+        <span
+          className={`text-xs font-mono font-medium tracking-wider ${
+            isLive ? "text-signal-green" : "text-gray-500"
+          }`}
+        >
+          {isLive ? "LIVE" : "STALE"}
+        </span>
+      </div>
+    </div>
+  );
+}

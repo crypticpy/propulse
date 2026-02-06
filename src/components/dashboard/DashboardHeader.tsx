@@ -5,7 +5,6 @@
  * Shows branding, station callsign/grid, and live status indicator.
  */
 
-import { Link } from "react-router-dom";
 import { useUserStore } from "@/stores/userStore";
 
 export interface DashboardHeaderProps {
@@ -40,17 +39,17 @@ export function DashboardHeader({
             )}
           </>
         ) : (
-          <Link
-            to="/settings"
-            className="text-gray-400 hover:text-plasma-orange transition-colors"
-          >
-            No Station Configured
-          </Link>
+          <span className="text-gray-400 text-xs">
+            No Station Configured &mdash; use ⚙️ in header
+          </span>
         )}
       </div>
 
       {/* Right: Live indicator */}
-      <div className="flex items-center gap-2">
+      <div
+        className="flex items-center gap-2"
+        aria-label={isLive ? "Data feed is live" : "Data feed is stale"}
+      >
         <span
           className={`w-2 h-2 rounded-full ${
             isLive ? "bg-signal-green animate-pulse" : "bg-gray-500"

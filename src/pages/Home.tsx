@@ -27,7 +27,6 @@ type ActiveModal =
   | "bands"
   | "cluster"
   | "logStats"
-  | "predictions"
   | "history"
   | null;
 
@@ -116,7 +115,7 @@ export function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <ClusterPulseCard onClick={() => setActiveModal("cluster")} />
           <LogStatsCard onClick={() => setActiveModal("logStats")} />
-          <PredictionsCard onClick={() => setActiveModal("predictions")} />
+          <PredictionsCard />
           <HistoryCard onClick={() => setActiveModal("history")} />
         </div>
 

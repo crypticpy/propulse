@@ -21,11 +21,13 @@ export function AlertsSummary({ className = "" }: AlertsSummaryProps) {
   const hasAlerts = useAlertsStore(selectHasActiveAlerts);
   const activeCount = useAlertsStore(selectActiveAlertCount);
   const criticalCount = useAlertsStore(selectCriticalAlertCount);
-  const warningCount = activeCount - criticalCount;
+  const warningCount = Math.max(0, activeCount - criticalCount);
 
   if (!hasAlerts) {
     return (
       <div
+        role="status"
+        aria-label="Solar alert status: all quiet"
         className={`animate-card-entrance flex items-center gap-3 px-4 py-3 rounded-2xl bg-signal-green/10 border border-signal-green/30 ${className}`}
       >
         <span className="w-2 h-2 rounded-full bg-signal-green" />
@@ -38,6 +40,8 @@ export function AlertsSummary({ className = "" }: AlertsSummaryProps) {
 
   return (
     <div
+      role="status"
+      aria-label={`${activeCount} active solar alert${activeCount !== 1 ? "s" : ""}`}
       className={`animate-card-entrance flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-caution-amber/10 border border-caution-amber/30 ${className}`}
     >
       <div className="flex items-center gap-3">
@@ -61,6 +65,7 @@ export function AlertsSummary({ className = "" }: AlertsSummaryProps) {
 
       <Link
         to="/solar"
+        aria-label="View solar alert details"
         className="text-xs text-caution-amber hover:text-white transition-colors whitespace-nowrap"
       >
         View Details &rarr;

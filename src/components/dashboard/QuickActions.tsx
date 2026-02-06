@@ -50,7 +50,12 @@ export function QuickActions({ className = "" }: QuickActionsProps) {
   return (
     <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${className}`}>
       {actions.map((action) => (
-        <Link key={action.path} to={action.path} className="group">
+        <Link
+          key={action.path}
+          to={action.path}
+          className="group"
+          aria-label={`${action.title} — ${action.description}`}
+        >
           <Card className="h-full flex flex-col items-center text-center gap-2 p-4 hover:border-white/20 hover:bg-white/[0.05] transition-all duration-200 cursor-pointer">
             <span className="text-3xl">{action.icon}</span>
             <span className="font-sans text-sm font-medium text-white">

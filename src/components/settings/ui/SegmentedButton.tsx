@@ -8,11 +8,16 @@ export function SegmentedButton<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex gap-1 p-1 bg-void-black rounded-lg border border-white/10">
+    <div
+      role="radiogroup"
+      className="flex gap-1 p-1 bg-void-black rounded-lg border border-white/10"
+    >
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
+          role="radio"
+          aria-checked={value === opt.value}
           onClick={() => onChange(opt.value)}
           className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
             value === opt.value

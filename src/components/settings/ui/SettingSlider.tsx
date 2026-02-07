@@ -32,6 +32,11 @@ export function SettingSlider({
       <input
         id={id}
         type="range"
+        role="slider"
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        aria-valuetext={displayValue}
         min={min}
         max={max}
         step={step ?? 1}

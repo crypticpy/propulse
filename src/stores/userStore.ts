@@ -1,10 +1,18 @@
 /**
- * Zustand store for user preferences and station configuration
- * Persists to localStorage with key 'propulse-user'
+ * userStore — Backward-compatible bridge shim (v15)
+ *
+ * All state is delegated to the three canonical stores:
+ *   - profileStore (station, savedTargets, license, serviceCredentials)
+ *   - settingsStore (UI/UX preferences)
+ *   - shackStore (radios, customRadios, activeRadioId)
+ *
+ * This bridge reconstructs the legacy `{ station, preferences, savedTargets, serviceCredentials }`
+ * shape so that all 62+ existing consumers continue to work unchanged.
+ *
+ * No `persist` middleware — persistence is handled by the canonical stores.
  */
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   UserStation,
   UserPreferences,
@@ -19,144 +27,73 @@ import type {
   SpotClusteringPreferences,
   CompassRosePreferences,
   SpotAgePreferences,
-  WatchAlertPreferences,
-  UIInteractionPreferences,
   BandPreset,
   ForecastDisplayPreferences,
 } from "../types/user";
 import type { ColorBlindMode } from "../lib/themes/colorblind";
 import type { AntennaType } from "../lib/data/antennas";
 import type { NoiseEnvironment } from "../lib/utils/noiseModel";
-import {
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  DEFAULT_FAVORED_BANDS,
-  DEFAULT_SPOT_CLUSTERING,
-  DEFAULT_COMPASS_ROSE,
-  DEFAULT_SPOT_AGE,
-  DEFAULT_WATCH_ALERT_PREFERENCES,
-  DEFAULT_UI_INTERACTION,
-  DEFAULT_FORECAST_DISPLAY,
-} from "../types/user";
-import type {
-  UserRadio,
-  LegacyUserRadio,
-  RadioEquipment,
-} from "../types/radio";
+import type { UserRadio, RadioEquipment } from "../types/radio";
 import { getRadioById } from "../lib/data/radios";
 
-/**
- * Saved target location for quick access
- */
-export interface SavedTarget {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  grid?: string;
-  createdAt: string;
-}
+import { useProfileStore } from "./profileStore";
+import type { SavedTarget, ServiceCredentials } from "./profileStore";
+import { useSettingsStore } from "./settingsStore";
+import {
+  useShackStore,
+  useActiveRadio,
+  useUserRadios,
+  useActiveUserRadio,
+} from "./shackStore";
 
-/**
- * Credentials for QSL confirmation services
- */
-export interface ServiceCredentials {
-  eqsl?: { username: string; password: string };
-  clublog?: { email: string; password: string; callsign: string };
-  qrz?: { apiKey: string };
-  lotw?: { enabled: boolean };
-}
+// Re-export types that consumers import from userStore
+export type { SavedTarget, ServiceCredentials };
 
-/** Maximum number of saved targets allowed */
-const MAX_SAVED_TARGETS = 10;
+// ─── Store interface (matches original exactly) ──────────────────────────────
 
-/** Maximum number of radios allowed */
-const MAX_RADIOS = 10;
-
-/** Maximum number of band presets allowed */
-const MAX_BAND_PRESETS = 5;
-
-/**
- * User store state and actions
- */
 interface UserStore {
-  /** Current station configuration, null if not set up */
   station: UserStation | null;
-  /** User preferences for display and behavior */
   preferences: Omit<UserPreferences, "station">;
-  /** Saved target locations for quick access (max 10) */
   savedTargets: SavedTarget[];
-  /** Credentials for QSL services (eQSL, Club Log, etc.) */
   serviceCredentials: ServiceCredentials;
-  /** Set or clear the station configuration */
+
   setStation: (station: UserStation | null) => void;
-  /** Update service credentials */
   setServiceCredentials: (creds: Partial<ServiceCredentials>) => void;
-  /** Partially update user preferences */
   updatePreferences: (prefs: Partial<Omit<UserPreferences, "station">>) => void;
-  /** Reset all preferences to defaults */
   resetPreferences: () => void;
-  /** Add a new saved target (max 10, oldest removed if full) */
   addTarget: (target: Omit<SavedTarget, "id" | "createdAt">) => void;
-  /** Remove a saved target by ID */
   removeTarget: (id: string) => void;
-  /** Clear all saved targets */
   clearTargets: () => void;
-  /** Set ITU region for band plan compliance */
   setITURegion: (region: ITURegion) => void;
-  /** Set license class for privilege checks */
   setLicenseClass: (licenseClass: LicenseClass) => void;
-  /**
-   * Add a radio equipment item to the user's collection.
-   * Returns the user radio instance ID (existing or newly created), or null if not added.
-   */
   addRadio: (radioId: string, nickname?: string) => string | null;
-  /**
-   * Add a new user-owned radio instance (allows multiple of the same model).
-   * Returns the new instance ID, or null if not added.
-   */
   addRadioInstance: (radioId: string, nickname?: string) => string | null;
-  /** Update a user-owned radio instance */
   updateRadioInstance: (
     id: string,
     updates: Partial<Omit<UserRadio, "id" | "equipmentId" | "addedAt">>,
   ) => { ok: true } | { ok: false; error: string };
-  /** Add a custom radio equipment definition (returns false if duplicate name) */
-  addCustomRadio: (radio: Omit<RadioEquipment, "id">) =>
-    | {
-        ok: true;
-        id: string;
-      }
-    | { ok: false; error: string };
-  /** Update a custom radio equipment definition */
+  addCustomRadio: (
+    radio: Omit<RadioEquipment, "id">,
+  ) => { ok: true; id: string } | { ok: false; error: string };
   updateCustomRadio: (
     id: string,
     updates: Partial<Omit<RadioEquipment, "id">>,
   ) => { ok: true } | { ok: false; error: string };
-  /** Remove a custom radio equipment definition */
   removeCustomRadio: (id: string) => void;
-  /** Remove a radio from the user's collection */
   removeRadio: (radioId: string) => void;
-  /** Set the active radio */
   setActiveRadio: (radioId: string | null) => void;
-  /** Get the active radio equipment details */
   getActiveRadio: () => RadioEquipment | null;
 
-  // === Location Management ===
-
-  /** Add a new operating location, returns the new location ID */
+  // Location management
   addLocation: (
     location: Omit<OperatingLocation, "id" | "createdAt">,
   ) => string;
-  /** Update an existing operating location */
   updateLocation: (
     id: string,
     updates: Partial<Omit<OperatingLocation, "id" | "createdAt">>,
   ) => void;
-  /** Remove an operating location by ID */
   removeLocation: (id: string) => void;
-  /** Set the active location (null = use home) */
   setActiveLocation: (id: string | null) => void;
-  /** Quick-set a temporary location, returns the new location ID */
   setTemporaryLocation: (
     grid: string,
     lat: number,
@@ -164,1444 +101,387 @@ interface UserStore {
     name?: string,
     type?: LocationType,
   ) => string;
-  /** Clear temporary location (set activeLocationId to null) */
   clearTemporaryLocation: () => void;
 
-  // === License Management ===
-
-  /** Set license information (or clear with null) */
+  // License
   setLicense: (license: LicenseInfo | null) => void;
 
-  // === Favorites & Notifications ===
-
-  /** Set favored bands configuration */
+  // Favorites & Notifications
   setFavoredBands: (bands: FavoredBands) => void;
-  /** Toggle a band in/out of primary favorites */
   toggleFavoredBand: (band: BandId) => void;
-  /** Toggle a band in/out of hidden list */
   toggleHiddenBand: (band: BandId) => void;
-  /** Update notification preferences */
   updateNotifications: (prefs: Partial<NotificationPreferences>) => void;
 
-  // === Spot Clustering ===
-
-  /** Update spot clustering preferences */
+  // Spot Clustering
   updateSpotClustering: (prefs: Partial<SpotClusteringPreferences>) => void;
-  /** Toggle spot clustering on/off */
   toggleSpotClustering: () => void;
 
-  // === Compass Rose ===
-
-  /** Update compass rose preferences */
+  // Compass Rose
   updateCompassRose: (prefs: Partial<CompassRosePreferences>) => void;
-  /** Toggle compass rose on/off */
   toggleCompassRose: () => void;
 
-  // === Spot Age ===
-
-  /** Update spot age visualization preferences */
+  // Spot Age
   updateSpotAge: (prefs: Partial<SpotAgePreferences>) => void;
-  /** Toggle spot age visualization on/off */
   toggleSpotAge: () => void;
 
-  // === Band Presets ===
-
-  /** Add a new band preset (max 5, returns false if limit reached or duplicate name) */
+  // Band Presets
   addBandPreset: (
     name: string,
     bands: string[],
   ) => { ok: true; id: string } | { ok: false; error: string };
-  /** Remove a band preset by ID */
   removeBandPreset: (id: string) => void;
-  /** Update an existing band preset */
   updateBandPreset: (
     id: string,
     updates: Partial<Omit<BandPreset, "id">>,
   ) => { ok: true } | { ok: false; error: string };
 
-  // === Forecast Display ===
-
-  /** Update forecast display preferences */
+  // Forecast Display
   updateForecastDisplay: (prefs: Partial<ForecastDisplayPreferences>) => void;
 
-  // === Accessibility ===
-
-  /** Set color blind mode for accessibility */
+  // Accessibility
   setColorBlindMode: (mode: ColorBlindMode) => void;
-  /** Set antenna type for propagation gain patterns */
   setAntennaType: (type: AntennaType) => void;
-  /** Set noise environment for ITU-R P.372 SNR predictions */
   setNoiseEnvironment: (env: NoiseEnvironment) => void;
 }
 
-/**
- * Default preference values
- */
-const defaultPreferences: Omit<UserPreferences, "station"> = {
-  units: "metric",
-  timeFormat: "12h",
-  theme: "dark",
-  ituRegion: "ITU2",
-  licenseClass: "GENERAL",
-  radios: [],
-  customRadios: [],
-  activeRadioId: null,
-  preferTestedSpecs: true, // Default to tested/Sherwood specs when available
-  textScale: "md", // Default text scale (100%)
-  license: undefined,
-  favoredBands: DEFAULT_FAVORED_BANDS,
-  notifications: DEFAULT_NOTIFICATION_PREFERENCES,
-  spotClustering: DEFAULT_SPOT_CLUSTERING,
-  compassRose: DEFAULT_COMPASS_ROSE,
-  spotAge: DEFAULT_SPOT_AGE,
-  bridgeEnabled: false,
-  antennaType: "isotropic" as AntennaType,
-  noiseEnvironment: "residential" as NoiseEnvironment,
-};
+// ─── State derivation ────────────────────────────────────────────────────────
 
-function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "radioId" in value &&
-    typeof (value as { radioId: unknown }).radioId === "string"
-  );
-}
+function derivePreferences(): Omit<UserPreferences, "station"> {
+  const settings = useSettingsStore.getState();
+  const shack = useShackStore.getState();
+  const profile = useProfileStore.getState();
 
-function isUserRadio(value: unknown): value is UserRadio {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "id" in value &&
-    "equipmentId" in value &&
-    typeof (value as { id: unknown }).id === "string" &&
-    typeof (value as { equipmentId: unknown }).equipmentId === "string"
-  );
-}
-
-function createUserRadioInstance(params: {
-  equipmentId: string;
-  nickname?: string;
-  customPowerLimit?: number;
-  addedAt?: string;
-}): UserRadio {
   return {
-    id: crypto.randomUUID(),
-    equipmentId: params.equipmentId,
-    nickname: params.nickname,
-    customPowerLimit: params.customPowerLimit,
-    addedAt: params.addedAt ?? new Date().toISOString(),
+    units: settings.units,
+    timeFormat: settings.timeFormat,
+    theme: settings.theme,
+    ituRegion: settings.ituRegion,
+    licenseClass: settings.licenseClass,
+    textScale: settings.textScale,
+    colorBlindMode: settings.colorBlindMode,
+    noiseEnvironment: settings.noiseEnvironment,
+    antennaType: settings.antennaType,
+    bridgeEnabled: settings.bridgeEnabled,
+    preferTestedSpecs: settings.preferTestedSpecs,
+    favoredBands: settings.favoredBands,
+    bandPresets: settings.bandPresets,
+    notifications: settings.notifications,
+    spotClustering: settings.spotClustering,
+    compassRose: settings.compassRose,
+    spotAge: settings.spotAge,
+    watchAlerts: settings.watchAlerts,
+    uiInteraction: settings.uiInteraction,
+    forecastDisplay: settings.forecastDisplay,
+    // Shack fields
+    radios: shack.radios,
+    customRadios: shack.customRadios,
+    activeRadioId: shack.activeRadioId,
+    // Profile fields in preferences
+    license: profile.license,
   };
 }
 
-/**
- * User preferences store with localStorage persistence
- *
- * @example
- * ```tsx
- * const { station, setStation } = useUserStore();
- *
- * // Set user's station
- * setStation({
- *   callsign: 'N5XXX',
- *   grid: 'EM10fp',
- *   lat: 30.2672,
- *   lon: -97.7431,
- *   name: 'Home'
- * });
- *
- * // Update preferences
- * updatePreferences({ theme: 'light', timeFormat: '24h' });
- * ```
- */
-export const useUserStore = create<UserStore>()(
-  persist(
-    (set) => ({
+function computeState() {
+  const profile = useProfileStore.getState();
+  return {
+    station: profile.station,
+    preferences: derivePreferences(),
+    savedTargets: profile.savedTargets,
+    serviceCredentials: profile.serviceCredentials,
+  };
+}
+
+// ─── Key routing for updatePreferences ────────────────────────────────────────
+
+const SETTINGS_KEYS = new Set([
+  "units",
+  "timeFormat",
+  "theme",
+  "ituRegion",
+  "licenseClass",
+  "textScale",
+  "colorBlindMode",
+  "noiseEnvironment",
+  "antennaType",
+  "bridgeEnabled",
+  "preferTestedSpecs",
+  "favoredBands",
+  "bandPresets",
+  "notifications",
+  "spotClustering",
+  "compassRose",
+  "spotAge",
+  "watchAlerts",
+  "uiInteraction",
+  "forecastDisplay",
+]);
+const SHACK_KEYS = new Set(["radios", "customRadios", "activeRadioId"]);
+const PROFILE_KEYS = new Set(["license"]);
+
+// ─── Bridge store ────────────────────────────────────────────────────────────
+
+export const useUserStore = create<UserStore>()(() => ({
+  // Initial derived state
+  ...computeState(),
+
+  // === Profile actions (forwarded) ===
+
+  setStation: (station) => {
+    useProfileStore.getState().setStation(station);
+  },
+
+  setServiceCredentials: (creds) => {
+    useProfileStore.getState().setServiceCredentials(creds);
+  },
+
+  addTarget: (target) => {
+    useProfileStore.getState().addTarget(target);
+  },
+
+  removeTarget: (id) => {
+    useProfileStore.getState().removeTarget(id);
+  },
+
+  clearTargets: () => {
+    useProfileStore.getState().clearTargets();
+  },
+
+  addLocation: (location) => {
+    return useProfileStore.getState().addLocation(location);
+  },
+
+  updateLocation: (id, updates) => {
+    useProfileStore.getState().updateLocation(id, updates);
+  },
+
+  removeLocation: (id) => {
+    useProfileStore.getState().removeLocation(id);
+  },
+
+  setActiveLocation: (id) => {
+    useProfileStore.getState().setActiveLocation(id);
+  },
+
+  setTemporaryLocation: (grid, lat, lon, name, type) => {
+    return useProfileStore
+      .getState()
+      .setTemporaryLocation(grid, lat, lon, name, type);
+  },
+
+  clearTemporaryLocation: () => {
+    useProfileStore.getState().clearTemporaryLocation();
+  },
+
+  setLicense: (license) => {
+    useProfileStore.getState().setLicense(license);
+  },
+
+  // === Settings actions (forwarded) ===
+
+  updatePreferences: (prefs) => {
+    // Route preference keys to the appropriate canonical stores
+    const settingsUpdate: Record<string, unknown> = {};
+    const shackUpdate: Record<string, unknown> = {};
+    const profileUpdate: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(prefs)) {
+      if (SETTINGS_KEYS.has(key)) {
+        settingsUpdate[key] = value;
+      } else if (SHACK_KEYS.has(key)) {
+        shackUpdate[key] = value;
+      } else if (PROFILE_KEYS.has(key)) {
+        profileUpdate[key] = value;
+      } else if (import.meta.env.DEV) {
+        console.warn(
+          `[userStore bridge] updatePreferences: unrecognized key "${key}" was dropped`,
+        );
+      }
+    }
+
+    if (Object.keys(settingsUpdate).length > 0) {
+      useSettingsStore.getState().updatePreferences(settingsUpdate as never);
+    }
+    if (Object.keys(shackUpdate).length > 0) {
+      useShackStore.setState(shackUpdate);
+    }
+    if (profileUpdate.license !== undefined) {
+      useProfileStore.setState({
+        license: profileUpdate.license as LicenseInfo | undefined,
+      });
+    }
+  },
+
+  resetPreferences: () => {
+    // Matches original: full factory reset across all stores
+    useSettingsStore.getState().resetPreferences();
+    useShackStore.setState({
+      radios: [],
+      customRadios: [],
+      activeRadioId: null,
+    });
+    useProfileStore.setState({
       station: null,
-      preferences: defaultPreferences,
       savedTargets: [],
-      serviceCredentials: {},
+      license: undefined,
+    });
+  },
 
-      setStation: (station) => set({ station }),
+  setITURegion: (region) => {
+    useSettingsStore.getState().setITURegion(region);
+  },
 
-      setServiceCredentials: (creds) =>
-        set((state) => {
-          const serviceCredentials: ServiceCredentials = {
-            ...state.serviceCredentials,
-          };
+  setLicenseClass: (licenseClass) => {
+    useSettingsStore.getState().setLicenseClass(licenseClass);
+  },
 
-          for (const key of Object.keys(creds) as Array<
-            keyof ServiceCredentials
-          >) {
-            const incoming = creds[key];
-            if (incoming === undefined) {
-              serviceCredentials[key] = undefined;
-              continue;
-            }
+  setFavoredBands: (bands) => {
+    useSettingsStore.getState().setFavoredBands(bands);
+  },
 
-            const previous = state.serviceCredentials[key];
-            serviceCredentials[key] = {
-              ...(previous ? (previous as Record<string, unknown>) : {}),
-              ...(incoming as Record<string, unknown>),
-            } as never;
-          }
-
-          return { serviceCredentials };
-        }),
-
-      updatePreferences: (prefs) =>
-        set((state) => ({
-          preferences: { ...state.preferences, ...prefs },
-        })),
-
-      resetPreferences: () =>
-        set({
-          station: null,
-          preferences: defaultPreferences,
-          savedTargets: [],
-        }),
-
-      addTarget: (target) =>
-        set((state) => {
-          const newTarget: SavedTarget = {
-            ...target,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-          };
-          // Add to beginning, enforce max limit by removing oldest
-          const updated = [newTarget, ...state.savedTargets];
-          if (updated.length > MAX_SAVED_TARGETS) {
-            updated.pop();
-          }
-          return { savedTargets: updated };
-        }),
-
-      removeTarget: (id) =>
-        set((state) => ({
-          savedTargets: state.savedTargets.filter((t) => t.id !== id),
-        })),
-
-      clearTargets: () => set({ savedTargets: [] }),
-
-      setITURegion: (region) =>
-        set((state) => ({
-          preferences: { ...state.preferences, ituRegion: region },
-        })),
-
-      setLicenseClass: (licenseClass) =>
-        set((state) => ({
-          preferences: { ...state.preferences, licenseClass },
-        })),
-
-      addRadio: (radioId, nickname) => {
-        let instanceId: string | null = null;
-
-        set((state) => {
-          const currentRadios = state.preferences.radios || [];
-          const existing = currentRadios.find((r) => r.equipmentId === radioId);
-          if (existing) {
-            instanceId = existing.id;
-            return state;
-          }
-
-          // Enforce max limit
-          if (currentRadios.length >= MAX_RADIOS) {
-            return state;
-          }
-
-          const newRadio = createUserRadioInstance({
-            equipmentId: radioId,
-            nickname,
-          });
-          instanceId = newRadio.id;
-
-          const updatedRadios = [...currentRadios, newRadio];
-          // If this is the first radio, make it active
-          const activeRadioId =
-            state.preferences.activeRadioId ||
-            (updatedRadios.length === 1 ? newRadio.id : null);
-
-          return {
-            preferences: {
-              ...state.preferences,
-              radios: updatedRadios,
-              activeRadioId,
-            },
-          };
-        });
-
-        return instanceId;
-      },
-
-      addRadioInstance: (radioId, nickname) => {
-        let instanceId: string | null = null;
-
-        set((state) => {
-          const currentRadios = state.preferences.radios || [];
-          if (currentRadios.length >= MAX_RADIOS) {
-            return state;
-          }
-
-          const newRadio = createUserRadioInstance({
-            equipmentId: radioId,
-            nickname,
-          });
-          instanceId = newRadio.id;
-
-          const updatedRadios = [...currentRadios, newRadio];
-          const activeRadioId = state.preferences.activeRadioId || newRadio.id;
-
-          return {
-            preferences: {
-              ...state.preferences,
-              radios: updatedRadios,
-              activeRadioId,
-            },
-          };
-        });
-
-        return instanceId;
-      },
-
-      updateRadioInstance: (id, updates) => {
-        let result: { ok: true } | { ok: false; error: string } = { ok: true };
-
-        set((state) => {
-          const currentRadios = state.preferences.radios || [];
-          const idx = currentRadios.findIndex((r) => r.id === id);
-          if (idx === -1) {
-            result = { ok: false, error: "Radio instance not found" };
-            return state;
-          }
-
-          if (
-            typeof updates.customPowerLimit === "number" &&
-            (!Number.isFinite(updates.customPowerLimit) ||
-              updates.customPowerLimit <= 0)
-          ) {
-            result = {
-              ok: false,
-              error: "Power limit must be a positive number",
-            };
-            return state;
-          }
-
-          const next = currentRadios.map((r, i) =>
-            i === idx ? { ...r, ...updates } : r,
-          );
-
-          return {
-            preferences: {
-              ...state.preferences,
-              radios: next,
-            },
-          };
-        });
-
-        return result;
-      },
-
-      addCustomRadio: (radio) => {
-        const id = `custom-${crypto.randomUUID()}`;
-        const displayName = radio.displayName?.trim();
-        if (!displayName) {
-          return { ok: false, error: "Custom radio name is required" };
-        }
-
-        let result: { ok: true; id: string } | { ok: false; error: string } = {
-          ok: true,
-          id,
-        };
-
-        set((state) => {
-          const existing = state.preferences.customRadios || [];
-          const normalized = displayName.toLowerCase();
-          const hasDuplicate = existing.some(
-            (r) => (r.displayName || "").trim().toLowerCase() === normalized,
-          );
-          if (hasDuplicate) {
-            result = {
-              ok: false,
-              error: `A custom radio named "${displayName}" already exists`,
-            };
-            return state;
-          }
-
-          const nextCustom = [
-            ...existing,
-            {
-              ...radio,
-              id,
-              displayName,
-            },
-          ];
-
-          return {
-            preferences: {
-              ...state.preferences,
-              customRadios: nextCustom,
-            },
-          };
-        });
-
-        return result;
-      },
-
-      updateCustomRadio: (id, updates) => {
-        let result: { ok: true } | { ok: false; error: string } = { ok: true };
-
-        set((state) => {
-          const existing = state.preferences.customRadios || [];
-          const idx = existing.findIndex((r) => r.id === id);
-          if (idx === -1) {
-            result = { ok: false, error: "Custom radio not found" };
-            return state;
-          }
-
-          const nextDisplayName =
-            typeof updates.displayName === "string"
-              ? updates.displayName.trim()
-              : existing[idx].displayName;
-
-          if (!nextDisplayName) {
-            result = { ok: false, error: "Custom radio name is required" };
-            return state;
-          }
-
-          const normalized = nextDisplayName.toLowerCase();
-          const hasDuplicate = existing.some(
-            (r, i) =>
-              i !== idx &&
-              (r.displayName || "").trim().toLowerCase() === normalized,
-          );
-          if (hasDuplicate) {
-            result = {
-              ok: false,
-              error: `A custom radio named "${nextDisplayName}" already exists`,
-            };
-            return state;
-          }
-
-          const nextCustom = existing.map((r, i) =>
-            i === idx ? { ...r, ...updates, displayName: nextDisplayName } : r,
-          );
-
-          return {
-            preferences: {
-              ...state.preferences,
-              customRadios: nextCustom,
-            },
-          };
-        });
-
-        return result;
-      },
-
-      removeCustomRadio: (id) =>
-        set((state) => {
-          const existing = state.preferences.customRadios || [];
-          const nextCustom = existing.filter((r) => r.id !== id);
-
-          const currentRadios = state.preferences.radios || [];
-          const updatedRadios = currentRadios.filter(
-            (r) => r.equipmentId !== id,
-          );
-          const currentActiveId = state.preferences.activeRadioId;
-          const activeRadioId =
-            currentActiveId &&
-            updatedRadios.some((r) => r.id === currentActiveId)
-              ? currentActiveId
-              : updatedRadios.length > 0
-                ? updatedRadios[0].id
-                : null;
-
-          return {
-            preferences: {
-              ...state.preferences,
-              customRadios: nextCustom,
-              radios: updatedRadios,
-              activeRadioId,
-            },
-          };
-        }),
-
-      removeRadio: (radioId) =>
-        set((state) => {
-          const currentRadios = state.preferences.radios || [];
-          const updatedRadios = currentRadios.filter((r) => r.id !== radioId);
-          // If we removed the active radio, select the first available
-          const activeRadioId =
-            state.preferences.activeRadioId === radioId
-              ? updatedRadios.length > 0
-                ? updatedRadios[0].id
-                : null
-              : state.preferences.activeRadioId;
-          return {
-            preferences: {
-              ...state.preferences,
-              radios: updatedRadios,
-              activeRadioId,
-            },
-          };
-        }),
-
-      setActiveRadio: (radioId) =>
-        set((state) => ({
-          preferences: { ...state.preferences, activeRadioId: radioId },
-        })),
-
-      getActiveRadio: () => {
-        // Note: This returns null as a placeholder. Use the useActiveRadio hook instead.
-        return null;
-      },
-
-      // === Location Management ===
-
-      addLocation: (location) => {
-        const id = crypto.randomUUID();
-        const newLocation: OperatingLocation = {
-          ...location,
-          id,
-          createdAt: new Date().toISOString(),
-        };
-
-        set((state) => {
-          if (!state.station) {
-            return state;
-          }
-
-          const savedLocations = [...state.station.savedLocations, newLocation];
-
-          return {
-            station: {
-              ...state.station,
-              savedLocations,
-            },
-          };
-        });
-
-        return id;
-      },
-
-      updateLocation: (id, updates) =>
-        set((state) => {
-          if (!state.station) {
-            return state;
-          }
-
-          const savedLocations = state.station.savedLocations.map((loc) =>
-            loc.id === id ? { ...loc, ...updates } : loc,
-          );
-
-          // Find the updated location to sync legacy fields if it's active
-          const activeId =
-            state.station.activeLocationId ?? state.station.homeLocationId;
-          const updatedLocation = savedLocations.find((loc) => loc.id === id);
-
-          // If the updated location is the active one, sync legacy fields
-          if (updatedLocation && id === activeId) {
-            return {
-              station: {
-                ...state.station,
-                savedLocations,
-                grid: updatedLocation.grid,
-                lat: updatedLocation.lat,
-                lon: updatedLocation.lon,
-                timezone: updatedLocation.timezone,
-              },
-            };
-          }
-
-          return {
-            station: {
-              ...state.station,
-              savedLocations,
-            },
-          };
-        }),
-
-      removeLocation: (id) =>
-        set((state) => {
-          if (!state.station) {
-            return state;
-          }
-
-          // Don't allow removing the home location
-          if (id === state.station.homeLocationId) {
-            return state;
-          }
-
-          const savedLocations = state.station.savedLocations.filter(
-            (loc) => loc.id !== id,
-          );
-
-          // If we're removing the active location, clear activeLocationId
-          const activeLocationId =
-            state.station.activeLocationId === id
-              ? null
-              : state.station.activeLocationId;
-
-          // If activeLocationId changed, sync legacy fields to home
-          if (
-            state.station.activeLocationId === id &&
-            activeLocationId === null
-          ) {
-            const homeLocation = savedLocations.find(
-              (loc) => loc.id === state.station!.homeLocationId,
-            );
-            if (homeLocation) {
-              return {
-                station: {
-                  ...state.station,
-                  savedLocations,
-                  activeLocationId,
-                  grid: homeLocation.grid,
-                  lat: homeLocation.lat,
-                  lon: homeLocation.lon,
-                  timezone: homeLocation.timezone,
-                },
-              };
-            }
-          }
-
-          return {
-            station: {
-              ...state.station,
-              savedLocations,
-              activeLocationId,
-            },
-          };
-        }),
-
-      setActiveLocation: (id) =>
-        set((state) => {
-          if (!state.station) {
-            return state;
-          }
-
-          const targetId = id ?? state.station.homeLocationId;
-          const location = state.station.savedLocations.find(
-            (loc) => loc.id === targetId,
-          );
-
-          if (!location) {
-            return state;
-          }
-
-          return {
-            station: {
-              ...state.station,
-              activeLocationId: id,
-              // Sync legacy fields
-              grid: location.grid,
-              lat: location.lat,
-              lon: location.lon,
-              timezone: location.timezone,
-            },
-          };
-        }),
-
-      setTemporaryLocation: (grid, lat, lon, name, type) => {
-        const id = crypto.randomUUID();
-        const newLocation: OperatingLocation = {
-          id,
-          name: name ?? "Temporary",
-          grid,
-          lat,
-          lon,
-          type: type ?? "portable",
-          createdAt: new Date().toISOString(),
-        };
-
-        set((state) => {
-          if (!state.station) {
-            return state;
-          }
-
-          const savedLocations = [...state.station.savedLocations, newLocation];
-
-          return {
-            station: {
-              ...state.station,
-              savedLocations,
-              activeLocationId: id,
-              // Sync legacy fields
-              grid,
-              lat,
-              lon,
-            },
-          };
-        });
-
-        return id;
-      },
-
-      clearTemporaryLocation: () =>
-        set((state) => {
-          if (!state.station) {
-            return state;
-          }
-
-          const homeLocation = state.station.savedLocations.find(
-            (loc) => loc.id === state.station!.homeLocationId,
-          );
-
-          if (!homeLocation) {
-            return state;
-          }
-
-          return {
-            station: {
-              ...state.station,
-              activeLocationId: null,
-              // Sync legacy fields to home
-              grid: homeLocation.grid,
-              lat: homeLocation.lat,
-              lon: homeLocation.lon,
-              timezone: homeLocation.timezone,
-            },
-          };
-        }),
-
-      // === License Management ===
-
-      setLicense: (license) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            license: license ?? undefined,
-            // Also update legacy licenseClass for backward compatibility
-            licenseClass: license?.class ?? state.preferences.licenseClass,
-          },
-        })),
-
-      // === Favorites & Notifications ===
-
-      setFavoredBands: (bands) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            favoredBands: bands,
-          },
-        })),
-
-      toggleFavoredBand: (band) =>
-        set((state) => {
-          const current =
-            state.preferences.favoredBands ?? DEFAULT_FAVORED_BANDS;
-          const isPrimary = current.primary.includes(band);
-
-          const primary = isPrimary
-            ? current.primary.filter((b) => b !== band)
-            : [...current.primary, band];
-
-          // If adding to primary, remove from hidden
-          const hidden = isPrimary
-            ? current.hidden
-            : current.hidden.filter((b) => b !== band);
-
-          return {
-            preferences: {
-              ...state.preferences,
-              favoredBands: { primary, hidden },
-            },
-          };
-        }),
-
-      toggleHiddenBand: (band) =>
-        set((state) => {
-          const current =
-            state.preferences.favoredBands ?? DEFAULT_FAVORED_BANDS;
-          const isHidden = current.hidden.includes(band);
-
-          const hidden = isHidden
-            ? current.hidden.filter((b) => b !== band)
-            : [...current.hidden, band];
-
-          // If adding to hidden, remove from primary
-          const primary = isHidden
-            ? current.primary
-            : current.primary.filter((b) => b !== band);
-
-          return {
-            preferences: {
-              ...state.preferences,
-              favoredBands: { primary, hidden },
-            },
-          };
-        }),
-
-      updateNotifications: (prefs) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            notifications: {
-              ...(state.preferences.notifications ??
-                DEFAULT_NOTIFICATION_PREFERENCES),
-              ...prefs,
-            },
-          },
-        })),
-
-      // === Spot Clustering ===
-
-      updateSpotClustering: (prefs) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            spotClustering: {
-              ...(state.preferences.spotClustering ?? DEFAULT_SPOT_CLUSTERING),
-              ...prefs,
-            },
-          },
-        })),
-
-      toggleSpotClustering: () =>
-        set((state) => {
-          const current =
-            state.preferences.spotClustering ?? DEFAULT_SPOT_CLUSTERING;
-          return {
-            preferences: {
-              ...state.preferences,
-              spotClustering: {
-                ...current,
-                enabled: !current.enabled,
-              },
-            },
-          };
-        }),
-
-      // === Compass Rose ===
-
-      updateCompassRose: (prefs) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            compassRose: {
-              ...(state.preferences.compassRose ?? DEFAULT_COMPASS_ROSE),
-              ...prefs,
-            },
-          },
-        })),
-
-      toggleCompassRose: () =>
-        set((state) => {
-          const current = state.preferences.compassRose ?? DEFAULT_COMPASS_ROSE;
-          return {
-            preferences: {
-              ...state.preferences,
-              compassRose: {
-                ...current,
-                enabled: !current.enabled,
-              },
-            },
-          };
-        }),
-
-      // === Spot Age ===
-
-      updateSpotAge: (prefs) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            spotAge: {
-              ...(state.preferences.spotAge ?? DEFAULT_SPOT_AGE),
-              ...prefs,
-            },
-          },
-        })),
-
-      toggleSpotAge: () =>
-        set((state) => {
-          const current = state.preferences.spotAge ?? DEFAULT_SPOT_AGE;
-          return {
-            preferences: {
-              ...state.preferences,
-              spotAge: {
-                ...current,
-                enabled: !current.enabled,
-              },
-            },
-          };
-        }),
-
-      // === Band Presets ===
-
-      addBandPreset: (name, bands) => {
-        const trimmedName = name.trim();
-        if (!trimmedName) {
-          return { ok: false, error: "Preset name is required" };
-        }
-        if (bands.length === 0) {
-          return { ok: false, error: "At least one band must be selected" };
-        }
-
-        const id = crypto.randomUUID();
-        let result: { ok: true; id: string } | { ok: false; error: string } = {
-          ok: true,
-          id,
-        };
-
-        set((state) => {
-          const existing = state.preferences.bandPresets ?? [];
-
-          // Check max limit
-          if (existing.length >= MAX_BAND_PRESETS) {
-            result = {
-              ok: false,
-              error: `Maximum of ${MAX_BAND_PRESETS} presets allowed`,
-            };
-            return state;
-          }
-
-          // Check for duplicate name
-          const normalized = trimmedName.toLowerCase();
-          const hasDuplicate = existing.some(
-            (p) => p.name.toLowerCase() === normalized,
-          );
-          if (hasDuplicate) {
-            result = {
-              ok: false,
-              error: `A preset named "${trimmedName}" already exists`,
-            };
-            return state;
-          }
-
-          const newPreset: BandPreset = {
-            id,
-            name: trimmedName,
-            bands: [...bands],
-          };
-
-          return {
-            preferences: {
-              ...state.preferences,
-              bandPresets: [...existing, newPreset],
-            },
-          };
-        });
-
-        return result;
-      },
-
-      removeBandPreset: (id) =>
-        set((state) => {
-          const existing = state.preferences.bandPresets ?? [];
-          return {
-            preferences: {
-              ...state.preferences,
-              bandPresets: existing.filter((p) => p.id !== id),
-            },
-          };
-        }),
-
-      updateBandPreset: (id, updates) => {
-        let result: { ok: true } | { ok: false; error: string } = { ok: true };
-
-        set((state) => {
-          const existing = state.preferences.bandPresets ?? [];
-          const idx = existing.findIndex((p) => p.id === id);
-
-          if (idx === -1) {
-            result = { ok: false, error: "Preset not found" };
-            return state;
-          }
-
-          const nextName =
-            typeof updates.name === "string"
-              ? updates.name.trim()
-              : existing[idx].name;
-
-          if (!nextName) {
-            result = { ok: false, error: "Preset name is required" };
-            return state;
-          }
-
-          // Check for duplicate name (excluding self)
-          const normalized = nextName.toLowerCase();
-          const hasDuplicate = existing.some(
-            (p, i) => i !== idx && p.name.toLowerCase() === normalized,
-          );
-          if (hasDuplicate) {
-            result = {
-              ok: false,
-              error: `A preset named "${nextName}" already exists`,
-            };
-            return state;
-          }
-
-          const nextBands = Array.isArray(updates.bands)
-            ? updates.bands
-            : existing[idx].bands;
-
-          if (nextBands.length === 0) {
-            result = { ok: false, error: "At least one band must be selected" };
-            return state;
-          }
-
-          const nextPresets = existing.map((p, i) =>
-            i === idx ? { ...p, name: nextName, bands: [...nextBands] } : p,
-          );
-
-          return {
-            preferences: {
-              ...state.preferences,
-              bandPresets: nextPresets,
-            },
-          };
-        });
-
-        return result;
-      },
-
-      // === Forecast Display ===
-
-      updateForecastDisplay: (prefs) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            forecastDisplay: {
-              ...(state.preferences.forecastDisplay ??
-                DEFAULT_FORECAST_DISPLAY),
-              ...prefs,
-            },
-          },
-        })),
-
-      // === Accessibility ===
-
-      setColorBlindMode: (mode) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            colorBlindMode: mode,
-          },
-        })),
-
-      setAntennaType: (type) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            antennaType: type,
-          },
-        })),
-
-      setNoiseEnvironment: (env) =>
-        set((state) => ({
-          preferences: {
-            ...state.preferences,
-            noiseEnvironment: env,
-          },
-        })),
-    }),
-    {
-      name: "propulse-user",
-      version: 14,
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        station: state.station,
-        preferences: state.preferences,
-        savedTargets: state.savedTargets,
-        // NOTE: serviceCredentials intentionally NOT persisted for security
-        // Credentials remain in-memory only and must be re-entered each session
-      }),
-      migrate: (persistedState, version) => {
-        const state = persistedState as Partial<
-          Pick<UserStore, "station" | "preferences" | "savedTargets">
-        >;
-
-        const preferencesRaw = (state.preferences || {}) as Partial<
-          Omit<UserPreferences, "station">
-        >;
-
-        const nextPreferences: Omit<UserPreferences, "station"> = {
-          ...defaultPreferences,
-          ...preferencesRaw,
-          radios: Array.isArray(preferencesRaw.radios)
-            ? [...preferencesRaw.radios]
-            : [],
-          customRadios: Array.isArray(preferencesRaw.customRadios)
-            ? [...preferencesRaw.customRadios]
-            : [],
-        };
-
-        if (version <= 6) {
-          // v6 and earlier stored radios as { radioId, ... } (equipment IDs)
-          const incoming = nextPreferences.radios as unknown[];
-          if (incoming.some((r) => isLegacyUserRadio(r))) {
-            const legacy = incoming.filter(isLegacyUserRadio);
-            const uniqueByEquipment = new Map<string, LegacyUserRadio>();
-            for (const r of legacy) {
-              if (!uniqueByEquipment.has(r.radioId)) {
-                uniqueByEquipment.set(r.radioId, r);
-              }
-            }
-            nextPreferences.radios = Array.from(uniqueByEquipment.values()).map(
-              (r) =>
-                createUserRadioInstance({
-                  equipmentId: r.radioId,
-                  nickname: r.nickname,
-                  customPowerLimit: r.customPowerLimit,
-                  addedAt: r.addedAt,
-                }),
-            );
-          } else if (incoming.every(isUserRadio)) {
-            nextPreferences.radios = incoming as UserRadio[];
-          } else {
-            nextPreferences.radios = [];
-          }
-
-          // Normalize activeRadioId from equipment ID -> instance ID if needed
-          const active = preferencesRaw.activeRadioId;
-          if (typeof active === "string" && active.trim()) {
-            const byId = (nextPreferences.radios as UserRadio[]).find(
-              (r) => r.id === active,
-            );
-            if (byId) {
-              nextPreferences.activeRadioId = byId.id;
-            } else {
-              const byEquipment = (nextPreferences.radios as UserRadio[]).find(
-                (r) => r.equipmentId === active,
-              );
-              if (byEquipment) {
-                nextPreferences.activeRadioId = byEquipment.id;
-              } else {
-                const hasEquipment =
-                  (nextPreferences.customRadios ?? []).some(
-                    (r) => r.id === active,
-                  ) || Boolean(getRadioById(active));
-                if (
-                  hasEquipment &&
-                  (nextPreferences.radios as UserRadio[]).length < MAX_RADIOS
-                ) {
-                  const instance = createUserRadioInstance({
-                    equipmentId: active,
-                  });
-                  nextPreferences.radios = [
-                    ...(nextPreferences.radios as UserRadio[]),
-                    instance,
-                  ];
-                  nextPreferences.activeRadioId = instance.id;
-                } else {
-                  nextPreferences.activeRadioId = null;
-                }
-              }
-            }
-          } else {
-            nextPreferences.activeRadioId = null;
-          }
-
-          if (
-            !nextPreferences.activeRadioId &&
-            (nextPreferences.radios as UserRadio[]).length === 1
-          ) {
-            nextPreferences.activeRadioId = (
-              nextPreferences.radios as UserRadio[]
-            )[0].id;
-          }
-        }
-
-        // Hardening: ensure radios array matches the current shape, and normalize activeRadioId.
-        let normalizedRadios = Array.isArray(nextPreferences.radios)
-          ? (nextPreferences.radios as unknown[]).filter(isUserRadio)
-          : [];
-        nextPreferences.radios = normalizedRadios;
-
-        if (
-          typeof nextPreferences.activeRadioId === "string" &&
-          nextPreferences.activeRadioId.trim()
-        ) {
-          const active = nextPreferences.activeRadioId;
-          if (!normalizedRadios.some((r) => r.id === active)) {
-            const byEquipment = normalizedRadios.find(
-              (r) => r.equipmentId === active,
-            );
-            if (byEquipment) {
-              nextPreferences.activeRadioId = byEquipment.id;
-            } else {
-              const hasEquipment =
-                (nextPreferences.customRadios ?? []).some(
-                  (r) => r.id === active,
-                ) || Boolean(getRadioById(active));
-              if (hasEquipment && normalizedRadios.length < MAX_RADIOS) {
-                const instance = createUserRadioInstance({
-                  equipmentId: active,
-                });
-                normalizedRadios = [...normalizedRadios, instance];
-                nextPreferences.radios = normalizedRadios;
-                nextPreferences.activeRadioId = instance.id;
-              } else {
-                nextPreferences.activeRadioId = null;
-              }
-            }
-          }
-        }
-
-        if (!nextPreferences.activeRadioId && normalizedRadios.length === 1) {
-          nextPreferences.activeRadioId = normalizedRadios[0].id;
-        }
-
-        // v8 -> v9: Migrate to multi-location format and structured license
-        let migratedStation = state.station ?? null;
-
-        if (version <= 8 && migratedStation) {
-          // Cast to legacy shape to access old fields
-          const legacyStation = migratedStation as {
-            callsign: string;
-            grid?: string;
-            lat?: number;
-            lon?: number;
-            timezone?: string;
-            name?: string;
-            operatorName?: string;
-            homeLocationId?: string;
-            savedLocations?: OperatingLocation[];
-          };
-
-          // Only migrate if not already in multi-location format
-          if (
-            !legacyStation.homeLocationId ||
-            !Array.isArray(legacyStation.savedLocations)
-          ) {
-            const homeLocationId = crypto.randomUUID();
-            const homeLocation: OperatingLocation = {
-              id: homeLocationId,
-              name: legacyStation.name || "Home",
-              grid: legacyStation.grid || "",
-              lat: legacyStation.lat ?? 0,
-              lon: legacyStation.lon ?? 0,
-              timezone: legacyStation.timezone,
-              type: "home",
-              createdAt: new Date().toISOString(),
-            };
-
-            migratedStation = {
-              callsign: legacyStation.callsign,
-              homeLocationId,
-              activeLocationId: null,
-              savedLocations: [homeLocation],
-              operatorName: legacyStation.operatorName || legacyStation.name,
-              // Legacy compatibility fields
-              grid: homeLocation.grid,
-              lat: homeLocation.lat,
-              lon: homeLocation.lon,
-              timezone: homeLocation.timezone,
-              name: legacyStation.name,
-            };
-          }
-
-          // Migrate licenseClass to structured license object
-          if (nextPreferences.licenseClass && !nextPreferences.license) {
-            nextPreferences.license = {
-              country: "US", // Default to US for existing users
-              class: nextPreferences.licenseClass,
-              expirationDate: null,
-            };
-          }
-        }
-
-        // Initialize new preference fields with defaults if not present
-        if (!nextPreferences.favoredBands) {
-          nextPreferences.favoredBands = DEFAULT_FAVORED_BANDS;
-        }
-        if (!nextPreferences.notifications) {
-          nextPreferences.notifications = DEFAULT_NOTIFICATION_PREFERENCES;
-        }
-        if (!nextPreferences.spotClustering) {
-          nextPreferences.spotClustering = DEFAULT_SPOT_CLUSTERING;
-        }
-        if (!nextPreferences.compassRose) {
-          nextPreferences.compassRose = DEFAULT_COMPASS_ROSE;
-        }
-        if (!nextPreferences.spotAge) {
-          nextPreferences.spotAge = DEFAULT_SPOT_AGE;
-        }
-        if (!nextPreferences.watchAlerts) {
-          nextPreferences.watchAlerts = DEFAULT_WATCH_ALERT_PREFERENCES;
-        }
-        if (!nextPreferences.bandPresets) {
-          nextPreferences.bandPresets = [];
-        }
-
-        // v9 -> v10: Standardize on metric units (remove imperial option)
-        if ((nextPreferences as { units?: string }).units !== "metric") {
-          nextPreferences.units = "metric";
-        }
-
-        // v10 -> v11: Add forecast display preferences
-        if (!nextPreferences.forecastDisplay) {
-          nextPreferences.forecastDisplay = DEFAULT_FORECAST_DISPLAY;
-        }
-
-        // v11 -> v12: Bridge disabled by default
-        if (nextPreferences.bridgeEnabled === undefined) {
-          nextPreferences.bridgeEnabled = false;
-        }
-
-        // v12 -> v13: Add antenna type preference
-        if (!nextPreferences.antennaType) {
-          nextPreferences.antennaType = "isotropic";
-        }
-
-        // v13 -> v14: Add noise environment preference
-        if (!nextPreferences.noiseEnvironment) {
-          nextPreferences.noiseEnvironment = "residential";
-        }
-
-        return {
-          station: migratedStation,
-          preferences: nextPreferences,
-          savedTargets: Array.isArray(state.savedTargets)
-            ? state.savedTargets
-            : [],
-        };
-      },
-    },
-  ),
-);
-
-function resolveEquipmentById(
-  id: string,
-  customRadios: RadioEquipment[] | undefined,
-): RadioEquipment | undefined {
-  const custom = customRadios?.find((r) => r.id === id);
-  return custom ?? getRadioById(id);
-}
-
-/**
- * Hook to get the active radio equipment details
- * Returns null if no radio is active or the radio isn't found
- */
-export function useActiveRadio(): RadioEquipment | null {
-  const activeRadioId = useUserStore(
-    (state) => state.preferences.activeRadioId,
-  );
-  const radios = useUserStore((state) => state.preferences.radios) || [];
-  const customRadios = useUserStore((state) => state.preferences.customRadios);
-  if (!activeRadioId) {
+  toggleFavoredBand: (band) => {
+    useSettingsStore.getState().toggleFavoredBand(band);
+  },
+
+  toggleHiddenBand: (band) => {
+    useSettingsStore.getState().toggleHiddenBand(band);
+  },
+
+  updateNotifications: (prefs) => {
+    useSettingsStore.getState().updateNotifications(prefs);
+  },
+
+  updateSpotClustering: (prefs) => {
+    useSettingsStore.getState().updateSpotClustering(prefs);
+  },
+
+  toggleSpotClustering: () => {
+    useSettingsStore.getState().toggleSpotClustering();
+  },
+
+  updateCompassRose: (prefs) => {
+    useSettingsStore.getState().updateCompassRose(prefs);
+  },
+
+  toggleCompassRose: () => {
+    useSettingsStore.getState().toggleCompassRose();
+  },
+
+  updateSpotAge: (prefs) => {
+    useSettingsStore.getState().updateSpotAge(prefs);
+  },
+
+  toggleSpotAge: () => {
+    useSettingsStore.getState().toggleSpotAge();
+  },
+
+  addBandPreset: (name, bands) => {
+    return useSettingsStore.getState().addBandPreset(name, bands);
+  },
+
+  removeBandPreset: (id) => {
+    useSettingsStore.getState().removeBandPreset(id);
+  },
+
+  updateBandPreset: (id, updates) => {
+    return useSettingsStore.getState().updateBandPreset(id, updates);
+  },
+
+  updateForecastDisplay: (prefs) => {
+    useSettingsStore.getState().updateForecastDisplay(prefs);
+  },
+
+  setColorBlindMode: (mode) => {
+    useSettingsStore.getState().setColorBlindMode(mode);
+  },
+
+  setAntennaType: (type) => {
+    useSettingsStore.getState().setAntennaType(type);
+  },
+
+  setNoiseEnvironment: (env) => {
+    useSettingsStore.getState().setNoiseEnvironment(env);
+  },
+
+  // === Shack actions (forwarded) ===
+
+  addRadio: (radioId, nickname) => {
+    return useShackStore.getState().addRadio(radioId, nickname);
+  },
+
+  addRadioInstance: (radioId, nickname) => {
+    return useShackStore.getState().addRadioInstance(radioId, nickname);
+  },
+
+  updateRadioInstance: (id, updates) => {
+    return useShackStore.getState().updateRadioInstance(id, updates);
+  },
+
+  removeRadio: (radioId) => {
+    useShackStore.getState().removeRadio(radioId);
+  },
+
+  setActiveRadio: (radioId) => {
+    useShackStore.getState().setActiveRadio(radioId);
+  },
+
+  addCustomRadio: (radio) => {
+    return useShackStore.getState().addCustomRadio(radio);
+  },
+
+  updateCustomRadio: (id, updates) => {
+    return useShackStore.getState().updateCustomRadio(id, updates);
+  },
+
+  removeCustomRadio: (id) => {
+    useShackStore.getState().removeCustomRadio(id);
+  },
+
+  getActiveRadio: () => {
+    const shack = useShackStore.getState();
+    if (!shack.activeRadioId) return null;
+    const instance = shack.radios.find((r) => r.id === shack.activeRadioId);
+    if (instance) {
+      const custom = shack.customRadios?.find(
+        (r) => r.id === instance.equipmentId,
+      );
+      if (custom) return custom;
+      return getRadioById(instance.equipmentId) ?? null;
+    }
     return null;
-  }
-  const activeInstance = radios.find((r) => r.id === activeRadioId);
-  if (activeInstance) {
-    return (
-      resolveEquipmentById(activeInstance.equipmentId, customRadios) || null
-    );
-  }
-  // Fallback for any legacy callers/data that still stores equipment IDs.
-  return resolveEquipmentById(activeRadioId, customRadios) || null;
-}
+  },
+}));
 
-/**
- * Hook to get all user's radios with their equipment details
- */
-export function useUserRadios(): Array<{
-  userRadio: UserRadio;
-  equipment: RadioEquipment | undefined;
-}> {
-  const radios = useUserStore((state) => state.preferences.radios) || [];
-  const customRadios = useUserStore((state) => state.preferences.customRadios);
-  return radios.map((userRadio) => ({
-    userRadio,
-    equipment: resolveEquipmentById(userRadio.equipmentId, customRadios),
-  }));
-}
+// ─── Cross-store subscriptions ───────────────────────────────────────────────
+// Keep bridge state in sync when canonical stores change.
+// Uses Zustand's internal setState to avoid routing loops.
 
-/**
- * Hook to get the active user radio instance (metadata + per-radio overrides)
- */
-export function useActiveUserRadio(): UserRadio | null {
-  const activeRadioId = useUserStore(
-    (state) => state.preferences.activeRadioId,
-  );
-  const radios = useUserStore((state) => state.preferences.radios) || [];
-  if (!activeRadioId) {
-    return null;
-  }
-  return radios.find((r) => r.id === activeRadioId) ?? null;
-}
+const rawSet = useUserStore.setState.bind(useUserStore);
 
-/**
- * Hook to get whether user prefers tested (Sherwood) specs over factory specs
- */
-export function usePreferTestedSpecs(): boolean {
-  return useUserStore((state) => state.preferences.preferTestedSpecs ?? true);
-}
+useProfileStore.subscribe(() => {
+  rawSet(computeState());
+});
 
-/**
- * Hook to get spot clustering preferences
- * Returns the current clustering settings with defaults applied
- */
-export function useSpotClusteringPrefs(): SpotClusteringPreferences {
-  return useUserStore(
-    (state) => state.preferences.spotClustering ?? DEFAULT_SPOT_CLUSTERING,
-  );
-}
+useSettingsStore.subscribe(() => {
+  rawSet(computeState());
+});
 
-/**
- * Hook to get compass rose preferences
- * Returns the current compass rose settings with defaults applied
- */
-export function useCompassRosePrefs(): CompassRosePreferences {
-  return useUserStore(
-    (state) => state.preferences.compassRose ?? DEFAULT_COMPASS_ROSE,
-  );
-}
+useShackStore.subscribe(() => {
+  rawSet(computeState());
+});
 
-/**
- * Hook to get spot age visualization preferences
- * Returns the current spot age settings with defaults applied
- */
-export function useSpotAgePrefs(): SpotAgePreferences {
-  return useUserStore((state) => state.preferences.spotAge ?? DEFAULT_SPOT_AGE);
-}
+// ─── Re-exported hooks from canonical stores ─────────────────────────────────
+// Consumers can continue importing these from userStore.
 
-/**
- * Hook to get watch alert preferences
- * Returns the current watch alert settings with defaults applied
- */
-export function useWatchAlertPrefs(): WatchAlertPreferences {
-  return useUserStore(
-    (state) => state.preferences.watchAlerts ?? DEFAULT_WATCH_ALERT_PREFERENCES,
-  );
-}
+export { useActiveRadio, useUserRadios, useActiveUserRadio };
 
-/**
- * Hook to get UI interaction preferences for globe controls
- * Returns the current interaction settings with defaults applied
- */
-export function useUIInteractionPrefs(): UIInteractionPreferences {
-  return useUserStore(
-    (state) => state.preferences.uiInteraction ?? DEFAULT_UI_INTERACTION,
-  );
-}
-
-// Stable empty array to prevent infinite re-render loops
-const EMPTY_BAND_PRESETS: BandPreset[] = [];
-
-/**
- * Hook to get band presets for quick filtering
- * Returns the array of saved band presets (max 5)
- */
-export function useBandPresets(): BandPreset[] {
-  return useUserStore(
-    (state) => state.preferences.bandPresets ?? EMPTY_BAND_PRESETS,
-  );
-}
-
-/**
- * Hook to get forecast display preferences
- * Returns the current forecast display settings with defaults applied
- */
-export function useForecastDisplayPrefs(): ForecastDisplayPreferences {
-  return useUserStore(
-    (state) => state.preferences.forecastDisplay ?? DEFAULT_FORECAST_DISPLAY,
-  );
-}
-
-/**
- * Hook to get color blind mode preference
- * Returns 'none' if not set (default standard colors)
- */
-export function useColorBlindMode(): ColorBlindMode {
-  return useUserStore((state) => state.preferences.colorBlindMode ?? "none");
-}
+export {
+  useSpotClusteringPrefs,
+  useCompassRosePrefs,
+  useSpotAgePrefs,
+  useWatchAlertPrefs,
+  useUIInteractionPrefs,
+  useBandPresets,
+  useForecastDisplayPrefs,
+  useColorBlindMode,
+  usePreferTestedSpecs,
+} from "./settingsStore";

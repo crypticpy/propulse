@@ -1,0 +1,272 @@
+/**
+ * HealthStatusIndicator - Compact system health status indicator
+ *
+ * Shows a colored dot reflecting overall system health with an expandable
+ * dropdown panel listing individual service statuses.
+ *
+ * Collapsed: colored dot + short label ("Systems OK" / "Degraded" / "Error")
+ * Expanded:  dropdown with bridge status, per-service health, and update times
+ */
+
+import { useState, useRef, useEffect } from "react";
+import { useHealthMonitor } from "@/hooks/useHealthMonitor";
+import type { ServiceStatus, ServiceHealth } from "@/hooks/useHealthMonitor";
+import { getTimeAgo } from "@/lib/utils/time";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function dotColorClass(status: ServiceStatus): string {
+  switch (status) {
+    case "healthy":
+      return "bg-signal-green";
+    case "degraded":
+      return "bg-caution-amber";
+    case "error":
+      return "bg-alert-red";
+    case "loading":
+      return "bg-gray-500 animate-pulse";
+    case "idle":
+      return "bg-gray-600";
+  }
+}
+
+function overallDotClass(overall: "green" | "yellow" | "red"): string {
+  switch (overall) {
+    case "green":
+      return "bg-signal-green";
+    case "yellow":
+      return "bg-caution-amber";
+    case "red":
+      return "bg-alert-red";
+  }
+}
+
+function overallLabel(overall: "green" | "yellow" | "red"): string {
+  switch (overall) {
+    case "green":
+      return "Systems OK";
+    case "yellow":
+      return "Degraded";
+    case "red":
+      return "Error";
+  }
+}
+
+function overallTextClass(overall: "green" | "yellow" | "red"): string {
+  switch (overall) {
+    case "green":
+      return "text-signal-green";
+    case "yellow":
+      return "text-caution-amber";
+    case "red":
+      return "text-alert-red";
+  }
+}
+
+function bridgeDotClass(state: string): string {
+  switch (state) {
+    case "connected":
+      return "bg-signal-green";
+    case "connecting":
+      return "bg-plasma-orange animate-pulse";
+    case "disconnected":
+      return "bg-gray-500";
+    case "error":
+      return "bg-alert-red";
+    default:
+      return "bg-gray-600";
+  }
+}
+
+function bridgeLabel(state: string): string {
+  switch (state) {
+    case "connected":
+      return "Connected";
+    case "connecting":
+      return "Connecting...";
+    case "disconnected":
+      return "Disconnected";
+    case "error":
+      return "Error";
+    default:
+      return "Unknown";
+  }
+}
+
+function serviceDetail(svc: ServiceHealth): string {
+  if (svc.status === "loading") return "Loading...";
+  if (svc.status === "idle") return "Not started";
+  if (svc.status === "error") return svc.errorMessage ?? "Error";
+  if (svc.lastUpdated != null) {
+    return `Updated ${getTimeAgo(new Date(svc.lastUpdated))}`;
+  }
+  return "No data";
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function HealthStatusIndicator(): JSX.Element {
+  const health = useHealthMonitor();
+  const [expanded, setExpanded] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!expanded) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        panelRef.current &&
+        triggerRef.current &&
+        !panelRef.current.contains(event.target as Node) &&
+        !triggerRef.current.contains(event.target as Node)
+      ) {
+        setExpanded(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [expanded]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!expanded) return;
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setExpanded(false);
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [expanded]);
+
+  const hasErrors = health.overall === "red";
+
+  return (
+    <div className="relative inline-flex">
+      {/* Collapsed trigger */}
+      <button
+        ref={triggerRef}
+        onClick={() => setExpanded((prev) => !prev)}
+        className="inline-flex items-center gap-1.5 px-2 py-1 rounded
+                   hover:bg-white/5 transition-colors cursor-pointer
+                   focus:outline-none focus:ring-1 focus:ring-white/20"
+        aria-label={`System health: ${overallLabel(health.overall)}`}
+        aria-expanded={expanded}
+        type="button"
+      >
+        {/* Dot */}
+        <span
+          className={`
+            w-2 h-2 rounded-full shrink-0
+            ${overallDotClass(health.overall)}
+            ${hasErrors ? "animate-pulse" : ""}
+            ${health.overall === "green" ? "shadow-[0_0_6px_theme(colors.signal-green)]" : ""}
+          `}
+          aria-hidden="true"
+        />
+        <span
+          className={`text-xs font-medium ${overallTextClass(health.overall)}`}
+        >
+          {overallLabel(health.overall)}
+        </span>
+      </button>
+
+      {/* Expanded dropdown */}
+      {expanded && (
+        <div
+          ref={panelRef}
+          className="absolute top-full right-0 mt-1 z-50 w-[280px]
+                     bg-void-black/95 backdrop-blur-md
+                     border border-white/10 rounded-xl shadow-2xl
+                     animate-in fade-in slide-in-from-top-1"
+          role="dialog"
+          aria-label="System health details"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-white/10">
+            <span className="text-xs font-semibold text-gray-200">
+              System Health
+            </span>
+            <button
+              onClick={() => setExpanded(false)}
+              className="p-0.5 rounded hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
+              aria-label="Close health panel"
+              type="button"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-3 py-2 space-y-3">
+            {/* Bridge section */}
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Bridge
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${bridgeDotClass(health.bridgeState)}`}
+                  aria-hidden="true"
+                />
+                <span className="text-xs text-gray-300">
+                  Bridge: {bridgeLabel(health.bridgeState)}
+                </span>
+              </div>
+            </div>
+
+            {/* API Services section */}
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                API Services
+              </span>
+              <div className="mt-1 space-y-1.5">
+                {health.services.map((svc) => (
+                  <div key={svc.name} className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${dotColorClass(svc.status)}`}
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs text-gray-300 min-w-0 truncate flex-1">
+                      {svc.name}
+                    </span>
+                    <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                      {serviceDetail(svc)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-3 py-2 border-t border-white/10">
+            <span className="text-[10px] text-gray-600">
+              Refreshes every 30s
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default HealthStatusIndicator;

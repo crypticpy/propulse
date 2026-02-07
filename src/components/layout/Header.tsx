@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { formatUTC } from "@/lib/utils/time";
 import { useUserStore } from "@/stores/userStore";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import {
   useActiveLocation,
   useIsTemporaryActive,
@@ -282,6 +283,7 @@ export function Header({
                     </span>
                   </div>
                 )}
+                <HealthStatusIndicator />
                 <button
                   onClick={() => setShowSettings(true)}
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors"

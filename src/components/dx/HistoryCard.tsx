@@ -7,6 +7,7 @@
  */
 
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card";
 import { useLogbook } from "@/hooks/useLogbook";
 import type { LogEntry } from "@/lib/db/types";
@@ -169,23 +170,39 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
 
   // Empty state - no history for this date
   if (!displayText) {
+    const hasLogbook = entries.length > 0;
     return (
       <Card
         className={`p-3 relative ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
-        onClick={onClick}
-        role={onClick ? "button" : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        onKeyDown={handleKeyDown}
+        onClick={hasLogbook ? onClick : undefined}
+        role={hasLogbook && onClick ? "button" : undefined}
+        tabIndex={hasLogbook && onClick ? 0 : undefined}
+        onKeyDown={hasLogbook ? handleKeyDown : undefined}
       >
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        <div className="flex items-start gap-2">
+          <CalendarIcon className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
               This Day in History
             </span>
-            <p className="text-xs text-gray-400 mt-0.5">
-              No DX logged on {formattedDate} in previous years
-            </p>
+            {hasLogbook ? (
+              <p className="text-xs text-gray-400 mt-0.5">
+                No DX logged on {formattedDate} in previous years
+              </p>
+            ) : (
+              <div className="mt-1">
+                <p className="text-xs text-gray-400">
+                  Import your logbook to see past contacts on this date.
+                </p>
+                <Link
+                  to="/log"
+                  className="inline-block mt-1.5 text-[11px] font-medium text-plasma-orange hover:text-plasma-orange/80 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Go to Logbook &rarr;
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </Card>

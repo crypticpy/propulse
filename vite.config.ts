@@ -28,6 +28,9 @@ export default defineConfig({
           },
         ],
       },
+      devOptions: {
+        enabled: true,
+      },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,woff2}"],
         globIgnores: ["**/textures/**"],

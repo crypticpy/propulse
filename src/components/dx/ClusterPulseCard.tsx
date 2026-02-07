@@ -203,46 +203,54 @@ export function ClusterPulseCard({
           <span className="text-sm text-gray-400">Waiting for spots...</span>
         </div>
       ) : (
-        <div className="flex items-center justify-evenly flex-1 py-2">
-          {/* Rate */}
-          <div className="flex flex-col items-center">
-            <span
-              className={`text-4xl font-bold font-mono leading-none ${getRateColorClass(metrics.rate)}`}
-            >
-              {metrics.rate.toFixed(1)}
-            </span>
-            <span className="text-[11px] text-gray-400 uppercase mt-1">
-              /min
-            </span>
+        <>
+          <div className="flex items-center justify-evenly flex-1 py-2">
+            {/* Rate */}
+            <div className="flex flex-col items-center">
+              <span
+                className={`text-4xl font-bold font-mono leading-none ${getRateColorClass(metrics.rate)}`}
+              >
+                {metrics.rate.toFixed(1)}
+              </span>
+              <span className="text-[11px] text-gray-400 uppercase mt-1">
+                /min
+              </span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-10 bg-white/10" />
+
+            {/* Age (median freshness) */}
+            <div className="flex flex-col items-center">
+              <span className="text-4xl font-bold font-mono text-cosmic-cyan leading-none">
+                {metrics.medianAge}
+                <span className="text-lg">m</span>
+              </span>
+              <span className="text-[11px] text-gray-400 uppercase mt-1">
+                Age
+              </span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-10 bg-white/10" />
+
+            {/* Peak band */}
+            <div className="flex flex-col items-center">
+              <span className="text-4xl font-bold font-mono text-plasma-orange leading-none">
+                {metrics.peakBand}
+              </span>
+              <span className="text-[11px] text-gray-400 uppercase mt-1">
+                Peak
+              </span>
+            </div>
           </div>
 
-          {/* Divider */}
-          <div className="w-px h-10 bg-white/10" />
-
-          {/* Age (median freshness) */}
-          <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold font-mono text-cosmic-cyan leading-none">
-              {metrics.medianAge}
-              <span className="text-lg">m</span>
-            </span>
-            <span className="text-[11px] text-gray-400 uppercase mt-1">
-              Age
-            </span>
+          {/* Explainer */}
+          <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-gray-500 leading-relaxed">
+            Spot rate, median freshness & most active band from the DX cluster.
+            Data via HamQTH.
           </div>
-
-          {/* Divider */}
-          <div className="w-px h-10 bg-white/10" />
-
-          {/* Peak band */}
-          <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold font-mono text-plasma-orange leading-none">
-              {metrics.peakBand}
-            </span>
-            <span className="text-[11px] text-gray-400 uppercase mt-1">
-              Peak
-            </span>
-          </div>
-        </div>
+        </>
       )}
     </Card>
   );

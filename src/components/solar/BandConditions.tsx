@@ -6,6 +6,8 @@ import { BandRow } from "./BandRow";
 import { calculateBandConditions } from "@/lib/utils/bands";
 import { useDXStore } from "@/stores/dxStore";
 
+const NIGHT_ONLY_BANDS = new Set(["160m"]);
+
 export interface BandConditionsProps {
   /** Current K-index value (0-9), null if unavailable */
   kIndex: number | null;
@@ -34,6 +36,23 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
   loading = false,
   onExpand,
 }) => {
+  // Hooks must be called before any early returns (Rules of Hooks)
+  const spots = useDXStore((state) => state.spots);
+  const bandSpotCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const thirtyMinAgo = Date.now() - 30 * 60_000;
+    for (const spot of spots) {
+      const spotMs =
+        spot.time instanceof Date
+          ? spot.time.getTime()
+          : new Date(spot.time).getTime();
+      if (spotMs >= thirtyMinAgo && spot.band) {
+        counts[spot.band] = (counts[spot.band] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [spots]);
+
   if (kIndex === null || solarFlux === null) {
     return (
       <Card className="h-full">
@@ -73,25 +92,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
 
   const bands = calculateBandConditions(kIndex, solarFlux);
 
-  // Night-only bands (160m only truly night-only based on bands.ts)
-  const nightOnlyBands = new Set(["160m"]);
-
-  // Compute DX cluster spot counts per band (last 30 min)
-  const spots = useDXStore((state) => state.spots);
-  const bandSpotCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    const thirtyMinAgo = Date.now() - 30 * 60_000;
-    for (const spot of spots) {
-      const spotMs =
-        spot.time instanceof Date
-          ? spot.time.getTime()
-          : new Date(spot.time).getTime();
-      if (spotMs >= thirtyMinAgo && spot.band) {
-        counts[spot.band] = (counts[spot.band] || 0) + 1;
-      }
-    }
-    return counts;
-  }, [spots]);
+  const nightOnlyBands = NIGHT_ONLY_BANDS;
 
   return (
     <Card className="h-full">

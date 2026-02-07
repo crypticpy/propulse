@@ -9,16 +9,16 @@
 
 | Source Document                    | Delivered | Partial | Not Started | Deferred | Total   |
 | ---------------------------------- | --------- | ------- | ----------- | -------- | ------- |
-| Implementation Plan (37 features)  | 32        | 3       | 2           | 0        | 37      |
-| 2D Map Feature Parity PRD          | 37        | 1       | 4           | 1        | 43      |
+| Implementation Plan (37 features)  | 33        | 2       | 2           | 0        | 37      |
+| 2D Map Feature Parity PRD          | 39        | 1       | 2           | 1        | 43      |
 | Contest PropSphere Integration PRD | 31        | 5       | 1           | 0        | 37      |
 | Mobile Design Plan                 | 12        | 0       | 7           | 0        | 19      |
-| UI Review Recommendations          | 8         | 0       | 2           | 0        | 10      |
-| QoL PRD (20 items)                 | 13        | 2       | 5           | 0        | 20      |
-| PWA Package                        | 0         | 0       | 7           | 0        | 7       |
-| **Grand Total**                    | **133**   | **11**  | **28**      | **1**    | **173** |
+| UI Review Recommendations          | 9         | 0       | 1           | 0        | 10      |
+| QoL PRD (20 items)                 | 14        | 1       | 5           | 0        | 20      |
+| PWA Package                        | 5         | 1       | 1           | 0        | 7       |
+| **Grand Total**                    | **143**   | **10**  | **19**      | **1**    | **173** |
 
-**Delivery rate: 77% delivered, 6% partial, 16% not started** _(was 76/6/17 before Tier 2 #9-#10)_
+**Delivery rate: 83% delivered, 6% partial, 11% not started** _(was 77/6/16 before Tier 3)_
 
 ---
 
@@ -26,7 +26,7 @@
 
 _Source: `docs/plans/IMPLEMENTATION-PLAN.md`_
 
-### Delivered (30)
+### Delivered (33)
 
 | ID    | Feature                          | Notes                                              |
 | ----- | -------------------------------- | -------------------------------------------------- |
@@ -61,22 +61,19 @@ _Source: `docs/plans/IMPLEMENTATION-PLAN.md`_
 | QoL12 | Error boundaries                 | ErrorBoundary components                           |
 | QoL13 | IndexedDB persistence            | Zustand persist middleware with IDB                |
 
-### Partial (5)
+### Partial (2)
 
-| ID       | Feature                     | Status                                    | Gap                                                         |
-| -------- | --------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| C9       | Noise/propagation model     | Model exists in `calculateBandConditions` | No user-facing settings UI for noise floor parameters       |
-| ~~C10~~  | ~~Antenna pattern library~~ | **DONE** (2026-02-06)                     | Wired into `getEnhancedBandConditions()` + Settings picker  |
-| C18      | Bearing/distance overlay    | Available via spot clicks                 | No continuous hover-based bearing display                   |
-| ~~QoL1~~ | ~~Keyboard shortcuts~~      | **DONE** (2026-02-06)                     | Cmd+K palette, `?` help overlay, global shortcuts           |
-| QoL5     | Smart notifications         | Alert system with toasts                  | Limited — no browser push notifications, no priority levels |
+| ID  | Feature                  | Status                                    | Gap                                                   |
+| --- | ------------------------ | ----------------------------------------- | ----------------------------------------------------- |
+| C9  | Noise/propagation model  | Model exists in `calculateBandConditions` | No user-facing settings UI for noise floor parameters |
+| C18 | Bearing/distance overlay | Available via spot clicks                 | No continuous hover-based bearing display             |
 
 ### Not Started (2)
 
-| ID    | Feature               | Notes                                              |
-| ----- | --------------------- | -------------------------------------------------- |
-| QoL10 | Confidence intervals  | Propagation predictions show no uncertainty ranges |
-| C24   | Multi-station support | Single station only; no station switching          |
+| ID   | Feature               | Notes                                     |
+| ---- | --------------------- | ----------------------------------------- |
+| QoL5 | Smart notifications   | No browser push notifications             |
+| C24  | Multi-station support | Single station only; no station switching |
 
 ---
 
@@ -94,16 +91,18 @@ Base map, tile layers, terminator overlay, gray line, spot markers, great-circle
 | ------------------ | -------------------------- | ------------------------------------------ |
 | Multi-select spots | Can click individual spots | No lasso/box selection for bulk operations |
 
-### Not Started (5)
+### Not Started (2)
 
-| Feature               | Priority | Notes                                                 |
-| --------------------- | -------- | ----------------------------------------------------- |
-| Auto-pan to new spots | Medium   | Map doesn't follow incoming DX spots                  |
-| Touch gesture support | Medium   | Pinch-zoom, two-finger rotate not implemented         |
-| WebGL tile rendering  | Low      | Still using Canvas renderer; WebGL would improve perf |
-| Offline tile caching  | Low      | Tiles require network; no Service Worker cache        |
+| Feature              | Priority | Notes                                                 |
+| -------------------- | -------- | ----------------------------------------------------- |
+| WebGL tile rendering | Low      | Still using Canvas renderer; WebGL would improve perf |
+| Offline tile caching | Low      | Tiles require network; no Service Worker cache        |
 
-**Recently Completed**: Award overlay (WAS) — 2026-02-06 — drawWASOverlay with state fills in FlatMapView
+**Recently Completed**:
+
+- Award overlay (WAS) — 2026-02-06 — drawWASOverlay with state fills in FlatMapView
+- Auto-pan to spots — 2026-02-06 — useAutoPanToSpots with Follow toggle in map controls
+- Touch gestures — 2026-02-06 — useFlatMapGestures with pinch-zoom + drag-to-pan
 
 ### Deferred (1)
 
@@ -185,7 +184,7 @@ _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 
 _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
-### Delivered (8) — updated 2026-02-06
+### Delivered (9) — updated 2026-02-06
 
 | Feature                        | Notes                                                    |
 | ------------------------------ | -------------------------------------------------------- |
@@ -197,13 +196,13 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 | Quick-action command palette   | Cmd+K CommandPalette with navigation + actions           |
 | Health/status indicators       | HealthStatusIndicator with per-service health monitoring |
 | Interactive tooltips/help      | InfoTip component + centralized registry (40+ defs)      |
+| Theme customization            | Accent color CSS variables, 8 presets in Settings        |
 
-### Not Started (2)
+### Not Started (1)
 
-| Feature                        | Priority | Notes                               |
-| ------------------------------ | -------- | ----------------------------------- |
-| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout      |
-| Guided first-run experience    | Low      | Onboarding tour exists but is basic |
+| Feature                        | Priority | Notes                          |
+| ------------------------------ | -------- | ------------------------------ |
+| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout |
 
 ### Recently Completed
 
@@ -217,16 +216,15 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
 _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 
-### Delivered (13)
+### Delivered (14)
 
-Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading, data refresh indicators.
+Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading, data refresh indicators, confidence intervals on predictions.
 
-### Partial (2)
+### Partial (1)
 
-| Feature             | Status                           | Gap                                             |
-| ------------------- | -------------------------------- | ----------------------------------------------- |
-| Keyboard shortcuts  | Contest-specific shortcuts exist | No app-wide shortcut system with help overlay   |
-| Smart notifications | Toast system + alert triggers    | No browser push notifications or priority queue |
+| Feature             | Status                        | Gap                                             |
+| ------------------- | ----------------------------- | ----------------------------------------------- |
+| Smart notifications | Toast system + alert triggers | No browser push notifications or priority queue |
 
 ### Not Started (5)
 
@@ -244,17 +242,27 @@ Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, sp
 
 _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 
-All 7 items are **Not Started** (deferred as a package):
+### Delivered (5)
 
-| Feature                | Priority | Notes                                |
-| ---------------------- | -------- | ------------------------------------ |
-| Service Worker         | Medium   | No offline support                   |
-| Web App Manifest       | Medium   | No `manifest.json` for install       |
-| Install prompt         | Low      | No A2HS banner                       |
-| Offline data caching   | Medium   | No IndexedDB cache for API responses |
-| Background sync        | Low      | No background data refresh           |
-| Push notifications     | Medium   | No Web Push API integration          |
-| App shell architecture | Medium   | No shell caching for instant load    |
+| Feature                | Notes                                                       |
+| ---------------------- | ----------------------------------------------------------- |
+| Service Worker         | vite-plugin-pwa with workbox, 36 precache entries           |
+| Web App Manifest       | manifest.webmanifest with app metadata + SVG icon           |
+| Offline fallback       | offline.html page shown when SW can't fetch                 |
+| App shell architecture | Precached shell with runtime caching for API (NetworkFirst) |
+| Update prompt          | PWAUpdatePrompt toast with "Reload" / "Dismiss" buttons     |
+
+### Partial (1)
+
+| Feature              | Status                          | Gap                                   |
+| -------------------- | ------------------------------- | ------------------------------------- |
+| Offline data caching | SW caches API with NetworkFirst | No explicit IndexedDB API cache layer |
+
+### Not Started (1)
+
+| Feature            | Priority | Notes                       |
+| ------------------ | -------- | --------------------------- |
+| Push notifications | Medium   | No Web Push API integration |
 
 ---
 
@@ -284,19 +292,19 @@ All 7 items are **Not Started** (deferred as a package):
 
 10. ~~**Sync/Retry Queue**~~ DONE (2026-02-06) — syncQueueStore with localStorage persistence, useSyncQueue background processor (10s polling, exponential backoff), SyncStatusIndicator pill+dropdown in Header.
 
-### Tier 3: Nice-to-Have
+### Tier 3: Nice-to-Have — ALL COMPLETE
 
-11. **PWA Package** — Service Worker, manifest, offline support, push notifications. Good for mobile users but requires significant infrastructure.
+11. ~~**PWA Package**~~ DONE (2026-02-06) — vite-plugin-pwa with workbox runtime caching, manifest, SW registration, PWAUpdatePrompt toast, offline.html fallback.
 
-12. **Touch Gestures** — Pinch-zoom, two-finger rotate on maps.
+12. ~~**Touch Gestures**~~ DONE (2026-02-06) — useFlatMapGestures hook with PointerEvent state machine for pinch-zoom + drag-to-pan, isGesturing ref wired to click handler to suppress conflicts.
 
-13. **Auto-Pan to Spots** — Map follows incoming DX spots.
+13. ~~**Auto-Pan to Spots**~~ DONE (2026-02-06) — useAutoPanToSpots hook with seen-ID tracking, 8s cooldown, setCenterLocation animation, Follow toggle in map controls.
 
-14. **Confidence Intervals (QoL10)** — Show uncertainty ranges on propagation predictions.
+14. ~~**Confidence Intervals (QoL10)**~~ DONE (2026-02-06) — calculateConfidenceInterval with Kp/SFI/MUF-ratio factors, SNR ranges, ConfidenceBar in BandConditionsPanel, ranges in BandPlanner.
 
-15. **Contest Rate Sheet** — Hourly/10-min QSO rate breakdowns.
+15. ~~**Contest Rate Sheet**~~ DONE (2026-02-06) — ContestRateSheet with hourly/10-min toggle, band-by-hour heatmap matrix, inline bar charts, best-rate highlighting.
 
-16. **Theme Customization** — User-selectable color themes beyond dark mode.
+16. ~~**Theme Customization**~~ DONE (2026-02-06) — Accent color CSS variables for plasma-orange/signal-green, 8 accent presets in Settings > Appearance, auto-propagation to all Tailwind classes.
 
 ---
 

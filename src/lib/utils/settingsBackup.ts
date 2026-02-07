@@ -20,6 +20,12 @@ import { usePinStore } from "@/stores/pinStore";
 import { useAlertsStore } from "@/stores/alertsStore";
 import type { MapPin } from "@/types/pin";
 import type { UserStation, UserPreferences } from "@/types/user";
+import type {
+  UserAntenna,
+  UserFeedline,
+  UserAccessory,
+  StationPreset,
+} from "@/types/shack";
 
 /** Current backup format version */
 const CURRENT_VERSION = 1;
@@ -59,6 +65,14 @@ export interface SettingsBackup {
   pins: MapPin[];
   /** Dismissed alert IDs */
   dismissedAlertIds: string[];
+  /** Shack equipment data */
+  shackEquipment?: {
+    antennas: UserAntenna[];
+    feedlines: UserFeedline[];
+    accessories: UserAccessory[];
+    stationPresets: StationPreset[];
+    activePresetId: string | null;
+  };
 }
 
 /**
@@ -151,6 +165,13 @@ export function exportSettings(): SettingsBackup {
     watches: watchState.watches,
     pins: pinState.pins,
     dismissedAlertIds: alertsState.dismissedAlertIds,
+    shackEquipment: {
+      antennas: shack.antennas,
+      feedlines: shack.feedlines,
+      accessories: shack.accessories,
+      stationPresets: shack.stationPresets,
+      activePresetId: shack.activePresetId,
+    },
   };
 }
 
@@ -338,6 +359,17 @@ export function importSettings(backup: SettingsBackup): ImportResult {
         }
       }
 
+      // Import shack equipment
+      if (backup.shackEquipment) {
+        useShackStore.setState({
+          antennas: backup.shackEquipment.antennas ?? [],
+          feedlines: backup.shackEquipment.feedlines ?? [],
+          accessories: backup.shackEquipment.accessories ?? [],
+          stationPresets: backup.shackEquipment.stationPresets ?? [],
+          activePresetId: backup.shackEquipment.activePresetId ?? null,
+        });
+      }
+
       if (backup.userPreferences.savedTargets) {
         // Clear existing targets and add imported ones
         profileStore.clearTargets();
@@ -486,6 +518,20 @@ export function getBackupSummary(backup: SettingsBackup): string {
   }
   if (backup.mapSettings?.recentTargets?.length) {
     counts.push(`${backup.mapSettings.recentTargets.length} recent targets`);
+  }
+  if (backup.shackEquipment?.antennas?.length) {
+    counts.push(`${backup.shackEquipment.antennas.length} antennas`);
+  }
+  if (backup.shackEquipment?.feedlines?.length) {
+    counts.push(`${backup.shackEquipment.feedlines.length} feedlines`);
+  }
+  if (backup.shackEquipment?.accessories?.length) {
+    counts.push(`${backup.shackEquipment.accessories.length} accessories`);
+  }
+  if (backup.shackEquipment?.stationPresets?.length) {
+    counts.push(
+      `${backup.shackEquipment.stationPresets.length} station presets`,
+    );
   }
 
   if (counts.length > 0) {

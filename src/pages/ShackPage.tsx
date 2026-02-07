@@ -13,6 +13,8 @@ import { RadioManager } from "@/components/settings/RadioManager";
 import { AntennaManager } from "@/components/shack/AntennaManager";
 import { FeedlineManager } from "@/components/shack/FeedlineManager";
 import { AccessoryManager } from "@/components/shack/AccessoryManager";
+import { PresetBuilder } from "@/components/shack/PresetBuilder";
+import { PerformanceDashboard } from "@/components/shack/PerformanceDashboard";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
@@ -142,16 +144,6 @@ function OverviewTab() {
   );
 }
 
-// ─── Placeholder tabs ───────────────────────────────────────────────────────
-
-function PlaceholderTab({ message }: { message: string }) {
-  return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6 text-center">
-      <p className="text-sm text-gray-400">{message}</p>
-    </div>
-  );
-}
-
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function ShackPage() {
@@ -213,11 +205,15 @@ export default function ShackPage() {
         )}
 
         {activeTab === "presets" && (
-          <PlaceholderTab message="Station presets coming soon" />
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+            <PresetBuilder />
+          </div>
         )}
 
         {activeTab === "performance" && (
-          <PlaceholderTab message="Performance dashboard coming soon" />
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+            <PerformanceDashboard />
+          </div>
         )}
       </div>
     );
@@ -277,11 +273,15 @@ export default function ShackPage() {
       )}
 
       {activeTab === "presets" && (
-        <PlaceholderTab message="Station presets coming soon" />
+        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+          <PresetBuilder />
+        </div>
       )}
 
       {activeTab === "performance" && (
-        <PlaceholderTab message="Performance dashboard coming soon" />
+        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+          <PerformanceDashboard />
+        </div>
       )}
     </div>
   );

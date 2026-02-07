@@ -9,6 +9,7 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -67,9 +68,7 @@ export function OptimalBandsPanel({
 }: OptimalBandsPanelProps) {
   const { target } = useMapStore();
   const { station } = useUserStore();
-  const antennaType = useUserStore(
-    (s) => s.preferences.antennaType ?? "isotropic",
-  );
+  const { antennaType } = useActiveStationGain();
   const [isExpanded, setIsExpanded] = useState(true);
 
   // Draggable position state - default to top-left

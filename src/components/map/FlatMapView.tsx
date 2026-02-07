@@ -8,6 +8,7 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
   getPathPoints,
@@ -2153,9 +2154,7 @@ export function FlatMapView({
   const activePresetId = useMapStore((s) => s.activePresetId);
   const regionPresets = useMapStore((s) => s.regionPresets);
   const { station, preferences } = useUserStore();
-  const antennaType = useUserStore(
-    (s) => s.preferences.antennaType ?? "isotropic",
-  );
+  const { antennaType } = useActiveStationGain();
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
   const kIndexQuery = useKIndex();

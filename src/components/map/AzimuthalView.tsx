@@ -12,6 +12,7 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getDistance } from "@/lib/utils/path";
 import {
@@ -890,9 +891,7 @@ export function AzimuthalView({
   const { layers, target, mapStyle, labelOptions, overlayLayers } =
     useMapStore();
   const { station } = useUserStore();
-  const antennaType = useUserStore(
-    (s) => s.preferences.antennaType ?? "isotropic",
-  );
+  const { antennaType } = useActiveStationGain();
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
   const kIndexQuery = useKIndex();

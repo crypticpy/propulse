@@ -12,6 +12,7 @@ import { useMemo, useState, useRef, useEffect, useCallback, memo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useDXStore } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
@@ -243,9 +244,7 @@ export function BandConditionsPanel({
   const target = useMapStore((s) => s.target);
   const showCorrelation = useMapStore((s) => s.showCorrelation);
   const station = useUserStore((s) => s.station);
-  const antennaType = useUserStore(
-    (s) => s.preferences.antennaType ?? "isotropic",
-  );
+  const { antennaType } = useActiveStationGain();
   const syncMode = useDXStore((s) => s.syncMode);
   const syncedBand = useDXStore((s) => s.syncedBand);
   const uiPrefs = useUIInteractionPrefs();

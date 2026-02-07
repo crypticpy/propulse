@@ -59,6 +59,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { gridToLatLon } from "@/lib/utils/grid";
 import { useUserStore, useCompassRosePrefs } from "@/stores/userStore";
+import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { usePinStore } from "@/stores/pinStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
@@ -669,9 +670,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     setCenterLocation,
   } = useMapStore();
   const { station } = useUserStore();
-  const antennaType = useUserStore(
-    (s) => s.preferences.antennaType ?? "isotropic",
-  );
+  const { antennaType } = useActiveStationGain();
   const { addPin } = usePinStore();
   const { updateFilter } = useDXStore();
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area

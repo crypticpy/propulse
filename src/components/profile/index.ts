@@ -4,3 +4,4 @@ export { SocialLinksSection } from "./SocialLinksSection";
 export { AwardProgressRing } from "./AwardProgressRing";
 export { AwardsTab } from "./AwardsTab";
 export { StatsTab } from "./StatsTab";
+export { QRCodeModal } from "./QRCodeModal";

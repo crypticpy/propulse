@@ -1,0 +1,353 @@
+/**
+ * Zustand store for user profile, station, and saved targets
+ * Decomposed from the monolithic userStore.ts
+ * Persists to localStorage with key 'propulse-profile'
+ */
+
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type {
+  UserStation,
+  OperatingLocation,
+  LocationType,
+  LicenseInfo,
+  LicenseClass,
+} from "@/types/user";
+
+// Lazy reference to settingsStore for cross-store side effect (avoids circular imports)
+let _settingsModule: typeof import("./settingsStore") | null = null;
+import("./settingsStore").then((m) => {
+  _settingsModule = m;
+});
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+/**
+ * Saved target location for quick access
+ */
+export interface SavedTarget {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  grid?: string;
+  createdAt: string;
+}
+
+/**
+ * Credentials for QSL confirmation services
+ */
+export interface ServiceCredentials {
+  eqsl?: { username: string; password: string };
+  clublog?: { email: string; password: string; callsign: string };
+  qrz?: { apiKey: string };
+  lotw?: { enabled: boolean };
+}
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+/** Maximum number of saved targets allowed */
+const MAX_SAVED_TARGETS = 10;
+
+// ─── Store interface ─────────────────────────────────────────────────────────
+
+interface ProfileStore {
+  station: UserStation | null;
+  savedTargets: SavedTarget[];
+  serviceCredentials: ServiceCredentials;
+  license: LicenseInfo | undefined;
+
+  setStation: (station: UserStation | null) => void;
+
+  // Location management
+  addLocation: (
+    location: Omit<OperatingLocation, "id" | "createdAt">,
+  ) => string;
+  updateLocation: (
+    id: string,
+    updates: Partial<Omit<OperatingLocation, "id" | "createdAt">>,
+  ) => void;
+  removeLocation: (id: string) => void;
+  setActiveLocation: (id: string | null) => void;
+  setTemporaryLocation: (
+    grid: string,
+    lat: number,
+    lon: number,
+    name?: string,
+    type?: LocationType,
+  ) => string;
+  clearTemporaryLocation: () => void;
+
+  // Targets
+  addTarget: (target: Omit<SavedTarget, "id" | "createdAt">) => void;
+  removeTarget: (id: string) => void;
+  clearTargets: () => void;
+
+  // Credentials
+  setServiceCredentials: (creds: Partial<ServiceCredentials>) => void;
+
+  // License
+  setLicense: (license: LicenseInfo | null) => void;
+}
+
+// ─── Store ───────────────────────────────────────────────────────────────────
+
+export const useProfileStore = create<ProfileStore>()(
+  persist(
+    (set) => ({
+      station: null,
+      savedTargets: [],
+      serviceCredentials: {},
+      license: undefined,
+
+      setStation: (station) => set({ station }),
+
+      // === Location Management ===
+
+      addLocation: (location) => {
+        const id = crypto.randomUUID();
+        const newLocation: OperatingLocation = {
+          ...location,
+          id,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => {
+          if (!state.station) return state;
+
+          const savedLocations = [...state.station.savedLocations, newLocation];
+
+          return {
+            station: { ...state.station, savedLocations },
+          };
+        });
+
+        return id;
+      },
+
+      updateLocation: (id, updates) =>
+        set((state) => {
+          if (!state.station) return state;
+
+          const savedLocations = state.station.savedLocations.map((loc) =>
+            loc.id === id ? { ...loc, ...updates } : loc,
+          );
+
+          const activeId =
+            state.station.activeLocationId ?? state.station.homeLocationId;
+          const updatedLocation = savedLocations.find((loc) => loc.id === id);
+
+          if (updatedLocation && id === activeId) {
+            return {
+              station: {
+                ...state.station,
+                savedLocations,
+                grid: updatedLocation.grid,
+                lat: updatedLocation.lat,
+                lon: updatedLocation.lon,
+                timezone: updatedLocation.timezone,
+              },
+            };
+          }
+
+          return { station: { ...state.station, savedLocations } };
+        }),
+
+      removeLocation: (id) =>
+        set((state) => {
+          if (!state.station) return state;
+          if (id === state.station.homeLocationId) return state;
+
+          const savedLocations = state.station.savedLocations.filter(
+            (loc) => loc.id !== id,
+          );
+
+          const activeLocationId =
+            state.station.activeLocationId === id
+              ? null
+              : state.station.activeLocationId;
+
+          if (
+            state.station.activeLocationId === id &&
+            activeLocationId === null
+          ) {
+            const homeLocation = savedLocations.find(
+              (loc) => loc.id === state.station!.homeLocationId,
+            );
+            if (homeLocation) {
+              return {
+                station: {
+                  ...state.station,
+                  savedLocations,
+                  activeLocationId,
+                  grid: homeLocation.grid,
+                  lat: homeLocation.lat,
+                  lon: homeLocation.lon,
+                  timezone: homeLocation.timezone,
+                },
+              };
+            }
+          }
+
+          return {
+            station: { ...state.station, savedLocations, activeLocationId },
+          };
+        }),
+
+      setActiveLocation: (id) =>
+        set((state) => {
+          if (!state.station) return state;
+
+          const targetId = id ?? state.station.homeLocationId;
+          const location = state.station.savedLocations.find(
+            (loc) => loc.id === targetId,
+          );
+          if (!location) return state;
+
+          return {
+            station: {
+              ...state.station,
+              activeLocationId: id,
+              grid: location.grid,
+              lat: location.lat,
+              lon: location.lon,
+              timezone: location.timezone,
+            },
+          };
+        }),
+
+      setTemporaryLocation: (grid, lat, lon, name, type) => {
+        const id = crypto.randomUUID();
+        const newLocation: OperatingLocation = {
+          id,
+          name: name ?? "Temporary",
+          grid,
+          lat,
+          lon,
+          type: type ?? "portable",
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => {
+          if (!state.station) return state;
+
+          const savedLocations = [...state.station.savedLocations, newLocation];
+
+          return {
+            station: {
+              ...state.station,
+              savedLocations,
+              activeLocationId: id,
+              grid,
+              lat,
+              lon,
+            },
+          };
+        });
+
+        return id;
+      },
+
+      clearTemporaryLocation: () =>
+        set((state) => {
+          if (!state.station) return state;
+
+          const homeLocation = state.station.savedLocations.find(
+            (loc) => loc.id === state.station!.homeLocationId,
+          );
+          if (!homeLocation) return state;
+
+          return {
+            station: {
+              ...state.station,
+              activeLocationId: null,
+              grid: homeLocation.grid,
+              lat: homeLocation.lat,
+              lon: homeLocation.lon,
+              timezone: homeLocation.timezone,
+            },
+          };
+        }),
+
+      // === Targets ===
+
+      addTarget: (target) =>
+        set((state) => {
+          const newTarget: SavedTarget = {
+            ...target,
+            id: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+          };
+          const updated = [newTarget, ...state.savedTargets];
+          if (updated.length > MAX_SAVED_TARGETS) {
+            updated.pop();
+          }
+          return { savedTargets: updated };
+        }),
+
+      removeTarget: (id) =>
+        set((state) => ({
+          savedTargets: state.savedTargets.filter((t) => t.id !== id),
+        })),
+
+      clearTargets: () => set({ savedTargets: [] }),
+
+      // === Credentials ===
+
+      setServiceCredentials: (creds) =>
+        set((state) => {
+          const serviceCredentials: ServiceCredentials = {
+            ...state.serviceCredentials,
+          };
+
+          for (const key of Object.keys(creds) as Array<
+            keyof ServiceCredentials
+          >) {
+            const incoming = creds[key];
+            if (incoming === undefined) {
+              serviceCredentials[key] = undefined;
+              continue;
+            }
+
+            const previous = state.serviceCredentials[key];
+            serviceCredentials[key] = {
+              ...(previous ? (previous as Record<string, unknown>) : {}),
+              ...(incoming as Record<string, unknown>),
+            } as never;
+          }
+
+          return { serviceCredentials };
+        }),
+
+      // === License ===
+
+      setLicense: (license) =>
+        set(() => {
+          // Cross-store side effect: sync licenseClass to settingsStore
+          // Uses lazy-loaded module reference to avoid circular imports
+          if (_settingsModule) {
+            const currentClass =
+              _settingsModule.useSettingsStore.getState().licenseClass;
+            _settingsModule.useSettingsStore
+              .getState()
+              .setLicenseClass(
+                license?.class ?? currentClass ?? ("GENERAL" as LicenseClass),
+              );
+          }
+
+          return { license: license ?? undefined };
+        }),
+    }),
+    {
+      name: "propulse-profile",
+      version: 1,
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        station: state.station,
+        savedTargets: state.savedTargets,
+        license: state.license,
+        // serviceCredentials intentionally NOT persisted
+      }),
+    },
+  ),
+);

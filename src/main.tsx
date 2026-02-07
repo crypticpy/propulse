@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/globals.css";
+import { runStoreDecompositionMigration } from "@/lib/migrations/userStoreMigration";
+
+// Run one-time migration from monolithic userStore (v14) to decomposed stores
+// Must execute synchronously before React renders and stores hydrate
+runStoreDecompositionMigration();
 
 const queryClient = new QueryClient({
   defaultOptions: {

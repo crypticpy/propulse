@@ -10,13 +10,15 @@
  */
 
 import { getSupabase } from "@/lib/supabase";
-import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useShackStore } from "@/stores/shackStore";
+import { useProfileStore } from "@/stores/profileStore";
 import type { SyncModule, SyncableTable } from "../types";
 import type { UserPreferences } from "@/types/user";
 import type { Json } from "@/types/supabase";
 
-/** Current preferences schema version — must match userStore persist version */
-const PREFERENCES_VERSION = 14;
+/** Current preferences schema version — bumped for store decomposition */
+const PREFERENCES_VERSION = 15;
 
 export const preferencesSync: SyncModule = {
   name: "preferences",
@@ -45,32 +47,61 @@ export const preferencesSync: SyncModule = {
       return null;
     }
 
-    // Server has newer preferences — merge into local store
+    // Server has newer preferences — split into canonical stores
     const serverPrefs = data.preferences as Record<string, unknown> | null;
     if (
       serverPrefs &&
       typeof serverPrefs === "object" &&
       !Array.isArray(serverPrefs)
     ) {
-      const state = useUserStore.getState();
       const localUpdatedAt = since;
 
       // Last-write-wins on `updated_at`
       if (!localUpdatedAt || data.updated_at > localUpdatedAt) {
-        // Strip `station` — the store type is `Omit<UserPreferences, "station">`.
-        // Also strip any keys that aren't valid UserPreferences to prevent
-        // stale server data from injecting unexpected properties.
+        // Strip `station` — not part of preferences
         const { station: _station, ...prefsWithoutStation } =
-          serverPrefs as Partial<UserPreferences> & {
-            station?: unknown;
-          };
+          serverPrefs as Partial<UserPreferences> & { station?: unknown };
 
-        useUserStore.setState({
-          preferences: {
-            ...state.preferences,
-            ...prefsWithoutStation,
-          },
-        });
+        // Route keys to the appropriate canonical stores
+        const {
+          radios,
+          customRadios,
+          activeRadioId,
+          license,
+          ...settingsFields
+        } = prefsWithoutStation;
+
+        // Settings store (flat merge)
+        const currentSettings = useSettingsStore.getState();
+        useSettingsStore.setState({
+          ...currentSettings,
+          ...settingsFields,
+        } as never);
+
+        // Shack store (radio equipment)
+        if (
+          radios !== undefined ||
+          customRadios !== undefined ||
+          activeRadioId !== undefined
+        ) {
+          const currentShack = useShackStore.getState();
+          useShackStore.setState({
+            ...(radios !== undefined
+              ? { radios }
+              : { radios: currentShack.radios }),
+            ...(customRadios !== undefined
+              ? { customRadios }
+              : { customRadios: currentShack.customRadios }),
+            ...(activeRadioId !== undefined
+              ? { activeRadioId }
+              : { activeRadioId: currentShack.activeRadioId }),
+          });
+        }
+
+        // Profile store (license)
+        if (license !== undefined) {
+          useProfileStore.setState({ license });
+        }
       }
     }
 
@@ -79,7 +110,41 @@ export const preferencesSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const { preferences } = useUserStore.getState();
+
+    // Reconstruct the legacy preferences blob from 3 canonical stores
+    const settings = useSettingsStore.getState();
+    const shack = useShackStore.getState();
+    const profile = useProfileStore.getState();
+
+    const preferences: Record<string, unknown> = {
+      // Settings fields
+      units: settings.units,
+      timeFormat: settings.timeFormat,
+      theme: settings.theme,
+      ituRegion: settings.ituRegion,
+      licenseClass: settings.licenseClass,
+      textScale: settings.textScale,
+      colorBlindMode: settings.colorBlindMode,
+      noiseEnvironment: settings.noiseEnvironment,
+      antennaType: settings.antennaType,
+      bridgeEnabled: settings.bridgeEnabled,
+      preferTestedSpecs: settings.preferTestedSpecs,
+      favoredBands: settings.favoredBands,
+      bandPresets: settings.bandPresets,
+      notifications: settings.notifications,
+      spotClustering: settings.spotClustering,
+      compassRose: settings.compassRose,
+      spotAge: settings.spotAge,
+      watchAlerts: settings.watchAlerts,
+      uiInteraction: settings.uiInteraction,
+      forecastDisplay: settings.forecastDisplay,
+      // Shack fields
+      radios: shack.radios,
+      customRadios: shack.customRadios,
+      activeRadioId: shack.activeRadioId,
+      // Profile fields
+      license: profile.license,
+    };
 
     const { error } = await supabase.from("user_preferences").upsert(
       {

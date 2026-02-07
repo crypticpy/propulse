@@ -8,7 +8,7 @@
  */
 
 import { getSupabase } from "@/lib/supabase";
-import { useUserStore } from "@/stores/userStore";
+import { useProfileStore } from "@/stores/profileStore";
 import type { SyncModule, SyncableTable } from "../types";
 import type { Tables, TablesInsert } from "@/types/supabase";
 import type { OperatingLocation } from "@/types/user";
@@ -101,7 +101,7 @@ export const profileSync: SyncModule = {
     }
 
     // Build merged station in a single pass, then apply one setState
-    const state = useUserStore.getState();
+    const state = useProfileStore.getState();
     let updatedStation = state.station;
 
     if (profileRows) {
@@ -161,7 +161,7 @@ export const profileSync: SyncModule = {
 
     // Single setState call for the entire pull
     if (updatedStation !== state.station) {
-      useUserStore.setState({ station: updatedStation });
+      useProfileStore.setState({ station: updatedStation });
     }
 
     return maxTimestamp(timestamps);
@@ -169,7 +169,7 @@ export const profileSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const { station } = useUserStore.getState();
+    const { station } = useProfileStore.getState();
 
     if (!station) return;
 

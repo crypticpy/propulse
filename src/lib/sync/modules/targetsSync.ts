@@ -13,7 +13,7 @@
  */
 
 import { getSupabase } from "@/lib/supabase";
-import { useUserStore, type SavedTarget } from "@/stores/userStore";
+import { useProfileStore, type SavedTarget } from "@/stores/profileStore";
 import type { SyncModule, SyncableTable } from "../types";
 import type { Tables, TablesInsert } from "@/types/supabase";
 
@@ -88,7 +88,7 @@ export const targetsSync: SyncModule = {
     }
 
     const serverTargets = data.map(rowToTarget);
-    const state = useUserStore.getState();
+    const state = useProfileStore.getState();
 
     // Merge strategy: server targets take precedence for matching IDs,
     // local-only targets are preserved (they may not have been pushed yet)
@@ -96,14 +96,14 @@ export const targetsSync: SyncModule = {
     const localOnly = state.savedTargets.filter((t) => !serverIdSet.has(t.id));
     const merged = [...serverTargets, ...localOnly];
 
-    useUserStore.setState({ savedTargets: merged });
+    useProfileStore.setState({ savedTargets: merged });
 
     return maxTimestamp(data.map((r) => r.created_at));
   },
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const { savedTargets } = useUserStore.getState();
+    const { savedTargets } = useProfileStore.getState();
 
     if (savedTargets.length > 0) {
       const rows = savedTargets.map((t) => targetToRow(t, userId));

@@ -3,7 +3,7 @@
  * Displays bio in read mode with edit toggle, or a textarea in edit mode.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 
 const MAX_BIO_LENGTH = 2000;
@@ -13,6 +13,11 @@ export function BioSection() {
   const setBio = useProfileStore((s) => s.setBio);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(bio);
+
+  // Sync draft when store bio changes externally (e.g., backup restore)
+  useEffect(() => {
+    if (!isEditing) setDraft(bio);
+  }, [bio, isEditing]);
 
   const handleSave = () => {
     setBio(draft.trim());

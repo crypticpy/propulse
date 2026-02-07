@@ -19,6 +19,10 @@ import { MAX_PRESETS } from "@/types/shack";
 import { useStationPerformance } from "@/hooks/useStationPerformance";
 import { BandCapabilityStrip } from "./BandCapabilityStrip";
 import { DetailModal } from "@/components/ui/DetailModal";
+import {
+  calculateTotalFeedlineLoss,
+  BAND_CENTER_FREQUENCIES,
+} from "@/lib/data/feedlines";
 
 // ─── Form state ──────────────────────────────────────────────────────────────
 
@@ -285,8 +289,14 @@ export function PresetBuilder() {
   const previewBandLossData = (() => {
     const antenna = antennas.find((a) => a.id === form.antennaId);
     if (!antenna) return [];
-    // Simple preview — just feedline loss per band without full performance calc
-    return antenna.bands.map((band) => ({ band, lossDb: 0 })).filter(Boolean);
+    const feedline = feedlines.find((f) => f.id === form.feedlineId);
+    return antenna.bands.map((band) => {
+      if (!feedline) return { band, lossDb: 0 };
+      const freqMHz = BAND_CENTER_FREQUENCIES[band];
+      if (!freqMHz) return { band, lossDb: 0 };
+      const lossDb = calculateTotalFeedlineLoss(feedline, freqMHz);
+      return { band, lossDb };
+    });
   })();
 
   // ─── Render ──────────────────────────────────────────────────────────

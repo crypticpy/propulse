@@ -7,7 +7,11 @@
  */
 
 import { useState } from "react";
-import { useActiveRadio, useShackStore } from "@/stores/shackStore";
+import {
+  useActiveRadio,
+  useShackStore,
+  useUserRadios,
+} from "@/stores/shackStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { RadioManager } from "@/components/settings/RadioManager";
 import { AntennaManager } from "@/components/shack/AntennaManager";
@@ -15,6 +19,8 @@ import { FeedlineManager } from "@/components/shack/FeedlineManager";
 import { AccessoryManager } from "@/components/shack/AccessoryManager";
 import { PresetBuilder } from "@/components/shack/PresetBuilder";
 import { PerformanceDashboard } from "@/components/shack/PerformanceDashboard";
+import { BandCapabilityStrip } from "@/components/shack/BandCapabilityStrip";
+import { useStationPerformance } from "@/hooks/useStationPerformance";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
@@ -76,11 +82,20 @@ function ShackHeader({ isMobile }: { isMobile: boolean }) {
 
 // ─── Overview tab ───────────────────────────────────────────────────────────
 
-function OverviewTab() {
+function OverviewTab({
+  setActiveTab,
+}: {
+  setActiveTab: (tab: ShackTab) => void;
+}) {
   const radios = useShackStore((s) => s.radios);
   const antennas = useShackStore((s) => s.antennas);
   const feedlines = useShackStore((s) => s.feedlines);
   const accessories = useShackStore((s) => s.accessories);
+  const activePresetId = useShackStore((s) => s.activePresetId);
+  const presets = useShackStore((s) => s.stationPresets);
+  const activePreset = presets.find((p) => p.id === activePresetId);
+  const userRadios = useUserRadios();
+  const performance = useStationPerformance();
 
   const counts = [
     { label: "Radios", count: radios.length, color: "text-plasma-orange" },
@@ -99,6 +114,11 @@ function OverviewTab() {
 
   const isEmpty = counts.every((c) => c.count === 0);
 
+  const bandLossData = performance.bands.map((b) => ({
+    band: b.band,
+    lossDb: b.feedlineLossDb,
+  }));
+
   return (
     <div className="space-y-6">
       {/* Equipment count cards */}
@@ -116,6 +136,45 @@ function OverviewTab() {
         ))}
       </div>
 
+      {/* Active preset summary */}
+      {activePreset && (
+        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-300">
+              Active Preset
+            </h3>
+            <span className="text-xs text-plasma-orange font-medium">
+              {activePreset.name}
+            </span>
+          </div>
+          <div className="text-xs text-gray-400 space-y-1">
+            <div>
+              Radio:{" "}
+              {(() => {
+                const r = userRadios.find(
+                  (x) => x.userRadio.id === activePreset.radioId,
+                );
+                return (
+                  r?.equipment?.displayName ??
+                  r?.equipment?.model ??
+                  r?.userRadio.nickname ??
+                  "\u2014"
+                );
+              })()}
+            </div>
+            <div>
+              Antenna:{" "}
+              {antennas.find((a) => a.id === activePreset.antennaId)?.name ??
+                "\u2014"}
+            </div>
+            <div>Power: {activePreset.operatingPowerWatts}W</div>
+          </div>
+          {bandLossData.length > 0 && (
+            <BandCapabilityStrip bands={bandLossData} />
+          )}
+        </div>
+      )}
+
       {/* Guidance when empty */}
       {isEmpty && (
         <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6 text-center space-y-3">
@@ -129,13 +188,16 @@ function OverviewTab() {
             analysis.
           </p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
-            {["Radios", "Antennas", "Feedlines", "Accessories"].map((tab) => (
-              <span
+            {(
+              ["radios", "antennas", "feedlines", "accessories"] as ShackTab[]
+            ).map((tab) => (
+              <button
                 key={tab}
-                className="px-3 py-1 text-xs rounded-full bg-white/5 text-gray-400 border border-white/10"
+                onClick={() => setActiveTab(tab)}
+                className="px-3 py-1 text-xs rounded-full bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-gray-200 transition-colors capitalize"
               >
                 {tab}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -175,7 +237,9 @@ export default function ShackPage() {
         </div>
 
         {/* Tab content */}
-        {activeTab === "overview" && <OverviewTab />}
+        {activeTab === "overview" && (
+          <OverviewTab setActiveTab={setActiveTab} />
+        )}
 
         {activeTab === "radios" && (
           <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
@@ -243,7 +307,7 @@ export default function ShackPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "overview" && <OverviewTab setActiveTab={setActiveTab} />}
 
       {activeTab === "radios" && (
         <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">

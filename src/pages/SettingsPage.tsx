@@ -224,10 +224,18 @@ export default function SettingsPage() {
     return SECTIONS[0].id;
   }, [location.pathname]);
 
-  // Escape key navigates back
+  // Escape key navigates to home (not back, which could leave the app)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") navigate(-1);
+      if (e.key === "Escape") {
+        // Don't navigate if a modal, dropdown, or other overlay is active
+        if (
+          document.querySelector("[role=dialog]") ||
+          document.querySelector("[data-radix-popper-content-wrapper]")
+        )
+          return;
+        navigate("/");
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);

@@ -19,7 +19,10 @@ import type {
   UserAccessory,
   StationPreset,
 } from "@/types/shack";
-import { calculateTotalFeedlineLoss } from "@/lib/data/feedlines";
+import {
+  calculateTotalFeedlineLoss,
+  BAND_CENTER_FREQUENCIES,
+} from "@/lib/data/feedlines";
 import { ANTENNA_TYPES } from "@/lib/data/antennas";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -43,24 +46,6 @@ export interface StationPerformance {
   totalLossRangeDb: string; // e.g., "2.1 - 8.4"
   isLoading: boolean;
 }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const BAND_CENTER_FREQ: Record<string, number> = {
-  "160m": 1.9,
-  "80m": 3.6,
-  "60m": 5.35,
-  "40m": 7.15,
-  "30m": 10.125,
-  "20m": 14.15,
-  "17m": 18.1,
-  "15m": 21.2,
-  "12m": 24.93,
-  "10m": 28.5,
-  "6m": 50.1,
-  "2m": 144.2,
-  "70cm": 432.1,
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,7 +121,7 @@ export function useStationPerformance(presetId?: string): StationPerformance {
     const bandPerformances: BandPerformance[] = [];
 
     for (const band of antenna.bands) {
-      const freqMHz = BAND_CENTER_FREQ[band];
+      const freqMHz = BAND_CENTER_FREQUENCIES[band];
       if (freqMHz == null) continue;
 
       // Feedline loss

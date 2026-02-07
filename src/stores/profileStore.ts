@@ -15,11 +15,13 @@ import type {
   SocialLink,
 } from "@/types/user";
 
-// Lazy reference to settingsStore for cross-store side effect (avoids circular imports)
-let _settingsModule: typeof import("./settingsStore") | null = null;
-import("./settingsStore").then((m) => {
-  _settingsModule = m;
-});
+// Lazy getter for settingsStore — avoids circular import issues at module load time
+// while ensuring the store is always available when needed (not a race condition).
+function getSettingsStore() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return (require("./settingsStore") as typeof import("./settingsStore"))
+    .useSettingsStore;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -361,16 +363,13 @@ export const useProfileStore = create<ProfileStore>()(
       setLicense: (license) =>
         set(() => {
           // Cross-store side effect: sync licenseClass to settingsStore
-          // Uses lazy-loaded module reference to avoid circular imports
-          if (_settingsModule) {
-            const currentClass =
-              _settingsModule.useSettingsStore.getState().licenseClass;
-            _settingsModule.useSettingsStore
-              .getState()
-              .setLicenseClass(
-                license?.class ?? currentClass ?? ("GENERAL" as LicenseClass),
-              );
-          }
+          const settingsStore = getSettingsStore();
+          const currentClass = settingsStore.getState().licenseClass;
+          settingsStore
+            .getState()
+            .setLicenseClass(
+              license?.class ?? currentClass ?? ("GENERAL" as LicenseClass),
+            );
 
           return { license: license ?? undefined };
         }),

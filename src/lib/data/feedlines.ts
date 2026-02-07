@@ -194,11 +194,11 @@ export function calculateTotalFeedlineLoss(
   return matchedLoss;
 }
 
-/** Band center frequencies for HF bands in MHz */
-const BAND_CENTER_FREQUENCIES: Record<string, number> = {
+/** Band center frequencies in MHz (HF + VHF/UHF) */
+export const BAND_CENTER_FREQUENCIES: Record<string, number> = {
   "160m": 1.9,
   "80m": 3.6,
-  "60m": 5.3,
+  "60m": 5.35,
   "40m": 7.15,
   "30m": 10.125,
   "20m": 14.15,
@@ -206,7 +206,9 @@ const BAND_CENTER_FREQUENCIES: Record<string, number> = {
   "15m": 21.2,
   "12m": 24.93,
   "10m": 28.5,
-  "6m": 51.0,
+  "6m": 50.1,
+  "2m": 144.2,
+  "70cm": 432.1,
 };
 
 /**

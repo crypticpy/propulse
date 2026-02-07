@@ -362,8 +362,16 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          // Added in v2: highContrast, forecastDisplay, uiInteraction, bandPresets, spotClustering, compassRose, spotAge
+          if (state.highContrast === undefined) state.highContrast = false;
+        }
+        return state as unknown as SettingsState & SettingsStore;
+      },
     },
   ),
 );

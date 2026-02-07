@@ -86,10 +86,12 @@ export function PreferencesSection() {
     (s) => s.updateForecastDisplay,
   );
   const updateUIInteraction = useSettingsStore((s) => s.updateUIInteraction);
+  const setHighContrast = useSettingsStore((s) => s.setHighContrast);
 
   // Derived values with safe defaults
   const timeFormat = settings.timeFormat ?? "12h";
   const textScale: TextScale = settings.textScale ?? "md";
+  const highContrast = settings.highContrast ?? false;
   const colorBlindMode: ColorBlindMode = settings.colorBlindMode ?? "none";
   const spotClustering = settings.spotClustering ?? DEFAULT_SPOT_CLUSTERING;
   const compassRose = settings.compassRose ?? DEFAULT_COMPASS_ROSE;
@@ -168,6 +170,13 @@ export function PreferencesSection() {
             ),
           )}
         </SettingSelect>
+
+        <ToggleSwitch
+          label="High Contrast"
+          description="Increase contrast for better visibility"
+          checked={highContrast}
+          onChange={(checked) => setHighContrast(checked)}
+        />
       </section>
 
       <div className="border-t border-white/10" />
@@ -264,13 +273,29 @@ export function PreferencesSection() {
           description="Show callsign labels on globe spot markers"
           checked={showSpotCallsignLabels}
           onChange={(checked) =>
-            updatePreferences({
-              uiInteraction: {
-                ...uiInteraction,
-                showSpotCallsignLabels: checked,
-              },
-            })
+            updateUIInteraction({ showSpotCallsignLabels: checked })
           }
+        />
+
+        <ToggleSwitch
+          label="Spotter Labels"
+          description="Show spotter callsign on globe spot markers"
+          checked={uiInteraction.showSpotterLabels ?? false}
+          onChange={(checked) =>
+            updateUIInteraction({ showSpotterLabels: checked })
+          }
+        />
+
+        <SettingSlider
+          id="pref-spot-hit-radius"
+          label="Spot Click Radius"
+          description="Adjust how close you need to click to select a spot"
+          value={uiInteraction.spotHitRadiusMultiplier ?? 1.0}
+          min={0.5}
+          max={2.0}
+          step={0.1}
+          formatValue={(v) => `${v.toFixed(1)}x`}
+          onChange={(v) => updateUIInteraction({ spotHitRadiusMultiplier: v })}
         />
 
         <SettingSelect
@@ -279,12 +304,7 @@ export function PreferencesSection() {
           description="How spots are color-coded on the globe"
           value={spotColorMode}
           onChange={(v) =>
-            updatePreferences({
-              uiInteraction: {
-                ...uiInteraction,
-                spotColorMode: v as "mode" | "band",
-              },
-            })
+            updateUIInteraction({ spotColorMode: v as "mode" | "band" })
           }
         >
           {SPOT_COLOR_MODE_OPTIONS.map((opt) => (

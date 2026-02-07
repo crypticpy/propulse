@@ -13,6 +13,7 @@ import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
+import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -61,6 +62,9 @@ export function Layout() {
 
       {/* Orange glow effect */}
       <div className="fixed inset-0 bg-glow-orange pointer-events-none" />
+
+      {/* Offline connectivity banner */}
+      <OfflineIndicator />
 
       {/* Main content */}
       <div className="relative z-10">

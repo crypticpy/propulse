@@ -232,15 +232,18 @@
     outline: none;
   }
 
-  /* Global focus-visible style for all interactive elements */
+  /* Global focus-visible style for all interactive elements
+     Uses theme accent color so focus rings follow the user's selected accent */
   *:focus-visible {
-    @apply outline-none ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
+    outline: 2px solid rgb(var(--theme-accent-primary-rgb, 255 107 53) / 0.7);
+    outline-offset: 2px;
   }
 
-  /* Button-specific focus styles */
+  /* Button-specific focus styles — outline: none overrides the global *:focus-visible outline */
   button:focus-visible,
   [role="button"]:focus-visible,
   .btn:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
     box-shadow: 0 0 0 2px var(--color-deep-space, #0a0a1a),
                 0 0 0 4px var(--color-cyan, #44ddff),
@@ -252,11 +255,13 @@
   textarea:focus-visible,
   select:focus-visible,
   [contenteditable="true"]:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-1 ring-offset-deep-space border-cosmic-cyan;
   }
 
   /* Link focus styles */
   a:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-sm;
   }
 
@@ -265,6 +270,7 @@
   [role="menuitem"]:focus-visible,
   [role="option"]:focus-visible,
   [role="listitem"]:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-1 ring-offset-deep-space;
     box-shadow: inset 0 0 0 2px rgba(68, 221, 255, 0.3);
   }
@@ -274,22 +280,26 @@
   .glass-panel:focus-visible,
   [role="region"]:focus-visible,
   [tabindex="0"]:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
   }
 
   /* Checkbox and radio focus styles */
   input[type="checkbox"]:focus-visible,
   input[type="radio"]:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space;
   }
 
   /* Switch/toggle focus styles */
   [role="switch"]:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-full;
   }
 
   /* Slider focus styles */
   input[type="range"]:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-2 ring-offset-deep-space rounded-lg;
   }
 
@@ -301,6 +311,7 @@
   /* Dialog/Modal focus trap styles */
   [role="dialog"]:focus-visible,
   [role="alertdialog"]:focus-visible {
+    outline: none;
     @apply ring-2 ring-cosmic-cyan ring-offset-4 ring-offset-deep-space;
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -24,6 +24,7 @@ import type { ITURegion, LicenseClass, BandMode } from "@/types/bandplan";
 import type { RadioEquipment } from "@/types/radio";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { SIGNAL_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
+import { useMapStore } from "@/stores/mapStore";
 
 type WizardMode = "SSB" | "CW" | "FT8";
 
@@ -216,6 +217,33 @@ export function DXWizard() {
   const [callsignInput, setCallsignInput] = useState("");
   const [callsignLoading, setCallsignLoading] = useState(false);
   const [callsignError, setCallsignError] = useState<string | null>(null);
+
+  // Recent targets from map store
+  const recentTargets = useMapStore((s) => s.recentTargets);
+  const [showRecentDropdown, setShowRecentDropdown] = useState(false);
+  const recentDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close recent targets dropdown on click-outside or Escape
+  useEffect(() => {
+    if (!showRecentDropdown) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (
+        recentDropdownRef.current &&
+        !recentDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowRecentDropdown(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowRecentDropdown(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showRecentDropdown]);
 
   const [mode, setMode] = useState<WizardMode>("FT8");
   const [licenseClass, setLicenseClass] = useState<LicenseClass>(
@@ -644,6 +672,78 @@ export function DXWizard() {
                 </div>
                 {targetError && (
                   <div className="text-xs text-alert-red">{targetError}</div>
+                )}
+
+                {/* Recent targets dropdown */}
+                {recentTargets.length > 0 && (
+                  <div className="relative" ref={recentDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowRecentDropdown((v) => !v)}
+                      className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Recent targets ({recentTargets.length})
+                      <svg
+                        className={`w-3 h-3 transition-transform ${showRecentDropdown ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+                    {showRecentDropdown && (
+                      <div className="absolute left-0 top-full mt-1 z-20 w-72 max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-deep-space/95 backdrop-blur-md shadow-lg">
+                        {recentTargets.map((rt, i) => {
+                          const grid = rt.grid ?? latLonToGrid(rt.lat, rt.lon);
+                          return (
+                            <button
+                              key={`${rt.lat}-${rt.lon}-${i}`}
+                              type="button"
+                              className="w-full text-left px-3 py-2 hover:bg-white/10 transition-colors border-b border-white/5 last:border-0"
+                              onClick={() => {
+                                setTargetQuery(grid);
+                                setTarget({
+                                  label: rt.name ?? grid,
+                                  grid,
+                                  lat: rt.lat,
+                                  lon: rt.lon,
+                                  source: "grid",
+                                });
+                                setShowRecentDropdown(false);
+                              }}
+                            >
+                              <div className="text-sm text-white font-medium truncate">
+                                {rt.name ?? grid}
+                              </div>
+                              <div className="text-[10px] text-gray-400 font-mono">
+                                {grid} ({rt.lat.toFixed(2)}, {rt.lon.toFixed(2)}
+                                )
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 <div className="pt-2 border-t border-white/10">

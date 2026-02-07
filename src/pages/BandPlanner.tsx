@@ -3,6 +3,8 @@ import { Card, LoadingSpinner, DataFreshnessIndicator } from "@/components/ui";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { SOLAR_TOOLTIPS, PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { useUserStore } from "@/stores/userStore";
+import { DEFAULT_FAVORED_BANDS } from "@/types/user";
+import type { BandId } from "@/types/user";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import {
   getForecastForPath,
@@ -29,6 +31,10 @@ import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 export function BandPlanner() {
   // User station
   const station = useUserStore((s) => s.station);
+  const favoredBands = useUserStore(
+    (s) => s.preferences.favoredBands ?? DEFAULT_FAVORED_BANDS,
+  );
+  const toggleFavoredBand = useUserStore((s) => s.toggleFavoredBand);
   const isMobile = useIsMobile();
 
   // Target location state
@@ -41,6 +47,9 @@ export function BandPlanner() {
 
   // Selected band for detailed view
   const [selectedBand, setSelectedBand] = useState<string | null>(null);
+
+  // Favorites-only filter toggle
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   // Fetch solar data
   const {
@@ -216,8 +225,8 @@ export function BandPlanner() {
     return [...active, ...upcoming, ...passed];
   }, [bestWindows, currentHour, forecast]);
 
-  // Bands to display
-  const bands = [
+  // Bands to display (filtered by favorites when toggle is active)
+  const allBands = [
     "160m",
     "80m",
     "40m",
@@ -228,6 +237,11 @@ export function BandPlanner() {
     "12m",
     "10m",
   ];
+
+  const bands =
+    favoritesOnly && favoredBands.primary.length > 0
+      ? allBands.filter((b) => favoredBands.primary.includes(b as BandId))
+      : allBands;
 
   // Storm warning
   const isStormConditions = currentKp !== null && currentKp >= 5;
@@ -797,10 +811,35 @@ export function BandPlanner() {
                 {/* 24-Hour Heat Map */}
                 <Card>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      24-Hour Forecast
-                      <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
-                    </h3>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        24-Hour Forecast
+                        <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setFavoritesOnly((v) => !v)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                          favoritesOnly
+                            ? "bg-plasma-orange/20 border-plasma-orange/50 text-plasma-orange"
+                            : "bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20"
+                        }`}
+                        title={
+                          favoritesOnly
+                            ? "Showing favorite bands only"
+                            : "Show favorite bands only"
+                        }
+                      >
+                        <svg
+                          className="w-3 h-3 inline mr-1 -mt-0.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        Favorites
+                      </button>
+                    </div>
                     <div className="flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1">
                         <span
@@ -893,7 +932,40 @@ export function BandPlanner() {
                                     : "text-white"
                                 }`}
                               >
-                                {band}
+                                <span className="inline-flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    title={
+                                      favoredBands.primary.includes(
+                                        band as BandId,
+                                      )
+                                        ? `Remove ${band} from favorites`
+                                        : `Add ${band} to favorites`
+                                    }
+                                    className="text-gray-500 hover:text-plasma-orange transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFavoredBand(band as BandId);
+                                    }}
+                                  >
+                                    <svg
+                                      className="w-3.5 h-3.5"
+                                      fill={
+                                        favoredBands.primary.includes(
+                                          band as BandId,
+                                        )
+                                          ? "currentColor"
+                                          : "none"
+                                      }
+                                      stroke="currentColor"
+                                      strokeWidth={1.5}
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                  </button>
+                                  {band}
+                                </span>
                               </td>
                               {forecast.map((hour) => {
                                 const bandData = hour.bands.find(

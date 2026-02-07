@@ -16,6 +16,7 @@ import {
   ContestConfigModal,
   ContestEditLastModal,
   ContestTimer,
+  ContestRateSheet,
   type ContestConfig,
 } from "@/components/contest";
 import { MobileContestEntry } from "@/components/contest/MobileContestEntry";
@@ -473,6 +474,9 @@ export function Contest() {
 
         {/* QSO Table */}
         <ContestQSOTable maxRows={20} onEditQSO={handleEditQSO} />
+
+        {/* Rate Sheet (only renders when QSOs exist) */}
+        {qsoCount > 0 && <ContestRateSheet />}
 
         {/* Keyboard shortcuts hint */}
         <div className="text-xs text-gray-500 flex flex-wrap items-center gap-4 justify-center">

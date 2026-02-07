@@ -100,3 +100,7 @@ export type { ContestTimerProps } from "./ContestTimer";
 // Phase 5 - Band-Change Advisor
 export { BandAdvisor } from "./BandAdvisor";
 export type { BandAdvisorProps } from "./BandAdvisor";
+
+// Tier 3 - Contest Rate Sheet
+export { ContestRateSheet } from "./ContestRateSheet";
+export type { ContestRateSheetProps } from "./ContestRateSheet";

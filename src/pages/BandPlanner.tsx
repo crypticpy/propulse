@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Card, LoadingSpinner, DataFreshnessIndicator } from "@/components/ui";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { SOLAR_TOOLTIPS, PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { useUserStore } from "@/stores/userStore";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import {
@@ -272,12 +274,14 @@ export function BandPlanner() {
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-400">SFI:</span>
+              <InfoTip content={SOLAR_TOOLTIPS.sfi} />
               <span className="font-mono text-plasma-orange">
                 {currentFlux ?? "—"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-400">Kp:</span>
+              <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
               <span
                 className="font-mono"
                 style={{
@@ -297,6 +301,7 @@ export function BandPlanner() {
             {currentBz !== null && (
               <div className="flex items-center gap-2">
                 <span className="text-gray-400">Bz:</span>
+                <InfoTip content={SOLAR_TOOLTIPS.bz} />
                 <span
                   className="font-mono"
                   style={{ color: currentBz >= 0 ? "#44dd66" : "#ff7700" }}
@@ -433,8 +438,11 @@ export function BandPlanner() {
 
                 {/* Confidence indicator */}
                 <div className="text-right">
-                  <div className="text-xs text-gray-400 mb-1">
+                  <div className="text-xs text-gray-400 mb-1 flex items-center justify-end gap-1">
                     Forecast Confidence
+                    <InfoTip
+                      content={PROPAGATION_TOOLTIPS.forecastConfidence}
+                    />
                   </div>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm"
@@ -611,8 +619,9 @@ export function BandPlanner() {
 
                 {/* Best Windows */}
                 <Card>
-                  <h3 className="text-lg font-semibold text-white mb-4">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                     Best Operating Windows
+                    <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
                   </h3>
                   {bestWindows.length === 0 ? (
                     <div className="text-center py-6 text-gray-400">
@@ -712,8 +721,9 @@ export function BandPlanner() {
                 {/* 24-Hour Heat Map */}
                 <Card>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-white">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       24-Hour Forecast
+                      <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
                     </h3>
                     <div className="flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1">

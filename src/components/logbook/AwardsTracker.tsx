@@ -10,6 +10,8 @@ import {
   PREFIX_LOCATIONS,
   extractPrefixFromCallsign,
 } from "@/lib/data/prefixLocations";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { AWARD_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 
 export interface AwardsTrackerProps {
   entries: LogEntry[];
@@ -381,7 +383,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
               d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          DXCC
+          DXCC <InfoTip content={AWARD_TOOLTIPS.dxcc} />
         </h3>
 
         {/* Overall stats */}
@@ -489,7 +491,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
               d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
             />
           </svg>
-          WAS (Worked All States)
+          WAS (Worked All States) <InfoTip content={AWARD_TOOLTIPS.was} />
         </h3>
 
         {/* Stats */}
@@ -540,7 +542,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
               d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
             />
           </svg>
-          WAZ (Worked All Zones)
+          WAZ (Worked All Zones) <InfoTip content={AWARD_TOOLTIPS.waz} />
         </h3>
 
         {/* Stats */}
@@ -569,8 +571,8 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
 
         {/* Zone grid (8x5 = 40 zones) */}
         <div className="mt-4">
-          <h4 className="text-sm font-medium text-gray-300 mb-2">
-            CQ Zones (1-40)
+          <h4 className="text-sm font-medium text-gray-300 mb-2 inline-flex items-center gap-1">
+            CQ Zones (1-40) <InfoTip content={GEOGRAPHY_TOOLTIPS.cqZone} />
           </h4>
           <div className="grid grid-cols-8 gap-1">
             {Array.from({ length: 40 }, (_, i) => i + 1).map((zone) => {

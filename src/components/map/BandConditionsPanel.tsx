@@ -29,6 +29,8 @@ import {
   type GreylineIntensity,
 } from "@/lib/utils/greyline";
 import { Card } from "@/components/ui/Card";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import type { SUnit } from "@/types/signal";
 import { CorrelationIndicator } from "./CorrelationIndicator";
@@ -483,8 +485,9 @@ export function BandConditionsPanel({
         <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between mb-0.5">
-              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide flex items-center gap-1">
                 Band Conditions
+                <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
               </h3>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <HelpButton onClick={() => setShowHelp(true)} />
@@ -513,8 +516,9 @@ export function BandConditionsPanel({
         <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between mb-0.5">
-              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide flex items-center gap-1">
                 Band Conditions
+                <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
               </h3>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <span
@@ -702,8 +706,9 @@ export function BandConditionsPanel({
                   className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColors[overallStatus].dot}`}
                 />
 
-                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide truncate">
+                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide truncate flex items-center gap-1">
                   Band Conditions
+                  <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
                 </h3>
               </div>
 

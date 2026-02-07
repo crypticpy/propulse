@@ -9,16 +9,16 @@
 
 | Source Document                    | Delivered | Partial | Not Started | Deferred | Total   |
 | ---------------------------------- | --------- | ------- | ----------- | -------- | ------- |
-| Implementation Plan (37 features)  | 31        | 4       | 2           | 0        | 37      |
-| 2D Map Feature Parity PRD          | 36        | 1       | 5           | 1        | 43      |
-| Contest PropSphere Integration PRD | 29        | 5       | 3           | 0        | 37      |
+| Implementation Plan (37 features)  | 32        | 3       | 2           | 0        | 37      |
+| 2D Map Feature Parity PRD          | 37        | 1       | 4           | 1        | 43      |
+| Contest PropSphere Integration PRD | 30        | 5       | 2           | 0        | 37      |
 | Mobile Design Plan                 | 12        | 0       | 7           | 0        | 19      |
-| UI Review Recommendations          | 4         | 3       | 6           | 0        | 13      |
+| UI Review Recommendations          | 7         | 0       | 3           | 0        | 10      |
 | QoL PRD (20 items)                 | 13        | 2       | 5           | 0        | 20      |
 | PWA Package                        | 0         | 0       | 7           | 0        | 7       |
-| **Grand Total**                    | **125**   | **15**  | **35**      | **1**    | **176** |
+| **Grand Total**                    | **131**   | **11**  | **30**      | **1**    | **173** |
 
-**Delivery rate: 71% delivered, 9% partial, 20% not started** _(was 62/11/27 before Tier 1 work)_
+**Delivery rate: 76% delivered, 6% partial, 17% not started** _(was 71/9/20 before Tier 2 work)_
 
 ---
 
@@ -63,13 +63,13 @@ _Source: `docs/plans/IMPLEMENTATION-PLAN.md`_
 
 ### Partial (5)
 
-| ID      | Feature                     | Status                                    | Gap                                                         |
-| ------- | --------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| C9      | Noise/propagation model     | Model exists in `calculateBandConditions` | No user-facing settings UI for noise floor parameters       |
-| ~~C10~~ | ~~Antenna pattern library~~ | **DONE** (2026-02-06)                     | Wired into `getEnhancedBandConditions()` + Settings picker  |
-| C18     | Bearing/distance overlay    | Available via spot clicks                 | No continuous hover-based bearing display                   |
-| QoL1    | Keyboard shortcuts          | Alt+1-9 bands, Ctrl+Z undo, ESM keys      | No global shortcut help overlay or customization            |
-| QoL5    | Smart notifications         | Alert system with toasts                  | Limited — no browser push notifications, no priority levels |
+| ID       | Feature                     | Status                                    | Gap                                                         |
+| -------- | --------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| C9       | Noise/propagation model     | Model exists in `calculateBandConditions` | No user-facing settings UI for noise floor parameters       |
+| ~~C10~~  | ~~Antenna pattern library~~ | **DONE** (2026-02-06)                     | Wired into `getEnhancedBandConditions()` + Settings picker  |
+| C18      | Bearing/distance overlay    | Available via spot clicks                 | No continuous hover-based bearing display                   |
+| ~~QoL1~~ | ~~Keyboard shortcuts~~      | **DONE** (2026-02-06)                     | Cmd+K palette, `?` help overlay, global shortcuts           |
+| QoL5     | Smart notifications         | Alert system with toasts                  | Limited — no browser push notifications, no priority levels |
 
 ### Not Started (2)
 
@@ -96,13 +96,14 @@ Base map, tile layers, terminator overlay, gray line, spot markers, great-circle
 
 ### Not Started (5)
 
-| Feature                      | Priority | Notes                                                 |
-| ---------------------------- | -------- | ----------------------------------------------------- |
-| Auto-pan to new spots        | Medium   | Map doesn't follow incoming DX spots                  |
-| Touch gesture support        | Medium   | Pinch-zoom, two-finger rotate not implemented         |
-| WebGL tile rendering         | Low      | Still using Canvas renderer; WebGL would improve perf |
-| Award overlay (WAS/WAZ/VUCC) | Medium   | No visual award progress on map                       |
-| Offline tile caching         | Low      | Tiles require network; no Service Worker cache        |
+| Feature               | Priority | Notes                                                 |
+| --------------------- | -------- | ----------------------------------------------------- |
+| Auto-pan to new spots | Medium   | Map doesn't follow incoming DX spots                  |
+| Touch gesture support | Medium   | Pinch-zoom, two-finger rotate not implemented         |
+| WebGL tile rendering  | Low      | Still using Canvas renderer; WebGL would improve perf |
+| Offline tile caching  | Low      | Tiles require network; no Service Worker cache        |
+
+**Recently Completed**: Award overlay (WAS) — 2026-02-06 — drawWASOverlay with state fills in FlatMapView
 
 ### Deferred (1)
 
@@ -130,13 +131,18 @@ Ops Console with DX/Contest tabs, one-line entry in map context, contest spots p
 | Rate meter              | InsightsBar shows spots/min | No dedicated rate sheet (hourly/10-min breakdowns)    |
 | Network score broadcast | Guest mode exists           | No dedicated contest score sharing/broadcast          |
 
-### Not Started (3)
+### Not Started (2)
 
-| Feature                | Priority | Notes                                                  |
-| ---------------------- | -------- | ------------------------------------------------------ |
-| Railway/cloud services | Low      | No server-side contest services (was aspirational)     |
-| Health indicators      | Medium   | No connection quality, latency, or error rate displays |
-| Sync/retry queue       | Medium   | No offline queue for QSOs logged during disconnection  |
+| Feature                | Priority | Notes                                                 |
+| ---------------------- | -------- | ----------------------------------------------------- |
+| Railway/cloud services | Low      | No server-side contest services (was aspirational)    |
+| Sync/retry queue       | Medium   | No offline queue for QSOs logged during disconnection |
+
+### Recently Completed
+
+| Feature           | Date       | Notes                                                    |
+| ----------------- | ---------- | -------------------------------------------------------- |
+| Health indicators | 2026-02-06 | HealthStatusIndicator with per-service health monitoring |
 
 ---
 
@@ -179,7 +185,7 @@ _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 
 _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
-### Delivered (4)
+### Delivered (7) — updated 2026-02-06
 
 | Feature                        | Notes                                                    |
 | ------------------------------ | -------------------------------------------------------- |
@@ -187,25 +193,17 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 | Modular page architecture      | Separate pages for each feature area                     |
 | Unified dashboard at `/`       | Home page with metrics, propagation, bands, spots, logs  |
 | Mobile-first responsive design | 6 mobile page variants, MobileLayout, lazy-loaded routes |
+| ATNO badges on spots           | SpotBadge "atno" type with diamond icon + entity lookup  |
+| Quick-action command palette   | Cmd+K CommandPalette with navigation + actions           |
+| Health/status indicators       | HealthStatusIndicator with per-service health monitoring |
 
-### Partial (3)
+### Not Started (3)
 
-| Feature                  | Status                             | Gap                                                            |
-| ------------------------ | ---------------------------------- | -------------------------------------------------------------- |
-| Information density      | Dense InsightsBar, metrics cards   | Some pages still sparse (Band Planner before "Right Now" card) |
-| Keyboard-first operation | Contest mode fully keyboard-driven | Other pages lack keyboard shortcuts                            |
-| Accessibility            | ARIA on interactive elements       | No skip links, no high-contrast mode, no screen reader audit   |
-
-### Not Started (6)
-
-| Feature                        | Priority | Notes                                               |
-| ------------------------------ | -------- | --------------------------------------------------- |
-| Interactive tooltips/help      | Medium   | No tooltip system for explaining metrics            |
-| ATNO badges on spots           | Medium   | All-Time New One indicators not shown on spot lists |
-| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout                      |
-| Quick-action command palette   | Medium   | No Cmd+K style command palette                      |
-| Guided first-run experience    | Low      | Onboarding tour exists but is basic                 |
-| Theme customization            | Low      | Single dark theme, no user color preferences        |
+| Feature                        | Priority | Notes                                    |
+| ------------------------------ | -------- | ---------------------------------------- |
+| Interactive tooltips/help      | Medium   | No tooltip system for explaining metrics |
+| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout           |
+| Guided first-run experience    | Low      | Onboarding tour exists but is basic      |
 
 ---
 
@@ -268,13 +266,13 @@ All 7 items are **Not Started** (deferred as a package):
 
 ### Tier 2: Medium-Impact Gaps
 
-5. **App-Wide Keyboard Shortcuts** — Extend contest keyboard system to all pages. Add Cmd+K command palette and shortcut help overlay.
+5. ~~**App-Wide Keyboard Shortcuts**~~ DONE (2026-02-06) — CommandPalette (Cmd+K), useGlobalShortcuts (capture-phase), ShortcutsHelpModal (`?`), context-aware per route.
 
-6. **Health/Status Indicators** — Connection quality for bridge, API latency, error rates. Users need confidence the data is current.
+6. ~~**Health/Status Indicators**~~ DONE (2026-02-06) — useHealthMonitor aggregates TanStack Query cache + bridge state, HealthStatusIndicator dot+dropdown in Header/MobileHeader.
 
-7. **ATNO Badges** — Show "All-Time New One" indicators on spot lists and map. High value for DXers chasing new entities.
+7. ~~**ATNO Badges**~~ DONE (2026-02-06) — SpotBadge "atno" type with diamond icon + pulse, DXCC entity lookup in useDXSpotListState, rendered before other badges.
 
-8. **Award Overlays on Map** — WAS/WAZ/VUCC progress visualization on 2D/3D maps.
+8. ~~**Award Overlays on Map**~~ DONE (2026-02-06) — useAwardProgress hook (WAS/WAZ/DXCC from logbook), drawWASOverlay with batched canvas fills on FlatMapView, toggle in LabelsPanel.
 
 9. **Interactive Tooltips** — Help system explaining metrics, abbreviations, and controls for new users.
 

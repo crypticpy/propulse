@@ -1,6 +1,7 @@
 import React from "react";
 import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { InfoTip } from "@/components/ui/Tooltip";
 
 export interface MetricCardProps {
   /** Label displayed above the value (e.g., "SOLAR FLUX", "K-INDEX") */
@@ -21,6 +22,8 @@ export interface MetricCardProps {
   loading?: boolean;
   /** Click handler for expanding the card to show detailed modal */
   onClick?: () => void;
+  /** Tooltip text shown via an InfoTip icon next to the label */
+  tooltip?: string;
 }
 
 /**
@@ -52,6 +55,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   delay = 0,
   loading = false,
   onClick,
+  tooltip,
 }) => {
   /**
    * Get the trend arrow icon based on direction
@@ -130,8 +134,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       ) : (
         <div className="flex flex-col gap-2">
           {/* Label */}
-          <span className="text-sm font-sans font-semibold uppercase tracking-wide text-gray-300">
+          <span className="text-sm font-sans font-semibold uppercase tracking-wide text-gray-300 flex items-center gap-1">
             {label}
+            {tooltip && <InfoTip content={tooltip} />}
           </span>
 
           {/* Value row with unit and trend */}

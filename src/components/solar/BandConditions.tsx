@@ -1,5 +1,7 @@
 import React from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { BandRow } from "./BandRow";
 import { calculateBandConditions } from "@/lib/utils/bands";
 
@@ -35,8 +37,9 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
     return (
       <Card className="h-full">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+          <h2 className="font-sans text-lg font-semibold text-white tracking-wide flex items-center gap-2">
             HF BAND CONDITIONS
+            <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
           </h2>
           {onExpand && (
             <button
@@ -76,8 +79,9 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
     <Card className="h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+        <h2 className="font-sans text-lg font-semibold text-white tracking-wide flex items-center gap-2">
           HF BAND CONDITIONS
+          <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
         </h2>
         <div className="flex items-center gap-2">
           {loading && <LoadingSpinner size="sm" />}

@@ -22,6 +22,8 @@ import { RADIO_DATABASE } from "@/lib/data/radios";
 import { RadioPickerModal } from "@/components/radio/RadioPickerModal";
 import type { ITURegion, LicenseClass, BandMode } from "@/types/bandplan";
 import type { RadioEquipment } from "@/types/radio";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { SIGNAL_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 
 type WizardMode = "SSB" | "CW" | "FT8";
 
@@ -613,8 +615,9 @@ export function DXWizard() {
                 <h3 className="text-sm font-semibold text-white">
                   1) Target Station
                 </h3>
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[10px] text-gray-400 inline-flex items-center gap-1">
                   grid / coordinates / location
+                  <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
                 </span>
               </div>
 
@@ -680,9 +683,10 @@ export function DXWizard() {
                     <div className="text-white font-semibold truncate">
                       {target.label}
                     </div>
-                    <div className="text-xs text-gray-300 font-mono mt-1">
+                    <div className="text-xs text-gray-300 font-mono mt-1 inline-flex items-center gap-1">
                       {target.grid} • {target.lat.toFixed(3)}°,{" "}
                       {target.lon.toFixed(3)}°
+                      <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
                     </div>
                   </div>
                 )}
@@ -695,8 +699,9 @@ export function DXWizard() {
                   2) Operator Profile
                 </h3>
                 {station && (
-                  <div className="text-[10px] text-gray-400 font-mono">
+                  <div className="text-[10px] text-gray-400 font-mono inline-flex items-center gap-1">
                     {station.callsign} • {station.grid}
+                    <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
                   </div>
                 )}
               </div>
@@ -905,7 +910,8 @@ export function DXWizard() {
                       {recommendation.best.notes}
                     </div>
                     <div className="mt-2 text-[10px] text-gray-400 font-mono">
-                      Est. SNR @100W: {recommendation.best.snrEstimate} dB
+                      Est. SNR <InfoTip content={SIGNAL_TOOLTIPS.snr} /> @100W:{" "}
+                      {recommendation.best.snrEstimate} dB
                       {recommendation.best.pathLoss !== undefined && (
                         <>
                           {" "}

@@ -11,6 +11,8 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { Card, LoadingSpinner, DataFreshnessIndicator } from "@/components/ui";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
 import {
   getForecastForPath,
   getBestWindows,
@@ -177,12 +179,14 @@ export function MobileBandPlanner({
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5">
             <span className="text-gray-500">SFI</span>
+            <InfoTip content={SOLAR_TOOLTIPS.sfi} />
             <span className="font-mono text-plasma-orange">
               {currentFlux ?? "—"}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-gray-500">Kp</span>
+            <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
             <span
               className="font-mono"
               style={{
@@ -202,6 +206,7 @@ export function MobileBandPlanner({
           {currentBz !== null && (
             <div className="flex items-center gap-1.5">
               <span className="text-gray-500">Bz</span>
+              <InfoTip content={SOLAR_TOOLTIPS.bz} />
               <span
                 className="font-mono"
                 style={{ color: currentBz >= 0 ? "#44dd66" : "#ff7700" }}

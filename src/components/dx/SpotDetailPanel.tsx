@@ -16,6 +16,8 @@ import {
 } from "@/lib/utils/path";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useRigStore } from "@/stores/rigStore";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 
 interface SpotDetailPanelProps {
   spot: DXSpot | null;
@@ -126,14 +128,16 @@ export const SpotDetailPanel = memo(function SpotDetailPanel({
       <div className="flex items-center gap-2 mb-1">
         {entity ? (
           <>
-            <span className="text-white font-semibold text-xs">
+            <span className="text-white font-semibold text-xs inline-flex items-center gap-1">
               {entity.name}
+              <InfoTip content={GEOGRAPHY_TOOLTIPS.dxccEntity} />
             </span>
-            <span className="text-[9px] text-gray-400 font-mono">
-              CQ {entity.cqZone}
+            <span className="text-[9px] text-gray-400 font-mono inline-flex items-center gap-0.5">
+              CQ {entity.cqZone} <InfoTip content={GEOGRAPHY_TOOLTIPS.cqZone} />
             </span>
-            <span className="text-[9px] text-gray-400 font-mono">
-              ITU {entity.ituZone}
+            <span className="text-[9px] text-gray-400 font-mono inline-flex items-center gap-0.5">
+              ITU {entity.ituZone}{" "}
+              <InfoTip content={GEOGRAPHY_TOOLTIPS.ituZone} />
             </span>
           </>
         ) : (
@@ -179,7 +183,9 @@ export const SpotDetailPanel = memo(function SpotDetailPanel({
           </span>
           {spot.dxGrid && (
             <div className="flex items-center gap-1">
-              <span className="text-[9px] text-gray-400 uppercase">Grid</span>
+              <span className="text-[9px] text-gray-400 uppercase inline-flex items-center gap-0.5">
+                Grid <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
+              </span>
               <span className="text-[11px] text-gray-200 font-mono">
                 {spot.dxGrid}
               </span>

@@ -9,7 +9,15 @@
  * Performance optimized with memoized sub-components.
  */
 
-import { useMemo, useState, useCallback, useRef, useEffect, memo } from "react";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  memo,
+  type ReactNode,
+} from "react";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
 import {
   useUserStore,
@@ -40,6 +48,8 @@ import {
   getPathTerrainLoss,
 } from "@/lib/utils/terrain";
 import type { TerrainType } from "@/lib/utils/terrain";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { PROPAGATION_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 
 interface PathAnalysisProps {
   /** Current display time for illumination calculation */
@@ -849,7 +859,9 @@ export function PathAnalysis({
             }`}
           >
             <div className="flex items-center gap-2">
-              <h4 className="text-xs font-medium text-gray-400">Short Path</h4>
+              <h4 className="text-xs font-medium text-gray-400 inline-flex items-center gap-1">
+                Short Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
+              </h4>
               {pathMode === "short" && (
                 <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
                   Active
@@ -863,7 +875,11 @@ export function PathAnalysis({
                 valueClassName={getDistanceColor(metrics.difficulty)}
               />
               <MetricItem
-                label="Bearing"
+                label={
+                  <>
+                    Bearing <InfoTip content={GEOGRAPHY_TOOLTIPS.bearing} />
+                  </>
+                }
                 value={`${Math.round(metrics.shortPath.bearing)}°`}
                 subValue={formatBearing(metrics.shortPath.bearing)}
               />
@@ -884,7 +900,9 @@ export function PathAnalysis({
             }`}
           >
             <div className="flex items-center gap-2">
-              <h4 className="text-xs font-medium text-gray-400">Long Path</h4>
+              <h4 className="text-xs font-medium text-gray-400 inline-flex items-center gap-1">
+                Long Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
+              </h4>
               {pathMode === "long" && (
                 <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
                   Active
@@ -898,7 +916,11 @@ export function PathAnalysis({
                 valueClassName={getLongPathDistanceColor(metrics.difficulty)}
               />
               <MetricItem
-                label="Bearing"
+                label={
+                  <>
+                    Bearing <InfoTip content={GEOGRAPHY_TOOLTIPS.bearing} />
+                  </>
+                }
                 value={`${Math.round(metrics.longPath.bearing)}°`}
                 subValue={formatBearing(metrics.longPath.bearing)}
               />
@@ -1082,14 +1104,16 @@ const MetricItem = memo(function MetricItem({
   subValue,
   valueClassName,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   subValue?: string;
   valueClassName?: string;
 }) {
   return (
     <div className="text-center">
-      <div className="text-xs text-gray-400 mb-0.5">{label}</div>
+      <div className="text-xs text-gray-400 mb-0.5 inline-flex items-center justify-center gap-0.5">
+        {label}
+      </div>
       <div className={`text-sm font-mono ${valueClassName || "text-white"}`}>
         {value}
       </div>
@@ -1149,24 +1173,32 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
       <h4 className="text-xs font-medium text-gray-400">Freq Limits</h4>
       <div className="p-2 rounded-lg border border-white/10 bg-white/5">
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
-          <div className="flex justify-between">
-            <span className="text-gray-400">MUF:</span>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 inline-flex items-center gap-0.5">
+              MUF: <InfoTip content={PROPAGATION_TOOLTIPS.muf} />
+            </span>
             <span className={getMufColor(limits.muf)}>
               {limits.muf.toFixed(1)}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">FOT:</span>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 inline-flex items-center gap-0.5">
+              FOT: <InfoTip content={PROPAGATION_TOOLTIPS.fot} />
+            </span>
             <span className="text-white">{limits.fot.toFixed(1)}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">LUF:</span>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 inline-flex items-center gap-0.5">
+              LUF: <InfoTip content={PROPAGATION_TOOLTIPS.luf} />
+            </span>
             <span className={getLufColor(limits.luf)}>
               {limits.luf.toFixed(1)}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">HPF:</span>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 inline-flex items-center gap-0.5">
+              HPF: <InfoTip content={PROPAGATION_TOOLTIPS.hpf} />
+            </span>
             <span className="text-white">{limits.hpf.toFixed(1)}</span>
           </div>
         </div>

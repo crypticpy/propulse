@@ -9,6 +9,7 @@ import {
   BzModal,
   type BzDataPoint,
 } from "./modals";
+import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
 
 export interface SolarFluxDataPoint {
   time_tag: string;
@@ -259,6 +260,7 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           delay={0}
           loading={loading}
           onClick={() => setSolarFluxModalOpen(true)}
+          tooltip={SOLAR_TOOLTIPS.sfi}
         />
 
         {/* K-Index */}
@@ -273,6 +275,7 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           delay={100}
           loading={loading}
           onClick={() => setKIndexModalOpen(true)}
+          tooltip={SOLAR_TOOLTIPS.kIndex}
         />
 
         {/* Sunspot Number */}
@@ -291,6 +294,7 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           delay={200}
           loading={loading}
           onClick={() => setSunspotModalOpen(true)}
+          tooltip={SOLAR_TOOLTIPS.ssn}
         />
 
         {/* A-Index */}
@@ -303,6 +307,7 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           delay={300}
           loading={loading}
           onClick={() => setAIndexModalOpen(true)}
+          tooltip={SOLAR_TOOLTIPS.aIndex}
         />
 
         {/* IMF Bz */}
@@ -315,6 +320,7 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           delay={400}
           loading={loading}
           onClick={() => setBzModalOpen(true)}
+          tooltip={SOLAR_TOOLTIPS.bz}
         />
       </div>
 

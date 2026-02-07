@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { SOLAR_TOOLTIPS, PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 
 export interface PropagationIndexProps {
   /** Current Solar Flux Index (typically 70-300), null if unavailable */
@@ -244,8 +246,9 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+            <h2 className="font-sans text-lg font-semibold text-white tracking-wide flex items-center gap-2">
               Propagation Index
+              <InfoTip content={PROPAGATION_TOOLTIPS.propagationIndex} />
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
               Composite HF propagation quality score
@@ -449,7 +452,9 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
 
                 {/* SFI contribution */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-16">SFI</span>
+                  <span className="text-xs text-gray-400 w-16 flex items-center gap-1">
+                    SFI <InfoTip content={SOLAR_TOOLTIPS.sfi} />
+                  </span>
                   <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-plasma-orange rounded-full transition-all duration-500"
@@ -463,7 +468,9 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
 
                 {/* Kp contribution */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-16">K-index</span>
+                  <span className="text-xs text-gray-400 w-16 flex items-center gap-1">
+                    K-index <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
+                  </span>
                   <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-signal-green rounded-full transition-all duration-500"
@@ -477,7 +484,9 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
 
                 {/* Bz contribution */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-16">IMF Bz</span>
+                  <span className="text-xs text-gray-400 w-16 flex items-center gap-1">
+                    IMF Bz <InfoTip content={SOLAR_TOOLTIPS.bz} />
+                  </span>
                   <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
@@ -501,19 +510,25 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
               {/* Current values */}
               <div className="flex gap-4 pt-2 border-t border-white/10">
                 <div className="text-center">
-                  <div className="text-xs text-gray-400">SFI</div>
+                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                    SFI <InfoTip content={SOLAR_TOOLTIPS.sfi} />
+                  </div>
                   <div className="font-mono text-sm text-plasma-orange">
                     {solarFlux ?? "—"}
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-gray-400">Kp</div>
+                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                    Kp <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
+                  </div>
                   <div className="font-mono text-sm text-signal-green">
                     {kIndex ?? "—"}
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-gray-400">Bz</div>
+                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                    Bz <InfoTip content={SOLAR_TOOLTIPS.bz} />
+                  </div>
                   <div
                     className="font-mono text-sm"
                     style={{

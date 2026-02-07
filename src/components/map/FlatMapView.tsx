@@ -52,6 +52,11 @@ import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
+import {
+  useAwardProgress,
+  STATE_NAME_TO_ABBR,
+  type AwardEntityStatus,
+} from "@/hooks/useAwardProgress";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { LabelOptions } from "@/stores/mapStore";
@@ -1862,6 +1867,58 @@ function drawStateBorders(
 }
 
 /**
+ * Draw WAS (Worked All States) award overlay on the map.
+ * Fills each US state polygon with a color based on worked/confirmed status.
+ */
+function drawWASOverlay(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  wasStates: Map<string, AwardEntityStatus>,
+) {
+  // Batch states by color to minimize canvas fill() calls
+  type StateData = (typeof US_STATES)[number];
+  const confirmed: StateData[] = [];
+  const worked: StateData[] = [];
+  const unworked: StateData[] = [];
+  const territory: StateData[] = [];
+
+  for (const state of US_STATES) {
+    const abbr = STATE_NAME_TO_ABBR.get(state.name);
+    if (!abbr) {
+      territory.push(state); // DC, PR, GU, etc. — not part of WAS
+      continue;
+    }
+    const status = wasStates.get(abbr);
+    if (status?.confirmed) confirmed.push(state);
+    else if (status?.worked) worked.push(state);
+    else unworked.push(state);
+  }
+
+  ctx.save();
+  const batches: [StateData[], string][] = [
+    [territory, "rgba(148, 163, 184, 0.12)"], // slate — N/A
+    [unworked, "rgba(239, 68, 68, 0.18)"], // red — needed
+    [worked, "rgba(251, 191, 36, 0.30)"], // amber — worked
+    [confirmed, "rgba(34, 197, 94, 0.35)"], // green — confirmed
+  ];
+
+  for (const [states, color] of batches) {
+    if (states.length === 0) continue;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (const state of states) {
+      for (const ring of state.borders) {
+        addWrappedRingPath2D(ctx, ring, width, height);
+        ctx.closePath();
+      }
+    }
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
  * Draw borders with boosted opacity within the night-side clip region.
  * Uses the terminator to build a clip path, then re-draws country and/or
  * state borders at higher opacity so they remain visible on the dark side.
@@ -2107,6 +2164,9 @@ export function FlatMapView({
   const spotColorMode: SpotColorMode =
     preferences?.uiInteraction?.spotColorMode ?? "mode";
   const highViz = preferences?.uiInteraction?.visualStyle === "high-viz";
+
+  // Award progress for WAS overlay (only compute when enabled)
+  const { wasStates } = useAwardProgress(labelOptions.wasOverlay);
 
   // Pin store
   const { addPin } = usePinStore();
@@ -3212,9 +3272,15 @@ export function FlatMapView({
           countryNames: false,
           cities: false,
           maidenheadGrid: false,
+          wasOverlay: false,
         },
         isStandard,
       );
+    }
+
+    // Draw WAS award overlay (behind state borders)
+    if (labelOptions.wasOverlay) {
+      drawWASOverlay(ctx, renderWidth, renderHeight, wasStates);
     }
 
     // Draw state borders
@@ -3250,6 +3316,7 @@ export function FlatMapView({
           countryNames: layers.labels ? labelOptions.countryNames : false,
           cities: layers.labels ? labelOptions.cities : false,
           maidenheadGrid: layers.labels ? labelOptions.maidenheadGrid : false,
+          wasOverlay: false,
         },
         isStandard,
       );
@@ -3425,6 +3492,7 @@ export function FlatMapView({
     spotColorMode,
     highViz,
     mapStyle,
+    wasStates,
   ]);
 
   return (

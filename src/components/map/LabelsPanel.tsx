@@ -8,6 +8,7 @@ const LABEL_OPTIONS: { key: keyof LabelOptions; label: string }[] = [
   { key: "countryNames", label: "Country Names" },
   { key: "cities", label: "Cities" },
   { key: "maidenheadGrid", label: "Maidenhead Grid" },
+  { key: "wasOverlay", label: "WAS Progress (flat)" },
 ];
 
 const COLLAPSE_DELAY_MS = 2000;

@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
-import type { OverlayLayerModel, MapInteractionMode } from "@/types/mapOverlays";
+import type {
+  OverlayLayerModel,
+  MapInteractionMode,
+} from "@/types/mapOverlays";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -110,6 +113,7 @@ export interface LabelOptions {
   countryNames: boolean;
   cities: boolean;
   maidenheadGrid: boolean;
+  wasOverlay: boolean;
 }
 
 interface MapState {
@@ -355,6 +359,7 @@ const DEFAULT_LABEL_OPTIONS: LabelOptions = {
   countryNames: true,
   cities: true,
   maidenheadGrid: false,
+  wasOverlay: false,
 };
 
 // Load saved label options from localStorage

@@ -476,8 +476,15 @@ export function importSettings(backup: SettingsBackup): ImportResult {
 
     // Import dismissed alert IDs
     if (backup.dismissedAlertIds && Array.isArray(backup.dismissedAlertIds)) {
-      // We can't directly set dismissedAlertIds, but we can clear and work with them
-      // For now, just mark this as imported if the data exists
+      const alertsStore = useAlertsStore.getState();
+      // Merge imported dismissed IDs with any existing ones
+      const existingIds = new Set(alertsStore.dismissedAlertIds);
+      for (const id of backup.dismissedAlertIds) {
+        existingIds.add(id);
+      }
+      useAlertsStore.setState({
+        dismissedAlertIds: Array.from(existingIds),
+      });
       result.imported.alerts = true;
     }
 

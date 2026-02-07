@@ -1,11 +1,80 @@
 /**
  * Appearance section for Settings page.
- * Wraps the existing AppearanceSettings component with section header.
+ * Wraps the existing AppearanceSettings component with section header,
+ * plus a custom hex color disclosure section for power users.
  */
 
+import { useState, useCallback } from "react";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
+import { useThemeStore } from "@/stores/themeStore";
+
+// ─── Hex validation ─────────────────────────────────────────────────────────
+
+const HEX_3 = /^#[0-9A-Fa-f]{3}$/;
+const HEX_6 = /^#[0-9A-Fa-f]{6}$/;
+
+function isValidHex(value: string): boolean {
+  return HEX_3.test(value) || HEX_6.test(value);
+}
+
+/** Expand shorthand #RGB to #RRGGBB */
+function normalizeHex(hex: string): string {
+  if (HEX_3.test(hex)) {
+    const r = hex[1];
+    const g = hex[2];
+    const b = hex[3];
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return hex;
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export function AppearanceSection() {
+  const customPrimary = useThemeStore((s) => s.customPrimary);
+  const customSecondary = useThemeStore((s) => s.customSecondary);
+  const setCustomColors = useThemeStore((s) => s.setCustomColors);
+  const setAccent = useThemeStore((s) => s.setAccent);
+
+  // Local form state for hex inputs
+  const [primaryHex, setPrimaryHex] = useState(customPrimary ?? "#ff6b35");
+  const [secondaryHex, setSecondaryHex] = useState(
+    customSecondary ?? "#00ff88",
+  );
+  const [primaryError, setPrimaryError] = useState<string | null>(null);
+  const [secondaryError, setSecondaryError] = useState<string | null>(null);
+
+  const handleApply = useCallback(() => {
+    let hasError = false;
+
+    if (!isValidHex(primaryHex)) {
+      setPrimaryError("Invalid hex (#RGB or #RRGGBB)");
+      hasError = true;
+    } else {
+      setPrimaryError(null);
+    }
+
+    if (!isValidHex(secondaryHex)) {
+      setSecondaryError("Invalid hex (#RGB or #RRGGBB)");
+      hasError = true;
+    } else {
+      setSecondaryError(null);
+    }
+
+    if (hasError) return;
+
+    setCustomColors(normalizeHex(primaryHex), normalizeHex(secondaryHex));
+  }, [primaryHex, secondaryHex, setCustomColors]);
+
+  const handleReset = useCallback(() => {
+    setPrimaryHex("#ff6b35");
+    setSecondaryHex("#00ff88");
+    setPrimaryError(null);
+    setSecondaryError(null);
+    // Reset to the default "plasma" preset
+    setAccent("plasma");
+  }, [setAccent]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -17,6 +86,102 @@ export function AppearanceSection() {
         </p>
         <AppearanceSettings />
       </div>
+
+      {/* Custom Colors disclosure */}
+      <details className="mt-4">
+        <summary className="text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-200 select-none">
+          Custom Colors
+        </summary>
+        <div className="mt-3 space-y-3">
+          {/* Accent color (primary) */}
+          <div>
+            <label
+              htmlFor="custom-primary-hex"
+              className="block text-xs font-medium text-gray-400 mb-1"
+            >
+              Accent Color
+            </label>
+            <div className="flex items-center gap-2">
+              <span
+                className="w-5 h-5 rounded-full border border-white/20 shrink-0"
+                style={{
+                  backgroundColor: isValidHex(primaryHex)
+                    ? normalizeHex(primaryHex)
+                    : "#333",
+                }}
+              />
+              <input
+                id="custom-primary-hex"
+                type="text"
+                value={primaryHex}
+                onChange={(e) => {
+                  setPrimaryHex(e.target.value);
+                  setPrimaryError(null);
+                }}
+                placeholder="#ff6b35"
+                maxLength={7}
+                className="w-28 px-2 py-1.5 text-sm bg-void-black border border-white/10 rounded-lg text-gray-200 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
+              />
+            </div>
+            {primaryError && (
+              <p className="text-xs text-alert-red mt-1">{primaryError}</p>
+            )}
+          </div>
+
+          {/* Background tint (secondary) */}
+          <div>
+            <label
+              htmlFor="custom-secondary-hex"
+              className="block text-xs font-medium text-gray-400 mb-1"
+            >
+              Secondary Color
+            </label>
+            <div className="flex items-center gap-2">
+              <span
+                className="w-5 h-5 rounded-full border border-white/20 shrink-0"
+                style={{
+                  backgroundColor: isValidHex(secondaryHex)
+                    ? normalizeHex(secondaryHex)
+                    : "#333",
+                }}
+              />
+              <input
+                id="custom-secondary-hex"
+                type="text"
+                value={secondaryHex}
+                onChange={(e) => {
+                  setSecondaryHex(e.target.value);
+                  setSecondaryError(null);
+                }}
+                placeholder="#00ff88"
+                maxLength={7}
+                className="w-28 px-2 py-1.5 text-sm bg-void-black border border-white/10 rounded-lg text-gray-200 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
+              />
+            </div>
+            {secondaryError && (
+              <p className="text-xs text-alert-red mt-1">{secondaryError}</p>
+            )}
+          </div>
+
+          {/* Apply + Reset */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleApply}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/30 transition-colors"
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg text-gray-400 border border-white/10 hover:text-gray-200 hover:border-white/20 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      </details>
 
       <div className="border-t border-white/10 pt-6">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">

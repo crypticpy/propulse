@@ -20,6 +20,7 @@ import { AccessoryManager } from "@/components/shack/AccessoryManager";
 import { PresetBuilder } from "@/components/shack/PresetBuilder";
 import { PerformanceDashboard } from "@/components/shack/PerformanceDashboard";
 import { BandCapabilityStrip } from "@/components/shack/BandCapabilityStrip";
+import { SignalChainDiagram } from "@/components/shack/SignalChainDiagram";
 import { useStationPerformance } from "@/hooks/useStationPerformance";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
@@ -169,6 +170,44 @@ function OverviewTab({
             </div>
             <div>Power: {activePreset.operatingPowerWatts}W</div>
           </div>
+
+          {/* Signal chain diagram */}
+          <SignalChainDiagram
+            radioName={(() => {
+              const r = userRadios.find(
+                (x) => x.userRadio.id === activePreset.radioId,
+              );
+              return (
+                r?.equipment?.displayName ??
+                r?.equipment?.model ??
+                r?.userRadio.nickname ??
+                undefined
+              );
+            })()}
+            accessoryNames={accessories
+              .filter((a) => activePreset.accessoryIds.includes(a.id))
+              .map((a) => a.name)}
+            feedlineName={
+              feedlines.find((f) => f.id === activePreset.feedlineId)?.name
+            }
+            antennaName={
+              antennas.find((a) => a.id === activePreset.antennaId)?.name
+            }
+            feedlineLossDb={
+              performance.bands.length > 0
+                ? performance.bands.reduce(
+                    (sum, b) => sum + b.feedlineLossDb,
+                    0,
+                  ) / performance.bands.length
+                : undefined
+            }
+            accessoryGainDb={
+              performance.bands.length > 0
+                ? performance.bands[0].accessoryGainDb
+                : undefined
+            }
+          />
+
           {bandLossData.length > 0 && (
             <BandCapabilityStrip bands={bandLossData} />
           )}

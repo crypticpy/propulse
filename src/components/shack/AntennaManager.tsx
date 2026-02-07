@@ -319,6 +319,7 @@ export function AntennaManager() {
             <input
               value={form.name}
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              maxLength={100}
               placeholder="e.g., 20m Yagi on Tower"
               className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
             />

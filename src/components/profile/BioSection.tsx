@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { useProfileStore } from "@/stores/profileStore";
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 const MAX_BIO_LENGTH = 2000;
 
@@ -47,7 +48,7 @@ export function BioSection() {
           </button>
         </div>
         {bio ? (
-          <p className="text-sm text-gray-300 whitespace-pre-wrap">{bio}</p>
+          <MarkdownRenderer text={bio} />
         ) : (
           <p className="text-sm text-gray-500 italic">
             No bio yet. Tell others about your station and interests.

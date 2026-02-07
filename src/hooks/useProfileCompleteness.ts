@@ -14,16 +14,15 @@ interface CompletenessResult {
 }
 
 const WEIGHTS = {
-  callsign: 20,
-  name: 10,
-  grid: 15,
-  license: 15,
+  callsign: 22,
+  name: 11,
+  grid: 17,
+  license: 17,
   bio: 5,
-  socialLink: 5,
-  radio: 10,
+  socialLink: 6,
+  radio: 11,
   expiration: 5,
-  timezone: 5,
-  photo: 10, // always incomplete for now (future feature)
+  timezone: 6,
 };
 
 export function useProfileCompleteness(): CompletenessResult {
@@ -63,7 +62,6 @@ export function useProfileCompleteness(): CompletenessResult {
       complete: !!station?.timezone,
       weight: WEIGHTS.timezone,
     },
-    { label: "Photo", complete: false, weight: WEIGHTS.photo }, // future
   ];
 
   const earned = items

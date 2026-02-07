@@ -74,7 +74,7 @@ const BEAM_WIDTH_OPTIONS: { value: BeamWidthOption; label: string }[] = [
 // =============================================================================
 
 export function PreferencesSection() {
-  const settings = useSettingsStore();
+  // Actions (stable references — no re-render on state changes)
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
   const setColorBlindMode = useSettingsStore((s) => s.setColorBlindMode);
   const setAntennaType = useSettingsStore((s) => s.setAntennaType);
@@ -88,21 +88,34 @@ export function PreferencesSection() {
   const updateUIInteraction = useSettingsStore((s) => s.updateUIInteraction);
   const setHighContrast = useSettingsStore((s) => s.setHighContrast);
 
-  // Derived values with safe defaults
-  const timeFormat = settings.timeFormat ?? "12h";
-  const textScale: TextScale = settings.textScale ?? "md";
-  const highContrast = settings.highContrast ?? false;
-  const colorBlindMode: ColorBlindMode = settings.colorBlindMode ?? "none";
-  const spotClustering = settings.spotClustering ?? DEFAULT_SPOT_CLUSTERING;
-  const compassRose = settings.compassRose ?? DEFAULT_COMPASS_ROSE;
-  const spotAge = settings.spotAge ?? DEFAULT_SPOT_AGE;
-  const uiInteraction = settings.uiInteraction ?? DEFAULT_UI_INTERACTION;
+  // Individual selectors for derived values (avoids subscribing to full store)
+  const timeFormat = useSettingsStore((s) => s.timeFormat ?? "12h");
+  const textScale: TextScale = useSettingsStore((s) => s.textScale ?? "md");
+  const highContrast = useSettingsStore((s) => s.highContrast ?? false);
+  const colorBlindMode: ColorBlindMode = useSettingsStore(
+    (s) => s.colorBlindMode ?? "none",
+  );
+  const spotClustering = useSettingsStore(
+    (s) => s.spotClustering ?? DEFAULT_SPOT_CLUSTERING,
+  );
+  const compassRose = useSettingsStore(
+    (s) => s.compassRose ?? DEFAULT_COMPASS_ROSE,
+  );
+  const spotAge = useSettingsStore((s) => s.spotAge ?? DEFAULT_SPOT_AGE);
+  const uiInteraction = useSettingsStore(
+    (s) => s.uiInteraction ?? DEFAULT_UI_INTERACTION,
+  );
   const spotColorMode = uiInteraction.spotColorMode ?? "mode";
   const showSpotCallsignLabels = uiInteraction.showSpotCallsignLabels ?? true;
-  const antennaType: AntennaType = settings.antennaType ?? "isotropic";
-  const noiseEnvironment: NoiseEnvironment =
-    settings.noiseEnvironment ?? "residential";
-  const forecastDisplay = settings.forecastDisplay ?? DEFAULT_FORECAST_DISPLAY;
+  const antennaType: AntennaType = useSettingsStore(
+    (s) => s.antennaType ?? "isotropic",
+  );
+  const noiseEnvironment: NoiseEnvironment = useSettingsStore(
+    (s) => s.noiseEnvironment ?? "residential",
+  );
+  const forecastDisplay = useSettingsStore(
+    (s) => s.forecastDisplay ?? DEFAULT_FORECAST_DISPLAY,
+  );
 
   return (
     <div className="space-y-8">
@@ -146,6 +159,24 @@ export function PreferencesSection() {
             Increase text size for better readability. Affects panels and data
             displays.
           </p>
+        </div>
+
+        {/* Visual Style */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Visual Style
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Globe and map rendering style
+          </p>
+          <SegmentedButton
+            options={[
+              { value: "realistic" as const, label: "Realistic" },
+              { value: "high-viz" as const, label: "High-Viz" },
+            ]}
+            value={uiInteraction.visualStyle ?? "realistic"}
+            onChange={(v) => updateUIInteraction({ visualStyle: v })}
+          />
         </div>
       </section>
 

@@ -5,24 +5,17 @@
 
 import { useMemo } from "react";
 
+/** Chart-friendly color palette — all colors chosen for visibility on dark backgrounds */
 const CHART_COLORS = [
-  "rgb(255,107,53)", // plasma-orange
-  "rgb(0,255,136)", // signal-green
-  "rgb(26,26,46)", // nebula-blue (dark, use stroke over dark bg)
-  "#ffd23f", // caution-yellow
-  "#ff4455", // alert-red
-  "rgba(255,255,255,0.3)", // Other
+  "#f97316", // orange (FT8)
+  "#22c55e", // green (SSB)
+  "#3b82f6", // blue (CW)
+  "#a855f7", // purple (FT4)
+  "#eab308", // yellow (RTTY)
+  "#ec4899", // pink (Other)
+  "#06b6d4", // cyan
+  "#f43f5e", // rose
 ] as const;
-
-// Brighter variant of nebula-blue for visibility on dark backgrounds
-const LEGEND_COLORS = [
-  "rgb(255,107,53)",
-  "rgb(0,255,136)",
-  "#3a86ff", // sunspot-blue (visible alternative for chart)
-  "#ffd23f",
-  "#ff4455",
-  "rgba(255,255,255,0.3)",
-];
 
 const SIZE = 160;
 const STROKE_WIDTH = 28;
@@ -34,7 +27,6 @@ interface ModeSlice {
   count: number;
   percentage: number;
   color: string;
-  legendColor: string;
   offset: number;
   dashLength: number;
 }
@@ -67,8 +59,7 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
         label: item.label,
         count: item.count,
         percentage: pct,
-        color: CHART_COLORS[Math.min(i, CHART_COLORS.length - 1)],
-        legendColor: LEGEND_COLORS[Math.min(i, LEGEND_COLORS.length - 1)],
+        color: CHART_COLORS[i % CHART_COLORS.length],
         offset: cumulativeOffset,
         dashLength,
       };
@@ -109,7 +100,7 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
               cy={SIZE / 2}
               r={RADIUS}
               fill="none"
-              stroke={slice.color === "rgb(26,26,46)" ? "#3a86ff" : slice.color}
+              stroke={slice.color}
               strokeWidth={STROKE_WIDTH}
               strokeDasharray={`${slice.dashLength} ${CIRCUMFERENCE - slice.dashLength}`}
               strokeDashoffset={-slice.offset}
@@ -132,7 +123,7 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
           <div key={slice.label} className="flex items-center gap-1.5">
             <span
               className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-              style={{ backgroundColor: slice.legendColor }}
+              style={{ backgroundColor: slice.color }}
             />
             <span className="text-gray-300">{slice.label}</span>
             <span className="text-gray-500 ml-auto tabular-nums">

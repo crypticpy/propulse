@@ -79,6 +79,7 @@ import { useUndoStore } from "@/stores/undoStore";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
+import { useAutoPanToSpots } from "@/hooks/useAutoPanToSpots";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 
 /**
@@ -137,6 +138,13 @@ export function PropSphere() {
   const requestContestEntryFocus = useContestUIEphemeralStore(
     (s) => s.requestEntryFocus,
   );
+
+  // Auto-pan to new spots state
+  const autoPanToSpots = useMapStore((s) => s.autoPanToSpots);
+  const setAutoPanToSpots = useMapStore((s) => s.setAutoPanToSpots);
+
+  // Auto-pan to new spots when enabled (works for all view modes)
+  useAutoPanToSpots();
 
   // Contest-aware map overlays (needed mult markers, etc.)
   useContestOverlayEngine({ enabled: Boolean(contestSessionId) });
@@ -733,6 +741,38 @@ export function PropSphere() {
                   );
                 })}
               </div>
+
+              {/* Auto-pan to new spots toggle */}
+              <button
+                onClick={() => setAutoPanToSpots(!autoPanToSpots)}
+                aria-pressed={autoPanToSpots}
+                title={
+                  autoPanToSpots
+                    ? "Stop following new spots"
+                    : "Auto-follow new spots"
+                }
+                className={`px-2 py-0.5 text-[10px] rounded transition-all flex items-center gap-1 ${
+                  autoPanToSpots
+                    ? "bg-signal-green/20 text-signal-green border border-signal-green/40"
+                    : "text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  {/* Crosshair / target icon */}
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    strokeLinecap="round"
+                    d="M12 2v4m0 12v4m10-10h-4M6 12H2"
+                  />
+                </svg>
+                Follow
+              </button>
 
               {/* Map style toggle (Satellite / Standard) */}
               <MapStyleToggle className="flex-shrink-0" />

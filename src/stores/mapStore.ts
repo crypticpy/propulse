@@ -260,6 +260,10 @@ interface MapState {
   exportRegionPresets: () => string;
   importRegionPresets: (json: string) => boolean;
 
+  // Auto-pan to new spots (per-session, not persisted)
+  autoPanToSpots: boolean;
+  setAutoPanToSpots: (enabled: boolean) => void;
+
   // Phase 3 feature layer toggles
   showEsLayer: boolean;
   setShowEsLayer: (show: boolean) => void;
@@ -479,6 +483,9 @@ const initialState = {
   centerLocation: null as CenterLocation | null,
   regionPresets: loadRegionPresets(),
   activePresetId: loadActivePresetId(),
+
+  // Auto-pan to new spots (per-session, not persisted)
+  autoPanToSpots: false,
 
   // Phase 3 feature layer toggles
   showEsLayer: false,
@@ -900,6 +907,9 @@ export const useMapStore = create<MapState>((set, get) => ({
       return false;
     }
   },
+
+  // Auto-pan to new spots
+  setAutoPanToSpots: (enabled) => set({ autoPanToSpots: enabled }),
 
   // Phase 3 feature layer toggles
   setShowEsLayer: (show) => set({ showEsLayer: show }),

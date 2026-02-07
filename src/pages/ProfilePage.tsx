@@ -7,7 +7,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useUserStore } from "@/stores/userStore";
+import { useProfileStore } from "@/stores/profileStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { LocationManager } from "@/components/settings/LocationManager";
@@ -36,8 +36,8 @@ const CALLSIGN_REGEX = /^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z]$/i;
 // ---- Page component ---------------------------------------------------------
 
 export default function ProfilePage() {
-  const station = useUserStore((s) => s.station);
-  const setStation = useUserStore((s) => s.setStation);
+  const station = useProfileStore((s) => s.station);
+  const setStation = useProfileStore((s) => s.setStation);
   const activeLocation = useActiveLocation();
   const isMobile = useIsMobile();
 

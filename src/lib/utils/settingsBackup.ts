@@ -6,7 +6,9 @@
  * Validates and applies imported settings with version compatibility checking.
  */
 
-import { useUserStore, type SavedTarget } from "@/stores/userStore";
+import { useProfileStore, type SavedTarget } from "@/stores/profileStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useShackStore } from "@/stores/shackStore";
 import {
   useMapStore,
   type PanelStates,
@@ -89,21 +91,51 @@ export interface ImportResult {
  * @returns Complete backup of all exportable settings
  */
 export function exportSettings(): SettingsBackup {
-  const userState = useUserStore.getState();
+  const profile = useProfileStore.getState();
+  const settings = useSettingsStore.getState();
+  const shack = useShackStore.getState();
   const mapState = useMapStore.getState();
   const dxState = useDXStore.getState();
   const watchState = useWatchStore.getState();
   const pinState = usePinStore.getState();
   const alertsState = useAlertsStore.getState();
 
+  // Reconstruct legacy preferences shape for backup compatibility
+  const preferences: Omit<UserPreferences, "station"> = {
+    units: settings.units,
+    timeFormat: settings.timeFormat,
+    theme: settings.theme,
+    ituRegion: settings.ituRegion,
+    licenseClass: settings.licenseClass,
+    textScale: settings.textScale,
+    colorBlindMode: settings.colorBlindMode,
+    noiseEnvironment: settings.noiseEnvironment,
+    antennaType: settings.antennaType,
+    bridgeEnabled: settings.bridgeEnabled,
+    preferTestedSpecs: settings.preferTestedSpecs,
+    favoredBands: settings.favoredBands,
+    bandPresets: settings.bandPresets,
+    notifications: settings.notifications,
+    spotClustering: settings.spotClustering,
+    compassRose: settings.compassRose,
+    spotAge: settings.spotAge,
+    watchAlerts: settings.watchAlerts,
+    uiInteraction: settings.uiInteraction,
+    forecastDisplay: settings.forecastDisplay,
+    radios: shack.radios,
+    customRadios: shack.customRadios,
+    activeRadioId: shack.activeRadioId,
+    license: profile.license,
+  };
+
   return {
     version: CURRENT_VERSION,
     exportedAt: new Date().toISOString(),
     appName: "propulse",
     userPreferences: {
-      station: userState.station,
-      preferences: userState.preferences,
-      savedTargets: userState.savedTargets,
+      station: profile.station,
+      preferences,
+      savedTargets: profile.savedTargets,
     },
     mapSettings: {
       panelStates: mapState.panelStates,
@@ -268,21 +300,49 @@ export function importSettings(backup: SettingsBackup): ImportResult {
   try {
     // Import user preferences
     if (backup.userPreferences) {
-      const userStore = useUserStore.getState();
+      const profileStore = useProfileStore.getState();
 
       if (backup.userPreferences.station !== undefined) {
-        userStore.setStation(backup.userPreferences.station);
+        profileStore.setStation(backup.userPreferences.station);
       }
 
       if (backup.userPreferences.preferences) {
-        userStore.updatePreferences(backup.userPreferences.preferences);
+        const prefs = backup.userPreferences.preferences;
+        // Route to settings store (flat merge)
+        const {
+          radios,
+          customRadios,
+          activeRadioId,
+          license,
+          station: _station,
+          ...settingsFields
+        } = prefs as Record<string, unknown>;
+        useSettingsStore.getState().updatePreferences(settingsFields as never);
+
+        // Route to shack store
+        if (
+          radios !== undefined ||
+          customRadios !== undefined ||
+          activeRadioId !== undefined
+        ) {
+          useShackStore.setState({
+            ...(radios !== undefined ? { radios } : {}),
+            ...(customRadios !== undefined ? { customRadios } : {}),
+            ...(activeRadioId !== undefined ? { activeRadioId } : {}),
+          } as never);
+        }
+
+        // Route license to profile store
+        if (license !== undefined) {
+          useProfileStore.setState({ license } as never);
+        }
       }
 
       if (backup.userPreferences.savedTargets) {
         // Clear existing targets and add imported ones
-        userStore.clearTargets();
+        profileStore.clearTargets();
         for (const target of backup.userPreferences.savedTargets) {
-          userStore.addTarget({
+          profileStore.addTarget({
             name: target.name,
             lat: target.lat,
             lon: target.lon,

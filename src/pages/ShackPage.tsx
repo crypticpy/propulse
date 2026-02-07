@@ -6,7 +6,8 @@
  * Mobile: stacked vertically with compact spacing.
  */
 
-import { useUserStore, useActiveRadio } from "@/stores/userStore";
+import { useActiveRadio } from "@/stores/shackStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { RadioManager } from "@/components/settings/RadioManager";
 import { ANTENNA_TYPES, type AntennaType } from "@/lib/data/antennas";
@@ -15,7 +16,7 @@ import { ANTENNA_TYPES, type AntennaType } from "@/lib/data/antennas";
 
 function ShackHeader({ isMobile }: { isMobile: boolean }) {
   const activeRadio = useActiveRadio();
-  const antennaType = useUserStore((s) => s.preferences.antennaType);
+  const antennaType = useSettingsStore((s) => s.antennaType);
   const selectedAntenna = ANTENNA_TYPES.find((a) => a.type === antennaType);
 
   return (
@@ -53,8 +54,8 @@ function ShackHeader({ isMobile }: { isMobile: boolean }) {
 // ─── Antenna Configuration ──────────────────────────────────────────────────
 
 function AntennaConfiguration() {
-  const antennaType = useUserStore((s) => s.preferences.antennaType);
-  const setAntennaType = useUserStore((s) => s.setAntennaType);
+  const antennaType = useSettingsStore((s) => s.antennaType);
+  const setAntennaType = useSettingsStore((s) => s.setAntennaType);
   const selected = ANTENNA_TYPES.find((a) => a.type === antennaType);
 
   return (

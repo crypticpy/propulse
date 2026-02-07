@@ -9,12 +9,12 @@
 
 import { ClusterSettings } from "@/components/settings/ClusterSettings";
 import { CATSettings } from "@/components/settings/CATSettings";
-import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useBridge } from "@/hooks/useBridge";
 
 export function ConnectionsSection() {
-  const bridgeEnabled = useUserStore((s) => s.preferences.bridgeEnabled);
-  const updatePreferences = useUserStore((s) => s.updatePreferences);
+  const bridgeEnabled = useSettingsStore((s) => s.bridgeEnabled);
+  const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
   const { send: bridgeSend, connected: bridgeConnected } = useBridge({
     enabled: bridgeEnabled,

@@ -8,7 +8,7 @@
  * All changes are applied immediately via the user store -- no save button required.
  */
 
-import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { FavoredBandsPicker } from "@/components/settings/FavoredBandsPicker";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { ANTENNA_TYPES, type AntennaType } from "@/lib/data/antennas";
@@ -142,29 +142,28 @@ function SelectField({
 // =============================================================================
 
 export function PreferencesSection() {
-  const preferences = useUserStore((s) => s.preferences);
-  const updatePreferences = useUserStore((s) => s.updatePreferences);
-  const setColorBlindMode = useUserStore((s) => s.setColorBlindMode);
-  const setAntennaType = useUserStore((s) => s.setAntennaType);
-  const setNoiseEnvironment = useUserStore((s) => s.setNoiseEnvironment);
-  const updateSpotClustering = useUserStore((s) => s.updateSpotClustering);
-  const updateCompassRose = useUserStore((s) => s.updateCompassRose);
-  const updateSpotAge = useUserStore((s) => s.updateSpotAge);
+  const settings = useSettingsStore();
+  const updatePreferences = useSettingsStore((s) => s.updatePreferences);
+  const setColorBlindMode = useSettingsStore((s) => s.setColorBlindMode);
+  const setAntennaType = useSettingsStore((s) => s.setAntennaType);
+  const setNoiseEnvironment = useSettingsStore((s) => s.setNoiseEnvironment);
+  const updateSpotClustering = useSettingsStore((s) => s.updateSpotClustering);
+  const updateCompassRose = useSettingsStore((s) => s.updateCompassRose);
+  const updateSpotAge = useSettingsStore((s) => s.updateSpotAge);
 
   // Derived values with safe defaults
-  const timeFormat = preferences.timeFormat ?? "12h";
-  const textScale: TextScale = preferences.textScale ?? "md";
-  const colorBlindMode: ColorBlindMode = preferences.colorBlindMode ?? "none";
-  const spotClustering = preferences.spotClustering ?? DEFAULT_SPOT_CLUSTERING;
-  const compassRose = preferences.compassRose ?? DEFAULT_COMPASS_ROSE;
-  const spotAge = preferences.spotAge ?? DEFAULT_SPOT_AGE;
-  const uiInteraction = preferences.uiInteraction ?? DEFAULT_UI_INTERACTION;
+  const timeFormat = settings.timeFormat ?? "12h";
+  const textScale: TextScale = settings.textScale ?? "md";
+  const colorBlindMode: ColorBlindMode = settings.colorBlindMode ?? "none";
+  const spotClustering = settings.spotClustering ?? DEFAULT_SPOT_CLUSTERING;
+  const compassRose = settings.compassRose ?? DEFAULT_COMPASS_ROSE;
+  const spotAge = settings.spotAge ?? DEFAULT_SPOT_AGE;
+  const uiInteraction = settings.uiInteraction ?? DEFAULT_UI_INTERACTION;
   const spotColorMode = uiInteraction.spotColorMode ?? "mode";
   const showSpotCallsignLabels = uiInteraction.showSpotCallsignLabels ?? true;
-  const antennaType: AntennaType =
-    (preferences.antennaType as AntennaType) ?? "isotropic";
+  const antennaType: AntennaType = settings.antennaType ?? "isotropic";
   const noiseEnvironment: NoiseEnvironment =
-    (preferences.noiseEnvironment as NoiseEnvironment) ?? "residential";
+    settings.noiseEnvironment ?? "residential";
 
   return (
     <div className="space-y-8">

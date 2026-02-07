@@ -1,20 +1,38 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { Home } from "@/pages/Home";
-import { SolarPulse } from "@/pages/SolarPulse";
-import { DXWizard } from "@/pages/DXWizard";
-import { BandPlanner } from "@/pages/BandPlanner";
-import { Logbook } from "@/pages/Logbook";
-import { Contest } from "@/pages/Contest";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { MobileLayout } from "@/components/layout/MobileLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useTextScale } from "@/hooks/useTextScale";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
-// Lazy load PropSphere to split Three.js into separate chunk
+// Lazy load all page components for code splitting
+const Home = lazy(() =>
+  import("@/pages/Home").then((m) => ({ default: m.Home })),
+);
+const SolarPulse = lazy(() =>
+  import("@/pages/SolarPulse").then((m) => ({ default: m.SolarPulse })),
+);
+const DXWizard = lazy(() =>
+  import("@/pages/DXWizard").then((m) => ({ default: m.DXWizard })),
+);
+const BandPlanner = lazy(() =>
+  import("@/pages/BandPlanner").then((m) => ({ default: m.BandPlanner })),
+);
+const Logbook = lazy(() =>
+  import("@/pages/Logbook").then((m) => ({ default: m.Logbook })),
+);
+const Contest = lazy(() =>
+  import("@/pages/Contest").then((m) => ({ default: m.Contest })),
+);
 const PropSphere = lazy(() =>
   import("@/pages/PropSphere").then((m) => ({ default: m.PropSphere })),
 );
+
+function AppLayout() {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileLayout /> : <Layout />;
+}
 
 function App() {
   // Apply text scale preference to DOM
@@ -23,32 +41,14 @@ function App() {
   return (
     <ErrorBoundary>
       <Routes>
-        <Route element={<Layout />}>
+        <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/solar" element={<SolarPulse />} />
           <Route path="/dx" element={<DXWizard />} />
           <Route path="/planner" element={<BandPlanner />} />
           <Route path="/log" element={<Logbook />} />
           <Route path="/contest" element={<Contest />} />
-          <Route
-            path="/map"
-            element={
-              <Suspense
-                fallback={
-                  <div className="min-h-screen flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <LoadingSpinner size="lg" />
-                      <p className="text-gray-500 text-sm">
-                        Loading PropSphere...
-                      </p>
-                    </div>
-                  </div>
-                }
-              >
-                <PropSphere />
-              </Suspense>
-            }
-          />
+          <Route path="/map" element={<PropSphere />} />
         </Route>
       </Routes>
     </ErrorBoundary>

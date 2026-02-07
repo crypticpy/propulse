@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
 import {
@@ -6,6 +6,7 @@ import {
   AlertToastContainer,
   AlertHistoryModal,
 } from "@/components/alerts";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -51,7 +52,15 @@ export function Layout() {
           onViewAll={() => setShowAlertHistory(true)}
         />
 
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="min-h-[50vh] flex items-center justify-center">
+              <LoadingSpinner size="lg" />
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </div>
 
       {/* Toast notifications - fixed position bottom-right */}

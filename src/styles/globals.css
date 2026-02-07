@@ -427,4 +427,32 @@
       @apply bg-signal-green/30;
     }
   }
+
+  /* Safe area insets for modern mobile browsers */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Touch action utilities for scroll containers */
+  .touch-pan-y {
+    touch-action: pan-y;
+  }
+  .touch-pan-x {
+    touch-action: pan-x;
+  }
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Mobile-optimized scrolling */
+  .scroll-smooth-touch {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 }

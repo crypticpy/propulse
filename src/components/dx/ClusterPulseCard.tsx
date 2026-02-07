@@ -173,7 +173,7 @@ export function ClusterPulseCard({
   return (
     <Card
       className={`
-        relative min-w-[140px]
+        relative min-w-[280px]
         ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""}
         ${className}
       `}
@@ -199,42 +199,48 @@ export function ClusterPulseCard({
 
       {/* Content */}
       {metrics === null ? (
-        <div className="flex items-center justify-center py-2">
-          <span className="text-xs text-gray-400">Waiting for spots...</span>
+        <div className="flex items-center justify-center py-6">
+          <span className="text-sm text-gray-400">Waiting for spots...</span>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-evenly flex-1 py-2">
           {/* Rate */}
           <div className="flex flex-col items-center">
             <span
-              className={`text-2xl font-bold font-mono leading-none ${getRateColorClass(metrics.rate)}`}
+              className={`text-4xl font-bold font-mono leading-none ${getRateColorClass(metrics.rate)}`}
             >
               {metrics.rate.toFixed(1)}
             </span>
-            <span className="text-[9px] text-gray-400 uppercase">/min</span>
+            <span className="text-[11px] text-gray-400 uppercase mt-1">
+              /min
+            </span>
           </div>
 
           {/* Divider */}
-          <div className="w-px h-6 bg-white/10" />
+          <div className="w-px h-10 bg-white/10" />
 
           {/* Age (median freshness) */}
           <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold font-mono text-cosmic-cyan leading-none">
+            <span className="text-4xl font-bold font-mono text-cosmic-cyan leading-none">
               {metrics.medianAge}
-              <span className="text-sm">m</span>
+              <span className="text-lg">m</span>
             </span>
-            <span className="text-[9px] text-gray-400 uppercase">Age</span>
+            <span className="text-[11px] text-gray-400 uppercase mt-1">
+              Age
+            </span>
           </div>
 
           {/* Divider */}
-          <div className="w-px h-6 bg-white/10" />
+          <div className="w-px h-10 bg-white/10" />
 
           {/* Peak band */}
           <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold font-mono text-plasma-orange leading-none">
+            <span className="text-4xl font-bold font-mono text-plasma-orange leading-none">
               {metrics.peakBand}
             </span>
-            <span className="text-[9px] text-gray-400 uppercase">Peak</span>
+            <span className="text-[11px] text-gray-400 uppercase mt-1">
+              Peak
+            </span>
           </div>
         </div>
       )}

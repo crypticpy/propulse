@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
 import { BandRow } from "./BandRow";
 import { calculateBandConditions } from "@/lib/utils/bands";
+import { useDXStore } from "@/stores/dxStore";
 
 export interface BandConditionsProps {
   /** Current K-index value (0-9), null if unavailable */
@@ -75,6 +76,23 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
   // Night-only bands (160m only truly night-only based on bands.ts)
   const nightOnlyBands = new Set(["160m"]);
 
+  // Compute DX cluster spot counts per band (last 30 min)
+  const spots = useDXStore((state) => state.spots);
+  const bandSpotCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const thirtyMinAgo = Date.now() - 30 * 60_000;
+    for (const spot of spots) {
+      const spotMs =
+        spot.time instanceof Date
+          ? spot.time.getTime()
+          : new Date(spot.time).getTime();
+      if (spotMs >= thirtyMinAgo && spot.band) {
+        counts[spot.band] = (counts[spot.band] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [spots]);
+
   return (
     <Card className="h-full">
       {/* Header */}
@@ -113,7 +131,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
       <div className="space-y-0" role="table" aria-label="HF Band Conditions">
         {/* Column Headers */}
         <div
-          className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_70px_70px_1fr] gap-2 md:gap-3 pb-2 px-2 border-b border-white/10"
+          className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 pb-2 px-2 border-b border-white/10"
           role="row"
         >
           <div
@@ -141,7 +159,13 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
             Night
           </div>
           <div
-            className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-right md:text-left"
+            className="hidden lg:block text-xs font-semibold text-gray-400 uppercase tracking-wider text-center"
+            role="columnheader"
+          >
+            Spots
+          </div>
+          <div
+            className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-right md:text-left md:pl-1"
             role="columnheader"
           >
             Best For
@@ -159,6 +183,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
               nightCondition={band.nightCondition}
               bestFor={band.bestFor}
               isNightOnly={nightOnlyBands.has(band.name)}
+              spotCount={bandSpotCounts[band.name]}
             />
           ))}
         </div>

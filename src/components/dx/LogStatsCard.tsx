@@ -265,57 +265,67 @@ export function LogStatsCard({
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-evenly">
             {/* Today */}
             <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold font-mono text-white leading-none">
+              <span className="text-3xl font-bold font-mono text-white leading-none">
                 {stats.today}
               </span>
-              <span className="text-[9px] text-gray-400 uppercase">Today</span>
+              <span className="text-[10px] text-gray-400 uppercase mt-1">
+                Today
+              </span>
             </div>
 
             {/* Divider */}
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-8 bg-white/10" />
 
             {/* This Week */}
             <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold font-mono text-white leading-none">
+              <span className="text-3xl font-bold font-mono text-white leading-none">
                 {stats.week}
               </span>
-              <span className="text-[9px] text-gray-400 uppercase">Week</span>
+              <span className="text-[10px] text-gray-400 uppercase mt-1">
+                Week
+              </span>
             </div>
 
             {/* Divider */}
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-8 bg-white/10" />
 
             {/* This Month */}
             <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold font-mono text-white leading-none">
+              <span className="text-3xl font-bold font-mono text-white leading-none">
                 {stats.month}
               </span>
-              <span className="text-[9px] text-gray-400 uppercase">Month</span>
+              <span className="text-[10px] text-gray-400 uppercase mt-1">
+                Month
+              </span>
             </div>
 
             {/* Divider */}
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-8 bg-white/10" />
 
             {/* Entities */}
             <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold font-mono text-cosmic-cyan leading-none">
+              <span className="text-3xl font-bold font-mono text-cosmic-cyan leading-none">
                 {stats.entities}
               </span>
-              <span className="text-[9px] text-gray-400 uppercase">DXCC</span>
+              <span className="text-[10px] text-gray-400 uppercase mt-1">
+                DXCC
+              </span>
             </div>
 
             {/* Divider */}
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-8 bg-white/10" />
 
             {/* Total */}
             <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold font-mono text-plasma-orange leading-none">
+              <span className="text-3xl font-bold font-mono text-plasma-orange leading-none">
                 {stats.total.toLocaleString()}
               </span>
-              <span className="text-[9px] text-gray-400 uppercase">Total</span>
+              <span className="text-[10px] text-gray-400 uppercase mt-1">
+                Total
+              </span>
             </div>
           </div>
 

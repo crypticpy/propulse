@@ -15,6 +15,8 @@ export interface BandRowProps {
   bestFor: string;
   /** True if band is primarily nighttime (160m) */
   isNightOnly?: boolean;
+  /** Number of DX cluster spots in the last 30 min */
+  spotCount?: number;
 }
 
 /**
@@ -63,10 +65,11 @@ export const BandRow: React.FC<BandRowProps> = ({
   nightCondition,
   bestFor,
   isNightOnly = false,
+  spotCount,
 }) => {
   return (
     <div
-      className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_70px_70px_1fr] gap-2 md:gap-3 py-2 px-2 items-center border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
+      className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 py-2 px-2 items-center border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
       role="row"
     >
       {/* Band Name */}
@@ -106,9 +109,39 @@ export const BandRow: React.FC<BandRowProps> = ({
         </Badge>
       </div>
 
+      {/* Activity - hidden below lg */}
+      <div
+        className="hidden lg:flex items-center justify-center gap-1"
+        role="cell"
+      >
+        {spotCount != null && spotCount > 0 ? (
+          <>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                spotCount >= 10
+                  ? "bg-signal-green"
+                  : spotCount >= 3
+                    ? "bg-caution-amber"
+                    : "bg-gray-500"
+              }`}
+              title={
+                spotCount >= 10
+                  ? "High activity"
+                  : spotCount >= 3
+                    ? "Moderate activity"
+                    : "Low activity"
+              }
+            />
+            <span className="font-mono text-xs text-gray-300">{spotCount}</span>
+          </>
+        ) : (
+          <span className="text-gray-600 text-xs">--</span>
+        )}
+      </div>
+
       {/* Best For */}
       <div
-        className="text-xs text-gray-400 text-right md:text-left"
+        className="text-xs text-gray-400 text-right md:text-left md:pl-1"
         role="cell"
       >
         {bestFor}

@@ -1,12 +1,13 @@
 import React from "react";
 import { Card } from "@/components/ui/Card";
-import { Badge, type BadgeStatus } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/Badge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { getOverallCondition } from "@/lib/utils/bands";
 import {
-  getOverallCondition,
-  calculateBandConditions,
-} from "@/lib/utils/bands";
-import type { BandCondition } from "@/types/solar";
+  getDetailedSummary,
+  getBestBands,
+  conditionToBadgeStatus,
+} from "@/lib/utils/propagationSummary";
 
 export interface SolarSummaryProps {
   /** Current K-index value (0-9), null if unavailable */
@@ -17,91 +18,6 @@ export interface SolarSummaryProps {
   loading?: boolean;
   /** Callback when expand button is clicked */
   onExpand?: () => void;
-}
-
-/**
- * Map condition to badge status
- */
-function conditionToBadgeStatus(condition: BandCondition): BadgeStatus {
-  switch (condition) {
-    case "Excellent":
-      return "excellent";
-    case "Good":
-      return "good";
-    case "Fair":
-      return "fair";
-    case "Poor":
-      return "poor";
-    default:
-      return "fair";
-  }
-}
-
-/**
- * Generate detailed plain-language summary based on conditions
- */
-function getDetailedSummary(kIndex: number, solarFlux: number): string {
-  const parts: string[] = [];
-
-  // Solar activity level
-  if (solarFlux >= 150) {
-    parts.push(
-      "The sun is very active today with excellent HF propagation expected.",
-    );
-  } else if (solarFlux >= 100) {
-    parts.push(
-      "Solar activity is moderate with good propagation on most HF bands.",
-    );
-  } else if (solarFlux >= 80) {
-    parts.push(
-      "Solar activity is low. Focus on lower frequency bands for best results.",
-    );
-  } else {
-    parts.push(
-      "Solar activity is very low. HF propagation may be challenging.",
-    );
-  }
-
-  // Band recommendations based on SFI and time
-  if (solarFlux >= 120) {
-    parts.push("Higher bands (15m-10m) should be open during daylight hours.");
-  } else if (solarFlux >= 90) {
-    parts.push("Mid-range bands (17m-20m) are your best bet for DX.");
-  } else {
-    parts.push("Lower bands (30m-40m) will provide the most reliable paths.");
-  }
-
-  // Geomagnetic warnings
-  if (kIndex >= 5) {
-    parts.push(
-      "Warning: A geomagnetic storm is in progress. Expect signal degradation and polar path disruption.",
-    );
-  } else if (kIndex >= 4) {
-    parts.push("Note: Elevated geomagnetic activity may affect polar paths.");
-  } else if (kIndex <= 1) {
-    parts.push("Geomagnetic conditions are very quiet - ideal for DX.");
-  }
-
-  return parts.join(" ");
-}
-
-/**
- * Get best bands based on current conditions
- */
-function getBestBands(kIndex: number, solarFlux: number): string[] {
-  const bands = calculateBandConditions(kIndex, solarFlux);
-  const now = new Date();
-  const hour = now.getHours();
-  const isDaytime = hour >= 6 && hour < 18;
-
-  // Filter bands with Good or Excellent conditions for current time
-  const goodBands = bands.filter((band) => {
-    const condition = isDaytime ? band.dayCondition : band.nightCondition;
-    return condition === "Excellent" || condition === "Good";
-  });
-
-  // Return band names, prioritizing by frequency
-  return goodBands.map((band) => band.name).slice(0, 4);
 }
 
 /**

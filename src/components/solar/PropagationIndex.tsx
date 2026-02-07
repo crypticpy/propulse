@@ -1,7 +1,13 @@
 import React, { useMemo } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
+import { Badge } from "@/components/ui/Badge";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { SOLAR_TOOLTIPS, PROPAGATION_TOOLTIPS } from "@/constants/tooltips";
+import {
+  getDetailedSummary,
+  getBestBands,
+  getConditionBadge,
+} from "@/lib/utils/propagationSummary";
 
 export interface PropagationIndexProps {
   /** Current Solar Flux Index (typically 70-300), null if unavailable */
@@ -14,6 +20,8 @@ export interface PropagationIndexProps {
   loading?: boolean;
   /** Callback when expand/details button is clicked */
   onExpand?: () => void;
+  /** Callback when summary expand button is clicked */
+  onExpandSummary?: () => void;
 }
 
 /**
@@ -150,6 +158,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
   bz,
   loading = false,
   onExpand,
+  onExpandSummary,
 }) => {
   const hasData = solarFlux !== null && kIndex !== null;
   const result = useMemo(
@@ -158,6 +167,20 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
   );
 
   const scoreColor = result ? getScoreColor(result.score) : "#888899";
+
+  // Propagation summary data (merged from SolarSummary)
+  const detailedSummary = useMemo(
+    () => (hasData ? getDetailedSummary(kIndex!, solarFlux!) : ""),
+    [kIndex, solarFlux, hasData],
+  );
+  const bestBands = useMemo(
+    () => (hasData ? getBestBands(kIndex!, solarFlux!) : []),
+    [kIndex, solarFlux, hasData],
+  );
+  const conditionBadge = useMemo(
+    () => (hasData ? getConditionBadge(kIndex!, solarFlux!) : null),
+    [kIndex, solarFlux, hasData],
+  );
 
   function polarToCartesian(
     cx: number,
@@ -412,15 +435,29 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                 {/* Center score display */}
                 <text
                   x={gaugeCenter}
-                  y={gaugeCenter + 45}
+                  y={gaugeCenter - 5}
                   fill="white"
-                  fontSize="36"
+                  fontSize="52"
                   fontFamily="monospace"
                   fontWeight="bold"
                   textAnchor="middle"
                   dominantBaseline="middle"
                 >
                   {result.score}
+                </text>
+                {/* Category label below score */}
+                <text
+                  x={gaugeCenter}
+                  y={gaugeCenter + 25}
+                  fill={scoreColor}
+                  fontSize="11"
+                  fontFamily="sans-serif"
+                  fontWeight="600"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  letterSpacing="0.1em"
+                >
+                  {getCategoryLabel(result.category).toUpperCase()}
                 </text>
               </svg>
             </div>
@@ -543,6 +580,73 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Propagation Summary (merged from SolarSummary) */}
+        {result && conditionBadge && (
+          <div className="border-t border-white/10 mt-4 pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                Propagation Summary
+              </h3>
+              <div className="flex items-center gap-2">
+                <Badge status={conditionBadge.status}>
+                  {conditionBadge.label}
+                </Badge>
+                {onExpandSummary && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onExpandSummary();
+                    }}
+                    className="p-1 text-gray-500 hover:text-white transition-colors"
+                    aria-label="Expand summary"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-sm text-gray-300 leading-relaxed mb-3">
+              {detailedSummary}
+            </p>
+            {bestBands.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-mono uppercase tracking-wider text-gray-500">
+                  Best bands now
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {bestBands.map((band) => (
+                    <span
+                      key={band}
+                      className="px-2.5 py-0.5 text-xs font-mono text-signal-green bg-signal-green/10 border border-signal-green/20 rounded-lg"
+                    >
+                      {band}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {conditionBadge.vhf === "Aurora" && (
+              <div className="mt-2 px-3 py-2 bg-aurora-purple/10 border border-aurora-purple/20 rounded-lg">
+                <span className="text-sm text-aurora-purple">
+                  Aurora propagation possible on 6m - check for flutter signals!
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>

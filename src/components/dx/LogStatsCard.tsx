@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useEffect, useRef } from "react";
+import { Card } from "@/components/ui/Card";
 import { useLogbook } from "@/hooks/useLogbook";
 import { getEntityFromCallsign } from "@/lib/utils/gridUtils";
 
@@ -159,17 +160,37 @@ export function LogStatsCard({
     };
   }, [entries, count]);
 
+  // 7-day daily activity for the bar chart
+  const dailyActivity = useMemo(() => {
+    const days: { label: string; count: number }[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setUTCDate(d.getUTCDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const label = d
+        .toLocaleDateString("en-US", { weekday: "short" })
+        .slice(0, 2);
+      let dayCount = 0;
+      for (const entry of entries) {
+        if (entry.date === dateStr) dayCount++;
+      }
+      days.push({ label, count: dayCount });
+    }
+    return days;
+  }, [entries]);
+
+  const maxDaily = Math.max(...dailyActivity.map((d) => d.count), 1);
+
   const handleToggleAutoRefresh = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     onToggleAutoRefresh?.(!autoRefresh);
   };
 
   return (
-    <div
+    <Card
       className={`
-        relative bg-white/[0.03] backdrop-blur-md border border-white/10
-        rounded-xl p-3 min-w-[140px]
-        transition-all duration-200 hover:border-white/20
+        relative min-w-[140px]
         ${onClick ? "cursor-pointer hover:border-white/30 group" : ""}
         ${className}
       `}
@@ -178,7 +199,7 @@ export function LogStatsCard({
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={
         onClick
-          ? (e) => {
+          ? (e: React.KeyboardEvent) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 onClick();
@@ -243,61 +264,90 @@ export function LogStatsCard({
           <div className="animate-pulse text-xs text-gray-400">Loading...</div>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
-          {/* Today */}
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold font-mono text-white leading-none">
-              {stats.today}
-            </span>
-            <span className="text-[9px] text-gray-400 uppercase">Today</span>
+        <>
+          <div className="flex items-center gap-3">
+            {/* Today */}
+            <div className="flex flex-col items-center">
+              <span className="text-2xl font-bold font-mono text-white leading-none">
+                {stats.today}
+              </span>
+              <span className="text-[9px] text-gray-400 uppercase">Today</span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-white/10" />
+
+            {/* This Week */}
+            <div className="flex flex-col items-center">
+              <span className="text-2xl font-bold font-mono text-white leading-none">
+                {stats.week}
+              </span>
+              <span className="text-[9px] text-gray-400 uppercase">Week</span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-white/10" />
+
+            {/* This Month */}
+            <div className="flex flex-col items-center">
+              <span className="text-2xl font-bold font-mono text-white leading-none">
+                {stats.month}
+              </span>
+              <span className="text-[9px] text-gray-400 uppercase">Month</span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-white/10" />
+
+            {/* Entities */}
+            <div className="flex flex-col items-center">
+              <span className="text-2xl font-bold font-mono text-cosmic-cyan leading-none">
+                {stats.entities}
+              </span>
+              <span className="text-[9px] text-gray-400 uppercase">DXCC</span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-white/10" />
+
+            {/* Total */}
+            <div className="flex flex-col items-center">
+              <span className="text-2xl font-bold font-mono text-plasma-orange leading-none">
+                {stats.total.toLocaleString()}
+              </span>
+              <span className="text-[9px] text-gray-400 uppercase">Total</span>
+            </div>
           </div>
 
-          {/* Divider */}
-          <div className="w-px h-6 bg-white/10" />
-
-          {/* This Week */}
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold font-mono text-white leading-none">
-              {stats.week}
-            </span>
-            <span className="text-[9px] text-gray-400 uppercase">Week</span>
+          {/* 7-day activity bar chart */}
+          <div className="mt-3 pt-2 border-t border-white/10">
+            <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1.5">
+              Last 7 Days
+            </div>
+            <div className="flex items-end gap-1 h-12">
+              {dailyActivity.map((day) => (
+                <div
+                  key={day.label}
+                  className="flex-1 flex flex-col items-center gap-0.5"
+                  title={`${day.label}: ${day.count} QSO${day.count !== 1 ? "s" : ""}`}
+                >
+                  <div
+                    className="w-full rounded-sm bg-plasma-orange/60 transition-all duration-300"
+                    style={{
+                      height: `${Math.max((day.count / maxDaily) * 100, 4)}%`,
+                      minHeight: "2px",
+                    }}
+                  />
+                  <span className="text-[8px] text-gray-500 font-mono">
+                    {day.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-
-          {/* Divider */}
-          <div className="w-px h-6 bg-white/10" />
-
-          {/* This Month */}
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold font-mono text-white leading-none">
-              {stats.month}
-            </span>
-            <span className="text-[9px] text-gray-400 uppercase">Month</span>
-          </div>
-
-          {/* Divider */}
-          <div className="w-px h-6 bg-white/10" />
-
-          {/* Entities */}
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold font-mono text-cosmic-cyan leading-none">
-              {stats.entities}
-            </span>
-            <span className="text-[9px] text-gray-400 uppercase">DXCC</span>
-          </div>
-
-          {/* Divider */}
-          <div className="w-px h-6 bg-white/10" />
-
-          {/* Total */}
-          <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold font-mono text-plasma-orange leading-none">
-              {stats.total.toLocaleString()}
-            </span>
-            <span className="text-[9px] text-gray-400 uppercase">Total</span>
-          </div>
-        </div>
+        </>
       )}
-    </div>
+    </Card>
   );
 }
 

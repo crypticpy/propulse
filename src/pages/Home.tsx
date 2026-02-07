@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useAllSolarData, useMagnetometer } from "@/hooks/useSolarData";
+import { useDXCluster } from "@/hooks/useDXCluster";
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { PrimaryMetrics } from "@/components/solar/PrimaryMetrics";
 import { PropagationIndex } from "@/components/solar/PropagationIndex";
-import { SolarSummary } from "@/components/solar/SolarSummary";
 import { BandConditions } from "@/components/solar/BandConditions";
 import { ClusterPulseCard } from "@/components/dx/ClusterPulseCard";
 import { LogStatsCard } from "@/components/dx/LogStatsCard";
@@ -49,6 +49,9 @@ export function Home() {
   } = useAllSolarData();
   const { data: magnetometerData, dataUpdatedAt: magUpdatedAt } =
     useMagnetometer();
+
+  // Ensure DX cluster spots are fetched for ClusterPulseCard
+  useDXCluster();
 
   const kIndexData = kIndexQuery.data;
   const fluxData = solarFluxQuery.data;
@@ -163,7 +166,7 @@ export function Home() {
           }
         />
 
-        {/* Section 4: Three-column operational view */}
+        {/* Section 4: Two-column operational view (PropIndex 1/3, Bands 2/3) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <PropagationIndex
             solarFlux={currentFlux}
@@ -171,19 +174,16 @@ export function Home() {
             bz={currentBz}
             loading={isLoading}
             onExpand={() => setActiveModal("propagation")}
+            onExpandSummary={() => setActiveModal("summary")}
           />
-          <SolarSummary
-            kIndex={currentKp}
-            solarFlux={currentFlux}
-            loading={isLoading}
-            onExpand={() => setActiveModal("summary")}
-          />
-          <BandConditions
-            kIndex={currentKp}
-            solarFlux={currentFlux}
-            loading={isLoading}
-            onExpand={() => setActiveModal("bands")}
-          />
+          <div className="lg:col-span-2">
+            <BandConditions
+              kIndex={currentKp}
+              solarFlux={currentFlux}
+              loading={isLoading}
+              onExpand={() => setActiveModal("bands")}
+            />
+          </div>
         </div>
 
         {/* Section 5: Four-column activity cards */}

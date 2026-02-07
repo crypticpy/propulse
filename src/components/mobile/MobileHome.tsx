@@ -8,7 +8,6 @@
 
 import { PrimaryMetrics } from "@/components/solar/PrimaryMetrics";
 import { PropagationIndex } from "@/components/solar/PropagationIndex";
-import { SolarSummary } from "@/components/solar/SolarSummary";
 import { BandConditions } from "@/components/solar/BandConditions";
 import { ClusterPulseCard } from "@/components/dx/ClusterPulseCard";
 import { LogStatsCard } from "@/components/dx/LogStatsCard";
@@ -93,7 +92,7 @@ export function MobileHome({
           }
         />
 
-        {/* Horizontal scrollable row: Propagation, Summary, Bands */}
+        {/* Horizontal scrollable row: Propagation (with summary), Bands */}
         <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory -mx-3 px-3 pb-2 scrollbar-thin">
           <div className="min-w-[280px] flex-shrink-0 snap-start">
             <PropagationIndex
@@ -102,14 +101,7 @@ export function MobileHome({
               bz={currentBz}
               loading={isLoading}
               onExpand={onExpandPropagation}
-            />
-          </div>
-          <div className="min-w-[280px] flex-shrink-0 snap-start">
-            <SolarSummary
-              kIndex={currentKp}
-              solarFlux={currentFlux}
-              loading={isLoading}
-              onExpand={onExpandSummary}
+              onExpandSummary={onExpandSummary}
             />
           </div>
           <div className="min-w-[280px] flex-shrink-0 snap-start">

@@ -18,6 +18,10 @@ export interface WorkedStatus {
   workedOnBand: boolean;
   /** List of bands the callsign has been worked on */
   workedBands: string[];
+  /** Whether this is an All-Time New One (DXCC entity never worked) */
+  isATNO: boolean;
+  /** DXCC entity name for display (if resolved) */
+  entityName?: string;
 }
 
 /**

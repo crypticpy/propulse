@@ -321,6 +321,18 @@ export const SpotRow = memo(function SpotRow({
     return style;
   }, [ageVisualizationEnabled, ageInfo.opacity, bandHexColor]);
 
+  // Determine ATNO badge (All-Time New One - DXCC entity never worked)
+  const atnoBadge = useMemo(() => {
+    if (!workedStatus.isATNO) return null;
+    const entityLabel = workedStatus.entityName || "Unknown entity";
+    return (
+      <SpotBadge
+        type="atno"
+        title={`All-Time New One! ${entityLabel} - never worked`}
+      />
+    );
+  }, [workedStatus.isATNO, workedStatus.entityName]);
+
   // Determine which badge to show for worked status
   const workedBadge = useMemo(() => {
     if (!workedStatus.isWorked) {
@@ -450,6 +462,7 @@ export const SpotRow = memo(function SpotRow({
         )}
         {/* Status badges */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
+          {atnoBadge}
           {isAlertMatch && (
             <SpotBadge type="alert" title="Matches alert rule" />
           )}

@@ -11,6 +11,7 @@ import { forwardRef } from "react";
  * Badge type variants for different spot statuses
  */
 export type SpotBadgeType =
+  | "atno"
   | "new"
   | "band-new"
   | "worked"
@@ -41,6 +42,13 @@ const badgeConfig: Record<
     animate?: string;
   }
 > = {
+  atno: {
+    label: "ATNO",
+    bgColor: "bg-amber-400/30",
+    textColor: "text-amber-300",
+    borderColor: "border-amber-400/60",
+    animate: "animate-pulse",
+  },
   new: {
     label: "NEW",
     bgColor: "bg-caution-amber/20",
@@ -101,6 +109,22 @@ function CheckmarkIcon({ className }: { className?: string }) {
       strokeLinejoin="round"
     >
       <path d="M3.5 8.5L6.5 11.5L12.5 4.5" />
+    </svg>
+  );
+}
+
+/**
+ * Diamond icon for ATNO (All-Time New One) badge
+ */
+function DiamondIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      stroke="none"
+    >
+      <path d="M8 1L14.5 8L8 15L1.5 8L8 1z" />
     </svg>
   );
 }
@@ -177,7 +201,12 @@ export const SpotBadge = forwardRef<HTMLSpanElement, SpotBadgeProps>(
 
     return (
       <span ref={ref} className={baseStyles} {...props}>
-        {type === "worked" ? (
+        {type === "atno" ? (
+          <>
+            <DiamondIcon className="w-2.5 h-2.5 mr-0.5" />
+            {displayLabel}
+          </>
+        ) : type === "worked" ? (
           <CheckmarkIcon className="w-2.5 h-2.5" />
         ) : type === "needed" ? (
           <>

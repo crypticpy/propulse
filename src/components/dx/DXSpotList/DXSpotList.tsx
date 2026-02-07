@@ -436,6 +436,7 @@ export function DXSpotList({
                   isWorked: false,
                   workedOnBand: false,
                   workedBands: [],
+                  isATNO: false,
                 }
               }
               isAlertMatch={alertMatchSet.has(spot.id)}

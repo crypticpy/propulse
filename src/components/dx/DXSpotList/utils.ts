@@ -76,6 +76,7 @@ export function spotRowPropsAreEqual(
       nextProps.workedStatus.workedOnBand &&
     prevProps.workedStatus.workedBands.length ===
       nextProps.workedStatus.workedBands.length &&
+    prevProps.workedStatus.isATNO === nextProps.workedStatus.isATNO &&
     prevProps.isAlertMatch === nextProps.isAlertMatch &&
     prevProps.isNeeded === nextProps.isNeeded &&
     prevProps.distanceKm === nextProps.distanceKm &&

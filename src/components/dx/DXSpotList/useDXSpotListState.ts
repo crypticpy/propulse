@@ -14,6 +14,8 @@ import {
   selectAvailableModes,
 } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useDXCCStore } from "@/stores/dxccStore";
+import { lookupEntity } from "@/lib/data/dxccEntities";
 import { useWatchStore } from "@/stores/watchStore";
 import { useUndoStore } from "@/stores/undoStore";
 import {
@@ -167,6 +169,9 @@ export function useDXSpotListState(
   // Get logbook data for worked status
   const { isWorked, getWorkedBands } = useLogbook();
 
+  // Get DXCC store for ATNO detection
+  const dxccIsWorked = useDXCCStore((s) => s.isWorked);
+
   // Load alert rules for alert matching
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
 
@@ -239,7 +244,7 @@ export function useDXSpotListState(
   const availableBands = useMemo(() => selectAvailableBands(store), [store]);
   const availableModes = useMemo(() => selectAvailableModes(store), [store]);
 
-  // Pre-compute worked status for all spots
+  // Pre-compute worked status for all spots (including ATNO detection)
   const workedStatusMap = useMemo(() => {
     const map = new Map<string, WorkedStatus>();
 
@@ -248,15 +253,27 @@ export function useDXSpotListState(
       const workedBands = getWorkedBands(spot.dx);
       const workedOnBand = spot.band ? workedBands.includes(spot.band) : false;
 
+      // ATNO detection: look up DXCC entity and check if it's ever been worked
+      let isATNO = false;
+      let entityName: string | undefined;
+      const lookup = lookupEntity(spot.dx);
+      if (lookup) {
+        entityName = lookup.entity.name;
+        // Entity is an ATNO if it has never been worked in the DXCC store
+        isATNO = !dxccIsWorked(lookup.entity.id);
+      }
+
       map.set(spot.id, {
         isWorked: worked,
         workedOnBand,
         workedBands,
+        isATNO,
+        entityName,
       });
     }
 
     return map;
-  }, [spots, isWorked, getWorkedBands]);
+  }, [spots, isWorked, getWorkedBands, dxccIsWorked]);
 
   // Pre-compute distance for all spots (from user's QTH to DX station)
   const distanceMap = useMemo(() => {

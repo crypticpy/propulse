@@ -10,14 +10,20 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
 import { LocationManager } from "@/components/settings/LocationManager";
 import { LicenseSection } from "@/components/settings/LicenseSection";
 import { LocationInput } from "@/components/settings/LocationInput";
+import {
+  ProfileCompletenessRing,
+  BioSection,
+  SocialLinksSection,
+} from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 
 // ---- Types ------------------------------------------------------------------
 
-type ProfileTab = "overview" | "locations";
+type ProfileTab = "overview" | "locations" | "awards" | "stats";
 
 interface TabDef {
   id: ProfileTab;
@@ -27,6 +33,8 @@ interface TabDef {
 const TABS: TabDef[] = [
   { id: "overview", label: "Overview" },
   { id: "locations", label: "Locations" },
+  { id: "awards", label: "Awards" },
+  { id: "stats", label: "Stats" },
 ];
 
 // ---- Callsign validation ----------------------------------------------------
@@ -40,6 +48,7 @@ export default function ProfilePage() {
   const setStation = useProfileStore((s) => s.setStation);
   const activeLocation = useActiveLocation();
   const isMobile = useIsMobile();
+  const completeness = useProfileCompleteness();
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
 
@@ -188,6 +197,15 @@ export default function ProfilePage() {
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* Completeness ring */}
+            <div className="flex justify-center py-4 border-t border-white/5">
+              <ProfileCompletenessRing
+                score={completeness.score}
+                tier={completeness.tier}
+                tierColor={completeness.tierColor}
+              />
             </div>
 
             {/* Edit toggle */}
@@ -394,12 +412,46 @@ export default function ProfilePage() {
               <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
                 <LicenseSection />
               </div>
+
+              {/* Bio */}
+              <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+                <BioSection />
+              </div>
+
+              {/* Social Links */}
+              <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+                <SocialLinksSection />
+              </div>
             </div>
           )}
 
           {activeTab === "locations" && (
             <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
               <LocationManager />
+            </div>
+          )}
+
+          {activeTab === "awards" && (
+            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                Awards Progress
+              </h3>
+              <p className="text-sm text-gray-500">
+                Awards tracking coming soon. Log QSOs to track DXCC, WAS, and
+                WAZ progress.
+              </p>
+            </div>
+          )}
+
+          {activeTab === "stats" && (
+            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                Station Statistics
+              </h3>
+              <p className="text-sm text-gray-500">
+                Statistics coming soon. Activity heatmap, QSOs by mode/band, and
+                more.
+              </p>
             </div>
           )}
         </div>
@@ -420,9 +472,17 @@ export default function ProfilePage() {
             </h2>
             <p className="text-xs text-gray-400 font-mono">{displayGrid}</p>
           </div>
-          {displayName && (
-            <span className="text-sm text-gray-400">{displayName}</span>
-          )}
+          <div className="flex items-center gap-3">
+            {displayName && (
+              <span className="text-sm text-gray-400">{displayName}</span>
+            )}
+            <ProfileCompletenessRing
+              score={completeness.score}
+              tier={completeness.tier}
+              tierColor={completeness.tierColor}
+              size={56}
+            />
+          </div>
         </div>
       </div>
 
@@ -527,12 +587,46 @@ export default function ProfilePage() {
           <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
             <LicenseSection />
           </div>
+
+          {/* Bio */}
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+            <BioSection />
+          </div>
+
+          {/* Social Links */}
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+            <SocialLinksSection />
+          </div>
         </div>
       )}
 
       {activeTab === "locations" && (
         <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
           <LocationManager />
+        </div>
+      )}
+
+      {activeTab === "awards" && (
+        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+            Awards Progress
+          </h3>
+          <p className="text-sm text-gray-500">
+            Awards tracking coming soon. Log QSOs to track DXCC, WAS, and WAZ
+            progress.
+          </p>
+        </div>
+      )}
+
+      {activeTab === "stats" && (
+        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+            Station Statistics
+          </h3>
+          <p className="text-sm text-gray-500">
+            Statistics coming soon. Activity heatmap, QSOs by mode/band, and
+            more.
+          </p>
         </div>
       )}
     </div>

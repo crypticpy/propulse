@@ -4,6 +4,7 @@ import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useTextScale } from "@/hooks/useTextScale";
+import { useHighContrast } from "@/hooks/useHighContrast";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSync } from "@/hooks/useSync";
 import { useAuthStore } from "@/stores/authStore";
@@ -58,6 +59,8 @@ function MapRoute() {
 function App() {
   // Apply text scale preference to DOM
   useTextScale();
+  // Apply high-contrast mode class to <html>
+  useHighContrast();
 
   // Initialize auth on app boot (checks for existing session, sets up listener)
   const initAuth = useAuthStore((s) => s.initialize);

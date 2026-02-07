@@ -507,3 +507,25 @@
     overscroll-behavior: contain;
   }
 }
+
+/* ─── High Contrast Mode ────────────────────────────────────────────────────── */
+.contrast-more {
+  --theme-border: rgba(255, 255, 255, 0.25);
+}
+
+.contrast-more * {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.contrast-more .text-gray-400 {
+  color: #d1d5db !important; /* gray-300 */
+}
+
+.contrast-more .text-gray-500 {
+  color: #9ca3af !important; /* gray-400 */
+}
+
+.contrast-more :focus-visible {
+  outline: 2px solid var(--theme-accent-primary) !important;
+  outline-offset: 2px;
+}

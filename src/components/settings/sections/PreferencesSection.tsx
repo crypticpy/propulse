@@ -3,18 +3,23 @@
  *
  * Standalone section component extracted from SettingsModal's "preferences" tab.
  * Renders all user preference controls organized by category:
- * Display, Accessibility, Map & Globe, Propagation, and Bands.
+ * Display, Accessibility, Map & Globe, Propagation, Forecast Display,
+ * Interaction, and Bands.
  *
  * All changes are applied immediately via the user store -- no save button required.
  */
 
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FavoredBandsPicker } from "@/components/settings/FavoredBandsPicker";
+import { BandPresetManager } from "@/components/settings/BandPresetManager";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import {
   SegmentedButton,
   SectionHeader,
   SettingSelect,
+  ConditionalSubSettings,
+  SettingSlider,
+  SettingRow,
 } from "@/components/settings/ui";
 import { ANTENNA_TYPES, type AntennaType } from "@/lib/data/antennas";
 import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
@@ -24,11 +29,15 @@ import {
   COLOR_BLIND_MODE_DESCRIPTIONS,
 } from "@/lib/themes/colorblind";
 import {
+  ALL_BANDS,
   DEFAULT_SPOT_CLUSTERING,
   DEFAULT_COMPASS_ROSE,
   DEFAULT_SPOT_AGE,
   DEFAULT_UI_INTERACTION,
+  DEFAULT_FORECAST_DISPLAY,
   type TextScale,
+  type BeamWidthOption,
+  type BandId,
 } from "@/types/user";
 
 // ─── Noise environment display options ───────────────────────────────────────
@@ -51,6 +60,15 @@ const SPOT_COLOR_MODE_OPTIONS: {
   { value: "mode", label: "By Mode" },
 ];
 
+// ─── Beam width options for compass rose ─────────────────────────────────────
+
+const BEAM_WIDTH_OPTIONS: { value: BeamWidthOption; label: string }[] = [
+  { value: 30, label: "30\u00B0" },
+  { value: 45, label: "45\u00B0" },
+  { value: 60, label: "60\u00B0" },
+  { value: 90, label: "90\u00B0" },
+];
+
 // =============================================================================
 // PreferencesSection
 // =============================================================================
@@ -64,6 +82,10 @@ export function PreferencesSection() {
   const updateSpotClustering = useSettingsStore((s) => s.updateSpotClustering);
   const updateCompassRose = useSettingsStore((s) => s.updateCompassRose);
   const updateSpotAge = useSettingsStore((s) => s.updateSpotAge);
+  const updateForecastDisplay = useSettingsStore(
+    (s) => s.updateForecastDisplay,
+  );
+  const updateUIInteraction = useSettingsStore((s) => s.updateUIInteraction);
 
   // Derived values with safe defaults
   const timeFormat = settings.timeFormat ?? "12h";
@@ -78,6 +100,7 @@ export function PreferencesSection() {
   const antennaType: AntennaType = settings.antennaType ?? "isotropic";
   const noiseEnvironment: NoiseEnvironment =
     settings.noiseEnvironment ?? "residential";
+  const forecastDisplay = settings.forecastDisplay ?? DEFAULT_FORECAST_DISPLAY;
 
   return (
     <div className="space-y-8">
@@ -159,6 +182,26 @@ export function PreferencesSection() {
           checked={spotClustering.enabled}
           onChange={(checked) => updateSpotClustering({ enabled: checked })}
         />
+        <ConditionalSubSettings show={spotClustering.enabled}>
+          <SettingSlider
+            id="pref-cluster-grid-size"
+            label="Grid Size"
+            description="Cell size in degrees for grouping spots"
+            value={spotClustering.gridSize}
+            min={5}
+            max={15}
+            onChange={(v) => updateSpotClustering({ gridSize: v })}
+          />
+          <SettingSlider
+            id="pref-cluster-min-size"
+            label="Min Cluster Size"
+            description="Minimum spots to form a cluster"
+            value={spotClustering.minClusterSize}
+            min={2}
+            max={10}
+            onChange={(v) => updateSpotClustering({ minClusterSize: v })}
+          />
+        </ConditionalSubSettings>
 
         <ToggleSwitch
           label="Compass Rose"
@@ -166,6 +209,29 @@ export function PreferencesSection() {
           checked={compassRose.enabled}
           onChange={(checked) => updateCompassRose({ enabled: checked })}
         />
+        <ConditionalSubSettings show={compassRose.enabled}>
+          <SettingRow label="Beam Width">
+            <SegmentedButton<string>
+              options={BEAM_WIDTH_OPTIONS.map((o) => ({
+                value: String(o.value),
+                label: o.label,
+              }))}
+              value={String(compassRose.beamWidth)}
+              onChange={(v) =>
+                updateCompassRose({
+                  beamWidth: Number(v) as BeamWidthOption,
+                })
+              }
+            />
+          </SettingRow>
+          <ToggleSwitch
+            label="Show Beam Width Wedge"
+            checked={compassRose.showBeamWidth}
+            onChange={(checked) =>
+              updateCompassRose({ showBeamWidth: checked })
+            }
+          />
+        </ConditionalSubSettings>
 
         <ToggleSwitch
           label="Spot Age Display"
@@ -173,6 +239,25 @@ export function PreferencesSection() {
           checked={spotAge.enabled}
           onChange={(checked) => updateSpotAge({ enabled: checked })}
         />
+        <ConditionalSubSettings show={spotAge.enabled}>
+          <SettingSlider
+            id="pref-spot-max-age"
+            label="Max Age"
+            description="Maximum age before spots are fully faded"
+            value={spotAge.maxAgeMinutes}
+            min={5}
+            max={120}
+            step={5}
+            formatValue={(v) => `${v} min`}
+            onChange={(v) => updateSpotAge({ maxAgeMinutes: v })}
+          />
+          <ToggleSwitch
+            label="Show Age Column"
+            description="Display age in DX cluster list"
+            checked={spotAge.showAgeColumn}
+            onChange={(checked) => updateSpotAge({ showAgeColumn: checked })}
+          />
+        </ConditionalSubSettings>
 
         <ToggleSwitch
           label="Callsign Labels"
@@ -258,13 +343,132 @@ export function PreferencesSection() {
             );
           })()}
         </div>
+
+        {/* ── Forecast Display ────────────────────────────────────────── */}
+        <div className="border-t border-white/10 pt-4 mt-4" />
+        <SectionHeader>Forecast Display</SectionHeader>
+
+        <SettingRow label="Band Mode">
+          <SegmentedButton<string>
+            options={[
+              { value: "common", label: "Common" },
+              { value: "all", label: "All" },
+              { value: "custom", label: "Custom" },
+            ]}
+            value={forecastDisplay.bandMode}
+            onChange={(v) =>
+              updateForecastDisplay({
+                bandMode: v as "common" | "all" | "custom",
+              })
+            }
+          />
+        </SettingRow>
+        <ConditionalSubSettings show={forecastDisplay.bandMode === "custom"}>
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
+            {ALL_BANDS.map((band) => {
+              const isSelected = forecastDisplay.customBands.includes(band);
+              return (
+                <button
+                  key={band}
+                  type="button"
+                  onClick={() => {
+                    const next = isSelected
+                      ? forecastDisplay.customBands.filter(
+                          (b: BandId) => b !== band,
+                        )
+                      : [...forecastDisplay.customBands, band];
+                    updateForecastDisplay({ customBands: next });
+                  }}
+                  className={`px-2 py-1.5 rounded text-xs font-medium transition-colors border ${
+                    isSelected
+                      ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
+                      : "bg-nebula-blue text-gray-400 border-white/10 hover:text-gray-200"
+                  }`}
+                >
+                  {band}
+                </button>
+              );
+            })}
+          </div>
+        </ConditionalSubSettings>
+
+        <ToggleSwitch
+          label="Show SNR Values"
+          checked={forecastDisplay.showSnrValues}
+          onChange={(checked) =>
+            updateForecastDisplay({ showSnrValues: checked })
+          }
+        />
+
+        <ToggleSwitch
+          label="Detailed Footer"
+          checked={forecastDisplay.detailedFooter}
+          onChange={(checked) =>
+            updateForecastDisplay({ detailedFooter: checked })
+          }
+        />
+
+        <SettingRow label="Hours to Show">
+          <SegmentedButton<string>
+            options={[
+              { value: "13", label: "13h" },
+              { value: "24", label: "24h" },
+            ]}
+            value={String(forecastDisplay.hoursToShow)}
+            onChange={(v) =>
+              updateForecastDisplay({
+                hoursToShow: Number(v) as 13 | 24,
+              })
+            }
+          />
+        </SettingRow>
+      </section>
+
+      <div className="border-t border-white/10" />
+
+      {/* ── Interaction ───────────────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <SectionHeader>Interaction</SectionHeader>
+
+        <SettingSlider
+          id="pref-hold-duration"
+          label="Hold Duration"
+          description="Time to hold for context menu"
+          value={uiInteraction.holdDurationMs}
+          min={1500}
+          max={5000}
+          step={100}
+          formatValue={(v) => `${(v / 1000).toFixed(1)}s`}
+          onChange={(v) => updateUIInteraction({ holdDurationMs: v })}
+        />
+
+        <ToggleSwitch
+          label="Auto-Dismiss Flyout"
+          checked={uiInteraction.flyoutAutoDismissEnabled}
+          onChange={(checked) =>
+            updateUIInteraction({ flyoutAutoDismissEnabled: checked })
+          }
+        />
+        <ConditionalSubSettings show={uiInteraction.flyoutAutoDismissEnabled}>
+          <SettingSlider
+            id="pref-flyout-dismiss-ms"
+            label="Dismiss After"
+            value={uiInteraction.flyoutAutoDismissMs}
+            min={1000}
+            max={10000}
+            step={500}
+            formatValue={(v) => `${(v / 1000).toFixed(1)}s`}
+            onChange={(v) => updateUIInteraction({ flyoutAutoDismissMs: v })}
+          />
+        </ConditionalSubSettings>
       </section>
 
       <div className="border-t border-white/10" />
 
       {/* ── Bands ────────────────────────────────────────────────────────── */}
-      <section>
+      <section className="space-y-6">
         <FavoredBandsPicker />
+        <BandPresetManager />
       </section>
     </div>
   );

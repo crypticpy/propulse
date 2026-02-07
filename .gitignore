@@ -33,3 +33,6 @@ dist-ssr
 
 # AI assistant artifacts
 .claude/
+
+# Database setup (contains credentials)
+db_setup/

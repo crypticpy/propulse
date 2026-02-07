@@ -6,7 +6,7 @@
  * Click cycles through: normal -> favored -> hidden -> normal
  */
 
-import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { ALL_BANDS, DEFAULT_FAVORED_BANDS, type BandId } from "@/types/user";
 
 interface FavoredBandsPickerProps {
@@ -103,8 +103,9 @@ function BandChip({
 export function FavoredBandsPicker({
   className = "",
 }: FavoredBandsPickerProps) {
-  const { preferences, setFavoredBands } = useUserStore();
-  const favoredBands = preferences.favoredBands ?? DEFAULT_FAVORED_BANDS;
+  const favoredBands =
+    useSettingsStore((s) => s.favoredBands) ?? DEFAULT_FAVORED_BANDS;
+  const setFavoredBands = useSettingsStore((s) => s.setFavoredBands);
   const { primary, hidden } = favoredBands;
 
   /**

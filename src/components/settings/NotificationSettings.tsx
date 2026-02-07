@@ -9,7 +9,7 @@
  * - Sound enabled toggle
  */
 
-import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import {
   ALL_BANDS,
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -134,9 +134,10 @@ function KpSlider({
 export function NotificationSettings({
   className = "",
 }: NotificationSettingsProps) {
-  const { preferences, updateNotifications } = useUserStore();
   const notifications: NotificationPreferences =
-    preferences.notifications ?? DEFAULT_NOTIFICATION_PREFERENCES;
+    useSettingsStore((s) => s.notifications) ??
+    DEFAULT_NOTIFICATION_PREFERENCES;
+  const updateNotifications = useSettingsStore((s) => s.updateNotifications);
 
   const handleToggle = (key: keyof NotificationPreferences, value: boolean) => {
     updateNotifications({ [key]: value });

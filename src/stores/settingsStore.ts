@@ -50,6 +50,8 @@ export interface SettingsState {
   licenseClass: LicenseClass;
   textScale: TextScale;
   colorBlindMode: ColorBlindMode;
+  /** High contrast mode for accessibility */
+  highContrast: boolean;
   noiseEnvironment: NoiseEnvironment;
   antennaType: AntennaType;
   bridgeEnabled: boolean;
@@ -95,6 +97,8 @@ interface SettingsStore extends SettingsState {
   setColorBlindMode: (mode: ColorBlindMode) => void;
   setAntennaType: (type: AntennaType) => void;
   setNoiseEnvironment: (env: NoiseEnvironment) => void;
+  setHighContrast: (enabled: boolean) => void;
+  updateUIInteraction: (partial: Partial<UIInteractionPreferences>) => void;
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
@@ -107,6 +111,7 @@ const defaultSettings: SettingsState = {
   licenseClass: "GENERAL" as LicenseClass,
   textScale: "md" as TextScale,
   colorBlindMode: "none" as ColorBlindMode,
+  highContrast: false,
   noiseEnvironment: "residential" as NoiseEnvironment,
   antennaType: "isotropic" as AntennaType,
   bridgeEnabled: false,
@@ -344,6 +349,16 @@ export const useSettingsStore = create<SettingsStore>()(
       setAntennaType: (type) => set({ antennaType: type }),
 
       setNoiseEnvironment: (env) => set({ noiseEnvironment: env }),
+
+      setHighContrast: (enabled) => set({ highContrast: enabled }),
+
+      updateUIInteraction: (partial) =>
+        set((state) => ({
+          uiInteraction: {
+            ...(state.uiInteraction ?? DEFAULT_UI_INTERACTION),
+            ...partial,
+          },
+        })),
     }),
     {
       name: "propulse-settings",

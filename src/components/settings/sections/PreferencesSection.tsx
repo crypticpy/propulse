@@ -11,6 +11,11 @@
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FavoredBandsPicker } from "@/components/settings/FavoredBandsPicker";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
+import {
+  SegmentedButton,
+  SectionHeader,
+  SettingSelect,
+} from "@/components/settings/ui";
 import { ANTENNA_TYPES, type AntennaType } from "@/lib/data/antennas";
 import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
 import type { ColorBlindMode } from "@/lib/themes/colorblind";
@@ -45,97 +50,6 @@ const SPOT_COLOR_MODE_OPTIONS: {
   { value: "band", label: "By Band" },
   { value: "mode", label: "By Mode" },
 ];
-
-// ─── Custom select dropdown style (caret arrow) ─────────────────────────────
-
-const SELECT_CARET_STYLE: React.CSSProperties = {
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 0.75rem center",
-  backgroundSize: "1rem",
-};
-
-// ─── Segmented button helper ─────────────────────────────────────────────────
-
-function SegmentedButton<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: React.ReactNode }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="flex gap-1 p-1 bg-void-black rounded-lg border border-white/10">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => onChange(opt.value)}
-          className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            value === opt.value
-              ? "bg-plasma-orange text-white"
-              : "text-gray-400 hover:text-gray-200"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─── Section header helper ───────────────────────────────────────────────────
-
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-      {children}
-    </h3>
-  );
-}
-
-// ─── Select field helper ─────────────────────────────────────────────────────
-
-function SelectField({
-  id,
-  label,
-  description,
-  value,
-  onChange,
-  children,
-}: {
-  id: string;
-  label: string;
-  description?: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={id}
-        className="block text-sm font-medium text-gray-300 mb-1"
-      >
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-void-black border border-white/10 text-gray-200 rounded-lg px-3 py-2 text-sm focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer"
-        style={SELECT_CARET_STYLE}
-      >
-        {children}
-      </select>
-      {description && (
-        <p className="text-xs text-gray-500 mt-1">{description}</p>
-      )}
-    </div>
-  );
-}
 
 // =============================================================================
 // PreferencesSection
@@ -216,7 +130,7 @@ export function PreferencesSection() {
       <section className="space-y-4">
         <SectionHeader>Accessibility</SectionHeader>
 
-        <SelectField
+        <SettingSelect
           id="pref-color-blind-mode"
           label="Color Vision Mode"
           description={COLOR_BLIND_MODE_DESCRIPTIONS[colorBlindMode]}
@@ -230,7 +144,7 @@ export function PreferencesSection() {
               </option>
             ),
           )}
-        </SelectField>
+        </SettingSelect>
       </section>
 
       <div className="border-t border-white/10" />
@@ -274,7 +188,7 @@ export function PreferencesSection() {
           }
         />
 
-        <SelectField
+        <SettingSelect
           id="pref-spot-color-mode"
           label="Spot Color Mode"
           description="How spots are color-coded on the globe"
@@ -293,7 +207,7 @@ export function PreferencesSection() {
               {opt.label}
             </option>
           ))}
-        </SelectField>
+        </SettingSelect>
       </section>
 
       <div className="border-t border-white/10" />
@@ -302,7 +216,7 @@ export function PreferencesSection() {
       <section className="space-y-4">
         <SectionHeader>Propagation</SectionHeader>
 
-        <SelectField
+        <SettingSelect
           id="pref-noise-environment"
           label="Noise Environment"
           description="Affects SNR predictions for band conditions and propagation models. Based on ITU-R P.372 man-made noise levels."
@@ -314,10 +228,10 @@ export function PreferencesSection() {
               {opt.label}
             </option>
           ))}
-        </SelectField>
+        </SettingSelect>
 
         <div>
-          <SelectField
+          <SettingSelect
             id="pref-antenna-type"
             label="Antenna Type"
             description="Used for propagation predictions -- affects gain calculations based on path takeoff angle."
@@ -330,7 +244,7 @@ export function PreferencesSection() {
                 {ant.peakGainDbi} dBi peak)
               </option>
             ))}
-          </SelectField>
+          </SettingSelect>
           {(() => {
             const selected = ANTENNA_TYPES.find((a) => a.type === antennaType);
             if (!selected) return null;

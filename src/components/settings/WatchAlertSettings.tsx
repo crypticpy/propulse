@@ -12,7 +12,7 @@
  */
 
 import { useState, useCallback } from "react";
-import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import {
   DEFAULT_WATCH_ALERT_PREFERENCES,
   type WatchAlertPreferences,
@@ -215,9 +215,9 @@ function TestSoundButton({
 export function WatchAlertSettings({
   className = "",
 }: WatchAlertSettingsProps) {
-  const { preferences, updatePreferences } = useUserStore();
   const watchAlerts: WatchAlertPreferences =
-    preferences.watchAlerts ?? DEFAULT_WATCH_ALERT_PREFERENCES;
+    useSettingsStore((s) => s.watchAlerts) ?? DEFAULT_WATCH_ALERT_PREFERENCES;
+  const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
   const audioSupported = isAudioAvailable();
 

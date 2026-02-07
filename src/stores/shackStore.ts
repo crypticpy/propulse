@@ -7,6 +7,18 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { UserRadio, LegacyUserRadio, RadioEquipment } from "@/types/radio";
+import type {
+  UserAntenna,
+  UserFeedline,
+  UserAccessory,
+  StationPreset,
+} from "@/types/shack";
+import {
+  MAX_ANTENNAS,
+  MAX_FEEDLINES,
+  MAX_ACCESSORIES,
+  MAX_PRESETS,
+} from "@/types/shack";
 import { getRadioById } from "@/lib/data/radios";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -64,12 +76,13 @@ interface ShackStore {
   radios: UserRadio[];
   customRadios: RadioEquipment[];
   activeRadioId: string | null;
-  // Placeholders for future equipment types
-  antennas: never[];
-  feedlines: never[];
-  accessories: never[];
-  stationPresets: never[];
+  antennas: UserAntenna[];
+  feedlines: UserFeedline[];
+  accessories: UserAccessory[];
+  stationPresets: StationPreset[];
+  activePresetId: string | null;
 
+  // Radio actions
   addRadio: (radioId: string, nickname?: string) => string | null;
   addRadioInstance: (radioId: string, nickname?: string) => string | null;
   updateRadioInstance: (
@@ -86,6 +99,43 @@ interface ShackStore {
     updates: Partial<Omit<RadioEquipment, "id">>,
   ) => { ok: true } | { ok: false; error: string };
   removeCustomRadio: (id: string) => void;
+
+  // Antenna actions
+  addAntenna: (antenna: Omit<UserAntenna, "id" | "addedAt">) => string | null;
+  updateAntenna: (
+    id: string,
+    updates: Partial<Omit<UserAntenna, "id" | "addedAt">>,
+  ) => { ok: true } | { ok: false; error: string };
+  removeAntenna: (id: string) => void;
+
+  // Feedline actions
+  addFeedline: (
+    feedline: Omit<UserFeedline, "id" | "addedAt">,
+  ) => string | null;
+  updateFeedline: (
+    id: string,
+    updates: Partial<Omit<UserFeedline, "id" | "addedAt">>,
+  ) => { ok: true } | { ok: false; error: string };
+  removeFeedline: (id: string) => void;
+
+  // Accessory actions
+  addAccessory: (
+    accessory: Omit<UserAccessory, "id" | "addedAt">,
+  ) => string | null;
+  updateAccessory: (
+    id: string,
+    updates: Partial<Omit<UserAccessory, "id" | "addedAt">>,
+  ) => { ok: true } | { ok: false; error: string };
+  removeAccessory: (id: string) => void;
+
+  // Preset actions
+  addPreset: (preset: Omit<StationPreset, "id" | "createdAt">) => string | null;
+  updatePreset: (
+    id: string,
+    updates: Partial<Omit<StationPreset, "id" | "createdAt">>,
+  ) => { ok: true } | { ok: false; error: string };
+  removePreset: (id: string) => void;
+  setActivePreset: (id: string | null) => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -96,10 +146,11 @@ export const useShackStore = create<ShackStore>()(
       radios: [],
       customRadios: [],
       activeRadioId: null,
-      antennas: [] as never[],
-      feedlines: [] as never[],
-      accessories: [] as never[],
-      stationPresets: [] as never[],
+      antennas: [],
+      feedlines: [],
+      accessories: [],
+      stationPresets: [],
+      activePresetId: null,
 
       addRadio: (radioId, nickname) => {
         let instanceId: string | null = null;
@@ -299,16 +350,214 @@ export const useShackStore = create<ShackStore>()(
             activeRadioId,
           };
         }),
+
+      // === Antenna Actions ===
+
+      addAntenna: (antenna) => {
+        let id: string | null = null;
+        set((state) => {
+          if (state.antennas.length >= MAX_ANTENNAS) return state;
+          const newId = crypto.randomUUID();
+          id = newId;
+          return {
+            antennas: [
+              ...state.antennas,
+              { ...antenna, id: newId, addedAt: new Date().toISOString() },
+            ],
+          };
+        });
+        return id;
+      },
+
+      updateAntenna: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.antennas.findIndex((a) => a.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Antenna not found" };
+            return state;
+          }
+          return {
+            antennas: state.antennas.map((a, i) =>
+              i === idx ? { ...a, ...updates } : a,
+            ),
+          };
+        });
+        return result;
+      },
+
+      removeAntenna: (id) =>
+        set((state) => ({
+          antennas: state.antennas.filter((a) => a.id !== id),
+          // Clean up presets referencing this antenna
+          stationPresets: state.stationPresets.filter(
+            (p) => p.antennaId !== id,
+          ),
+        })),
+
+      // === Feedline Actions ===
+
+      addFeedline: (feedline) => {
+        let id: string | null = null;
+        set((state) => {
+          if (state.feedlines.length >= MAX_FEEDLINES) return state;
+          const newId = crypto.randomUUID();
+          id = newId;
+          return {
+            feedlines: [
+              ...state.feedlines,
+              { ...feedline, id: newId, addedAt: new Date().toISOString() },
+            ],
+          };
+        });
+        return id;
+      },
+
+      updateFeedline: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.feedlines.findIndex((f) => f.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Feedline not found" };
+            return state;
+          }
+          return {
+            feedlines: state.feedlines.map((f, i) =>
+              i === idx ? { ...f, ...updates } : f,
+            ),
+          };
+        });
+        return result;
+      },
+
+      removeFeedline: (id) =>
+        set((state) => ({
+          feedlines: state.feedlines.filter((f) => f.id !== id),
+          // Clean up presets referencing this feedline
+          stationPresets: state.stationPresets.map((p) =>
+            p.feedlineId === id ? { ...p, feedlineId: undefined } : p,
+          ),
+        })),
+
+      // === Accessory Actions ===
+
+      addAccessory: (accessory) => {
+        let id: string | null = null;
+        set((state) => {
+          if (state.accessories.length >= MAX_ACCESSORIES) return state;
+          const newId = crypto.randomUUID();
+          id = newId;
+          return {
+            accessories: [
+              ...state.accessories,
+              {
+                ...accessory,
+                id: newId,
+                addedAt: new Date().toISOString(),
+              } as UserAccessory,
+            ],
+          };
+        });
+        return id;
+      },
+
+      updateAccessory: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.accessories.findIndex((a) => a.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Accessory not found" };
+            return state;
+          }
+          return {
+            accessories: state.accessories.map((a, i) =>
+              i === idx ? ({ ...a, ...updates } as UserAccessory) : a,
+            ),
+          };
+        });
+        return result;
+      },
+
+      removeAccessory: (id) =>
+        set((state) => ({
+          accessories: state.accessories.filter((a) => a.id !== id),
+          // Remove this accessory from all presets' accessoryIds
+          stationPresets: state.stationPresets.map((p) => ({
+            ...p,
+            accessoryIds: p.accessoryIds.filter((aid) => aid !== id),
+          })),
+        })),
+
+      // === Preset Actions ===
+
+      addPreset: (preset) => {
+        let id: string | null = null;
+        set((state) => {
+          if (state.stationPresets.length >= MAX_PRESETS) return state;
+          const newId = crypto.randomUUID();
+          id = newId;
+          return {
+            stationPresets: [
+              ...state.stationPresets,
+              { ...preset, id: newId, createdAt: new Date().toISOString() },
+            ],
+          };
+        });
+        return id;
+      },
+
+      updatePreset: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.stationPresets.findIndex((p) => p.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Preset not found" };
+            return state;
+          }
+          return {
+            stationPresets: state.stationPresets.map((p, i) =>
+              i === idx ? { ...p, ...updates } : p,
+            ),
+          };
+        });
+        return result;
+      },
+
+      removePreset: (id) =>
+        set((state) => ({
+          stationPresets: state.stationPresets.filter((p) => p.id !== id),
+          // Clear activePresetId if it matches the removed preset
+          activePresetId:
+            state.activePresetId === id ? null : state.activePresetId,
+        })),
+
+      setActivePreset: (id) => set({ activePresetId: id }),
     }),
     {
       name: "propulse-shack",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         radios: state.radios,
         customRadios: state.customRadios,
         activeRadioId: state.activeRadioId,
+        antennas: state.antennas,
+        feedlines: state.feedlines,
+        accessories: state.accessories,
+        stationPresets: state.stationPresets,
+        activePresetId: state.activePresetId,
       }),
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          if (!("antennas" in state)) state.antennas = [];
+          if (!("feedlines" in state)) state.feedlines = [];
+          if (!("accessories" in state)) state.accessories = [];
+          if (!("stationPresets" in state)) state.stationPresets = [];
+          if (!("activePresetId" in state)) state.activePresetId = null;
+        }
+        return state as never;
+      },
     },
   ),
 );
@@ -355,6 +604,44 @@ export function useActiveUserRadio(): UserRadio | null {
   const radios = useShackStore((s) => s.radios) || [];
   if (!activeRadioId) return null;
   return radios.find((r) => r.id === activeRadioId) ?? null;
+}
+
+/**
+ * Hook to get the active station preset
+ */
+export function useActivePreset(): StationPreset | null {
+  const activePresetId = useShackStore((s) => s.activePresetId);
+  const presets = useShackStore((s) => s.stationPresets);
+  if (!activePresetId) return null;
+  return presets.find((p) => p.id === activePresetId) ?? null;
+}
+
+/**
+ * Hook to get all user antennas
+ */
+export function useUserAntennas(): UserAntenna[] {
+  return useShackStore((s) => s.antennas);
+}
+
+/**
+ * Hook to get all user feedlines
+ */
+export function useUserFeedlines(): UserFeedline[] {
+  return useShackStore((s) => s.feedlines);
+}
+
+/**
+ * Hook to get all user accessories
+ */
+export function useUserAccessories(): UserAccessory[] {
+  return useShackStore((s) => s.accessories);
+}
+
+/**
+ * Hook to get all station presets
+ */
+export function useStationPresets(): StationPreset[] {
+  return useShackStore((s) => s.stationPresets);
 }
 
 // Re-export helpers for use by migration utility and sync modules

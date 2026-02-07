@@ -25,16 +25,31 @@ Propulse gives amateur radio operators a single interface for monitoring solar w
 
 **Key capabilities:**
 
-- **PropSphere** -- Interactive 3D globe, 2D flat map, and azimuthal equidistant projection with live DX spot overlays, great circle paths, and day/night terminator
-- **Solar Pulse** -- Real-time K-index, solar flux, sunspot, and Bz charts with geomagnetic storm alerts
-- **DX Wizard** -- Enter a target location and get recommended band, power, frequency, and operating tips based on propagation physics
-- **Contest Engine** -- 19 built-in contest definitions with real-time scoring, dupe checking, multiplier tracking, and Cabrillo export
+- **Operational Dashboard** -- Live propagation index, band conditions with DX cluster spot counts, solar metrics, cluster pulse, log stats with 7-day activity chart, and band opening predictions -- all on the home screen
+- **PropSphere** -- Interactive 3D globe, 2D flat map, and azimuthal equidistant projection with live DX spot overlays, great circle paths, day/night terminator, and award overlays
+- **Solar Pulse** -- Real-time K-index, solar flux, sunspot, and Bz charts with geomagnetic storm alerts and confidence intervals
+- **DX Wizard** -- Enter a target location and get recommended band, power, frequency, and operating tips based on propagation physics with antenna gain modeling
+- **Contest Engine** -- 19 built-in contest definitions with real-time scoring, dupe checking, multiplier tracking, rate sheet, and Cabrillo export
 - **Logbook** -- QSO logging with DXCC tracking, ADIF import/export, and unified QSL management (LoTW, eQSL, Club Log)
+- **Mobile-First PWA** -- Dedicated mobile layouts for all pages, offline support, install prompt, pull-to-refresh, swipe navigation, and 44px touch targets
 - **ProPulse Bridge** -- Local WebSocket server for rig control (CAT), WSJT-X integration, and DX cluster telnet
 
 ---
 
 ## Features
+
+### Operational Dashboard
+
+The home page is a live operational view designed for at-a-glance situational awareness:
+
+- Composite Propagation Index (0-100) with animated SVG gauge and score breakdown
+- HF Band Conditions table with live DX cluster spot counts per band
+- Primary solar metrics: SFI, K-index, SSN, A-index, IMF Bz
+- Cluster Pulse showing spot rate, median age, and peak band from the DX cluster
+- Log Stats with today/week/month/DXCC/total and 7-day activity bar chart
+- Band opening predictions based on current solar conditions
+- This Day in History showing past DX contacts on today's date
+- Data freshness indicators with manual refresh buttons
 
 ### PropSphere -- Interactive Propagation Map
 
@@ -56,11 +71,13 @@ Propulse gives amateur radio operators a single interface for monitoring solar w
 ### Solar Pulse -- Space Weather Dashboard
 
 - Real-time K-index, A-index, solar flux, and sunspot number charts
-- Bz (interplanetary magnetic field) monitoring
+- Bz (interplanetary magnetic field) monitoring with sparkline trends
 - Solar flare probability and geomagnetic storm alerts with severity classification
-- Composite Propagation Index for quick condition assessment
+- Composite Propagation Index (0-100) with animated gauge and plain-language summary
+- Confidence intervals on propagation predictions
 - SOHO/SDO animated solar image player
 - Model accuracy panel (spot-model correlation)
+- Interactive tooltips explaining every metric (40+ definitions)
 
 ### DX Wizard -- Propagation Analysis
 
@@ -100,6 +117,27 @@ Propulse gives amateur radio operators a single interface for monitoring solar w
 - Current HF/VHF/UHF band conditions overview
 - License class filtering (Technician, General, Extra)
 - ITU region awareness for international regulatory compliance
+- Favorite bands with star-toggle for quick filtering
+- Confidence intervals showing prediction reliability
+
+### Mobile & PWA
+
+Propulse is a fully installable Progressive Web App with dedicated mobile experiences:
+
+- **6 mobile page variants** optimized for touch with 44px minimum targets
+- Bottom tab navigation with tools drawer for secondary pages
+- Pull-to-refresh and horizontal swipe navigation between pages
+- Offline support with IndexedDB data caching and offline indicator
+- PWA install prompt with standalone display mode
+- Lazy-loaded routes (main bundle: 435 KB) with Three.js isolated from mobile builds
+
+### Command Palette & Shortcuts
+
+- **Cmd+K command palette** with fuzzy search across navigation, actions, and settings
+- Context-aware keyboard shortcuts per route (press `?` for help)
+- WCAG 2.1 focus indicators with theme-accent outlines
+- Health status indicators for API and bridge connections in the header
+- Sync/retry queue with background upload processing and status display
 
 ---
 
@@ -181,7 +219,7 @@ propulse/
 │   │   ├── settings/       Settings panels and modals (13 files)
 │   │   ├── ui/             Shared primitives (Badge, Card, Modal)
 │   │   └── ...
-│   ├── hooks/              34 custom hooks (data fetching, UI logic)
+│   ├── hooks/              42 custom hooks (data fetching, UI logic)
 │   ├── stores/             19 Zustand stores (client state)
 │   ├── lib/
 │   │   ├── utils/          Propagation physics, scoring, helpers
@@ -218,7 +256,7 @@ propulse/
 | ---------------------- | ------------------------------------------------------------ |
 | NOAA SWPC              | K-index, solar flux, sunspot number, Bz, flare probabilities |
 | NOAA OVATION           | Aurora oval data                                             |
-| DXHeat                 | DX cluster spots                                             |
+| HamQTH DX Cluster      | DX cluster spots                                             |
 | PSK Reporter           | Digital mode reception reports                               |
 | Reverse Beacon Network | CW/digital skimmer spots                                     |
 | HamQTH / callook.info  | Callsign lookup                                              |

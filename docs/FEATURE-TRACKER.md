@@ -1,7 +1,7 @@
 # Propulse Feature Tracker
 
 > Master reference of all planned features, their delivery status, and remaining gaps.
-> Generated 2026-02-05 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
+> Updated 2026-02-07 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
 
 ---
 
@@ -201,9 +201,14 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
 ### Recently Completed
 
-| Feature              | Date       | Notes                                                      |
-| -------------------- | ---------- | ---------------------------------------------------------- |
-| Interactive tooltips | 2026-02-06 | InfoTip component + centralized registry (40+ definitions) |
+| Feature                 | Date       | Notes                                                           |
+| ----------------------- | ---------- | --------------------------------------------------------------- |
+| Interactive tooltips    | 2026-02-06 | InfoTip component + centralized registry (40+ definitions)      |
+| Dashboard redesign      | 2026-02-07 | Centered gauge, merged summary, widened bands, cluster data fix |
+| Dashboard spacing       | 2026-02-07 | Wider band columns, spot activity column, scaled metrics        |
+| Cluster Pulse explainer | 2026-02-07 | Data source footer, history CTA for new users                   |
+| React hooks compliance  | 2026-02-07 | Fixed Rules of Hooks violation in BandConditions                |
+| PWA meta/manifest fixes | 2026-02-07 | Cross-platform meta tags, VitePWA devOptions for dev server     |
 
 ---
 

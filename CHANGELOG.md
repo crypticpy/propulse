@@ -5,6 +5,81 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.11.0] — 2026-02-07
+
+### Unified Dashboard, Mobile-First Layout, PWA, and 92% Feature Completion
+
+This release transforms Propulse into a fully operational, mobile-ready Progressive Web App. It replaces the splash page with a data-rich operational dashboard, adds a complete mobile experience with dedicated page variants, introduces a command palette and keyboard shortcuts system, and delivers real-time health monitoring, PWA offline support, and a polished contest operations workflow. Feature delivery reaches 160/173 (92%).
+
+#### Unified Operational Dashboard
+
+- **Home page redesign** — The splash page is replaced with a live operational dashboard showing primary solar metrics (SFI, K-index, SSN, A-index, Bz), a composite Propagation Index with centered gauge score and merged summary, HF band conditions with live DX cluster spot counts, Cluster Pulse activity card, Log Stats with 7-day bar chart, band opening predictions, and this-day-in-history. Everything an operator needs at a glance.
+- **Propagation Index** — Composite 0-100 score with animated SVG gauge, score breakdown by SFI/K-index/Bz, and integrated propagation summary with best-bands chips. Replaces the separate Propagation Summary tile.
+- **Live spot activity column** — The HF Band Conditions table now shows real-time DX cluster spot counts per band from the last 30 minutes, with color-coded activity indicators (green/amber/gray).
+- **Cluster Pulse** — Real-time DX cluster health metrics (spot rate/min, median age, peak band) with data source explainer footer. Scaled-up typography fills the card properly.
+- **Log Stats** — Logbook statistics (today/week/month/DXCC/total) with 7-day CSS bar chart and evenly distributed layout.
+- **History Card CTA** — For new users without a logbook, a call-to-action links to the logbook page for ADIF import.
+- **Data freshness indicators** — "Updated X ago" badges with manual refresh buttons on Home, Solar Pulse, Band Planner, and DX Wizard.
+
+#### Mobile-First Layout
+
+- **Responsive layout switching** — `useIsMobile()` viewport detection with dedicated mobile page variants for all 6 main pages. Three.js globe is isolated from mobile builds for performance.
+- **Bottom tab navigation** — 5-tab BottomTabBar with ToolsDrawer for secondary navigation. Touch-friendly 44px minimum targets throughout.
+- **6 mobile page variants** — MobileSolarPulse (accordion sections), MobileMap (FlatMapView with slide-up panel), MobileDXWizard (step wizard), MobileLogbook (card-per-QSO), MobileBandPlanner (gradient band cards), MobileContestEntry (optimized for tablets).
+- **Pull-to-refresh** — Elastic pull gesture with threshold-triggered data refresh across all mobile pages.
+- **Swipe navigation** — Horizontal swipe gestures between adjacent pages with cooldown and vertical guard.
+- **Offline indicator** — Amber banner that appears when network connectivity is lost.
+- **Mobile settings** — Accordion layout for the settings modal on small screens.
+- **PWA install prompt** — `beforeinstallprompt` event capture with dismissible install banner.
+
+#### Progressive Web App
+
+- **Service Worker** — Workbox-powered with precache for app shell and NetworkFirst runtime caching for API requests (5-minute TTL, 50-entry limit).
+- **Offline data caching** — IndexedDB cache layer with per-endpoint TTLs for NOAA solar data. Stale data served when offline with freshness indicators.
+- **Web app manifest** — Standalone display mode with themed splash screen.
+- **Update prompt** — Toast notification when a new version is available with reload/dismiss options.
+
+#### Command Palette & Keyboard Shortcuts
+
+- **Command palette (Cmd+K)** — Quick navigation to any page, action, or setting. Fuzzy search across all registered commands.
+- **Global keyboard shortcuts** — Context-aware hotkeys per route. Press `?` for the shortcuts help modal.
+- **Focus management** — `*:focus-visible` theme-accent outlines with WCAG 2.1 compliance.
+
+#### Health Monitoring & Reliability
+
+- **Health status indicators** — Per-service health monitoring (NOAA APIs, DX cluster, bridge) with colored dot and dropdown in the header. Aggregates TanStack Query cache states.
+- **Sync/retry queue** — Background queue for QSO uploads to eQSL and Club Log with localStorage persistence, 10s polling, and exponential backoff. Status pill in the header.
+- **Reduced-motion support** — `scroll-behavior: smooth` gated behind `prefers-reduced-motion: no-preference`.
+
+#### Dashboard Polish & UX
+
+- **Wider band condition columns** — Day/Night columns widened from 70px to 90px with increased gap to prevent badge overlap.
+- **Cluster Pulse explainer** — Footer text explaining data source and metric meaning.
+- **Scaled-up card metrics** — ClusterPulseCard (text-4xl), LogStatsCard (text-3xl) with `justify-evenly` distribution.
+- **React Rules of Hooks fix** — Hooks in BandConditions moved before conditional returns, eliminating the "Expected static flag" console warning.
+- **PWA meta tags** — Both `apple-mobile-web-app-capable` and `mobile-web-app-capable` for cross-platform PWA support.
+- **VitePWA dev mode** — `devOptions.enabled` for correct manifest serving during development.
+
+#### Additional Features
+
+- **ATNO badges** — All-Time New One diamond badges on DX spot lists and map when an entity hasn't been worked before.
+- **Award overlay (WAS)** — Worked All States overlay on the flat map with batched canvas state fills.
+- **Interactive tooltips** — 40+ ham radio metric definitions accessible via ⓘ icons on PrimaryMetrics, BandPlanner, DXWizard, and more.
+- **Auto-pan to spots** — Map automatically centers on new DX spots with follow toggle and 8-second cooldown.
+- **Touch gestures** — Pinch-zoom and drag-to-pan on the 2D flat map via pointer events.
+- **Accent color customization** — 8 theme presets in Settings > Appearance with CSS custom property propagation.
+- **Contest rate sheet** — Hourly and 10-minute rate views with band-by-hour heatmap matrix.
+- **Confidence intervals** — Visual uncertainty bands on propagation forecasts showing prediction reliability.
+- **Contest timer enhancement** — Optional end time for open-ended sessions, break-time indicator for 5-minute idle periods.
+- **Bearing/distance overlay** — Continuous bearing and distance readout on hover in the flat map.
+- **Noise floor settings** — ITU-R P.372 noise environment dropdown (residential, rural, quiet rural, city) in Settings.
+- **Antenna pattern integration** — Radiation patterns (dipole, vertical, Yagi, loop) factored into signal predictions.
+- **Favorite bands** — Star-toggle on band rows in Band Planner, persisted per user.
+- **Recent targets list** — Dropdown in DX Wizard populated from map store history.
+- **Contest score sharing** — Unicode-safe base64 share URL with 4-column stats grid and clipboard copy.
+
+---
+
 ## [0.10.1] — 2026-02-05
 
 ### Spot API Robustness & Band Planner Real-Time UX
@@ -264,6 +339,7 @@ A complete contest logging system and major DX operations improvements.
 
 ---
 
+[0.11.0]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.11.0
 [0.10.1]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/crypticpy/propulse/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/crypticpy/propulse/compare/v0.8.0...v0.9.0

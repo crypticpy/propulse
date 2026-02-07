@@ -1,7 +1,7 @@
 {
   "name": "propulse",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.11.0",
   "description": "Ham radio operator toolset - solar weather and propagation visualization",
   "type": "module",
   "scripts": {

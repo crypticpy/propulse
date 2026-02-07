@@ -473,6 +473,117 @@ function calculateConfidence(
 }
 
 /**
+ * Parameters for confidence interval calculation
+ */
+export interface ConfidenceIntervalParams {
+  distanceKm: number;
+  hops: number;
+  snrMargin: number;
+  kp: number;
+  sfi: number;
+  frequency: number;
+  /** frequency / MUF -- how close to MUF cutoff */
+  mufRatio: number;
+}
+
+/**
+ * Result of confidence interval calculation
+ */
+export interface ConfidenceIntervalResult {
+  confidence: number;
+  low: number;
+  high: number;
+  snrLow: number;
+  snrHigh: number;
+}
+
+/**
+ * Calculate confidence interval for a propagation prediction
+ *
+ * Produces a center confidence value plus upper/lower bounds and SNR
+ * uncertainty range.  Width factors (geomagnetic storms, near-MUF,
+ * multi-hop, long-path) widen the interval while stable conditions
+ * (low Kp, well within MUF window, daytime) narrow it.
+ *
+ * @param params - Calculation input parameters
+ * @param baseConfidence - The point-estimate confidence from calculateConfidence
+ * @param baseSNR - The point-estimate SNR from the signal model
+ * @returns Confidence interval with bounds and SNR range
+ */
+export function calculateConfidenceInterval(
+  params: ConfidenceIntervalParams,
+  baseConfidence: number,
+  baseSNR: number,
+): ConfidenceIntervalResult {
+  // Start with a base half-width for the confidence interval
+  let confidenceHalfWidth = 10; // ±10 default
+  let snrUncertainty = 3; // ±3 dB default
+
+  // --- Width factors (widen the interval) ---
+
+  // High Kp (>= 4): geomagnetic storm = unpredictable
+  if (params.kp >= 4) {
+    confidenceHalfWidth += 15;
+    snrUncertainty += 6;
+  }
+
+  // Near MUF cutoff (ratio > 0.85): binary propagation
+  if (params.mufRatio > 0.85) {
+    confidenceHalfWidth += 10;
+    snrUncertainty += 8;
+  }
+
+  // Multi-hop paths (> 2 hops): cumulative uncertainty
+  if (params.hops > 2) {
+    const extraHops = params.hops - 2;
+    confidenceHalfWidth += extraHops * 5;
+    snrUncertainty += extraHops * 1.5;
+  }
+
+  // Long path (> 10000 km)
+  if (params.distanceKm > 10000) {
+    confidenceHalfWidth += 5;
+    snrUncertainty += 2;
+  }
+
+  // --- Narrow factors ---
+
+  // Low Kp (<= 2): stable conditions, narrow by 30%
+  if (params.kp <= 2) {
+    confidenceHalfWidth *= 0.7;
+    snrUncertainty *= 0.7;
+  }
+
+  // Well within propagation window (MUF ratio < 0.5): narrow by 20%
+  if (params.mufRatio < 0.5) {
+    confidenceHalfWidth *= 0.8;
+    snrUncertainty *= 0.8;
+  }
+
+  // Clamp confidence bounds to [5, 99]
+  const low = Math.max(5, Math.round(baseConfidence - confidenceHalfWidth));
+  const high = Math.min(99, Math.round(baseConfidence + confidenceHalfWidth));
+
+  // Clamp SNR bounds to [-30, +30]
+  const snrLow = Math.max(
+    -30,
+    Math.round((baseSNR - snrUncertainty) * 10) / 10,
+  );
+  const snrHigh = Math.min(
+    30,
+    Math.round((baseSNR + snrUncertainty) * 10) / 10,
+  );
+
+  return {
+    confidence: baseConfidence,
+    low,
+    high,
+    snrLow,
+    snrHigh,
+  };
+}
+
+/**
  * Generate complete signal strength prediction for a propagation path
  *
  * Combines all path loss factors and calculates expected receive
@@ -492,7 +603,12 @@ function calculateConfidence(
  * @param txPowerWatts - Transmitter power in watts
  * @param mode - Operating mode ('SSB', 'CW', 'FT8', 'RTTY')
  * @param antennaGainDbi - Combined TX+RX antenna gain in dBi (default 0)
- * @returns Complete SignalPrediction object
+ * @param noiseEnvironment - Noise environment for ITU-R P.372 model
+ * @param terrainLossDb - Terrain-specific loss override in dB
+ * @param kp - Current K-index (0-9) for confidence interval calculation
+ * @param sfi - Current Solar Flux Index for confidence interval calculation
+ * @param muf - Maximum Usable Frequency in MHz for confidence interval calculation
+ * @returns Complete SignalPrediction object with optional confidence intervals
  *
  * @example
  * ```ts
@@ -531,6 +647,9 @@ export function predictSignalStrength(
   antennaGainDbi: number = 0,
   noiseEnvironment?: NoiseEnvironment,
   terrainLossDb?: number,
+  kp?: number,
+  sfi?: number,
+  muf?: number,
 ): SignalPrediction {
   // Calculate individual loss components
   const freeSpaceLoss = calculateFreeSpaceLoss(frequencyMHz, distanceKm);
@@ -571,7 +690,8 @@ export function predictSignalStrength(
   // Calculate prediction confidence
   const confidence = calculateConfidence(distanceKm, hops, expectedSNR, mode);
 
-  return {
+  // Build base prediction
+  const prediction: SignalPrediction = {
     pathLoss: Math.round(pathLoss * 10) / 10,
     freeSpaceLoss: Math.round(freeSpaceLoss * 10) / 10,
     absorptionLoss: absorptionDb,
@@ -582,6 +702,34 @@ export function predictSignalStrength(
     confidence,
     mode,
   };
+
+  // Calculate confidence intervals when solar/geomagnetic data is available
+  if (kp !== undefined && sfi !== undefined) {
+    const modeParams = MODE_PARAMETERS[mode];
+    const snrMargin = expectedSNR - modeParams.minSNR;
+    const mufRatio = muf && muf > 0 ? frequencyMHz / muf : 0.6; // Default 0.6 if MUF unknown
+
+    const interval = calculateConfidenceInterval(
+      {
+        distanceKm,
+        hops,
+        snrMargin,
+        kp,
+        sfi,
+        frequency: frequencyMHz,
+        mufRatio,
+      },
+      confidence,
+      expectedSNR,
+    );
+
+    prediction.confidenceLow = interval.low;
+    prediction.confidenceHigh = interval.high;
+    prediction.snrLow = interval.snrLow;
+    prediction.snrHigh = interval.snrHigh;
+  }
+
+  return prediction;
 }
 
 /**

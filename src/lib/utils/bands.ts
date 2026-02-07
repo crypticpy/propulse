@@ -837,7 +837,14 @@ export function getEnhancedBandConditions(
     const absorptionDb = rayResult.totalAbsorptionDb;
     const hops = rayResult.hops.length;
 
+    // Derive minimum MUF across hops (the limiting frequency for the path)
+    const pathMuf =
+      rayResult.hops.length > 0
+        ? Math.min(...rayResult.hops.map((h) => h.muf))
+        : undefined;
+
     // Get full signal prediction using the signal.ts model
+    // Pass kp, sfi, and muf so confidence intervals are computed
     const signalPred = predictSignalStrength(
       frequencyMHz,
       distance,
@@ -846,6 +853,11 @@ export function getEnhancedBandConditions(
       txPowerWatts,
       mode,
       antennaGainDbi,
+      undefined, // noiseEnvironment
+      rayResult.terrainLoss, // terrainLossDb
+      kp,
+      sfi,
+      pathMuf,
     );
 
     // Build notes array
@@ -1062,6 +1074,14 @@ export interface HourlyForecast {
     snrEstimate: number;
     /** Prediction confidence 0-100 (from signal model, if available) */
     confidence?: number;
+    /** Lower bound of confidence interval (0-100) */
+    confidenceLow?: number;
+    /** Upper bound of confidence interval (0-100) */
+    confidenceHigh?: number;
+    /** Pessimistic SNR estimate in dB */
+    snrLow?: number;
+    /** Optimistic SNR estimate in dB */
+    snrHigh?: number;
   }[];
 }
 
@@ -1207,7 +1227,7 @@ export function getForecastForPath(
       illumination,
     );
 
-    // Filter to forecast bands and extract needed fields
+    // Filter to forecast bands and extract needed fields (including confidence intervals)
     const bands = fullConditions
       .filter((c) => FORECAST_BANDS.includes(c.band))
       .map((c) => ({
@@ -1215,6 +1235,10 @@ export function getForecastForPath(
         status: c.status,
         snrEstimate: c.snrEstimate,
         confidence: c.signalPrediction?.confidence,
+        confidenceLow: c.signalPrediction?.confidenceLow,
+        confidenceHigh: c.signalPrediction?.confidenceHigh,
+        snrLow: c.signalPrediction?.snrLow,
+        snrHigh: c.signalPrediction?.snrHigh,
       }));
 
     forecasts.push({

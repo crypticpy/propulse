@@ -922,6 +922,10 @@ function bandConditionRowPropsAreEqual(
     prevProps.condition.status === nextProps.condition.status &&
     prevProps.condition.snrEstimate === nextProps.condition.snrEstimate &&
     prevProps.condition.sUnit?.value === nextProps.condition.sUnit?.value &&
+    prevProps.condition.signalPrediction?.confidenceLow ===
+      nextProps.condition.signalPrediction?.confidenceLow &&
+    prevProps.condition.signalPrediction?.snrLow ===
+      nextProps.condition.signalPrediction?.snrLow &&
     prevProps.hasEnhancedData === nextProps.hasEnhancedData &&
     prevProps.compact === nextProps.compact &&
     prevProps.isSynced === nextProps.isSynced &&
@@ -1049,18 +1053,48 @@ const BandConditionRow = memo(function BandConditionRow({
             </div>
           </td>
           <td className="px-1 py-1 text-center font-mono text-xs">
-            <span
-              className={
-                condition.snrEstimate <= -24 ? "text-gray-400" : "text-white"
-              }
-            >
-              {condition.snrEstimate}dB
-            </span>
-            {hasEnhancedData && condition.pathLoss !== undefined && (
-              <div className="text-xs text-gray-400">
-                {Math.round(condition.pathLoss)}dB loss
+            {/* SNR display: range when confidence intervals available, point value otherwise */}
+            {condition.signalPrediction?.snrLow !== undefined &&
+            condition.signalPrediction?.snrHigh !== undefined ? (
+              <div
+                title={`SNR range: ${condition.signalPrediction.snrLow} to ${condition.signalPrediction.snrHigh} dB (center: ${condition.snrEstimate} dB)`}
+              >
+                <span
+                  className={
+                    condition.snrEstimate <= -24
+                      ? "text-gray-400"
+                      : "text-white"
+                  }
+                >
+                  {condition.signalPrediction.snrLow} to{" "}
+                  {condition.signalPrediction.snrHigh}dB
+                </span>
               </div>
+            ) : (
+              <span
+                className={
+                  condition.snrEstimate <= -24 ? "text-gray-400" : "text-white"
+                }
+              >
+                {condition.snrEstimate}dB
+              </span>
             )}
+            {/* Confidence interval bar */}
+            {condition.signalPrediction?.confidenceLow !== undefined &&
+              condition.signalPrediction?.confidenceHigh !== undefined && (
+                <ConfidenceBar
+                  confidence={condition.signalPrediction.confidence}
+                  low={condition.signalPrediction.confidenceLow}
+                  high={condition.signalPrediction.confidenceHigh}
+                />
+              )}
+            {hasEnhancedData &&
+              condition.pathLoss !== undefined &&
+              condition.signalPrediction?.snrLow === undefined && (
+                <div className="text-xs text-gray-400">
+                  {Math.round(condition.pathLoss)}dB loss
+                </div>
+              )}
           </td>
         </>
       )}
@@ -1129,6 +1163,57 @@ const SMeterIndicator = memo(function SMeterIndicator({
           style={{ height: `${6 + i * 2}px` }}
         />
       ))}
+    </div>
+  );
+});
+
+/**
+ * Compact confidence bar showing point estimate with translucent interval range
+ * Width: full cell, height: 4px
+ * Color: red (low) -> amber (mid) -> green (high)
+ */
+const ConfidenceBar = memo(function ConfidenceBar({
+  confidence,
+  low,
+  high,
+}: {
+  confidence: number;
+  low: number;
+  high: number;
+}) {
+  // Determine color based on confidence center point
+  const barColor =
+    confidence >= 70
+      ? "#00ff88" // signal-green
+      : confidence >= 45
+        ? "#ffaa00" // caution-amber
+        : "#ff4455"; // alert-red
+
+  return (
+    <div
+      className="relative w-full h-1 mt-1 rounded-full bg-white/5 overflow-hidden"
+      title={`Confidence: ${low}%-${high}% (center: ${confidence}%)`}
+    >
+      {/* Translucent range (the interval) */}
+      <div
+        className="absolute top-0 h-full rounded-full"
+        style={{
+          left: `${low}%`,
+          width: `${Math.max(1, high - low)}%`,
+          backgroundColor: barColor,
+          opacity: 0.25,
+        }}
+      />
+      {/* Solid center point */}
+      <div
+        className="absolute top-0 h-full rounded-full"
+        style={{
+          left: `${Math.max(0, confidence - 1)}%`,
+          width: "2%",
+          backgroundColor: barColor,
+          opacity: 0.9,
+        }}
+      />
     </div>
   );
 });

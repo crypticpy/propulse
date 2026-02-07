@@ -48,6 +48,14 @@ export interface SignalPrediction {
   signalClass: SignalClass;
   /** Prediction confidence level as percentage (0-100) */
   confidence: number;
+  /** Lower bound of confidence interval (0-100) */
+  confidenceLow?: number;
+  /** Upper bound of confidence interval (0-100) */
+  confidenceHigh?: number;
+  /** Pessimistic SNR estimate in dB (lower bound of uncertainty range) */
+  snrLow?: number;
+  /** Optimistic SNR estimate in dB (upper bound of uncertainty range) */
+  snrHigh?: number;
   /** Operating mode used for this prediction */
   mode: OperatingMode;
 }

@@ -595,9 +595,40 @@ export function BandPlanner() {
                           >
                             {bestBandNow.status}
                           </span>
-                          <span className="text-sm text-gray-400">
-                            SNR {bestBandNow.snrEstimate} dB
+                          <span className="text-sm text-gray-400 font-mono">
+                            {bestBandNow.snrLow !== undefined &&
+                            bestBandNow.snrHigh !== undefined
+                              ? `SNR ${bestBandNow.snrLow} to ${bestBandNow.snrHigh} dB`
+                              : `SNR ${bestBandNow.snrEstimate} dB`}
                           </span>
+                          {bestBandNow.confidenceLow !== undefined &&
+                            bestBandNow.confidenceHigh !== undefined && (
+                              <span
+                                className="text-xs px-1.5 py-0.5 rounded font-mono"
+                                style={{
+                                  backgroundColor:
+                                    bestBandNow.confidence !== undefined &&
+                                    bestBandNow.confidence >= 70
+                                      ? "#00ff8820"
+                                      : bestBandNow.confidence !== undefined &&
+                                          bestBandNow.confidence >= 45
+                                        ? "#ffaa0020"
+                                        : "#ff445520",
+                                  color:
+                                    bestBandNow.confidence !== undefined &&
+                                    bestBandNow.confidence >= 70
+                                      ? "#00ff88"
+                                      : bestBandNow.confidence !== undefined &&
+                                          bestBandNow.confidence >= 45
+                                        ? "#ffaa00"
+                                        : "#ff4455",
+                                }}
+                                title={`Confidence range: ${bestBandNow.confidenceLow}%-${bestBandNow.confidenceHigh}%`}
+                              >
+                                {bestBandNow.confidenceLow}-
+                                {bestBandNow.confidenceHigh}%
+                              </span>
+                            )}
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
                           {bestBandNow.status === "excellent" ||
@@ -694,6 +725,51 @@ export function BandPlanner() {
                               {window.peakHour.toString().padStart(2, "0")}:00 •
                               SNR {window.peakSnr} dB
                             </div>
+                            {/* Confidence interval for selected band */}
+                            {selectedBand === window.band &&
+                              (() => {
+                                const peakBand = forecast[
+                                  window.peakHour
+                                ]?.bands.find((b) => b.band === window.band);
+                                if (
+                                  peakBand?.confidenceLow !== undefined &&
+                                  peakBand?.confidenceHigh !== undefined
+                                ) {
+                                  const conf = peakBand.confidence ?? 50;
+                                  return (
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                      <span
+                                        className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                                        style={{
+                                          backgroundColor:
+                                            conf >= 70
+                                              ? "#00ff8820"
+                                              : conf >= 45
+                                                ? "#ffaa0020"
+                                                : "#ff445520",
+                                          color:
+                                            conf >= 70
+                                              ? "#00ff88"
+                                              : conf >= 45
+                                                ? "#ffaa00"
+                                                : "#ff4455",
+                                        }}
+                                      >
+                                        Confidence {peakBand.confidenceLow}-
+                                        {peakBand.confidenceHigh}%
+                                      </span>
+                                      {peakBand.snrLow !== undefined &&
+                                        peakBand.snrHigh !== undefined && (
+                                          <span className="text-[10px] text-gray-400 font-mono">
+                                            SNR {peakBand.snrLow} to{" "}
+                                            {peakBand.snrHigh} dB
+                                          </span>
+                                        )}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             {isActive && (
                               <div className="mt-2 text-xs text-signal-green font-medium">
                                 Active now

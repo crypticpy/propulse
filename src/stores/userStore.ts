@@ -26,6 +26,7 @@ import type {
 } from "../types/user";
 import type { ColorBlindMode } from "../lib/themes/colorblind";
 import type { AntennaType } from "../lib/data/antennas";
+import type { NoiseEnvironment } from "../lib/utils/noiseModel";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEFAULT_FAVORED_BANDS,
@@ -229,6 +230,8 @@ interface UserStore {
   setColorBlindMode: (mode: ColorBlindMode) => void;
   /** Set antenna type for propagation gain patterns */
   setAntennaType: (type: AntennaType) => void;
+  /** Set noise environment for ITU-R P.372 SNR predictions */
+  setNoiseEnvironment: (env: NoiseEnvironment) => void;
 }
 
 /**
@@ -253,6 +256,7 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   spotAge: DEFAULT_SPOT_AGE,
   bridgeEnabled: false,
   antennaType: "isotropic" as AntennaType,
+  noiseEnvironment: "residential" as NoiseEnvironment,
 };
 
 function isLegacyUserRadio(value: unknown): value is LegacyUserRadio {
@@ -1181,10 +1185,18 @@ export const useUserStore = create<UserStore>()(
             antennaType: type,
           },
         })),
+
+      setNoiseEnvironment: (env) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            noiseEnvironment: env,
+          },
+        })),
     }),
     {
       name: "propulse-user",
-      version: 13,
+      version: 14,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -1429,6 +1441,11 @@ export const useUserStore = create<UserStore>()(
         // v12 -> v13: Add antenna type preference
         if (!nextPreferences.antennaType) {
           nextPreferences.antennaType = "isotropic";
+        }
+
+        // v13 -> v14: Add noise environment preference
+        if (!nextPreferences.noiseEnvironment) {
+          nextPreferences.noiseEnvironment = "residential";
         }
 
         return {

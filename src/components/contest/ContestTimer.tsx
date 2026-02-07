@@ -30,8 +30,8 @@ import {
 export interface ContestTimerProps {
   /** Contest start time */
   contestStart: Date;
-  /** Contest end time */
-  contestEnd: Date;
+  /** Contest end time (optional -- omit for open-ended sessions) */
+  contestEnd?: Date;
   /** Off-time rules (omit if the contest has no operating time limits) */
   offTimeRules?: OffTimeRules;
   /** QSO timestamps in milliseconds for off-time calculation */
@@ -86,6 +86,8 @@ function getWarningSeverity(
 
 /**
  * Countdown clock display
+ * When contestEnd is provided: shows countdown + elapsed.
+ * When contestEnd is omitted: shows elapsed time only (open-ended session).
  */
 const CountdownClock = memo(function CountdownClock({
   contestStart,
@@ -93,7 +95,7 @@ const CountdownClock = memo(function CountdownClock({
   compact,
 }: {
   contestStart: Date;
-  contestEnd: Date;
+  contestEnd?: Date;
   compact?: boolean;
 }) {
   const [now, setNow] = useState(Date.now());
@@ -103,21 +105,29 @@ const CountdownClock = memo(function CountdownClock({
     return () => clearInterval(id);
   }, []);
 
-  const contestEndMs = contestEnd.getTime();
   const contestStartMs = contestStart.getTime();
-  const isContestOver = now >= contestEndMs;
   const hasStarted = now >= contestStartMs;
+  const hasEnd = !!contestEnd;
+  const contestEndMs = contestEnd ? contestEnd.getTime() : Infinity;
+  const isContestOver = hasEnd && now >= contestEndMs;
 
   // Remaining time to contest end
-  const remainingSeconds = Math.max(0, (contestEndMs - now) / 1000);
+  const remainingSeconds = hasEnd
+    ? Math.max(0, (contestEndMs - now) / 1000)
+    : 0;
   // Elapsed time since contest start
   const elapsedSeconds = Math.max(0, (now - contestStartMs) / 1000);
 
-  const timeDisplay = isContestOver
-    ? "00:00:00"
-    : formatCountdown(remainingSeconds);
+  const timeDisplay = hasEnd
+    ? isContestOver
+      ? "00:00:00"
+      : formatCountdown(remainingSeconds)
+    : formatCountdown(elapsedSeconds);
+
   const elapsedDisplay = formatCountdown(
-    isContestOver ? (contestEndMs - contestStartMs) / 1000 : elapsedSeconds,
+    isContestOver && hasEnd
+      ? (contestEndMs - contestStartMs) / 1000
+      : elapsedSeconds,
   );
 
   if (compact) {
@@ -127,15 +137,17 @@ const CountdownClock = memo(function CountdownClock({
           className={`font-mono text-sm font-bold tabular-nums ${
             isContestOver
               ? "text-gray-500"
-              : remainingSeconds < 3600
+              : hasEnd && remainingSeconds < 3600
                 ? "text-alert-red animate-pulse"
                 : "text-cosmic-cyan"
           }`}
         >
           {timeDisplay}
         </span>
-        {!isContestOver && hasStarted && (
-          <span className="text-[10px] text-gray-500">rem</span>
+        {hasStarted && (
+          <span className="text-[10px] text-gray-500">
+            {hasEnd && !isContestOver ? "rem" : "elapsed"}
+          </span>
         )}
       </div>
     );
@@ -143,12 +155,12 @@ const CountdownClock = memo(function CountdownClock({
 
   return (
     <div className="text-center">
-      {/* Main countdown */}
+      {/* Main display: countdown (if end defined) or elapsed */}
       <div
         className={`font-mono text-2xl font-black tabular-nums tracking-wider ${
           isContestOver
             ? "text-gray-500"
-            : remainingSeconds < 3600
+            : hasEnd && remainingSeconds < 3600
               ? "text-alert-red animate-pulse"
               : "text-cosmic-cyan"
         }`}
@@ -156,10 +168,10 @@ const CountdownClock = memo(function CountdownClock({
         {timeDisplay}
       </div>
       <div className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">
-        {isContestOver ? "Contest Over" : "Remaining"}
+        {isContestOver ? "Contest Over" : hasEnd ? "Remaining" : "Elapsed"}
       </div>
-      {/* Elapsed time */}
-      {hasStarted && (
+      {/* Show elapsed separately only when countdown is shown */}
+      {hasEnd && hasStarted && !isContestOver && (
         <div className="mt-1 text-xs text-gray-400 font-mono tabular-nums">
           {elapsedDisplay} elapsed
         </div>
@@ -265,6 +277,68 @@ const OffTimeWarningBanner = memo(function OffTimeWarningBanner({
   );
 });
 
+/**
+ * Break time indicator - shows idle time since the last QSO.
+ * Appears after 5+ minutes of inactivity to help operators track breaks.
+ */
+const BreakTimeIndicator = memo(function BreakTimeIndicator({
+  qsoTimestamps,
+  compact,
+  tick,
+}: {
+  qsoTimestamps: number[];
+  compact?: boolean;
+  /** Externally-driven tick counter to force re-render each second */
+  tick: number;
+}) {
+  if (qsoTimestamps.length === 0) return null;
+
+  // Force dependency on tick for per-second updates
+  void tick;
+
+  const now = Date.now();
+  const lastQsoTime = qsoTimestamps.reduce((a, b) => Math.max(a, b), 0);
+  const idleSeconds = Math.max(0, (now - lastQsoTime) / 1000);
+
+  // Only show after 5 minutes of inactivity
+  if (idleSeconds < 300) return null;
+
+  const idleDisplay = formatCountdown(idleSeconds);
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] text-caution-amber font-mono tabular-nums">
+          {idleDisplay}
+        </span>
+        <span className="text-[10px] text-gray-500">idle</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-2 text-xs">
+      <svg
+        className="w-3 h-3 text-caution-amber"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      <span className="text-caution-amber font-mono tabular-nums">
+        {idleDisplay}
+      </span>
+      <span className="text-gray-500">since last QSO</span>
+    </div>
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
@@ -291,7 +365,7 @@ export const ContestTimer = memo(function ContestTimer({
   const offTimeStatus = useMemo(() => {
     // Force recalculation on each tick
     void tick;
-    if (!offTimeRules) return null;
+    if (!offTimeRules || !contestEnd) return null;
     return getOffTimeStatus(
       qsoTimestamps,
       contestStart.getTime(),
@@ -310,6 +384,7 @@ export const ContestTimer = memo(function ContestTimer({
           compact
         />
         {offTimeStatus && <OffTimeProgressBar status={offTimeStatus} compact />}
+        <BreakTimeIndicator qsoTimestamps={qsoTimestamps} compact tick={tick} />
       </div>
     );
   }
@@ -356,6 +431,9 @@ export const ContestTimer = memo(function ContestTimer({
           No off-time rules
         </div>
       )}
+
+      {/* Break time indicator */}
+      <BreakTimeIndicator qsoTimestamps={qsoTimestamps} tick={tick} />
     </div>
   );
 });

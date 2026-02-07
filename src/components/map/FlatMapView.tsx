@@ -9,7 +9,13 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
-import { getPathPoints, getPathMetrics, getDistance } from "@/lib/utils/path";
+import {
+  getPathPoints,
+  getPathMetrics,
+  getDistance,
+  getBearing,
+  formatBearing,
+} from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -2239,6 +2245,12 @@ export function FlatMapView({
   // State for WatchListPanel
   const [watchListOpen, setWatchListOpen] = useState(false);
 
+  // State for continuous bearing/distance on hover
+  const [hoverCoords, setHoverCoords] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
+
   // Fetch live spots when spots layer is enabled
   const { spots } = useLiveSpots({
     grid: station?.grid,
@@ -2474,6 +2486,9 @@ export function FlatMapView({
   // Handle map hover - show tooltip or pin flyout
   const handleMapHover = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
+      // Always track hovered coordinates for bearing/distance overlay
+      setHoverCoords({ lat, lon });
+
       // Check pin proximity first
       const hitPin = findPinAtScreenPos(screenPos);
       if (hitPin) {
@@ -2535,6 +2550,7 @@ export function FlatMapView({
     setHoveredPinData(null);
     setHoveredTargetPos(null);
     setHoveredSpotData(null);
+    setHoverCoords(null);
   }, [setTooltipPosition]);
 
   // Handle flyout close
@@ -3539,6 +3555,28 @@ export function FlatMapView({
     wasStates,
   ]);
 
+  // Compute bearing and distance from user's home QTH to hovered point
+  const hoverBearingDistance = useMemo(() => {
+    if (!hoverCoords || !station) return null;
+    const dist = getDistance(
+      station.lat,
+      station.lon,
+      hoverCoords.lat,
+      hoverCoords.lon,
+    );
+    const bearing = getBearing(
+      station.lat,
+      station.lon,
+      hoverCoords.lat,
+      hoverCoords.lon,
+    );
+    return {
+      bearing: Math.round(bearing),
+      compassDir: formatBearing(bearing),
+      distanceKm: Math.round(dist),
+    };
+  }, [hoverCoords, station]);
+
   return (
     <div
       ref={containerRef}
@@ -3631,6 +3669,25 @@ export function FlatMapView({
       <div className="absolute top-3 right-3 z-10">
         <WatchIndicator onClick={() => setWatchListOpen(true)} />
       </div>
+
+      {/* Bearing/Distance overlay - shown when hovering over the map */}
+      {hoverBearingDistance && (
+        <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
+          <div className="px-2.5 py-1.5 rounded-lg bg-void-black/80 backdrop-blur-sm border border-white/10 text-xs font-mono tabular-nums text-gray-300">
+            <span className="text-plasma-orange font-semibold">
+              {String(hoverBearingDistance.bearing).padStart(3, "0")}°
+            </span>
+            <span className="text-gray-500 mx-1">
+              {hoverBearingDistance.compassDir}
+            </span>
+            <span className="text-gray-500 mx-1">|</span>
+            <span className="text-cosmic-cyan font-semibold">
+              {hoverBearingDistance.distanceKm.toLocaleString()}
+            </span>
+            <span className="text-gray-500 ml-0.5">km</span>
+          </div>
+        </div>
+      )}
 
       {/* Pin flyout - shown when hovering over an existing pin */}
       {hoveredPinData && (

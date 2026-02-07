@@ -6,6 +6,7 @@
 import type { UserRadio, RadioEquipment } from "./radio";
 import type { ColorBlindMode } from "@/lib/themes/colorblind";
 import type { AntennaType } from "@/lib/data/antennas";
+import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
 
 // =============================================================================
 // LOCATION TYPES
@@ -461,6 +462,8 @@ export interface UserPreferences {
   bridgeEnabled?: boolean;
   /** Antenna type for propagation gain pattern calculations */
   antennaType?: AntennaType;
+  /** Noise environment for ITU-R P.372 SNR predictions (default: "residential") */
+  noiseEnvironment?: NoiseEnvironment;
 }
 
 // =============================================================================

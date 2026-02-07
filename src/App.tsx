@@ -1,10 +1,12 @@
-import { lazy } from "react";
+import { lazy, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useTextScale } from "@/hooks/useTextScale";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useSync } from "@/hooks/useSync";
+import { useAuthStore } from "@/stores/authStore";
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
 import { clearExpiredCache } from "@/lib/utils/idbCache";
@@ -53,6 +55,15 @@ function MapRoute() {
 function App() {
   // Apply text scale preference to DOM
   useTextScale();
+
+  // Initialize auth on app boot (checks for existing session, sets up listener)
+  const initAuth = useAuthStore((s) => s.initialize);
+  useEffect(() => {
+    void initAuth();
+  }, [initAuth]);
+
+  // Start/stop sync engine based on auth state
+  useSync();
 
   return (
     <ErrorBoundary>

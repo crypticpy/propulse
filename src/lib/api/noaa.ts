@@ -12,12 +12,30 @@ import type {
   MagnetometerData,
   ApiError,
 } from "./types";
+import { getCachedResponse, setCachedResponse } from "@/lib/utils/idbCache";
+
+/** TTL values for IDB caching per endpoint */
+const ENDPOINT_TTL_MS: Record<string, number> = {
+  "k-index": 30 * 60 * 1000, // 30 minutes
+  flux: 60 * 60 * 1000, // 1 hour
+  magnetometer: 15 * 60 * 1000, // 15 minutes
+  sunspots: 6 * 60 * 60 * 1000, // 6 hours
+  probabilities: 60 * 60 * 1000, // 1 hour
+};
 
 /**
- * Base fetch wrapper with error handling
+ * Base fetch wrapper with error handling and IDB caching.
+ * Serves cached data when available and fresh, falling back to network.
  */
 async function fetchFromProxy<T>(endpoint: string): Promise<T> {
   const url = `/api/solar/${endpoint}`;
+  const ttl = ENDPOINT_TTL_MS[endpoint];
+
+  // Check IDB cache first
+  if (ttl) {
+    const cached = await getCachedResponse(url);
+    if (cached !== null) return cached as T;
+  }
 
   try {
     const response = await fetch(url);
@@ -30,6 +48,12 @@ async function fetchFromProxy<T>(endpoint: string): Promise<T> {
     }
 
     const data = await response.json();
+
+    // Cache the response in IDB (fire-and-forget)
+    if (ttl) {
+      setCachedResponse(url, data, ttl).catch(() => {});
+    }
+
     return data as T;
   } catch (error) {
     if ((error as ApiError).endpoint) {

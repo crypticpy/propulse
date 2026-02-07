@@ -20,6 +20,7 @@ import {
   type ContestConfig,
 } from "@/components/contest";
 import { MobileContestEntry } from "@/components/contest/MobileContestEntry";
+import { ContestScoreShare } from "@/components/contest/ContestScoreShare";
 import { ContestVoiceControls } from "@/components/contest/ContestVoiceControls";
 import type { OffTimeRules } from "@/lib/contest/offTimeTracker";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
@@ -477,6 +478,9 @@ export function Contest() {
 
         {/* Rate Sheet (only renders when QSOs exist) */}
         {qsoCount > 0 && <ContestRateSheet />}
+
+        {/* Score Share (only renders when QSOs exist) */}
+        {qsoCount > 0 && <ContestScoreShare />}
 
         {/* Keyboard shortcuts hint */}
         <div className="text-xs text-gray-500 flex flex-wrap items-center gap-4 justify-center">

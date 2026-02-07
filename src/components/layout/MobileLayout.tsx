@@ -15,12 +15,17 @@ import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
+import { PWAInstallPrompt } from "@/components/ui/PWAInstallPrompt";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+
+// Matches BottomTabBar's visible tab order (Tools drawer sub-pages excluded)
+const MOBILE_ROUTES = ["/", "/solar", "/map", "/log"];
 
 /**
  * MobileLayout - Root layout for mobile viewports
@@ -42,7 +47,23 @@ export function MobileLayout() {
   useSyncQueue();
 
   // Pull-to-refresh for mobile
-  const { pullProgress, isRefreshing, containerRef } = usePullToRefresh();
+  const {
+    pullProgress,
+    isRefreshing,
+    containerRef: pullRef,
+  } = usePullToRefresh();
+
+  // Swipe navigation between pages
+  const { containerRef: swipeRef } = useSwipeNavigation(MOBILE_ROUTES);
+
+  // Merge pull-to-refresh + swipe refs into one callback ref
+  const mainRef = useCallback(
+    (node: HTMLElement | null) => {
+      pullRef(node);
+      swipeRef(node);
+    },
+    [pullRef, swipeRef],
+  );
 
   // Initialize undo/redo keyboard shortcuts
   useUndoRedo({ enabled: true });
@@ -83,7 +104,7 @@ export function MobileLayout() {
 
       {/* Scrollable content area with pull-to-refresh */}
       <main
-        ref={containerRef}
+        ref={mainRef}
         className="flex-1 overflow-y-auto scroll-smooth-touch pb-[calc(56px+env(safe-area-inset-bottom,0px))]"
       >
         <PullToRefreshIndicator
@@ -143,7 +164,8 @@ export function MobileLayout() {
         onClose={() => setShowShortcuts(false)}
       />
 
-      {/* PWA Update Prompt */}
+      {/* PWA Install + Update Prompts */}
+      <PWAInstallPrompt />
       <PWAUpdatePrompt />
     </div>
   );

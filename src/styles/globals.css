@@ -33,6 +33,26 @@
     min-height: 100vh;
   }
 
+  /* Smooth scroll for anchor-based navigation (respects reduced-motion) */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /* Mobile typography adjustments */
+  @media (max-width: 767px) {
+    /* Eliminate 300ms tap delay on all interactive elements */
+    a, button, input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"]) {
+      touch-action: manipulation;
+    }
+
+    /* Slightly more letter-spacing on mono text for mobile readability */
+    .font-mono {
+      letter-spacing: 0.02em;
+    }
+  }
+
   /* Scrollbar styling */
   ::-webkit-scrollbar {
     width: 8px;

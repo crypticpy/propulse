@@ -7,6 +7,10 @@ import { useTextScale } from "@/hooks/useTextScale";
 import { useIsMobile } from "@/hooks/useIsMobile";
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
+import { clearExpiredCache } from "@/lib/utils/idbCache";
+
+// Prune stale IDB cache entries on app startup (fire-and-forget)
+clearExpiredCache().catch(() => {});
 
 // Lazy load all page components for code splitting
 const Home = lazy(() =>

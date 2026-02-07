@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { DataFreshnessIndicator } from "@/components/ui";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileDXWizard } from "@/components/mobile/MobileDXWizard";
 import {
   useActiveRadio,
   useUserStore,
@@ -494,6 +496,72 @@ export function DXWizard() {
   ]);
 
   const tips = useMemo(() => getModeTips(mode), [mode]);
+
+  const isMobile = useIsMobile();
+
+  const radioLabel = useMemo(() => {
+    if (!selectedRadio) return "";
+    return getRadioLabel(
+      selectedRadio,
+      selectedRadioId === null
+        ? activeUserRadio?.nickname
+        : selectedRadioInstance?.nickname,
+    );
+  }, [
+    selectedRadio,
+    selectedRadioId,
+    activeUserRadio?.nickname,
+    selectedRadioInstance?.nickname,
+  ]);
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileDXWizard
+          targetQuery={targetQuery}
+          onTargetQueryChange={setTargetQuery}
+          resolvedTarget={target}
+          isResolving={targetResolving}
+          onResolveTarget={resolveTarget}
+          targetError={targetError}
+          callsignInput={callsignInput}
+          onCallsignInputChange={setCallsignInput}
+          onLookupCallsign={handleLookupCallsign}
+          callsignLoading={callsignLoading}
+          callsignError={callsignError}
+          mode={mode}
+          onModeChange={setMode}
+          txPowerCeilingWatts={txPowerCeilingWatts}
+          onPowerChange={setTxPowerCeilingWatts}
+          effectiveMaxPower={effectiveMaxPower}
+          licenseClass={licenseClass}
+          onLicenseClassChange={setLicenseClass}
+          ituRegion={ituRegion}
+          onItuRegionChange={setItuRegion}
+          station={station}
+          recommendation={recommendation}
+          tips={tips}
+          selectedRadio={selectedRadio}
+          onShowRadioPicker={() => setShowRadioPicker(true)}
+          radioLabel={radioLabel}
+          currentKp={currentKp}
+          currentSfi={currentSfi}
+          kIndexError={kIndexError}
+          solarFluxError={solarFluxError}
+          dataUpdatedAt={wizardDataUpdatedAt}
+          isRefetching={wizardIsRefetching}
+          onRefresh={refetchWizardData}
+        />
+        <RadioPickerModal
+          isOpen={showRadioPicker}
+          onClose={() => setShowRadioPicker(false)}
+          value={{ radioId: selectedRadioId }}
+          onChange={(next) => setSelectedRadioId(next.radioId)}
+          title="DX Wizard Radio Profile"
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-6">

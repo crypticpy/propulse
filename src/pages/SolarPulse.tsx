@@ -33,6 +33,8 @@ import { SolarCycleContext } from "@/components/solar/SolarCycleContext";
 import { ModelAccuracyPanel } from "@/components/solar/ModelAccuracyPanel";
 import { DraggablePanel } from "@/components/layout/DraggablePanel";
 import { DataFreshnessIndicator } from "@/components/ui";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileSolarPulse } from "@/components/mobile/MobileSolarPulse";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -454,6 +456,110 @@ export function SolarPulse() {
     refetchSunspot();
     refetchMag();
   };
+
+  // --- Mobile viewport ---
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileSolarPulse
+          currentKp={currentKp}
+          currentFlux={currentFlux}
+          currentSsn={currentSsn}
+          currentBz={currentBz}
+          kIndexData={kIndexData}
+          fluxData={fluxData}
+          magnetometerData={magnetometerData}
+          probData={probData}
+          isLoading={isLoading}
+          kLoading={kLoading}
+          fluxLoading={fluxLoading}
+          magLoading={magLoading}
+          probLoading={probLoading}
+          solarDataUpdatedAt={solarDataUpdatedAt}
+          solarIsRefetching={solarIsRefetching}
+          refetchAllSolar={refetchAllSolar}
+          onExpandPropagation={() => setPropagationIndexOpen(true)}
+          onExpandSummary={() => setSummaryOpen(true)}
+          onExpandBandConditions={() => setBandConditionsOpen(true)}
+          onExpandKIndexChart={() => setKIndexChartOpen(true)}
+          onExpandSolarFluxChart={() => setSolarFluxChartOpen(true)}
+          onExpandBzChart={() => setBzChartOpen(true)}
+          onExpandFlareProb={() => setFlareProbOpen(true)}
+        />
+        {/* Modals render as overlays -- keep in parent */}
+        <KIndexChartModal
+          isOpen={kIndexChartOpen}
+          onClose={() => setKIndexChartOpen(false)}
+          data={
+            kIndexData?.map((d) => ({
+              time_tag: d.time_tag,
+              kp_index: d.kp_index,
+            })) ?? []
+          }
+        />
+        <AIndexChartModal
+          isOpen={aIndexChartOpen}
+          onClose={() => setAIndexChartOpen(false)}
+          data={
+            kIndexData?.map((d) => ({
+              time_tag: d.time_tag,
+              kp_index: d.kp_index,
+            })) ?? []
+          }
+        />
+        <BzChartModal
+          isOpen={bzChartOpen}
+          onClose={() => setBzChartOpen(false)}
+          data={
+            magnetometerData?.flatMap((d) =>
+              typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm)
+                ? [{ time_tag: d.time_tag, bz_gsm: d.bz_gsm }]
+                : [],
+            ) ?? []
+          }
+        />
+        <SolarFluxChartModal
+          isOpen={solarFluxChartOpen}
+          onClose={() => setSolarFluxChartOpen(false)}
+          data={
+            fluxData?.map((d) => ({
+              time_tag: d.time_tag,
+              flux: d.flux,
+            })) ?? []
+          }
+        />
+        <SolarSummaryModal
+          isOpen={summaryOpen}
+          onClose={() => setSummaryOpen(false)}
+          kIndex={currentKp}
+          solarFlux={currentFlux}
+        />
+        <PropagationIndexModal
+          isOpen={propagationIndexOpen}
+          onClose={() => setPropagationIndexOpen(false)}
+          solarFlux={currentFlux}
+          kIndex={currentKp}
+          bz={currentBz}
+        />
+        <FlareProbabilityModal
+          isOpen={flareProbOpen}
+          onClose={() => setFlareProbOpen(false)}
+          cProb={probData?.c_prob ?? 0}
+          mProb={probData?.m_prob ?? 0}
+          xProb={probData?.x_prob ?? 0}
+          protonProb={probData?.proton_prob ?? 0}
+        />
+        <BandConditionsModal
+          isOpen={bandConditionsOpen}
+          onClose={() => setBandConditionsOpen(false)}
+          kIndex={currentKp}
+          solarFlux={currentFlux}
+        />
+      </>
+    );
+  }
 
   // --- Derived: ops banner + cards ---
   const latestHamAlert = (alerts ?? []).find(isHamRelevantAlert) ?? null;

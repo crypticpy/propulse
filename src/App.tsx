@@ -28,10 +28,20 @@ const Contest = lazy(() =>
 const PropSphere = lazy(() =>
   import("@/pages/PropSphere").then((m) => ({ default: m.PropSphere })),
 );
+const MobileMap = lazy(() =>
+  import("@/components/mobile/MobileMap").then((m) => ({
+    default: m.MobileMap,
+  })),
+);
 
 function AppLayout() {
   const isMobile = useIsMobile();
   return isMobile ? <MobileLayout /> : <Layout />;
+}
+
+function MapRoute() {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileMap /> : <PropSphere />;
 }
 
 function App() {
@@ -48,7 +58,7 @@ function App() {
           <Route path="/planner" element={<BandPlanner />} />
           <Route path="/log" element={<Logbook />} />
           <Route path="/contest" element={<Contest />} />
-          <Route path="/map" element={<PropSphere />} />
+          <Route path="/map" element={<MapRoute />} />
         </Route>
       </Routes>
     </ErrorBoundary>

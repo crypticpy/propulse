@@ -19,6 +19,8 @@ import {
 import { useLogbook, useGuestContext } from "@/hooks/useLogbook";
 import { useUserStore } from "@/stores/userStore";
 import { useGuestStore } from "@/stores/guestStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileLogbook } from "@/components/mobile/MobileLogbook";
 import type { LogEntry } from "@/lib/db/types";
 
 export function Logbook() {
@@ -140,6 +142,138 @@ export function Logbook() {
     setImportError(null);
     setImportSuccess(null);
   }, []);
+
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileLogbook
+          entries={entries}
+          loading={loading}
+          error={error}
+          count={count}
+          isGuestMode={isGuestMode}
+          guestLabel={guestContext ? guestContext.operatorCallsign : null}
+          onDelete={handleDelete}
+          isDeleting={isDeleting}
+          onExport={handleExport}
+          onShowImportModal={() => setShowImportModal(true)}
+          onShowUploadModal={() => setShowUploadModal(true)}
+          onShowAwards={() => setShowAwards((v) => !v)}
+          showAwards={showAwards}
+        />
+        {showAwards && entries.length > 0 && (
+          <div className="px-4">
+            <AwardsTracker entries={entries} />
+          </div>
+        )}
+        <CreateGuestSessionModal
+          isOpen={showCreateSession}
+          onClose={() => setShowCreateSession(false)}
+        />
+        <JoinGuestSessionModal
+          isOpen={showJoinSession}
+          onClose={() => setShowJoinSession(false)}
+        />
+        <LogUploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          entries={entries}
+        />
+        {showImportModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={handleCloseImport}
+            />
+            <Card className="relative z-10 w-full max-w-lg p-6" animate>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-orbitron text-xl font-bold text-gradient-orange">
+                  Import ADIF
+                </h2>
+                <button
+                  onClick={handleCloseImport}
+                  className="p-1 text-gray-400 hover:text-white transition-colors"
+                  aria-label="Close"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Upload ADIF File
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".adi,.adif,.ADI,.ADIF"
+                  onChange={handleImportFile}
+                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:bg-plasma-orange/20 file:text-plasma-orange file:font-medium hover:file:bg-plasma-orange/30 file:cursor-pointer"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Or Paste ADIF Content
+                </label>
+                <textarea
+                  value={importContent}
+                  onChange={(e) => {
+                    setImportContent(e.target.value);
+                    setImportError(null);
+                    setImportSuccess(null);
+                  }}
+                  placeholder="Paste ADIF content here..."
+                  rows={8}
+                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 font-mono text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 resize-none"
+                />
+              </div>
+              {importError && (
+                <div className="mb-4 p-3 bg-alert-red/10 border border-alert-red/30 rounded-lg">
+                  <p className="text-sm text-alert-red">{importError}</p>
+                </div>
+              )}
+              {importSuccess !== null && (
+                <div className="mb-4 p-3 bg-signal-green/10 border border-signal-green/30 rounded-lg">
+                  <p className="text-sm text-signal-green">
+                    Successfully imported {importSuccess}{" "}
+                    {importSuccess === 1 ? "entry" : "entries"}!
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCloseImport}
+                  className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg text-gray-300 hover:text-white hover:border-white/20 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportSubmit}
+                  disabled={!importContent.trim()}
+                  className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Import
+                </button>
+              </div>
+            </Card>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-6">

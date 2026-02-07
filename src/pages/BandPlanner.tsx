@@ -12,6 +12,8 @@ import {
 } from "@/lib/utils/bands";
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { gridToLatLon } from "@/lib/utils/grid";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 
 /**
  * Band Planner Page
@@ -25,6 +27,7 @@ import { gridToLatLon } from "@/lib/utils/grid";
 export function BandPlanner() {
   // User station
   const station = useUserStore((s) => s.station);
+  const isMobile = useIsMobile();
 
   // Target location state
   const [targetGrid, setTargetGrid] = useState("");
@@ -80,6 +83,22 @@ export function BandPlanner() {
     refetchFlux();
     refetchMag();
   };
+
+  // Mobile viewport: render MobileBandPlanner with all hook data
+  if (isMobile && station) {
+    return (
+      <MobileBandPlanner
+        station={station}
+        currentKp={currentKp}
+        currentFlux={currentFlux}
+        currentBz={currentBz}
+        isLoading={isLoading}
+        bandDataUpdatedAt={bandDataUpdatedAt}
+        bandIsRefetching={bandIsRefetching}
+        refetchBandData={refetchBandData}
+      />
+    );
+  }
 
   // Parse target grid and calculate coordinates
   const handleTargetChange = useCallback((value: string) => {

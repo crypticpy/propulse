@@ -21,6 +21,8 @@ import { BandConditionsModal } from "@/components/solar/modals/BandConditionsMod
 import { ClusterPulseDetailModal } from "@/components/dx/modals/ClusterPulseDetailModal";
 import { LogStatsDetailModal } from "@/components/dx/modals/LogStatsDetailModal";
 import { HistoryDetailModal } from "@/components/dx/modals/HistoryDetailModal";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileHome } from "@/components/mobile/MobileHome";
 
 type ActiveModal =
   | "propagation"
@@ -32,6 +34,7 @@ type ActiveModal =
   | null;
 
 export function Home() {
+  const isMobile = useIsMobile();
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   // --- Data fetching (same pattern as SolarPulse.tsx) ---
@@ -63,6 +66,64 @@ export function Home() {
 
   const combinedUpdatedAt =
     Math.max(dataUpdatedAt || 0, magUpdatedAt || 0) || undefined;
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileHome
+          currentKp={currentKp}
+          currentFlux={currentFlux}
+          currentSsn={currentSsn}
+          currentBz={currentBz}
+          kIndexData={kIndexData}
+          fluxData={fluxData}
+          magnetometerData={magnetometerData}
+          isLoading={isLoading}
+          combinedUpdatedAt={combinedUpdatedAt}
+          isRefetching={isRefetching}
+          refetchAll={refetchAll}
+          onExpandPropagation={() => setActiveModal("propagation")}
+          onExpandSummary={() => setActiveModal("summary")}
+          onExpandBands={() => setActiveModal("bands")}
+          onExpandCluster={() => setActiveModal("cluster")}
+          onExpandLogStats={() => setActiveModal("logStats")}
+          onExpandHistory={() => setActiveModal("history")}
+        />
+        {/* Modals render as overlays — keep in parent */}
+        <PropagationIndexModal
+          isOpen={activeModal === "propagation"}
+          onClose={() => setActiveModal(null)}
+          solarFlux={currentFlux}
+          kIndex={currentKp}
+          bz={currentBz}
+        />
+        <SolarSummaryModal
+          isOpen={activeModal === "summary"}
+          onClose={() => setActiveModal(null)}
+          kIndex={currentKp}
+          solarFlux={currentFlux}
+        />
+        <BandConditionsModal
+          isOpen={activeModal === "bands"}
+          onClose={() => setActiveModal(null)}
+          kIndex={currentKp}
+          solarFlux={currentFlux}
+        />
+        <ClusterPulseDetailModal
+          isOpen={activeModal === "cluster"}
+          onClose={() => setActiveModal(null)}
+        />
+        <LogStatsDetailModal
+          isOpen={activeModal === "logStats"}
+          onClose={() => setActiveModal(null)}
+        />
+        <HistoryDetailModal
+          isOpen={activeModal === "history"}
+          onClose={() => setActiveModal(null)}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen px-4">

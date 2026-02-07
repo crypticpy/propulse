@@ -18,6 +18,8 @@ import {
   ProfileCompletenessRing,
   BioSection,
   SocialLinksSection,
+  AwardsTab,
+  StatsTab,
 } from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 
@@ -433,25 +435,13 @@ export default function ProfilePage() {
 
           {activeTab === "awards" && (
             <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Awards Progress
-              </h3>
-              <p className="text-sm text-gray-500">
-                Awards tracking coming soon. Log QSOs to track DXCC, WAS, and
-                WAZ progress.
-              </p>
+              <AwardsTab />
             </div>
           )}
 
           {activeTab === "stats" && (
             <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Station Statistics
-              </h3>
-              <p className="text-sm text-gray-500">
-                Statistics coming soon. Activity heatmap, QSOs by mode/band, and
-                more.
-              </p>
+              <StatsTab />
             </div>
           )}
         </div>
@@ -608,25 +598,13 @@ export default function ProfilePage() {
 
       {activeTab === "awards" && (
         <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Awards Progress
-          </h3>
-          <p className="text-sm text-gray-500">
-            Awards tracking coming soon. Log QSOs to track DXCC, WAS, and WAZ
-            progress.
-          </p>
+          <AwardsTab />
         </div>
       )}
 
       {activeTab === "stats" && (
         <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Station Statistics
-          </h3>
-          <p className="text-sm text-gray-500">
-            Statistics coming soon. Activity heatmap, QSOs by mode/band, and
-            more.
-          </p>
+          <StatsTab />
         </div>
       )}
     </div>

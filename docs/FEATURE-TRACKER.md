@@ -9,16 +9,16 @@
 
 | Source Document                    | Delivered | Partial | Not Started | Deferred | Total   |
 | ---------------------------------- | --------- | ------- | ----------- | -------- | ------- |
-| Implementation Plan (37 features)  | 33        | 2       | 2           | 0        | 37      |
+| Implementation Plan (37 features)  | 35        | 0       | 2           | 0        | 37      |
 | 2D Map Feature Parity PRD          | 39        | 1       | 2           | 1        | 43      |
-| Contest PropSphere Integration PRD | 31        | 5       | 1           | 0        | 37      |
-| Mobile Design Plan                 | 12        | 0       | 7           | 0        | 19      |
+| Contest PropSphere Integration PRD | 33        | 3       | 1           | 0        | 37      |
+| Mobile Design Plan                 | 15        | 0       | 4           | 0        | 19      |
 | UI Review Recommendations          | 9         | 0       | 1           | 0        | 10      |
-| QoL PRD (20 items)                 | 14        | 1       | 5           | 0        | 20      |
+| QoL PRD (20 items)                 | 18        | 1       | 1           | 0        | 20      |
 | PWA Package                        | 5         | 1       | 1           | 0        | 7       |
-| **Grand Total**                    | **143**   | **10**  | **19**      | **1**    | **173** |
+| **Grand Total**                    | **154**   | **6**   | **12**      | **1**    | **173** |
 
-**Delivery rate: 83% delivered, 6% partial, 11% not started** _(was 77/6/16 before Tier 3)_
+**Delivery rate: 89% delivered, 3% partial, 7% not started** _(was 83/6/11 before Tier 4)_
 
 ---
 
@@ -26,47 +26,42 @@
 
 _Source: `docs/plans/IMPLEMENTATION-PLAN.md`_
 
-### Delivered (33)
+### Delivered (35)
 
-| ID    | Feature                          | Notes                                              |
-| ----- | -------------------------------- | -------------------------------------------------- |
-| C1    | Real-time solar data dashboard   | SolarPulse page with SFI, K-index, A-index, Bz     |
-| C2    | Propagation prediction engine    | `calculateBandConditions()` with SFI+Kp model      |
-| C3    | Band condition display           | BandConditions component with day/night matrix     |
-| C4    | 3D globe visualization           | Three.js globe in PropSphere with terminator       |
-| C5    | Spot overlay on globe            | LiveSpotArcs with great-circle arcs                |
-| C6    | DX cluster integration           | PSKReporter + RBN + HamQTH APIs                    |
-| C7    | Logbook with ADIF import/export  | Full logbook with CRUD, ADIF parsing               |
-| C8    | DXCC tracking                    | dxccStore with entity resolution                   |
-| C11   | Contest mode                     | Full contest engine: scoring, dupes, Cabrillo, ESM |
-| C12   | Voice-assisted logging           | watchAudioService with Whisper integration         |
-| C13   | Guest mode / session sharing     | guestStore with share codes                        |
-| C14   | Bridge integration (CAT control) | WebSocket bridge for rig sync                      |
-| C15   | DX Wizard                        | AI-powered propagation advice page                 |
-| C16   | Alert system                     | useWatchAlerts with band/call/DXCC triggers        |
-| C17   | Band planner                     | BandPlanner page with "Right Now" card             |
-| C19   | QSL manager                      | QSLManager with LoTW/eQSL integration              |
-| C20   | 2D flat map                      | Leaflet-based FlatMap with all overlays            |
-| C21   | Solar cycle context              | SolarCycleContext with cycle 25 position           |
-| C22   | Propagation index                | PropagationIndex composite score                   |
-| C23   | Settings system                  | Multi-tab settings with persistence                |
-| QoL2  | Dark theme                       | Full dark theme with space palette                 |
-| QoL3  | Responsive layout                | Desktop layout with sidebar nav                    |
-| QoL4  | Loading states                   | Skeleton loaders and spinners                      |
-| QoL6  | Data export                      | ADIF, Cabrillo, CSV exports                        |
-| QoL7  | Undo/redo                        | undoStore with history stack                       |
-| QoL8  | Search/filter                    | Spot filtering, logbook search                     |
-| QoL9  | Accessibility basics             | ARIA labels, keyboard nav on interactive elements  |
-| QoL11 | Performance                      | React.memo, virtualized lists, lazy loading        |
-| QoL12 | Error boundaries                 | ErrorBoundary components                           |
-| QoL13 | IndexedDB persistence            | Zustand persist middleware with IDB                |
-
-### Partial (2)
-
-| ID  | Feature                  | Status                                    | Gap                                                   |
-| --- | ------------------------ | ----------------------------------------- | ----------------------------------------------------- |
-| C9  | Noise/propagation model  | Model exists in `calculateBandConditions` | No user-facing settings UI for noise floor parameters |
-| C18 | Bearing/distance overlay | Available via spot clicks                 | No continuous hover-based bearing display             |
+| ID    | Feature                          | Notes                                                    |
+| ----- | -------------------------------- | -------------------------------------------------------- |
+| C1    | Real-time solar data dashboard   | SolarPulse page with SFI, K-index, A-index, Bz           |
+| C2    | Propagation prediction engine    | `calculateBandConditions()` with SFI+Kp model            |
+| C3    | Band condition display           | BandConditions component with day/night matrix           |
+| C4    | 3D globe visualization           | Three.js globe in PropSphere with terminator             |
+| C5    | Spot overlay on globe            | LiveSpotArcs with great-circle arcs                      |
+| C6    | DX cluster integration           | PSKReporter + RBN + HamQTH APIs                          |
+| C7    | Logbook with ADIF import/export  | Full logbook with CRUD, ADIF parsing                     |
+| C8    | DXCC tracking                    | dxccStore with entity resolution                         |
+| C9    | Noise/propagation model          | ITU-R P.372 model + noise environment picker in Settings |
+| C11   | Contest mode                     | Full contest engine: scoring, dupes, Cabrillo, ESM       |
+| C12   | Voice-assisted logging           | watchAudioService with Whisper integration               |
+| C13   | Guest mode / session sharing     | guestStore with share codes                              |
+| C14   | Bridge integration (CAT control) | WebSocket bridge for rig sync                            |
+| C15   | DX Wizard                        | AI-powered propagation advice page                       |
+| C16   | Alert system                     | useWatchAlerts with band/call/DXCC triggers              |
+| C17   | Band planner                     | BandPlanner page with "Right Now" card                   |
+| C18   | Bearing/distance overlay         | Continuous hover-based bearing/distance from QTH         |
+| C19   | QSL manager                      | QSLManager with LoTW/eQSL integration                    |
+| C20   | 2D flat map                      | Leaflet-based FlatMap with all overlays                  |
+| C21   | Solar cycle context              | SolarCycleContext with cycle 25 position                 |
+| C22   | Propagation index                | PropagationIndex composite score                         |
+| C23   | Settings system                  | Multi-tab settings with persistence                      |
+| QoL2  | Dark theme                       | Full dark theme with space palette                       |
+| QoL3  | Responsive layout                | Desktop layout with sidebar nav                          |
+| QoL4  | Loading states                   | Skeleton loaders and spinners                            |
+| QoL6  | Data export                      | ADIF, Cabrillo, CSV exports                              |
+| QoL7  | Undo/redo                        | undoStore with history stack                             |
+| QoL8  | Search/filter                    | Spot filtering, logbook search                           |
+| QoL9  | Accessibility basics             | ARIA labels, keyboard nav on interactive elements        |
+| QoL11 | Performance                      | React.memo, virtualized lists, lazy loading              |
+| QoL12 | Error boundaries                 | ErrorBoundary components                                 |
+| QoL13 | IndexedDB persistence            | Zustand persist middleware with IDB                      |
 
 ### Not Started (2)
 
@@ -120,17 +115,15 @@ _Source: `docs/requirements/CONTEST-MODE-PROPSPHERE-INTEGRATION-PRD.md`_
 
 Ops Console with DX/Contest tabs, one-line entry in map context, contest spots panel, contest band map, Run/S&P mode toggle, ESM state machine, real-time scoring, dupe detection in spots, multiplier tagging on spots, band-specific spot filtering, spot click → prefill, band map frequency axis, band map time axis, spot color coding (dupe/mult/new), current frequency indicator, contest HUD pill (Lite Mode), voice entry toggle, Alt+E focus hotkey, session persistence across pages, contest-aware InsightsBar, Cabrillo export from map, ADIF import/export, call history SCP, keyboard hotkeys, QSO table in console, edit last QSO, undo last QSO, bridge frequency sync, bridge mode sync.
 
-### Partial (5)
+### Partial (3)
 
-| Feature                 | Status                      | Gap                                                   |
-| ----------------------- | --------------------------- | ----------------------------------------------------- |
-| Multi-op support        | Bridge protocol defined     | No multi-op UI or shared logging                      |
-| N1MM integration        | Bridge protocol spec exists | No actual N1MM data exchange implemented              |
-| Contest timer/schedule  | Session tracks start time   | No visual countdown, break timer, or schedule display |
-| Rate meter              | InsightsBar shows spots/min | No dedicated rate sheet (hourly/10-min breakdowns)    |
-| Network score broadcast | Guest mode exists           | No dedicated contest score sharing/broadcast          |
+| Feature                 | Status                      | Gap                                          |
+| ----------------------- | --------------------------- | -------------------------------------------- |
+| Multi-op support        | Bridge protocol defined     | No multi-op UI or shared logging             |
+| N1MM integration        | Bridge protocol spec exists | No actual N1MM data exchange implemented     |
+| Network score broadcast | Guest mode exists           | No dedicated contest score sharing/broadcast |
 
-### Not Started (2)
+### Not Started (1)
 
 | Feature                | Priority | Notes                                              |
 | ---------------------- | -------- | -------------------------------------------------- |
@@ -138,10 +131,12 @@ Ops Console with DX/Contest tabs, one-line entry in map context, contest spots p
 
 ### Recently Completed
 
-| Feature           | Date       | Notes                                                         |
-| ----------------- | ---------- | ------------------------------------------------------------- |
-| Health indicators | 2026-02-06 | HealthStatusIndicator with per-service health monitoring      |
-| Sync/retry queue  | 2026-02-06 | syncQueueStore + useSyncQueue + SyncStatusIndicator in Header |
+| Feature           | Date       | Notes                                                                     |
+| ----------------- | ---------- | ------------------------------------------------------------------------- |
+| Health indicators | 2026-02-06 | HealthStatusIndicator with per-service health monitoring                  |
+| Sync/retry queue  | 2026-02-06 | syncQueueStore + useSyncQueue + SyncStatusIndicator in Header             |
+| Contest timer     | 2026-02-07 | CountdownClock + BreakTimeIndicator + off-time tracking with optional end |
+| Rate meter        | 2026-02-07 | ContestRateSheet with hourly/10-min toggle + band-by-hour heatmap         |
 
 ---
 
@@ -149,7 +144,7 @@ Ops Console with DX/Contest tabs, one-line entry in map context, contest spots p
 
 _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 
-### Delivered (12) — added 2026-02-06
+### Delivered (15) — updated 2026-02-07
 
 | Feature                  | Notes                                             |
 | ------------------------ | ------------------------------------------------- |
@@ -165,18 +160,18 @@ _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 | ContestLiteHudSheet      | Works within MobileLayout shell                   |
 | Touch-friendly buttons   | 44px min touch targets on all mobile nav elements |
 | Bottom sheet pattern     | MobileMap slide-up panel, ToolsDrawer overlay     |
+| Mobile Settings          | Accordion layout via useIsMobile in SettingsModal |
+| Pull-to-refresh          | usePullToRefresh + PullToRefreshIndicator         |
+| Offline indicator        | OfflineIndicator banner in MobileLayout           |
 
-### Not Started (7) — remaining
+### Not Started (4) — remaining
 
 | Feature                 | Priority | Notes                               |
 | ----------------------- | -------- | ----------------------------------- |
-| Mobile Settings         | Medium   | Tab layout not mobile-friendly      |
 | Swipe gestures          | Medium   | No swipe navigation between pages   |
-| Pull-to-refresh         | Medium   | No pull-to-refresh on data pages    |
 | Mobile-first typography | Medium   | Font sizes not optimized for mobile |
 | Mobile onboarding       | Low      | Onboarding tour not mobile-adapted  |
 | PWA install prompt      | Low      | No install banner or prompt         |
-| Offline indicator       | Low      | No network status banner            |
 
 ---
 
@@ -216,9 +211,9 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
 _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 
-### Delivered (14)
+### Delivered (18)
 
-Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading, data refresh indicators, confidence intervals on predictions.
+Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading, data refresh indicators, confidence intervals on predictions, double-click to center (pre-existing), global focus indicators, favorite bands quick-filter, recent targets list.
 
 ### Partial (1)
 
@@ -226,15 +221,11 @@ Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, sp
 | ------------------- | ----------------------------- | ----------------------------------------------- |
 | Smart notifications | Toast system + alert triggers | No browser push notifications or priority queue |
 
-### Not Started (5)
+### Not Started (1)
 
-| Feature                        | Priority | Notes                                         |
-| ------------------------------ | -------- | --------------------------------------------- |
-| Double-click to center (map)   | Low      | Globe/map doesn't center on double-click      |
-| Focus indicators (global)      | Medium   | Custom focus rings only on some elements      |
-| Smooth scroll between sections | Low      | No scroll-snap or smooth section navigation   |
-| Favorite bands quick-filter    | Medium   | No saved band preferences for quick filtering |
-| Recent targets list            | Medium   | No "recently viewed" callsigns/entities list  |
+| Feature                        | Priority | Notes                                       |
+| ------------------------------ | -------- | ------------------------------------------- |
+| Smooth scroll between sections | Low      | No scroll-snap or smooth section navigation |
 
 ---
 
@@ -305,6 +296,26 @@ _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 15. ~~**Contest Rate Sheet**~~ DONE (2026-02-06) — ContestRateSheet with hourly/10-min toggle, band-by-hour heatmap matrix, inline bar charts, best-rate highlighting.
 
 16. ~~**Theme Customization**~~ DONE (2026-02-06) — Accent color CSS variables for plasma-orange/signal-green, 8 accent presets in Settings > Appearance, auto-propagation to all Tailwind classes.
+
+### Tier 4: Remaining Partials & Not-Started — ALL COMPLETE
+
+17. ~~**Offline Indicator**~~ DONE (2026-02-07) — OfflineIndicator component with online/offline events, amber banner in Layout + flow-positioned in MobileLayout.
+
+18. ~~**Global Focus Indicators**~~ DONE (2026-02-07) — `*:focus-visible` theme-accent outline fallback + element-specific ring styles with `outline:none` to prevent double-ring, WCAG 2.1 compliant.
+
+19. ~~**Favorite Bands Quick-Filter**~~ DONE (2026-02-07) — Favorites chip toggle + star icons on band rows in BandPlanner, persisted via userStore `favoredBands`.
+
+20. ~~**Recent Targets List**~~ DONE (2026-02-07) — Recent targets dropdown in DXWizard with click-outside dismiss + Escape handler, populated from mapStore.
+
+21. ~~**Mobile Settings Accordion**~~ DONE (2026-02-07) — SettingsModal renders expandable accordion sections on mobile via `useIsMobile()`, shared `renderTabContent()` function for both layouts.
+
+22. ~~**Pull-to-Refresh**~~ DONE (2026-02-07) — `usePullToRefresh` hook with elastic feel + threshold trigger, `PullToRefreshIndicator` spinner with `role="status"`, wired in MobileLayout.
+
+23. ~~**Noise Floor Settings (C9)**~~ DONE (2026-02-07) — NoiseEnvironment dropdown in Settings Preferences tab, userStore v14 migration, ITU-R P.372 model integration.
+
+24. ~~**Continuous Bearing/Distance (C18)**~~ DONE (2026-02-07) — Hover overlay in FlatMapView bottom-left showing bearing + compass direction + distance from user QTH.
+
+25. ~~**Contest Timer Enhancement**~~ DONE (2026-02-07) — Optional `contestEnd` for open-ended sessions, `BreakTimeIndicator` for 5min+ idle, shared tick to avoid redundant intervals.
 
 ---
 

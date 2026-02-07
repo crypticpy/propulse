@@ -11,14 +11,14 @@
 | ---------------------------------- | --------- | ------- | ----------- | -------- | ------- |
 | Implementation Plan (37 features)  | 35        | 0       | 2           | 0        | 37      |
 | 2D Map Feature Parity PRD          | 39        | 1       | 2           | 1        | 43      |
-| Contest PropSphere Integration PRD | 33        | 3       | 1           | 0        | 37      |
-| Mobile Design Plan                 | 15        | 0       | 4           | 0        | 19      |
+| Contest PropSphere Integration PRD | 34        | 2       | 1           | 0        | 37      |
+| Mobile Design Plan                 | 18        | 0       | 1           | 0        | 19      |
 | UI Review Recommendations          | 9         | 0       | 1           | 0        | 10      |
-| QoL PRD (20 items)                 | 18        | 1       | 1           | 0        | 20      |
-| PWA Package                        | 5         | 1       | 1           | 0        | 7       |
-| **Grand Total**                    | **154**   | **6**   | **12**      | **1**    | **173** |
+| QoL PRD (20 items)                 | 19        | 1       | 0           | 0        | 20      |
+| PWA Package                        | 6         | 0       | 1           | 0        | 7       |
+| **Grand Total**                    | **160**   | **4**   | **8**       | **1**    | **173** |
 
-**Delivery rate: 89% delivered, 3% partial, 7% not started** _(was 83/6/11 before Tier 4)_
+**Delivery rate: 92% delivered, 2% partial, 5% not started** _(was 89/3/7 before Tier 5)_
 
 ---
 
@@ -111,17 +111,16 @@ Base map, tile layers, terminator overlay, gray line, spot markers, great-circle
 
 _Source: `docs/requirements/CONTEST-MODE-PROPSPHERE-INTEGRATION-PRD.md`_
 
-### Delivered (29)
+### Delivered (30)
 
-Ops Console with DX/Contest tabs, one-line entry in map context, contest spots panel, contest band map, Run/S&P mode toggle, ESM state machine, real-time scoring, dupe detection in spots, multiplier tagging on spots, band-specific spot filtering, spot click → prefill, band map frequency axis, band map time axis, spot color coding (dupe/mult/new), current frequency indicator, contest HUD pill (Lite Mode), voice entry toggle, Alt+E focus hotkey, session persistence across pages, contest-aware InsightsBar, Cabrillo export from map, ADIF import/export, call history SCP, keyboard hotkeys, QSO table in console, edit last QSO, undo last QSO, bridge frequency sync, bridge mode sync.
+Ops Console with DX/Contest tabs, one-line entry in map context, contest spots panel, contest band map, Run/S&P mode toggle, ESM state machine, real-time scoring, dupe detection in spots, multiplier tagging on spots, band-specific spot filtering, spot click → prefill, band map frequency axis, band map time axis, spot color coding (dupe/mult/new), current frequency indicator, contest HUD pill (Lite Mode), voice entry toggle, Alt+E focus hotkey, session persistence across pages, contest-aware InsightsBar, Cabrillo export from map, ADIF import/export, call history SCP, keyboard hotkeys, QSO table in console, edit last QSO, undo last QSO, bridge frequency sync, bridge mode sync, network score broadcast.
 
-### Partial (3)
+### Partial (2)
 
-| Feature                 | Status                      | Gap                                          |
-| ----------------------- | --------------------------- | -------------------------------------------- |
-| Multi-op support        | Bridge protocol defined     | No multi-op UI or shared logging             |
-| N1MM integration        | Bridge protocol spec exists | No actual N1MM data exchange implemented     |
-| Network score broadcast | Guest mode exists           | No dedicated contest score sharing/broadcast |
+| Feature          | Status                      | Gap                                      |
+| ---------------- | --------------------------- | ---------------------------------------- |
+| Multi-op support | Bridge protocol defined     | No multi-op UI or shared logging         |
+| N1MM integration | Bridge protocol spec exists | No actual N1MM data exchange implemented |
 
 ### Not Started (1)
 
@@ -131,12 +130,13 @@ Ops Console with DX/Contest tabs, one-line entry in map context, contest spots p
 
 ### Recently Completed
 
-| Feature           | Date       | Notes                                                                     |
-| ----------------- | ---------- | ------------------------------------------------------------------------- |
-| Health indicators | 2026-02-06 | HealthStatusIndicator with per-service health monitoring                  |
-| Sync/retry queue  | 2026-02-06 | syncQueueStore + useSyncQueue + SyncStatusIndicator in Header             |
-| Contest timer     | 2026-02-07 | CountdownClock + BreakTimeIndicator + off-time tracking with optional end |
-| Rate meter        | 2026-02-07 | ContestRateSheet with hourly/10-min toggle + band-by-hour heatmap         |
+| Feature                 | Date       | Notes                                                                     |
+| ----------------------- | ---------- | ------------------------------------------------------------------------- |
+| Health indicators       | 2026-02-06 | HealthStatusIndicator with per-service health monitoring                  |
+| Sync/retry queue        | 2026-02-06 | syncQueueStore + useSyncQueue + SyncStatusIndicator in Header             |
+| Contest timer           | 2026-02-07 | CountdownClock + BreakTimeIndicator + off-time tracking with optional end |
+| Rate meter              | 2026-02-07 | ContestRateSheet with hourly/10-min toggle + band-by-hour heatmap         |
+| Network score broadcast | 2026-02-07 | ContestScoreShare card + useContestScoreBroadcast with Unicode-safe share |
 
 ---
 
@@ -144,34 +144,34 @@ Ops Console with DX/Contest tabs, one-line entry in map context, contest spots p
 
 _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 
-### Delivered (15) — updated 2026-02-07
+### Delivered (18) — updated 2026-02-07
 
-| Feature                  | Notes                                             |
-| ------------------------ | ------------------------------------------------- |
-| Bottom tab navigation    | BottomTabBar with 5 tabs + ToolsDrawer            |
-| Mobile SolarPulse layout | MobileSolarPulse with accordion sections          |
-| Mobile PropSphere layout | MobileMap with FlatMapView (no Three.js)          |
-| Mobile DX Cluster layout | MobileDXWizard with step wizard flow              |
-| Mobile Logbook layout    | MobileLogbook with card-per-QSO view              |
-| Mobile Band Planner      | MobileBandPlanner with gradient band cards        |
-| Compact header           | MobileHeader (48px) with ConditionsPill           |
-| Safe area handling       | `viewport-fit=cover` + `pb-safe` CSS utilities    |
-| MobileContestEntry       | Wired into `useIsMobile()` layout switching       |
-| ContestLiteHudSheet      | Works within MobileLayout shell                   |
-| Touch-friendly buttons   | 44px min touch targets on all mobile nav elements |
-| Bottom sheet pattern     | MobileMap slide-up panel, ToolsDrawer overlay     |
-| Mobile Settings          | Accordion layout via useIsMobile in SettingsModal |
-| Pull-to-refresh          | usePullToRefresh + PullToRefreshIndicator         |
-| Offline indicator        | OfflineIndicator banner in MobileLayout           |
+| Feature                  | Notes                                                      |
+| ------------------------ | ---------------------------------------------------------- |
+| Bottom tab navigation    | BottomTabBar with 5 tabs + ToolsDrawer                     |
+| Mobile SolarPulse layout | MobileSolarPulse with accordion sections                   |
+| Mobile PropSphere layout | MobileMap with FlatMapView (no Three.js)                   |
+| Mobile DX Cluster layout | MobileDXWizard with step wizard flow                       |
+| Mobile Logbook layout    | MobileLogbook with card-per-QSO view                       |
+| Mobile Band Planner      | MobileBandPlanner with gradient band cards                 |
+| Compact header           | MobileHeader (48px) with ConditionsPill                    |
+| Safe area handling       | `viewport-fit=cover` + `pb-safe` CSS utilities             |
+| MobileContestEntry       | Wired into `useIsMobile()` layout switching                |
+| ContestLiteHudSheet      | Works within MobileLayout shell                            |
+| Touch-friendly buttons   | 44px min touch targets on all mobile nav elements          |
+| Bottom sheet pattern     | MobileMap slide-up panel, ToolsDrawer overlay              |
+| Mobile Settings          | Accordion layout via useIsMobile in SettingsModal          |
+| Pull-to-refresh          | usePullToRefresh + PullToRefreshIndicator                  |
+| Offline indicator        | OfflineIndicator banner in MobileLayout                    |
+| Swipe gestures           | useSwipeNavigation with touch event gesture detection      |
+| Mobile-first typography  | touch-action:manipulation, mono letter-spacing, tap delay  |
+| PWA install prompt       | PWAInstallPrompt with beforeinstallprompt + install banner |
 
-### Not Started (4) — remaining
+### Not Started (1) — remaining
 
-| Feature                 | Priority | Notes                               |
-| ----------------------- | -------- | ----------------------------------- |
-| Swipe gestures          | Medium   | No swipe navigation between pages   |
-| Mobile-first typography | Medium   | Font sizes not optimized for mobile |
-| Mobile onboarding       | Low      | Onboarding tour not mobile-adapted  |
-| PWA install prompt      | Low      | No install banner or prompt         |
+| Feature           | Priority | Notes                              |
+| ----------------- | -------- | ---------------------------------- |
+| Mobile onboarding | Low      | Onboarding tour not mobile-adapted |
 
 ---
 
@@ -211,9 +211,9 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
 _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 
-### Delivered (18)
+### Delivered (19)
 
-Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading, data refresh indicators, confidence intervals on predictions, double-click to center (pre-existing), global focus indicators, favorite bands quick-filter, recent targets list.
+Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading, data refresh indicators, confidence intervals on predictions, double-click to center (pre-existing), global focus indicators, favorite bands quick-filter, recent targets list, smooth scroll between sections.
 
 ### Partial (1)
 
@@ -221,33 +221,22 @@ Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, sp
 | ------------------- | ----------------------------- | ----------------------------------------------- |
 | Smart notifications | Toast system + alert triggers | No browser push notifications or priority queue |
 
-### Not Started (1)
-
-| Feature                        | Priority | Notes                                       |
-| ------------------------------ | -------- | ------------------------------------------- |
-| Smooth scroll between sections | Low      | No scroll-snap or smooth section navigation |
-
 ---
 
 ## 7. PWA Package
 
 _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 
-### Delivered (5)
+### Delivered (6)
 
-| Feature                | Notes                                                       |
-| ---------------------- | ----------------------------------------------------------- |
-| Service Worker         | vite-plugin-pwa with workbox, 36 precache entries           |
-| Web App Manifest       | manifest.webmanifest with app metadata + SVG icon           |
-| Offline fallback       | offline.html page shown when SW can't fetch                 |
-| App shell architecture | Precached shell with runtime caching for API (NetworkFirst) |
-| Update prompt          | PWAUpdatePrompt toast with "Reload" / "Dismiss" buttons     |
-
-### Partial (1)
-
-| Feature              | Status                          | Gap                                   |
-| -------------------- | ------------------------------- | ------------------------------------- |
-| Offline data caching | SW caches API with NetworkFirst | No explicit IndexedDB API cache layer |
+| Feature                | Notes                                                           |
+| ---------------------- | --------------------------------------------------------------- |
+| Service Worker         | vite-plugin-pwa with workbox, 36 precache entries               |
+| Web App Manifest       | manifest.webmanifest with app metadata + SVG icon               |
+| Offline fallback       | offline.html page shown when SW can't fetch                     |
+| App shell architecture | Precached shell with runtime caching for API (NetworkFirst)     |
+| Update prompt          | PWAUpdatePrompt toast with "Reload" / "Dismiss" buttons         |
+| Offline data caching   | IndexedDB cache layer (idbCache) with per-endpoint TTLs in noaa |
 
 ### Not Started (1)
 
@@ -316,6 +305,40 @@ _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 24. ~~**Continuous Bearing/Distance (C18)**~~ DONE (2026-02-07) — Hover overlay in FlatMapView bottom-left showing bearing + compass direction + distance from user QTH.
 
 25. ~~**Contest Timer Enhancement**~~ DONE (2026-02-07) — Optional `contestEnd` for open-ended sessions, `BreakTimeIndicator` for 5min+ idle, shared tick to avoid redundant intervals.
+
+### Tier 5: Remaining Feasible Items — ALL COMPLETE
+
+26. ~~**PWA Install Prompt**~~ DONE (2026-02-07) — PWAInstallPrompt component with `beforeinstallprompt` event capture, dismissible install banner, `appinstalled` auto-hide.
+
+27. ~~**Smooth Scroll**~~ DONE (2026-02-07) — `scroll-behavior: smooth` gated behind `@media (prefers-reduced-motion: no-preference)` in globals.css.
+
+28. ~~**Mobile Typography**~~ DONE (2026-02-07) — `touch-action: manipulation` on all interactive elements, mono letter-spacing for mobile readability, narrowed `[tabindex]` selector.
+
+29. ~~**Swipe Navigation**~~ DONE (2026-02-07) — `useSwipeNavigation` hook with 80px horizontal threshold, 60px vertical guard, 300ms cooldown, merged callback refs with pull-to-refresh.
+
+30. ~~**Offline Data Caching**~~ DONE (2026-02-07) — `idbCache.ts` IndexedDB wrapper with `getCachedResponse`/`setCachedResponse`/`clearExpiredCache`, per-endpoint TTLs in noaa.ts, startup cache cleanup.
+
+31. ~~**Contest Score Broadcast**~~ DONE (2026-02-07) — `useContestScoreBroadcast` hook with Unicode-safe base64 share URL, `ContestScoreShare` card with 4-column stats grid + band breakdown + clipboard copy.
+
+### Remaining Items (Not Feasible / Out of Scope)
+
+The following 13 items remain undelivered. All are either infeasible without backend infrastructure, require external service integration, or are low-priority nice-to-haves:
+
+| Feature                        | Section    | Reason Not Feasible                                     |
+| ------------------------------ | ---------- | ------------------------------------------------------- |
+| Smart notifications (push)     | QoL        | Requires push server infrastructure (VAPID keys, etc.)  |
+| Multi-station support          | Impl. Plan | Requires multi-tenant architecture, auth system         |
+| Customizable dashboard widgets | UI Review  | Drag-and-drop grid layout = major architectural effort  |
+| Mobile onboarding              | Mobile     | Low ROI without user research on pain points            |
+| WebGL tile rendering           | 2D Map     | Canvas renderer adequate; WebGL = different render path |
+| Offline tile caching           | 2D Map     | Tile hosting/licensing prevents SW caching              |
+| Multi-op support               | Contest    | Requires real-time sync server + conflict resolution    |
+| N1MM integration               | Contest    | Requires N1MM protocol reverse-engineering              |
+| Railway/cloud services         | Contest    | Server-side infrastructure (aspirational)               |
+| Push notifications             | PWA        | Requires push server (see Smart notifications)          |
+| Multi-select spots (lasso)     | 2D Map     | Canvas hit-testing for arbitrary shapes = complex       |
+| 3D terrain elevation           | 2D Map     | Scope creep (deferred)                                  |
+| QoL5 Smart notifications       | Impl. Plan | Duplicate of push notifications above                   |
 
 ---
 

@@ -64,7 +64,7 @@ export function MobileLogbook(props: MobileLogbookProps) {
   }
 
   return (
-    <div className="p-4 space-y-3 pb-20">
+    <div className="p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

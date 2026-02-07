@@ -135,7 +135,7 @@ export function MobileSolarPulse({
     fluxData?.map((d) => ({ time_tag: d.time_tag, flux: d.flux })) ?? [];
 
   return (
-    <div className="min-h-screen px-3 pb-20">
+    <div className="min-h-screen px-3">
       <main className="max-w-lg mx-auto py-3 space-y-4">
         {/* Freshness indicator */}
         <div className="flex justify-end">

@@ -75,7 +75,6 @@ export function Home() {
           currentFlux={currentFlux}
           currentSsn={currentSsn}
           currentBz={currentBz}
-          kIndexData={kIndexData}
           fluxData={fluxData}
           magnetometerData={magnetometerData}
           isLoading={isLoading}

@@ -156,7 +156,7 @@ export function MobileBandPlanner({
   };
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen">
       <div className="px-4 pt-4 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

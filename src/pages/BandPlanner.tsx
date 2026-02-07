@@ -85,6 +85,21 @@ export function BandPlanner() {
   };
 
   // Mobile viewport: render MobileBandPlanner with all hook data
+  if (isMobile && !station) {
+    return (
+      <div className="p-4">
+        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+          <h2 className="font-orbitron text-lg text-white mb-2">
+            Band Planner
+          </h2>
+          <p className="text-sm text-gray-400">
+            Set your callsign and grid square in Settings to enable propagation
+            forecasts.
+          </p>
+        </div>
+      </div>
+    );
+  }
   if (isMobile && station) {
     return (
       <MobileBandPlanner

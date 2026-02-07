@@ -154,7 +154,7 @@ export function MobileDXWizard(props: MobileDXWizardProps) {
       const allBands = props.recommendation.bands;
 
       return (
-        <div className="p-4 space-y-3 pb-20">
+        <div className="p-4 space-y-3">
           {/* Back button */}
           <button
             onClick={() => setShowResults(false)}
@@ -344,7 +344,7 @@ export function MobileDXWizard(props: MobileDXWizardProps) {
 
   // Input view (Step 1)
   return (
-    <div className="p-4 space-y-4 pb-20">
+    <div className="p-4 space-y-4">
       <DataFreshnessIndicator
         dataUpdatedAt={props.dataUpdatedAt}
         onRefresh={props.onRefresh}

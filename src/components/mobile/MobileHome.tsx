@@ -17,18 +17,13 @@ import { HistoryCard } from "@/components/dx/HistoryCard";
 import { AlertsSummary } from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { kpToAp } from "@/lib/utils/solarConversions";
-import type {
-  KIndexData,
-  SolarFluxData,
-  MagnetometerData,
-} from "@/lib/api/types";
+import type { SolarFluxData, MagnetometerData } from "@/lib/api/types";
 
 export interface MobileHomeProps {
   currentKp: number | null;
   currentFlux: number | null;
   currentSsn: number | null;
   currentBz: number | null;
-  kIndexData: KIndexData[] | undefined;
   fluxData: SolarFluxData[] | undefined;
   magnetometerData: MagnetometerData[] | undefined;
   isLoading: boolean;
@@ -62,7 +57,7 @@ export function MobileHome({
   onExpandHistory,
 }: MobileHomeProps) {
   return (
-    <div className="min-h-screen px-3 pb-20">
+    <div className="min-h-screen px-3">
       <main className="max-w-lg mx-auto py-3 space-y-4">
         {/* Compact freshness indicator */}
         <div className="flex justify-end">

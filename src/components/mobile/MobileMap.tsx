@@ -122,7 +122,7 @@ export function MobileMap() {
       {/* Toggle panel handle */}
       <button
         onClick={() => setShowPanel(!showPanel)}
-        className="absolute bottom-0 left-0 right-0 z-10 bg-deep-space/90 border-t border-white/10 py-2 flex justify-center"
+        className="absolute bottom-14 left-0 right-0 z-10 bg-deep-space/90 border-t border-white/10 py-2 flex justify-center"
       >
         <div className="w-10 h-1 bg-gray-600 rounded-full" />
       </button>

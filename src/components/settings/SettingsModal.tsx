@@ -21,6 +21,7 @@ import {
   type ValidationResult,
 } from "@/lib/utils/settingsBackup";
 import { ANTENNA_TYPES, type AntennaType } from "@/lib/data/antennas";
+import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
 import type { UserStation, TextScale } from "@/types/user";
 import type { ColorBlindMode, StatusType } from "@/lib/themes/colorblind";
 import {
@@ -30,6 +31,7 @@ import {
   getStatusIcon,
 } from "@/lib/themes/colorblind";
 import { AppearanceSettings } from "./AppearanceSettings";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -271,14 +273,35 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const antennaType = useUserStore(
     (s) => s.preferences.antennaType ?? "isotropic",
   );
+  const noiseEnvironment = useUserStore(
+    (s) =>
+      (s.preferences.noiseEnvironment as NoiseEnvironment) ?? "residential",
+  );
 
   // Bridge connection for Cluster and CAT settings (only when enabled)
   const { send: bridgeSend, connected: bridgeConnected } = useBridge({
     enabled: bridgeEnabled,
   });
 
-  // Active tab state
+  const isMobile = useIsMobile();
+
+  // Active tab state (desktop) / expanded sections (mobile accordion)
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [expandedSections, setExpandedSections] = useState<Set<SettingsTab>>(
+    () => new Set(["profile"]),
+  );
+
+  const toggleSection = (id: SettingsTab) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Profile tab local form state
   const [callsign, setCallsign] = useState(station?.callsign || "");
@@ -341,6 +364,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setProfileDirty(false);
       setPreferencesDirty(false);
       setActiveTab("profile");
+      setExpandedSections(new Set(["profile"]));
       // Reset backup state
       setBackupStatus(null);
       setPendingImport(null);
@@ -547,6 +571,625 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     onClose();
   };
 
+  /** Renders content for a given settings tab */
+  const renderTabContent = (tabId: SettingsTab) => {
+    switch (tabId) {
+      case "profile":
+        return (
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Station Identity
+            </h3>
+            <div>
+              <label
+                htmlFor="callsign"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
+                Callsign
+              </label>
+              <input
+                type="text"
+                id="callsign"
+                value={callsign}
+                onChange={(e) => {
+                  setCallsign(e.target.value.toUpperCase());
+                  setCallsignError(null);
+                  setProfileDirty(true);
+                }}
+                placeholder="N5XXX"
+                aria-invalid={!!callsignError}
+                aria-describedby={callsignError ? "callsign-error" : undefined}
+                className={`w-full px-3 py-2 bg-deep-space border rounded-lg
+                         text-white placeholder-gray-500 font-mono
+                         focus:outline-none focus:border-plasma-orange/50
+                         ${callsignError ? "border-alert-red/50" : "border-white/10"}`}
+              />
+              {callsignError && (
+                <p id="callsign-error" className="mt-1 text-xs text-alert-red">
+                  {callsignError}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="operator-name"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
+                Operator Name
+                <span className="ml-1 text-xs text-gray-500 font-normal">
+                  (optional)
+                </span>
+              </label>
+              <input
+                type="text"
+                id="operator-name"
+                value={operatorName}
+                onChange={(e) => {
+                  setOperatorName(e.target.value);
+                  setProfileDirty(true);
+                }}
+                placeholder="John"
+                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                         text-white placeholder-gray-500
+                         focus:outline-none focus:border-plasma-orange/50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Home Grid Square
+              </label>
+              <LocationInput
+                value={grid}
+                onChange={(v) => {
+                  setGrid(v);
+                  setProfileDirty(true);
+                }}
+                error={gridError}
+                onError={setGridError}
+              />
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleProfileSave}
+                disabled={!profileDirty}
+                className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                           ${
+                             profileDirty
+                               ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
+                               : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                           }`}
+              >
+                {profileDirty ? "Save Profile" : "Profile Saved"}
+              </button>
+            </div>
+          </div>
+        );
+      case "locations":
+        return <LocationManager />;
+      case "license":
+        return <LicenseSection />;
+      case "equipment":
+        return (
+          <div className="space-y-4">
+            <RadioManager compact />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFullRadioManager(true)}
+                className="px-3 py-1.5 text-xs bg-white/5 border border-white/10
+                           text-gray-200 rounded-lg hover:bg-white/10 hover:text-white transition-colors"
+              >
+                Open full radio manager
+              </button>
+            </div>
+            <div className="mt-6 space-y-3">
+              <h4 className="text-sm font-medium text-white">Antenna Type</h4>
+              <p className="text-xs text-gray-400">
+                Used for propagation predictions — affects gain calculations
+                based on path takeoff angle
+              </p>
+              <select
+                value={antennaType}
+                onChange={(e) =>
+                  useUserStore
+                    .getState()
+                    .setAntennaType(e.target.value as AntennaType)
+                }
+                className="w-full bg-deep-space/70 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-plasma-orange/50 focus:outline-none"
+              >
+                {ANTENNA_TYPES.map((ant) => (
+                  <option key={ant.type} value={ant.type}>
+                    {ant.name} ({ant.peakGainDbi > 0 ? "+" : ""}
+                    {ant.peakGainDbi} dBi peak)
+                  </option>
+                ))}
+              </select>
+              {(() => {
+                const selected = ANTENNA_TYPES.find(
+                  (a) => a.type === antennaType,
+                );
+                if (!selected) return null;
+                return (
+                  <div className="text-xs text-gray-400 space-y-1 pl-1">
+                    <p>{selected.description}</p>
+                    <p className="font-mono">
+                      Optimal elevation: {selected.optimalElevationDeg}°
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        );
+      case "cluster":
+        return (
+          <ClusterSettings
+            bridgeSend={bridgeSend}
+            bridgeConnected={bridgeConnected}
+          />
+        );
+      case "cat":
+        return (
+          <CATSettings
+            bridgeSend={bridgeSend}
+            bridgeConnected={bridgeConnected}
+            bridgeEnabled={bridgeEnabled}
+            onBridgeEnabledChange={(enabled) =>
+              updatePreferences({ bridgeEnabled: enabled })
+            }
+          />
+        );
+      case "appearance":
+        return <AppearanceSettings />;
+      case "preferences":
+        return (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                Display
+              </h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Time Format
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setTimeFormat("24h");
+                      setPreferencesDirty(true);
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      timeFormat === "24h"
+                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                        : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    24-hour
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeFormat("12h");
+                      setPreferencesDirty(true);
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      timeFormat === "12h"
+                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                        : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    12-hour
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Text Size
+                  <span className="ml-2 text-xs text-gray-500 font-normal">
+                    (Accessibility)
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setTextScale("sm");
+                      setPreferencesDirty(true);
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      textScale === "sm"
+                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                        : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <span className="text-xs">Small</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTextScale("md");
+                      setPreferencesDirty(true);
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      textScale === "md"
+                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                        : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    Normal
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTextScale("lg");
+                      setPreferencesDirty(true);
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      textScale === "lg"
+                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                        : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <span className="text-base">Large</span>
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Increase text size for better readability. Affects panels and
+                  data displays.
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="color-blind-mode"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Color Vision Mode
+                  <span className="ml-2 text-xs text-gray-500 font-normal">
+                    (Accessibility)
+                  </span>
+                </label>
+                <select
+                  id="color-blind-mode"
+                  value={colorBlindMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as ColorBlindMode;
+                    setColorBlindModeLocal(mode);
+                    setColorBlindMode(mode);
+                  }}
+                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white focus:outline-none focus:border-plasma-orange/50
+                           appearance-none cursor-pointer"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 0.75rem center",
+                    backgroundSize: "1rem",
+                  }}
+                >
+                  {(
+                    Object.keys(COLOR_BLIND_MODE_NAMES) as ColorBlindMode[]
+                  ).map((mode) => (
+                    <option key={mode} value={mode}>
+                      {COLOR_BLIND_MODE_NAMES[mode]}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-gray-500">
+                  {COLOR_BLIND_MODE_DESCRIPTIONS[colorBlindMode]}
+                </p>
+                {colorBlindMode !== "none" && (
+                  <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+                    <p className="text-xs text-gray-400 mb-2">
+                      Status color preview:
+                    </p>
+                    <div className="flex items-center gap-3 text-xs">
+                      <ColorBlindPreviewDot
+                        mode={colorBlindMode}
+                        status="good"
+                        label="Good"
+                      />
+                      <ColorBlindPreviewDot
+                        mode={colorBlindMode}
+                        status="fair"
+                        label="Fair"
+                      />
+                      <ColorBlindPreviewDot
+                        mode={colorBlindMode}
+                        status="poor"
+                        label="Poor"
+                      />
+                      <ColorBlindPreviewDot
+                        mode={colorBlindMode}
+                        status="closed"
+                        label="Closed"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Noise Environment */}
+              <div>
+                <label
+                  htmlFor="noise-environment"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
+                  Noise Environment
+                </label>
+                <select
+                  id="noise-environment"
+                  value={noiseEnvironment}
+                  onChange={(e) => {
+                    useUserStore
+                      .getState()
+                      .setNoiseEnvironment(e.target.value as NoiseEnvironment);
+                  }}
+                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white focus:outline-none focus:border-plasma-orange/50
+                           appearance-none cursor-pointer"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 0.75rem center",
+                    backgroundSize: "1rem",
+                  }}
+                >
+                  <option value="quiet_rural">Quiet Rural</option>
+                  <option value="rural">Rural</option>
+                  <option value="residential">Suburban / Residential</option>
+                  <option value="city">Urban / City</option>
+                </select>
+                <p className="mt-2 text-xs text-gray-500">
+                  Affects SNR predictions for band conditions and propagation
+                  models. Based on ITU-R P.372 man-made noise levels.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handlePreferencesSave}
+                  disabled={!preferencesDirty}
+                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    preferencesDirty
+                      ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
+                      : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  {preferencesDirty
+                    ? "Save Display Preferences"
+                    : "Preferences Saved"}
+                </button>
+              </div>
+            </div>
+            <div className="border-t border-white/10" />
+            <FavoredBandsPicker />
+          </div>
+        );
+      case "notifications":
+        return <NotificationSettings />;
+      case "backup":
+        return (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                Export Settings
+              </h3>
+              <p className="text-sm text-gray-400">
+                Download all your settings as a JSON file. This includes your
+                station profile, preferences, saved targets, watches, pins, and
+                filter settings.
+              </p>
+              <button
+                type="button"
+                onClick={handleExport}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3
+                           bg-plasma-orange/20 border border-plasma-orange/50
+                           text-plasma-orange rounded-lg font-medium
+                           hover:bg-plasma-orange/30 transition-colors"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Export Settings Backup
+              </button>
+            </div>
+            <div className="border-t border-white/10" />
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                Import Settings
+              </h3>
+              <p className="text-sm text-gray-400">
+                Restore settings from a previously exported backup file. This
+                will replace your current settings.
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleFileSelect}
+                className="hidden"
+                aria-label="Select backup file to import"
+              />
+              {!pendingImport && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3
+                             bg-nebula-blue border border-white/20
+                             text-gray-200 rounded-lg font-medium
+                             hover:bg-white/10 hover:border-white/30 transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                    />
+                  </svg>
+                  Select Backup File
+                </button>
+              )}
+              {pendingImport && (
+                <div className="p-4 bg-deep-space border border-white/10 rounded-lg space-y-4">
+                  <div className="flex items-start gap-3">
+                    <svg
+                      className="w-5 h-5 text-plasma-orange flex-shrink-0 mt-0.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        Ready to import settings
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {getBackupSummary(pendingImport.backup)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        This will replace your current settings. This action
+                        cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmImport}
+                      disabled={isImporting}
+                      className="flex-1 px-3 py-2 bg-plasma-orange/20 border border-plasma-orange/50
+                                 text-plasma-orange rounded-lg text-sm font-medium
+                                 hover:bg-plasma-orange/30 transition-colors
+                                 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isImporting ? "Importing..." : "Confirm Import"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelImport}
+                      disabled={isImporting}
+                      className="flex-1 px-3 py-2 bg-white/5 border border-white/10
+                                 text-gray-300 rounded-lg text-sm font-medium
+                                 hover:bg-white/10 transition-colors
+                                 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {backupStatus && (
+              <div
+                className={`p-4 rounded-lg border ${
+                  backupStatus.type === "success"
+                    ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                    : backupStatus.type === "error"
+                      ? "bg-alert-red/10 border-alert-red/30 text-alert-red"
+                      : backupStatus.type === "warning"
+                        ? "bg-solar-yellow/10 border-solar-yellow/30 text-solar-yellow"
+                        : "bg-white/5 border-white/10 text-gray-300"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {backupStatus.type === "success" && (
+                    <svg
+                      className="w-5 h-5 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                  {backupStatus.type === "error" && (
+                    <svg
+                      className="w-5 h-5 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  )}
+                  {backupStatus.type === "warning" && (
+                    <svg
+                      className="w-5 h-5 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  )}
+                  {backupStatus.type === "info" && (
+                    <svg
+                      className="w-5 h-5 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  )}
+                  <p className="text-sm">{backupStatus.message}</p>
+                </div>
+              </div>
+            )}
+            <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+              <p className="text-xs text-gray-500">
+                <strong className="text-gray-400">Note:</strong> Backup files
+                include version information for compatibility. You can safely
+                import backups from older versions of PropulSE.
+              </p>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   if (!isOpen) {
     return null;
   }
@@ -561,12 +1204,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
       {/* Modal */}
       <Card
-        className="relative z-10 w-full max-w-2xl flex flex-col max-h-[calc(100dvh-2rem)]"
+        className={`relative z-10 w-full flex flex-col max-h-[calc(100dvh-2rem)] ${
+          isMobile ? "max-w-lg" : "max-w-2xl"
+        }`}
         animate
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-0 flex-shrink-0">
-          <h2 className="font-orbitron text-xl font-bold text-gradient-orange">
+        <div
+          className={`flex items-center justify-between flex-shrink-0 ${isMobile ? "p-4 pb-0" : "p-6 pb-0"}`}
+        >
+          <h2
+            className={`font-orbitron font-bold text-gradient-orange ${isMobile ? "text-lg" : "text-xl"}`}
+          >
             Settings
           </h2>
           <button
@@ -590,671 +1239,82 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-1 px-6 pt-4 pb-2 overflow-x-auto flex-shrink-0">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
-                ${
-                  activeTab === tab.id
-                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                    : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
-                }
-              `}
-            >
-              {tab.icon}
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
-          {/* Profile Tab */}
-          {activeTab === "profile" && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Station Identity
-              </h3>
-
-              {/* Callsign */}
-              <div>
-                <label
-                  htmlFor="callsign"
-                  className="block text-sm font-medium text-gray-300 mb-1"
-                >
-                  Callsign
-                </label>
-                <input
-                  type="text"
-                  id="callsign"
-                  value={callsign}
-                  onChange={(e) => {
-                    setCallsign(e.target.value.toUpperCase());
-                    setCallsignError(null);
-                    setProfileDirty(true);
-                  }}
-                  placeholder="N5XXX"
-                  aria-invalid={!!callsignError}
-                  aria-describedby={
-                    callsignError ? "callsign-error" : undefined
+        {/* Desktop: Horizontal Tab Navigation */}
+        {!isMobile && (
+          <div className="flex gap-1 px-6 pt-4 pb-2 overflow-x-auto flex-shrink-0">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
+                  ${
+                    activeTab === tab.id
+                      ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                      : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
                   }
-                  className={`w-full px-3 py-2 bg-deep-space border rounded-lg
-                           text-white placeholder-gray-500 font-mono
-                           focus:outline-none focus:border-plasma-orange/50
-                           ${callsignError ? "border-alert-red/50" : "border-white/10"}`}
-                />
-                {callsignError && (
-                  <p
-                    id="callsign-error"
-                    className="mt-1 text-xs text-alert-red"
+                `}
+              >
+                {tab.icon}
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Content area */}
+        <div
+          className={`overflow-y-auto flex-1 min-h-0 ${isMobile ? "px-4 py-3" : "px-6 py-4"}`}
+        >
+          {isMobile ? (
+            /* Mobile: Accordion layout */
+            <div className="space-y-1">
+              {TABS.map((tab) => {
+                const isExpanded = expandedSections.has(tab.id);
+                return (
+                  <div
+                    key={tab.id}
+                    className="border border-white/10 rounded-lg overflow-hidden"
                   >
-                    {callsignError}
-                  </p>
-                )}
-              </div>
-
-              {/* Operator Name */}
-              <div>
-                <label
-                  htmlFor="operator-name"
-                  className="block text-sm font-medium text-gray-300 mb-1"
-                >
-                  Operator Name
-                  <span className="ml-1 text-xs text-gray-500 font-normal">
-                    (optional)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  id="operator-name"
-                  value={operatorName}
-                  onChange={(e) => {
-                    setOperatorName(e.target.value);
-                    setProfileDirty(true);
-                  }}
-                  placeholder="John"
-                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                           text-white placeholder-gray-500
-                           focus:outline-none focus:border-plasma-orange/50"
-                />
-              </div>
-
-              {/* Home Grid Square */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Home Grid Square
-                </label>
-                <LocationInput
-                  value={grid}
-                  onChange={(v) => {
-                    setGrid(v);
-                    setProfileDirty(true);
-                  }}
-                  error={gridError}
-                  onError={setGridError}
-                />
-              </div>
-
-              {/* Save Button */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleProfileSave}
-                  disabled={!profileDirty}
-                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                             ${
-                               profileDirty
-                                 ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
-                                 : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
-                             }`}
-                >
-                  {profileDirty ? "Save Profile" : "Profile Saved"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Locations Tab */}
-          {activeTab === "locations" && <LocationManager />}
-
-          {/* License Tab */}
-          {activeTab === "license" && <LicenseSection />}
-
-          {/* Equipment Tab */}
-          {activeTab === "equipment" && (
-            <div className="space-y-4">
-              <RadioManager compact />
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowFullRadioManager(true)}
-                  className="px-3 py-1.5 text-xs bg-white/5 border border-white/10
-                             text-gray-200 rounded-lg hover:bg-white/10 hover:text-white transition-colors"
-                >
-                  Open full radio manager
-                </button>
-              </div>
-
-              {/* Antenna Selection */}
-              <div className="mt-6 space-y-3">
-                <h4 className="text-sm font-medium text-white">Antenna Type</h4>
-                <p className="text-xs text-gray-400">
-                  Used for propagation predictions — affects gain calculations
-                  based on path takeoff angle
-                </p>
-                <select
-                  value={antennaType}
-                  onChange={(e) =>
-                    useUserStore
-                      .getState()
-                      .setAntennaType(e.target.value as AntennaType)
-                  }
-                  className="w-full bg-deep-space/70 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-plasma-orange/50 focus:outline-none"
-                >
-                  {ANTENNA_TYPES.map((ant) => (
-                    <option key={ant.type} value={ant.type}>
-                      {ant.name} ({ant.peakGainDbi > 0 ? "+" : ""}
-                      {ant.peakGainDbi} dBi peak)
-                    </option>
-                  ))}
-                </select>
-                {/* Show selected antenna details */}
-                {(() => {
-                  const selected = ANTENNA_TYPES.find(
-                    (a) => a.type === antennaType,
-                  );
-                  if (!selected) return null;
-                  return (
-                    <div className="text-xs text-gray-400 space-y-1 pl-1">
-                      <p>{selected.description}</p>
-                      <p className="font-mono">
-                        Optimal elevation: {selected.optimalElevationDeg}°
-                      </p>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Cluster Tab */}
-          {activeTab === "cluster" && (
-            <ClusterSettings
-              bridgeSend={bridgeSend}
-              bridgeConnected={bridgeConnected}
-            />
-          )}
-
-          {/* CAT Control Tab */}
-          {activeTab === "cat" && (
-            <CATSettings
-              bridgeSend={bridgeSend}
-              bridgeConnected={bridgeConnected}
-              bridgeEnabled={bridgeEnabled}
-              onBridgeEnabledChange={(enabled) =>
-                updatePreferences({ bridgeEnabled: enabled })
-              }
-            />
-          )}
-
-          {/* Appearance Tab */}
-          {activeTab === "appearance" && <AppearanceSettings />}
-
-          {/* Preferences Tab */}
-          {activeTab === "preferences" && (
-            <div className="space-y-6">
-              {/* Display Preferences */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                  Display
-                </h3>
-
-                {/* Time Format */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Time Format
-                  </label>
-                  <div className="flex gap-2">
                     <button
-                      onClick={() => {
-                        setTimeFormat("24h");
-                        setPreferencesDirty(true);
-                      }}
-                      className={`
-                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          timeFormat === "24h"
-                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                        }
-                      `}
+                      onClick={() => toggleSection(tab.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 text-left transition-colors ${
+                        isExpanded
+                          ? "bg-plasma-orange/10 text-plasma-orange"
+                          : "text-gray-300 hover:bg-white/5"
+                      }`}
+                      aria-expanded={isExpanded}
                     >
-                      24-hour
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTimeFormat("12h");
-                        setPreferencesDirty(true);
-                      }}
-                      className={`
-                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          timeFormat === "12h"
-                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                        }
-                      `}
-                    >
-                      12-hour
-                    </button>
-                  </div>
-                </div>
-
-                {/* Text Size */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Text Size
-                    <span className="ml-2 text-xs text-gray-500 font-normal">
-                      (Accessibility)
-                    </span>
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setTextScale("sm");
-                        setPreferencesDirty(true);
-                      }}
-                      className={`
-                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          textScale === "sm"
-                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                        }
-                      `}
-                    >
-                      <span className="text-xs">Small</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTextScale("md");
-                        setPreferencesDirty(true);
-                      }}
-                      className={`
-                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          textScale === "md"
-                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                        }
-                      `}
-                    >
-                      Normal
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTextScale("lg");
-                        setPreferencesDirty(true);
-                      }}
-                      className={`
-                        flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                        ${
-                          textScale === "lg"
-                            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                            : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
-                        }
-                      `}
-                    >
-                      <span className="text-base">Large</span>
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500">
-                    Increase text size for better readability. Affects panels
-                    and data displays.
-                  </p>
-                </div>
-
-                {/* Color Vision Mode */}
-                <div>
-                  <label
-                    htmlFor="color-blind-mode"
-                    className="block text-sm font-medium text-gray-300 mb-2"
-                  >
-                    Color Vision Mode
-                    <span className="ml-2 text-xs text-gray-500 font-normal">
-                      (Accessibility)
-                    </span>
-                  </label>
-                  <select
-                    id="color-blind-mode"
-                    value={colorBlindMode}
-                    onChange={(e) => {
-                      const mode = e.target.value as ColorBlindMode;
-                      setColorBlindModeLocal(mode);
-                      // Apply immediately (no save button needed)
-                      setColorBlindMode(mode);
-                    }}
-                    className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                             text-white focus:outline-none focus:border-plasma-orange/50
-                             appearance-none cursor-pointer"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1rem",
-                    }}
-                  >
-                    {(
-                      Object.keys(COLOR_BLIND_MODE_NAMES) as ColorBlindMode[]
-                    ).map((mode) => (
-                      <option key={mode} value={mode}>
-                        {COLOR_BLIND_MODE_NAMES[mode]}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-gray-500">
-                    {COLOR_BLIND_MODE_DESCRIPTIONS[colorBlindMode]}
-                  </p>
-                  {colorBlindMode !== "none" && (
-                    <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-lg">
-                      <p className="text-xs text-gray-400 mb-2">
-                        Status color preview:
-                      </p>
-                      <div className="flex items-center gap-3 text-xs">
-                        <ColorBlindPreviewDot
-                          mode={colorBlindMode}
-                          status="good"
-                          label="Good"
+                      <span className="flex-shrink-0">{tab.icon}</span>
+                      <span className="flex-1 text-sm font-medium">
+                        {tab.label}
+                      </span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
                         />
-                        <ColorBlindPreviewDot
-                          mode={colorBlindMode}
-                          status="fair"
-                          label="Fair"
-                        />
-                        <ColorBlindPreviewDot
-                          mode={colorBlindMode}
-                          status="poor"
-                          label="Poor"
-                        />
-                        <ColorBlindPreviewDot
-                          mode={colorBlindMode}
-                          status="closed"
-                          label="Closed"
-                        />
+                      </svg>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-3 py-3 border-t border-white/10 bg-white/[0.02]">
+                        {renderTabContent(tab.id)}
                       </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Save Button */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handlePreferencesSave}
-                    disabled={!preferencesDirty}
-                    className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                               ${
-                                 preferencesDirty
-                                   ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
-                                   : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
-                               }`}
-                  >
-                    {preferencesDirty
-                      ? "Save Display Preferences"
-                      : "Preferences Saved"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-white/10" />
-
-              {/* Favored Bands */}
-              <FavoredBandsPicker />
-            </div>
-          )}
-
-          {/* Notifications Tab */}
-          {activeTab === "notifications" && <NotificationSettings />}
-
-          {/* Backup Tab */}
-          {activeTab === "backup" && (
-            <div className="space-y-6">
-              {/* Export Section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                  Export Settings
-                </h3>
-                <p className="text-sm text-gray-400">
-                  Download all your settings as a JSON file. This includes your
-                  station profile, preferences, saved targets, watches, pins,
-                  and filter settings.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3
-                             bg-plasma-orange/20 border border-plasma-orange/50
-                             text-plasma-orange rounded-lg font-medium
-                             hover:bg-plasma-orange/30 transition-colors"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                  Export Settings Backup
-                </button>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-white/10" />
-
-              {/* Import Section */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                  Import Settings
-                </h3>
-                <p className="text-sm text-gray-400">
-                  Restore settings from a previously exported backup file. This
-                  will replace your current settings.
-                </p>
-
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  aria-label="Select backup file to import"
-                />
-
-                {/* Import button */}
-                {!pendingImport && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3
-                               bg-nebula-blue border border-white/20
-                               text-gray-200 rounded-lg font-medium
-                               hover:bg-white/10 hover:border-white/30 transition-colors"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    Select Backup File
-                  </button>
-                )}
-
-                {/* Pending import confirmation */}
-                {pendingImport && (
-                  <div className="p-4 bg-deep-space border border-white/10 rounded-lg space-y-4">
-                    <div className="flex items-start gap-3">
-                      <svg
-                        className="w-5 h-5 text-plasma-orange flex-shrink-0 mt-0.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
-                      <div>
-                        <p className="text-sm font-medium text-white">
-                          Ready to import settings
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {getBackupSummary(pendingImport.backup)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          This will replace your current settings. This action
-                          cannot be undone.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={handleConfirmImport}
-                        disabled={isImporting}
-                        className="flex-1 px-3 py-2 bg-plasma-orange/20 border border-plasma-orange/50
-                                   text-plasma-orange rounded-lg text-sm font-medium
-                                   hover:bg-plasma-orange/30 transition-colors
-                                   disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isImporting ? "Importing..." : "Confirm Import"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCancelImport}
-                        disabled={isImporting}
-                        className="flex-1 px-3 py-2 bg-white/5 border border-white/10
-                                   text-gray-300 rounded-lg text-sm font-medium
-                                   hover:bg-white/10 transition-colors
-                                   disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* Status message */}
-              {backupStatus && (
-                <div
-                  className={`p-4 rounded-lg border ${
-                    backupStatus.type === "success"
-                      ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
-                      : backupStatus.type === "error"
-                        ? "bg-alert-red/10 border-alert-red/30 text-alert-red"
-                        : backupStatus.type === "warning"
-                          ? "bg-solar-yellow/10 border-solar-yellow/30 text-solar-yellow"
-                          : "bg-white/5 border-white/10 text-gray-300"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {backupStatus.type === "success" && (
-                      <svg
-                        className="w-5 h-5 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                    {backupStatus.type === "error" && (
-                      <svg
-                        className="w-5 h-5 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    )}
-                    {backupStatus.type === "warning" && (
-                      <svg
-                        className="w-5 h-5 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
-                    )}
-                    {backupStatus.type === "info" && (
-                      <svg
-                        className="w-5 h-5 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    )}
-                    <p className="text-sm">{backupStatus.message}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Info note */}
-              <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
-                <p className="text-xs text-gray-500">
-                  <strong className="text-gray-400">Note:</strong> Backup files
-                  include version information for compatibility. You can safely
-                  import backups from older versions of PropulSE.
-                </p>
-              </div>
+                );
+              })}
             </div>
+          ) : (
+            /* Desktop: Active tab content */
+            renderTabContent(activeTab)
           )}
         </div>
       </Card>

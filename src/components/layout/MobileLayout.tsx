@@ -18,6 +18,9 @@ import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
+import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
+import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 /**
  * MobileLayout - Root layout for mobile viewports
@@ -37,6 +40,9 @@ export function MobileLayout() {
 
   // Initialize sync queue background processor
   useSyncQueue();
+
+  // Pull-to-refresh for mobile
+  const { pullProgress, isRefreshing, containerRef } = usePullToRefresh();
 
   // Initialize undo/redo keyboard shortcuts
   useUndoRedo({ enabled: true });
@@ -65,6 +71,9 @@ export function MobileLayout() {
         onSettingsClick={() => setShowSettings(true)}
       />
 
+      {/* Offline connectivity banner (below header, flow-positioned) */}
+      <OfflineIndicator className="w-full bg-caution-amber/90 text-void-black text-xs py-1 text-center font-medium flex-shrink-0" />
+
       {/* Alert banner (below header, above content) */}
       <AlertBanner
         alerts={activeAlerts}
@@ -72,8 +81,15 @@ export function MobileLayout() {
         onViewAll={() => setShowAlertHistory(true)}
       />
 
-      {/* Scrollable content area */}
-      <main className="flex-1 overflow-y-auto scroll-smooth-touch pb-[calc(56px+env(safe-area-inset-bottom,0px))]">
+      {/* Scrollable content area with pull-to-refresh */}
+      <main
+        ref={containerRef}
+        className="flex-1 overflow-y-auto scroll-smooth-touch pb-[calc(56px+env(safe-area-inset-bottom,0px))]"
+      >
+        <PullToRefreshIndicator
+          pullProgress={pullProgress}
+          isRefreshing={isRefreshing}
+        />
         <Suspense
           fallback={
             <div className="min-h-[50vh] flex items-center justify-center">

@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme CSS custom properties — defaults match the "dark" theme + "plasma" accent.
+   applyThemeToDocument() in src/lib/themes/index.ts overrides these at runtime.
+   The *-rgb variants store space-separated R G B channels so Tailwind can apply
+   opacity modifiers: rgb(var(--channel) / <alpha>). */
+:root {
+  --theme-accent-primary: #ff6b35;
+  --theme-accent-primary-rgb: 255 107 53;
+  --theme-accent-secondary: #00ff88;
+  --theme-accent-secondary-rgb: 0 255 136;
+  --theme-bg-primary: #0a0a1a;
+  --theme-bg-secondary: #1a1a2e;
+  --theme-bg-panel: rgba(20, 28, 46, 0.95);
+  --theme-text-primary: #ffffff;
+  --theme-text-secondary: #94a3b8;
+  --theme-border: rgba(255, 255, 255, 0.1);
+  --theme-glow: rgba(255, 107, 53, 0.3);
+}
+
 /* Global styles */
 @layer base {
   html {

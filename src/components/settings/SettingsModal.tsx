@@ -29,6 +29,7 @@ import {
   getColorBlindColor,
   getStatusIcon,
 } from "@/lib/themes/colorblind";
+import { AppearanceSettings } from "./AppearanceSettings";
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ type SettingsTab =
   | "equipment"
   | "cluster"
   | "cat"
+  | "appearance"
   | "preferences"
   | "notifications"
   | "backup";
@@ -169,6 +171,25 @@ const TABS: TabDef[] = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 15.828a5 5 0 010-7.072m5.656 0a5 5 0 010 7.072M13 12a1 1 0 11-2 0 1 1 0 012 0z"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "appearance",
+    label: "Appearance",
+    icon: (
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
         />
       </svg>
     ),
@@ -779,6 +800,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               }
             />
           )}
+
+          {/* Appearance Tab */}
+          {activeTab === "appearance" && <AppearanceSettings />}
 
           {/* Preferences Tab */}
           {activeTab === "preferences" && (

@@ -45,10 +45,10 @@ export const THEMES: Theme[] = [
       bgPanel: "rgba(20, 28, 46, 0.95)",
       textPrimary: "#ffffff",
       textSecondary: "#94a3b8",
-      accentPrimary: "#f97316",
-      accentSecondary: "#06b6d4",
+      accentPrimary: "#ff6b35",
+      accentSecondary: "#00ff88",
       border: "rgba(255, 255, 255, 0.1)",
-      glow: "rgba(249, 115, 22, 0.3)",
+      glow: "rgba(255, 107, 53, 0.3)",
     },
   },
   {
@@ -108,14 +108,14 @@ export const ACCENT_PRESETS: AccentColor[] = [
   {
     id: "plasma",
     name: "Plasma Orange",
-    primary: "#f97316",
-    secondary: "#06b6d4",
+    primary: "#ff6b35",
+    secondary: "#00ff88",
   },
   {
     id: "cosmic",
     name: "Cosmic Cyan",
     primary: "#06b6d4",
-    secondary: "#f97316",
+    secondary: "#ff6b35",
   },
   {
     id: "aurora",
@@ -143,9 +143,25 @@ export function getAccentPreset(id: string): AccentColor {
   return ACCENT_PRESETS.find((a) => a.id === id) || ACCENT_PRESETS[0];
 }
 
+/**
+ * Convert a hex color (#rrggbb or #rgb) to space-separated RGB channels.
+ * e.g. "#ff6b35" -> "255 107 53"
+ * Used so Tailwind can apply opacity modifiers: rgb(var(--channel) / <alpha>)
+ */
+function hexToRgbChannels(hex: string): string {
+  let h = hex.replace("#", "");
+  if (h.length === 3) {
+    h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  }
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
 export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
   const root = document.documentElement;
-  const {colors} = theme;
+  const { colors } = theme;
   const accentPrimary = accent?.primary || colors.accentPrimary;
   const accentSecondary = accent?.secondary || colors.accentSecondary;
 
@@ -158,6 +174,16 @@ export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
   root.style.setProperty("--theme-accent-secondary", accentSecondary);
   root.style.setProperty("--theme-border", colors.border);
   root.style.setProperty("--theme-glow", colors.glow);
+
+  // RGB channel variables for Tailwind opacity modifier support
+  root.style.setProperty(
+    "--theme-accent-primary-rgb",
+    hexToRgbChannels(accentPrimary),
+  );
+  root.style.setProperty(
+    "--theme-accent-secondary-rgb",
+    hexToRgbChannels(accentSecondary),
+  );
 
   root.classList.toggle("dark", theme.isDark);
   root.classList.toggle("light", !theme.isDark);

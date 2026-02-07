@@ -5,8 +5,10 @@ export default {
     extend: {
       colors: {
         // Primary palette
-        "plasma-orange": "#ff6b35",
-        "signal-green": "#00ff88",
+        "plasma-orange":
+          "rgb(var(--theme-accent-primary-rgb, 255 107 53) / <alpha-value>)",
+        "signal-green":
+          "rgb(var(--theme-accent-secondary-rgb, 0 255 136) / <alpha-value>)",
         "caution-amber": "#ffd23f",
         "caution-yellow": "#ffd23f",
         "alert-red": "#ff4455",

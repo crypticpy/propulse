@@ -58,7 +58,7 @@ function applyCurrentTheme(state: ThemeState) {
       primary: state.customPrimary,
       secondary: state.customSecondary,
     };
-  } else if (state.accentId !== "plasma") {
+  } else {
     accent = getAccentPreset(state.accentId);
   }
 

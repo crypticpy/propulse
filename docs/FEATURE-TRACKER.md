@@ -9,16 +9,16 @@
 
 | Source Document                    | Delivered | Partial | Not Started | Deferred | Total   |
 | ---------------------------------- | --------- | ------- | ----------- | -------- | ------- |
-| Implementation Plan (37 features)  | 30        | 5       | 2           | 0        | 37      |
+| Implementation Plan (37 features)  | 31        | 4       | 2           | 0        | 37      |
 | 2D Map Feature Parity PRD          | 36        | 1       | 5           | 1        | 43      |
 | Contest PropSphere Integration PRD | 29        | 5       | 3           | 0        | 37      |
-| Mobile Design Plan                 | 0         | 3       | 16          | 0        | 19      |
-| UI Review Recommendations          | 2         | 3       | 8           | 0        | 13      |
-| QoL PRD (20 items)                 | 12        | 2       | 6           | 0        | 20      |
+| Mobile Design Plan                 | 12        | 0       | 7           | 0        | 19      |
+| UI Review Recommendations          | 4         | 3       | 6           | 0        | 13      |
+| QoL PRD (20 items)                 | 13        | 2       | 5           | 0        | 20      |
 | PWA Package                        | 0         | 0       | 7           | 0        | 7       |
-| **Grand Total**                    | **109**   | **19**  | **47**      | **1**    | **176** |
+| **Grand Total**                    | **125**   | **15**  | **35**      | **1**    | **176** |
 
-**Delivery rate: 62% delivered, 11% partial, 27% not started**
+**Delivery rate: 71% delivered, 9% partial, 20% not started** _(was 62/11/27 before Tier 1 work)_
 
 ---
 
@@ -63,13 +63,13 @@ _Source: `docs/plans/IMPLEMENTATION-PLAN.md`_
 
 ### Partial (5)
 
-| ID   | Feature                  | Status                                    | Gap                                                         |
-| ---- | ------------------------ | ----------------------------------------- | ----------------------------------------------------------- |
-| C9   | Noise/propagation model  | Model exists in `calculateBandConditions` | No user-facing settings UI for noise floor parameters       |
-| C10  | Antenna pattern library  | `antennaStore.ts` with pattern data       | Not integrated into signal calculations in `signal.ts`      |
-| C18  | Bearing/distance overlay | Available via spot clicks                 | No continuous hover-based bearing display                   |
-| QoL1 | Keyboard shortcuts       | Alt+1-9 bands, Ctrl+Z undo, ESM keys      | No global shortcut help overlay or customization            |
-| QoL5 | Smart notifications      | Alert system with toasts                  | Limited — no browser push notifications, no priority levels |
+| ID      | Feature                     | Status                                    | Gap                                                         |
+| ------- | --------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| C9      | Noise/propagation model     | Model exists in `calculateBandConditions` | No user-facing settings UI for noise floor parameters       |
+| ~~C10~~ | ~~Antenna pattern library~~ | **DONE** (2026-02-06)                     | Wired into `getEnhancedBandConditions()` + Settings picker  |
+| C18     | Bearing/distance overlay    | Available via spot clicks                 | No continuous hover-based bearing display                   |
+| QoL1    | Keyboard shortcuts          | Alt+1-9 bands, Ctrl+Z undo, ESM keys      | No global shortcut help overlay or customization            |
+| QoL5    | Smart notifications         | Alert system with toasts                  | Limited — no browser push notifications, no priority levels |
 
 ### Not Started (2)
 
@@ -144,34 +144,34 @@ Ops Console with DX/Contest tabs, one-line entry in map context, contest spots p
 
 _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 
-### Partial (3)
+### Delivered (12) — added 2026-02-06
 
-| Feature                | Status                        | Gap                                        |
-| ---------------------- | ----------------------------- | ------------------------------------------ |
-| MobileContestEntry     | Component exists              | Not wired into responsive layout switching |
-| ContestLiteHudSheet    | Component exists              | Limited mobile optimization                |
-| Touch-friendly buttons | Some buttons are large enough | No systematic touch target audit           |
+| Feature                  | Notes                                             |
+| ------------------------ | ------------------------------------------------- |
+| Bottom tab navigation    | BottomTabBar with 5 tabs + ToolsDrawer            |
+| Mobile SolarPulse layout | MobileSolarPulse with accordion sections          |
+| Mobile PropSphere layout | MobileMap with FlatMapView (no Three.js)          |
+| Mobile DX Cluster layout | MobileDXWizard with step wizard flow              |
+| Mobile Logbook layout    | MobileLogbook with card-per-QSO view              |
+| Mobile Band Planner      | MobileBandPlanner with gradient band cards        |
+| Compact header           | MobileHeader (48px) with ConditionsPill           |
+| Safe area handling       | `viewport-fit=cover` + `pb-safe` CSS utilities    |
+| MobileContestEntry       | Wired into `useIsMobile()` layout switching       |
+| ContestLiteHudSheet      | Works within MobileLayout shell                   |
+| Touch-friendly buttons   | 44px min touch targets on all mobile nav elements |
+| Bottom sheet pattern     | MobileMap slide-up panel, ToolsDrawer overlay     |
 
-### Not Started (16)
+### Not Started (7) — remaining
 
-| Feature                  | Priority | Notes                                      |
-| ------------------------ | -------- | ------------------------------------------ |
-| Bottom tab navigation    | **High** | No mobile nav — desktop sidebar only       |
-| Mobile SolarPulse layout | **High** | 1288-line component, no mobile breakpoints |
-| Mobile PropSphere layout | **High** | Map controls not touch-optimized           |
-| Mobile DX Cluster layout | High     | No mobile-specific spot list               |
-| Mobile Logbook layout    | High     | Table not responsive on small screens      |
-| Mobile Band Planner      | Medium   | No mobile card layout                      |
-| Mobile Settings          | Medium   | Tab layout not mobile-friendly             |
-| Swipe gestures           | Medium   | No swipe navigation between pages          |
-| Pull-to-refresh          | Medium   | No pull-to-refresh on data pages           |
-| Mobile-first typography  | Medium   | Font sizes not optimized for mobile        |
-| Safe area handling       | Medium   | No `env(safe-area-inset-*)` support        |
-| Bottom sheet pattern     | Medium   | No bottom sheet for detail views           |
-| Mobile onboarding        | Low      | Onboarding tour not mobile-adapted         |
-| Compact header           | Low      | Header doesn't collapse on scroll          |
-| PWA install prompt       | Low      | No install banner or prompt                |
-| Offline indicator        | Low      | No network status banner                   |
+| Feature                 | Priority | Notes                               |
+| ----------------------- | -------- | ----------------------------------- |
+| Mobile Settings         | Medium   | Tab layout not mobile-friendly      |
+| Swipe gestures          | Medium   | No swipe navigation between pages   |
+| Pull-to-refresh         | Medium   | No pull-to-refresh on data pages    |
+| Mobile-first typography | Medium   | Font sizes not optimized for mobile |
+| Mobile onboarding       | Low      | Onboarding tour not mobile-adapted  |
+| PWA install prompt      | Low      | No install banner or prompt         |
+| Offline indicator       | Low      | No network status banner            |
 
 ---
 
@@ -179,12 +179,14 @@ _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 
 _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
-### Delivered (2)
+### Delivered (4)
 
-| Feature                   | Notes                                |
-| ------------------------- | ------------------------------------ |
-| Dark space theme          | Consistent void/deep-space palette   |
-| Modular page architecture | Separate pages for each feature area |
+| Feature                        | Notes                                                    |
+| ------------------------------ | -------------------------------------------------------- |
+| Dark space theme               | Consistent void/deep-space palette                       |
+| Modular page architecture      | Separate pages for each feature area                     |
+| Unified dashboard at `/`       | Home page with metrics, propagation, bands, spots, logs  |
+| Mobile-first responsive design | 6 mobile page variants, MobileLayout, lazy-loaded routes |
 
 ### Partial (3)
 
@@ -194,18 +196,16 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 | Keyboard-first operation | Contest mode fully keyboard-driven | Other pages lack keyboard shortcuts                            |
 | Accessibility            | ARIA on interactive elements       | No skip links, no high-contrast mode, no screen reader audit   |
 
-### Not Started (8)
+### Not Started (6)
 
-| Feature                        | Priority | Notes                                                     |
-| ------------------------------ | -------- | --------------------------------------------------------- |
-| Unified dashboard at `/`       | **High** | Landing page is just PropSphere; no at-a-glance dashboard |
-| Mobile-first responsive design | **High** | See Mobile Design Plan above                              |
-| Interactive tooltips/help      | Medium   | No tooltip system for explaining metrics                  |
-| ATNO badges on spots           | Medium   | All-Time New One indicators not shown on spot lists       |
-| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout                            |
-| Quick-action command palette   | Medium   | No Cmd+K style command palette                            |
-| Guided first-run experience    | Low      | Onboarding tour exists but is basic                       |
-| Theme customization            | Low      | Single dark theme, no user color preferences              |
+| Feature                        | Priority | Notes                                               |
+| ------------------------------ | -------- | --------------------------------------------------- |
+| Interactive tooltips/help      | Medium   | No tooltip system for explaining metrics            |
+| ATNO badges on spots           | Medium   | All-Time New One indicators not shown on spot lists |
+| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout                      |
+| Quick-action command palette   | Medium   | No Cmd+K style command palette                      |
+| Guided first-run experience    | Low      | Onboarding tour exists but is basic                 |
+| Theme customization            | Low      | Single dark theme, no user color preferences        |
 
 ---
 
@@ -213,9 +213,9 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
 _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 
-### Delivered (12)
+### Delivered (13)
 
-Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading.
+Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, spot filtering, logbook search, error boundaries, IndexedDB persistence, React.memo optimization, virtualized lists, lazy route loading, data refresh indicators.
 
 ### Partial (2)
 
@@ -224,16 +224,15 @@ Undo/redo system, ADIF export, Cabrillo export, dark theme, skeleton loaders, sp
 | Keyboard shortcuts  | Contest-specific shortcuts exist | No app-wide shortcut system with help overlay   |
 | Smart notifications | Toast system + alert triggers    | No browser push notifications or priority queue |
 
-### Not Started (6)
+### Not Started (5)
 
-| Feature                        | Priority | Notes                                             |
-| ------------------------------ | -------- | ------------------------------------------------- |
-| Double-click to center (map)   | Low      | Globe/map doesn't center on double-click          |
-| Data refresh indicator         | Medium   | No visual indicator of when data was last fetched |
-| Focus indicators (global)      | Medium   | Custom focus rings only on some elements          |
-| Smooth scroll between sections | Low      | No scroll-snap or smooth section navigation       |
-| Favorite bands quick-filter    | Medium   | No saved band preferences for quick filtering     |
-| Recent targets list            | Medium   | No "recently viewed" callsigns/entities list      |
+| Feature                        | Priority | Notes                                         |
+| ------------------------------ | -------- | --------------------------------------------- |
+| Double-click to center (map)   | Low      | Globe/map doesn't center on double-click      |
+| Focus indicators (global)      | Medium   | Custom focus rings only on some elements      |
+| Smooth scroll between sections | Low      | No scroll-snap or smooth section navigation   |
+| Favorite bands quick-filter    | Medium   | No saved band preferences for quick filtering |
+| Recent targets list            | Medium   | No "recently viewed" callsigns/entities list  |
 
 ---
 
@@ -257,15 +256,15 @@ All 7 items are **Not Started** (deferred as a package):
 
 ## Gap Analysis — Priority Recommendations
 
-### Tier 1: High-Impact Gaps (address first)
+### Tier 1: High-Impact Gaps ~~(address first)~~ ALL COMPLETE
 
-1. **Unified Dashboard** — Landing page at `/` showing at-a-glance solar conditions, recent spots, log stats, band status. Currently PropSphere is the default, which is heavy for quick checks.
+1. ~~**Unified Dashboard**~~ DONE (2026-02-05) — Home page at `/` with PrimaryMetrics, PropagationIndex, SolarSummary, BandConditions, ClusterPulse, LogStats, Predictions, History cards.
 
-2. **Mobile Responsive Layout** — 16 items not started from Mobile Design Plan. Bottom tab nav, mobile breakpoints on all pages, touch targets. Affects all mobile users.
+2. ~~**Mobile Responsive Layout**~~ DONE (2026-02-06) — `useIsMobile()` hook, MobileLayout shell with BottomTabBar + MobileHeader, 6 mobile page variants, lazy-loaded routes (main bundle 1.0 MB → 435 KB), Three.js isolated from mobile `/map`.
 
-3. **Data Refresh Indicators** — Users can't tell when data was last updated. Simple timestamp badges on each data section.
+3. ~~**Data Refresh Indicators**~~ DONE (2026-02-05) — `DataFreshnessIndicator` component on Home, SolarPulse, BandPlanner, DXWizard with "Updated X ago" + refresh button.
 
-4. **Antenna Pattern Integration (C10)** — Library exists but isn't used in signal calculations. Wire `antennaStore` patterns into propagation predictions.
+4. ~~**Antenna Pattern Integration (C10)**~~ DONE (2026-02-06) — `getAntennaGainForPath()` wired into `getEnhancedBandConditions()` → `predictSignalStrength()`, antenna picker in Settings, gain shown in DXWizard + map overlays.
 
 ### Tier 2: Medium-Impact Gaps
 

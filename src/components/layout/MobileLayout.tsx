@@ -1,5 +1,6 @@
-import { Suspense, useState } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { Outlet } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { MobileHeader } from "./MobileHeader";
 import { BottomTabBar } from "./BottomTabBar";
@@ -10,8 +11,11 @@ import {
   AlertHistoryModal,
 } from "@/components/alerts";
 import { UndoToast } from "@/components/ui/UndoToast";
+import { CommandPalette } from "@/components/ui/CommandPalette";
+import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 
 /**
  * MobileLayout - Root layout for mobile viewports
@@ -22,12 +26,29 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 export function MobileLayout() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAlertHistory, setShowAlertHistory] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const queryClient = useQueryClient();
 
   // Initialize solar alert monitoring (mirrors Layout.tsx)
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
 
   // Initialize undo/redo keyboard shortcuts
   useUndoRedo({ enabled: true });
+
+  // Global keyboard shortcuts (Ctrl+K, ?, Escape)
+  useGlobalShortcuts({
+    onOpenCommandPalette: useCallback(
+      () => setShowCommandPalette((v) => !v),
+      [],
+    ),
+    onShowShortcuts: useCallback(() => setShowShortcuts((v) => !v), []),
+    onEscape: useCallback(() => {
+      setShowCommandPalette(false);
+      setShowShortcuts(false);
+    }, []),
+    enabled: true,
+  });
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-void-black">
@@ -81,6 +102,24 @@ export function MobileLayout() {
       <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      {/* Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onShowShortcuts={() => {
+          setShowCommandPalette(false);
+          setShowShortcuts(true);
+        }}
+        onOpenSettings={() => setShowSettings(true)}
+        onRefreshData={() => queryClient.invalidateQueries()}
+      />
+
+      {/* Keyboard Shortcuts Help (?) */}
+      <ShortcutsHelpModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
       />
     </div>
   );

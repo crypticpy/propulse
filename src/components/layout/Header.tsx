@@ -4,6 +4,7 @@ import { formatUTC } from "@/lib/utils/time";
 import { useUserStore } from "@/stores/userStore";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
+import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
 import {
   useActiveLocation,
   useIsTemporaryActive,
@@ -283,6 +284,7 @@ export function Header({
                     </span>
                   </div>
                 )}
+                <SyncStatusIndicator />
                 <HealthStatusIndicator />
                 <button
                   onClick={() => setShowSettings(true)}

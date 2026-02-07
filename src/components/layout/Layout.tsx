@@ -17,6 +17,7 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
+import { useSyncQueue } from "@/hooks/useSyncQueue";
 
 /**
  * Layout - Root layout component with header and background effects
@@ -34,6 +35,9 @@ export function Layout() {
 
   // Initialize undo/redo keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
   useUndoRedo({ enabled: true });
+
+  // Initialize sync queue background processor
+  useSyncQueue();
 
   // Global keyboard shortcuts (Ctrl+K, ?, Escape)
   useGlobalShortcuts({

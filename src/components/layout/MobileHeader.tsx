@@ -1,5 +1,6 @@
 import { ConditionsPill } from "@/components/map/ConditionsPill";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
+import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
 
 interface MobileHeaderProps {
   /** Number of active alerts */
@@ -83,6 +84,7 @@ export function MobileHeader({
             </span>
           </button>
         )}
+        <SyncStatusIndicator />
         <HealthStatusIndicator />
         <button
           onClick={onSettingsClick}

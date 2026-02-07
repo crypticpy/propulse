@@ -16,6 +16,7 @@ import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
+import { useSyncQueue } from "@/hooks/useSyncQueue";
 
 /**
  * MobileLayout - Root layout for mobile viewports
@@ -32,6 +33,9 @@ export function MobileLayout() {
 
   // Initialize solar alert monitoring (mirrors Layout.tsx)
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Initialize sync queue background processor
+  useSyncQueue();
 
   // Initialize undo/redo keyboard shortcuts
   useUndoRedo({ enabled: true });

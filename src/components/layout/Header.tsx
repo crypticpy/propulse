@@ -1,8 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { formatUTC } from "@/lib/utils/time";
 import { useUserStore } from "@/stores/userStore";
-import { SettingsModal } from "@/components/settings/SettingsModal";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
 import {
@@ -34,8 +33,8 @@ export function Header({
   onAlertClick,
 }: HeaderProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [showSettings, setShowSettings] = useState(false);
   const { station } = useUserStore();
   const activeLocation = useActiveLocation();
   const isTemporaryActive = useIsTemporaryActive();
@@ -287,7 +286,7 @@ export function Header({
                 <SyncStatusIndicator />
                 <HealthStatusIndicator />
                 <button
-                  onClick={() => setShowSettings(true)}
+                  onClick={() => navigate("/settings")}
                   className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors"
                   aria-label="Settings"
                   data-tour="settings-button"
@@ -317,12 +316,6 @@ export function Header({
           </div>
         </div>
       </header>
-
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
     </>
   );
 }

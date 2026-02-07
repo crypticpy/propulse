@@ -1,5 +1,5 @@
 import { Suspense, useState, useCallback } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Header } from "./Header";
 import {
@@ -11,7 +11,6 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
-import { SettingsModal } from "@/components/settings/SettingsModal";
 import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
@@ -29,8 +28,8 @@ export function Layout() {
   const [showAlertHistory, setShowAlertHistory] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
@@ -118,7 +117,7 @@ export function Layout() {
           setShowCommandPalette(false);
           setShowShortcuts(true);
         }}
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenSettings={() => navigate("/settings")}
         onRefreshData={() => queryClient.invalidateQueries()}
       />
 
@@ -126,12 +125,6 @@ export function Layout() {
       <ShortcutsHelpModal
         isOpen={showShortcuts}
         onClose={() => setShowShortcuts(false)}
-      />
-
-      {/* Settings Modal (from command palette) */}
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
       />
 
       {/* PWA Update Prompt */}

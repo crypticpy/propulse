@@ -41,6 +41,9 @@ const MobileMap = lazy(() =>
     default: m.MobileMap,
   })),
 );
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const ShackPage = lazy(() => import("@/pages/ShackPage"));
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -76,6 +79,9 @@ function App() {
           <Route path="/log" element={<Logbook />} />
           <Route path="/contest" element={<Contest />} />
           <Route path="/map" element={<MapRoute />} />
+          <Route path="/settings/*" element={<SettingsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/shack" element={<ShackPage />} />
         </Route>
       </Routes>
     </ErrorBoundary>

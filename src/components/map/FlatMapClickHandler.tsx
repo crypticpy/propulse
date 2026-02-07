@@ -82,6 +82,8 @@ export interface FlatMapClickHandlerOptions {
   holdDurationMs?: number;
   /** Logical display dimensions of the map (before zoom transform) */
   displaySize: { width: number; height: number };
+  /** When true, suppresses all gesture detection (e.g. during multi-touch pinch) */
+  isGesturing?: React.RefObject<boolean>;
 }
 
 /**
@@ -161,7 +163,11 @@ function getDistance(
 export function useFlatMapClickHandler(
   options: FlatMapClickHandlerOptions,
 ): void {
-  const { canvasRef, holdDurationMs = DEFAULT_HOLD_DURATION_MS } = options;
+  const {
+    canvasRef,
+    holdDurationMs = DEFAULT_HOLD_DURATION_MS,
+    isGesturing,
+  } = options;
 
   // Store all callback props in refs to avoid re-attaching event listeners
   const onLocationClickRef = useRef(options.onLocationClick);
@@ -176,6 +182,7 @@ export function useFlatMapClickHandler(
   const zoomRef = useRef(options.zoom);
   const displaySizeRef = useRef(options.displaySize);
   const holdDurationRef = useRef(holdDurationMs);
+  const isGesturingRef = useRef(isGesturing);
 
   // Sync refs with latest prop values on each render
   useEffect(() => {
@@ -189,6 +196,7 @@ export function useFlatMapClickHandler(
     zoomRef.current = options.zoom;
     displaySizeRef.current = options.displaySize;
     holdDurationRef.current = holdDurationMs;
+    isGesturingRef.current = isGesturing;
   });
 
   useEffect(() => {
@@ -302,6 +310,11 @@ export function useFlatMapClickHandler(
     // --- Event Handlers ---
 
     function handlePointerDown(event: PointerEvent): void {
+      // Suppress click handling during multi-touch gestures (pinch-zoom, etc.)
+      if (isGesturingRef.current?.current) {
+        return;
+      }
+
       const coords = eventToLatLon(event);
       if (!coords) {
         return;
@@ -369,6 +382,14 @@ export function useFlatMapClickHandler(
 
     function handlePointerUp(event: PointerEvent): void {
       pointerIsDown = false;
+
+      // If multi-touch gesture was active, reset state without firing callbacks
+      if (isGesturingRef.current?.current) {
+        cancelHold();
+        gestureState = "idle";
+        startPos = null;
+        return;
+      }
 
       const state = gestureState;
       const wasInPotentialState = state === "potential";

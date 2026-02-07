@@ -29,6 +29,7 @@ import {
 } from "./LocationMarker";
 import type { AuroraData } from "@/lib/api/aurora";
 import { useFlatMapClickHandler } from "./FlatMapClickHandler";
+import { useFlatMapGestures } from "@/hooks/useFlatMapGestures";
 import { MapTooltip } from "./MapTooltip";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapFlyout, type MapFlyoutAction } from "./MapFlyout";
@@ -3160,7 +3161,49 @@ export function FlatMapView({
     };
   }, []);
 
+  // Touch gesture handling: single-finger pan + two-finger pinch-zoom
+  const handleGesturePan = useCallback(
+    (deltaX: number, deltaY: number) => {
+      setZoom((prev) => {
+        const clamped = clampOffsets(
+          prev.scale,
+          prev.offsetX + deltaX,
+          prev.offsetY + deltaY,
+        );
+        return { ...prev, offsetX: clamped.offsetX, offsetY: clamped.offsetY };
+      });
+    },
+    [clampOffsets],
+  );
+
+  const handleGesturePinchZoom = useCallback(
+    (scaleDelta: number, centerX: number, centerY: number) => {
+      setZoom((prev) => {
+        const newScale = Math.max(0.5, Math.min(4.0, prev.scale * scaleDelta));
+        // Zoom toward the pinch center point
+        const factor = newScale / prev.scale;
+        const newOffsetX = centerX - factor * (centerX - prev.offsetX);
+        const newOffsetY = centerY - factor * (centerY - prev.offsetY);
+        const clamped = clampOffsets(newScale, newOffsetX, newOffsetY);
+        return {
+          scale: newScale,
+          offsetX: clamped.offsetX,
+          offsetY: clamped.offsetY,
+        };
+      });
+    },
+    [clampOffsets],
+  );
+
+  const { isGesturing } = useFlatMapGestures({
+    canvasRef,
+    onPan: handleGesturePan,
+    onPinchZoom: handleGesturePinchZoom,
+    enabled: true,
+  });
+
   // Integrate gesture-based interaction (press-and-hold, double-click, hover)
+  // Pass isGesturing to suppress click detection during multi-touch pinch gestures
   useFlatMapClickHandler({
     canvasRef,
     zoom,
@@ -3170,6 +3213,7 @@ export function FlatMapView({
     onLocationHover: handleMapHover,
     onHoverEnd: handleHoverEnd,
     holdDurationMs: 500,
+    isGesturing,
   });
 
   // Render map

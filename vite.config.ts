@@ -1,10 +1,54 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: "prompt",
+      includeAssets: ["propulse.svg"],
+      manifest: {
+        name: "Propulse — Ham Radio Propagation Dashboard",
+        short_name: "Propulse",
+        description:
+          "Real-time propagation conditions, band planning, and DX tools",
+        theme_color: "#0a0a1a",
+        background_color: "#0a0a1a",
+        display: "standalone",
+        start_url: "/",
+        icons: [
+          {
+            src: "propulse.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any",
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,svg,png,jpg,woff2}"],
+        globIgnores: ["**/textures/**"],
+        navigateFallback: "/index.html",
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\/api\//,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api-cache",
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 300,
+              },
+              networkTimeoutSeconds: 10,
+            },
+          },
+        ],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

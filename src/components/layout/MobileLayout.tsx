@@ -14,6 +14,7 @@ import { UndoToast } from "@/components/ui/UndoToast";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
@@ -125,6 +126,9 @@ export function MobileLayout() {
         isOpen={showShortcuts}
         onClose={() => setShowShortcuts(false)}
       />
+
+      {/* PWA Update Prompt */}
+      <PWAUpdatePrompt />
     </div>
   );
 }

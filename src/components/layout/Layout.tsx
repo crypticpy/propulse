@@ -12,6 +12,7 @@ import { UndoToast } from "@/components/ui/UndoToast";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -128,6 +129,9 @@ export function Layout() {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
       />
+
+      {/* PWA Update Prompt */}
+      <PWAUpdatePrompt />
     </div>
   );
 }

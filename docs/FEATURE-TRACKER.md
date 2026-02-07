@@ -11,14 +11,14 @@
 | ---------------------------------- | --------- | ------- | ----------- | -------- | ------- |
 | Implementation Plan (37 features)  | 32        | 3       | 2           | 0        | 37      |
 | 2D Map Feature Parity PRD          | 37        | 1       | 4           | 1        | 43      |
-| Contest PropSphere Integration PRD | 30        | 5       | 2           | 0        | 37      |
+| Contest PropSphere Integration PRD | 31        | 5       | 1           | 0        | 37      |
 | Mobile Design Plan                 | 12        | 0       | 7           | 0        | 19      |
-| UI Review Recommendations          | 7         | 0       | 3           | 0        | 10      |
+| UI Review Recommendations          | 8         | 0       | 2           | 0        | 10      |
 | QoL PRD (20 items)                 | 13        | 2       | 5           | 0        | 20      |
 | PWA Package                        | 0         | 0       | 7           | 0        | 7       |
-| **Grand Total**                    | **131**   | **11**  | **30**      | **1**    | **173** |
+| **Grand Total**                    | **133**   | **11**  | **28**      | **1**    | **173** |
 
-**Delivery rate: 76% delivered, 6% partial, 17% not started** _(was 71/9/20 before Tier 2 work)_
+**Delivery rate: 77% delivered, 6% partial, 16% not started** _(was 76/6/17 before Tier 2 #9-#10)_
 
 ---
 
@@ -133,16 +133,16 @@ Ops Console with DX/Contest tabs, one-line entry in map context, contest spots p
 
 ### Not Started (2)
 
-| Feature                | Priority | Notes                                                 |
-| ---------------------- | -------- | ----------------------------------------------------- |
-| Railway/cloud services | Low      | No server-side contest services (was aspirational)    |
-| Sync/retry queue       | Medium   | No offline queue for QSOs logged during disconnection |
+| Feature                | Priority | Notes                                              |
+| ---------------------- | -------- | -------------------------------------------------- |
+| Railway/cloud services | Low      | No server-side contest services (was aspirational) |
 
 ### Recently Completed
 
-| Feature           | Date       | Notes                                                    |
-| ----------------- | ---------- | -------------------------------------------------------- |
-| Health indicators | 2026-02-06 | HealthStatusIndicator with per-service health monitoring |
+| Feature           | Date       | Notes                                                         |
+| ----------------- | ---------- | ------------------------------------------------------------- |
+| Health indicators | 2026-02-06 | HealthStatusIndicator with per-service health monitoring      |
+| Sync/retry queue  | 2026-02-06 | syncQueueStore + useSyncQueue + SyncStatusIndicator in Header |
 
 ---
 
@@ -185,7 +185,7 @@ _Source: `docs/requirements/MOBILE-DESIGN-PLAN.md`_
 
 _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 
-### Delivered (7) — updated 2026-02-06
+### Delivered (8) — updated 2026-02-06
 
 | Feature                        | Notes                                                    |
 | ------------------------------ | -------------------------------------------------------- |
@@ -196,14 +196,20 @@ _Source: `docs/reviews/UI-REVIEW-2026-02.md`_
 | ATNO badges on spots           | SpotBadge "atno" type with diamond icon + entity lookup  |
 | Quick-action command palette   | Cmd+K CommandPalette with navigation + actions           |
 | Health/status indicators       | HealthStatusIndicator with per-service health monitoring |
+| Interactive tooltips/help      | InfoTip component + centralized registry (40+ defs)      |
 
-### Not Started (3)
+### Not Started (2)
 
-| Feature                        | Priority | Notes                                    |
-| ------------------------------ | -------- | ---------------------------------------- |
-| Interactive tooltips/help      | Medium   | No tooltip system for explaining metrics |
-| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout           |
-| Guided first-run experience    | Low      | Onboarding tour exists but is basic      |
+| Feature                        | Priority | Notes                               |
+| ------------------------------ | -------- | ----------------------------------- |
+| Customizable dashboard widgets | Medium   | No drag-and-drop widget layout      |
+| Guided first-run experience    | Low      | Onboarding tour exists but is basic |
+
+### Recently Completed
+
+| Feature              | Date       | Notes                                                      |
+| -------------------- | ---------- | ---------------------------------------------------------- |
+| Interactive tooltips | 2026-02-06 | InfoTip component + centralized registry (40+ definitions) |
 
 ---
 
@@ -274,9 +280,9 @@ All 7 items are **Not Started** (deferred as a package):
 
 8. ~~**Award Overlays on Map**~~ DONE (2026-02-06) — useAwardProgress hook (WAS/WAZ/DXCC from logbook), drawWASOverlay with batched canvas fills on FlatMapView, toggle in LabelsPanel.
 
-9. **Interactive Tooltips** — Help system explaining metrics, abbreviations, and controls for new users.
+9. ~~**Interactive Tooltips**~~ DONE (2026-02-06) — Centralized tooltip registry (40+ definitions), InfoTip component with keyboard-accessible ⓘ icons, wired across PrimaryMetrics, BandPlanner, DXWizard, PathAnalysis, SpotDetailPanel, AwardsTracker.
 
-10. **Sync/Retry Queue** — Offline-resilient logging that queues QSOs during disconnection.
+10. ~~**Sync/Retry Queue**~~ DONE (2026-02-06) — syncQueueStore with localStorage persistence, useSyncQueue background processor (10s polling, exponential backoff), SyncStatusIndicator pill+dropdown in Header.
 
 ### Tier 3: Nice-to-Have
 

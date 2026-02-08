@@ -24,6 +24,8 @@ import {
   ProfileCardDesktop,
   ProfileCardMobile,
 } from "@/components/profile";
+import { EquipmentSummary } from "@/components/profile/EquipmentSummary";
+import { QSLSummary } from "@/components/profile/QSLSummary";
 import type { ProfileTab } from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 
@@ -216,6 +218,16 @@ export default function ProfilePage() {
           {/* Social Links */}
           <div className={panelClass}>
             <SocialLinksSection />
+          </div>
+
+          {/* Equipment Summary */}
+          <div className={panelClass}>
+            <EquipmentSummary />
+          </div>
+
+          {/* QSL Services */}
+          <div className={panelClass}>
+            <QSLSummary />
           </div>
         </div>
       )}

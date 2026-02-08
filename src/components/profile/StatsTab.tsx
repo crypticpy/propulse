@@ -3,7 +3,12 @@
  * Consumes useLogbookStats for all aggregated data.
  */
 
+import { useMemo } from "react";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
+import { useLogbook } from "@/hooks/useLogbook";
+import { useProfileStore } from "@/stores/profileStore";
+import { lookupEntity } from "@/lib/data/dxccEntities";
+import { computeAdvancedStats } from "@/lib/profile/statsComputation";
 import { StatCard } from "./StatCard";
 import { ActivityHeatmap } from "./ActivityHeatmap";
 import { QSOByModeChart } from "./QSOByModeChart";
@@ -75,8 +80,35 @@ function getTopEntry(record: Record<string, number>): string {
   return entries[0][0];
 }
 
+function formatRatio(ratio: number): string {
+  if (ratio <= 0) return "0% DX";
+  return `${Math.round(ratio * 100)}% DX`;
+}
+
 export function StatsTab() {
   const stats = useLogbookStats();
+  const { entries } = useLogbook();
+  const station = useProfileStore((s) => s.station);
+
+  // Derive home country from operator's callsign via DXCC lookup
+  const homeCountry = useMemo(() => {
+    const cs = station?.callsign?.toUpperCase().trim();
+    if (!cs) return undefined;
+    const result = lookupEntity(cs);
+    return result?.entity.name;
+  }, [station?.callsign]);
+
+  // Compute advanced stats
+  const advancedStats = useMemo(
+    () =>
+      computeAdvancedStats(
+        entries,
+        stats.qsosByDate,
+        homeCountry,
+        station?.grid,
+      ),
+    [entries, stats.qsosByDate, homeCountry, station?.grid],
+  );
 
   // Loading state
   if (stats.isLoading) {
@@ -143,6 +175,26 @@ export function StatsTab() {
           </h3>
           <QSOByBandChart data={stats.qsosByBand} />
         </div>
+      </div>
+
+      {/* Records & Ratios */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard
+          value={formatRatio(advancedStats.dxDomesticRatio)}
+          label="DX Ratio"
+        />
+        <StatCard
+          value={`${advancedStats.longestStreak}d`}
+          label="Longest Streak"
+        />
+        <StatCard
+          value={`${advancedStats.currentStreak}d`}
+          label="Current Streak"
+        />
+        <StatCard
+          value={`${advancedStats.peakHourUtc}:00z`}
+          label="Peak Hour (UTC)"
+        />
       </div>
 
       {/* Additional stats row */}

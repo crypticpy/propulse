@@ -595,12 +595,7 @@ fn sdrconnect_sdr_capabilities(cfg: &SdrconnectRadioInstanceConfig) -> RadioCapa
     ],
     frequency_range: (1_000, 2_000_000_000),
     sample_rates: vec![cfg.sample_rate],
-    gain_stages: vec![GainStage {
-      name: "GAIN".to_string(),
-      min: 0.0,
-      max: 100.0,
-      step: 1.0,
-    }],
+    gain_stages: Vec::new(),
   }
 }
 

@@ -13,9 +13,11 @@ scan_interval_secs = 5
 [radio.sdrconnect]
 enabled = false
 
+# SDRconnect WebSocket API (requires SDRconnect v1.0.6+ running on the remote machine).
+# Default port: 5454 (allow inbound TCP 5454 in Windows Firewall if connecting over LAN).
 [[radio.sdrconnect.radios]]
 name = "SDRconnect (LAN)"
-url = "ws://192.168.1.50:5000"
+url = "ws://192.168.1.50:5454"
 device_id = 0
 sample_rate = 2048000
 format = "s16le"

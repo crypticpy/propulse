@@ -214,16 +214,24 @@ export function RadioDaemonSetup() {
         <div className="text-sm font-semibold text-gray-100">Connect SDRconnect (LAN)</div>
         <div className="text-sm text-gray-300 leading-relaxed">
           If SDRconnect is running on a Windows machine on your network, add an SDRconnect radio to
-          your daemon config. You’ll need the SDRconnect WebSocket URL (IP + port) and either a{" "}
-          <span className="text-gray-100">device id</span> or{" "}
-          <span className="text-gray-100">serial</span>.
+          your daemon config. Propulse connects via SDRconnect’s{" "}
+          <span className="text-gray-100 font-semibold">WebSocket API</span> (SDRconnect{" "}
+          <span className="text-gray-100 font-mono">v1.0.6+</span>, port{" "}
+          <span className="text-gray-100 font-mono">5454</span>).
+          <div className="mt-2 text-xs text-gray-500">
+            Note: SDRconnect also has a separate “Server mode” on port{" "}
+            <span className="text-gray-300 font-mono">50000</span> for SDRconnect-to-SDRconnect
+            clients. Propulse currently integrates via the{" "}
+            <span className="text-gray-300 font-mono">5454</span> WebSocket API.
+          </div>
         </div>
 
         <Step n={1} title="Add this to your daemon config">
-          <CommandBlock>{`[radio.sdrconnect]\nenabled = true\n\n[[radio.sdrconnect.radios]]\nname = "SDRconnect (LAN)"\nurl = "ws://192.168.1.50:5000"\ndevice_id = 0\nsample_rate = 2048000\nformat = "s16le"\n# gain = 20\n# ppm = 0\n# squelch = 0`}</CommandBlock>
+          <CommandBlock>{`[radio.sdrconnect]\nenabled = true\n\n[[radio.sdrconnect.radios]]\nname = "SDRconnect (LAN)"\nurl = "ws://192.168.1.50:5454"\ndevice_id = 0\nsample_rate = 2048000\nformat = "s16le"\n# gain = 20\n# ppm = 0\n# squelch = 0`}</CommandBlock>
           <div className="text-xs text-gray-500">
-            The port in the example (<span className="text-gray-300 font-mono">5000</span>) is just
-            a placeholder — use whatever SDRconnect provides.
+            If you can’t connect, confirm SDRconnect is running (v1.0.6+), allow inbound TCP{" "}
+            <span className="text-gray-300 font-mono">5454</span> in Windows Firewall, and re-check
+            the IP address.
           </div>
         </Step>
 
@@ -298,7 +306,7 @@ export function RadioDaemonSetup() {
           </li>
           <li>
             <span className="text-gray-100 font-semibold">No SDRconnect audio/FFT</span>: verify
-            the SDRconnect URL + device id/serial, then restart the daemon.
+            the SDRconnect URL + device id, confirm SDRconnect v1.0.6+, then restart the daemon.
           </li>
         </ul>
       </Card>

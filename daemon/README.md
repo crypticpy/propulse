@@ -38,7 +38,12 @@ Config hot-reload:
 
 ### SDRconnect (LAN)
 
-To use an SDR managed by **SDRconnect** on another machine in your network, add it to the config:
+To use an SDR managed by **SDRconnect** on another machine in your network, add it to the config.
+
+Notes:
+- Requires **SDRconnect v1.0.6+** (WebSocket API) running on that machine.
+- Propulse connects to SDRconnect’s **WebSocket API** (default port `5454`). This is separate from SDRconnect `--server` mode (port `50000`), which Propulse does not currently integrate with.
+- If the daemon runs on the same Windows PC as SDRconnect, use `ws://127.0.0.1:5454`. If connecting over LAN, allow inbound TCP `5454` in Windows Firewall.
 
 ```toml
 [radio.sdrconnect]
@@ -46,7 +51,7 @@ enabled = true
 
 [[radio.sdrconnect.radios]]
 name = "SDRconnect (LAN)"
-url = "ws://192.168.1.50:5000"
+url = "ws://192.168.1.50:5454"
 device_id = 0
 sample_rate = 2048000
 format = "s16le"

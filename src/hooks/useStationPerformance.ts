@@ -12,6 +12,7 @@ import {
   useUserAntennas,
   useUserFeedlines,
   useUserAccessories,
+  useInlineComponents,
 } from "@/stores/shackStore";
 import type {
   UserAntenna,
@@ -32,6 +33,7 @@ export interface BandPerformance {
   freqMHz: number;
   txPowerWatts: number;
   feedlineLossDb: number;
+  inlineLossDb: number; // total insertion loss from inline components
   accessoryGainDb: number; // positive = amplifier gain, negative = filter/switch loss
   antennaGainDbi: number;
   powerAtAntennaWatts: number;
@@ -90,6 +92,7 @@ export function useStationPerformance(presetId?: string): StationPerformance {
   const antennas = useUserAntennas();
   const feedlines = useUserFeedlines();
   const accessories = useUserAccessories();
+  const inlineComponents = useInlineComponents();
 
   const targetPreset = useMemo(() => {
     if (presetId) {
@@ -133,6 +136,16 @@ export function useStationPerformance(presetId?: string): StationPerformance {
           )
         : 0;
 
+      // Inline component losses (from preset's inlineComponentIds)
+      const presetInlineIds = targetPreset.inlineComponentIds ?? [];
+      const presetInlines = inlineComponents.filter((c) =>
+        presetInlineIds.includes(c.id),
+      );
+      const inlineLossDb = presetInlines.reduce(
+        (sum, c) => sum + (c.insertionLossDb ?? 0),
+        0,
+      );
+
       // Antenna gain
       const antennaGainDbi =
         antenna.gainDbiOverride?.[band] ??
@@ -140,10 +153,11 @@ export function useStationPerformance(presetId?: string): StationPerformance {
           ?.peakGainDbi ??
         0;
 
-      // Power at antenna after feedline loss and accessory gain/loss
+      // Power at antenna after feedline loss, inline loss, and accessory gain/loss
+      const totalLossDb = feedlineLossDb + inlineLossDb;
       const powerAtAntennaWatts =
         txPowerWatts *
-        Math.pow(10, -feedlineLossDb / 10) *
+        Math.pow(10, -totalLossDb / 10) *
         Math.pow(10, accessoryGainDb / 10);
 
       // ERP with antenna gain
@@ -154,6 +168,7 @@ export function useStationPerformance(presetId?: string): StationPerformance {
         freqMHz,
         txPowerWatts,
         feedlineLossDb,
+        inlineLossDb,
         accessoryGainDb,
         antennaGainDbi,
         powerAtAntennaWatts,
@@ -187,5 +202,5 @@ export function useStationPerformance(presetId?: string): StationPerformance {
       totalLossRangeDb,
       isLoading: false,
     };
-  }, [targetPreset, antennas, feedlines, accessories]);
+  }, [targetPreset, antennas, feedlines, accessories, inlineComponents]);
 }

@@ -23,6 +23,12 @@ import {
   MAX_PRESETS,
 } from "@/types/shack";
 import { getRadioById } from "@/lib/data/radios";
+import type {
+  StationChain,
+  ChainNode,
+  FeedlineRun,
+} from "@/types/stationChain";
+import { MAX_CHAINS, MAX_CHAIN_NODES } from "@/types/stationChain";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -86,6 +92,8 @@ interface ShackStore {
   stationPresets: StationPreset[];
   activePresetId: string | null;
   equipmentHistory: EquipmentHistoryEntry[];
+  stationChains: StationChain[];
+  activeChainId: string | null;
 
   // Radio actions
   addRadio: (radioId: string, nickname?: string) => string | null;
@@ -157,6 +165,39 @@ interface ShackStore {
   setActivePreset: (id: string | null) => void;
   duplicatePreset: (id: string) => string | null;
 
+  // Chain actions
+  addChain: (chain: Omit<StationChain, "id" | "createdAt">) => string | null;
+  updateChain: (
+    id: string,
+    updates: Partial<Omit<StationChain, "id" | "createdAt">>,
+  ) => { ok: true } | { ok: false; error: string };
+  removeChain: (id: string) => void;
+  duplicateChain: (id: string) => string | null;
+  setActiveChain: (id: string | null) => void;
+  addNodeToChain: (
+    chainId: string,
+    node: ChainNode,
+    position: number,
+  ) => { ok: true } | { ok: false; error: string };
+  removeNodeFromChain: (
+    chainId: string,
+    position: number,
+  ) => { ok: true } | { ok: false; error: string };
+  reorderChainNodes: (
+    chainId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => { ok: true } | { ok: false; error: string };
+  addFeedlineRun: (
+    chainId: string,
+    run: Omit<FeedlineRun, "id">,
+  ) => string | null;
+  updateFeedlineRun: (
+    chainId: string,
+    runId: string,
+    updates: Partial<Omit<FeedlineRun, "id">>,
+  ) => { ok: true } | { ok: false; error: string };
+
   // History
   _addHistoryEntry: (
     entry: Omit<EquipmentHistoryEntry, "id" | "timestamp">,
@@ -178,6 +219,8 @@ export const useShackStore = create<ShackStore>()(
       stationPresets: [],
       activePresetId: null,
       equipmentHistory: [],
+      stationChains: [],
+      activeChainId: null,
 
       addRadio: (radioId, nickname) => {
         let instanceId: string | null = null;
@@ -312,7 +355,14 @@ export const useShackStore = create<ShackStore>()(
                 ? updatedRadios[0].id
                 : null
               : state.activeRadioId;
-          return { radios: updatedRadios, activeRadioId };
+          // Clean up chains referencing this radio
+          const stationChains = state.stationChains.map((chain) => ({
+            ...chain,
+            nodes: chain.nodes.filter(
+              (n) => !(n.type === "radio" && n.radioId === radioId),
+            ),
+          }));
+          return { radios: updatedRadios, activeRadioId, stationChains };
         });
 
         get()._addHistoryEntry({
@@ -520,6 +570,13 @@ export const useShackStore = create<ShackStore>()(
           stationPresets: state.stationPresets.filter(
             (p) => p.antennaId !== id,
           ),
+          // Clean up chains referencing this antenna
+          stationChains: state.stationChains.map((chain) => ({
+            ...chain,
+            nodes: chain.nodes.filter(
+              (n) => !(n.type === "antenna" && n.antennaId === id),
+            ),
+          })),
         }));
         get()._addHistoryEntry({
           action: "removed",
@@ -616,13 +673,36 @@ export const useShackStore = create<ShackStore>()(
       removeFeedline: (id) => {
         const feedline = get().feedlines.find((f) => f.id === id);
         const name = feedline?.name ?? "Unknown";
-        set((state) => ({
-          feedlines: state.feedlines.filter((f) => f.id !== id),
-          // Clean up presets referencing this feedline
-          stationPresets: state.stationPresets.map((p) =>
-            p.feedlineId === id ? { ...p, feedlineId: undefined } : p,
-          ),
-        }));
+        set((state) => {
+          // Find FeedlineRun IDs that reference this feedline
+          const affectedRunIds = new Set<string>();
+          for (const chain of state.stationChains) {
+            for (const run of chain.feedlineRuns) {
+              if (run.feedlineId === id) affectedRunIds.add(run.id);
+            }
+          }
+          return {
+            feedlines: state.feedlines.filter((f) => f.id !== id),
+            // Clean up presets referencing this feedline
+            stationPresets: state.stationPresets.map((p) =>
+              p.feedlineId === id ? { ...p, feedlineId: undefined } : p,
+            ),
+            // Clean up chains: remove affected FeedlineRuns and their nodes
+            stationChains: state.stationChains.map((chain) => ({
+              ...chain,
+              feedlineRuns: chain.feedlineRuns.filter(
+                (r) => r.feedlineId !== id,
+              ),
+              nodes: chain.nodes.filter(
+                (n) =>
+                  !(
+                    n.type === "feedline_run" &&
+                    affectedRunIds.has(n.feedlineRunId)
+                  ),
+              ),
+            })),
+          };
+        });
         get()._addHistoryEntry({
           action: "removed",
           equipmentType: "feedline",
@@ -730,6 +810,16 @@ export const useShackStore = create<ShackStore>()(
             inlineComponentIds: p.inlineComponentIds?.filter(
               (cid) => cid !== id,
             ),
+          })),
+          // Clean up chains: remove from FeedlineRun.inlineComponentIds
+          stationChains: state.stationChains.map((chain) => ({
+            ...chain,
+            feedlineRuns: chain.feedlineRuns.map((run) => ({
+              ...run,
+              inlineComponentIds: run.inlineComponentIds.filter(
+                (cid) => cid !== id,
+              ),
+            })),
           })),
         }));
         get()._addHistoryEntry({
@@ -841,6 +931,16 @@ export const useShackStore = create<ShackStore>()(
           stationPresets: state.stationPresets.map((p) => ({
             ...p,
             accessoryIds: p.accessoryIds.filter((aid) => aid !== id),
+          })),
+          // Clean up chains: remove from signal-path nodes and shackAccessoryIds
+          stationChains: state.stationChains.map((chain) => ({
+            ...chain,
+            nodes: chain.nodes.filter(
+              (n) => !(n.type === "accessory" && n.accessoryId === id),
+            ),
+            shackAccessoryIds: chain.shackAccessoryIds.filter(
+              (aid) => aid !== id,
+            ),
           })),
         }));
         get()._addHistoryEntry({
@@ -988,6 +1088,316 @@ export const useShackStore = create<ShackStore>()(
         return newId;
       },
 
+      // === Chain Actions ===
+
+      addChain: (chain) => {
+        let id: string | null = null;
+        set((state) => {
+          if (state.stationChains.length >= MAX_CHAINS) return state;
+          const newId = crypto.randomUUID();
+          id = newId;
+          return {
+            stationChains: [
+              ...state.stationChains,
+              { ...chain, id: newId, createdAt: new Date().toISOString() },
+            ],
+          };
+        });
+        if (id) {
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "preset",
+            equipmentId: id,
+            equipmentName: chain.name,
+          });
+        }
+        return id;
+      },
+
+      updateChain: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.stationChains.findIndex((c) => c.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Chain not found" };
+            return state;
+          }
+          return {
+            stationChains: state.stationChains.map((c, i) =>
+              i === idx ? { ...c, ...updates } : c,
+            ),
+          };
+        });
+        if (result.ok) {
+          const chain = get().stationChains.find((c) => c.id === id);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "preset",
+            equipmentId: id,
+            equipmentName: chain?.name ?? "Unknown",
+          });
+        }
+        return result;
+      },
+
+      removeChain: (id) => {
+        const chain = get().stationChains.find((c) => c.id === id);
+        const name = chain?.name ?? "Unknown";
+        set((state) => ({
+          stationChains: state.stationChains.filter((c) => c.id !== id),
+          activeChainId:
+            state.activeChainId === id ? null : state.activeChainId,
+        }));
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "preset",
+          equipmentId: id,
+          equipmentName: name,
+        });
+      },
+
+      duplicateChain: (id) => {
+        let newId: string | null = null;
+        const src = get().stationChains.find((c) => c.id === id);
+        const originalName = src?.name ?? "Unknown";
+        set((state) => {
+          const current = state.stationChains.find((c) => c.id === id);
+          if (!current || state.stationChains.length >= MAX_CHAINS)
+            return state;
+          newId = crypto.randomUUID();
+          return {
+            stationChains: [
+              ...state.stationChains,
+              {
+                ...current,
+                id: newId,
+                name: `${current.name} (copy)`,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          };
+        });
+        if (newId) {
+          get()._addHistoryEntry({
+            action: "duplicated",
+            equipmentType: "preset",
+            equipmentId: newId,
+            equipmentName: `${originalName} (copy)`,
+            details: `Duplicated from ${originalName}`,
+          });
+        }
+        return newId;
+      },
+
+      setActiveChain: (id) => set({ activeChainId: id }),
+
+      addNodeToChain: (chainId, node, position) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.stationChains.findIndex((c) => c.id === chainId);
+          if (idx === -1) {
+            result = { ok: false, error: "Chain not found" };
+            return state;
+          }
+          const chain = state.stationChains[idx];
+          if (chain.nodes.length >= MAX_CHAIN_NODES) {
+            result = { ok: false, error: "Maximum chain nodes reached" };
+            return state;
+          }
+          const clampedPos = Math.max(
+            0,
+            Math.min(position, chain.nodes.length),
+          );
+          const updatedNodes = [...chain.nodes];
+          updatedNodes.splice(clampedPos, 0, node);
+          return {
+            stationChains: state.stationChains.map((c, i) =>
+              i === idx ? { ...c, nodes: updatedNodes } : c,
+            ),
+          };
+        });
+        if (result.ok) {
+          const chain = get().stationChains.find((c) => c.id === chainId);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "preset",
+            equipmentId: chainId,
+            equipmentName: chain?.name ?? "Unknown",
+            details: `Added ${node.type} node`,
+          });
+        }
+        return result;
+      },
+
+      removeNodeFromChain: (chainId, position) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.stationChains.findIndex((c) => c.id === chainId);
+          if (idx === -1) {
+            result = { ok: false, error: "Chain not found" };
+            return state;
+          }
+          const chain = state.stationChains[idx];
+          if (position < 0 || position >= chain.nodes.length) {
+            result = { ok: false, error: "Invalid node position" };
+            return state;
+          }
+          const removedNode = chain.nodes[position];
+          const updatedNodes = chain.nodes.filter((_, i) => i !== position);
+          // If removing a feedline_run node, also clean up the referenced FeedlineRun
+          let updatedRuns = chain.feedlineRuns;
+          if (removedNode.type === "feedline_run") {
+            updatedRuns = chain.feedlineRuns.filter(
+              (r) => r.id !== removedNode.feedlineRunId,
+            );
+          }
+          return {
+            stationChains: state.stationChains.map((c, i) =>
+              i === idx
+                ? { ...c, nodes: updatedNodes, feedlineRuns: updatedRuns }
+                : c,
+            ),
+          };
+        });
+        if (result.ok) {
+          const chain = get().stationChains.find((c) => c.id === chainId);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "preset",
+            equipmentId: chainId,
+            equipmentName: chain?.name ?? "Unknown",
+            details: "Removed node from chain",
+          });
+        }
+        return result;
+      },
+
+      reorderChainNodes: (chainId, fromIndex, toIndex) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.stationChains.findIndex((c) => c.id === chainId);
+          if (idx === -1) {
+            result = { ok: false, error: "Chain not found" };
+            return state;
+          }
+          const chain = state.stationChains[idx];
+          if (
+            fromIndex < 0 ||
+            fromIndex >= chain.nodes.length ||
+            toIndex < 0 ||
+            toIndex >= chain.nodes.length
+          ) {
+            result = { ok: false, error: "Invalid node index" };
+            return state;
+          }
+          const updatedNodes = [...chain.nodes];
+          const [moved] = updatedNodes.splice(fromIndex, 1);
+          updatedNodes.splice(toIndex, 0, moved);
+          return {
+            stationChains: state.stationChains.map((c, i) =>
+              i === idx ? { ...c, nodes: updatedNodes } : c,
+            ),
+          };
+        });
+        if (result.ok) {
+          const chain = get().stationChains.find((c) => c.id === chainId);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "preset",
+            equipmentId: chainId,
+            equipmentName: chain?.name ?? "Unknown",
+            details: "Reordered chain nodes",
+          });
+        }
+        return result;
+      },
+
+      addFeedlineRun: (chainId, run) => {
+        let runId: string | null = null;
+        set((state) => {
+          const idx = state.stationChains.findIndex((c) => c.id === chainId);
+          if (idx === -1) return state;
+          const chain = state.stationChains[idx];
+          if (chain.nodes.length >= MAX_CHAIN_NODES) return state;
+          const newRunId = crypto.randomUUID();
+          runId = newRunId;
+          const newRun: FeedlineRun = { ...run, id: newRunId };
+          const updatedRuns = [...chain.feedlineRuns, newRun];
+          // Insert feedline_run node before the last antenna node if one exists
+          const updatedNodes = [...chain.nodes];
+          const feedlineNode: ChainNode = {
+            type: "feedline_run",
+            feedlineRunId: newRunId,
+          };
+          let lastAntennaIdx = -1;
+          for (let i = updatedNodes.length - 1; i >= 0; i--) {
+            if (updatedNodes[i].type === "antenna") {
+              lastAntennaIdx = i;
+              break;
+            }
+          }
+          if (lastAntennaIdx >= 0) {
+            updatedNodes.splice(lastAntennaIdx, 0, feedlineNode);
+          } else {
+            updatedNodes.push(feedlineNode);
+          }
+          return {
+            stationChains: state.stationChains.map((c, i) =>
+              i === idx
+                ? { ...c, nodes: updatedNodes, feedlineRuns: updatedRuns }
+                : c,
+            ),
+          };
+        });
+        if (runId) {
+          const chain = get().stationChains.find((c) => c.id === chainId);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "preset",
+            equipmentId: chainId,
+            equipmentName: chain?.name ?? "Unknown",
+            details: "Added feedline run",
+          });
+        }
+        return runId;
+      },
+
+      updateFeedlineRun: (chainId, runId, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.stationChains.findIndex((c) => c.id === chainId);
+          if (idx === -1) {
+            result = { ok: false, error: "Chain not found" };
+            return state;
+          }
+          const chain = state.stationChains[idx];
+          const runIdx = chain.feedlineRuns.findIndex((r) => r.id === runId);
+          if (runIdx === -1) {
+            result = { ok: false, error: "Feedline run not found" };
+            return state;
+          }
+          const updatedRuns = chain.feedlineRuns.map((r, i) =>
+            i === runIdx ? { ...r, ...updates } : r,
+          );
+          return {
+            stationChains: state.stationChains.map((c, i) =>
+              i === idx ? { ...c, feedlineRuns: updatedRuns } : c,
+            ),
+          };
+        });
+        if (result.ok) {
+          const chain = get().stationChains.find((c) => c.id === chainId);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "preset",
+            equipmentId: chainId,
+            equipmentName: chain?.name ?? "Unknown",
+            details: "Updated feedline run",
+          });
+        }
+        return result;
+      },
+
       // === History ===
 
       _addHistoryEntry: (entry) =>
@@ -1004,7 +1414,7 @@ export const useShackStore = create<ShackStore>()(
     }),
     {
       name: "propulse-shack",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         radios: state.radios,
@@ -1017,6 +1427,8 @@ export const useShackStore = create<ShackStore>()(
         stationPresets: state.stationPresets,
         activePresetId: state.activePresetId,
         equipmentHistory: state.equipmentHistory,
+        stationChains: state.stationChains,
+        activeChainId: state.activeChainId,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -1030,6 +1442,48 @@ export const useShackStore = create<ShackStore>()(
         if (version < 3) {
           if (!("inlineComponents" in state)) state.inlineComponents = [];
           if (!("equipmentHistory" in state)) state.equipmentHistory = [];
+        }
+        if (version < 4) {
+          // Auto-convert existing stationPresets to stationChains
+          const presets = (state.stationPresets as StationPreset[]) ?? [];
+          const chains: StationChain[] = presets.map((preset) => {
+            const nodes: ChainNode[] = [];
+            // Radio node
+            if (preset.radioId) {
+              nodes.push({ type: "radio", radioId: preset.radioId });
+            }
+            // Accessory nodes (all accessories were signal-path in old presets)
+            for (const accId of preset.accessoryIds ?? []) {
+              nodes.push({ type: "accessory", accessoryId: accId });
+            }
+            // Feedline run
+            const feedlineRuns: FeedlineRun[] = [];
+            if (preset.feedlineId) {
+              const runId = crypto.randomUUID();
+              feedlineRuns.push({
+                id: runId,
+                feedlineId: preset.feedlineId,
+                inlineComponentIds: preset.inlineComponentIds ?? [],
+              });
+              nodes.push({ type: "feedline_run", feedlineRunId: runId });
+            }
+            // Antenna node
+            if (preset.antennaId) {
+              nodes.push({ type: "antenna", antennaId: preset.antennaId });
+            }
+            return {
+              id: preset.id,
+              name: preset.name,
+              nodes,
+              feedlineRuns,
+              operatingPowerWatts: preset.operatingPowerWatts,
+              shackAccessoryIds: [],
+              notes: preset.notes,
+              createdAt: preset.createdAt,
+            };
+          });
+          state.stationChains = chains;
+          state.activeChainId = (state.activePresetId as string | null) ?? null;
         }
         return state as never;
       },
@@ -1131,6 +1585,23 @@ export function useInlineComponents(): InlineComponent[] {
  */
 export function useEquipmentHistory(): EquipmentHistoryEntry[] {
   return useShackStore((s) => s.equipmentHistory);
+}
+
+/**
+ * Hook to get all station chains
+ */
+export function useStationChains(): StationChain[] {
+  return useShackStore((s) => s.stationChains);
+}
+
+/**
+ * Hook to get the active station chain
+ */
+export function useActiveChain(): StationChain | null {
+  const activeChainId = useShackStore((s) => s.activeChainId);
+  const chains = useShackStore((s) => s.stationChains);
+  if (!activeChainId) return null;
+  return chains.find((c) => c.id === activeChainId) ?? null;
 }
 
 // Re-export helpers for use by migration utility and sync modules

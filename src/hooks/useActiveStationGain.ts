@@ -12,6 +12,7 @@ import {
   useUserAntennas,
   useUserFeedlines,
   useUserAccessories,
+  useInlineComponents,
 } from "@/stores/shackStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { calculateTotalFeedlineLoss } from "@/lib/data/feedlines";
@@ -53,6 +54,7 @@ export function useActiveStationGain(): ActiveStationGain {
   const antennas = useUserAntennas();
   const feedlines = useUserFeedlines();
   const accessories = useUserAccessories();
+  const inlineComponents = useInlineComponents();
   const fallbackAntennaType = useSettingsStore((s) => s.antennaType);
 
   return useMemo(() => {
@@ -83,12 +85,29 @@ export function useActiveStationGain(): ActiveStationGain {
       0,
     );
 
-    const systemLossDb = feedlineLossDb - netAccessoryGainDb;
+    // Inline component losses
+    const presetInlineIds = preset.inlineComponentIds ?? [];
+    const presetInlines = inlineComponents.filter((c) =>
+      presetInlineIds.includes(c.id),
+    );
+    const inlineLossDb = presetInlines.reduce(
+      (sum, c) => sum + (c.insertionLossDb ?? 0),
+      0,
+    );
+
+    const systemLossDb = feedlineLossDb + inlineLossDb - netAccessoryGainDb;
 
     return {
       antennaType,
       systemLossDb,
       txPowerWatts: preset.operatingPowerWatts,
     };
-  }, [preset, antennas, feedlines, accessories, fallbackAntennaType]);
+  }, [
+    preset,
+    antennas,
+    feedlines,
+    accessories,
+    inlineComponents,
+    fallbackAntennaType,
+  ]);
 }

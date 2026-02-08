@@ -14,14 +14,14 @@ export { seedTestEquipment, clearTestEquipment } from "./seedEquipment";
 // Auto-attach to window + auto-seed in development
 if (import.meta.env.DEV) {
   import("./seedEquipment").then(
-    ({ seedTestEquipment, clearTestEquipment }) => {
+    async ({ seedTestEquipment, clearTestEquipment }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__seedEquipment = seedTestEquipment;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__clearEquipment = clearTestEquipment;
 
       // Auto-seed if shack is empty (no radios)
-      const { useShackStore } = require("@/stores/shackStore");
+      const { useShackStore } = await import("@/stores/shackStore");
       const shack = useShackStore.getState();
       if (shack.radios.length === 0) {
         console.log("[dev] Auto-seeding equipment for KB0EL...");
@@ -29,7 +29,7 @@ if (import.meta.env.DEV) {
       }
 
       // Set test profile if no callsign
-      const { useProfileStore } = require("@/stores/profileStore");
+      const { useProfileStore } = await import("@/stores/profileStore");
       const profile = useProfileStore.getState();
       if (!profile.station?.callsign) {
         console.log("[dev] Setting test profile: KB0EL");
@@ -38,6 +38,9 @@ if (import.meta.env.DEV) {
           operatorName: "Clark B Ashworth",
           homeLocationId: "home",
           activeLocationId: null,
+          grid: "DM79",
+          lat: 39.74,
+          lon: -104.99,
           savedLocations: [
             {
               id: "home",
@@ -45,6 +48,7 @@ if (import.meta.env.DEV) {
               grid: "DM79",
               lat: 39.74,
               lon: -104.99,
+              type: "home",
               createdAt: new Date().toISOString(),
             },
           ],

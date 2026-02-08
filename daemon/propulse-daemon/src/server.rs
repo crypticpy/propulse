@@ -19,11 +19,12 @@ use uuid::Uuid;
 use async_trait::async_trait;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
-use crate::config::{AppConfig, Cli, HamlibRigConfig};
+use crate::config::{AppConfig, Cli, HamlibRigConfig, SdrconnectRadioInstanceConfig};
 use crate::protocol::{
   build_audio_frame, build_fft_frame, DaemonStatusEvent, DevicesList, Hello,
   PROTOCOL_VERSION, RadioSmeterEvent, RadioStateEvent, Response,
 };
+use crate::sdrconnect::SdrconnectRuntime;
 
 use propulse_radio::{
   dummy::dummy_device,
@@ -62,6 +63,7 @@ struct DaemonState {
   config: Mutex<AppConfig>,
   radio: Mutex<RadioManager>,
   soapy_kwargs_by_device_id: Mutex<HashMap<String, HashMap<String, String>>>,
+  sdrconnect_cfg_by_device_id: Mutex<HashMap<String, SdrconnectRadioInstanceConfig>>,
   device_idx_by_id: Mutex<HashMap<String, u8>>,
   clients: Mutex<HashMap<String, ClientState>>,
   streams: Mutex<HashMap<String, DeviceStreams>>,
@@ -172,6 +174,7 @@ where
     config: Mutex::new(effective_config.clone()),
     radio: Mutex::new(radio),
     soapy_kwargs_by_device_id: Mutex::new(HashMap::new()),
+    sdrconnect_cfg_by_device_id: Mutex::new(HashMap::new()),
     device_idx_by_id: Mutex::new(device_idx_by_id),
     clients: Mutex::new(HashMap::new()),
     streams: Mutex::new(HashMap::new()),
@@ -400,6 +403,10 @@ fn spawn_device_scanner(state: Arc<DaemonState>) {
         let mut map = state.soapy_kwargs_by_device_id.lock().await;
         *map = scan.soapy_kwargs_by_device_id;
       }
+      {
+        let mut map = state.sdrconnect_cfg_by_device_id.lock().await;
+        *map = scan.sdrconnect_cfg_by_device_id;
+      }
 
       let delta = {
         let mut radio = state.radio.lock().await;
@@ -410,6 +417,7 @@ fn spawn_device_scanner(state: Arc<DaemonState>) {
         for id in &delta.removed {
           stop_device_streams_if_any(&state, id).await;
           stop_soapy_device_if_any(&state, id).await;
+          stop_sdrconnect_device_if_any(&state, id).await;
           let mut streams = state.streams.lock().await;
           streams.remove(id);
         }
@@ -424,11 +432,14 @@ fn spawn_device_scanner(state: Arc<DaemonState>) {
 struct DeviceScanResult {
   devices: Vec<DeviceInfo>,
   soapy_kwargs_by_device_id: HashMap<String, HashMap<String, String>>,
+  sdrconnect_cfg_by_device_id: HashMap<String, SdrconnectRadioInstanceConfig>,
 }
 
 fn discover_devices(cfg: &crate::config::RadioConfig) -> DeviceScanResult {
   let mut devices = Vec::new();
   let mut soapy_kwargs_by_device_id: HashMap<String, HashMap<String, String>> = HashMap::new();
+  let mut sdrconnect_cfg_by_device_id: HashMap<String, SdrconnectRadioInstanceConfig> =
+    HashMap::new();
 
   if cfg.dummy_enabled {
     devices.push(dummy_device("dummy:0"));
@@ -453,6 +464,28 @@ fn discover_devices(cfg: &crate::config::RadioConfig) -> DeviceScanResult {
     }
   }
 
+  if cfg.sdrconnect.enabled {
+    for sc in &cfg.sdrconnect.radios {
+      let device_id = stable_sdrconnect_device_id(sc);
+      sdrconnect_cfg_by_device_id.insert(device_id.clone(), sc.clone());
+      let display_name = if sc.name.trim().is_empty() {
+        format!("SDRconnect @ {}", sc.url)
+      } else {
+        sc.name.clone()
+      };
+      devices.push(DeviceInfo {
+        device_id,
+        name: display_name,
+        driver: "sdrconnect".to_string(),
+        device_type: RadioType::Sdr,
+        serial: sc.serial.clone(),
+        port: Some(sc.url.clone()),
+        available: true,
+        capabilities: sdrconnect_sdr_capabilities(sc),
+      });
+    }
+  }
+
   if cfg.hamlib.enabled && !cfg.hamlib.rigs.is_empty() {
     let ports = list_serial_ports().unwrap_or_default();
     let port_names = ports
@@ -469,6 +502,7 @@ fn discover_devices(cfg: &crate::config::RadioConfig) -> DeviceScanResult {
   DeviceScanResult {
     devices,
     soapy_kwargs_by_device_id,
+    sdrconnect_cfg_by_device_id,
   }
 }
 
@@ -478,6 +512,14 @@ fn stable_soapy_device_id(info: &propulse_discovery::soapy_enum::SoapyDeviceInfo
   }
   let h = short_hash(&info.label);
   format!("soapy:{}:{}", info.driver, h)
+}
+
+fn stable_sdrconnect_device_id(info: &SdrconnectRadioInstanceConfig) -> String {
+  let h = short_hash(&info.url);
+  if let Some(serial) = info.serial.as_deref() {
+    return format!("sdrconnect:{h}:{serial}");
+  }
+  format!("sdrconnect:{h}:{}", info.device_id.unwrap_or(0))
 }
 
 fn hamlib_device_from_config(rig: &HamlibRigConfig, available: bool) -> DeviceInfo {
@@ -534,6 +576,31 @@ fn default_sdr_capabilities() -> RadioCapabilities {
         step: 1.0,
       },
     ],
+  }
+}
+
+fn sdrconnect_sdr_capabilities(cfg: &SdrconnectRadioInstanceConfig) -> RadioCapabilities {
+  RadioCapabilities {
+    can_transmit: false,
+    can_stream_iq: true,
+    can_stream_fft: true,
+    can_stream_audio: true,
+    antennas: vec!["RX".to_string()],
+    modes: vec![
+      "USB".to_string(),
+      "LSB".to_string(),
+      "CW".to_string(),
+      "AM".to_string(),
+      "FM".to_string(),
+    ],
+    frequency_range: (1_000, 2_000_000_000),
+    sample_rates: vec![cfg.sample_rate],
+    gain_stages: vec![GainStage {
+      name: "GAIN".to_string(),
+      min: 0.0,
+      max: 100.0,
+      step: 1.0,
+    }],
   }
 }
 
@@ -700,6 +767,7 @@ struct DeviceStreams {
   audio: Option<JoinHandle<()>>,
   dsp: Option<Arc<Mutex<DspPipeline>>>,
   soapy: Option<SoapyRuntime>,
+  sdrconnect: Option<SdrconnectRuntime>,
 }
 
 struct SoapyRuntime {
@@ -963,6 +1031,60 @@ async fn handle_text_message(
         }
       }
 
+      // SDRconnect network devices require a remote WebSocket session.
+      if device_id.starts_with("sdrconnect:") {
+        let cfg = {
+          let map = state.sdrconnect_cfg_by_device_id.lock().await;
+          map.get(device_id).cloned()
+        };
+        let Some(mut cfg) = cfg else {
+          if let Some(id) = id {
+            send_json(
+              state,
+              client_id,
+              &Response::err(id, "SDRconnect device details not found; re-enumerate devices"),
+            )
+            .await?;
+          }
+          return Ok(());
+        };
+
+        if let Some(sr) = sample_rate {
+          cfg.sample_rate = sr;
+        }
+
+        let freq = current_state.as_ref().map(|s| s.freq).unwrap_or(14_074_000);
+        let gains = current_state
+          .as_ref()
+          .map(|s| s.gains.clone())
+          .unwrap_or_default();
+        let gain = gains.get("GAIN").copied().or_else(|| gains.values().next().copied());
+
+        let rt = match SdrconnectRuntime::connect(cfg, freq, gain).await {
+          Ok(v) => v,
+          Err(err) => {
+            if let Some(id) = id {
+              send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+            }
+            return Ok(());
+          }
+        };
+        let iq_sample_rate = rt.sample_rate();
+
+        let maybe_pipeline = {
+          let mut streams = state.streams.lock().await;
+          let entry = streams.entry(device_id.to_string()).or_default();
+          entry.sdrconnect = Some(rt);
+          entry.dsp.as_ref().cloned()
+        };
+
+        if let Some(p) = maybe_pipeline {
+          let audio_rate = { state.config.lock().await.dsp.default_audio_rate };
+          let mut pipe = p.lock().await;
+          pipe.set_sample_rates(iq_sample_rate, audio_rate);
+        }
+      }
+
       let mut radio = state.radio.lock().await;
       match radio.connect(device_id) {
         Ok(mut new_state) => {
@@ -1004,6 +1126,7 @@ async fn handle_text_message(
 
       stop_device_streams_if_any(state, device_id).await;
       stop_soapy_device_if_any(state, device_id).await;
+      stop_sdrconnect_device_if_any(state, device_id).await;
 
       let mut radio = state.radio.lock().await;
       match radio.disconnect(device_id) {
@@ -1045,6 +1168,12 @@ async fn handle_text_message(
       };
 
       if let Err(err) = maybe_apply_soapy_tune(state, device_id, freq).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
+      if let Err(err) = maybe_apply_sdrconnect_tune(state, device_id, freq).await {
         if let Some(id) = id {
           send_json(state, client_id, &Response::err(id, err.to_string())).await?;
         }
@@ -1136,6 +1265,12 @@ async fn handle_text_message(
       };
 
       if let Err(err) = maybe_apply_soapy_gain(state, device_id, stage, value as f32).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
+      if let Err(err) = maybe_apply_sdrconnect_gain(state, device_id, stage, value as f32).await {
         if let Some(id) = id {
           send_json(state, client_id, &Response::err(id, err.to_string())).await?;
         }
@@ -1358,6 +1493,13 @@ async fn handle_text_message(
         }
         return Ok(());
       };
+
+      if let Err(err) = maybe_apply_sdrconnect_squelch(state, device_id, level as f32).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
 
       let mut radio = state.radio.lock().await;
       match radio.set_squelch(device_id, level as f32) {
@@ -2459,6 +2601,26 @@ async fn ensure_soapy_reader_buffer(
   Some(Arc::clone(&soapy.buffer))
 }
 
+async fn ensure_sdrconnect_reader_buffer(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+) -> Option<Arc<StdMutex<VecDeque<Complex32>>>> {
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return None;
+  }
+
+  let streams = state.streams.lock().await;
+  let rt = streams.get(device_id).and_then(|s| s.sdrconnect.as_ref())?;
+  if let Err(err) = rt.start_streaming() {
+    warn!(error = %err, "SDRconnect start failed");
+  }
+  Some(rt.buffer())
+}
+
 fn latest_iq_window(buf: &Arc<StdMutex<VecDeque<Complex32>>>, n: usize) -> Option<Vec<Complex32>> {
   if n == 0 {
     return Some(Vec::new());
@@ -2510,6 +2672,19 @@ async fn stop_soapy_device_if_any(state: &Arc<DaemonState>, device_id: &str) {
   if let Some(h) = rt.reader.take() {
     let _ = h.await;
   }
+}
+
+async fn stop_sdrconnect_device_if_any(state: &Arc<DaemonState>, device_id: &str) {
+  let runtime = {
+    let mut streams = state.streams.lock().await;
+    streams.get_mut(device_id).and_then(|s| s.sdrconnect.take())
+  };
+
+  let Some(rt) = runtime else {
+    return;
+  };
+
+  rt.shutdown().await;
 }
 
 async fn stop_soapy_reader_if_idle(state: &Arc<DaemonState>, device_id: &str) {
@@ -2634,6 +2809,97 @@ async fn maybe_apply_soapy_antenna(state: &Arc<DaemonState>, device_id: &str, po
   Ok(())
 }
 
+async fn maybe_apply_sdrconnect_tune(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+  freq: u64,
+) -> anyhow::Result<()> {
+  if !device_id.starts_with("sdrconnect:") {
+    return Ok(());
+  }
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return Ok(());
+  }
+
+  let res = {
+    let streams = state.streams.lock().await;
+    streams
+      .get(device_id)
+      .and_then(|s| s.sdrconnect.as_ref())
+      .map(|rt| rt.set_center_frequency(freq))
+  };
+  if let Some(r) = res {
+    r?;
+  }
+  Ok(())
+}
+
+async fn maybe_apply_sdrconnect_gain(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+  stage: &str,
+  value: f32,
+) -> anyhow::Result<()> {
+  if !device_id.starts_with("sdrconnect:") {
+    return Ok(());
+  }
+  if stage.to_uppercase() != "GAIN" {
+    return Ok(());
+  }
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return Ok(());
+  }
+
+  let res = {
+    let streams = state.streams.lock().await;
+    streams
+      .get(device_id)
+      .and_then(|s| s.sdrconnect.as_ref())
+      .map(|rt| rt.set_gain(value))
+  };
+  if let Some(r) = res {
+    r?;
+  }
+  Ok(())
+}
+
+async fn maybe_apply_sdrconnect_squelch(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+  level: f32,
+) -> anyhow::Result<()> {
+  if !device_id.starts_with("sdrconnect:") {
+    return Ok(());
+  }
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return Ok(());
+  }
+
+  let res = {
+    let streams = state.streams.lock().await;
+    streams
+      .get(device_id)
+      .and_then(|s| s.sdrconnect.as_ref())
+      .map(|rt| rt.set_squelch(level))
+  };
+  if let Some(r) = res {
+    r?;
+  }
+  Ok(())
+}
+
 async fn ensure_fft_stream(
   state: &Arc<DaemonState>,
   device_id: &str,
@@ -2671,7 +2937,7 @@ async fn ensure_fft_stream(
     let iq_rate = {
       pipeline_task.lock().await.config().iq_sample_rate
     };
-    let mut soapy_buf: Option<Arc<StdMutex<VecDeque<Complex32>>>> = None;
+    let mut iq_buf: Option<Arc<StdMutex<VecDeque<Complex32>>>> = None;
 
     loop {
       interval.tick().await;
@@ -2703,11 +2969,14 @@ async fn ensure_fft_stream(
         continue;
       }
 
-      if soapy_buf.is_none() && device_id2.starts_with("soapy:") {
-        soapy_buf = ensure_soapy_reader_buffer(&state2, &device_id2).await;
+      if iq_buf.is_none() && device_id2.starts_with("soapy:") {
+        iq_buf = ensure_soapy_reader_buffer(&state2, &device_id2).await;
+      }
+      if iq_buf.is_none() && device_id2.starts_with("sdrconnect:") {
+        iq_buf = ensure_sdrconnect_reader_buffer(&state2, &device_id2).await;
       }
 
-      let iq = if let Some(buf) = soapy_buf.as_ref() {
+      let iq = if let Some(buf) = iq_buf.as_ref() {
         let Some(v) = latest_iq_window(buf, fft_size) else {
           continue;
         };
@@ -2798,7 +3067,7 @@ async fn ensure_audio_stream(state: &Arc<DaemonState>, device_id: &str, sample_r
     };
     let iq_frame = (iq_rate as u64 * frame_ms / 1000).max(1024) as usize;
     let mut interval = tokio::time::interval(Duration::from_millis(20));
-    let mut soapy_buf: Option<Arc<StdMutex<VecDeque<Complex32>>>> = None;
+    let mut iq_buf: Option<Arc<StdMutex<VecDeque<Complex32>>>> = None;
 
     loop {
       interval.tick().await;
@@ -2824,11 +3093,14 @@ async fn ensure_audio_stream(state: &Arc<DaemonState>, device_id: &str, sample_r
         }
       };
 
-      if soapy_buf.is_none() && device_id2.starts_with("soapy:") {
-        soapy_buf = ensure_soapy_reader_buffer(&state2, &device_id2).await;
+      if iq_buf.is_none() && device_id2.starts_with("soapy:") {
+        iq_buf = ensure_soapy_reader_buffer(&state2, &device_id2).await;
+      }
+      if iq_buf.is_none() && device_id2.starts_with("sdrconnect:") {
+        iq_buf = ensure_sdrconnect_reader_buffer(&state2, &device_id2).await;
       }
 
-      let iq = if let Some(buf) = soapy_buf.as_ref() {
+      let iq = if let Some(buf) = iq_buf.as_ref() {
         let Some(v) = consume_iq_chunk(buf, iq_frame) else {
           continue;
         };
@@ -2885,8 +3157,11 @@ async fn ensure_pipeline(state: &Arc<DaemonState>, device_id: &str) -> Arc<Mutex
     let streams = state.streams.lock().await;
     streams
       .get(device_id)
-      .and_then(|s| s.soapy.as_ref())
-      .map(|s| s.sample_rate)
+      .and_then(|s| {
+        s.soapy.as_ref().map(|s| s.sample_rate).or_else(|| {
+          s.sdrconnect.as_ref().map(|s| s.sample_rate())
+        })
+      })
       .unwrap_or(2_048_000)
   };
   let audio_sample_rate = { state.config.lock().await.dsp.default_audio_rate };

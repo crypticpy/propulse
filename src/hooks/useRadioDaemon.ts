@@ -11,6 +11,8 @@ import type { DaemonIncomingMessage, RadioBinaryFrame } from "@/lib/radio/protoc
 import { generateCommandId, parseBinaryFrame } from "@/lib/radio/protocol";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
+const BRIDGE_SOURCE_FROM_PAGE = "propulse-daemon-client";
+const BRIDGE_SOURCE_TO_PAGE = "propulse-daemon-bridge";
 
 export interface RadioDaemonConnectionOptions {
   url?: string;
@@ -65,11 +67,15 @@ export function useRadioDaemon(
   const [lastFrame, setLastFrame] = useState<RadioBinaryFrame | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const transportRef = useRef<"ws" | "bridge">("ws");
+  const bridgeSessionIdRef = useRef<string | null>(null);
+  const bridgeConnectedRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(true);
   const manualDisconnectRef = useRef(false);
   const reconnectAttemptRef = useRef(0);
+  const connectRef = useRef<() => void>(() => {});
 
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -87,7 +93,47 @@ export function useRadioDaemon(
     }
   }, []);
 
+  const scheduleReconnect = useCallback(() => {
+    const currentOpts = optsRef.current;
+
+    if (!mountedRef.current || manualDisconnectRef.current) return;
+    if (!currentOpts.autoReconnect) return;
+
+    const attempt = reconnectAttemptRef.current;
+    const delay = calculateBackoff(
+      attempt,
+      currentOpts.reconnectDelay,
+      currentOpts.maxReconnectDelay,
+    );
+    reconnectAttemptRef.current = attempt + 1;
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (mountedRef.current && !manualDisconnectRef.current) {
+        connectRef.current();
+      }
+    }, delay);
+  }, []);
+
   const send = useCallback((message: Record<string, unknown>): boolean => {
+    if (transportRef.current === "bridge") {
+      const sessionId = bridgeSessionIdRef.current;
+      if (!sessionId || !bridgeConnectedRef.current) return false;
+      try {
+        window.postMessage(
+          {
+            source: BRIDGE_SOURCE_FROM_PAGE,
+            type: "send",
+            sessionId,
+            text: JSON.stringify(message),
+          },
+          "*",
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       return false;
     }
@@ -112,6 +158,23 @@ export function useRadioDaemon(
     manualDisconnectRef.current = true;
     clearTimers();
 
+    bridgeConnectedRef.current = false;
+    if (bridgeSessionIdRef.current) {
+      try {
+        window.postMessage(
+          {
+            source: BRIDGE_SOURCE_FROM_PAGE,
+            type: "disconnect",
+            sessionId: bridgeSessionIdRef.current,
+          },
+          "*",
+        );
+      } catch {
+        // ignore
+      }
+      bridgeSessionIdRef.current = null;
+    }
+
     if (wsRef.current) {
       wsRef.current.close(1000, "Manual disconnect");
       wsRef.current = null;
@@ -129,6 +192,22 @@ export function useRadioDaemon(
       wsRef.current.close();
       wsRef.current = null;
     }
+    if (bridgeSessionIdRef.current) {
+      try {
+        window.postMessage(
+          {
+            source: BRIDGE_SOURCE_FROM_PAGE,
+            type: "disconnect",
+            sessionId: bridgeSessionIdRef.current,
+          },
+          "*",
+        );
+      } catch {
+        // ignore
+      }
+      bridgeSessionIdRef.current = null;
+      bridgeConnectedRef.current = false;
+    }
     clearTimers();
 
     if (!mountedRef.current) return;
@@ -137,24 +216,41 @@ export function useRadioDaemon(
     setError(null);
     manualDisconnectRef.current = false;
 
-    const scheduleReconnect = () => {
-      if (!mountedRef.current || manualDisconnectRef.current) return;
-      if (!currentOpts.autoReconnect) return;
-
-      const attempt = reconnectAttemptRef.current;
-      const delay = calculateBackoff(
-        attempt,
-        currentOpts.reconnectDelay,
-        currentOpts.maxReconnectDelay,
-      );
-      reconnectAttemptRef.current = attempt + 1;
-
-      reconnectTimeoutRef.current = setTimeout(() => {
-        if (mountedRef.current && !manualDisconnectRef.current) connect();
-      }, delay);
-    };
+    const needsBridge =
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      currentOpts.url.startsWith("ws://");
 
     try {
+      if (needsBridge) {
+        transportRef.current = "bridge";
+        const sessionId = `bridge-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        bridgeSessionIdRef.current = sessionId;
+        bridgeConnectedRef.current = false;
+
+        window.postMessage(
+          {
+            source: BRIDGE_SOURCE_FROM_PAGE,
+            type: "connect",
+            sessionId,
+            url: currentOpts.url,
+          },
+          "*",
+        );
+
+        connectionTimeoutRef.current = setTimeout(() => {
+          if (bridgeConnectedRef.current) return;
+          if (mountedRef.current) {
+            setState("error");
+            setError("Connection timeout");
+            scheduleReconnect();
+          }
+        }, currentOpts.connectionTimeout);
+
+        return;
+      }
+
+      transportRef.current = "ws";
       const ws = new WebSocket(currentOpts.url);
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
@@ -231,7 +327,11 @@ export function useRadioDaemon(
       setError("Failed to create WebSocket connection");
       scheduleReconnect();
     }
-  }, [clearTimers, sendCommand]);
+  }, [clearTimers, scheduleReconnect, sendCommand]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -245,6 +345,93 @@ export function useRadioDaemon(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (!mountedRef.current) return;
+      if (event.source !== window) return;
+
+      const data = event.data as unknown;
+      if (!data || typeof data !== "object") return;
+
+      const msg = data as {
+        source?: string;
+        type?: string;
+        sessionId?: string;
+        code?: number;
+        reason?: string;
+        message?: string;
+        text?: string;
+        data?: ArrayBuffer;
+      };
+
+      if (msg.source !== BRIDGE_SOURCE_TO_PAGE) return;
+
+      const sessionId = msg.sessionId;
+      if (bridgeSessionIdRef.current && sessionId && sessionId !== bridgeSessionIdRef.current) {
+        return;
+      }
+
+      if (msg.type === "ready") {
+        return;
+      }
+
+      if (msg.type === "open") {
+        clearTimers();
+        bridgeConnectedRef.current = true;
+        setState("connected");
+        setError(null);
+        reconnectAttemptRef.current = 0;
+
+        if (authTokenRef.current) {
+          sendCommand("hello", { auth_token: authTokenRef.current });
+        }
+        sendCommand("devices:enumerate");
+        return;
+      }
+
+      if (msg.type === "close") {
+        clearTimers();
+        bridgeConnectedRef.current = false;
+        bridgeSessionIdRef.current = null;
+
+        if (!mountedRef.current) return;
+        if (manualDisconnectRef.current) {
+          setState("disconnected");
+          return;
+        }
+
+        setState("disconnected");
+        if ((msg.code ?? 0) !== 1000) {
+          scheduleReconnect();
+        }
+        return;
+      }
+
+      if (msg.type === "error") {
+        setError(msg.message ?? "Connection error");
+        return;
+      }
+
+      if (msg.type === "message" && typeof msg.text === "string") {
+        try {
+          const parsed = JSON.parse(msg.text) as DaemonIncomingMessage;
+          setLastMessage(parsed);
+        } catch {
+          // ignore
+        }
+        return;
+      }
+
+      if (msg.type === "binary" && msg.data instanceof ArrayBuffer) {
+        const frame = parseBinaryFrame(msg.data);
+        if (frame) setLastFrame(frame);
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [clearTimers, scheduleReconnect, sendCommand]);
 
   useEffect(() => {
     if (enabled) connect();

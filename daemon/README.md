@@ -36,6 +36,28 @@ Config hot-reload:
 - File watcher: edits are applied automatically
 - Unix: `SIGHUP` triggers reload
 
+### SDRconnect (LAN)
+
+To use an SDR managed by **SDRconnect** on another machine in your network, add it to the config:
+
+```toml
+[radio.sdrconnect]
+enabled = true
+
+[[radio.sdrconnect.radios]]
+name = "SDRconnect (LAN)"
+url = "ws://192.168.1.50:5000"
+device_id = 0
+sample_rate = 2048000
+format = "s16le"
+```
+
 ## Frontend
 
 Propulse includes an SDR Console route at `/sdr` that connects to the daemon via WebSocket.
+
+### HTTPS note
+
+If you open Propulse over HTTPS (e.g. `https://propulse.vercel.app`) and your daemon is `ws://...`, browsers may block the connection as mixed content.
+
+Use the included Chrome extension at `extensions/propulse-daemon-bridge` to proxy the connection.

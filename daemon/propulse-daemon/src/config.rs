@@ -60,6 +60,9 @@ pub struct RadioConfig {
   pub soapy: RadioSoapyConfig,
 
   #[serde(default)]
+  pub sdrconnect: RadioSdrconnectConfig,
+
+  #[serde(default)]
   pub hamlib: RadioHamlibConfig,
 }
 
@@ -68,6 +71,7 @@ impl Default for RadioConfig {
     Self {
       dummy_enabled: true,
       soapy: RadioSoapyConfig::default(),
+      sdrconnect: RadioSdrconnectConfig::default(),
       hamlib: RadioHamlibConfig::default(),
     }
   }
@@ -91,6 +95,63 @@ impl Default for RadioSoapyConfig {
       enabled: true,
       scan_interval_secs: default_scan_interval_secs(),
     }
+  }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RadioSdrconnectConfig {
+  #[serde(default)]
+  pub enabled: bool,
+  #[serde(default)]
+  pub radios: Vec<SdrconnectRadioInstanceConfig>,
+}
+
+impl Default for RadioSdrconnectConfig {
+  fn default() -> Self {
+    Self {
+      enabled: false,
+      radios: Vec::new(),
+    }
+  }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SdrconnectRadioInstanceConfig {
+  #[serde(default)]
+  pub name: String,
+  pub url: String,
+  #[serde(default)]
+  pub device_id: Option<u32>,
+  #[serde(default)]
+  pub serial: Option<String>,
+  #[serde(default = "default_sdrconnect_sample_rate")]
+  pub sample_rate: u32,
+  #[serde(default)]
+  pub format: SdrconnectIqFormat,
+  #[serde(default)]
+  pub gain: Option<i32>,
+  #[serde(default)]
+  pub ppm: Option<i32>,
+  #[serde(default)]
+  pub squelch: Option<i32>,
+  #[serde(default)]
+  pub direct_sampling: Option<i32>,
+}
+
+fn default_sdrconnect_sample_rate() -> u32 {
+  2_048_000
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SdrconnectIqFormat {
+  U8,
+  S16le,
+}
+
+impl Default for SdrconnectIqFormat {
+  fn default() -> Self {
+    Self::S16le
   }
 }
 

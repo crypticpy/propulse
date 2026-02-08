@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Propulse Radio Daemon Bridge",
+  "version": "0.1.0",
+  "description": "Allows the Propulse web app to connect to a local Propulse Radio Daemon over ws:// (mixed content-safe).",
+  "permissions": ["storage"],
+  "host_permissions": ["ws://*/*", "wss://*/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://propulse.vercel.app/*",
+        "https://propulse.app/*",
+        "https://*.propulse.app/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["contentScript.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
+

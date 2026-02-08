@@ -10,6 +10,18 @@ dummy_enabled = true
 enabled = true
 scan_interval_secs = 5
 
+[radio.sdrconnect]
+enabled = false
+
+[[radio.sdrconnect.radios]]
+name = "SDRconnect (LAN)"
+url = "ws://192.168.1.50:5000"
+device_id = 0
+sample_rate = 2048000
+format = "s16le"
+gain = 20
+ppm = 0
+
 [radio.hamlib]
 enabled = true
 

@@ -45,6 +45,9 @@ const MobileMap = lazy(() =>
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const ShackPage = lazy(() => import("@/pages/ShackPage"));
+const SdrConsole = lazy(() =>
+  import("@/pages/SdrConsole").then((m) => ({ default: m.SdrConsole })),
+);
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -86,6 +89,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:callsign" element={<ProfilePage />} />
           <Route path="/shack" element={<ShackPage />} />
+          <Route path="/sdr" element={<SdrConsole />} />
         </Route>
       </Routes>
     </ErrorBoundary>

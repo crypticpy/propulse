@@ -1,0 +1,8 @@
+[server]
+port = 9867
+bind = "127.0.0.1"
+auth_token = ""
+
+[radio]
+dummy_enabled = true
+

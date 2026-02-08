@@ -56,6 +56,7 @@ export function Header({
   const toolsItems: NavItem[] = [
     { path: "/dx", label: "DX Wizard", icon: "🧙" },
     { path: "/planner", label: "Band Planner", icon: "📡" },
+    { path: "/sdr", label: "SDR Console", icon: "📻" },
     { path: "/log", label: "LogBook", icon: "📝" },
     { path: "/contest", label: "Contest", icon: "🏆" },
   ];

@@ -19,6 +19,7 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
+import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 
 /**
  * Layout - Root layout component with header and background effects
@@ -39,6 +40,8 @@ export function Layout() {
 
   // Initialize sync queue background processor
   useSyncQueue();
+  // Keep rigStore synced with Bridge/Daemon CAT state
+  useRigBridgeSync();
 
   // Global keyboard shortcuts (Ctrl+K, ?, Escape)
   useGlobalShortcuts({

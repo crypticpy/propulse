@@ -116,7 +116,7 @@ export const profileSync: SyncModule = {
           callsign: profileRows.callsign ?? updatedStation.callsign,
           operatorName:
             profileRows.operator_name ?? updatedStation.operatorName,
-          grid: profileRows.grid ?? updatedStation.grid, // eslint-disable-line deprecation/deprecation
+          grid: profileRows.grid ?? updatedStation.grid,
           lat: profileRows.lat ?? updatedStation.lat,
           lon: profileRows.lon ?? updatedStation.lon,
           timezone: profileRows.timezone ?? updatedStation.timezone,

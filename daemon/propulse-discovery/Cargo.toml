@@ -1,0 +1,18 @@
+[package]
+name = "propulse-discovery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gethostname = "0.4"
+if-addrs = "0.13"
+mdns-sd.workspace = true
+serialport = "4"
+serde = { workspace = true, optional = true }
+tokio.workspace = true
+
+[features]
+default = []

@@ -72,6 +72,12 @@ const tools = [
     icon: "📡",
   },
   {
+    path: "/sdr",
+    label: "SDR Console",
+    description: "Waterfall, tuning & radio control",
+    icon: "📻",
+  },
+  {
     path: "/contest",
     label: "Contest",
     description: "Contest logging & scoring",

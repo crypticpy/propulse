@@ -18,6 +18,7 @@ import { PWAInstallPrompt } from "@/components/ui/PWAInstallPrompt";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
+import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -44,6 +45,8 @@ export function MobileLayout() {
 
   // Initialize sync queue background processor
   useSyncQueue();
+  // Keep rigStore synced with Bridge/Daemon CAT state
+  useRigBridgeSync();
 
   // Pull-to-refresh for mobile
   const {

@@ -1,0 +1,41 @@
+[workspace]
+members = [
+  "propulse-daemon",
+  "propulse-radio",
+  "propulse-dsp",
+  "propulse-integrations",
+  "propulse-discovery",
+  "propulse-audio",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/crypticpy/propulse"
+
+[workspace.dependencies]
+async-trait = "0.1"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+chrono = { version = "0.4", features = ["clock"] }
+directories = "6"
+futures-util = "0.3"
+mdns-sd = "0.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.33"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.24"
+toml = "0.8"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+notify = "6"
+num-complex = "0.4"
+rustfft = "6"
+cpal = "0.15"
+crossbeam-channel = "0.5"

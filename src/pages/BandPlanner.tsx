@@ -95,37 +95,6 @@ export function BandPlanner() {
     refetchMag();
   };
 
-  // Mobile viewport: render MobileBandPlanner with all hook data
-  if (isMobile && !station) {
-    return (
-      <div className="p-4">
-        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-          <h2 className="font-orbitron text-lg text-white mb-2">
-            Band Planner
-          </h2>
-          <p className="text-sm text-gray-400">
-            Set your callsign and grid square in Settings to enable propagation
-            forecasts.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  if (isMobile && station) {
-    return (
-      <MobileBandPlanner
-        station={station}
-        currentKp={currentKp}
-        currentFlux={currentFlux}
-        currentBz={currentBz}
-        isLoading={isLoading}
-        bandDataUpdatedAt={bandDataUpdatedAt}
-        bandIsRefetching={bandIsRefetching}
-        refetchBandData={refetchBandData}
-      />
-    );
-  }
-
   // Parse target grid and calculate coordinates
   const handleTargetChange = useCallback((value: string) => {
     setTargetGrid(value);
@@ -242,6 +211,37 @@ export function BandPlanner() {
     favoritesOnly && favoredBands.primary.length > 0
       ? allBands.filter((b) => favoredBands.primary.includes(b as BandId))
       : allBands;
+
+  // Mobile viewport: render MobileBandPlanner with all hook data
+  if (isMobile && !station) {
+    return (
+      <div className="p-4">
+        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+          <h2 className="font-orbitron text-lg text-white mb-2">
+            Band Planner
+          </h2>
+          <p className="text-sm text-gray-400">
+            Set your callsign and grid square in Settings to enable propagation
+            forecasts.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (isMobile && station) {
+    return (
+      <MobileBandPlanner
+        station={station}
+        currentKp={currentKp}
+        currentFlux={currentFlux}
+        currentBz={currentBz}
+        isLoading={isLoading}
+        bandDataUpdatedAt={bandDataUpdatedAt}
+        bandIsRefetching={bandIsRefetching}
+        refetchBandData={refetchBandData}
+      />
+    );
+  }
 
   // Storm warning
   const isStormConditions = currentKp !== null && currentKp >= 5;

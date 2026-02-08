@@ -152,7 +152,16 @@ export function RadioDaemonSetup() {
         <Step n={1} title="Download the daemon (recommended)">
           <div className="space-y-2">
             <div>
-              Go to the Propulse GitHub Releases page and download:{" "}
+              Go to{" "}
+              <a
+                className="text-cosmic-cyan hover:underline"
+                href="https://github.com/crypticpy/propulse/releases"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Propulse GitHub Releases
+              </a>{" "}
+              and download:{" "}
               <span className="text-gray-100 font-mono">{binaryName}</span>
             </div>
             <div className="text-xs text-gray-500">
@@ -240,6 +249,18 @@ export function RadioDaemonSetup() {
         </div>
         <Step n={1} title="Install the Chrome extension (unpacked)">
           <div className="space-y-2">
+            <div className="text-sm text-gray-300">
+              First, download the Propulse source code (ZIP) from{" "}
+              <a
+                className="text-cosmic-cyan hover:underline"
+                href="https://github.com/crypticpy/propulse"
+                target="_blank"
+                rel="noreferrer"
+              >
+                GitHub
+              </a>
+              .
+            </div>
             <ol className="list-decimal pl-5 space-y-1">
               <li>
                 Open <span className="text-gray-100 font-mono">chrome://extensions</span>
@@ -251,7 +272,7 @@ export function RadioDaemonSetup() {
                 <span className="text-gray-100 font-mono">
                   extensions/propulse-daemon-bridge
                 </span>{" "}
-                from the Propulse repo
+                from the Propulse folder you downloaded
               </li>
             </ol>
           </div>

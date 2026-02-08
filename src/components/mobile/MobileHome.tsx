@@ -70,7 +70,25 @@ export function MobileHome({
         {/* Alerts */}
         <AlertsSummary />
 
-        {/* Primary Metrics - full width, card-like */}
+        {/* Band Conditions — what operators check first */}
+        <BandConditions
+          kIndex={currentKp}
+          solarFlux={currentFlux}
+          loading={isLoading}
+          onExpand={onExpandBands}
+        />
+
+        {/* Propagation Index */}
+        <PropagationIndex
+          solarFlux={currentFlux}
+          kIndex={currentKp}
+          bz={currentBz}
+          loading={isLoading}
+          onExpand={onExpandPropagation}
+          onExpandSummary={onExpandSummary}
+        />
+
+        {/* Solar Metrics */}
         <PrimaryMetrics
           kIndex={currentKp}
           solarFlux={currentFlux}
@@ -91,28 +109,6 @@ export function MobileHome({
             })) ?? []
           }
         />
-
-        {/* Horizontal scrollable row: Propagation (with summary), Bands */}
-        <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory -mx-3 px-3 pb-2 scrollbar-thin">
-          <div className="min-w-[280px] flex-shrink-0 snap-start">
-            <PropagationIndex
-              solarFlux={currentFlux}
-              kIndex={currentKp}
-              bz={currentBz}
-              loading={isLoading}
-              onExpand={onExpandPropagation}
-              onExpandSummary={onExpandSummary}
-            />
-          </div>
-          <div className="min-w-[280px] flex-shrink-0 snap-start">
-            <BandConditions
-              kIndex={currentKp}
-              solarFlux={currentFlux}
-              loading={isLoading}
-              onExpand={onExpandBands}
-            />
-          </div>
-        </div>
 
         {/* Vertical stack of activity cards */}
         <div className="space-y-3">

@@ -82,7 +82,7 @@ export function MobileLayout() {
   });
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-void-black">
+    <div className="h-[100dvh] flex flex-col bg-void-black">
       {/* Fixed mobile header */}
       <MobileHeader
         alertCount={activeAlerts.length}

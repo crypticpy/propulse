@@ -311,12 +311,10 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
         ) : (
           <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Gauge */}
-            <div className="relative flex-shrink-0">
+            <div className="relative flex-shrink-0 w-full md:w-auto max-w-[200px] mx-auto md:mx-0">
               <svg
-                width="200"
-                height="160"
                 viewBox="0 0 200 160"
-                className="overflow-visible"
+                className="w-full h-auto overflow-visible"
               >
                 <defs>
                   {/* Gradient for gauge background */}

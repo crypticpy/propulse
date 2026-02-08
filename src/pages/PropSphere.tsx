@@ -485,7 +485,7 @@ export function PropSphere() {
   );
 
   return (
-    <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-hidden">
+    <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-y-auto lg:overflow-hidden">
       {isLiteMode && <ContestLiteHUD />}
 
       {/* Main Content - Framed Layout */}
@@ -1250,7 +1250,7 @@ export function PropSphere() {
           </div>
 
           {/* Tab Content */}
-          <div className="h-[250px] overflow-hidden">
+          <div className="h-[250px] overflow-y-auto">
             {activeTab === "path" && (
               <PathAnalysis
                 displayTime={displayTime}

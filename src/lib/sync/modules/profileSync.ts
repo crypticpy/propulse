@@ -159,9 +159,25 @@ export const profileSync: SyncModule = {
       };
     }
 
+    // --- Pull bio, social links from profile row ---
+    const stateUpdate: Record<string, unknown> = {};
+
+    if (profileRows) {
+      if (profileRows.bio != null) {
+        stateUpdate.bio = profileRows.bio;
+      }
+      if (profileRows.social_links != null) {
+        stateUpdate.socialLinks = profileRows.social_links;
+      }
+    }
+
     // Single setState call for the entire pull
     if (updatedStation !== state.station) {
-      useProfileStore.setState({ station: updatedStation });
+      stateUpdate.station = updatedStation;
+    }
+
+    if (Object.keys(stateUpdate).length > 0) {
+      useProfileStore.setState(stateUpdate);
     }
 
     return maxTimestamp(timestamps);
@@ -169,11 +185,12 @@ export const profileSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const { station } = useProfileStore.getState();
+    const { station, bio, socialLinks } = useProfileStore.getState();
 
     if (!station) return;
 
-    // --- Upsert profile ---
+    // --- Upsert profile (including bio + social_links) ---
+    const socialLinksPayload = socialLinks.length > 0 ? socialLinks : null;
     const { error: profileError } = await supabase.from("profiles").upsert(
       {
         id: userId,
@@ -185,6 +202,9 @@ export const profileSync: SyncModule = {
         timezone: station.timezone ?? null,
         home_location_id: station.homeLocationId,
         active_location_id: station.activeLocationId,
+        bio: bio || null,
+        social_links:
+          socialLinksPayload as TablesInsert<"profiles">["social_links"],
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" },

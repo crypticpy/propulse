@@ -84,6 +84,7 @@ function App() {
           <Route path="/map" element={<MapRoute />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:callsign" element={<ProfilePage />} />
           <Route path="/shack" element={<ShackPage />} />
         </Route>
       </Routes>

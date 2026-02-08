@@ -44,6 +44,7 @@ export function StationBuilderLab() {
   const addNodeToChain = useShackStore((s) => s.addNodeToChain);
   const removeNodeFromChain = useShackStore((s) => s.removeNodeFromChain);
   const addFeedlineRun = useShackStore((s) => s.addFeedlineRun);
+  const updateFeedlineRun = useShackStore((s) => s.updateFeedlineRun);
 
   // ── Chain performance ──────────────────────────────────────────────────
   const chainPerformance = useChainPerformance(activeChain?.id);
@@ -86,10 +87,13 @@ export function StationBuilderLab() {
       }
 
       if (nodeType === "inline") {
-        // Inline components go into feedline runs, not directly onto the canvas
-        console.log(
-          "[StationBuilderLab] TODO: inline component drops go into feedline runs",
-        );
+        // Inline components go into feedline runs — add to the first run
+        const firstRun = activeChain.feedlineRuns[0];
+        if (!firstRun) return;
+        if (firstRun.inlineComponentIds.includes(equipmentId)) return;
+        updateFeedlineRun(activeChain.id, firstRun.id, {
+          inlineComponentIds: [...firstRun.inlineComponentIds, equipmentId],
+        });
         return;
       }
 
@@ -112,7 +116,7 @@ export function StationBuilderLab() {
 
       addNodeToChain(activeChain.id, node, position);
     },
-    [activeChain, addNodeToChain, addFeedlineRun],
+    [activeChain, addNodeToChain, addFeedlineRun, updateFeedlineRun],
   );
 
   // ── Remove node ────────────────────────────────────────────────────────

@@ -497,7 +497,8 @@ export interface EquipmentHistoryEntry {
     | "feedline"
     | "inline_component"
     | "accessory"
-    | "preset";
+    | "preset"
+    | "chain";
   equipmentId: string;
   equipmentName: string;
   details?: string;

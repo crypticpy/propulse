@@ -478,6 +478,11 @@ export const useShackStore = create<ShackStore>()(
         const customRadio = (get().customRadios || []).find((r) => r.id === id);
         const name = customRadio?.displayName ?? "Unknown";
 
+        // Find all user radio IDs that reference this custom radio
+        const affectedRadioIds = get()
+          .radios.filter((r) => r.equipmentId === id)
+          .map((r) => r.id);
+
         set((state) => {
           const nextCustom = (state.customRadios || []).filter(
             (r) => r.id !== id,
@@ -494,10 +499,20 @@ export const useShackStore = create<ShackStore>()(
                 ? updatedRadios[0].id
                 : null;
 
+          // Clean up chains referencing any of these radios
+          const stationChains = state.stationChains.map((chain) => ({
+            ...chain,
+            nodes: chain.nodes.filter(
+              (n) =>
+                !(n.type === "radio" && affectedRadioIds.includes(n.radioId)),
+            ),
+          }));
+
           return {
             customRadios: nextCustom,
             radios: updatedRadios,
             activeRadioId,
+            stationChains,
           };
         });
 
@@ -1106,7 +1121,7 @@ export const useShackStore = create<ShackStore>()(
         if (id) {
           get()._addHistoryEntry({
             action: "added",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: id,
             equipmentName: chain.name,
           });
@@ -1132,7 +1147,7 @@ export const useShackStore = create<ShackStore>()(
           const chain = get().stationChains.find((c) => c.id === id);
           get()._addHistoryEntry({
             action: "modified",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: id,
             equipmentName: chain?.name ?? "Unknown",
           });
@@ -1150,7 +1165,7 @@ export const useShackStore = create<ShackStore>()(
         }));
         get()._addHistoryEntry({
           action: "removed",
-          equipmentType: "preset",
+          equipmentType: "chain",
           equipmentId: id,
           equipmentName: name,
         });
@@ -1165,6 +1180,20 @@ export const useShackStore = create<ShackStore>()(
           if (!current || state.stationChains.length >= MAX_CHAINS)
             return state;
           newId = crypto.randomUUID();
+          // Generate new IDs for feedline runs and remap node references
+          const runIdMap = new Map<string, string>();
+          const newRuns = current.feedlineRuns.map((r) => {
+            const freshId = crypto.randomUUID();
+            runIdMap.set(r.id, freshId);
+            return { ...r, id: freshId };
+          });
+          const newNodes = current.nodes.map((n) => {
+            if (n.type === "feedline_run") {
+              const mappedId = runIdMap.get(n.feedlineRunId);
+              return mappedId ? { ...n, feedlineRunId: mappedId } : { ...n };
+            }
+            return { ...n };
+          });
           return {
             stationChains: [
               ...state.stationChains,
@@ -1172,6 +1201,8 @@ export const useShackStore = create<ShackStore>()(
                 ...current,
                 id: newId,
                 name: `${current.name} (copy)`,
+                nodes: newNodes,
+                feedlineRuns: newRuns,
                 createdAt: new Date().toISOString(),
               },
             ],
@@ -1180,7 +1211,7 @@ export const useShackStore = create<ShackStore>()(
         if (newId) {
           get()._addHistoryEntry({
             action: "duplicated",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: newId,
             equipmentName: `${originalName} (copy)`,
             details: `Duplicated from ${originalName}`,
@@ -1220,7 +1251,7 @@ export const useShackStore = create<ShackStore>()(
           const chain = get().stationChains.find((c) => c.id === chainId);
           get()._addHistoryEntry({
             action: "modified",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: chainId,
             equipmentName: chain?.name ?? "Unknown",
             details: `Added ${node.type} node`,
@@ -1263,7 +1294,7 @@ export const useShackStore = create<ShackStore>()(
           const chain = get().stationChains.find((c) => c.id === chainId);
           get()._addHistoryEntry({
             action: "modified",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: chainId,
             equipmentName: chain?.name ?? "Unknown",
             details: "Removed node from chain",
@@ -1303,7 +1334,7 @@ export const useShackStore = create<ShackStore>()(
           const chain = get().stationChains.find((c) => c.id === chainId);
           get()._addHistoryEntry({
             action: "modified",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: chainId,
             equipmentName: chain?.name ?? "Unknown",
             details: "Reordered chain nodes",
@@ -1353,7 +1384,7 @@ export const useShackStore = create<ShackStore>()(
           const chain = get().stationChains.find((c) => c.id === chainId);
           get()._addHistoryEntry({
             action: "modified",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: chainId,
             equipmentName: chain?.name ?? "Unknown",
             details: "Added feedline run",
@@ -1389,7 +1420,7 @@ export const useShackStore = create<ShackStore>()(
           const chain = get().stationChains.find((c) => c.id === chainId);
           get()._addHistoryEntry({
             action: "modified",
-            equipmentType: "preset",
+            equipmentType: "chain",
             equipmentId: chainId,
             equipmentName: chain?.name ?? "Unknown",
             details: "Updated feedline run",

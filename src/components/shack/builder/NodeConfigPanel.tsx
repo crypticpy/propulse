@@ -9,7 +9,7 @@
  *   Antenna     -> name, type, bands, height, gain info
  */
 
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { StationChain, FeedlineRun } from "@/types/stationChain";
 import {
   ANTENNA_TYPE_LABELS,
@@ -26,6 +26,7 @@ import type {
 } from "@/types/shack";
 import type { RadioEquipment } from "@/types/radio";
 import {
+  useShackStore,
   useUserRadios,
   useUserAntennas,
   useUserFeedlines,
@@ -454,6 +455,9 @@ function FeedlineRunSection({
   feedlines: UserFeedline[];
   inlineComponents: InlineComponent[];
 }) {
+  const [showInlinePicker, setShowInlinePicker] = useState(false);
+  const updateFeedlineRun = useShackStore((s) => s.updateFeedlineRun);
+
   const run: FeedlineRun | undefined = chain.feedlineRuns.find(
     (r) => r.id === feedlineRunId,
   );
@@ -476,6 +480,26 @@ function FeedlineRunSection({
   const resolvedInlines = run.inlineComponentIds
     .map((id) => inlineComponents.find((c) => c.id === id))
     .filter((c): c is InlineComponent => c != null);
+
+  // Available inline components not already in this run
+  const availableInlines = inlineComponents.filter(
+    (c) => !run.inlineComponentIds.includes(c.id),
+  );
+
+  function handleAddInline(componentId: string) {
+    updateFeedlineRun(chain.id, run!.id, {
+      inlineComponentIds: [...run!.inlineComponentIds, componentId],
+    });
+    setShowInlinePicker(false);
+  }
+
+  function handleRemoveInline(componentId: string) {
+    updateFeedlineRun(chain.id, run!.id, {
+      inlineComponentIds: run!.inlineComponentIds.filter(
+        (id) => id !== componentId,
+      ),
+    });
+  }
 
   return (
     <dl className="space-y-3">
@@ -543,24 +567,88 @@ function FeedlineRunSection({
                     {INLINE_COMPONENT_LABELS[comp.componentType]}
                   </div>
                 </div>
-                <span className="text-xs text-alert-red">
-                  -{(comp.insertionLossDb ?? 0).toFixed(1)} dB
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-alert-red">
+                    -{(comp.insertionLossDb ?? 0).toFixed(1)} dB
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInline(comp.id)}
+                    className="text-gray-500 hover:text-alert-red transition-colors"
+                    aria-label={`Remove ${comp.name}`}
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </dd>
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() =>
-          console.log("[NodeConfigPanel] Add inline component to run:", run.id)
-        }
-        className="w-full text-xs text-center py-1.5 rounded-lg border border-dashed border-white/20 text-gray-400 hover:text-gray-300 hover:border-white/30 transition-colors"
-      >
-        + Add Inline Component
-      </button>
+      {/* Add inline component button / picker */}
+      {showInlinePicker ? (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-400 font-medium">
+              Select component:
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowInlinePicker(false)}
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+          {availableInlines.length === 0 ? (
+            <div className="text-xs text-gray-500 italic py-2 text-center">
+              No available inline components
+            </div>
+          ) : (
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {availableInlines.map((comp) => (
+                <button
+                  key={comp.id}
+                  type="button"
+                  onClick={() => handleAddInline(comp.id)}
+                  className="w-full flex items-center justify-between bg-white/5 hover:bg-white/10 rounded-lg px-2.5 py-1.5 text-left transition-colors"
+                >
+                  <div>
+                    <div className="text-xs text-gray-200">{comp.name}</div>
+                    <div className="text-[10px] text-gray-500">
+                      {INLINE_COMPONENT_LABELS[comp.componentType]}
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    -{(comp.insertionLossDb ?? 0).toFixed(1)} dB
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowInlinePicker(true)}
+          className="w-full text-xs text-center py-1.5 rounded-lg border border-dashed border-white/20 text-gray-400 hover:text-gray-300 hover:border-white/30 transition-colors"
+        >
+          + Add Inline Component
+        </button>
+      )}
 
       {feedline.notes && (
         <div>

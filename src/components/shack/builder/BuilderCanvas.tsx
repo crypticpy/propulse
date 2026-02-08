@@ -333,10 +333,16 @@ export function BuilderCanvas({
       }
 
       // Check for equipment drop from drawer
-      const equipType = e.dataTransfer.getData("application/x-equipment-type");
-      const equipId = e.dataTransfer.getData("application/x-equipment-id");
-      if (equipType && equipId) {
-        onDropEquipment(equipType, equipId, position);
+      const equipJson = e.dataTransfer.getData("application/x-equipment");
+      if (equipJson) {
+        try {
+          const { type: equipType, id: equipId } = JSON.parse(equipJson);
+          if (equipType && equipId) {
+            onDropEquipment(equipType, equipId, position);
+          }
+        } catch {
+          // Malformed drag data — ignore
+        }
       }
     },
     [chain.id, reorderChainNodes, onDropEquipment],

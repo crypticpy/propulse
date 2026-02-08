@@ -34,6 +34,7 @@ import { NodeConfigPanel } from "./NodeConfigPanel";
 import { NodeContextMenu } from "./NodeContextMenu";
 import { PerformanceSidebar } from "./PerformanceSidebar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ShackSchematicView } from "./ShackSchematicView";
 import { createPortal } from "react-dom";
 
 // ---- Props ------------------------------------------------------------------
@@ -924,6 +925,9 @@ export function AllChainsView({
   const duplicateChain = useShackStore((s) => s.duplicateChain);
   const setActiveChain = useShackStore((s) => s.setActiveChain);
 
+  // View mode toggle: edit (accordion) vs schematic (full overview)
+  const [viewMode, setViewMode] = useState<"edit" | "schematic">("schematic");
+
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{
     chainId: string;
@@ -987,80 +991,139 @@ export function AllChainsView({
     [duplicateChain, setActiveChain],
   );
 
+  // Switch back to edit mode when schematic row is clicked
+  const handleSchematicEditChain = useCallback((_chainId: string) => {
+    setViewMode("edit");
+  }, []);
+
+  // Create chain from schematic empty state and switch to edit mode
+  const handleCreateChainFromSchematic = useCallback(() => {
+    const chainId = addChain({
+      name: `Chain ${chains.length + 1}`,
+      nodes: [],
+      feedlineRuns: [],
+      operatingPowerWatts: 100,
+      shackAccessoryIds: [],
+    });
+    if (chainId) setActiveChain(chainId);
+    setViewMode("edit");
+  }, [addChain, setActiveChain, chains.length]);
+
   return (
     <div className="space-y-3">
-      {/* Chain cards */}
-      {chains.map((chain) => {
-        const isExpanded = chain.id === activeChain?.id;
-
-        return (
-          <div
-            key={chain.id}
-            ref={(el) => {
-              chainCardRefs.current[chain.id] = el;
-            }}
-            className={`
-              bg-panel/30 backdrop-blur-sm border rounded-2xl
-              transition-all duration-300 overflow-hidden
-              ${
-                isExpanded
-                  ? "border-plasma-orange/20"
-                  : "border-white/5 hover:border-white/10"
-              }
-            `}
-          >
-            <ChainCardHeader
-              chain={chain}
-              isExpanded={isExpanded}
-              onToggle={() => handleToggleChain(chain.id)}
-              onDuplicate={() => handleDuplicateChain(chain.id)}
-              onDelete={() => handleDeleteChain(chain)}
-              selectedBand={selectedBand}
-            />
-
-            {/* Expanded body */}
-            {isExpanded && (
-              <div className="px-4 pb-4 border-t border-white/5">
-                <div className="pt-3">
-                  <ExpandedChainBody
-                    chain={chain}
-                    selectedBand={selectedBand}
-                    onSelectBand={onSelectBand}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {/* "+ Add New Chain" card */}
-      <button
-        type="button"
-        onClick={handleCreateChain}
-        className="
-          w-full flex items-center justify-center gap-2 py-4
-          bg-panel/10 border-2 border-dashed border-white/10
-          rounded-2xl text-gray-400 hover:text-gray-200
-          hover:border-white/20 hover:bg-panel/20
-          transition-all duration-200 min-h-[60px]
-        "
-      >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
+      {/* View mode toggle */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setViewMode("schematic")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            viewMode === "schematic"
+              ? "bg-plasma-orange text-white"
+              : "bg-white/5 text-gray-400 hover:text-gray-200"
+          }`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 4v16m8-8H4"
-          />
-        </svg>
-        <span className="text-sm font-medium">Add Chain</span>
-      </button>
+          Shack Overview
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode("edit")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            viewMode === "edit"
+              ? "bg-plasma-orange text-white"
+              : "bg-white/5 text-gray-400 hover:text-gray-200"
+          }`}
+        >
+          Edit Chains
+        </button>
+      </div>
+
+      {/* Schematic view */}
+      {viewMode === "schematic" && (
+        <ShackSchematicView
+          selectedBand={selectedBand}
+          onSelectBand={onSelectBand}
+          onEditChain={handleSchematicEditChain}
+          onCreateChain={handleCreateChainFromSchematic}
+        />
+      )}
+
+      {/* Edit view (accordion cards) */}
+      {viewMode === "edit" && (
+        <>
+          {/* Chain cards */}
+          {chains.map((chain) => {
+            const isExpanded = chain.id === activeChain?.id;
+
+            return (
+              <div
+                key={chain.id}
+                ref={(el) => {
+                  chainCardRefs.current[chain.id] = el;
+                }}
+                className={`
+                  bg-panel/30 backdrop-blur-sm border rounded-2xl
+                  transition-all duration-300 overflow-hidden
+                  ${
+                    isExpanded
+                      ? "border-plasma-orange/20"
+                      : "border-white/5 hover:border-white/10"
+                  }
+                `}
+              >
+                <ChainCardHeader
+                  chain={chain}
+                  isExpanded={isExpanded}
+                  onToggle={() => handleToggleChain(chain.id)}
+                  onDuplicate={() => handleDuplicateChain(chain.id)}
+                  onDelete={() => handleDeleteChain(chain)}
+                  selectedBand={selectedBand}
+                />
+
+                {/* Expanded body */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 border-t border-white/5">
+                    <div className="pt-3">
+                      <ExpandedChainBody
+                        chain={chain}
+                        selectedBand={selectedBand}
+                        onSelectBand={onSelectBand}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* "+ Add New Chain" card */}
+          <button
+            type="button"
+            onClick={handleCreateChain}
+            className="
+              w-full flex items-center justify-center gap-2 py-4
+              bg-panel/10 border-2 border-dashed border-white/10
+              rounded-2xl text-gray-400 hover:text-gray-200
+              hover:border-white/20 hover:bg-panel/20
+              transition-all duration-200 min-h-[60px]
+            "
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            <span className="text-sm font-medium">Add Chain</span>
+          </button>
+        </>
+      )}
 
       {/* Delete chain confirmation dialog */}
       {deleteConfirm &&

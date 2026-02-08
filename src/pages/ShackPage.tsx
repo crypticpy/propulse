@@ -1,7 +1,7 @@
 /**
  * ShackPage — Station equipment & signal chain management.
  *
- * 7-tab interface: Overview, Radios, Antennas, Feedlines, Accessories, Presets, Performance.
+ * 8-tab interface: Overview, Radios, Antennas, Feedlines, Accessories, Inline, Presets, Performance.
  * Desktop: centered content (max-width 1200px) with horizontal button tabs.
  * Mobile: scrollable pill tabs with stacked content.
  */
@@ -17,6 +17,7 @@ import { RadioManager } from "@/components/settings/RadioManager";
 import { AntennaManager } from "@/components/shack/AntennaManager";
 import { FeedlineManager } from "@/components/shack/FeedlineManager";
 import { AccessoryManager } from "@/components/shack/AccessoryManager";
+import { InlineComponentManager } from "@/components/shack/InlineComponentManager";
 import { PresetBuilder } from "@/components/shack/PresetBuilder";
 import { PerformanceDashboard } from "@/components/shack/PerformanceDashboard";
 import { BandCapabilityStrip } from "@/components/shack/BandCapabilityStrip";
@@ -31,6 +32,7 @@ type ShackTab =
   | "antennas"
   | "feedlines"
   | "accessories"
+  | "inline"
   | "presets"
   | "performance";
 
@@ -45,6 +47,7 @@ const TABS: TabDef[] = [
   { id: "antennas", label: "Antennas" },
   { id: "feedlines", label: "Feedlines" },
   { id: "accessories", label: "Accessories" },
+  { id: "inline", label: "Inline" },
   { id: "presets", label: "Presets" },
   { id: "performance", label: "Performance" },
 ];
@@ -92,6 +95,7 @@ function OverviewTab({
   const antennas = useShackStore((s) => s.antennas);
   const feedlines = useShackStore((s) => s.feedlines);
   const accessories = useShackStore((s) => s.accessories);
+  const inlineComponents = useShackStore((s) => s.inlineComponents);
   const activePresetId = useShackStore((s) => s.activePresetId);
   const presets = useShackStore((s) => s.stationPresets);
   const activePreset = presets.find((p) => p.id === activePresetId);
@@ -111,6 +115,11 @@ function OverviewTab({
       count: accessories.length,
       color: "text-nebula-blue",
     },
+    {
+      label: "Inline",
+      count: inlineComponents.length,
+      color: "text-purple-400",
+    },
   ];
 
   const isEmpty = counts.every((c) => c.count === 0);
@@ -123,7 +132,7 @@ function OverviewTab({
   return (
     <div className="space-y-6">
       {/* Equipment count cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {counts.map((item) => (
           <div
             key={item.label}
@@ -228,7 +237,13 @@ function OverviewTab({
           </p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
             {(
-              ["radios", "antennas", "feedlines", "accessories"] as ShackTab[]
+              [
+                "radios",
+                "antennas",
+                "feedlines",
+                "accessories",
+                "inline",
+              ] as ShackTab[]
             ).map((tab) => (
               <button
                 key={tab}
@@ -307,6 +322,12 @@ export default function ShackPage() {
           </div>
         )}
 
+        {activeTab === "inline" && (
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+            <InlineComponentManager />
+          </div>
+        )}
+
         {activeTab === "presets" && (
           <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
             <PresetBuilder />
@@ -372,6 +393,12 @@ export default function ShackPage() {
       {activeTab === "accessories" && (
         <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
           <AccessoryManager />
+        </div>
+      )}
+
+      {activeTab === "inline" && (
+        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+          <InlineComponentManager />
         </div>
       )}
 

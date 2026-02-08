@@ -19,6 +19,7 @@ import {
   ANTENNA_TYPE_TO_PATTERN,
 } from "@/types/shack";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ALL_BANDS } from "@/types/user";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ export function AntennaManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AntennaForm>(createDefaultForm);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // ─── Handlers ────────────────────────────────────────────────────────
 
@@ -125,8 +127,12 @@ export function AntennaManager() {
   };
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this antenna?")) return;
-    removeAntenna(id);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) removeAntenna(deleteTarget);
+    setDeleteTarget(null);
   };
 
   const validate = (): string | null => {
@@ -497,6 +503,16 @@ export function AntennaManager() {
           </div>
         </div>
       </DetailModal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        title="Delete Antenna"
+        message="Are you sure you want to delete this antenna? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

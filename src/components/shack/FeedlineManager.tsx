@@ -19,6 +19,7 @@ import {
   calculateTotalFeedlineLoss,
 } from "@/lib/data/feedlines";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ export function FeedlineManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FeedlineForm>(createDefaultForm);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // ─── Handlers ────────────────────────────────────────────────────────
 
@@ -104,8 +106,12 @@ export function FeedlineManager() {
   };
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this feedline?")) return;
-    removeFeedline(id);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) removeFeedline(deleteTarget);
+    setDeleteTarget(null);
   };
 
   const validate = (): string | null => {
@@ -408,6 +414,16 @@ export function FeedlineManager() {
           </div>
         </div>
       </DetailModal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        title="Delete Feedline"
+        message="Are you sure you want to delete this feedline? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

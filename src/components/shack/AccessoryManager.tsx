@@ -22,6 +22,7 @@ import type {
 } from "@/types/shack";
 import { MAX_ACCESSORIES, ACCESSORY_CATEGORY_LABELS } from "@/types/shack";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AccessoryCategoryFields } from "./AccessoryCategoryFields";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
@@ -201,6 +202,7 @@ export function AccessoryManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccessoryForm>(createDefaultForm);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // Group by category
   const grouped = ALL_CATEGORIES.reduce(
@@ -233,8 +235,12 @@ export function AccessoryManager() {
   };
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("Delete this accessory?")) return;
-    removeAccessory(id);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) removeAccessory(deleteTarget);
+    setDeleteTarget(null);
   };
 
   const validate = (): string | null => {
@@ -681,6 +687,16 @@ export function AccessoryManager() {
           </div>
         </div>
       </DetailModal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        title="Delete Accessory"
+        message="Are you sure you want to delete this accessory? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

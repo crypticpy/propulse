@@ -19,6 +19,7 @@ import { MAX_PRESETS } from "@/types/shack";
 import { useStationPerformance } from "@/hooks/useStationPerformance";
 import { BandCapabilityStrip } from "./BandCapabilityStrip";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   calculateTotalFeedlineLoss,
   BAND_CENTER_FREQUENCIES,
@@ -192,9 +193,9 @@ export function PresetBuilder() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PresetForm>(createDefaultForm);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const hasEquipment =
-    radios.length > 0 || antennas.length > 0 || feedlines.length > 0;
+  const hasEquipment = radios.length > 0 && antennas.length > 0;
 
   // ─── Handlers ────────────────────────────────────────────────────────
 
@@ -216,13 +217,14 @@ export function PresetBuilder() {
     setModalOpen(true);
   }, []);
 
-  const handleDelete = useCallback(
-    (id: string) => {
-      if (!window.confirm("Delete this preset?")) return;
-      removePreset(id);
-    },
-    [removePreset],
-  );
+  const handleDelete = useCallback((id: string) => {
+    setDeleteTarget(id);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) removePreset(deleteTarget);
+    setDeleteTarget(null);
+  }, [deleteTarget, removePreset]);
 
   const handleActivate = useCallback(
     (id: string) => {
@@ -555,6 +557,16 @@ export function PresetBuilder() {
           </div>
         </div>
       </DetailModal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        title="Delete Preset"
+        message="Are you sure you want to delete this preset? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

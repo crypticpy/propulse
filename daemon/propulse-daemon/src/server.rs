@@ -938,8 +938,22 @@ async fn handle_text_message(
       };
 
       if current_state.as_ref().is_some_and(|s| s.connected) {
-        if let Some(id) = id {
-          send_json(state, client_id, &Response::err(id, "Device already connected")).await?;
+        // Treat connect as idempotent so a UI refresh or a second client can
+        // regain control/visibility without forcing a daemon restart.
+        if let Some(id) = id.clone() {
+          send_json(state, client_id, &Response::ok(id)).await?;
+        }
+        if let Some(st) = current_state {
+          send_json(
+            state,
+            client_id,
+            &RadioStateEvent {
+              kind: "radio:state".to_string(),
+              device_id: device_id.to_string(),
+              state: st,
+            },
+          )
+          .await?;
         }
         return Ok(());
       }

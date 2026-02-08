@@ -6,3 +6,48 @@ auth_token = ""
 [radio]
 dummy_enabled = true
 
+[radio.soapy]
+enabled = true
+scan_interval_secs = 5
+
+[radio.hamlib]
+enabled = true
+
+[[radio.hamlib.rigs]]
+name = "IC-7300"
+model = 3073
+port = "COM3" # or "/dev/ttyUSB0"
+baud = 19200
+poll_interval_ms = 200
+
+[dsp]
+default_fft_size = 4096
+default_fft_fps = 20
+default_audio_rate = 48000
+
+[integrations.wsjtx]
+enabled = true
+port = 2237
+
+[integrations.cluster]
+enabled = false
+host = "dxc.nc7j.com"
+port = 7300
+callsign = ""
+
+[integrations.n1mm]
+enabled = false
+broadcast_port = 12060
+
+[integrations.cat_server]
+enabled = false
+bind = "127.0.0.1"
+port = 4532
+
+[audio]
+output_device = "default"
+virtual_cable = false
+
+[discovery]
+mdns_enabled = true
+service_name = "My Shack"

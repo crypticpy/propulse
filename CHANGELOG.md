@@ -5,6 +5,78 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.12.0] — 2026-02-07
+
+### Operator Profile, Shack Builder, Settings Redesign, and Supabase Foundation
+
+This release adds three major station management pages — Operator Profile (4 tabs), Shack Builder (7 tabs), and a redesigned Settings page — along with a feedline loss calculation engine, station preset system with per-band ERP computation, and the foundation for Supabase cloud sync. The monolithic `userStore` is decomposed into three focused stores. Feature delivery reaches 170/173 (98%).
+
+#### Operator Profile (`/profile`)
+
+- **4-tab profile page** — Overview, Locations, Awards, and Stats tabs with desktop sidebar and mobile-responsive layout.
+- **Profile completeness ring** — Weighted SVG ring scoring callsign (20), name (10), grid (15), license (15), photo (10), bio (5), social links (5), radio (10), expiration (5), and timezone (5). Tiers from "Getting Started" to "All-Star".
+- **Callsign auto-fill** — When entering a callsign (3+ chars), queries HamQTH with 500ms debounce and shows one-click suggestions for name and grid square. Never overwrites without confirmation.
+- **Markdown bio** — Rich-text bio with XSS-safe markdown rendering supporting bold, italic, links (http/https/mailto only), unordered lists, and line breaks.
+- **Social links** — Editable social link manager with display icons for QRZ, HamQTH, Twitter, YouTube, GitHub, and custom URLs.
+- **License card** — Enhanced license display with colored class badge, country flag, and expiration progress bar (green >180d, amber 90-180d, red <90d, urgent <30d). UTC-safe date parsing.
+- **Awards tab** — Three SVG concentric progress rings for DXCC (worked/confirmed out of ~340), WAS (out of 50), and WAZ (out of 40) with color-coded segments.
+- **Stats tab** — Activity heatmap (SVG 53x7 grid, 365-day, signal-green intensity), QSO by mode donut chart (FT8/SSB/CW/FT4/RTTY), QSO by band horizontal bars, and stat cards with big numbers.
+- **QR code modal** — Full-screen QR code with plasma-orange coloring, callsign header, and error correction level H.
+
+#### Shack Builder (`/shack`)
+
+- **7-tab shack page** — Overview, Radios, Antennas, Feedlines, Accessories, Presets, and Performance tabs.
+- **Antenna manager** — Card-grid CRUD for antennas with 22 antenna types, per-installation metadata (height, azimuth, polarization, mounting, SWR by band), and band selection.
+- **Feedline manager** — Card list CRUD with inline loss display per band. Supports 8 cable types (RG-58 through hardline) with connector and condition tracking.
+- **Feedline loss engine** — Static loss tables at 10 HF frequencies (1.8–50 MHz), sqrt(f) interpolation, connector loss defaults per type (PL-259: 0.5 dB, N-type: 0.2 dB), condition multipliers, and SWR mismatch loss via reflection coefficient model.
+- **Accessory manager** — Grouped cards by category (amplifier, tuner, filter, switch, power supply, grounding) with adaptive form fields and type-safe discriminated unions.
+- **Station presets** — Composite radio + antenna + feedline + accessories configurations with per-band ERP computation. Up to 10 presets with one-click activation.
+- **Performance dashboard** — Per-band capability matrix (TX Power, Feedline Loss, Accessory Loss, Power at Antenna, Antenna Gain, ERP), signal chain waterfall, and system summary.
+- **Signal chain diagram** — SVG block flow visualization: Radio → Accessories → Feedline → Antenna with unique marker IDs via `useId()`.
+- **Band capability strip** — Horizontal band pills colored by capability (green <3 dB loss, amber 3–6 dB, red >6 dB, gray unsupported).
+- **Active station gain integration** — `useActiveStationGain` hook bridges shack presets to all 5 map views (Globe, Flat, Azimuthal, plus overlays), replacing direct antenna type reads.
+- **Overview tab** — Equipment count cards, active preset summary with mini signal chain, band capability strip, and quick action buttons.
+
+#### Settings Redesign (`/settings`)
+
+- **Full-page settings** — Migrated from modal to dedicated route with 5-section sidebar navigation (Preferences, Appearance, Notifications, Data, About).
+- **SVG section icons** — Custom SVG icons replacing emoji in the sidebar for a professional look.
+- **Preferences section** — Visual style, high contrast, map & globe sub-settings (spot clustering, compass rose, spot age, spotter labels), propagation forecast controls (band mode, SNR values, hours to show), interaction tuning (hold duration, flyout auto-dismiss), and band presets (up to 5 saved presets with add/edit/delete).
+- **Appearance section** — Custom accent color hex inputs with live preview card and Apply/Reset controls.
+- **Notifications section** — Sub-group headers (Propagation Alerts, Audio, Watch Alerts) and quiet hours UI.
+- **High contrast mode** — Toggle that adds `.contrast-more` to `<html>` with increased border opacity, brighter text, and stronger focus rings.
+- **Escape key handler** — Pressing Escape navigates back from settings.
+- **ARIA compliance** — `role="radiogroup"` on segmented buttons, `role="slider"` on range inputs, proper label associations.
+- **Shared UI primitives** — Reusable `SegmentedButton`, `SectionHeader`, `SettingSelect`, `SettingSlider`, `SettingRow`, and `ConditionalSubSettings` components extracted to `settings/ui/`.
+
+#### Store Decomposition
+
+- **Three canonical stores** — `profileStore` (callsign, bio, social links, license), `settingsStore` (preferences, appearance, notifications), and `shackStore` (radios, antennas, feedlines, accessories, presets) replace the monolithic `userStore`.
+- **Bridge shim** — `userStore` rewritten as a thin adapter over the three canonical stores for backward compatibility during migration.
+- **Full migration** — All 15+ consumer modules migrated to import from canonical stores directly. Zero remaining `userStore` direct usage.
+- **Persist v2 migrations** — Each store has versioned migrations that preserve existing user data through the transition.
+
+#### Supabase Foundation
+
+- **Database schema** — 19 tables covering profiles, locations, equipment, logbook, contest sessions, QSL tracking, and sync metadata.
+- **3 storage buckets** — Profile photos, QSL card images, and ADIF file uploads.
+- **Supabase client** — `src/lib/supabase.ts` with auth store integration.
+- **3-tier sync engine** — Offline write queue with background sync, conflict resolution, and retry with exponential backoff.
+- **Auth store** — `src/stores/authStore.ts` for session management (sign up, sign in, sign out, password reset).
+
+#### Navigation
+
+- **Desktop header links** — Profile (person icon) and Shack (flask icon) buttons next to the Settings gear with active state highlighting.
+- **Mobile tools drawer** — "My Station" section with Operator Profile and Shack Builder links, separated from the Tools section.
+- **Route awareness** — Bottom tab bar highlights Tools tab when on /profile or /shack. Swipe navigation includes new pages.
+
+#### Cleanup
+
+- **Deleted SettingsModal.tsx** — 1,367-line dead code file removed.
+- **Settings backup extended** — Export/import now includes shack equipment (antennas, feedlines, accessories, presets).
+
+---
+
 ## [0.11.0] — 2026-02-07
 
 ### Unified Dashboard, Mobile-First Layout, PWA, and 92% Feature Completion
@@ -339,6 +411,7 @@ A complete contest logging system and major DX operations improvements.
 
 ---
 
+[0.12.0]: https://github.com/crypticpy/propulse/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.11.0
 [0.10.1]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/crypticpy/propulse/compare/v0.9.0...v0.10.0

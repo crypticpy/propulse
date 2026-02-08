@@ -16,9 +16,10 @@
 | UI Review Recommendations          | 9         | 0       | 1           | 0        | 10      |
 | QoL PRD (20 items)                 | 19        | 1       | 0           | 0        | 20      |
 | PWA Package                        | 6         | 0       | 1           | 0        | 7       |
-| **Grand Total**                    | **160**   | **4**   | **8**       | **1**    | **173** |
+| Profile/Shack/Settings Plan        | 10        | 0       | 0           | 0        | 10      |
+| **Grand Total**                    | **170**   | **4**   | **8**       | **1**    | **183** |
 
-**Delivery rate: 92% delivered, 2% partial, 5% not started** _(was 89/3/7 before Tier 5)_
+**Delivery rate: 93% delivered, 2% partial, 4% not started** _(was 92/2/5 before v0.12.0)_
 
 ---
 
@@ -324,6 +325,29 @@ _Source: `.claude/plans/prd-qol-and-pwa-features.md`_
 30. ~~**Offline Data Caching**~~ DONE (2026-02-07) — `idbCache.ts` IndexedDB wrapper with `getCachedResponse`/`setCachedResponse`/`clearExpiredCache`, per-endpoint TTLs in noaa.ts, startup cache cleanup.
 
 31. ~~**Contest Score Broadcast**~~ DONE (2026-02-07) — `useContestScoreBroadcast` hook with Unicode-safe base64 share URL, `ContestScoreShare` card with 4-column stats grid + band breakdown + clipboard copy.
+
+---
+
+## 8. Profile/Shack/Settings Plan
+
+_Source: `.claude/plans/composed-mixing-seahorse.md`_
+
+### Delivered (10) — 2026-02-07
+
+| Feature                  | Notes                                                                     |
+| ------------------------ | ------------------------------------------------------------------------- |
+| Store decomposition      | userStore → profileStore + settingsStore + shackStore with bridge shim    |
+| Operator Profile page    | 4-tab page (Overview/Locations/Awards/Stats) with completeness ring       |
+| Callsign auto-fill       | HamQTH lookup with 500ms debounce, one-click suggestions                  |
+| Shack Builder page       | 7-tab page with antenna/feedline/accessory managers                       |
+| Feedline loss engine     | sqrt(f) interpolation, SWR mismatch, 8 cable types, condition multipliers |
+| Station presets          | Composite radio+antenna+feedline+accessories with per-band ERP            |
+| Settings page redesign   | 5 sections, SVG icons, ARIA, escape key, band presets, high contrast      |
+| Performance dashboard    | Per-band capability matrix, signal chain waterfall, system summary        |
+| Active station gain hook | useActiveStationGain bridges presets → 5 map views                        |
+| Navigation integration   | Profile/Shack icons in desktop header + mobile tools drawer               |
+
+---
 
 ### Remaining Items (Not Feasible / Out of Scope)
 

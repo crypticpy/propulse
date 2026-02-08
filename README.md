@@ -30,6 +30,9 @@ Propulse gives amateur radio operators a single interface for monitoring solar w
 - **Solar Pulse** -- Real-time K-index, solar flux, sunspot, and Bz charts with geomagnetic storm alerts and confidence intervals
 - **DX Wizard** -- Enter a target location and get recommended band, power, frequency, and operating tips based on propagation physics with antenna gain modeling
 - **Contest Engine** -- 19 built-in contest definitions with real-time scoring, dupe checking, multiplier tracking, rate sheet, and Cabrillo export
+- **Operator Profile** -- 4-tab profile page with completeness ring, callsign auto-fill, markdown bio, social links, awards progress rings (DXCC/WAS/WAZ), activity heatmap, and QR code sharing
+- **Shack Builder** -- 7-tab equipment manager with antenna/feedline/accessory CRUD, station presets with per-band ERP computation, feedline loss engine, signal chain diagram, and performance dashboard
+- **Settings** -- Full-page settings with 5 sections, high contrast mode, band presets, custom accent colors, and granular propagation/map controls
 - **Logbook** -- QSO logging with DXCC tracking, ADIF import/export, and unified QSL management (LoTW, eQSL, Club Log)
 - **Mobile-First PWA** -- Dedicated mobile layouts for all pages, offline support, install prompt, pull-to-refresh, swipe navigation, and 44px touch targets
 - **ProPulse Bridge** -- Local WebSocket server for rig control (CAT), WSJT-X integration, and DX cluster telnet
@@ -102,6 +105,44 @@ The home page is a live operational view designed for at-a-glance situational aw
 - Contest Lite HUD and Contest Dock for map-integrated operation
 - Multi-tab sync via BroadcastChannel
 - Off-time tracking, QTC handling, call history import, and audit queue
+
+### Operator Profile
+
+Your station identity, achievements, and operating statistics in one place:
+
+- Profile completeness ring with weighted scoring (callsign, name, grid, license, photo, bio, social links, radio)
+- Callsign auto-fill via HamQTH lookup with one-click suggestions for name and grid
+- Markdown bio editor with XSS-safe rendering (bold, italic, links, lists)
+- Social links manager for QRZ, HamQTH, Twitter, YouTube, GitHub, and custom URLs
+- License card with class badge, country flag, and expiration progress bar
+- Awards tab with DXCC/WAS/WAZ progress rings showing worked vs. confirmed
+- Stats tab with 365-day activity heatmap, QSO by mode donut chart, and band distribution bars
+- QR code sharing with plasma-orange styling and error correction level H
+
+### Shack Builder
+
+Full equipment inventory, station presets, and RF performance analysis:
+
+- 7-tab interface: Overview, Radios, Antennas, Feedlines, Accessories, Presets, Performance
+- Antenna manager with 22 types, per-installation metadata (height, azimuth, polarization, mounting)
+- Feedline manager with 8 cable types (RG-58 through hardline), inline loss display per band
+- Feedline loss engine using sqrt(f) interpolation, connector loss, condition multipliers, and SWR mismatch modeling
+- Accessory manager for amplifiers, tuners, filters, switches, power supplies, and grounding
+- Station presets combining radio + antenna + feedline + accessories with live per-band ERP preview
+- Performance dashboard with per-band capability matrix and signal chain waterfall
+- SVG signal chain diagram (Radio → Accessories → Feedline → Antenna)
+- Active station gain hook integrating presets into all map propagation calculations
+
+### Settings
+
+Comprehensive configuration with 5 sections:
+
+- Preferences: visual style, high contrast, map/globe sub-settings, propagation forecast controls, band presets (up to 5)
+- Appearance: custom accent colors with live preview and 8 theme presets
+- Notifications: sub-group headers, quiet hours with UTC hour selectors
+- Data: settings backup/restore including all shack equipment
+- About: version info and project details
+- Shared UI primitives (SegmentedButton, SettingSlider, SettingRow) with full ARIA compliance
 
 ### Logbook & QSL Services
 
@@ -210,17 +251,19 @@ propulse/
 │       └── rig.ts          Rig control (CAT via Hamlib)
 │
 ├── src/
-│   ├── pages/              7 route-level pages
+│   ├── pages/              10 route-level pages
 │   ├── components/         Feature and UI components
 │   │   ├── map/            Globe, flat map, azimuthal, overlays (75 files)
 │   │   ├── contest/        Contest entry, scoring, band map (36 files)
 │   │   ├── dx/             DX console, spots, band scope (24 files)
 │   │   ├── solar/          Charts, metrics, propagation index (22 files)
-│   │   ├── settings/       Settings panels and modals (13 files)
+│   │   ├── profile/        Operator profile, awards, stats, QR code (19 files)
+│   │   ├── shack/          Equipment managers, presets, performance (10 files)
+│   │   ├── settings/       Settings sections, UI primitives (20 files)
 │   │   ├── ui/             Shared primitives (Badge, Card, Modal)
 │   │   └── ...
-│   ├── hooks/              42 custom hooks (data fetching, UI logic)
-│   ├── stores/             19 Zustand stores (client state)
+│   ├── hooks/              48 custom hooks (data fetching, UI logic)
+│   ├── stores/             21 Zustand stores (client state)
 │   ├── lib/
 │   │   ├── utils/          Propagation physics, scoring, helpers
 │   │   ├── contest/        Contest engine (scoring, dupes, SCP)
@@ -241,7 +284,7 @@ propulse/
 | ----------------- | ----------------------------------------------- |
 | **UI**            | React 18, TypeScript, Tailwind CSS              |
 | **3D Rendering**  | Three.js, @react-three/fiber, @react-three/drei |
-| **State**         | Zustand (19 stores)                             |
+| **State**         | Zustand (21 stores)                             |
 | **Server State**  | TanStack React Query                            |
 | **Routing**       | React Router DOM 7                              |
 | **Build**         | Vite 6                                          |

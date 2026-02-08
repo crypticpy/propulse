@@ -8,6 +8,7 @@ import type {
   ClusterSpotMessage,
   DaemonDiscoveryDaemonsMessage,
   DaemonIncomingMessage,
+  RadioState,
   RadioBinaryFrame,
   WsjtxDecode,
   WsjtxStatus,
@@ -67,6 +68,8 @@ export function SdrConsole() {
   const [wsjtxDecodes, setWsjtxDecodes] = useState<WsjtxDecode[]>([]);
   const [clusterSpots, setClusterSpots] = useState<ClusterSpotMessage[]>([]);
   const autoConnectAttemptedRef = useRef(false);
+  const gainDebounceRef = useRef<Record<string, number>>({});
+  const filterDebounceRef = useRef<number | null>(null);
 
   const devices = useRadioStore((s) => s.devices);
   const selectedDeviceId = useRadioStore((s) => s.selectedDeviceId);
@@ -94,6 +97,8 @@ export function SdrConsole() {
     null,
   );
   const [freqInput, setFreqInput] = useState("");
+  const [freqUnit, setFreqUnit] = useState<"MHz" | "kHz" | "Hz">("MHz");
+  const [draftState, setDraftState] = useState<RadioState | null>(null);
 
   const selectedDevice = useMemo(
     () => devices.find((d) => d.device_id === selectedDeviceId) ?? null,
@@ -102,6 +107,11 @@ export function SdrConsole() {
   const connectedState = connectedDeviceId
     ? radioStateById[connectedDeviceId] ?? null
     : null;
+  const effectiveState = draftState ?? connectedState;
+
+  useEffect(() => {
+    setDraftState(connectedState);
+  }, [connectedState]);
 
   // Persist daemon URL; reset radio state when switching daemons.
   useEffect(() => {
@@ -172,8 +182,20 @@ export function SdrConsole() {
   // Keep frequency input synced to connected radio state (when not editing).
   useEffect(() => {
     if (!connectedState) return;
-    setFreqInput((connectedState.freq / 1_000_000).toFixed(6));
-  }, [connectedState]);
+    const base =
+      freqUnit === "MHz"
+        ? connectedState.freq / 1_000_000
+        : freqUnit === "kHz"
+          ? connectedState.freq / 1_000
+          : connectedState.freq;
+    const text =
+      freqUnit === "MHz"
+        ? base.toFixed(6)
+        : freqUnit === "kHz"
+          ? base.toFixed(3)
+          : Math.round(base).toString();
+    setFreqInput(text);
+  }, [connectedState, freqUnit]);
 
   useEffect(() => {
     const msg = daemonLastMessage as DaemonIncomingMessage | null;
@@ -259,22 +281,107 @@ export function SdrConsole() {
     daemonSendCommand("radio:disconnect", { device_id: connectedDeviceId });
     setFftEnabled(false);
     setAudioEnabled(false);
+    setDraftState(null);
   };
 
   const handleTune = () => {
     if (!connectedDeviceId) return;
-    const mhz = Number(freqInput);
-    if (!Number.isFinite(mhz) || mhz <= 0) {
+    const value = Number(freqInput);
+    if (!Number.isFinite(value) || value <= 0) {
       setLastResponseError("Invalid frequency");
       return;
     }
-    const hz = Math.round(mhz * 1_000_000);
+    const hz =
+      freqUnit === "MHz"
+        ? Math.round(value * 1_000_000)
+        : freqUnit === "kHz"
+          ? Math.round(value * 1_000)
+          : Math.round(value);
     daemonSendCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
+    setDraftState((s) => (s ? { ...s, freq: hz } : s));
   };
 
   const handleModeChange = (mode: string) => {
     if (!connectedDeviceId) return;
     daemonSendCommand("radio:mode", { device_id: connectedDeviceId, mode });
+    setDraftState((s) => (s ? { ...s, mode } : s));
+  };
+
+  const handleGainChange = (stage: string, value: number) => {
+    setDraftState((s) => {
+      if (!s) return s;
+      return { ...s, gains: { ...s.gains, [stage]: value } };
+    });
+    if (!connectedDeviceId) return;
+
+    const existing = gainDebounceRef.current[stage];
+    if (existing) window.clearTimeout(existing);
+    gainDebounceRef.current[stage] = window.setTimeout(() => {
+      daemonSendCommand("radio:gain", {
+        device_id: connectedDeviceId,
+        stage,
+        value,
+      });
+    }, 50);
+  };
+
+  const handleAgcToggle = (enabled: boolean) => {
+    setDraftState((s) => (s ? { ...s, agc: enabled } : s));
+    if (!connectedDeviceId) return;
+    daemonSendCommand("radio:agc", { device_id: connectedDeviceId, enabled });
+  };
+
+  const handleAntennaChange = (port: string) => {
+    setDraftState((s) => (s ? { ...s, antenna: port } : s));
+    if (!connectedDeviceId) return;
+    daemonSendCommand("radio:antenna", { device_id: connectedDeviceId, port });
+  };
+
+  const handleFilterChange = (low: number, high: number) => {
+    const lo = Math.min(low, high);
+    const hi = Math.max(low, high);
+    setDraftState((s) =>
+      s ? { ...s, filter: { low: Math.round(lo), high: Math.round(hi) } } : s,
+    );
+    if (!connectedDeviceId) return;
+    if (filterDebounceRef.current) window.clearTimeout(filterDebounceRef.current);
+    filterDebounceRef.current = window.setTimeout(() => {
+      daemonSendCommand("radio:filter", {
+        device_id: connectedDeviceId,
+        low: Math.round(lo),
+        high: Math.round(hi),
+      });
+    }, 75);
+  };
+
+  const handleNrChange = (enabled: boolean, level: number) => {
+    setDraftState((s) =>
+      s ? { ...s, nr: { enabled, level: Math.round(level) } } : s,
+    );
+    if (!connectedDeviceId) return;
+    daemonSendCommand("radio:nr", {
+      device_id: connectedDeviceId,
+      enabled,
+      level: Math.round(level),
+    });
+  };
+
+  const handleNbChange = (enabled: boolean, threshold: number) => {
+    setDraftState((s) =>
+      s ? { ...s, nb: { enabled, threshold: Math.round(threshold) } } : s,
+    );
+    if (!connectedDeviceId) return;
+    daemonSendCommand("radio:nb", {
+      device_id: connectedDeviceId,
+      enabled,
+      threshold: Math.round(threshold),
+    });
+  };
+
+  const handlePttChange = (active: boolean) => {
+    setDraftState((s) => (s ? { ...s, ptt: active } : s));
+    if (!connectedDeviceId) return;
+    daemonSendCommand("radio:ptt", { device_id: connectedDeviceId, active });
   };
 
   const handleToggleFft = () => {
@@ -312,6 +419,37 @@ export function SdrConsole() {
     if (!daemonConnected) return;
     daemonSendCommand("discovery:mdns:browse");
   }, [daemonConnected, daemonSendCommand]);
+
+  const waterfallOverlays = useMemo(() => {
+    const overlays: Array<{
+      hz: number;
+      label?: string;
+      color?: "cyan" | "orange" | "red" | "green";
+    }> = [];
+
+    for (const s of clusterSpots.slice(0, 15)) {
+      overlays.push({
+        hz: s.freq * 1000,
+        label: s.dx,
+        color: "orange",
+      });
+    }
+
+    if (wsjtxStatus) {
+      const dial = wsjtxStatus.frequency;
+      const isLsb = (effectiveState?.mode ?? "").toUpperCase() === "LSB";
+      for (const d of wsjtxDecodes.slice(0, 20)) {
+        const rf = dial + (isLsb ? -d.deltaFrequency : d.deltaFrequency);
+        overlays.push({
+          hz: rf,
+          label: d.callsign ?? undefined,
+          color: "cyan",
+        });
+      }
+    }
+
+    return overlays;
+  }, [clusterSpots, effectiveState?.mode, wsjtxDecodes, wsjtxStatus]);
 
   useEffect(() => {
     if (!devicePickerOpen) return;
@@ -463,7 +601,7 @@ export function SdrConsole() {
             <div className="grid grid-cols-3 gap-2 items-end">
               <div className="col-span-2">
                 <label className="block text-xs text-gray-500 mb-1">
-                  Frequency (MHz)
+                  Frequency
                 </label>
                 <input
                   type="text"
@@ -475,6 +613,23 @@ export function SdrConsole() {
                   disabled={!canControlConnected}
                   className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm font-mono"
                 />
+                <div className="mt-1 flex gap-1">
+                  {(["MHz", "kHz", "Hz"] as const).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setFreqUnit(u)}
+                      disabled={!canControlConnected}
+                      className={`px-2 py-1 rounded text-[11px] border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        freqUnit === u
+                          ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
+                          : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
               </div>
               <button
                 type="button"
@@ -489,7 +644,7 @@ export function SdrConsole() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">Mode</label>
               <select
-                value={connectedState?.mode ?? ""}
+                value={effectiveState?.mode ?? ""}
                 onChange={(e) => handleModeChange(e.target.value)}
                 disabled={!canControlConnected || !selectedDevice}
                 className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
@@ -501,6 +656,241 @@ export function SdrConsole() {
                 ))}
               </select>
             </div>
+
+            {selectedDevice && effectiveState && (
+              <div className="space-y-3 pt-1">
+                {/* TX / RX */}
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-500">Transmit</div>
+                  {selectedDevice.capabilities.can_transmit ? (
+                    <button
+                      type="button"
+                      onClick={() => handlePttChange(!effectiveState.ptt)}
+                      disabled={!canControlConnected}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        effectiveState.ptt
+                          ? "bg-alert-red/20 border-alert-red/40 text-alert-red"
+                          : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                      }`}
+                      aria-pressed={!!effectiveState.ptt}
+                    >
+                      {effectiveState.ptt ? "PTT ON" : "PTT"}
+                    </button>
+                  ) : (
+                    <span className="text-[11px] px-2 py-1 rounded border border-white/10 bg-white/5 text-gray-400">
+                      RX Only
+                    </span>
+                  )}
+                </div>
+
+                {/* AGC */}
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-500">AGC</div>
+                  <button
+                    type="button"
+                    onClick={() => handleAgcToggle(!effectiveState.agc)}
+                    disabled={!canControlConnected}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      effectiveState.agc
+                        ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                        : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                    }`}
+                    aria-pressed={effectiveState.agc}
+                  >
+                    {effectiveState.agc ? "On" : "Off"}
+                  </button>
+                </div>
+
+                {/* Antenna */}
+                {selectedDevice.capabilities.antennas.length > 1 ? (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Antenna
+                    </label>
+                    <select
+                      value={effectiveState.antenna ?? ""}
+                      onChange={(e) => handleAntennaChange(e.target.value)}
+                      disabled={!canControlConnected}
+                      className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+                    >
+                      {selectedDevice.capabilities.antennas.map((a) => (
+                        <option key={a} value={a}>
+                          {a}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
+                {/* Gain stages */}
+                {selectedDevice.capabilities.gain_stages.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-gray-200">
+                      Gain
+                    </div>
+                    {selectedDevice.capabilities.gain_stages.map((st) => {
+                      const value = effectiveState.gains?.[st.name] ?? st.min;
+                      return (
+                        <div key={st.name} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>{st.name}</span>
+                            <span className="text-gray-200 font-mono">
+                              {Number.isFinite(value) ? value : "—"}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={st.min}
+                            max={st.max}
+                            step={st.step}
+                            value={value}
+                            onChange={(e) =>
+                              handleGainChange(st.name, Number(e.target.value))
+                            }
+                            disabled={!canControlConnected}
+                            className="w-full"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {/* DSP */}
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-gray-200">
+                    DSP
+                  </div>
+
+                  {/* Filter */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Filter</span>
+                      <span className="text-gray-200 font-mono">
+                        {(effectiveState.filter?.low ?? 300).toFixed(0)}–
+                        {(effectiveState.filter?.high ?? 2700).toFixed(0)} Hz
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={5000}
+                        step={50}
+                        value={effectiveState.filter?.low ?? 300}
+                        onChange={(e) =>
+                          handleFilterChange(
+                            Number(e.target.value),
+                            effectiveState.filter?.high ?? 2700,
+                          )
+                        }
+                        disabled={!canControlConnected}
+                        className="w-full"
+                        aria-label="Filter low cutoff"
+                      />
+                      <input
+                        type="range"
+                        min={500}
+                        max={15000}
+                        step={50}
+                        value={effectiveState.filter?.high ?? 2700}
+                        onChange={(e) =>
+                          handleFilterChange(
+                            effectiveState.filter?.low ?? 300,
+                            Number(e.target.value),
+                          )
+                        }
+                        disabled={!canControlConnected}
+                        className="w-full"
+                        aria-label="Filter high cutoff"
+                      />
+                    </div>
+                  </div>
+
+                  {/* NR */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>NR</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleNrChange(
+                            !(effectiveState.nr?.enabled ?? false),
+                            effectiveState.nr?.level ?? 3,
+                          )
+                        }
+                        disabled={!canControlConnected}
+                        className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                          effectiveState.nr?.enabled
+                            ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                            : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                        }`}
+                        aria-pressed={effectiveState.nr?.enabled ?? false}
+                      >
+                        {effectiveState.nr?.enabled ? "On" : "Off"}
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={5}
+                      step={1}
+                      value={effectiveState.nr?.enabled ? effectiveState.nr?.level ?? 3 : 0}
+                      onChange={(e) =>
+                        handleNrChange(
+                          Number(e.target.value) > 0,
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={!canControlConnected}
+                      className="w-full"
+                      aria-label="Noise reduction level"
+                    />
+                  </div>
+
+                  {/* NB */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>NB</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleNbChange(
+                            !(effectiveState.nb?.enabled ?? false),
+                            effectiveState.nb?.threshold ?? 50,
+                          )
+                        }
+                        disabled={!canControlConnected}
+                        className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                          effectiveState.nb?.enabled
+                            ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                            : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                        }`}
+                        aria-pressed={effectiveState.nb?.enabled ?? false}
+                      >
+                        {effectiveState.nb?.enabled ? "On" : "Off"}
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={effectiveState.nb?.enabled ? effectiveState.nb?.threshold ?? 50 : 0}
+                      onChange={(e) =>
+                        handleNbChange(
+                          Number(e.target.value) > 0,
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={!canControlConnected}
+                      className="w-full"
+                      aria-label="Noise blanker threshold"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-between text-xs text-gray-500">
               <span>S-meter</span>
@@ -539,7 +929,7 @@ export function SdrConsole() {
             </div>
           </Card>
 
-          {connectedState && (
+          {effectiveState && (
             <Card className="p-4 space-y-1.5">
               <div className="text-sm font-semibold text-gray-200">
                 Status
@@ -547,19 +937,19 @@ export function SdrConsole() {
               <div className="text-xs text-gray-500 flex justify-between">
                 <span>Frequency</span>
                 <span className="text-gray-300 font-mono">
-                  {formatHz(connectedState.freq)}
+                  {formatHz(effectiveState.freq)}
                 </span>
               </div>
               <div className="text-xs text-gray-500 flex justify-between">
                 <span>Mode</span>
                 <span className="text-gray-300 font-mono">
-                  {connectedState.mode}
+                  {effectiveState.mode}
                 </span>
               </div>
               <div className="text-xs text-gray-500 flex justify-between">
                 <span>AGC</span>
                 <span className="text-gray-300 font-mono">
-                  {connectedState.agc ? "on" : "off"}
+                  {effectiveState.agc ? "on" : "off"}
                 </span>
               </div>
             </Card>
@@ -574,13 +964,37 @@ export function SdrConsole() {
                 Waterfall
               </div>
               <div className="text-xs text-gray-500 font-mono">
-                {connectedState ? formatHz(connectedState.freq) : "—"}
+                {effectiveState ? formatHz(effectiveState.freq) : "—"}
               </div>
             </div>
 
             <div className="h-[420px] lg:h-[640px]">
               {fftEnabled ? (
-                <Waterfall frame={lastFftFrame} />
+                <Waterfall
+                  frame={lastFftFrame}
+                  overlays={waterfallOverlays}
+                  onPickFrequencyHz={(hz) => {
+                    if (!connectedDeviceId) return;
+                    daemonSendCommand("radio:tune", {
+                      device_id: connectedDeviceId,
+                      freq: hz,
+                    });
+                    setDraftState((s) => (s ? { ...s, freq: hz } : s));
+                    const base =
+                      freqUnit === "MHz"
+                        ? hz / 1_000_000
+                        : freqUnit === "kHz"
+                          ? hz / 1_000
+                          : hz;
+                    const text =
+                      freqUnit === "MHz"
+                        ? base.toFixed(6)
+                        : freqUnit === "kHz"
+                          ? base.toFixed(3)
+                          : Math.round(base).toString();
+                    setFreqInput(text);
+                  }}
+                />
               ) : (
                 <div className="w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500">
                   Start FFT to show the waterfall.

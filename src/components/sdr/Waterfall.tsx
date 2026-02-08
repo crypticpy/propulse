@@ -10,6 +10,13 @@ interface WaterfallProps {
   minDb?: number;
   /** dB ceiling (mapped to red) */
   maxDb?: number;
+  /** Click-to-tune handler (Hz) */
+  onPickFrequencyHz?: (hz: number) => void;
+  overlays?: Array<{
+    hz: number;
+    label?: string;
+    color?: "cyan" | "orange" | "red" | "green";
+  }>;
 }
 
 function clamp01(x: number): number {
@@ -44,6 +51,8 @@ export function Waterfall({
   className = "",
   minDb = -125,
   maxDb = -40,
+  onPickFrequencyHz,
+  overlays = [],
 }: WaterfallProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -118,14 +127,59 @@ export function Waterfall({
   }, [frame, minDb, range]);
 
   return (
-    <div ref={containerRef} className={`w-full h-full ${className}`}>
+    <div
+      ref={containerRef}
+      className={`w-full h-full relative ${className}`}
+      onClick={(e) => {
+        if (!frame || !onPickFrequencyHz) return;
+        const el = containerRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        const x = (e.clientX - rect.left) / rect.width;
+        const hz = frame.centerHz - frame.spanHz / 2 + x * frame.spanHz;
+        onPickFrequencyHz(Math.round(hz));
+      }}
+    >
       <canvas
         ref={canvasRef}
         className="w-full h-full rounded-lg border border-white/10 bg-black"
       />
+
+      {frame &&
+        overlays
+          .filter((o) => Number.isFinite(o.hz))
+          .map((o, idx) => {
+            const start = frame.centerHz - frame.spanHz / 2;
+            const t = (o.hz - start) / frame.spanHz;
+            if (t < 0 || t > 1) return null;
+            const colorClass =
+              o.color === "orange"
+                ? "bg-plasma-orange/70 text-plasma-orange"
+                : o.color === "red"
+                  ? "bg-alert-red/70 text-alert-red"
+                  : o.color === "green"
+                    ? "bg-signal-green/70 text-signal-green"
+                    : "bg-cosmic-cyan/70 text-cosmic-cyan";
+            return (
+              <div
+                key={`${o.hz}-${o.label ?? "m"}-${idx}`}
+                className="absolute top-0 bottom-0 pointer-events-none"
+                style={{ left: `${t * 100}%` }}
+              >
+                <div className={`w-px h-full ${colorClass}`} />
+                {o.label ? (
+                  <div
+                    className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-black/60 border border-white/10 ${colorClass}`}
+                  >
+                    {o.label}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
     </div>
   );
 }
 
 export default Waterfall;
-

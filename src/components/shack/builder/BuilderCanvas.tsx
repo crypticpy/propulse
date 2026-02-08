@@ -43,7 +43,7 @@ const NODE_SPACING = 60; // space between nodes for lines + drop zones
 const CANVAS_PADDING_X = 30;
 const CANVAS_PADDING_Y = 20;
 const DROP_ZONE_WIDTH = 40;
-const MIN_CANVAS_HEIGHT = 200;
+const MIN_CANVAS_HEIGHT = 260;
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -358,7 +358,201 @@ export function BuilderCanvas({
     [onSelectNode],
   );
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  // ── Drop handler for empty canvas (entire area is a drop zone) ──────────
+  const handleEmptyCanvasDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setActiveDropIndex(0);
+  }, []);
+
+  const handleEmptyCanvasDragLeave = useCallback(() => {
+    setActiveDropIndex(null);
+  }, []);
+
+  const handleEmptyCanvasDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setActiveDropIndex(null);
+      const equipJson = e.dataTransfer.getData("application/x-equipment");
+      if (equipJson) {
+        try {
+          const { type: equipType, id: equipId } = JSON.parse(equipJson);
+          if (equipType && equipId) {
+            onDropEquipment(equipType, equipId, 0);
+          }
+        } catch {
+          // Malformed drag data
+        }
+      }
+    },
+    [onDropEquipment],
+  );
+
+  // ── Empty state ───────────────────────────────────────────────────────────
+  if (chain.nodes.length === 0) {
+    const isDropHover = activeDropIndex != null;
+    return (
+      <div
+        className={`
+          relative rounded-2xl border-2 border-dashed transition-all duration-300 overflow-hidden
+          ${
+            isDraggingFromDrawer
+              ? isDropHover
+                ? "border-plasma-orange bg-plasma-orange/10 shadow-[inset_0_0_40px_rgba(255,107,53,0.08)]"
+                : "border-plasma-orange/50 bg-plasma-orange/5 animate-pulse"
+              : "border-white/10 bg-panel/30 backdrop-blur-sm"
+          }
+        `}
+        style={{ minHeight: MIN_CANVAS_HEIGHT }}
+        onDragOver={handleEmptyCanvasDragOver}
+        onDragLeave={handleEmptyCanvasDragLeave}
+        onDrop={handleEmptyCanvasDrop}
+      >
+        {/* Dragging overlay */}
+        {isDraggingFromDrawer && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 mx-auto rounded-full bg-plasma-orange/20 border border-plasma-orange/40 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-plasma-orange"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-plasma-orange">
+                Drop here to add
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Guided empty state (hidden when dragging) */}
+        {!isDraggingFromDrawer && (
+          <div className="flex flex-col items-center justify-center h-full py-8 px-4">
+            {/* Pipeline placeholder diagram */}
+            <div className="flex items-center gap-2 mb-6">
+              {/* Radio ghost */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-20 h-14 rounded-xl border border-plasma-orange/30 bg-plasma-orange/5 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-plasma-orange/50"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0"
+                    />
+                  </svg>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">
+                  Radio
+                </span>
+              </div>
+
+              {/* Arrow */}
+              <svg
+                className="w-6 h-4 text-gray-600 shrink-0"
+                viewBox="0 0 24 16"
+                fill="currentColor"
+              >
+                <path d="M0 7h18l-4-4 1.5-1.5L22 8l-6.5 6.5L14 13l4-4H0z" />
+              </svg>
+
+              {/* Feedline ghost */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-20 h-14 rounded-xl border border-caution-amber/30 bg-caution-amber/5 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-caution-amber/50"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.03a4.5 4.5 0 00-6.364-6.364L4.5 8.25l4.5 4.5"
+                    />
+                  </svg>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">
+                  Cable
+                </span>
+              </div>
+
+              {/* Arrow */}
+              <svg
+                className="w-6 h-4 text-gray-600 shrink-0"
+                viewBox="0 0 24 16"
+                fill="currentColor"
+              >
+                <path d="M0 7h18l-4-4 1.5-1.5L22 8l-6.5 6.5L14 13l4-4H0z" />
+              </svg>
+
+              {/* Antenna ghost */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-20 h-14 rounded-xl border border-signal-green/30 bg-signal-green/5 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-signal-green/50"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.981 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.789M12 12h.008v.008H12V12zm0 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                    />
+                  </svg>
+                </div>
+                <span className="text-[10px] text-gray-500 font-medium">
+                  Antenna
+                </span>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <p className="text-sm text-gray-400 text-center max-w-xs">
+              Drag equipment from the drawer below to start building your signal
+              chain
+            </p>
+
+            {/* Animated down arrow */}
+            <div className="mt-3 animate-bounce">
+              <svg
+                className="w-5 h-5 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                />
+              </svg>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Active chain render ───────────────────────────────────────────────────
 
   return (
     <div className="overflow-x-auto rounded-2xl bg-panel/30 backdrop-blur-sm border border-white/5">
@@ -551,21 +745,6 @@ export function BuilderCanvas({
             />
           );
         })}
-
-        {/* Empty state */}
-        {chain.nodes.length === 0 && (
-          <text
-            x={svgWidth / 2}
-            y={svgHeight / 2}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="#6B7280"
-            fontSize={13}
-            fontFamily="system-ui, sans-serif"
-          >
-            Drag equipment here to build your signal chain
-          </text>
-        )}
       </svg>
     </div>
   );

@@ -243,8 +243,34 @@ export function EquipmentDrawer({
 
   return (
     <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl flex flex-col overflow-hidden">
+      {/* Instructional header */}
+      <div className="flex items-center justify-between px-3 pt-3 pb-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Your Equipment
+          </h3>
+        </div>
+        <div className="flex items-center gap-1.5 text-gray-500">
+          {/* Upward arrow hint */}
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 10l7-7m0 0l7 7m-7-7v18"
+            />
+          </svg>
+          <span className="text-[10px] font-medium">Drag to canvas</span>
+        </div>
+      </div>
+
       {/* Tab bar */}
-      <div className="flex gap-1 p-2 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-1 px-2 pb-2 pt-1 overflow-x-auto scrollbar-hide">
         {TABS.map(({ key, label }) => (
           <button
             key={key}
@@ -265,7 +291,7 @@ export function EquipmentDrawer({
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-2 pt-0">
+      <div className="flex-1 overflow-y-auto p-2 pt-0 max-h-48">
         {renderTabContent()}
       </div>
     </div>

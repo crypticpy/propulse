@@ -89,8 +89,20 @@ export function DraggableEquipmentCard({
       {/* Left accent bar */}
       <div className={`w-[3px] shrink-0 ${ACCENT_COLORS[type]}`} />
 
+      {/* Grip dots (drag handle indicator) */}
+      <div className="flex items-center pl-2 pr-0.5 text-gray-600">
+        <svg className="w-3 h-3" viewBox="0 0 6 10" fill="currentColor">
+          <circle cx="1" cy="1" r="0.8" />
+          <circle cx="5" cy="1" r="0.8" />
+          <circle cx="1" cy="5" r="0.8" />
+          <circle cx="5" cy="5" r="0.8" />
+          <circle cx="1" cy="9" r="0.8" />
+          <circle cx="5" cy="9" r="0.8" />
+        </svg>
+      </div>
+
       {/* Content */}
-      <div className="flex-1 min-w-0 px-2.5 py-1.5">
+      <div className="flex-1 min-w-0 px-1.5 py-1.5">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium text-gray-200 truncate">
             {name}

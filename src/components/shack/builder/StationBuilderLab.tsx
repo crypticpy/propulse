@@ -129,29 +129,24 @@ export function StationBuilderLab() {
     [activeChain, removeNodeFromChain],
   );
 
-  // ── Empty state: no chains ─────────────────────────────────────────────
+  // ── Derived: chain analysis for contextual hints ────────────────────────
+  const hasNodes = activeChain ? activeChain.nodes.length > 0 : false;
+  const hasRadio = activeChain
+    ? activeChain.nodes.some((n) => n.type === "radio")
+    : false;
+  const hasAntenna = activeChain
+    ? activeChain.nodes.some((n) => n.type === "antenna")
+    : false;
+
+  // ── Empty state: no chains at all ────────────────────────────────────────
   if (chains.length === 0 || !activeChain) {
     return (
-      <div className="space-y-6">
-        {/* Header row */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2
-              className={`font-semibold text-gray-200 ${isMobile ? "text-base" : "text-lg"}`}
-            >
-              Station Builder Lab
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Visual signal chain designer
-            </p>
-          </div>
-        </div>
-
-        {/* Empty state card */}
+      <div className="space-y-4">
+        {/* Empty state card with create CTA */}
         <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-8 text-center space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-full bg-plasma-orange/10 flex items-center justify-center">
+          <div className="mx-auto w-14 h-14 rounded-full bg-plasma-orange/10 flex items-center justify-center">
             <svg
-              className="w-6 h-6 text-plasma-orange"
+              className="w-7 h-7 text-plasma-orange"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -169,8 +164,9 @@ export function StationBuilderLab() {
               Build Your First Station Chain
             </h3>
             <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto">
-              Design your signal path by dragging equipment from the drawer
-              below onto the canvas.
+              A station chain maps the signal path from your radio through
+              cables and accessories to the antenna. Create one to visualize
+              your setup and calculate performance.
             </p>
           </div>
           <button
@@ -191,15 +187,9 @@ export function StationBuilderLab() {
                 d="M12 4v16m8-8H4"
               />
             </svg>
-            Create Chain
+            Create Station Chain
           </button>
         </div>
-
-        {/* Show equipment drawer even in empty state */}
-        <EquipmentDrawer
-          onDragActiveChange={setIsDraggingFromDrawer}
-          activeChain={null}
-        />
       </div>
     );
   }
@@ -207,21 +197,10 @@ export function StationBuilderLab() {
   // ── Active builder view ────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Header row */}
+      {/* Chain selector row */}
       <div
         className={`flex items-center gap-3 ${isMobile ? "flex-col" : "flex-row justify-between"}`}
       >
-        <div className="flex-1 min-w-0">
-          <h2
-            className={`font-semibold text-gray-200 ${isMobile ? "text-base" : "text-lg"}`}
-          >
-            Station Builder Lab
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Visual signal chain designer
-          </p>
-        </div>
-
         <div className={`flex items-center gap-2 ${isMobile ? "w-full" : ""}`}>
           <div className={isMobile ? "flex-1" : "w-56"}>
             <ChainSelector
@@ -234,6 +213,18 @@ export function StationBuilderLab() {
             />
           </div>
         </div>
+
+        {/* Contextual step hints */}
+        {!hasNodes && (
+          <p className="text-xs text-gray-500 italic">
+            Step 1: Drag a radio from below to start
+          </p>
+        )}
+        {hasNodes && hasRadio && !hasAntenna && (
+          <p className="text-xs text-gray-500 italic">
+            Next: Add an antenna to complete the signal path
+          </p>
+        )}
       </div>
 
       {/* Builder Canvas */}
@@ -246,31 +237,35 @@ export function StationBuilderLab() {
         isDraggingFromDrawer={isDraggingFromDrawer}
       />
 
-      {/* Loss Budget Bar */}
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Loss Budget
-        </h3>
-        <LossBudgetBar
-          bandPerformance={selectedBandPerformance}
-          availableBands={availableBands}
-          selectedBand={selectedBand}
-          onSelectBand={setSelectedBand}
-        />
-      </div>
-
-      {/* Equipment Drawer */}
+      {/* Equipment Drawer — always visible, right below canvas for easy drag */}
       <EquipmentDrawer
         onDragActiveChange={setIsDraggingFromDrawer}
         activeChain={activeChain}
       />
 
-      {/* Performance Sidebar (rendered below loss budget) */}
-      <PerformanceSidebar
-        chainPerformance={chainPerformance}
-        selectedBand={selectedBand}
-        onSelectBand={setSelectedBand}
-      />
+      {/* Loss Budget Bar — only show when band data is available */}
+      {availableBands.length > 0 && (
+        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Loss Budget
+          </h3>
+          <LossBudgetBar
+            bandPerformance={selectedBandPerformance}
+            availableBands={availableBands}
+            selectedBand={selectedBand}
+            onSelectBand={setSelectedBand}
+          />
+        </div>
+      )}
+
+      {/* Performance Sidebar — only show when band data is available */}
+      {availableBands.length > 0 && (
+        <PerformanceSidebar
+          chainPerformance={chainPerformance}
+          selectedBand={selectedBand}
+          onSelectBand={setSelectedBand}
+        />
+      )}
 
       {/* Node Config Panel (slides in from right when a node is selected) */}
       {selectedNodeIndex != null && activeChain && (

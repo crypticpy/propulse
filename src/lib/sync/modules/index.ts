@@ -4,7 +4,7 @@
  * Call registerAllModules() once after SyncManager is created to wire up
  * all sync modules. Modules are organized by tier:
  *
- * Tier 1 (Eager, 5s debounce): profile, preferences, targets
+ * Tier 1 (Eager, 5s debounce): profile, preferences, targets, shack
  * Tier 3 (Lazy, immediate): watches, pins, skeds, alert rules
  * Tier 2 (Incremental, 30s batch): logbook, contests
  */
@@ -19,6 +19,10 @@ import { skedSync } from "./skedSync";
 import { alertRuleSync } from "./alertRuleSync";
 import { logbookSync } from "./logbookSync";
 import { contestSync } from "./contestSync";
+import { shackSync } from "./shackSync";
+import { useProfileStore } from "@/stores/profileStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useShackStore } from "@/stores/shackStore";
 
 /** Register all sync modules with the SyncManager singleton */
 export function registerAllModules(): void {
@@ -28,6 +32,7 @@ export function registerAllModules(): void {
   manager.registerModule(profileSync);
   manager.registerModule(preferencesSync);
   manager.registerModule(targetsSync);
+  manager.registerModule(shackSync);
 
   // Tier 2 — Incremental (30s batch flush, delta sync)
   manager.registerModule(logbookSync);
@@ -38,6 +43,13 @@ export function registerAllModules(): void {
   manager.registerModule(pinSync);
   manager.registerModule(skedSync);
   manager.registerModule(alertRuleSync);
+
+  // ── Store → Sync wiring ───────────────────────────────────────────────
+  // Subscribe to Tier 1 stores so any state change schedules an eager push.
+  // The 5s debounce inside SyncManager prevents rapid-fire network calls.
+  useProfileStore.subscribe(() => manager.markDirty("eager"));
+  useSettingsStore.subscribe(() => manager.markDirty("eager"));
+  useShackStore.subscribe(() => manager.markDirty("eager"));
 }
 
 // Re-export individual modules for direct access
@@ -50,3 +62,4 @@ export { watchSync } from "./watchSync";
 export { pinSync } from "./pinSync";
 export { skedSync } from "./skedSync";
 export { alertRuleSync } from "./alertRuleSync";
+export { shackSync } from "./shackSync";

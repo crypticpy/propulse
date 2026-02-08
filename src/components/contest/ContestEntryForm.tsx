@@ -8,6 +8,8 @@ import { Card } from "@/components/ui";
 import { DupeIndicator } from "./DupeIndicator";
 import type { ContestSession, ContestQSO } from "@/stores/contestStore";
 import { getDefaultRST } from "@/types/contest";
+import { useRigStore } from "@/stores/rigStore";
+import { frequencyToBand } from "@/types/bridge";
 
 export interface ContestEntryFormProps {
   /** Callback when a QSO is submitted */
@@ -26,6 +28,16 @@ const BANDS = ["160m", "80m", "40m", "20m", "15m", "10m", "6m"];
 /** Common contest modes */
 const MODES = ["CW", "SSB", "RTTY", "FT8"];
 
+function rigModeToContestMode(mode: string): string {
+  const m = mode.toUpperCase();
+  if (m.includes("CW")) return "CW";
+  if (m.includes("FT8") || m.includes("FT4") || m.includes("DIG")) return "FT8";
+  if (m.includes("RTTY")) return "RTTY";
+  if (m.includes("USB") || m.includes("LSB") || m.includes("SSB")) return "SSB";
+  if (m.includes("AM") || m.includes("FM")) return "SSB";
+  return "SSB";
+}
+
 export function ContestEntryForm({
   onSubmit,
   isDupe,
@@ -41,6 +53,19 @@ export function ContestEntryForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const callsignInputRef = useRef<HTMLInputElement>(null);
+
+  const rigConnected = useRigStore((s) => s.connected);
+  const rigFrequency = useRigStore((s) => s.frequency);
+  const rigMode = useRigStore((s) => s.mode);
+
+  // Auto-fill band/mode from connected radio state (CAT/daemon bridge).
+  useEffect(() => {
+    if (!rigConnected) return;
+    const nextBand = frequencyToBand(rigFrequency);
+    if (nextBand !== "?" && BANDS.includes(nextBand)) setBand(nextBand);
+    const nextMode = rigModeToContestMode(String(rigMode));
+    if (MODES.includes(nextMode)) setMode(nextMode);
+  }, [rigConnected, rigFrequency, rigMode]);
 
   // Update RST defaults when mode changes
   useEffect(() => {

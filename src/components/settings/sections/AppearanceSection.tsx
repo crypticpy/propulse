@@ -7,6 +7,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { useThemeStore } from "@/stores/themeStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 // ─── Hex validation ─────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ export function AppearanceSection() {
   const customSecondary = useThemeStore((s) => s.customSecondary);
   const setCustomColors = useThemeStore((s) => s.setCustomColors);
   const setAccent = useThemeStore((s) => s.setAccent);
+  const sdrWaterfallPalette = useSettingsStore((s) => s.sdrWaterfallPalette);
+  const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
   // Local form state for hex inputs
   const [primaryHex, setPrimaryHex] = useState(customPrimary ?? "#ff6b35");
@@ -207,6 +210,34 @@ export function AppearanceSection() {
           >
             Light
           </button>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 pt-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          SDR Waterfall
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Controls the color palette used by the SDR Console waterfall and spectrum.
+        </p>
+        <div className="max-w-sm">
+          <label className="block text-xs font-medium text-gray-400 mb-1">
+            Palette
+          </label>
+          <select
+            value={sdrWaterfallPalette}
+            onChange={(e) =>
+              updatePreferences({
+                sdrWaterfallPalette: e.target.value as typeof sdrWaterfallPalette,
+              })
+            }
+            className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
+          >
+            <option value="classic">Classic (black→blue→cyan→yellow→red)</option>
+            <option value="viridis">Viridis</option>
+            <option value="magma">Magma</option>
+            <option value="gray">Grayscale</option>
+          </select>
         </div>
       </div>
 

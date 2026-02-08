@@ -65,6 +65,8 @@ export interface SettingsState {
   watchAlerts: WatchAlertPreferences;
   uiInteraction: UIInteractionPreferences;
   forecastDisplay: ForecastDisplayPreferences;
+  /** SDR Console waterfall color palette */
+  sdrWaterfallPalette: "classic" | "viridis" | "magma" | "gray";
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -125,6 +127,7 @@ const defaultSettings: SettingsState = {
   watchAlerts: DEFAULT_WATCH_ALERT_PREFERENCES,
   uiInteraction: DEFAULT_UI_INTERACTION,
   forecastDisplay: DEFAULT_FORECAST_DISPLAY,
+  sdrWaterfallPalette: "classic",
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────

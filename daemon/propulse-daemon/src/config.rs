@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use clap::Parser;
-use directories::ProjectDirs;
+use directories::{BaseDirs, ProjectDirs};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -370,9 +370,19 @@ impl Default for AppConfig {
 
 impl AppConfig {
   pub fn default_path() -> anyhow::Result<PathBuf> {
-    let proj = ProjectDirs::from("com", "propulse", "propulse-daemon")
-      .ok_or_else(|| anyhow::anyhow!("Unable to determine config directory"))?;
-    Ok(proj.config_dir().join("daemon.toml"))
+    #[cfg(target_os = "windows")]
+    {
+      let proj = ProjectDirs::from("com", "propulse", "propulse")
+        .ok_or_else(|| anyhow::anyhow!("Unable to determine config directory"))?;
+      return Ok(proj.config_dir().join("daemon.toml"));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+      let base =
+        BaseDirs::new().ok_or_else(|| anyhow::anyhow!("Unable to determine home directory"))?;
+      return Ok(base.home_dir().join(".propulse").join("daemon.toml"));
+    }
   }
 
   pub fn load_or_create_with_path(cli: &Cli) -> anyhow::Result<(Self, PathBuf)> {

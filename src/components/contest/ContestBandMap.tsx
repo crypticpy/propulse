@@ -11,6 +11,7 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
+import { useRadioDaemon } from "@/hooks/useRadioDaemon";
 import { getContestById } from "@/lib/data/contests";
 import {
   getNeededMultipliers,
@@ -23,6 +24,9 @@ import {
 } from "@/types/contest";
 import type { DXSpot } from "@/types/dxcluster";
 import type { NeededMult } from "@/lib/contest";
+import type { RadioBinaryFrame } from "@/lib/radio/protocol";
+import { getWaterfallPaletteLut } from "@/components/sdr/waterfallPalette";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 // ============================================================================
 // Types
@@ -94,6 +98,10 @@ const MARGINS = {
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
 
 /**
  * Calculate spot size based on age (newer = larger)
@@ -295,6 +303,65 @@ export function ContestBandMap({
   // Get spots from DX cluster
   const { allSpots } = useDXCluster();
 
+  // Optional SDR FFT background (from Radio Daemon, if configured)
+  const [daemonUrl, setDaemonUrl] = useState<string | null>(null);
+  const [daemonDeviceId, setDaemonDeviceId] = useState<string | null>(null);
+  const daemon = useRadioDaemon({
+    enabled: !!daemonUrl,
+    url: daemonUrl ?? undefined,
+  });
+  const daemonConnected = daemon.connected;
+  const daemonSendCommand = daemon.sendCommand;
+  const daemonLastFrame = daemon.lastFrame;
+  const [fftFrame, setFftFrame] = useState<
+    Extract<RadioBinaryFrame, { kind: "fft" }> | null
+  >(null);
+  const sdrWaterfallRef = useRef<{
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    w: number;
+    h: number;
+    band: string;
+  } | null>(null);
+  const paletteName = useSettingsStore((s) => s.sdrWaterfallPalette);
+  const paletteLut = useMemo(
+    () => getWaterfallPaletteLut(paletteName),
+    [paletteName],
+  );
+
+  useEffect(() => {
+    try {
+      setDaemonUrl(localStorage.getItem("propulse-radio-daemon-url"));
+      setDaemonDeviceId(localStorage.getItem("propulse-radio-daemon-device"));
+    } catch {
+      setDaemonUrl(null);
+      setDaemonDeviceId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!daemonConnected) return;
+    if (!daemonDeviceId) return;
+
+    daemonSendCommand("radio:connect", { device_id: daemonDeviceId });
+    daemonSendCommand("stream:fft:start", {
+      device_id: daemonDeviceId,
+      fft_size: 4096,
+      fps: 10,
+      averaging: 4,
+    });
+
+    return () => {
+      daemonSendCommand("stream:fft:stop", { device_id: daemonDeviceId });
+    };
+  }, [daemonConnected, daemonDeviceId, daemonSendCommand]);
+
+  useEffect(() => {
+    if (daemonLastFrame?.kind === "fft") {
+      setFftFrame(daemonLastFrame);
+    }
+  }, [daemonLastFrame]);
+
   // Get contest status for spots
   const { getStatus } = useContestSpotStatus(currentBand, currentMode);
 
@@ -324,6 +391,84 @@ export function ContestBandMap({
     }
     return BAND_FREQUENCY_RANGES[currentBand] || null;
   }, [currentBand]);
+
+  const plotSize = useMemo(() => {
+    return {
+      w: Math.max(1, Math.floor(canvasWidth - MARGINS.left - MARGINS.right)),
+      h: Math.max(1, Math.floor(canvasHeight - MARGINS.top - MARGINS.bottom)),
+    };
+  }, [canvasWidth, canvasHeight]);
+
+  useEffect(() => {
+    if (!currentBand) {
+      sdrWaterfallRef.current = null;
+      return;
+    }
+    const w = plotSize.w;
+    const h = plotSize.h;
+    if (w < 2 || h < 2) {
+      sdrWaterfallRef.current = null;
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) {
+      sdrWaterfallRef.current = null;
+      return;
+    }
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, w, h);
+    sdrWaterfallRef.current = { canvas, ctx, w, h, band: currentBand };
+  }, [currentBand, plotSize.h, plotSize.w]);
+
+  useEffect(() => {
+    const wf = sdrWaterfallRef.current;
+    if (!wf) return;
+    if (!fftFrame) return;
+    if (!frequencyRange) return;
+    if (wf.band !== currentBand) return;
+
+    const w = wf.w;
+    const h = wf.h;
+    if (w < 2 || h < 2) return;
+
+    const bins = fftFrame.bins;
+    if (bins.length === 0) return;
+
+    const bandMinHz = frequencyRange.min * 1000;
+    const bandMaxHz = frequencyRange.max * 1000;
+    const bandSpan = Math.max(1, bandMaxHz - bandMinHz);
+
+    const startFrame = fftFrame.centerHz - fftFrame.spanHz / 2;
+    const rangeDb = 80;
+    const minDb = -125;
+
+    wf.ctx.drawImage(wf.canvas, 0, 1);
+    const row = wf.ctx.createImageData(w, 1);
+    const data = row.data;
+
+    for (let x = 0; x < w; x++) {
+      const hz = bandMinHz + (x / (w - 1)) * bandSpan;
+      const idx = clamp(
+        Math.floor(((hz - startFrame) / fftFrame.spanHz) * bins.length),
+        0,
+        bins.length - 1,
+      );
+      const db = bins[idx] ?? minDb;
+      const t = clamp((db - minDb) / rangeDb, 0, 1);
+      const lutIdx = clamp(Math.round(t * 255), 0, 255);
+      const i = x * 4;
+      data[i] = paletteLut[lutIdx * 3] ?? 0;
+      data[i + 1] = paletteLut[lutIdx * 3 + 1] ?? 0;
+      data[i + 2] = paletteLut[lutIdx * 3 + 2] ?? 0;
+      data[i + 3] = 255;
+    }
+
+    wf.ctx.putImageData(row, 0, 0);
+  }, [currentBand, fftFrame, frequencyRange, paletteLut]);
 
   // Handle canvas resize
   useEffect(() => {
@@ -413,6 +558,20 @@ export function ContestBandMap({
         canvasHeight / 2,
       );
       return;
+    }
+
+    const wf = sdrWaterfallRef.current;
+    if (wf && fftFrame && wf.band === currentBand) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.drawImage(
+        wf.canvas,
+        MARGINS.left,
+        MARGINS.top,
+        plotWidth,
+        plotHeight,
+      );
+      ctx.restore();
     }
 
     // Draw grid lines
@@ -576,6 +735,7 @@ export function ContestBandMap({
     selectedSpotId,
     hoveredSpot,
     getStatus,
+    fftFrame,
   ]);
 
   // Handle mouse move for hover detection

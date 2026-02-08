@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui";
+import { BandScope } from "@/components/sdr/BandScope";
 import { DevicePicker } from "@/components/sdr/DevicePicker";
+import { SpectrumScope } from "@/components/sdr/SpectrumScope";
 import { Waterfall } from "@/components/sdr/Waterfall";
 import { useAudioStreamPlayer } from "@/hooks/useAudioStreamPlayer";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRadioDaemon } from "@/hooks/useRadioDaemon";
 import type {
   ClusterSpotMessage,
@@ -28,6 +31,8 @@ import {
 } from "@/lib/radio/protocol";
 import { useRadioStore } from "@/stores/radioStore";
 import { useSdrStore } from "@/stores/sdrStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import type { WaterfallView } from "@/components/sdr/waterfallPalette";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
@@ -48,6 +53,7 @@ function formatUtcMsSinceMidnight(ms: number): string {
 }
 
 export function SdrConsole() {
+  const isMobile = useIsMobile();
   const [daemonUrl, setDaemonUrl] = useState(() => {
     try {
       return localStorage.getItem(LS_DAEMON_URL_KEY) ?? DEFAULT_DAEMON_URL;
@@ -72,6 +78,9 @@ export function SdrConsole() {
   const autoConnectAttemptedRef = useRef(false);
   const gainDebounceRef = useRef<Record<string, number>>({});
   const filterDebounceRef = useRef<number | null>(null);
+  const autoFftStartRef = useRef<Record<string, boolean>>({});
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
+  const [waterfallSpanHz, setWaterfallSpanHz] = useState<number | null>(null);
 
   const devices = useRadioStore((s) => s.devices);
   const selectedDeviceId = useRadioStore((s) => s.selectedDeviceId);
@@ -94,6 +103,7 @@ export function SdrConsole() {
   const setFftEnabled = useSdrStore((s) => s.setFftEnabled);
   const setAudioEnabled = useSdrStore((s) => s.setAudioEnabled);
   const setFrame = useSdrStore((s) => s.setFrame);
+  const waterfallPalette = useSettingsStore((s) => s.sdrWaterfallPalette);
 
   const [lastResponseError, setLastResponseError] = useState<string | null>(
     null,
@@ -130,6 +140,8 @@ export function SdrConsole() {
     setWsjtxStatus(null);
     setWsjtxDecodes([]);
     setClusterSpots([]);
+    setWaterfallSpanHz(null);
+    autoFftStartRef.current = {};
   }, [daemonUrl, resetRadioStore, setAudioEnabled, setFftEnabled]);
 
   // Track successful radio connection for auto-reconnect.
@@ -198,6 +210,35 @@ export function SdrConsole() {
           : Math.round(base).toString();
     setFreqInput(text);
   }, [connectedState, freqUnit]);
+
+  useEffect(() => {
+    setWaterfallSpanHz(null);
+  }, [connectedDeviceId]);
+
+  // Auto-start FFT streaming once per device (best-effort) so SDR consoles show data immediately.
+  useEffect(() => {
+    if (!daemonConnected) return;
+    if (!connectedDeviceId) return;
+    if (fftEnabled) return;
+    const dev = devices.find((d) => d.device_id === connectedDeviceId);
+    if (!dev?.capabilities.can_stream_fft) return;
+    if (autoFftStartRef.current[connectedDeviceId]) return;
+    autoFftStartRef.current[connectedDeviceId] = true;
+    daemonSendCommand("stream:fft:start", {
+      device_id: connectedDeviceId,
+      fft_size: 4096,
+      fps: 20,
+      averaging: 4,
+    });
+    setFftEnabled(true);
+  }, [
+    connectedDeviceId,
+    daemonConnected,
+    daemonSendCommand,
+    devices,
+    fftEnabled,
+    setFftEnabled,
+  ]);
 
   useEffect(() => {
     const msg = daemonLastMessage as DaemonIncomingMessage | null;
@@ -464,6 +505,583 @@ export function SdrConsole() {
     refreshDiscovery();
   }, [devicePickerOpen, refreshDiscovery]);
 
+  const canStreamFft = selectedDevice?.capabilities.can_stream_fft ?? false;
+  const canStreamAudio = selectedDevice?.capabilities.can_stream_audio ?? false;
+
+  const waterfallView: WaterfallView | null = useMemo(() => {
+    if (!lastFftFrame) return null;
+    const centerHz = effectiveState?.freq ?? lastFftFrame.centerHz;
+    const spanHz = waterfallSpanHz ?? lastFftFrame.spanHz;
+    return { centerHz, spanHz: Math.min(spanHz, lastFftFrame.spanHz) };
+  }, [effectiveState?.freq, lastFftFrame, waterfallSpanHz]);
+
+  const handleWaterfallViewChange = useCallback((next: WaterfallView) => {
+    setWaterfallSpanHz(next.spanHz);
+  }, []);
+
+  const handlePickFrequencyHz = useCallback(
+    (hz: number) => {
+      if (!connectedDeviceId) return;
+      daemonSendCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
+      setDraftState((s) => (s ? { ...s, freq: hz } : s));
+      const base =
+        freqUnit === "MHz"
+          ? hz / 1_000_000
+          : freqUnit === "kHz"
+            ? hz / 1_000
+            : hz;
+      const text =
+        freqUnit === "MHz"
+          ? base.toFixed(6)
+          : freqUnit === "kHz"
+            ? base.toFixed(3)
+            : Math.round(base).toString();
+      setFreqInput(text);
+    },
+    [connectedDeviceId, daemonSendCommand, freqUnit],
+  );
+
+  const leftControls = (
+    <div className="space-y-6">
+      <Card className="p-4 space-y-3">
+        <div className="text-sm font-semibold text-gray-200">Device</div>
+
+        <label className="block text-xs text-gray-500">Radio</label>
+        <select
+          value={selectedDeviceId ?? ""}
+          onChange={(e) => setSelectedDeviceId(e.target.value || null)}
+          disabled={!daemon.connected}
+          className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+        >
+          {devices.length === 0 && <option value="">No devices</option>}
+          {devices.map((d) => (
+            <option key={d.device_id} value={d.device_id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+
+        {selectedDevice && (
+          <div className="text-xs text-gray-500">
+            <div className="flex justify-between">
+              <span>Driver</span>
+              <span className="text-gray-300 font-mono">{selectedDevice.driver}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Type</span>
+              <span className="text-gray-300 font-mono">{selectedDevice.type}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleConnectRadio}
+            disabled={!canControlDevice || !!connectedDeviceId}
+            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Connect
+          </button>
+          <button
+            type="button"
+            onClick={handleDisconnectRadio}
+            disabled={!canControlConnected}
+            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Disconnect
+          </button>
+        </div>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <div className="text-sm font-semibold text-gray-200">Radio Controls</div>
+
+        <div className="grid grid-cols-3 gap-2 items-end">
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">Frequency</label>
+            <input
+              type="text"
+              value={freqInput}
+              onChange={(e) => setFreqInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleTune();
+              }}
+              disabled={!canControlConnected}
+              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm font-mono"
+            />
+            <div className="mt-1 flex gap-1">
+              {(["MHz", "kHz", "Hz"] as const).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setFreqUnit(u)}
+                  disabled={!canControlConnected}
+                  className={`px-2 py-1 rounded text-[11px] border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    freqUnit === u
+                      ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
+                      : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleTune}
+            disabled={!canControlConnected}
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Tune
+          </button>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Mode</label>
+          <select
+            value={effectiveState?.mode ?? ""}
+            onChange={(e) => handleModeChange(e.target.value)}
+            disabled={!canControlConnected || !selectedDevice}
+            className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+          >
+            {(selectedDevice?.capabilities.modes ?? []).map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedDevice && effectiveState && (
+          <div className="space-y-3 pt-1">
+            {/* TX / RX */}
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">Transmit</div>
+              {selectedDevice.capabilities.can_transmit ? (
+                <button
+                  type="button"
+                  onClick={() => handlePttChange(!effectiveState.ptt)}
+                  disabled={!canControlConnected}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    effectiveState.ptt
+                      ? "bg-alert-red/20 border-alert-red/40 text-alert-red"
+                      : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                  }`}
+                  aria-pressed={!!effectiveState.ptt}
+                >
+                  {effectiveState.ptt ? "PTT ON" : "PTT"}
+                </button>
+              ) : (
+                <span className="text-[11px] px-2 py-1 rounded border border-white/10 bg-white/5 text-gray-400">
+                  RX Only
+                </span>
+              )}
+            </div>
+
+            {/* AGC */}
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">AGC</div>
+              <button
+                type="button"
+                onClick={() => handleAgcToggle(!effectiveState.agc)}
+                disabled={!canControlConnected}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  effectiveState.agc
+                    ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                    : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                }`}
+                aria-pressed={effectiveState.agc}
+              >
+                {effectiveState.agc ? "On" : "Off"}
+              </button>
+            </div>
+
+            {/* Antenna */}
+            {selectedDevice.capabilities.antennas.length > 1 ? (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Antenna</label>
+                <select
+                  value={effectiveState.antenna ?? ""}
+                  onChange={(e) => handleAntennaChange(e.target.value)}
+                  disabled={!canControlConnected}
+                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+                >
+                  {selectedDevice.capabilities.antennas.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {/* Gain stages */}
+            {selectedDevice.capabilities.gain_stages.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-200">Gain</div>
+                {selectedDevice.capabilities.gain_stages.map((st) => {
+                  const value = effectiveState.gains?.[st.name] ?? st.min;
+                  return (
+                    <div key={st.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{st.name}</span>
+                        <span className="text-gray-200 font-mono">
+                          {Number.isFinite(value) ? value : "—"}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={st.min}
+                        max={st.max}
+                        step={st.step}
+                        value={value}
+                        onChange={(e) => handleGainChange(st.name, Number(e.target.value))}
+                        disabled={!canControlConnected}
+                        className="w-full"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {/* DSP controls only when the device can stream audio (SDR) */}
+            {selectedDevice.capabilities.can_stream_audio ? (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-200">DSP</div>
+
+                {/* Filter */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>Filter</span>
+                    <span className="text-gray-200 font-mono">
+                      {(effectiveState.filter?.low ?? 300).toFixed(0)}–
+                      {(effectiveState.filter?.high ?? 2700).toFixed(0)} Hz
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={5000}
+                      step={50}
+                      value={effectiveState.filter?.low ?? 300}
+                      onChange={(e) =>
+                        handleFilterChange(
+                          Number(e.target.value),
+                          effectiveState.filter?.high ?? 2700,
+                        )
+                      }
+                      disabled={!canControlConnected}
+                      className="w-full"
+                      aria-label="Filter low cutoff"
+                    />
+                    <input
+                      type="range"
+                      min={500}
+                      max={15000}
+                      step={50}
+                      value={effectiveState.filter?.high ?? 2700}
+                      onChange={(e) =>
+                        handleFilterChange(
+                          effectiveState.filter?.low ?? 300,
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={!canControlConnected}
+                      className="w-full"
+                      aria-label="Filter high cutoff"
+                    />
+                  </div>
+                </div>
+
+                {/* NR */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>NR</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleNrChange(
+                          !(effectiveState.nr?.enabled ?? false),
+                          effectiveState.nr?.level ?? 3,
+                        )
+                      }
+                      disabled={!canControlConnected}
+                      className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                        effectiveState.nr?.enabled
+                          ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                          : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                      }`}
+                      aria-pressed={effectiveState.nr?.enabled ?? false}
+                    >
+                      {effectiveState.nr?.enabled ? "On" : "Off"}
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={5}
+                    step={1}
+                    value={effectiveState.nr?.enabled ? effectiveState.nr?.level ?? 3 : 0}
+                    onChange={(e) =>
+                      handleNrChange(Number(e.target.value) > 0, Number(e.target.value))
+                    }
+                    disabled={!canControlConnected}
+                    className="w-full"
+                    aria-label="Noise reduction level"
+                  />
+                </div>
+
+                {/* NB */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>NB</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleNbChange(
+                          !(effectiveState.nb?.enabled ?? false),
+                          effectiveState.nb?.threshold ?? 50,
+                        )
+                      }
+                      disabled={!canControlConnected}
+                      className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
+                        effectiveState.nb?.enabled
+                          ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                          : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                      }`}
+                      aria-pressed={effectiveState.nb?.enabled ?? false}
+                    >
+                      {effectiveState.nb?.enabled ? "On" : "Off"}
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={effectiveState.nb?.enabled ? effectiveState.nb?.threshold ?? 50 : 0}
+                    onChange={(e) =>
+                      handleNbChange(Number(e.target.value) > 0, Number(e.target.value))
+                    }
+                    disabled={!canControlConnected}
+                    className="w-full"
+                    aria-label="Noise blanker threshold"
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>S-meter</span>
+          <span className="text-gray-300 font-mono">
+            {connectedDeviceId && smeterById[connectedDeviceId] !== undefined
+              ? `${smeterById[connectedDeviceId].toFixed(1)} dBm`
+              : "—"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleToggleFft}
+            disabled={!canControlConnected || !canStreamFft}
+            className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              fftEnabled
+                ? "bg-signal-green/10 border-signal-green/30 text-signal-green hover:bg-signal-green/20"
+                : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+            }`}
+          >
+            {canStreamFft ? (fftEnabled ? "Stop FFT" : "Start FFT") : "FFT N/A"}
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleAudio}
+            disabled={!canControlConnected || !canStreamAudio}
+            className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              audioEnabled
+                ? "bg-plasma-orange/10 border-plasma-orange/30 text-plasma-orange hover:bg-plasma-orange/20"
+                : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+            }`}
+          >
+            {canStreamAudio ? (audioEnabled ? "Stop Audio" : "Start Audio") : "Audio N/A"}
+          </button>
+        </div>
+      </Card>
+
+      {effectiveState && (
+        <Card className="p-4 space-y-1.5">
+          <div className="text-sm font-semibold text-gray-200">Status</div>
+          <div className="text-xs text-gray-500 flex justify-between">
+            <span>Frequency</span>
+            <span className="text-gray-300 font-mono">{formatHz(effectiveState.freq)}</span>
+          </div>
+          <div className="text-xs text-gray-500 flex justify-between">
+            <span>Mode</span>
+            <span className="text-gray-300 font-mono">{effectiveState.mode}</span>
+          </div>
+          <div className="text-xs text-gray-500 flex justify-between">
+            <span>AGC</span>
+            <span className="text-gray-300 font-mono">{effectiveState.agc ? "on" : "off"}</span>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+
+  const rightPanels = (
+    <div className="space-y-6">
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-semibold text-gray-200">
+            {canStreamFft ? "Waterfall" : "Band Scope"}
+          </div>
+          <div className="text-xs text-gray-500 font-mono">
+            {effectiveState ? formatHz(effectiveState.freq) : "—"}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {canStreamFft && fftEnabled ? (
+            <div className="h-[120px]">
+              <SpectrumScope
+                frame={lastFftFrame}
+                view={waterfallView}
+                palette={waterfallPalette}
+                overlays={waterfallOverlays}
+              />
+            </div>
+          ) : null}
+
+          <div className="h-[420px] lg:h-[640px]">
+            {canStreamFft ? (
+              fftEnabled ? (
+                <Waterfall
+                  frame={lastFftFrame}
+                  view={waterfallView}
+                  onViewChange={handleWaterfallViewChange}
+                  palette={waterfallPalette}
+                  overlays={waterfallOverlays}
+                  onPickFrequencyHz={handlePickFrequencyHz}
+                  onSelectRangeHz={({ startHz, endHz }) => {
+                    const mid = Math.round((startHz + endHz) / 2);
+                    handlePickFrequencyHz(mid);
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500">
+                  Start FFT to show the waterfall.
+                </div>
+              )
+            ) : effectiveState ? (
+              <BandScope
+                frequencyHz={effectiveState.freq}
+                spots={clusterSpots}
+                onPickFrequencyHz={handlePickFrequencyHz}
+              />
+            ) : (
+              <div className="w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500">
+                Connect a radio to show the band scope.
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-semibold text-gray-200">Decodes & Spots</div>
+          <div className="text-xs text-gray-500">
+            {wsjtxStatus ? "WSJT-X live" : "WSJT-X idle"} • {clusterSpots.length} spots
+          </div>
+        </div>
+
+        {wsjtxStatus ? (
+          <div className="text-xs text-gray-500 grid grid-cols-2 gap-x-4 gap-y-1 mb-3">
+            <div className="flex justify-between">
+              <span>Dial</span>
+              <span className="text-gray-200 font-mono">{formatHz(wsjtxStatus.frequency)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Mode</span>
+              <span className="text-gray-200 font-mono">{wsjtxStatus.mode}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>RX DF</span>
+              <span className="text-gray-200 font-mono">{wsjtxStatus.rxDF} Hz</span>
+            </div>
+            <div className="flex justify-between">
+              <span>TX DF</span>
+              <span className="text-gray-200 font-mono">{wsjtxStatus.txDF} Hz</span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400 mb-3">
+            Start WSJT-X on this machine (UDP port 2237 by default) to see decodes here.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-gray-200">WSJT-X Decodes</div>
+            {wsjtxDecodes.length === 0 ? (
+              <div className="text-xs text-gray-500">No decodes received yet.</div>
+            ) : (
+              <div className="space-y-1 max-h-[260px] overflow-auto pr-1">
+                {wsjtxDecodes.slice(0, 10).map((d, idx) => (
+                  <div
+                    key={`${d.time}-${d.deltaFrequency}-${idx}`}
+                    className="flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-white/10 bg-white/[0.03]"
+                  >
+                    <span className="font-mono text-gray-500 w-14">
+                      {formatUtcMsSinceMidnight(d.time)}
+                    </span>
+                    <span className="font-mono text-gray-400 w-10 text-right">
+                      {d.snr > 0 ? `+${d.snr}` : d.snr}
+                    </span>
+                    <span className="font-mono text-gray-400 w-14 text-right">
+                      {d.deltaFrequency}Hz
+                    </span>
+                    <span className="text-gray-200 truncate min-w-0">{d.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-gray-200">DX Cluster Spots</div>
+            {clusterSpots.length === 0 ? (
+              <div className="text-xs text-gray-500">
+                No spots received yet. Connect to a cluster in the daemon config or via the CLI/API.
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[260px] overflow-auto pr-1">
+                {clusterSpots.slice(0, 10).map((s, idx) => (
+                  <div
+                    key={`${s.id ?? "spot"}-${idx}`}
+                    className="flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-white/10 bg-white/[0.03]"
+                  >
+                    <span className="font-mono text-gray-400 w-16 truncate">{s.dx}</span>
+                    <span className="font-mono text-gray-500 w-20 text-right">
+                      {s.freq.toFixed(1)} kHz
+                    </span>
+                    <span className="text-gray-200 truncate min-w-0">{s.comment}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
       <DevicePicker
@@ -537,584 +1155,63 @@ export function SdrConsole() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-        {/* Left: Controls */}
-        <div className="space-y-6">
-          <Card className="p-4 space-y-3">
-            <div className="text-sm font-semibold text-gray-200">
-              Device
-            </div>
+      {isMobile ? (
+        <>
+          {rightPanels}
 
-            <label className="block text-xs text-gray-500">Radio</label>
-            <select
-              value={selectedDeviceId ?? ""}
-              onChange={(e) =>
-                setSelectedDeviceId(e.target.value || null)
-              }
-              disabled={!daemon.connected}
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+          <button
+            type="button"
+            onClick={() => setMobileControlsOpen(true)}
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 px-4 py-3 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-sm text-gray-100 hover:bg-white/15"
+            style={{ minHeight: 44 }}
+          >
+            Controls
+          </button>
+
+          {mobileControlsOpen ? (
+            <div
+              className="fixed inset-0 z-[130] flex flex-col justify-end"
+              role="dialog"
+              aria-modal="true"
+              aria-label="SDR controls"
+              tabIndex={-1}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setMobileControlsOpen(false);
+              }}
             >
-              {devices.length === 0 && (
-                <option value="">No devices</option>
-              )}
-              {devices.map((d) => (
-                <option key={d.device_id} value={d.device_id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+              <div
+                className="absolute inset-0 bg-black/50"
+                onClick={() => setMobileControlsOpen(false)}
+              />
 
-            {selectedDevice && (
-              <div className="text-xs text-gray-500">
-                <div className="flex justify-between">
-                  <span>Driver</span>
-                  <span className="text-gray-300 font-mono">
-                    {selectedDevice.driver}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Type</span>
-                  <span className="text-gray-300 font-mono">
-                    {selectedDevice.type}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={handleConnectRadio}
-                disabled={!canControlDevice || !!connectedDeviceId}
-                className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Connect
-              </button>
-              <button
-                type="button"
-                onClick={handleDisconnectRadio}
-                disabled={!canControlConnected}
-                className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Disconnect
-              </button>
-            </div>
-          </Card>
-
-          <Card className="p-4 space-y-3">
-            <div className="text-sm font-semibold text-gray-200">
-              Radio Controls
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 items-end">
-              <div className="col-span-2">
-                <label className="block text-xs text-gray-500 mb-1">
-                  Frequency
-                </label>
-                <input
-                  type="text"
-                  value={freqInput}
-                  onChange={(e) => setFreqInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleTune();
-                  }}
-                  disabled={!canControlConnected}
-                  className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm font-mono"
-                />
-                <div className="mt-1 flex gap-1">
-                  {(["MHz", "kHz", "Hz"] as const).map((u) => (
-                    <button
-                      key={u}
-                      type="button"
-                      onClick={() => setFreqUnit(u)}
-                      disabled={!canControlConnected}
-                      className={`px-2 py-1 rounded text-[11px] border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                        freqUnit === u
-                          ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
-                          : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
-                      }`}
-                    >
-                      {u}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleTune}
-                disabled={!canControlConnected}
-                className="px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Tune
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Mode</label>
-              <select
-                value={effectiveState?.mode ?? ""}
-                onChange={(e) => handleModeChange(e.target.value)}
-                disabled={!canControlConnected || !selectedDevice}
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
-              >
-                {(selectedDevice?.capabilities.modes ?? []).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedDevice && effectiveState && (
-              <div className="space-y-3 pt-1">
-                {/* TX / RX */}
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-gray-500">Transmit</div>
-                  {selectedDevice.capabilities.can_transmit ? (
-                    <button
-                      type="button"
-                      onClick={() => handlePttChange(!effectiveState.ptt)}
-                      disabled={!canControlConnected}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                        effectiveState.ptt
-                          ? "bg-alert-red/20 border-alert-red/40 text-alert-red"
-                          : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
-                      }`}
-                      aria-pressed={!!effectiveState.ptt}
-                    >
-                      {effectiveState.ptt ? "PTT ON" : "PTT"}
-                    </button>
-                  ) : (
-                    <span className="text-[11px] px-2 py-1 rounded border border-white/10 bg-white/5 text-gray-400">
-                      RX Only
-                    </span>
-                  )}
-                </div>
-
-                {/* AGC */}
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-gray-500">AGC</div>
+              <div className="relative w-full max-h-[75dvh] bg-deep-space/95 backdrop-blur-md border-t border-white/10 rounded-t-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-white truncate">Radio Controls</div>
+                    <div className="text-[11px] text-gray-400 font-mono truncate">
+                      {effectiveState ? formatHz(effectiveState.freq) : "—"}
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => handleAgcToggle(!effectiveState.agc)}
-                    disabled={!canControlConnected}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      effectiveState.agc
-                        ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
-                        : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
-                    }`}
-                    aria-pressed={effectiveState.agc}
+                    onClick={() => setMobileControlsOpen(false)}
+                    className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10"
+                    style={{ minHeight: 44 }}
                   >
-                    {effectiveState.agc ? "On" : "Off"}
+                    Close
                   </button>
                 </div>
-
-                {/* Antenna */}
-                {selectedDevice.capabilities.antennas.length > 1 ? (
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Antenna
-                    </label>
-                    <select
-                      value={effectiveState.antenna ?? ""}
-                      onChange={(e) => handleAntennaChange(e.target.value)}
-                      disabled={!canControlConnected}
-                      className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
-                    >
-                      {selectedDevice.capabilities.antennas.map((a) => (
-                        <option key={a} value={a}>
-                          {a}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-
-                {/* Gain stages */}
-                {selectedDevice.capabilities.gain_stages.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="text-xs font-semibold text-gray-200">
-                      Gain
-                    </div>
-                    {selectedDevice.capabilities.gain_stages.map((st) => {
-                      const value = effectiveState.gains?.[st.name] ?? st.min;
-                      return (
-                        <div key={st.name} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>{st.name}</span>
-                            <span className="text-gray-200 font-mono">
-                              {Number.isFinite(value) ? value : "—"}
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            min={st.min}
-                            max={st.max}
-                            step={st.step}
-                            value={value}
-                            onChange={(e) =>
-                              handleGainChange(st.name, Number(e.target.value))
-                            }
-                            disabled={!canControlConnected}
-                            className="w-full"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                {/* DSP */}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-gray-200">
-                    DSP
-                  </div>
-
-                  {/* Filter */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>Filter</span>
-                      <span className="text-gray-200 font-mono">
-                        {(effectiveState.filter?.low ?? 300).toFixed(0)}–
-                        {(effectiveState.filter?.high ?? 2700).toFixed(0)} Hz
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="range"
-                        min={0}
-                        max={5000}
-                        step={50}
-                        value={effectiveState.filter?.low ?? 300}
-                        onChange={(e) =>
-                          handleFilterChange(
-                            Number(e.target.value),
-                            effectiveState.filter?.high ?? 2700,
-                          )
-                        }
-                        disabled={!canControlConnected}
-                        className="w-full"
-                        aria-label="Filter low cutoff"
-                      />
-                      <input
-                        type="range"
-                        min={500}
-                        max={15000}
-                        step={50}
-                        value={effectiveState.filter?.high ?? 2700}
-                        onChange={(e) =>
-                          handleFilterChange(
-                            effectiveState.filter?.low ?? 300,
-                            Number(e.target.value),
-                          )
-                        }
-                        disabled={!canControlConnected}
-                        className="w-full"
-                        aria-label="Filter high cutoff"
-                      />
-                    </div>
-                  </div>
-
-                  {/* NR */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>NR</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleNrChange(
-                            !(effectiveState.nr?.enabled ?? false),
-                            effectiveState.nr?.level ?? 3,
-                          )
-                        }
-                        disabled={!canControlConnected}
-                        className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
-                          effectiveState.nr?.enabled
-                            ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
-                            : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
-                        }`}
-                        aria-pressed={effectiveState.nr?.enabled ?? false}
-                      >
-                        {effectiveState.nr?.enabled ? "On" : "Off"}
-                      </button>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={5}
-                      step={1}
-                      value={effectiveState.nr?.enabled ? effectiveState.nr?.level ?? 3 : 0}
-                      onChange={(e) =>
-                        handleNrChange(
-                          Number(e.target.value) > 0,
-                          Number(e.target.value),
-                        )
-                      }
-                      disabled={!canControlConnected}
-                      className="w-full"
-                      aria-label="Noise reduction level"
-                    />
-                  </div>
-
-                  {/* NB */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>NB</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleNbChange(
-                            !(effectiveState.nb?.enabled ?? false),
-                            effectiveState.nb?.threshold ?? 50,
-                          )
-                        }
-                        disabled={!canControlConnected}
-                        className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
-                          effectiveState.nb?.enabled
-                            ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
-                            : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
-                        }`}
-                        aria-pressed={effectiveState.nb?.enabled ?? false}
-                      >
-                        {effectiveState.nb?.enabled ? "On" : "Off"}
-                      </button>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={effectiveState.nb?.enabled ? effectiveState.nb?.threshold ?? 50 : 0}
-                      onChange={(e) =>
-                        handleNbChange(
-                          Number(e.target.value) > 0,
-                          Number(e.target.value),
-                        )
-                      }
-                      disabled={!canControlConnected}
-                      className="w-full"
-                      aria-label="Noise blanker threshold"
-                    />
-                  </div>
-                </div>
+                <div className="p-4 overflow-y-auto">{leftControls}</div>
               </div>
-            )}
-
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>S-meter</span>
-              <span className="text-gray-300 font-mono">
-                {connectedDeviceId && smeterById[connectedDeviceId] !== undefined
-                  ? `${smeterById[connectedDeviceId].toFixed(1)} dBm`
-                  : "—"}
-              </span>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2">
-              <button
-                type="button"
-                onClick={handleToggleFft}
-                disabled={!canControlConnected}
-                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  fftEnabled
-                    ? "bg-signal-green/10 border-signal-green/30 text-signal-green hover:bg-signal-green/20"
-                    : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
-                }`}
-              >
-                {fftEnabled ? "Stop FFT" : "Start FFT"}
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleAudio}
-                disabled={!canControlConnected}
-                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  audioEnabled
-                    ? "bg-plasma-orange/10 border-plasma-orange/30 text-plasma-orange hover:bg-plasma-orange/20"
-                    : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
-                }`}
-              >
-                {audioEnabled ? "Stop Audio" : "Start Audio"}
-              </button>
-            </div>
-          </Card>
-
-          {effectiveState && (
-            <Card className="p-4 space-y-1.5">
-              <div className="text-sm font-semibold text-gray-200">
-                Status
-              </div>
-              <div className="text-xs text-gray-500 flex justify-between">
-                <span>Frequency</span>
-                <span className="text-gray-300 font-mono">
-                  {formatHz(effectiveState.freq)}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500 flex justify-between">
-                <span>Mode</span>
-                <span className="text-gray-300 font-mono">
-                  {effectiveState.mode}
-                </span>
-              </div>
-              <div className="text-xs text-gray-500 flex justify-between">
-                <span>AGC</span>
-                <span className="text-gray-300 font-mono">
-                  {effectiveState.agc ? "on" : "off"}
-                </span>
-              </div>
-            </Card>
-          )}
+          ) : null}
+        </>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+          {leftControls}
+          {rightPanels}
         </div>
-
-        {/* Right: Waterfall + Decodes */}
-        <div className="space-y-6">
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-gray-200">
-                Waterfall
-              </div>
-              <div className="text-xs text-gray-500 font-mono">
-                {effectiveState ? formatHz(effectiveState.freq) : "—"}
-              </div>
-            </div>
-
-            <div className="h-[420px] lg:h-[640px]">
-              {fftEnabled ? (
-                <Waterfall
-                  frame={lastFftFrame}
-                  overlays={waterfallOverlays}
-                  onPickFrequencyHz={(hz) => {
-                    if (!connectedDeviceId) return;
-                    daemonSendCommand("radio:tune", {
-                      device_id: connectedDeviceId,
-                      freq: hz,
-                    });
-                    setDraftState((s) => (s ? { ...s, freq: hz } : s));
-                    const base =
-                      freqUnit === "MHz"
-                        ? hz / 1_000_000
-                        : freqUnit === "kHz"
-                          ? hz / 1_000
-                          : hz;
-                    const text =
-                      freqUnit === "MHz"
-                        ? base.toFixed(6)
-                        : freqUnit === "kHz"
-                          ? base.toFixed(3)
-                          : Math.round(base).toString();
-                    setFreqInput(text);
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500">
-                  Start FFT to show the waterfall.
-                </div>
-              )}
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-gray-200">
-                Decodes & Spots
-              </div>
-              <div className="text-xs text-gray-500">
-                {wsjtxStatus ? "WSJT-X live" : "WSJT-X idle"} • {clusterSpots.length} spots
-              </div>
-            </div>
-
-            {wsjtxStatus ? (
-              <div className="text-xs text-gray-500 grid grid-cols-2 gap-x-4 gap-y-1 mb-3">
-                <div className="flex justify-between">
-                  <span>Dial</span>
-                  <span className="text-gray-200 font-mono">
-                    {formatHz(wsjtxStatus.frequency)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Mode</span>
-                  <span className="text-gray-200 font-mono">{wsjtxStatus.mode}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>RX DF</span>
-                  <span className="text-gray-200 font-mono">{wsjtxStatus.rxDF} Hz</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>TX DF</span>
-                  <span className="text-gray-200 font-mono">{wsjtxStatus.txDF} Hz</span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-gray-400 mb-3">
-                Start WSJT-X on this machine (UDP port 2237 by default) to see decodes here.
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-gray-200">
-                  WSJT-X Decodes
-                </div>
-                {wsjtxDecodes.length === 0 ? (
-                  <div className="text-xs text-gray-500">
-                    No decodes received yet.
-                  </div>
-                ) : (
-                  <div className="space-y-1 max-h-[260px] overflow-auto pr-1">
-                    {wsjtxDecodes.slice(0, 10).map((d, idx) => (
-                      <div
-                        key={`${d.time}-${d.deltaFrequency}-${idx}`}
-                        className="flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-white/10 bg-white/[0.03]"
-                      >
-                        <span className="font-mono text-gray-500 w-14">
-                          {formatUtcMsSinceMidnight(d.time)}
-                        </span>
-                        <span className="font-mono text-gray-400 w-10 text-right">
-                          {d.snr > 0 ? `+${d.snr}` : d.snr}
-                        </span>
-                        <span className="font-mono text-gray-400 w-14 text-right">
-                          {d.deltaFrequency}Hz
-                        </span>
-                        <span className="text-gray-200 truncate min-w-0">
-                          {d.message}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-gray-200">
-                  DX Cluster Spots
-                </div>
-                {clusterSpots.length === 0 ? (
-                  <div className="text-xs text-gray-500">
-                    No spots received yet. Connect to a cluster in the daemon config or via the CLI/API.
-                  </div>
-                ) : (
-                  <div className="space-y-1 max-h-[260px] overflow-auto pr-1">
-                    {clusterSpots.slice(0, 10).map((s, idx) => (
-                      <div
-                        key={`${s.id ?? "spot"}-${idx}`}
-                        className="flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-white/10 bg-white/[0.03]"
-                      >
-                        <span className="font-mono text-gray-400 w-16 truncate">
-                          {s.dx}
-                        </span>
-                        <span className="font-mono text-gray-500 w-20 text-right">
-                          {s.freq.toFixed(1)} kHz
-                        </span>
-                        <span className="text-gray-200 truncate min-w-0">
-                          {s.comment}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

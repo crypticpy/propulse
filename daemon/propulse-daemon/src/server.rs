@@ -836,10 +836,11 @@ async fn handle_text_message(
             &RadioStateEvent {
               kind: "radio:state".to_string(),
               device_id: device_id.to_string(),
-              state: new_state,
+              state: new_state.clone(),
             },
           )
           .await?;
+          maybe_broadcast_rig_from_radio_state(state, &new_state).await?;
         }
         Err(err) => {
           if let Some(id) = id {
@@ -870,10 +871,11 @@ async fn handle_text_message(
             &RadioStateEvent {
               kind: "radio:state".to_string(),
               device_id: device_id.to_string(),
-              state: new_state,
+              state: new_state.clone(),
             },
           )
           .await?;
+          maybe_broadcast_rig_from_radio_state(state, &new_state).await?;
         }
         Err(err) => {
           if let Some(id) = id {
@@ -908,10 +910,11 @@ async fn handle_text_message(
             &RadioStateEvent {
               kind: "radio:state".to_string(),
               device_id: device_id.to_string(),
-              state: new_state,
+              state: new_state.clone(),
             },
           )
           .await?;
+          maybe_broadcast_rig_from_radio_state(state, &new_state).await?;
         }
         Err(err) => {
           if let Some(id) = id {
@@ -946,10 +949,11 @@ async fn handle_text_message(
             &RadioStateEvent {
               kind: "radio:state".to_string(),
               device_id: device_id.to_string(),
-              state: new_state,
+              state: new_state.clone(),
             },
           )
           .await?;
+          maybe_broadcast_rig_from_radio_state(state, &new_state).await?;
         }
         Err(err) => {
           if let Some(id) = id {
@@ -1056,10 +1060,11 @@ async fn handle_text_message(
             &RadioStateEvent {
               kind: "radio:state".to_string(),
               device_id: device_id.to_string(),
-              state: new_state,
+              state: new_state.clone(),
             },
           )
           .await?;
+          maybe_broadcast_rig_from_radio_state(state, &new_state).await?;
         }
         Err(err) => {
           if let Some(id) = id {
@@ -1340,6 +1345,36 @@ async fn handle_text_message(
       }
       let status = build_status(state).await;
       send_json(state, client_id, &status).await?;
+    }
+
+    "daemon:config" => {
+      let audio_output = value.get("audio_output").and_then(|v| v.as_str()).map(|s| s.to_string());
+      let virtual_cable = value.get("virtual_cable").and_then(|v| v.as_bool());
+
+      if audio_output.is_none() && virtual_cable.is_none() {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, "No config fields provided")).await?;
+        }
+        return Ok(());
+      }
+
+      let next = {
+        let cfg = state.config.lock().await.clone();
+        let mut cfg = cfg;
+        if let Some(out) = audio_output {
+          cfg.audio.output_device = out;
+        }
+        if let Some(v) = virtual_cable {
+          cfg.audio.virtual_cable = v;
+        }
+        cfg
+      };
+
+      apply_runtime_config(state, &next).await;
+
+      if let Some(id) = id {
+        send_json(state, client_id, &Response::ok(id)).await?;
+      }
     }
 
     "cluster:connect" => {
@@ -1806,14 +1841,28 @@ impl CatBackend for DaemonCatBackend {
       }
     }
 
-    let mut radio = self.state.radio.lock().await;
-    let device_id = radio
-      .devices()
-      .iter()
-      .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
-      .map(|d| d.device_id.clone())
-      .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
-    let _ = radio.tune(&device_id, hz)?;
+    let (device_id, new_state) = {
+      let mut radio = self.state.radio.lock().await;
+      let device_id = radio
+        .devices()
+        .iter()
+        .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+        .map(|d| d.device_id.clone())
+        .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
+      let new_state = radio.tune(&device_id, hz)?;
+      (device_id, new_state)
+    };
+
+    broadcast_json(
+      &self.state,
+      &RadioStateEvent {
+        kind: "radio:state".to_string(),
+        device_id: device_id.clone(),
+        state: new_state.clone(),
+      },
+    )
+    .await?;
+    broadcast_rig_from_radio_state(&self.state, &new_state).await?;
     Ok(())
   }
 
@@ -1844,14 +1893,28 @@ impl CatBackend for DaemonCatBackend {
       }
     }
 
-    let mut radio = self.state.radio.lock().await;
-    let device_id = radio
-      .devices()
-      .iter()
-      .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
-      .map(|d| d.device_id.clone())
-      .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
-    let _ = radio.set_mode(&device_id, mode)?;
+    let (device_id, new_state) = {
+      let mut radio = self.state.radio.lock().await;
+      let device_id = radio
+        .devices()
+        .iter()
+        .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+        .map(|d| d.device_id.clone())
+        .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
+      let new_state = radio.set_mode(&device_id, mode)?;
+      (device_id, new_state)
+    };
+
+    broadcast_json(
+      &self.state,
+      &RadioStateEvent {
+        kind: "radio:state".to_string(),
+        device_id: device_id.clone(),
+        state: new_state.clone(),
+      },
+    )
+    .await?;
+    broadcast_rig_from_radio_state(&self.state, &new_state).await?;
     Ok(())
   }
 
@@ -1863,7 +1926,35 @@ impl CatBackend for DaemonCatBackend {
 
   async fn set_ptt(&self, enabled: bool) -> anyhow::Result<()> {
     let rig = ensure_rig_service(&self.state).await;
-    rig.set_ptt(enabled).await
+    if let Ok(st) = rig.status().await {
+      if st.connected {
+        return rig.set_ptt(enabled).await;
+      }
+    }
+
+    let (device_id, new_state) = {
+      let mut radio = self.state.radio.lock().await;
+      let device_id = radio
+        .devices()
+        .iter()
+        .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+        .map(|d| d.device_id.clone())
+        .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
+      let new_state = radio.set_ptt(&device_id, enabled)?;
+      (device_id, new_state)
+    };
+
+    broadcast_json(
+      &self.state,
+      &RadioStateEvent {
+        kind: "radio:state".to_string(),
+        device_id: device_id.clone(),
+        state: new_state.clone(),
+      },
+    )
+    .await?;
+    broadcast_rig_from_radio_state(&self.state, &new_state).await?;
+    Ok(())
   }
 
   async fn get_smeter(&self) -> anyhow::Result<i32> {
@@ -2000,6 +2091,66 @@ fn rig_payload_from_rig_status(st: &RigStatus) -> serde_json::Value {
     "backend": st.backend,
     "lastUpdate": now_ms(),
   })
+}
+
+fn rig_payload_from_radio_state(st: &propulse_radio::types::RadioState) -> serde_json::Value {
+  let freq = st.freq;
+  serde_json::json!({
+    "connected": st.connected,
+    "frequency": freq,
+    "mode": st.mode.clone(),
+    "band": frequency_to_band_hz(freq),
+    "ptt": st.ptt,
+    "catControlled": true,
+    "backend": "radio",
+    "lastUpdate": now_ms(),
+  })
+}
+
+async fn broadcast_rig_from_radio_state(
+  state: &Arc<DaemonState>,
+  st: &propulse_radio::types::RadioState,
+) -> anyhow::Result<()> {
+  let payload = rig_payload_from_radio_state(st);
+  let update = serde_json::json!({
+    "type": "rig.update",
+    "timestamp": now_ms(),
+    "payload": payload,
+  });
+  broadcast_json(state, &update).await?;
+  Ok(())
+}
+
+async fn maybe_broadcast_rig_from_radio_state(
+  state: &Arc<DaemonState>,
+  st: &propulse_radio::types::RadioState,
+) -> anyhow::Result<()> {
+  let last_status = {
+    let integrations = state.integrations.lock().await;
+    integrations.rig.as_ref().map(|r| Arc::clone(&r.last_status))
+  };
+
+  if let Some(last_status) = last_status {
+    if last_status.lock().await.connected {
+      return Ok(());
+    }
+  }
+
+  broadcast_rig_from_radio_state(state, st).await
+}
+
+async fn connected_radio_snapshot(
+  state: &Arc<DaemonState>,
+) -> Option<(String, propulse_radio::types::RadioState)> {
+  let radio = state.radio.lock().await;
+  for d in radio.devices() {
+    if let Some(st) = radio.state(&d.device_id) {
+      if st.connected {
+        return Some((d.device_id.clone(), st.clone()));
+      }
+    }
+  }
+  None
 }
 
 async fn broadcast_rig_from_status(
@@ -2629,6 +2780,7 @@ async fn handle_bridge_message(
       });
 
       // Send to the requesting client only (legacy expects rig.update).
+      if st.connected {
       send_bridge_envelope(
         state,
         client_id,
@@ -2637,6 +2789,34 @@ async fn handle_bridge_message(
         rig_payload_from_rig_status(&st),
       )
       .await?;
+      } else if let Some((_dev_id, radio_st)) = connected_radio_snapshot(state).await {
+        send_bridge_envelope(
+          state,
+          client_id,
+          msg_id,
+          "rig.update",
+          rig_payload_from_radio_state(&radio_st),
+        )
+        .await?;
+      } else {
+        send_bridge_envelope(
+          state,
+          client_id,
+          msg_id,
+          "rig.update",
+          serde_json::json!({
+            "connected": false,
+            "frequency": 0,
+            "mode": "UNKNOWN",
+            "band": "?",
+            "ptt": false,
+            "catControlled": false,
+            "backend": "none",
+            "lastUpdate": now_ms(),
+          }),
+        )
+        .await?;
+      }
     }
 
     "rig.setFrequency" => {
@@ -2656,27 +2836,85 @@ async fn handle_bridge_message(
       let freq = freq.unwrap();
 
       let rig = ensure_rig_service(state).await;
-      if let Err(err) = rig.set_frequency(freq).await {
+      let st = rig.status().await.unwrap_or(RigStatus {
+        connected: false,
+        frequency: None,
+        mode: None,
+        ptt: None,
+        backend: Some("none".to_string()),
+      });
+
+      if st.connected {
+        if let Err(err) = rig.set_frequency(freq).await {
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            false,
+            serde_json::json!({ "message": err.to_string() }),
+          )
+          .await?;
+          return Ok(());
+        }
         send_bridge_ack(
           state,
           client_id,
           msg_id,
           msg_type,
-          false,
-          serde_json::json!({ "message": err.to_string() }),
+          true,
+          serde_json::json!({ "frequency": freq }),
         )
         .await?;
-        return Ok(());
+      } else {
+        let tuned = async {
+          let mut radio = state.radio.lock().await;
+          let device_id = radio
+            .devices()
+            .iter()
+            .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+            .map(|d| d.device_id.clone())
+            .ok_or_else(|| anyhow::anyhow!("No connected radio"))?;
+          let new_state = radio.tune(&device_id, freq)?;
+          Ok::<_, anyhow::Error>((device_id, new_state))
+        }
+        .await;
+
+        match tuned {
+          Ok((device_id, new_state)) => {
+            broadcast_json(
+              state,
+              &RadioStateEvent {
+                kind: "radio:state".to_string(),
+                device_id: device_id.clone(),
+                state: new_state.clone(),
+              },
+            )
+            .await?;
+            broadcast_rig_from_radio_state(state, &new_state).await?;
+            send_bridge_ack(
+              state,
+              client_id,
+              msg_id,
+              msg_type,
+              true,
+              serde_json::json!({ "frequency": freq }),
+            )
+            .await?;
+          }
+          Err(err) => {
+            send_bridge_ack(
+              state,
+              client_id,
+              msg_id,
+              msg_type,
+              false,
+              serde_json::json!({ "message": err.to_string() }),
+            )
+            .await?;
+          }
+        }
       }
-      send_bridge_ack(
-        state,
-        client_id,
-        msg_id,
-        msg_type,
-        true,
-        serde_json::json!({ "frequency": freq }),
-      )
-      .await?;
     }
 
     "rig.setMode" => {
@@ -2695,27 +2933,85 @@ async fn handle_bridge_message(
       }
       let mode = mode.unwrap();
       let rig = ensure_rig_service(state).await;
-      if let Err(err) = rig.set_mode(mode).await {
+      let st = rig.status().await.unwrap_or(RigStatus {
+        connected: false,
+        frequency: None,
+        mode: None,
+        ptt: None,
+        backend: Some("none".to_string()),
+      });
+
+      if st.connected {
+        if let Err(err) = rig.set_mode(mode).await {
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            false,
+            serde_json::json!({ "message": err.to_string() }),
+          )
+          .await?;
+          return Ok(());
+        }
         send_bridge_ack(
           state,
           client_id,
           msg_id,
           msg_type,
-          false,
-          serde_json::json!({ "message": err.to_string() }),
+          true,
+          serde_json::json!({ "mode": mode }),
         )
         .await?;
-        return Ok(());
+      } else {
+        let updated = async {
+          let mut radio = state.radio.lock().await;
+          let device_id = radio
+            .devices()
+            .iter()
+            .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+            .map(|d| d.device_id.clone())
+            .ok_or_else(|| anyhow::anyhow!("No connected radio"))?;
+          let new_state = radio.set_mode(&device_id, mode)?;
+          Ok::<_, anyhow::Error>((device_id, new_state))
+        }
+        .await;
+
+        match updated {
+          Ok((device_id, new_state)) => {
+            broadcast_json(
+              state,
+              &RadioStateEvent {
+                kind: "radio:state".to_string(),
+                device_id: device_id.clone(),
+                state: new_state.clone(),
+              },
+            )
+            .await?;
+            broadcast_rig_from_radio_state(state, &new_state).await?;
+            send_bridge_ack(
+              state,
+              client_id,
+              msg_id,
+              msg_type,
+              true,
+              serde_json::json!({ "mode": mode }),
+            )
+            .await?;
+          }
+          Err(err) => {
+            send_bridge_ack(
+              state,
+              client_id,
+              msg_id,
+              msg_type,
+              false,
+              serde_json::json!({ "message": err.to_string() }),
+            )
+            .await?;
+          }
+        }
       }
-      send_bridge_ack(
-        state,
-        client_id,
-        msg_id,
-        msg_type,
-        true,
-        serde_json::json!({ "mode": mode }),
-      )
-      .await?;
     }
 
     "rig.setPTT" => {
@@ -2726,28 +3022,86 @@ async fn handle_bridge_message(
         .unwrap_or(false);
 
       let rig = ensure_rig_service(state).await;
-      if let Err(err) = rig.set_ptt(enabled).await {
+      let st = rig.status().await.unwrap_or(RigStatus {
+        connected: false,
+        frequency: None,
+        mode: None,
+        ptt: None,
+        backend: Some("none".to_string()),
+      });
+
+      if st.connected {
+        if let Err(err) = rig.set_ptt(enabled).await {
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            false,
+            serde_json::json!({ "message": err.to_string() }),
+          )
+          .await?;
+          return Ok(());
+        }
+
         send_bridge_ack(
           state,
           client_id,
           msg_id,
           msg_type,
-          false,
-          serde_json::json!({ "message": err.to_string() }),
+          true,
+          serde_json::json!({ "ptt": enabled }),
         )
         .await?;
-        return Ok(());
-      }
+      } else {
+        let updated = async {
+          let mut radio = state.radio.lock().await;
+          let device_id = radio
+            .devices()
+            .iter()
+            .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+            .map(|d| d.device_id.clone())
+            .ok_or_else(|| anyhow::anyhow!("No connected radio"))?;
+          let new_state = radio.set_ptt(&device_id, enabled)?;
+          Ok::<_, anyhow::Error>((device_id, new_state))
+        }
+        .await;
 
-      send_bridge_ack(
-        state,
-        client_id,
-        msg_id,
-        msg_type,
-        true,
-        serde_json::json!({ "ptt": enabled }),
-      )
-      .await?;
+        match updated {
+          Ok((device_id, new_state)) => {
+            broadcast_json(
+              state,
+              &RadioStateEvent {
+                kind: "radio:state".to_string(),
+                device_id: device_id.clone(),
+                state: new_state.clone(),
+              },
+            )
+            .await?;
+            broadcast_rig_from_radio_state(state, &new_state).await?;
+            send_bridge_ack(
+              state,
+              client_id,
+              msg_id,
+              msg_type,
+              true,
+              serde_json::json!({ "ptt": enabled }),
+            )
+            .await?;
+          }
+          Err(err) => {
+            send_bridge_ack(
+              state,
+              client_id,
+              msg_id,
+              msg_type,
+              false,
+              serde_json::json!({ "message": err.to_string() }),
+            )
+            .await?;
+          }
+        }
+      }
     }
 
     "rig.set" => {

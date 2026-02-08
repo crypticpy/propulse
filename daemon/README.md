@@ -21,9 +21,11 @@ By default it binds to `127.0.0.1:9867`.
 
 ## Configuration
 
-On first run, the daemon writes a default config file to the OS-specific config directory
-(you can override with `--config /path/to/daemon.toml`). See `daemon/config.example.toml`
-for the full schema.
+On first run, the daemon writes a default config file to:
+- macOS/Linux: `~/.propulse/daemon.toml`
+- Windows: `%APPDATA%\\propulse\\daemon.toml`
+
+You can override with `--config /path/to/daemon.toml`. See `daemon/config.example.toml` for the full schema.
 
 Common options:
 - `server.bind = "127.0.0.1"` for local-only (default)
@@ -37,4 +39,3 @@ Config hot-reload:
 ## Frontend
 
 Propulse includes an SDR Console route at `/sdr` that connects to the daemon via WebSocket.
-

@@ -6,7 +6,13 @@
  * connector compatibility, and manages horizontal pipeline layout.
  */
 
-import React, { useMemo, useCallback, useState } from "react";
+import React, {
+  useMemo,
+  useCallback,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
 import type { StationChain } from "@/types/stationChain";
 import {
   FEEDLINE_TYPE_LABELS,
@@ -82,6 +88,22 @@ export function BuilderCanvas({
   selectedBand,
   isDraggingFromDrawer,
 }: BuilderCanvasProps) {
+  // ── Container ref for measuring available width ────────────────────────
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // ── Store data ──────────────────────────────────────────────────────────
   const radios = useUserRadios();
   const antennas = useUserAntennas();
@@ -221,7 +243,7 @@ export function BuilderCanvas({
   }, [chain.feedlineRuns, inlineComponents]);
 
   // ── Compute layout ──────────────────────────────────────────────────────
-  const { nodeLayouts, svgWidth, svgHeight } = useMemo(() => {
+  const { nodeLayouts, svgWidth, svgHeight, centerOffsetX } = useMemo(() => {
     const layouts: NodeLayout[] = [];
     let curX = CANVAS_PADDING_X;
     let maxHeight = NODE_HEIGHT;
@@ -250,11 +272,16 @@ export function BuilderCanvas({
       }
     }
 
-    const totalWidth = curX + CANVAS_PADDING_X;
+    const contentWidth = curX + CANVAS_PADDING_X;
+    const effectiveWidth = Math.max(contentWidth, containerWidth);
     const totalHeight = Math.max(
       MIN_CANVAS_HEIGHT,
       maxHeight + CANVAS_PADDING_Y * 2,
     );
+
+    // Center content horizontally when narrower than container
+    const offsetX =
+      effectiveWidth > contentWidth ? (effectiveWidth - contentWidth) / 2 : 0;
 
     // Vertically center all nodes
     for (const layout of layouts) {
@@ -263,10 +290,11 @@ export function BuilderCanvas({
 
     return {
       nodeLayouts: layouts,
-      svgWidth: totalWidth,
+      svgWidth: effectiveWidth,
       svgHeight: totalHeight,
+      centerOffsetX: offsetX,
     };
-  }, [chain.nodes, chain.feedlineRuns]);
+  }, [chain.nodes, chain.feedlineRuns, containerWidth]);
 
   // ── Node compatibility for input/output edges ───────────────────────────
   const nodeCompatibility = useMemo(() => {
@@ -555,7 +583,10 @@ export function BuilderCanvas({
   // ── Active chain render ───────────────────────────────────────────────────
 
   return (
-    <div className="overflow-x-auto rounded-2xl bg-panel/30 backdrop-blur-sm border border-white/5">
+    <div
+      ref={containerRef}
+      className="overflow-x-auto rounded-2xl bg-panel/30 backdrop-blur-sm border border-white/5"
+    >
       <svg
         width={svgWidth}
         height={svgHeight}
@@ -565,186 +596,196 @@ export function BuilderCanvas({
         aria-label={`Signal chain builder: ${chain.name}`}
         onClick={handleBackgroundClick}
       >
-        {/* Connection lines between adjacent nodes */}
-        {compatResults.map((result) => {
-          const fromLayout = nodeLayouts[result.fromIndex];
-          const toLayout = nodeLayouts[result.toIndex];
-          if (!fromLayout || !toLayout) return null;
+        <g
+          transform={
+            centerOffsetX > 0 ? `translate(${centerOffsetX}, 0)` : undefined
+          }
+        >
+          {/* Connection lines between adjacent nodes */}
+          {compatResults.map((result) => {
+            const fromLayout = nodeLayouts[result.fromIndex];
+            const toLayout = nodeLayouts[result.toIndex];
+            if (!fromLayout || !toLayout) return null;
 
-          const fromX = fromLayout.x + fromLayout.width;
-          const fromY = fromLayout.y + fromLayout.height / 2;
-          const toX = toLayout.x;
-          const toY = toLayout.y + toLayout.height / 2;
+            const fromX = fromLayout.x + fromLayout.width;
+            const fromY = fromLayout.y + fromLayout.height / 2;
+            const toX = toLayout.x;
+            const toY = toLayout.y + toLayout.height / 2;
 
-          // Get performance data for the connection
-          const toNodePerf = getNodePerformance(result.toIndex);
-          const lossDb =
-            toNodePerf && toNodePerf.lossDb > 0 ? toNodePerf.lossDb : undefined;
-          const gainDb =
-            toNodePerf && toNodePerf.gainDb > 0 ? toNodePerf.gainDb : undefined;
-
-          return (
-            <ConnectionLine
-              key={`conn-${result.fromIndex}-${result.toIndex}`}
-              fromX={fromX}
-              fromY={fromY}
-              toX={toX}
-              toY={toY}
-              compatible={result.compatible}
-              lossDb={lossDb}
-              gainDb={gainDb}
-            />
-          );
-        })}
-
-        {/* Drop zones between nodes (and at start/end) */}
-        {isDraggingFromDrawer &&
-          Array.from({ length: chain.nodes.length + 1 }, (_, i) => {
-            let dzX: number;
-            let dzY: number;
-
-            if (i === 0) {
-              // Before first node
-              dzX = CANVAS_PADDING_X - DROP_ZONE_WIDTH - 4;
-              dzY = svgHeight / 2 - NODE_HEIGHT / 2;
-            } else if (i === chain.nodes.length) {
-              // After last node
-              const lastLayout = nodeLayouts[nodeLayouts.length - 1];
-              dzX = lastLayout
-                ? lastLayout.x + lastLayout.width + 10
-                : CANVAS_PADDING_X;
-              dzY = svgHeight / 2 - NODE_HEIGHT / 2;
-            } else {
-              // Between nodes i-1 and i
-              const prevLayout = nodeLayouts[i - 1];
-              const nextLayout = nodeLayouts[i];
-              dzX =
-                prevLayout.x +
-                prevLayout.width +
-                (NODE_SPACING - DROP_ZONE_WIDTH) / 2;
-              dzY = Math.min(prevLayout.y, nextLayout.y);
-            }
+            // Get performance data for the connection
+            const toNodePerf = getNodePerformance(result.toIndex);
+            const lossDb =
+              toNodePerf && toNodePerf.lossDb > 0
+                ? toNodePerf.lossDb
+                : undefined;
+            const gainDb =
+              toNodePerf && toNodePerf.gainDb > 0
+                ? toNodePerf.gainDb
+                : undefined;
 
             return (
-              <DropZone
-                key={`dz-${i}`}
-                x={dzX}
-                y={dzY}
-                width={DROP_ZONE_WIDTH}
-                height={NODE_HEIGHT}
-                isActive={activeDropIndex === i}
-                onDragOver={(e) => handleDropZoneDragOver(e, i)}
-                onDragLeave={handleDropZoneDragLeave}
-                onDrop={(e) => handleDropZoneDrop(e, i)}
+              <ConnectionLine
+                key={`conn-${result.fromIndex}-${result.toIndex}`}
+                fromX={fromX}
+                fromY={fromY}
+                toX={toX}
+                toY={toY}
+                compatible={result.compatible}
+                lossDb={lossDb}
+                gainDb={gainDb}
               />
             );
           })}
 
-        {/* Non-drag "+" drop zones between nodes (always visible) */}
-        {!isDraggingFromDrawer &&
-          chain.nodes.length > 0 &&
-          Array.from({ length: chain.nodes.length + 1 }, (_, i) => {
-            let dzX: number;
-            let dzY: number;
+          {/* Drop zones between nodes (and at start/end) */}
+          {isDraggingFromDrawer &&
+            Array.from({ length: chain.nodes.length + 1 }, (_, i) => {
+              let dzX: number;
+              let dzY: number;
 
-            if (i === 0) {
-              dzX = CANVAS_PADDING_X - DROP_ZONE_WIDTH - 4;
-              dzY = svgHeight / 2 - NODE_HEIGHT / 2;
-            } else if (i === chain.nodes.length) {
-              const lastLayout = nodeLayouts[nodeLayouts.length - 1];
-              dzX = lastLayout
-                ? lastLayout.x + lastLayout.width + 10
-                : CANVAS_PADDING_X;
-              dzY = svgHeight / 2 - NODE_HEIGHT / 2;
-            } else {
-              const prevLayout = nodeLayouts[i - 1];
-              const nextLayout = nodeLayouts[i];
-              dzX =
-                prevLayout.x +
-                prevLayout.width +
-                (NODE_SPACING - DROP_ZONE_WIDTH) / 2;
-              dzY = Math.min(prevLayout.y, nextLayout.y);
-            }
+              if (i === 0) {
+                // Before first node
+                dzX = CANVAS_PADDING_X - DROP_ZONE_WIDTH - 4;
+                dzY = svgHeight / 2 - NODE_HEIGHT / 2;
+              } else if (i === chain.nodes.length) {
+                // After last node
+                const lastLayout = nodeLayouts[nodeLayouts.length - 1];
+                dzX = lastLayout
+                  ? lastLayout.x + lastLayout.width + 10
+                  : CANVAS_PADDING_X;
+                dzY = svgHeight / 2 - NODE_HEIGHT / 2;
+              } else {
+                // Between nodes i-1 and i
+                const prevLayout = nodeLayouts[i - 1];
+                const nextLayout = nodeLayouts[i];
+                dzX =
+                  prevLayout.x +
+                  prevLayout.width +
+                  (NODE_SPACING - DROP_ZONE_WIDTH) / 2;
+                dzY = Math.min(prevLayout.y, nextLayout.y);
+              }
 
-            return (
-              <DropZone
-                key={`dz-add-${i}`}
-                x={dzX}
-                y={dzY}
-                width={DROP_ZONE_WIDTH}
-                height={NODE_HEIGHT}
-                isActive={activeDropIndex === i}
-                onDragOver={(e) => handleDropZoneDragOver(e, i)}
-                onDragLeave={handleDropZoneDragLeave}
-                onDrop={(e) => handleDropZoneDrop(e, i)}
-              />
-            );
-          })}
-
-        {/* Nodes */}
-        {chain.nodes.map((node, i) => {
-          const layout = nodeLayouts[i];
-          if (!layout) return null;
-
-          const { label, subLabel } = nodeLabels[i] ?? {
-            label: "Unknown",
-            subLabel: undefined,
-          };
-          const connectors = nodeConnectors[i];
-          const compat = nodeCompatibility[i];
-          const nodePerf = getNodePerformance(i);
-
-          // Feedline run nodes use the expanded component
-          if (node.type === "feedline_run") {
-            const run = chain.feedlineRuns.find(
-              (r) => r.id === node.feedlineRunId,
-            );
-            if (run) {
-              const runData = feedlineRunData.get(run.id);
               return (
-                <FeedlineRunNode
-                  key={`node-${i}`}
-                  feedlineRun={run}
-                  feedlineLabel={label}
-                  feedlineSubLabel={subLabel}
-                  inlineLabels={runData?.inlineLabels ?? []}
-                  totalLossDb={runData?.totalLossDb}
-                  nodePerformance={nodePerf}
-                  inputConnector={connectors?.input ?? null}
-                  outputConnector={connectors?.output ?? null}
-                  inputCompatible={compat?.inputCompatible}
-                  outputCompatible={compat?.outputCompatible}
-                  isSelected={selectedNodeIndex === i}
-                  x={layout.x}
-                  y={layout.y}
-                  width={layout.width}
-                  onClick={() => onSelectNode(i)}
+                <DropZone
+                  key={`dz-${i}`}
+                  x={dzX}
+                  y={dzY}
+                  width={DROP_ZONE_WIDTH}
+                  height={NODE_HEIGHT}
+                  isActive={activeDropIndex === i}
+                  onDragOver={(e) => handleDropZoneDragOver(e, i)}
+                  onDragLeave={handleDropZoneDragLeave}
+                  onDrop={(e) => handleDropZoneDrop(e, i)}
                 />
               );
-            }
-          }
+            })}
 
-          return (
-            <ChainNode
-              key={`node-${i}`}
-              node={node}
-              label={label}
-              subLabel={subLabel}
-              nodePerformance={nodePerf}
-              inputConnector={connectors?.input ?? null}
-              outputConnector={connectors?.output ?? null}
-              inputCompatible={compat?.inputCompatible}
-              outputCompatible={compat?.outputCompatible}
-              isSelected={selectedNodeIndex === i}
-              x={layout.x}
-              y={layout.y}
-              width={layout.width}
-              height={layout.height}
-              onClick={() => onSelectNode(i)}
-              onDragStart={(e) => handleNodeDragStart(e, i)}
-            />
-          );
-        })}
+          {/* Non-drag "+" drop zones between nodes (always visible) */}
+          {!isDraggingFromDrawer &&
+            chain.nodes.length > 0 &&
+            Array.from({ length: chain.nodes.length + 1 }, (_, i) => {
+              let dzX: number;
+              let dzY: number;
+
+              if (i === 0) {
+                dzX = CANVAS_PADDING_X - DROP_ZONE_WIDTH - 4;
+                dzY = svgHeight / 2 - NODE_HEIGHT / 2;
+              } else if (i === chain.nodes.length) {
+                const lastLayout = nodeLayouts[nodeLayouts.length - 1];
+                dzX = lastLayout
+                  ? lastLayout.x + lastLayout.width + 10
+                  : CANVAS_PADDING_X;
+                dzY = svgHeight / 2 - NODE_HEIGHT / 2;
+              } else {
+                const prevLayout = nodeLayouts[i - 1];
+                const nextLayout = nodeLayouts[i];
+                dzX =
+                  prevLayout.x +
+                  prevLayout.width +
+                  (NODE_SPACING - DROP_ZONE_WIDTH) / 2;
+                dzY = Math.min(prevLayout.y, nextLayout.y);
+              }
+
+              return (
+                <DropZone
+                  key={`dz-add-${i}`}
+                  x={dzX}
+                  y={dzY}
+                  width={DROP_ZONE_WIDTH}
+                  height={NODE_HEIGHT}
+                  isActive={activeDropIndex === i}
+                  onDragOver={(e) => handleDropZoneDragOver(e, i)}
+                  onDragLeave={handleDropZoneDragLeave}
+                  onDrop={(e) => handleDropZoneDrop(e, i)}
+                />
+              );
+            })}
+
+          {/* Nodes */}
+          {chain.nodes.map((node, i) => {
+            const layout = nodeLayouts[i];
+            if (!layout) return null;
+
+            const { label, subLabel } = nodeLabels[i] ?? {
+              label: "Unknown",
+              subLabel: undefined,
+            };
+            const connectors = nodeConnectors[i];
+            const compat = nodeCompatibility[i];
+            const nodePerf = getNodePerformance(i);
+
+            // Feedline run nodes use the expanded component
+            if (node.type === "feedline_run") {
+              const run = chain.feedlineRuns.find(
+                (r) => r.id === node.feedlineRunId,
+              );
+              if (run) {
+                const runData = feedlineRunData.get(run.id);
+                return (
+                  <FeedlineRunNode
+                    key={`node-${i}`}
+                    feedlineRun={run}
+                    feedlineLabel={label}
+                    feedlineSubLabel={subLabel}
+                    inlineLabels={runData?.inlineLabels ?? []}
+                    totalLossDb={runData?.totalLossDb}
+                    nodePerformance={nodePerf}
+                    inputConnector={connectors?.input ?? null}
+                    outputConnector={connectors?.output ?? null}
+                    inputCompatible={compat?.inputCompatible}
+                    outputCompatible={compat?.outputCompatible}
+                    isSelected={selectedNodeIndex === i}
+                    x={layout.x}
+                    y={layout.y}
+                    width={layout.width}
+                    onClick={() => onSelectNode(i)}
+                  />
+                );
+              }
+            }
+
+            return (
+              <ChainNode
+                key={`node-${i}`}
+                node={node}
+                label={label}
+                subLabel={subLabel}
+                nodePerformance={nodePerf}
+                inputConnector={connectors?.input ?? null}
+                outputConnector={connectors?.output ?? null}
+                inputCompatible={compat?.inputCompatible}
+                outputCompatible={compat?.outputCompatible}
+                isSelected={selectedNodeIndex === i}
+                x={layout.x}
+                y={layout.y}
+                width={layout.width}
+                height={layout.height}
+                onClick={() => onSelectNode(i)}
+                onDragStart={(e) => handleNodeDragStart(e, i)}
+              />
+            );
+          })}
+        </g>
       </svg>
     </div>
   );

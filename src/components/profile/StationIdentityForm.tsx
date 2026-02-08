@@ -11,7 +11,7 @@
  * panel with field-level checkboxes and conflict detection.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { LocationInput } from "@/components/settings/LocationInput";
 import { useCallsignIngestion } from "@/hooks/useCallsignIngestion";
 import type { IngestionResult } from "@/hooks/useCallsignIngestion";
@@ -117,14 +117,14 @@ export function StationIdentityForm({
     ? "block text-xs font-medium text-gray-400 mb-1"
     : "block text-sm font-medium text-gray-300 mb-2";
 
-  // Multi-source callsign ingestion
-  const { result: ingestionResult, loading } = useCallsignIngestion(callsign);
+  // Multi-source callsign ingestion — only show suggestions for new callsigns
+  const lastIngestedCallsign = useProfileStore((s) => s.lastIngestedCallsign);
+  const alreadyIngested =
+    callsign.trim().toUpperCase() === lastIngestedCallsign;
+  const { result: ingestionResult, loading } = useCallsignIngestion(
+    alreadyIngested ? "" : callsign,
+  );
   const [dismissed, setDismissed] = useState(false);
-
-  // Reset dismissed state when callsign changes
-  useEffect(() => {
-    setDismissed(false);
-  }, [callsign]);
 
   // Build current values for conflict detection
   const license = useProfileStore((s) => s.license);
@@ -208,9 +208,13 @@ export function StationIdentityForm({
         }
       }
 
+      // Mark callsign as ingested so we don't show again on next visit
+      useProfileStore
+        .getState()
+        .setLastIngestedCallsign(callsign.trim().toUpperCase());
       setDismissed(true);
     },
-    [setOperatorName, setGrid, license],
+    [callsign, setOperatorName, setGrid, license],
   );
 
   return (
@@ -244,7 +248,12 @@ export function StationIdentityForm({
             loading={loading}
             currentValues={currentValues}
             onApply={handleApply}
-            onDismiss={() => setDismissed(true)}
+            onDismiss={() => {
+              useProfileStore
+                .getState()
+                .setLastIngestedCallsign(callsign.trim().toUpperCase());
+              setDismissed(true);
+            }}
           />
         )}
       </div>

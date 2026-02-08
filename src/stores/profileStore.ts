@@ -66,11 +66,13 @@ interface ProfileStore {
   licenseHistory: LicenseHistoryEntry[];
   bio: string;
   profileImageUrl: string;
+  lastIngestedCallsign: string;
   socialLinks: SocialLink[];
 
   setStation: (station: UserStation | null) => void;
   setBio: (bio: string) => void;
   setProfileImageUrl: (url: string) => void;
+  setLastIngestedCallsign: (callsign: string) => void;
   setSocialLinks: (links: SocialLink[]) => void;
 
   // Location management
@@ -120,6 +122,7 @@ export const useProfileStore = create<ProfileStore>()(
       licenseHistory: [],
       bio: "",
       profileImageUrl: "",
+      lastIngestedCallsign: "",
       socialLinks: [],
 
       setStation: (station) =>
@@ -153,6 +156,8 @@ export const useProfileStore = create<ProfileStore>()(
 
       setBio: (bio) => set({ bio }),
       setProfileImageUrl: (url) => set({ profileImageUrl: url }),
+      setLastIngestedCallsign: (callsign) =>
+        set({ lastIngestedCallsign: callsign }),
       setSocialLinks: (links) => set({ socialLinks: links }),
 
       // === Location Management ===
@@ -410,6 +415,7 @@ export const useProfileStore = create<ProfileStore>()(
         licenseHistory: state.licenseHistory,
         bio: state.bio,
         profileImageUrl: state.profileImageUrl,
+        lastIngestedCallsign: state.lastIngestedCallsign,
         socialLinks: state.socialLinks,
         serviceCredentials: state.serviceCredentials,
       }),

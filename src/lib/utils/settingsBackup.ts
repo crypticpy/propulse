@@ -25,6 +25,7 @@ import type {
   UserFeedline,
   UserAccessory,
   StationPreset,
+  InlineComponent,
 } from "@/types/shack";
 
 /** Current backup format version */
@@ -69,6 +70,7 @@ export interface SettingsBackup {
   shackEquipment?: {
     antennas: UserAntenna[];
     feedlines: UserFeedline[];
+    inlineComponents?: InlineComponent[];
     accessories: UserAccessory[];
     stationPresets: StationPreset[];
     activePresetId: string | null;
@@ -168,6 +170,7 @@ export function exportSettings(): SettingsBackup {
     shackEquipment: {
       antennas: shack.antennas,
       feedlines: shack.feedlines,
+      inlineComponents: shack.inlineComponents,
       accessories: shack.accessories,
       stationPresets: shack.stationPresets,
       activePresetId: shack.activePresetId,
@@ -364,6 +367,7 @@ export function importSettings(backup: SettingsBackup): ImportResult {
         useShackStore.setState({
           antennas: backup.shackEquipment.antennas ?? [],
           feedlines: backup.shackEquipment.feedlines ?? [],
+          inlineComponents: backup.shackEquipment.inlineComponents ?? [],
           accessories: backup.shackEquipment.accessories ?? [],
           stationPresets: backup.shackEquipment.stationPresets ?? [],
           activePresetId: backup.shackEquipment.activePresetId ?? null,
@@ -531,6 +535,11 @@ export function getBackupSummary(backup: SettingsBackup): string {
   }
   if (backup.shackEquipment?.feedlines?.length) {
     counts.push(`${backup.shackEquipment.feedlines.length} feedlines`);
+  }
+  if (backup.shackEquipment?.inlineComponents?.length) {
+    counts.push(
+      `${backup.shackEquipment.inlineComponents.length} inline components`,
+    );
   }
   if (backup.shackEquipment?.accessories?.length) {
     counts.push(`${backup.shackEquipment.accessories.length} accessories`);

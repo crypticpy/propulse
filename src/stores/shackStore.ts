@@ -12,10 +12,13 @@ import type {
   UserFeedline,
   UserAccessory,
   StationPreset,
+  InlineComponent,
+  EquipmentHistoryEntry,
 } from "@/types/shack";
 import {
   MAX_ANTENNAS,
   MAX_FEEDLINES,
+  MAX_INLINE_COMPONENTS,
   MAX_ACCESSORIES,
   MAX_PRESETS,
 } from "@/types/shack";
@@ -78,9 +81,11 @@ interface ShackStore {
   activeRadioId: string | null;
   antennas: UserAntenna[];
   feedlines: UserFeedline[];
+  inlineComponents: InlineComponent[];
   accessories: UserAccessory[];
   stationPresets: StationPreset[];
   activePresetId: string | null;
+  equipmentHistory: EquipmentHistoryEntry[];
 
   // Radio actions
   addRadio: (radioId: string, nickname?: string) => string | null;
@@ -107,6 +112,7 @@ interface ShackStore {
     updates: Partial<Omit<UserAntenna, "id" | "addedAt">>,
   ) => { ok: true } | { ok: false; error: string };
   removeAntenna: (id: string) => void;
+  duplicateAntenna: (id: string) => string | null;
 
   // Feedline actions
   addFeedline: (
@@ -117,6 +123,18 @@ interface ShackStore {
     updates: Partial<Omit<UserFeedline, "id" | "addedAt">>,
   ) => { ok: true } | { ok: false; error: string };
   removeFeedline: (id: string) => void;
+  duplicateFeedline: (id: string) => string | null;
+
+  // Inline component actions
+  addInlineComponent: (
+    component: Omit<InlineComponent, "id" | "addedAt">,
+  ) => string | null;
+  updateInlineComponent: (
+    id: string,
+    updates: Partial<Omit<InlineComponent, "id" | "addedAt">>,
+  ) => { ok: true } | { ok: false; error: string };
+  removeInlineComponent: (id: string) => void;
+  duplicateInlineComponent: (id: string) => string | null;
 
   // Accessory actions
   addAccessory: (
@@ -127,6 +145,7 @@ interface ShackStore {
     updates: Partial<Omit<UserAccessory, "id" | "addedAt">>,
   ) => { ok: true } | { ok: false; error: string };
   removeAccessory: (id: string) => void;
+  duplicateAccessory: (id: string) => string | null;
 
   // Preset actions
   addPreset: (preset: Omit<StationPreset, "id" | "createdAt">) => string | null;
@@ -136,6 +155,12 @@ interface ShackStore {
   ) => { ok: true } | { ok: false; error: string };
   removePreset: (id: string) => void;
   setActivePreset: (id: string | null) => void;
+  duplicatePreset: (id: string) => string | null;
+
+  // History
+  _addHistoryEntry: (
+    entry: Omit<EquipmentHistoryEntry, "id" | "timestamp">,
+  ) => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -148,9 +173,11 @@ export const useShackStore = create<ShackStore>()(
       activeRadioId: null,
       antennas: [],
       feedlines: [],
+      inlineComponents: [],
       accessories: [],
       stationPresets: [],
       activePresetId: null,
+      equipmentHistory: [],
 
       addRadio: (radioId, nickname) => {
         let instanceId: string | null = null;
@@ -395,6 +422,27 @@ export const useShackStore = create<ShackStore>()(
           ),
         })),
 
+      duplicateAntenna: (id) => {
+        let newId: string | null = null;
+        set((state) => {
+          const src = state.antennas.find((a) => a.id === id);
+          if (!src || state.antennas.length >= MAX_ANTENNAS) return state;
+          newId = crypto.randomUUID();
+          return {
+            antennas: [
+              ...state.antennas,
+              {
+                ...src,
+                id: newId,
+                name: `${src.name} (copy)`,
+                addedAt: new Date().toISOString(),
+              },
+            ],
+          };
+        });
+        return newId;
+      },
+
       // === Feedline Actions ===
 
       addFeedline: (feedline) => {
@@ -438,6 +486,100 @@ export const useShackStore = create<ShackStore>()(
             p.feedlineId === id ? { ...p, feedlineId: undefined } : p,
           ),
         })),
+
+      duplicateFeedline: (id) => {
+        let newId: string | null = null;
+        set((state) => {
+          const src = state.feedlines.find((f) => f.id === id);
+          if (!src || state.feedlines.length >= MAX_FEEDLINES) return state;
+          newId = crypto.randomUUID();
+          return {
+            feedlines: [
+              ...state.feedlines,
+              {
+                ...src,
+                id: newId,
+                name: `${src.name} (copy)`,
+                addedAt: new Date().toISOString(),
+              },
+            ],
+          };
+        });
+        return newId;
+      },
+
+      // === Inline Component Actions ===
+
+      addInlineComponent: (component) => {
+        let id: string | null = null;
+        set((state) => {
+          if (state.inlineComponents.length >= MAX_INLINE_COMPONENTS)
+            return state;
+          const newId = crypto.randomUUID();
+          id = newId;
+          return {
+            inlineComponents: [
+              ...state.inlineComponents,
+              {
+                ...component,
+                id: newId,
+                addedAt: new Date().toISOString(),
+              } as InlineComponent,
+            ],
+          };
+        });
+        return id;
+      },
+
+      updateInlineComponent: (id, updates) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.inlineComponents.findIndex((c) => c.id === id);
+          if (idx === -1) {
+            result = { ok: false, error: "Inline component not found" };
+            return state;
+          }
+          return {
+            inlineComponents: state.inlineComponents.map((c, i) =>
+              i === idx ? ({ ...c, ...updates } as InlineComponent) : c,
+            ),
+          };
+        });
+        return result;
+      },
+
+      removeInlineComponent: (id) =>
+        set((state) => ({
+          inlineComponents: state.inlineComponents.filter((c) => c.id !== id),
+          stationPresets: state.stationPresets.map((p) => ({
+            ...p,
+            inlineComponentIds: p.inlineComponentIds?.filter(
+              (cid) => cid !== id,
+            ),
+          })),
+        })),
+
+      duplicateInlineComponent: (id) => {
+        let newId: string | null = null;
+        set((state) => {
+          const src = state.inlineComponents.find((c) => c.id === id);
+          if (!src || state.inlineComponents.length >= MAX_INLINE_COMPONENTS)
+            return state;
+          newId = crypto.randomUUID();
+          return {
+            inlineComponents: [
+              ...state.inlineComponents,
+              {
+                ...src,
+                id: newId,
+                name: `${src.name} (copy)`,
+                addedAt: new Date().toISOString(),
+              } as InlineComponent,
+            ],
+          };
+        });
+        return newId;
+      },
 
       // === Accessory Actions ===
 
@@ -488,6 +630,27 @@ export const useShackStore = create<ShackStore>()(
           })),
         })),
 
+      duplicateAccessory: (id) => {
+        let newId: string | null = null;
+        set((state) => {
+          const src = state.accessories.find((a) => a.id === id);
+          if (!src || state.accessories.length >= MAX_ACCESSORIES) return state;
+          newId = crypto.randomUUID();
+          return {
+            accessories: [
+              ...state.accessories,
+              {
+                ...src,
+                id: newId,
+                name: `${src.name} (copy)`,
+                addedAt: new Date().toISOString(),
+              } as UserAccessory,
+            ],
+          };
+        });
+        return newId;
+      },
+
       // === Preset Actions ===
 
       addPreset: (preset) => {
@@ -532,10 +695,45 @@ export const useShackStore = create<ShackStore>()(
         })),
 
       setActivePreset: (id) => set({ activePresetId: id }),
+
+      duplicatePreset: (id) => {
+        let newId: string | null = null;
+        set((state) => {
+          const src = state.stationPresets.find((p) => p.id === id);
+          if (!src || state.stationPresets.length >= MAX_PRESETS) return state;
+          newId = crypto.randomUUID();
+          return {
+            stationPresets: [
+              ...state.stationPresets,
+              {
+                ...src,
+                id: newId,
+                name: `${src.name} (copy)`,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          };
+        });
+        return newId;
+      },
+
+      // === History ===
+
+      _addHistoryEntry: (entry) =>
+        set((state) => {
+          const historyEntry: EquipmentHistoryEntry = {
+            ...entry,
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+          };
+          // Keep last 200 entries
+          const history = [...state.equipmentHistory, historyEntry].slice(-200);
+          return { equipmentHistory: history };
+        }),
     }),
     {
       name: "propulse-shack",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         radios: state.radios,
@@ -543,9 +741,11 @@ export const useShackStore = create<ShackStore>()(
         activeRadioId: state.activeRadioId,
         antennas: state.antennas,
         feedlines: state.feedlines,
+        inlineComponents: state.inlineComponents,
         accessories: state.accessories,
         stationPresets: state.stationPresets,
         activePresetId: state.activePresetId,
+        equipmentHistory: state.equipmentHistory,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -555,6 +755,10 @@ export const useShackStore = create<ShackStore>()(
           if (!("accessories" in state)) state.accessories = [];
           if (!("stationPresets" in state)) state.stationPresets = [];
           if (!("activePresetId" in state)) state.activePresetId = null;
+        }
+        if (version < 3) {
+          if (!("inlineComponents" in state)) state.inlineComponents = [];
+          if (!("equipmentHistory" in state)) state.equipmentHistory = [];
         }
         return state as never;
       },
@@ -642,6 +846,20 @@ export function useUserAccessories(): UserAccessory[] {
  */
 export function useStationPresets(): StationPreset[] {
   return useShackStore((s) => s.stationPresets);
+}
+
+/**
+ * Hook to get all inline feedline components
+ */
+export function useInlineComponents(): InlineComponent[] {
+  return useShackStore((s) => s.inlineComponents);
+}
+
+/**
+ * Hook to get equipment history
+ */
+export function useEquipmentHistory(): EquipmentHistoryEntry[] {
+  return useShackStore((s) => s.equipmentHistory);
 }
 
 // Re-export helpers for use by migration utility and sync modules

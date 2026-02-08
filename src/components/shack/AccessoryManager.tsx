@@ -16,21 +16,17 @@ import type {
   SwitchAccessory,
   PowerSupplyAccessory,
   GroundingAccessory,
+  RotatorAccessory,
+  KeyerAccessory,
+  AudioDspAccessory,
 } from "@/types/shack";
-import { MAX_ACCESSORIES } from "@/types/shack";
+import { MAX_ACCESSORIES, ACCESSORY_CATEGORY_LABELS } from "@/types/shack";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { AccessoryCategoryFields } from "./AccessoryCategoryFields";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
-const CATEGORY_LABELS: Record<AccessoryCategory, string> = {
-  amplifier: "Amplifiers",
-  tuner: "Tuners",
-  filter: "Filters",
-  switch: "Switches",
-  power_supply: "Power Supplies",
-  grounding: "Grounding",
-};
+const CATEGORY_LABELS = ACCESSORY_CATEGORY_LABELS;
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS) as AccessoryCategory[];
 
@@ -78,6 +74,27 @@ interface AccessoryForm {
   // Grounding
   groundType: "rod" | "radial_system" | "counterpoise" | "water_pipe" | "other";
   radialCount: string;
+  // Rotator
+  rotatorType: "azimuth" | "elevation" | "az_el";
+  speedDegPerSec: string;
+  // Keyer
+  keyerType:
+    | "paddle"
+    | "straight_key"
+    | "bug"
+    | "electronic_keyer"
+    | "keyboard";
+  speedMin: string;
+  speedMax: string;
+  // Audio DSP
+  dspType:
+    | "external_speaker"
+    | "headphones"
+    | "dsp_filter"
+    | "audio_processor"
+    | "voice_keyer";
+  noiseReduction: boolean;
+  notchFilter: boolean;
 }
 
 function createDefaultForm(): AccessoryForm {
@@ -102,6 +119,14 @@ function createDefaultForm(): AccessoryForm {
     maxCurrentAmps: "30",
     groundType: "rod",
     radialCount: "",
+    rotatorType: "azimuth",
+    speedDegPerSec: "1",
+    keyerType: "paddle",
+    speedMin: "5",
+    speedMax: "50",
+    dspType: "external_speaker",
+    noiseReduction: false,
+    notchFilter: false,
   };
 }
 
@@ -143,6 +168,23 @@ function formFromAccessory(a: UserAccessory): AccessoryForm {
     case "grounding":
       base.groundType = a.groundType;
       base.radialCount = a.radialCount != null ? String(a.radialCount) : "";
+      break;
+    case "rotator":
+      base.rotatorType = a.rotatorType;
+      base.speedDegPerSec =
+        a.speedDegPerSec != null ? String(a.speedDegPerSec) : "1";
+      break;
+    case "keyer":
+      base.keyerType = a.keyerType;
+      base.speedMin =
+        a.speedRangeWpm?.min != null ? String(a.speedRangeWpm.min) : "5";
+      base.speedMax =
+        a.speedRangeWpm?.max != null ? String(a.speedRangeWpm.max) : "50";
+      break;
+    case "audio_dsp":
+      base.dspType = a.dspType;
+      base.noiseReduction = a.noiseReduction ?? false;
+      base.notchFilter = a.notchFilter ?? false;
       break;
   }
 
@@ -343,6 +385,42 @@ export function AccessoryManager() {
         payload = p;
         break;
       }
+      case "rotator": {
+        const p: OmitIds<RotatorAccessory> = {
+          ...base,
+          category: "rotator",
+          rotatorType: form.rotatorType,
+          speedDegPerSec: form.speedDegPerSec.trim()
+            ? Number.parseFloat(form.speedDegPerSec)
+            : undefined,
+        };
+        payload = p;
+        break;
+      }
+      case "keyer": {
+        const p: OmitIds<KeyerAccessory> = {
+          ...base,
+          category: "keyer",
+          keyerType: form.keyerType,
+          speedRangeWpm: {
+            min: Number.parseInt(form.speedMin, 10) || 5,
+            max: Number.parseInt(form.speedMax, 10) || 50,
+          },
+        };
+        payload = p;
+        break;
+      }
+      case "audio_dsp": {
+        const p: OmitIds<AudioDspAccessory> = {
+          ...base,
+          category: "audio_dsp",
+          dspType: form.dspType,
+          noiseReduction: form.noiseReduction,
+          notchFilter: form.notchFilter,
+        };
+        payload = p;
+        break;
+      }
     }
 
     if (editingId) {
@@ -380,6 +458,12 @@ export function AccessoryManager() {
         return `${a.voltageOutput}V / ${a.maxCurrentAmps}A`;
       case "grounding":
         return `${GROUND_TYPE_LABELS[a.groundType] ?? a.groundType}${a.radialCount != null ? ` / ${a.radialCount} radials` : ""}`;
+      case "rotator":
+        return `${a.rotatorType}${a.speedDegPerSec != null ? ` / ${a.speedDegPerSec}\u00B0/s` : ""}`;
+      case "keyer":
+        return `${a.keyerType.replace(/_/g, " ")}${a.speedRangeWpm ? ` / ${a.speedRangeWpm.min}-${a.speedRangeWpm.max} WPM` : ""}`;
+      case "audio_dsp":
+        return `${a.dspType.replace(/_/g, " ")}${a.noiseReduction ? " / NR" : ""}${a.notchFilter ? " / Notch" : ""}`;
     }
   }
 

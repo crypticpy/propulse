@@ -13,39 +13,17 @@ import type {
   AntennaPolarization,
   AntennaMounting,
 } from "@/types/shack";
-import { MAX_ANTENNAS } from "@/types/shack";
-import type { AntennaType } from "@/lib/data/antennas";
-import { ANTENNA_TYPES } from "@/lib/data/antennas";
+import {
+  MAX_ANTENNAS,
+  ANTENNA_TYPE_LABELS,
+  ANTENNA_TYPE_TO_PATTERN,
+} from "@/types/shack";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ALL_BANDS } from "@/types/user";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
-const ANTENNA_TYPE_LABELS: Record<UserAntennaType, string> = {
-  dipole: "Dipole",
-  vertical: "Vertical",
-  yagi_3el: "3-Element Yagi",
-  yagi_5el: "5-Element Yagi",
-  hex_beam: "Hex Beam",
-  wire_inverted_v: "Inverted V",
-  nvis_dipole: "NVIS Dipole",
-  isotropic: "Isotropic (Reference)",
-  ground_plane: "Ground Plane",
-  quad: "Quad",
-  magnetic_loop: "Magnetic Loop",
-  full_loop: "Full Loop",
-  efhw: "End-Fed Half-Wave",
-  ocf_dipole: "Off-Center Fed Dipole",
-  beverage: "Beverage",
-  rhombic: "Rhombic",
-  fan_dipole: "Fan Dipole",
-  trap_dipole: "Trap Dipole",
-  steppir: "SteppIR",
-  moxon: "Moxon",
-  wire_random: "Random Wire",
-  log_periodic: "Log Periodic",
-  dish: "Dish",
-};
+// ANTENNA_TYPE_LABELS imported from @/types/shack
 
 const POLARIZATION_LABELS: Record<AntennaPolarization, string> = {
   horizontal: "Horizontal",
@@ -62,6 +40,8 @@ const MOUNTING_LABELS: Record<AntennaMounting, string> = {
   tree: "Tree",
   portable: "Portable",
   mobile: "Mobile",
+  attic: "Attic",
+  balcony: "Balcony",
   other: "Other",
 };
 
@@ -76,7 +56,6 @@ const ALL_MOUNTINGS = Object.keys(MOUNTING_LABELS) as AntennaMounting[];
 interface AntennaForm {
   name: string;
   antennaType: UserAntennaType;
-  gainPatternType: AntennaType;
   bands: Set<string>;
   heightMeters: string;
   azimuthDeg: string;
@@ -90,7 +69,6 @@ function createDefaultForm(): AntennaForm {
   return {
     name: "",
     antennaType: "dipole",
-    gainPatternType: "dipole",
     bands: new Set<string>(),
     heightMeters: "10",
     azimuthDeg: "",
@@ -105,7 +83,6 @@ function formFromAntenna(a: UserAntenna): AntennaForm {
   return {
     name: a.name,
     antennaType: a.antennaType,
-    gainPatternType: a.gainPatternType,
     bands: new Set(a.bands),
     heightMeters: String(a.heightMeters),
     azimuthDeg: a.azimuthDeg != null ? String(a.azimuthDeg) : "",
@@ -176,7 +153,7 @@ export function AntennaManager() {
     const payload: Omit<UserAntenna, "id" | "addedAt"> = {
       name: form.name.trim(),
       antennaType: form.antennaType,
-      gainPatternType: form.gainPatternType,
+      gainPatternType: ANTENNA_TYPE_TO_PATTERN[form.antennaType],
       bands: Array.from(form.bands),
       heightMeters: Number.parseFloat(form.heightMeters),
       azimuthDeg: form.azimuthDeg.trim()
@@ -347,33 +324,6 @@ export function AntennaManager() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Gain Pattern Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Gain Pattern Type
-              </label>
-              <select
-                value={form.gainPatternType}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    gainPatternType: e.target.value as AntennaType,
-                  }))
-                }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              >
-                {ANTENNA_TYPES.map((a) => (
-                  <option key={a.type} value={a.type}>
-                    {a.name} ({a.peakGainDbi > 0 ? "+" : ""}
-                    {a.peakGainDbi} dBi)
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-gray-500 mt-1">
-                Maps to the propagation gain engine for path calculations.
-              </p>
             </div>
           </div>
 

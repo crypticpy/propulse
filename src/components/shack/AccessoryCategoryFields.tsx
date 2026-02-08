@@ -49,6 +49,27 @@ export interface AccessoryCategoryForm {
   // Grounding
   groundType: "rod" | "radial_system" | "counterpoise" | "water_pipe" | "other";
   radialCount: string;
+  // Rotator
+  rotatorType: "azimuth" | "elevation" | "az_el";
+  speedDegPerSec: string;
+  // Keyer
+  keyerType:
+    | "paddle"
+    | "straight_key"
+    | "bug"
+    | "electronic_keyer"
+    | "keyboard";
+  speedMin: string;
+  speedMax: string;
+  // Audio DSP
+  dspType:
+    | "external_speaker"
+    | "headphones"
+    | "dsp_filter"
+    | "audio_processor"
+    | "voice_keyer";
+  noiseReduction: boolean;
+  notchFilter: boolean;
 }
 
 interface AccessoryCategoryFieldsProps<
@@ -380,6 +401,151 @@ export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
               />
             </div>
           )}
+        </div>
+      );
+
+    case "rotator":
+      return (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-1">
+              Rotator Type
+            </label>
+            <select
+              value={form.rotatorType}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  rotatorType: e.target.value as typeof form.rotatorType,
+                }))
+              }
+              className={INPUT_CLASS}
+            >
+              <option value="azimuth">Azimuth Only</option>
+              <option value="elevation">Elevation Only</option>
+              <option value="az_el">Az/El</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-1">
+              Speed (degrees/sec, optional)
+            </label>
+            <input
+              inputMode="decimal"
+              value={form.speedDegPerSec}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, speedDegPerSec: e.target.value }))
+              }
+              placeholder="e.g., 1.5"
+              className={INPUT_CLASS}
+            />
+          </div>
+        </div>
+      );
+
+    case "keyer":
+      return (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-1">
+              Keyer Type
+            </label>
+            <select
+              value={form.keyerType}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  keyerType: e.target.value as typeof form.keyerType,
+                }))
+              }
+              className={INPUT_CLASS}
+            >
+              <option value="paddle">Paddle</option>
+              <option value="straight_key">Straight Key</option>
+              <option value="bug">Bug</option>
+              <option value="electronic_keyer">Electronic Keyer</option>
+              <option value="keyboard">Keyboard</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Min Speed (WPM)
+              </label>
+              <input
+                inputMode="numeric"
+                value={form.speedMin}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, speedMin: e.target.value }))
+                }
+                className={INPUT_CLASS}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Max Speed (WPM)
+              </label>
+              <input
+                inputMode="numeric"
+                value={form.speedMax}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, speedMax: e.target.value }))
+                }
+                className={INPUT_CLASS}
+              />
+            </div>
+          </div>
+        </div>
+      );
+
+    case "audio_dsp":
+      return (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-1">
+              DSP Type
+            </label>
+            <select
+              value={form.dspType}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  dspType: e.target.value as typeof form.dspType,
+                }))
+              }
+              className={INPUT_CLASS}
+            >
+              <option value="external_speaker">External Speaker</option>
+              <option value="headphones">Headphones</option>
+              <option value="dsp_filter">DSP Filter</option>
+              <option value="audio_processor">Audio Processor</option>
+              <option value="voice_keyer">Voice Keyer</option>
+            </select>
+          </div>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.noiseReduction}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, noiseReduction: e.target.checked }))
+                }
+                className="accent-plasma-orange"
+              />
+              <span className="text-sm text-gray-200">Noise Reduction</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.notchFilter}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, notchFilter: e.target.checked }))
+                }
+                className="accent-plasma-orange"
+              />
+              <span className="text-sm text-gray-200">Notch Filter</span>
+            </label>
+          </div>
         </div>
       );
 

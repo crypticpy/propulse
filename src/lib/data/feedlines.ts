@@ -26,11 +26,18 @@ const LOSS_TABLES: Record<FeedlineType, readonly number[]> = {
   rg58: [0.4, 0.6, 0.9, 1.1, 1.3, 1.5, 1.6, 1.7, 1.9, 2.6],
   rg8x: [0.35, 0.5, 0.7, 0.85, 1.0, 1.15, 1.25, 1.35, 1.45, 2.0],
   rg213: [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 1.3],
+  rg8: [0.22, 0.32, 0.45, 0.55, 0.65, 0.75, 0.82, 0.9, 0.95, 1.35],
+  rg11: [0.18, 0.26, 0.37, 0.45, 0.52, 0.6, 0.66, 0.72, 0.76, 1.1],
+  rg174: [0.9, 1.3, 1.9, 2.3, 2.8, 3.2, 3.5, 3.8, 4.1, 5.6],
+  lmr240: [0.22, 0.32, 0.45, 0.55, 0.65, 0.74, 0.8, 0.87, 0.92, 1.3],
   lmr400: [0.12, 0.17, 0.25, 0.3, 0.35, 0.4, 0.45, 0.48, 0.5, 0.7],
   lmr600: [0.08, 0.12, 0.17, 0.2, 0.24, 0.27, 0.3, 0.33, 0.35, 0.5],
+  hardline_1_2: [0.06, 0.09, 0.13, 0.15, 0.18, 0.2, 0.22, 0.24, 0.26, 0.37],
   hardline_7_8: [0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.15, 0.16, 0.17, 0.25],
+  hardline_1_5_8: [0.02, 0.03, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.15],
   ladder_line_450: [0.03, 0.04, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.18],
   window_line_300: [0.04, 0.05, 0.07, 0.09, 0.1, 0.12, 0.13, 0.14, 0.15, 0.22],
+  twin_lead_300: [0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.16, 0.18, 0.19, 0.28],
 };
 
 // ─── Connector Loss (dB per connector) ──────────────────────────────────────
@@ -40,8 +47,15 @@ const CONNECTOR_LOSS: Record<ConnectorType, number> = {
   n_type: 0.2,
   bnc: 0.3,
   sma: 0.2,
+  sma_rp: 0.2,
+  tnc: 0.2,
+  din_7_16: 0.1,
   f_type: 0.4,
   binding_post: 0.1,
+  banana: 0.15,
+  anderson_powerpole: 0.05,
+  hardline_7_8: 0.05,
+  hardline_1_5_8: 0.03,
   none: 0.0,
 };
 
@@ -60,22 +74,36 @@ export const FEEDLINE_TYPE_NAMES: Record<FeedlineType, string> = {
   rg58: "RG-58",
   rg8x: "RG-8X",
   rg213: "RG-213/U",
+  rg8: "RG-8/U",
+  rg11: "RG-11/U",
+  rg174: "RG-174",
+  lmr240: "LMR-240",
   lmr400: "LMR-400",
   lmr600: "LMR-600",
+  hardline_1_2: 'Hardline 1/2"',
   hardline_7_8: 'Hardline 7/8"',
+  hardline_1_5_8: 'Hardline 1-5/8"',
   ladder_line_450: "Ladder Line 450\u03A9",
   window_line_300: "Window Line 300\u03A9",
+  twin_lead_300: "Twin Lead 300\u03A9",
 };
 
 export const FEEDLINE_IMPEDANCE: Record<FeedlineType, number> = {
   rg58: 50,
   rg8x: 50,
   rg213: 50,
+  rg8: 50,
+  rg11: 75,
+  rg174: 50,
+  lmr240: 50,
   lmr400: 50,
   lmr600: 50,
+  hardline_1_2: 50,
   hardline_7_8: 50,
+  hardline_1_5_8: 50,
   ladder_line_450: 450,
   window_line_300: 300,
+  twin_lead_300: 300,
 };
 
 // ─── Calculation Functions ──────────────────────────────────────────────────

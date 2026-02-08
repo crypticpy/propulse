@@ -13,7 +13,7 @@ import type {
   ConnectorType,
   FeedlineCondition,
 } from "@/types/shack";
-import { MAX_FEEDLINES } from "@/types/shack";
+import { MAX_FEEDLINES, CONNECTOR_TYPE_LABELS } from "@/types/shack";
 import {
   FEEDLINE_TYPE_NAMES,
   calculateTotalFeedlineLoss,
@@ -22,15 +22,8 @@ import { DetailModal } from "@/components/ui/DetailModal";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
-const CONNECTOR_LABELS: Record<ConnectorType, string> = {
-  pl259: "PL-259 / SO-239",
-  n_type: "N-Type",
-  bnc: "BNC",
-  sma: "SMA",
-  f_type: "F-Type",
-  binding_post: "Binding Post",
-  none: "None",
-};
+// Use CONNECTOR_TYPE_LABELS from @/types/shack
+const CONNECTOR_LABELS = CONNECTOR_TYPE_LABELS;
 
 const CONDITION_LABELS: Record<FeedlineCondition, string> = {
   new: "New",

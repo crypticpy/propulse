@@ -27,6 +27,14 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
+/** Convert Callook MM/DD/YYYY date string to ISO YYYY-MM-DD. */
+function parseCallookDate(mmddyyyy: string): string | undefined {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(mmddyyyy);
+  if (!match) return undefined;
+  const [, mm, dd, yyyy] = match;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function normalizeCallsign(value: string | null): string | null {
   if (!value) return null;
   const cs = value.trim().toUpperCase();
@@ -76,15 +84,23 @@ export default async function handler(request: Request): Promise<Response> {
       name?: unknown;
       address?: CallookAddress;
       current?: {
+        operClass?: unknown;
         name?: unknown;
         address?: CallookAddress;
         trustee?: { name?: unknown };
       };
       previous?: { address?: CallookAddress };
+      otherInfo?: {
+        grantDate?: unknown;
+        expiryDate?: unknown;
+        frn?: unknown;
+      };
     };
 
     const payload: CallookResponse =
-      typeof data === "object" && data !== null ? (data as CallookResponse) : {};
+      typeof data === "object" && data !== null
+        ? (data as CallookResponse)
+        : {};
 
     if (payload.status !== "VALID") {
       return jsonResponse(
@@ -100,14 +116,37 @@ export default async function handler(request: Request): Promise<Response> {
     const longitude =
       address?.longitude !== undefined ? Number(address.longitude) : undefined;
     const grid =
-      address?.gridsquare !== undefined ? String(address.gridsquare) : undefined;
+      address?.gridsquare !== undefined
+        ? String(address.gridsquare)
+        : undefined;
     const name =
       (typeof payload.name === "string" ? payload.name : undefined) ??
-      (typeof payload.current?.name === "string" ? payload.current.name : undefined) ??
+      (typeof payload.current?.name === "string"
+        ? payload.current.name
+        : undefined) ??
       (typeof payload.current?.trustee?.name === "string"
         ? payload.current.trustee.name
         : undefined) ??
       undefined;
+
+    // License metadata
+    const licenseClass =
+      typeof payload.current?.operClass === "string" &&
+      payload.current.operClass
+        ? payload.current.operClass.toUpperCase()
+        : undefined;
+    const grantDate =
+      typeof payload.otherInfo?.grantDate === "string"
+        ? parseCallookDate(payload.otherInfo.grantDate)
+        : undefined;
+    const expiryDate =
+      typeof payload.otherInfo?.expiryDate === "string"
+        ? parseCallookDate(payload.otherInfo.expiryDate)
+        : undefined;
+    const licenseId =
+      typeof payload.otherInfo?.frn === "string" && payload.otherInfo.frn
+        ? payload.otherInfo.frn
+        : undefined;
 
     return jsonResponse(
       {
@@ -116,6 +155,10 @@ export default async function handler(request: Request): Promise<Response> {
         grid,
         lat: Number.isFinite(latitude) ? latitude : undefined,
         lon: Number.isFinite(longitude) ? longitude : undefined,
+        licenseClass,
+        grantDate,
+        expiryDate,
+        licenseId,
         source: "callook",
       },
       200,

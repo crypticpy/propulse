@@ -23,7 +23,12 @@ export type SyncableTable =
   | "antennas"
   | "feedlines"
   | "accessories"
-  | "station_presets";
+  | "station_presets"
+  | "dxcc_worked"
+  | "inline_components"
+  | "station_chains"
+  | "equipment_history"
+  | "custom_radios";
 
 /** Sync tier determines flush cadence */
 export type SyncTier = "eager" | "incremental" | "lazy";

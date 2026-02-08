@@ -4,9 +4,9 @@
  * Call registerAllModules() once after SyncManager is created to wire up
  * all sync modules. Modules are organized by tier:
  *
- * Tier 1 (Eager, 5s debounce): profile, preferences, targets, shack
- * Tier 3 (Lazy, immediate): watches, pins, skeds, alert rules
+ * Tier 1 (Eager, 5s debounce): profile, preferences, targets, shack, dxcc
  * Tier 2 (Incremental, 30s batch): logbook, contests
+ * Tier 3 (Lazy, immediate): watches, pins, skeds, alert rules
  */
 
 import { SyncManager } from "../SyncManager";
@@ -20,9 +20,14 @@ import { alertRuleSync } from "./alertRuleSync";
 import { logbookSync } from "./logbookSync";
 import { contestSync } from "./contestSync";
 import { shackSync } from "./shackSync";
+import { dxccSync } from "./dxccSync";
 import { useProfileStore } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShackStore } from "@/stores/shackStore";
+import { useDXCCStore } from "@/stores/dxccStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useDXStore } from "@/stores/dxStore";
 
 /** Register all sync modules with the SyncManager singleton */
 export function registerAllModules(): void {
@@ -33,6 +38,7 @@ export function registerAllModules(): void {
   manager.registerModule(preferencesSync);
   manager.registerModule(targetsSync);
   manager.registerModule(shackSync);
+  manager.registerModule(dxccSync);
 
   // Tier 2 — Incremental (30s batch flush, delta sync)
   manager.registerModule(logbookSync);
@@ -50,6 +56,13 @@ export function registerAllModules(): void {
   useProfileStore.subscribe(() => manager.markDirty("eager"));
   useSettingsStore.subscribe(() => manager.markDirty("eager"));
   useShackStore.subscribe(() => manager.markDirty("eager"));
+  useDXCCStore.subscribe(() => manager.markDirty("eager"));
+
+  // Theme, map, and DX stores are folded into preferencesSync blob.
+  // Their changes trigger eager flush via the same markDirty mechanism.
+  useThemeStore.subscribe(() => manager.markDirty("eager"));
+  useMapStore.subscribe(() => manager.markDirty("eager"));
+  useDXStore.subscribe(() => manager.markDirty("eager"));
 }
 
 // Re-export individual modules for direct access
@@ -63,3 +76,4 @@ export { pinSync } from "./pinSync";
 export { skedSync } from "./skedSync";
 export { alertRuleSync } from "./alertRuleSync";
 export { shackSync } from "./shackSync";
+export { dxccSync } from "./dxccSync";

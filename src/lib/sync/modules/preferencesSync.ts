@@ -3,22 +3,30 @@
  *
  * Syncs the `user_preferences` table (single JSONB blob per user).
  * The entire preferences object is stored as a `preferences` JSONB column.
- * A `version` column tracks the schema version (currently 14).
+ * A `version` column tracks the schema version.
  *
- * Note: Radios are currently stored inside `preferences.radios[]`.
- * A future migration will extract them to the `user_radios` table.
+ * Consolidates preferences from multiple stores:
+ * - settingsStore: units, bands, notifications, display prefs
+ * - shackStore: radios, customRadios, activeRadioId (legacy compat)
+ * - profileStore: license
+ * - themeStore: theme ID, accent, custom colors
+ * - mapStore: time scenarios, region presets, panel states, label options, map style
+ * - dxStore: DX cluster filter prefs (bands, modes, maxAge, neededOnly, sortByNeeded)
  */
 
 import { getSupabase } from "@/lib/supabase";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShackStore } from "@/stores/shackStore";
 import { useProfileStore } from "@/stores/profileStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useDXStore } from "@/stores/dxStore";
 import type { SyncModule, SyncableTable } from "../types";
 import type { UserPreferences } from "@/types/user";
 import type { Json } from "@/types/supabase";
 
-/** Current preferences schema version — bumped for store decomposition */
-const PREFERENCES_VERSION = 15;
+/** Current preferences schema version — bumped for theme/map/DX consolidation */
+const PREFERENCES_VERSION = 16;
 
 export const preferencesSync: SyncModule = {
   name: "preferences",
@@ -68,8 +76,37 @@ export const preferencesSync: SyncModule = {
           customRadios,
           activeRadioId,
           license,
+          // Theme fields
+          _theme: serverTheme,
+          // Map preference fields
+          _mapPrefs: serverMapPrefs,
+          // DX filter fields
+          _dxFilters: serverDxFilters,
           ...settingsFields
-        } = prefsWithoutStation;
+        } = prefsWithoutStation as Partial<UserPreferences> & {
+          station?: unknown;
+          _theme?: {
+            themeId: string;
+            accentId: string;
+            customPrimary: string | null;
+            customSecondary: string | null;
+          };
+          _mapPrefs?: {
+            timeScenarios: unknown[];
+            regionPresets: unknown[];
+            panelStates: unknown;
+            labelOptions: unknown;
+            mapStyle: string;
+            activePresetId: string | null;
+          };
+          _dxFilters?: {
+            bands: string[];
+            modes: string[];
+            maxAge: number;
+            neededOnly: boolean;
+            sortByNeeded: boolean;
+          };
+        };
 
         // Settings store (flat merge)
         const currentSettings = useSettingsStore.getState();
@@ -102,6 +139,73 @@ export const preferencesSync: SyncModule = {
         if (license !== undefined) {
           useProfileStore.setState({ license });
         }
+
+        // Theme store
+        if (serverTheme) {
+          useThemeStore.setState({
+            themeId: serverTheme.themeId as ReturnType<
+              typeof useThemeStore.getState
+            >["themeId"],
+            accentId: serverTheme.accentId,
+            customPrimary: serverTheme.customPrimary,
+            customSecondary: serverTheme.customSecondary,
+          });
+        }
+
+        // Map preferences (manual localStorage stores)
+        if (serverMapPrefs) {
+          const map = useMapStore.getState();
+          if (serverMapPrefs.timeScenarios) {
+            useMapStore.setState({
+              timeScenarios:
+                serverMapPrefs.timeScenarios as typeof map.timeScenarios,
+            });
+          }
+          if (serverMapPrefs.regionPresets) {
+            useMapStore.setState({
+              regionPresets:
+                serverMapPrefs.regionPresets as typeof map.regionPresets,
+            });
+          }
+          if (serverMapPrefs.panelStates) {
+            useMapStore.setState({
+              panelStates: {
+                ...map.panelStates,
+                ...(serverMapPrefs.panelStates as Partial<
+                  typeof map.panelStates
+                >),
+              },
+            });
+          }
+          if (serverMapPrefs.labelOptions) {
+            useMapStore.setState({
+              labelOptions: {
+                ...map.labelOptions,
+                ...(serverMapPrefs.labelOptions as Partial<
+                  typeof map.labelOptions
+                >),
+              },
+            });
+          }
+          if (serverMapPrefs.mapStyle) {
+            useMapStore.setState({
+              mapStyle: serverMapPrefs.mapStyle as typeof map.mapStyle,
+            });
+          }
+          if (serverMapPrefs.activePresetId !== undefined) {
+            useMapStore.setState({
+              activePresetId: serverMapPrefs.activePresetId,
+            });
+          }
+        }
+
+        // DX cluster filter preferences
+        if (serverDxFilters) {
+          const dx = useDXStore.getState();
+          useDXStore.setState({
+            filters: { ...dx.filters, ...serverDxFilters },
+          });
+        }
       }
     }
 
@@ -111,10 +215,13 @@ export const preferencesSync: SyncModule = {
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
 
-    // Reconstruct the legacy preferences blob from 3 canonical stores
+    // Reconstruct the preferences blob from all canonical stores
     const settings = useSettingsStore.getState();
     const shack = useShackStore.getState();
     const profile = useProfileStore.getState();
+    const theme = useThemeStore.getState();
+    const map = useMapStore.getState();
+    const dx = useDXStore.getState();
 
     const preferences: Record<string, unknown> = {
       // Settings fields
@@ -144,6 +251,32 @@ export const preferencesSync: SyncModule = {
       activeRadioId: shack.activeRadioId,
       // Profile fields
       license: profile.license,
+      // Theme fields (namespaced to avoid collisions)
+      _theme: {
+        themeId: theme.themeId,
+        accentId: theme.accentId,
+        customPrimary: theme.customPrimary,
+        customSecondary: theme.customSecondary,
+      },
+      // Map preference fields (only persisted prefs, not runtime state)
+      _mapPrefs: {
+        timeScenarios: map.timeScenarios,
+        regionPresets: map.regionPresets.filter(
+          (p) => !("isBuiltIn" in p && p.isBuiltIn),
+        ),
+        panelStates: map.panelStates,
+        labelOptions: map.labelOptions,
+        mapStyle: map.mapStyle,
+        activePresetId: map.activePresetId,
+      },
+      // DX cluster filter preferences (only persisted filter fields)
+      _dxFilters: {
+        bands: dx.filters.bands ?? [],
+        modes: dx.filters.modes ?? [],
+        maxAge: dx.filters.maxAge ?? 30,
+        neededOnly: dx.filters.neededOnly ?? false,
+        sortByNeeded: dx.filters.sortByNeeded ?? false,
+      },
     };
 
     const { error } = await supabase.from("user_preferences").upsert(

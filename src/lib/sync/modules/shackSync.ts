@@ -1,12 +1,16 @@
 /**
  * Shack sync module — Tier 1 (Eager)
  *
- * Syncs all shack equipment data across 5 Supabase tables:
- *   - user_radios    — Radio instances
- *   - antennas       — User antennas
- *   - feedlines      — User feedlines
- *   - accessories    — User accessories
- *   - station_presets — Station presets
+ * Syncs all shack equipment data across 9 Supabase tables:
+ *   - user_radios       — Radio instances
+ *   - antennas          — User antennas
+ *   - feedlines         — User feedlines
+ *   - accessories       — User accessories
+ *   - station_presets   — Station presets
+ *   - inline_components — Inline feedline components (adapters, pigtails, chokes, baluns, ferrites)
+ *   - station_chains    — Visual signal chain definitions
+ *   - equipment_history — Immutable equipment change log
+ *   - custom_radios     — User-defined custom radio equipment
  *
  * Uses full-blob push (no processQueue). Json columns carry a `_snapshot`
  * of the full local object for lossless round-trip; direct columns serve
@@ -16,14 +20,17 @@
 import { getSupabase } from "@/lib/supabase";
 import { useShackStore } from "@/stores/shackStore";
 import type { SyncModule, SyncableTable } from "../types";
-import type { Json, TablesInsert } from "@/types/supabase";
-import type { UserRadio } from "@/types/radio";
+import type { Json } from "@/types/supabase";
+import type { UserRadio, RadioEquipment } from "@/types/radio";
 import type {
   UserAntenna,
   UserFeedline,
   UserAccessory,
   StationPreset,
+  InlineComponent,
+  EquipmentHistoryEntry,
 } from "@/types/shack";
+import type { StationChain } from "@/types/stationChain";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -44,12 +51,83 @@ function maxTimestamp(
   return max;
 }
 
-// ─── Local → Supabase row mappers ───────────────────────────────────────────
+/**
+ * Helper: untyped `.from()` for tables not yet in generated Supabase types.
+ * Returns `any` so the caller must apply their own row types.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const untypedFrom = (table: string) => getSupabase().from(table as any) as any;
+
+// ─── Inline row types (bypass TablesInsert for tables without generated types) ─
+
+interface InlineComponentRow {
+  id: string;
+  user_id: string;
+  name: string;
+  component_type: string;
+  insertion_loss_db: number;
+  manufacturer: string | null;
+  notes: string | null;
+  specs: Json;
+  created_at: string;
+  updated_at: string;
+}
+
+interface StationChainRow {
+  id: string;
+  user_id: string;
+  name: string;
+  nodes: Json;
+  feedline_runs: Json;
+  operating_power_watts: number;
+  shack_accessory_ids: string[];
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface EquipmentHistoryRow {
+  id: string;
+  user_id: string;
+  timestamp: string;
+  action: string;
+  equipment_type: string;
+  equipment_id: string;
+  equipment_name: string;
+  details: string | null;
+  created_at: string;
+}
+
+interface CustomRadioRow {
+  id: string;
+  user_id: string;
+  display_name: string | null;
+  manufacturer: string;
+  specs: Json;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Local → Supabase row mappers (existing 5) ─────────────────────────────
 
 function radioToRow(
   radio: UserRadio,
   userId: string,
-): TablesInsert<"user_radios"> {
+): {
+  instance_id: string;
+  user_id: string;
+  equipment_id: string;
+  nickname: string | null;
+  tx_power_setting: number | null;
+  purchase_date: string | null;
+  firmware_version: string | null;
+  serial_number: string | null;
+  notes: string | null;
+  wiring: string | null;
+  specs_override: Json;
+  created_at: string;
+  updated_at: string;
+} {
   return {
     instance_id: radio.id,
     user_id: userId,
@@ -70,7 +148,31 @@ function radioToRow(
 function antennaToRow(
   antenna: UserAntenna,
   userId: string,
-): TablesInsert<"antennas"> {
+): {
+  id: string;
+  user_id: string;
+  name: string;
+  type: string;
+  bands: string[];
+  height_agl: number;
+  azimuth: number | null;
+  is_rotatable: boolean;
+  is_portable: boolean;
+  polarization: string;
+  mounting: string;
+  manufacturer: string | null;
+  notes: string | null;
+  gain_dbi: Json;
+  swr_data: Json;
+  created_at: string;
+  updated_at: string;
+  beamwidth_deg: null;
+  front_to_back_db: null;
+  feedpoint_impedance: null;
+  radial_count: null;
+  radial_length_m: null;
+  installation_date: null;
+} {
   return {
     id: antenna.id,
     user_id: userId,
@@ -105,7 +207,19 @@ function antennaToRow(
 function feedlineToRow(
   feedline: UserFeedline,
   userId: string,
-): TablesInsert<"feedlines"> {
+): {
+  id: string;
+  user_id: string;
+  type: string;
+  length_meters: number;
+  connectors: Json;
+  condition: string;
+  manufacturer: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  installation_date: string | null;
+} {
   return {
     id: feedline.id,
     user_id: userId,
@@ -131,7 +245,18 @@ function feedlineToRow(
 function accessoryToRow(
   accessory: UserAccessory,
   userId: string,
-): TablesInsert<"accessories"> {
+): {
+  id: string;
+  user_id: string;
+  model: string;
+  category: string;
+  bands: string[];
+  manufacturer: string | null;
+  notes: string | null;
+  specs: Json;
+  created_at: string;
+  updated_at: string;
+} {
   return {
     id: accessory.id,
     user_id: userId,
@@ -152,7 +277,20 @@ function accessoryToRow(
 function presetToRow(
   preset: StationPreset,
   userId: string,
-): TablesInsert<"station_presets"> {
+): {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  radio_instance_id: string | null;
+  antenna_id: string | null;
+  feedline_id: string | null;
+  accessory_ids: string[];
+  is_active: boolean;
+  linked_location_id: null;
+  created_at: string;
+  updated_at: string;
+} {
   return {
     id: preset.id,
     user_id: userId,
@@ -169,7 +307,74 @@ function presetToRow(
   };
 }
 
-// ─── Supabase row → Local type mappers ──────────────────────────────────────
+// ─── Local → Supabase row mappers (new 4) ───────────────────────────────────
+
+function inlineToRow(
+  component: InlineComponent,
+  userId: string,
+): InlineComponentRow {
+  return {
+    id: component.id,
+    user_id: userId,
+    name: component.name,
+    component_type: component.componentType,
+    insertion_loss_db: component.insertionLossDb,
+    manufacturer: component.manufacturer ?? null,
+    notes: component.notes ?? null,
+    specs: { _snapshot: component } as unknown as Json,
+    created_at: component.addedAt,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function chainToRow(chain: StationChain, userId: string): StationChainRow {
+  return {
+    id: chain.id,
+    user_id: userId,
+    name: chain.name,
+    nodes: chain.nodes as unknown as Json,
+    feedline_runs: chain.feedlineRuns as unknown as Json,
+    operating_power_watts: chain.operatingPowerWatts,
+    shack_accessory_ids: chain.shackAccessoryIds,
+    notes: chain.notes ?? null,
+    created_at: chain.createdAt,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function historyToRow(
+  entry: EquipmentHistoryEntry,
+  userId: string,
+): EquipmentHistoryRow {
+  return {
+    id: entry.id,
+    user_id: userId,
+    timestamp: entry.timestamp,
+    action: entry.action,
+    equipment_type: entry.equipmentType,
+    equipment_id: entry.equipmentId,
+    equipment_name: entry.equipmentName,
+    details: entry.details ?? null,
+    created_at: entry.timestamp,
+  };
+}
+
+function customRadioToRow(
+  radio: RadioEquipment,
+  userId: string,
+): CustomRadioRow {
+  return {
+    id: radio.id,
+    user_id: userId,
+    display_name: radio.displayName ?? null,
+    manufacturer: radio.manufacturer,
+    specs: { _snapshot: radio } as unknown as Json,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// ─── Supabase row → Local type mappers (existing 5) ────────────────────────
 
 /**
  * Reconstruct a local type from a Supabase row, preferring the `_snapshot`
@@ -343,6 +548,109 @@ function rowToPreset(row: {
   };
 }
 
+// ─── Supabase row → Local type mappers (new 4) ─────────────────────────────
+
+function rowToInline(row: {
+  id: string;
+  name: string;
+  component_type: string;
+  insertion_loss_db: number;
+  manufacturer: string | null;
+  notes: string | null;
+  specs: Json | null;
+  created_at: string;
+}): InlineComponent {
+  // Prefer snapshot from specs Json column
+  const specsData = row.specs as Record<string, unknown> | null;
+  if (specsData?._snapshot) {
+    return specsData._snapshot as InlineComponent;
+  }
+
+  // Column-based fallback — return a minimal InlineComponentBase-compatible shape.
+  // The discriminated union requires a `componentType`, so we cast through unknown.
+  return {
+    id: row.id,
+    name: row.name,
+    componentType: row.component_type,
+    insertionLossDb: row.insertion_loss_db,
+    manufacturer: row.manufacturer ?? undefined,
+    notes: row.notes ?? undefined,
+    addedAt: row.created_at,
+  } as unknown as InlineComponent;
+}
+
+function rowToChain(row: {
+  id: string;
+  name: string;
+  nodes: Json | null;
+  feedline_runs: Json | null;
+  operating_power_watts: number;
+  shack_accessory_ids: string[] | null;
+  notes: string | null;
+  created_at: string;
+}): StationChain {
+  return {
+    id: row.id,
+    name: row.name,
+    nodes: (row.nodes ?? []) as unknown as StationChain["nodes"],
+    feedlineRuns: (row.feedline_runs ??
+      []) as unknown as StationChain["feedlineRuns"],
+    operatingPowerWatts: row.operating_power_watts,
+    shackAccessoryIds: row.shack_accessory_ids ?? [],
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+function rowToHistory(row: {
+  id: string;
+  timestamp: string;
+  action: string;
+  equipment_type: string;
+  equipment_id: string;
+  equipment_name: string;
+  details: string | null;
+}): EquipmentHistoryEntry {
+  return {
+    id: row.id,
+    timestamp: row.timestamp,
+    action: row.action as EquipmentHistoryEntry["action"],
+    equipmentType: row.equipment_type as EquipmentHistoryEntry["equipmentType"],
+    equipmentId: row.equipment_id,
+    equipmentName: row.equipment_name,
+    details: row.details ?? undefined,
+  };
+}
+
+function rowToCustomRadio(row: {
+  id: string;
+  display_name: string | null;
+  manufacturer: string;
+  specs: Json | null;
+  created_at: string;
+}): RadioEquipment {
+  // Prefer snapshot from specs Json column
+  const specsData = row.specs as Record<string, unknown> | null;
+  if (specsData?._snapshot) {
+    return specsData._snapshot as RadioEquipment;
+  }
+
+  // Column-based fallback — very minimal, since RadioEquipment has many required fields.
+  // This path should rarely be hit because we always store the full snapshot.
+  return {
+    id: row.id,
+    displayName: row.display_name ?? undefined,
+    manufacturer: row.manufacturer,
+    model: row.display_name ?? "Unknown",
+    receiver: { rmdr: 0, imdr3: 0, blockingGain: 0, sensitivity: 1 },
+    maxPower: 100,
+    minPower: 5,
+    modes: [],
+    bands: [],
+    tier: "entry",
+  } as RadioEquipment;
+}
+
 // ─── Sync Module ────────────────────────────────────────────────────────────
 
 export const shackSync: SyncModule = {
@@ -354,6 +662,10 @@ export const shackSync: SyncModule = {
     "feedlines",
     "accessories",
     "station_presets",
+    "inline_components",
+    "station_chains",
+    "equipment_history",
+    "custom_radios",
   ] as SyncableTable[],
 
   // ── Pull ────────────────────────────────────────────────────────────────
@@ -431,6 +743,73 @@ export const shackSync: SyncModule = {
       );
     }
 
+    // --- Pull inline components (untyped — not in generated Supabase types yet) ---
+    let inlineQuery = untypedFrom("inline_components")
+      .select("*")
+      .eq("user_id", userId);
+    if (since) {
+      inlineQuery = inlineQuery.gt("updated_at", since);
+    }
+    const { data: inlineRows, error: inlineError } = (await inlineQuery) as {
+      data: InlineComponentRow[] | null;
+      error: { message: string } | null;
+    };
+    if (inlineError) {
+      throw new Error(
+        `Shack inline components pull failed: ${inlineError.message}`,
+      );
+    }
+
+    // --- Pull station chains (untyped) ---
+    let chainQuery = untypedFrom("station_chains")
+      .select("*")
+      .eq("user_id", userId);
+    if (since) {
+      chainQuery = chainQuery.gt("updated_at", since);
+    }
+    const { data: chainRows, error: chainError } = (await chainQuery) as {
+      data: StationChainRow[] | null;
+      error: { message: string } | null;
+    };
+    if (chainError) {
+      throw new Error(
+        `Shack station chains pull failed: ${chainError.message}`,
+      );
+    }
+
+    // --- Pull equipment history (no delta — immutable, no updated_at; untyped) ---
+    const { data: historyRows, error: historyError } = (await untypedFrom(
+      "equipment_history",
+    )
+      .select("*")
+      .eq("user_id", userId)) as {
+      data: EquipmentHistoryRow[] | null;
+      error: { message: string } | null;
+    };
+    if (historyError) {
+      throw new Error(
+        `Shack equipment history pull failed: ${historyError.message}`,
+      );
+    }
+
+    // --- Pull custom radios (untyped) ---
+    let customRadioQuery = untypedFrom("custom_radios")
+      .select("*")
+      .eq("user_id", userId);
+    if (since) {
+      customRadioQuery = customRadioQuery.gt("updated_at", since);
+    }
+    const { data: customRadioRows, error: customRadioError } =
+      (await customRadioQuery) as {
+        data: CustomRadioRow[] | null;
+        error: { message: string } | null;
+      };
+    if (customRadioError) {
+      throw new Error(
+        `Shack custom radios pull failed: ${customRadioError.message}`,
+      );
+    }
+
     // --- Merge into local state ---
     const state = useShackStore.getState();
     const stateUpdate: Record<string, unknown> = {};
@@ -492,6 +871,63 @@ export const shackSync: SyncModule = {
       stateUpdate.stationPresets = [...serverPresets, ...localOnly];
     }
 
+    // Inline components
+    if (inlineRows && inlineRows.length > 0) {
+      const serverInline = inlineRows.map(rowToInline);
+      for (const row of inlineRows) {
+        timestamps.push(row.updated_at);
+      }
+      const serverIdSet = new Set(serverInline.map((c) => c.id));
+      const localOnly = state.inlineComponents.filter(
+        (c) => !serverIdSet.has(c.id),
+      );
+      stateUpdate.inlineComponents = [...serverInline, ...localOnly];
+    }
+
+    // Station chains
+    if (chainRows && chainRows.length > 0) {
+      const serverChains = chainRows.map(rowToChain);
+      for (const row of chainRows) {
+        timestamps.push(row.updated_at);
+      }
+      const serverIdSet = new Set(serverChains.map((c) => c.id));
+      const localOnly = state.stationChains.filter(
+        (c) => !serverIdSet.has(c.id),
+      );
+      stateUpdate.stationChains = [...serverChains, ...localOnly];
+    }
+
+    // Equipment history (full merge — no delta query, immutable entries)
+    if (historyRows && historyRows.length > 0) {
+      const serverHistory = historyRows.map(rowToHistory);
+      // Collect created_at timestamps (no updated_at on history rows)
+      for (const row of historyRows) {
+        timestamps.push(row.created_at);
+      }
+      const serverIdSet = new Set(serverHistory.map((h) => h.id));
+      const localOnly = state.equipmentHistory.filter(
+        (h) => !serverIdSet.has(h.id),
+      );
+      // Merge and cap at 200 entries (most recent first by timestamp)
+      const merged = [...serverHistory, ...localOnly]
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+        .slice(0, 200);
+      stateUpdate.equipmentHistory = merged;
+    }
+
+    // Custom radios
+    if (customRadioRows && customRadioRows.length > 0) {
+      const serverCustomRadios = customRadioRows.map(rowToCustomRadio);
+      for (const row of customRadioRows) {
+        timestamps.push(row.updated_at);
+      }
+      const serverIdSet = new Set(serverCustomRadios.map((r) => r.id));
+      const localCustom = (state.customRadios || []).filter(
+        (r) => !serverIdSet.has(r.id),
+      );
+      stateUpdate.customRadios = [...serverCustomRadios, ...localCustom];
+    }
+
     // Single setState call for the entire pull
     if (Object.keys(stateUpdate).length > 0) {
       useShackStore.setState(stateUpdate);
@@ -504,8 +940,17 @@ export const shackSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const { radios, antennas, feedlines, accessories, stationPresets } =
-      useShackStore.getState();
+    const {
+      radios,
+      antennas,
+      feedlines,
+      accessories,
+      stationPresets,
+      inlineComponents,
+      stationChains,
+      equipmentHistory,
+      customRadios,
+    } = useShackStore.getState();
 
     // --- Upsert radios ---
     if (radios.length > 0) {
@@ -569,6 +1014,65 @@ export const shackSync: SyncModule = {
       if (presetError) {
         throw new Error(
           `Shack station presets push failed: ${presetError.message}`,
+        );
+      }
+    }
+
+    // --- Upsert inline components (untyped) ---
+    if (inlineComponents.length > 0) {
+      const inlineRows = inlineComponents.map((c) => inlineToRow(c, userId));
+      const { error: inlineError } = await untypedFrom(
+        "inline_components",
+      ).upsert(inlineRows, { onConflict: "id" });
+
+      if (inlineError) {
+        throw new Error(
+          `Shack inline components push failed: ${inlineError.message}`,
+        );
+      }
+    }
+
+    // --- Upsert station chains (untyped) ---
+    if (stationChains.length > 0) {
+      const chainRows = stationChains.map((c) => chainToRow(c, userId));
+      const { error: chainError } = await untypedFrom("station_chains").upsert(
+        chainRows,
+        { onConflict: "id" },
+      );
+
+      if (chainError) {
+        throw new Error(
+          `Shack station chains push failed: ${chainError.message}`,
+        );
+      }
+    }
+
+    // --- Upsert equipment history (untyped) ---
+    if (equipmentHistory.length > 0) {
+      const historyRows = equipmentHistory.map((e) => historyToRow(e, userId));
+      const { error: historyError } = await untypedFrom(
+        "equipment_history",
+      ).upsert(historyRows, { onConflict: "id" });
+
+      if (historyError) {
+        throw new Error(
+          `Shack equipment history push failed: ${historyError.message}`,
+        );
+      }
+    }
+
+    // --- Upsert custom radios (untyped) ---
+    if ((customRadios || []).length > 0) {
+      const customRadioRows = (customRadios || []).map((r) =>
+        customRadioToRow(r, userId),
+      );
+      const { error: customRadioError } = await untypedFrom(
+        "custom_radios",
+      ).upsert(customRadioRows, { onConflict: "id" });
+
+      if (customRadioError) {
+        throw new Error(
+          `Shack custom radios push failed: ${customRadioError.message}`,
         );
       }
     }

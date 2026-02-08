@@ -11,7 +11,7 @@ const tabs = [
 ] as const;
 
 /** Paths that should highlight the Tools tab */
-const TOOLS_PATHS = ["/dx", "/planner", "/contest"];
+const TOOLS_PATHS = ["/dx", "/planner", "/contest", "/profile", "/shack"];
 
 /**
  * TabIcon - Renders inline SVG icons for the bottom tab bar

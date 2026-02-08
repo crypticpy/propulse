@@ -24,7 +24,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 // Matches BottomTabBar's visible tab order (Tools drawer sub-pages excluded)
-const MOBILE_ROUTES = ["/", "/solar", "/map", "/log"];
+const MOBILE_ROUTES = ["/", "/solar", "/map", "/log", "/profile", "/shack"];
 
 /**
  * MobileLayout - Root layout for mobile viewports

@@ -156,7 +156,7 @@ function SettingsSidebar({
           </button>
         ))}
       </div>
-      <div className="mt-auto pt-6 px-3 text-xs text-gray-600">v0.13.0</div>
+      <div className="mt-auto pt-6 px-3 text-xs text-gray-600">v0.13.1</div>
     </nav>
   );
 }

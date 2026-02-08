@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.13.1] — 2026-02-08
+
+### SDRconnect Setup, Daemon Bridge Extension, and UX Fixes
+
+- **SDRconnect (LAN) support** — Daemon can pull IQ from SDRconnect’s WebSocket API (port `5454`, SDRconnect `v1.0.6+`) and stream FFT/audio to Propulse.
+- **New `/sdr/setup` guide** — Friendly, platform-specific daemon + SDRconnect setup steps (Windows/macOS/Linux) linked from the SDR Console.
+- **Chrome daemon bridge extension** — `extensions/propulse-daemon-bridge` enables connecting to `ws://` daemons from the HTTPS Propulse site without mixed-content blocking.
+- **Profile page audit fixes** — Resolved 46 issues across 25 files.
+
 ## [0.13.0] — 2026-02-08
 
 ### Propulse Radio Daemon + SDR Console (Waterfall, Audio, Integrations)
@@ -427,6 +436,7 @@ A complete contest logging system and major DX operations improvements.
 
 ---
 
+[0.13.1]: https://github.com/crypticpy/propulse/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/crypticpy/propulse/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/crypticpy/propulse/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.11.0

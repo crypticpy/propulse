@@ -48,6 +48,11 @@ const ShackPage = lazy(() => import("@/pages/ShackPage"));
 const SdrConsole = lazy(() =>
   import("@/pages/SdrConsole").then((m) => ({ default: m.SdrConsole })),
 );
+const RadioDaemonSetup = lazy(() =>
+  import("@/pages/RadioDaemonSetup").then((m) => ({
+    default: m.RadioDaemonSetup,
+  })),
+);
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -90,6 +95,7 @@ function App() {
           <Route path="/profile/:callsign" element={<ProfilePage />} />
           <Route path="/shack" element={<ShackPage />} />
           <Route path="/sdr" element={<SdrConsole />} />
+          <Route path="/sdr/setup" element={<RadioDaemonSetup />} />
         </Route>
       </Routes>
     </ErrorBoundary>

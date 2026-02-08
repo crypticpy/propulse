@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card } from "@/components/ui";
 import { BandScope } from "@/components/sdr/BandScope";
 import { DevicePicker } from "@/components/sdr/DevicePicker";
@@ -1128,6 +1129,12 @@ export function SdrConsole() {
             >
               Change Daemon
             </button>
+            <Link
+              to="/sdr/setup"
+              className="px-3 py-1.5 rounded-md text-xs bg-cosmic-cyan/10 border border-cosmic-cyan/20 text-cosmic-cyan hover:bg-cosmic-cyan/15"
+            >
+              Setup Help
+            </Link>
             <div className="text-[11px] text-gray-500 font-mono truncate max-w-[min(520px,70vw)]">
               {daemonUrl}
             </div>

@@ -51,12 +51,12 @@ export interface AccessoryCategoryForm {
   radialCount: string;
 }
 
-interface AccessoryCategoryFieldsProps {
+interface AccessoryCategoryFieldsProps<
+  F extends AccessoryCategoryForm = AccessoryCategoryForm,
+> {
   category: AccessoryCategory;
-  form: AccessoryCategoryForm;
-  setForm: (
-    updater: (prev: AccessoryCategoryForm) => AccessoryCategoryForm,
-  ) => void;
+  form: F;
+  setForm: (updater: (prev: F) => F) => void;
 }
 
 // ─── Shared input classes ────────────────────────────────────────────────────
@@ -71,11 +71,11 @@ const BAND_BTN_INACTIVE =
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AccessoryCategoryFields({
+export function AccessoryCategoryFields<F extends AccessoryCategoryForm>({
   category,
   form,
   setForm,
-}: AccessoryCategoryFieldsProps) {
+}: AccessoryCategoryFieldsProps<F>) {
   switch (category) {
     case "amplifier":
       return (
@@ -382,5 +382,11 @@ export function AccessoryCategoryFields({
           )}
         </div>
       );
+
+    default: {
+      const _exhaustive: never = category;
+      void _exhaustive;
+      return null;
+    }
   }
 }

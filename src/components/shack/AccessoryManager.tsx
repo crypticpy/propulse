@@ -553,7 +553,7 @@ export function AccessoryManager() {
           <AccessoryCategoryFields
             category={form.category}
             form={form}
-            setForm={setForm as never}
+            setForm={setForm}
           />
 
           {/* Notes */}

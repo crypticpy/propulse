@@ -5,9 +5,16 @@
  * - Desktop sidebar (compact edit mode)
  * - Desktop overview tab
  * - Mobile overview tab
+ *
+ * Includes callsign auto-fill: when a callsign >= 3 chars is entered,
+ * queries HamQTH and shows suggestions the user can apply with one click.
  */
 
+import { useState, useEffect, useCallback } from "react";
 import { LocationInput } from "@/components/settings/LocationInput";
+import { useCallsignAutoFill } from "@/hooks/useCallsignAutoFill";
+import type { CallsignSuggestion } from "@/hooks/useCallsignAutoFill";
+import { CallsignLookupSuggestions } from "./CallsignLookupSuggestions";
 
 export interface StationIdentityFormProps {
   callsign: string;
@@ -55,6 +62,24 @@ export function StationIdentityForm({
     ? "block text-xs font-medium text-gray-400 mb-1"
     : "block text-sm font-medium text-gray-300 mb-2";
 
+  // Callsign auto-fill
+  const { suggestion, loading } = useCallsignAutoFill(callsign);
+  const [dismissed, setDismissed] = useState(false);
+
+  // Reset dismissed state when callsign changes
+  useEffect(() => {
+    setDismissed(false);
+  }, [callsign]);
+
+  const handleAutoFill = useCallback(
+    (s: CallsignSuggestion) => {
+      if (s.name) setOperatorName(s.name);
+      if (s.grid) setGrid(s.grid);
+      setDismissed(true);
+    },
+    [setOperatorName, setGrid],
+  );
+
   return (
     <div className={spacing}>
       {/* Callsign */}
@@ -77,6 +102,16 @@ export function StationIdentityForm({
         />
         {callsignError && (
           <p className="mt-1 text-xs text-alert-red">{callsignError}</p>
+        )}
+
+        {/* Auto-fill suggestions from HamQTH lookup */}
+        {!dismissed && (
+          <CallsignLookupSuggestions
+            suggestion={suggestion}
+            loading={loading}
+            onAutoFill={handleAutoFill}
+            onDismiss={() => setDismissed(true)}
+          />
         )}
       </div>
 

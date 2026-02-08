@@ -11,10 +11,20 @@ interface LicenseExpirationBarProps {
 }
 
 function getDaysRemaining(expirationDate: string): number {
+  // Force UTC parsing for date-only strings to avoid cross-browser timezone drift
+  const normalized = expirationDate.includes("T")
+    ? expirationDate
+    : expirationDate + "T00:00:00Z";
+  const exp = new Date(normalized);
   const now = new Date();
-  const exp = new Date(expirationDate);
-  const diffMs = exp.getTime() - now.getTime();
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  // Compare UTC dates to avoid off-by-one near midnight
+  const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const expUTC = Date.UTC(
+    exp.getUTCFullYear(),
+    exp.getUTCMonth(),
+    exp.getUTCDate(),
+  );
+  return Math.floor((expUTC - nowUTC) / (1000 * 60 * 60 * 24));
 }
 
 function getBarColor(days: number): string {

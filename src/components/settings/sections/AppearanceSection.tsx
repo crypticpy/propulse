@@ -4,7 +4,7 @@
  * plus a custom hex color disclosure section for power users.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { useThemeStore } from "@/stores/themeStore";
 
@@ -43,6 +43,12 @@ export function AppearanceSection() {
   );
   const [primaryError, setPrimaryError] = useState<string | null>(null);
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
+
+  // Sync local state when store changes externally (e.g., settings backup import)
+  useEffect(() => {
+    setPrimaryHex(customPrimary ?? "#ff6b35");
+    setSecondaryHex(customSecondary ?? "#00ff88");
+  }, [customPrimary, customSecondary]);
 
   const handleApply = useCallback(() => {
     let hasError = false;

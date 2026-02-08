@@ -3,7 +3,12 @@
  *
  * Supports: **bold**, *italic*, [links](url), unordered lists (- or *), line breaks.
  * HTML entities are escaped first to prevent XSS, then markdown transforms applied.
+ * Note: escapeHtml converts & to &amp; before link extraction, so URLs with
+ * query params (a=1&b=2) become a=1&amp;b=2 in href — this is correct HTML
+ * encoding; browsers decode it when following the link.
  */
+
+import { useMemo } from "react";
 
 function escapeHtml(text: string): string {
   return text
@@ -14,11 +19,23 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim().toLowerCase();
+  return (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("mailto:")
+  );
+}
+
 function renderInline(line: string): string {
-  // Links: [text](url)
+  // Links: [text](url) — only allow safe protocols (http, https, mailto)
   let result = line.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-plasma-orange hover:text-plasma-orange/80 underline">$1</a>',
+    (_match: string, text: string, url: string) =>
+      isSafeUrl(url)
+        ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-plasma-orange hover:text-plasma-orange/80 underline">${text}</a>`
+        : text,
   );
 
   // Bold: **text** or __text__
@@ -99,9 +116,9 @@ export function MarkdownRenderer({
   text,
   className = "",
 }: MarkdownRendererProps) {
-  if (!text) return null;
+  const html = useMemo(() => (text ? markdownToHtml(text) : ""), [text]);
 
-  const html = markdownToHtml(text);
+  if (!text) return null;
 
   return (
     <div

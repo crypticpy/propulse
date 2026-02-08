@@ -6,6 +6,8 @@
  * Shows loss/gain annotations on connectors between boxes.
  */
 
+import { useId } from "react";
+
 interface SignalChainDiagramProps {
   radioName?: string;
   accessoryNames?: string[];
@@ -88,6 +90,7 @@ function buildStages(props: SignalChainDiagramProps): StageBox[] {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function SignalChainDiagram(props: SignalChainDiagramProps) {
+  const markerId = useId() + "-arrowhead";
   const stages = buildStages(props);
   const stageCount = stages.length;
   const totalArrows = stageCount - 1;
@@ -136,7 +139,7 @@ export function SignalChainDiagram(props: SignalChainDiagramProps) {
     >
       <defs>
         <marker
-          id="arrowhead"
+          id={markerId}
           markerWidth="8"
           markerHeight="6"
           refX="8"
@@ -211,7 +214,7 @@ export function SignalChainDiagram(props: SignalChainDiagramProps) {
                   y2={VB_H / 2}
                   stroke={ARROW_COLOR}
                   strokeWidth={1.5}
-                  markerEnd="url(#arrowhead)"
+                  markerEnd={`url(#${markerId})`}
                 />
 
                 {/* Annotation */}

@@ -98,6 +98,18 @@ struct RunningN1mm {
 }
 
 pub async fn run(config: AppConfig, cli: Cli, config_path: PathBuf) -> anyhow::Result<()> {
+  run_until_shutdown(config, cli, config_path, futures_util::future::pending::<()>()).await
+}
+
+pub async fn run_until_shutdown<F>(
+  config: AppConfig,
+  cli: Cli,
+  config_path: PathBuf,
+  shutdown: F,
+) -> anyhow::Result<()>
+where
+  F: std::future::Future<Output = ()> + Send,
+{
   let mut bind = config.server.bind.clone();
   let mut port = config.server.port;
   let mut auth_token = config.server.auth_token.clone();
@@ -157,15 +169,35 @@ pub async fn run(config: AppConfig, cli: Cli, config_path: PathBuf) -> anyhow::R
   apply_runtime_config(&state, &effective_config).await;
   spawn_config_reload_watcher(Arc::clone(&state), config_path);
 
+  tokio::pin!(shutdown);
   loop {
-    let (stream, remote) = listener.accept().await?;
-    let state = Arc::clone(&state);
-    tokio::spawn(async move {
-      if let Err(err) = handle_client(stream, remote, state).await {
-        warn!(error = %err, %remote, "client handler error");
+    tokio::select! {
+      _ = &mut shutdown => {
+        info!("Propulse Radio Daemon shutting down");
+        break;
       }
-    });
+
+      res = listener.accept() => {
+        let (stream, remote) = res?;
+        let state = Arc::clone(&state);
+        tokio::spawn(async move {
+          if let Err(err) = handle_client(stream, remote, state).await {
+            warn!(error = %err, %remote, "client handler error");
+          }
+        });
+      }
+    }
   }
+
+  // Best-effort close notifications.
+  {
+    let clients = state.clients.lock().await;
+    for c in clients.values() {
+      let _ = c.sender.send(Message::Close(None));
+    }
+  }
+
+  Ok(())
 }
 
 async fn apply_runtime_config(state: &Arc<DaemonState>, config: &AppConfig) {

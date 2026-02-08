@@ -1,13 +1,9 @@
-mod config;
-mod protocol;
-mod server;
-
 use clap::Parser;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
-use crate::config::{AppConfig, Cli};
+use propulse_daemon::config::{AppConfig, Cli};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -47,6 +43,6 @@ async fn main() -> anyhow::Result<()> {
   };
 
   let (config, config_path) = AppConfig::load_or_create_with_path(&cli)?;
-  server::run(config, cli, config_path).await?;
+  propulse_daemon::server::run(config, cli, config_path).await?;
   Ok(())
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
@@ -8,6 +9,10 @@ pub struct SoapyDeviceInfo {
   pub driver: String,
   pub label: String,
   pub serial: Option<String>,
+  /// Raw SoapySDR kwargs for this device (as returned by SoapySDRDevice_enumerate).
+  ///
+  /// This can be passed back to `SoapySDRDevice_make` to open the same device.
+  pub kwargs: HashMap<String, String>,
 }
 
 /// Enumerate SoapySDR devices.
@@ -33,10 +38,19 @@ pub fn enumerate_soapy_devices() -> anyhow::Result<Vec<SoapyDeviceInfo>> {
     let list = std::slice::from_raw_parts(ptr, len);
     let mut out = Vec::with_capacity(len);
     for kwargs in list {
-      let driver = get_kwarg(kwargs, "driver").unwrap_or_else(|| "unknown".to_string());
-      let label = get_kwarg(kwargs, "label").unwrap_or_else(|| driver.clone());
-      let serial = get_kwarg(kwargs, "serial");
-      out.push(SoapyDeviceInfo { driver, label, serial });
+      let map = kwargs_to_map(kwargs);
+      let driver = map
+        .get("driver")
+        .cloned()
+        .unwrap_or_else(|| "unknown".to_string());
+      let label = map.get("label").cloned().unwrap_or_else(|| driver.clone());
+      let serial = map.get("serial").cloned().filter(|s| !s.trim().is_empty());
+      out.push(SoapyDeviceInfo {
+        driver,
+        label,
+        serial,
+        kwargs: map,
+      });
     }
 
     clear(ptr, len);
@@ -82,6 +96,32 @@ fn load_soapy_library() -> Option<Library> {
   None
 }
 
+unsafe fn kwargs_to_map(kwargs: &SoapySDRKwargs) -> HashMap<String, String> {
+  let mut map = HashMap::new();
+  if kwargs.size == 0 || kwargs.keys.is_null() || kwargs.vals.is_null() {
+    return map;
+  }
+
+  for i in 0..kwargs.size {
+    let kptr = *kwargs.keys.add(i);
+    let vptr = *kwargs.vals.add(i);
+    if kptr.is_null() || vptr.is_null() {
+      continue;
+    }
+
+    let k = CStr::from_ptr(kptr).to_string_lossy().to_string();
+    let v = CStr::from_ptr(vptr).to_string_lossy().to_string();
+    if k.trim().is_empty() || v.trim().is_empty() {
+      continue;
+    }
+
+    map.insert(k, v);
+  }
+
+  map
+}
+
+#[allow(dead_code)]
 unsafe fn get_kwarg(kwargs: &SoapySDRKwargs, key: &str) -> Option<String> {
   if kwargs.size == 0 || kwargs.keys.is_null() || kwargs.vals.is_null() {
     return None;

@@ -80,6 +80,20 @@ impl DspPipeline {
     &self.cfg
   }
 
+  pub fn set_sample_rates(&mut self, iq_sample_rate: u32, audio_sample_rate: u32) {
+    let iq_sample_rate = iq_sample_rate.max(1);
+    let audio_sample_rate = audio_sample_rate.max(1);
+    if self.cfg.iq_sample_rate == iq_sample_rate && self.cfg.audio_sample_rate == audio_sample_rate {
+      return;
+    }
+
+    self.cfg.iq_sample_rate = iq_sample_rate;
+    self.cfg.audio_sample_rate = audio_sample_rate;
+    self.resampler.set_rates(iq_sample_rate, audio_sample_rate);
+    self.agc.set_mode(self.cfg.agc, audio_sample_rate);
+    self.rebuild_filter();
+  }
+
   pub fn set_mode(&mut self, mode: DemodMode) {
     self.cfg.mode = mode;
     // update default passbands
@@ -159,4 +173,3 @@ impl DspPipeline {
     self.filter.set_taps(taps);
   }
 }
-

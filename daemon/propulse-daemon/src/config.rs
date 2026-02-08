@@ -1,7 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use clap::Parser;
-use directories::{BaseDirs, ProjectDirs};
+use directories::BaseDirs;
+#[cfg(target_os = "windows")]
+use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 

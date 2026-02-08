@@ -971,6 +971,18 @@ export function SdrConsole() {
                   onSelectRangeHz={({ startHz, endHz }) => {
                     const mid = Math.round((startHz + endHz) / 2);
                     handlePickFrequencyHz(mid);
+                    const bw = Math.max(50, Math.round(Math.abs(endHz - startHz)));
+                    const mode = (effectiveState?.mode ?? "USB").toUpperCase();
+                    if (mode === "CW") {
+                      const center = 700;
+                      handleFilterChange(center - bw / 2, center + bw / 2);
+                      return;
+                    }
+                    if (mode === "AM" || mode === "FM") {
+                      handleFilterChange(0, bw / 2);
+                      return;
+                    }
+                    handleFilterChange(300, 300 + bw);
                   }}
                 />
               ) : (

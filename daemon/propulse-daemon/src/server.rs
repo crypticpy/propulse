@@ -1,9 +1,10 @@
 use std::{
   net::{IpAddr, SocketAddr},
-  collections::{HashMap, HashSet},
+  collections::{HashMap, HashSet, VecDeque},
   path::PathBuf,
   sync::atomic::{AtomicBool, Ordering},
   sync::Arc,
+  sync::Mutex as StdMutex,
   time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -27,6 +28,7 @@ use crate::protocol::{
 use propulse_radio::{
   dummy::dummy_device,
   manager::{DeviceDelta, RadioManager},
+  soapy::SoapyDevice,
   types::{DeviceInfo, GainStage, RadioCapabilities, RadioType},
 };
 use sysinfo::System;
@@ -59,6 +61,7 @@ struct DaemonState {
   compat_bridge: bool,
   config: Mutex<AppConfig>,
   radio: Mutex<RadioManager>,
+  soapy_kwargs_by_device_id: Mutex<HashMap<String, HashMap<String, String>>>,
   device_idx_by_id: Mutex<HashMap<String, u8>>,
   clients: Mutex<HashMap<String, ClientState>>,
   streams: Mutex<HashMap<String, DeviceStreams>>,
@@ -168,6 +171,7 @@ where
     compat_bridge: cli.compat_bridge,
     config: Mutex::new(effective_config.clone()),
     radio: Mutex::new(radio),
+    soapy_kwargs_by_device_id: Mutex::new(HashMap::new()),
     device_idx_by_id: Mutex::new(device_idx_by_id),
     clients: Mutex::new(HashMap::new()),
     streams: Mutex::new(HashMap::new()),
@@ -388,18 +392,27 @@ fn spawn_device_scanner(state: Arc<DaemonState>) {
       }
 
       // Enumerate on a blocking thread (USB/serial APIs may block).
-      let next_devices = tokio::task::spawn_blocking(move || {
-        discover_devices(&radio_cfg)
-      })
-      .await
-      .unwrap_or_else(|_| Vec::new());
+      let scan = tokio::task::spawn_blocking(move || discover_devices(&radio_cfg))
+        .await
+        .unwrap_or_else(|_| DeviceScanResult::default());
+
+      {
+        let mut map = state.soapy_kwargs_by_device_id.lock().await;
+        *map = scan.soapy_kwargs_by_device_id;
+      }
 
       let delta = {
         let mut radio = state.radio.lock().await;
-        radio.replace_devices(next_devices)
+        radio.replace_devices(scan.devices)
       };
 
       if !delta.added.is_empty() || !delta.removed.is_empty() {
+        for id in &delta.removed {
+          stop_device_streams_if_any(&state, id).await;
+          stop_soapy_device_if_any(&state, id).await;
+          let mut streams = state.streams.lock().await;
+          streams.remove(id);
+        }
         rebuild_device_index(&state).await;
         broadcast_device_delta(&state, &delta).await;
       }
@@ -407,8 +420,15 @@ fn spawn_device_scanner(state: Arc<DaemonState>) {
   });
 }
 
-fn discover_devices(cfg: &crate::config::RadioConfig) -> Vec<DeviceInfo> {
+#[derive(Default)]
+struct DeviceScanResult {
+  devices: Vec<DeviceInfo>,
+  soapy_kwargs_by_device_id: HashMap<String, HashMap<String, String>>,
+}
+
+fn discover_devices(cfg: &crate::config::RadioConfig) -> DeviceScanResult {
   let mut devices = Vec::new();
+  let mut soapy_kwargs_by_device_id: HashMap<String, HashMap<String, String>> = HashMap::new();
 
   if cfg.dummy_enabled {
     devices.push(dummy_device("dummy:0"));
@@ -417,8 +437,10 @@ fn discover_devices(cfg: &crate::config::RadioConfig) -> Vec<DeviceInfo> {
   if cfg.soapy.enabled {
     if let Ok(list) = enumerate_soapy_devices() {
       for d in list {
+        let device_id = stable_soapy_device_id(&d);
+        soapy_kwargs_by_device_id.insert(device_id.clone(), d.kwargs.clone());
         devices.push(DeviceInfo {
-          device_id: stable_soapy_device_id(&d),
+          device_id,
           name: d.label.clone(),
           driver: d.driver.clone(),
           device_type: RadioType::Sdr,
@@ -444,7 +466,10 @@ fn discover_devices(cfg: &crate::config::RadioConfig) -> Vec<DeviceInfo> {
     }
   }
 
-  devices
+  DeviceScanResult {
+    devices,
+    soapy_kwargs_by_device_id,
+  }
 }
 
 fn stable_soapy_device_id(info: &propulse_discovery::soapy_enum::SoapyDeviceInfo) -> String {
@@ -674,6 +699,15 @@ struct DeviceStreams {
   fft: Option<JoinHandle<()>>,
   audio: Option<JoinHandle<()>>,
   dsp: Option<Arc<Mutex<DspPipeline>>>,
+  soapy: Option<SoapyRuntime>,
+}
+
+struct SoapyRuntime {
+  device: SoapyDevice,
+  sample_rate: u32,
+  buffer: Arc<StdMutex<VecDeque<Complex32>>>,
+  stop: Arc<AtomicBool>,
+  reader: Option<JoinHandle<()>>,
 }
 
 async fn send_to_client(state: &Arc<DaemonState>, client_id: &str, msg: Message) -> bool {
@@ -825,9 +859,119 @@ async fn handle_text_message(
         return Ok(());
       };
 
+      // Preflight without changing state: ensure device exists and isn't already connected.
+      let (device, current_state) = {
+        let radio = state.radio.lock().await;
+        let dev = radio.device(device_id).cloned();
+        let st = radio.state(device_id).cloned();
+        (dev, st)
+      };
+
+      let Some(device) = device else {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, "Device not found")).await?;
+        }
+        return Ok(());
+      };
+
+      if current_state.as_ref().is_some_and(|s| s.connected) {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, "Device already connected")).await?;
+        }
+        return Ok(());
+      }
+
+      if !device.available {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, "Device not available")).await?;
+        }
+        return Ok(());
+      }
+
+      // Optional connect config.
+      let (sample_rate, antenna) = {
+        let cfg = value.get("config");
+        let sample_rate = cfg
+          .and_then(|c| c.get("sample_rate"))
+          .and_then(|v| v.as_u64())
+          .map(|v| v as u32);
+        let antenna = cfg
+          .and_then(|c| c.get("antenna"))
+          .and_then(|v| v.as_str())
+          .map(|s| s.to_string());
+        (sample_rate, antenna)
+      };
+
+      // SoapySDR devices require a real connection to stream IQ/FFT/audio.
+      if device_id.starts_with("soapy:") {
+        let kwargs = {
+          let map = state.soapy_kwargs_by_device_id.lock().await;
+          map.get(device_id).cloned()
+        };
+        let Some(kwargs) = kwargs else {
+          if let Some(id) = id {
+            send_json(
+              state,
+              client_id,
+              &Response::err(id, "SoapySDR device details not found; re-enumerate devices"),
+            )
+            .await?;
+          }
+          return Ok(());
+        };
+
+        let freq = current_state.as_ref().map(|s| s.freq).unwrap_or(14_074_000);
+        let gains = current_state
+          .as_ref()
+          .map(|s| s.gains.clone())
+          .unwrap_or_default();
+        let sample_rate = sample_rate.unwrap_or(2_048_000);
+        let antenna2 = antenna.clone();
+
+        let soapy = tokio::task::spawn_blocking(move || -> anyhow::Result<SoapyDevice> {
+          let dev = SoapyDevice::open(&kwargs)?;
+          dev.set_sample_rate(sample_rate)?;
+          dev.set_frequency(freq)?;
+          if let Some(a) = antenna2.as_deref() {
+            let _ = dev.set_antenna(a);
+          }
+          for (stage, val) in &gains {
+            let _ = dev.set_gain_element(stage, *val);
+          }
+          Ok(dev)
+        })
+        .await
+        .map_err(|_| anyhow::anyhow!("Soapy connect task failed"))??;
+
+        let maybe_pipeline = {
+          let mut streams = state.streams.lock().await;
+          let entry = streams.entry(device_id.to_string()).or_default();
+          entry.soapy = Some(SoapyRuntime {
+            device: soapy,
+            sample_rate,
+            buffer: Arc::new(StdMutex::new(VecDeque::new())),
+            stop: Arc::new(AtomicBool::new(false)),
+            reader: None,
+          });
+          entry.dsp.as_ref().cloned()
+        };
+
+        if let Some(p) = maybe_pipeline {
+          let audio_rate = { state.config.lock().await.dsp.default_audio_rate };
+          let mut pipe = p.lock().await;
+          pipe.set_sample_rates(sample_rate, audio_rate);
+        }
+      }
+
       let mut radio = state.radio.lock().await;
       match radio.connect(device_id) {
-        Ok(new_state) => {
+        Ok(mut new_state) => {
+          if let Some(a) = antenna.as_deref() {
+            if let Ok(st) = radio.set_antenna(device_id, a) {
+              new_state = st;
+            }
+          }
+
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -859,6 +1003,7 @@ async fn handle_text_message(
       };
 
       stop_device_streams_if_any(state, device_id).await;
+      stop_soapy_device_if_any(state, device_id).await;
 
       let mut radio = state.radio.lock().await;
       match radio.disconnect(device_id) {
@@ -898,6 +1043,13 @@ async fn handle_text_message(
         }
         return Ok(());
       };
+
+      if let Err(err) = maybe_apply_soapy_tune(state, device_id, freq).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
 
       let mut radio = state.radio.lock().await;
       match radio.tune(device_id, freq) {
@@ -982,6 +1134,13 @@ async fn handle_text_message(
         }
         return Ok(());
       };
+
+      if let Err(err) = maybe_apply_soapy_gain(state, device_id, stage, value as f32).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
 
       let mut radio = state.radio.lock().await;
       match radio.set_gain(device_id, stage, value as f32) {
@@ -1237,6 +1396,13 @@ async fn handle_text_message(
         }
         return Ok(());
       };
+
+      if let Err(err) = maybe_apply_soapy_antenna(state, device_id, port).await {
+        if let Some(id) = id {
+          send_json(state, client_id, &Response::err(id, err.to_string())).await?;
+        }
+        return Ok(());
+      }
 
       let mut radio = state.radio.lock().await;
       match radio.set_antenna(device_id, port) {
@@ -2222,6 +2388,252 @@ async fn subscriber_count(state: &Arc<DaemonState>, kind: StreamKind, device_id:
     .count()
 }
 
+async fn ensure_soapy_reader_buffer(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+) -> Option<Arc<StdMutex<VecDeque<Complex32>>>> {
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return None;
+  }
+
+  let mut streams = state.streams.lock().await;
+  let entry = streams.entry(device_id.to_string()).or_default();
+  let soapy = entry.soapy.as_mut()?;
+
+  if soapy.reader.is_none() {
+    soapy.stop.store(false, Ordering::Relaxed);
+    let device = soapy.device.clone();
+    let stop = Arc::clone(&soapy.stop);
+    let buf = Arc::clone(&soapy.buffer);
+    let sample_rate = soapy.sample_rate;
+
+    soapy.reader = Some(tokio::task::spawn_blocking(move || {
+      let stream = match device.setup_rx_stream_cf32() {
+        Ok(s) => s,
+        Err(err) => {
+          tracing::warn!(error = %err, "SoapySDR setupStream failed");
+          return;
+        }
+      };
+      if let Err(err) = stream.activate() {
+        tracing::warn!(error = %err, "SoapySDR activateStream failed");
+        let _ = stream.close();
+        return;
+      }
+
+      // Prefer a modest chunk size to keep control responsiveness snappy.
+      let chunk = 8192usize;
+      let mut tmp = vec![Complex32::new(0.0, 0.0); chunk];
+      let max_len = (sample_rate as usize).saturating_mul(2);
+
+      while !stop.load(Ordering::Relaxed) {
+        match stream.read_cf32(&mut tmp, 100_000) {
+          Ok(0) => continue,
+          Ok(n) => {
+            if n == 0 {
+              continue;
+            }
+            if let Ok(mut q) = buf.lock() {
+              q.extend(tmp[..n].iter().copied());
+              while q.len() > max_len {
+                q.pop_front();
+              }
+            }
+          }
+          Err(err) => {
+            tracing::warn!(error = %err, "SoapySDR readStream failed");
+            break;
+          }
+        }
+      }
+
+      let _ = stream.deactivate();
+      let _ = stream.close();
+    }));
+  }
+
+  Some(Arc::clone(&soapy.buffer))
+}
+
+fn latest_iq_window(buf: &Arc<StdMutex<VecDeque<Complex32>>>, n: usize) -> Option<Vec<Complex32>> {
+  if n == 0 {
+    return Some(Vec::new());
+  }
+  let q = buf.lock().ok()?;
+  if q.len() < n {
+    return None;
+  }
+
+  let mut out = Vec::with_capacity(n);
+  let (a, b) = q.as_slices();
+  let total = a.len() + b.len();
+  let start = total - n;
+  if start < a.len() {
+    out.extend_from_slice(&a[start..]);
+    let remaining = n - (a.len() - start);
+    if remaining > 0 {
+      out.extend_from_slice(&b[..remaining]);
+    }
+  } else {
+    let start_b = start - a.len();
+    out.extend_from_slice(&b[start_b..start_b + n]);
+  }
+  Some(out)
+}
+
+fn consume_iq_chunk(buf: &Arc<StdMutex<VecDeque<Complex32>>>, n: usize) -> Option<Vec<Complex32>> {
+  if n == 0 {
+    return Some(Vec::new());
+  }
+  let mut q = buf.lock().ok()?;
+  if q.len() < n {
+    return None;
+  }
+  Some(q.drain(..n).collect())
+}
+
+async fn stop_soapy_device_if_any(state: &Arc<DaemonState>, device_id: &str) {
+  let runtime = {
+    let mut streams = state.streams.lock().await;
+    streams.get_mut(device_id).and_then(|s| s.soapy.take())
+  };
+
+  let Some(mut rt) = runtime else {
+    return;
+  };
+
+  rt.stop.store(true, Ordering::Relaxed);
+  if let Some(h) = rt.reader.take() {
+    let _ = h.await;
+  }
+}
+
+async fn stop_soapy_reader_if_idle(state: &Arc<DaemonState>, device_id: &str) {
+  if !device_id.starts_with("soapy:") {
+    return;
+  }
+  if subscriber_count(state, StreamKind::Fft, device_id).await > 0 {
+    return;
+  }
+  if subscriber_count(state, StreamKind::Audio, device_id).await > 0 {
+    return;
+  }
+
+  let (stop, handle, buf) = {
+    let mut streams = state.streams.lock().await;
+    let Some(rt) = streams.get_mut(device_id).and_then(|s| s.soapy.as_mut()) else {
+      return;
+    };
+    (Arc::clone(&rt.stop), rt.reader.take(), Arc::clone(&rt.buffer))
+  };
+
+  stop.store(true, Ordering::Relaxed);
+  if let Some(h) = handle {
+    let _ = h.await;
+  }
+  if let Ok(mut q) = buf.lock() {
+    q.clear();
+  };
+}
+
+async fn maybe_apply_soapy_tune(state: &Arc<DaemonState>, device_id: &str, freq: u64) -> anyhow::Result<()> {
+  if !device_id.starts_with("soapy:") {
+    return Ok(());
+  }
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return Ok(());
+  }
+
+  let soapy = {
+    let streams = state.streams.lock().await;
+    streams
+      .get(device_id)
+      .and_then(|s| s.soapy.as_ref())
+      .map(|s| s.device.clone())
+  };
+  let Some(soapy) = soapy else {
+    return Ok(());
+  };
+
+  tokio::task::spawn_blocking(move || soapy.set_frequency(freq))
+    .await
+    .map_err(|_| anyhow::anyhow!("Soapy tune task failed"))??;
+  Ok(())
+}
+
+async fn maybe_apply_soapy_gain(
+  state: &Arc<DaemonState>,
+  device_id: &str,
+  stage: &str,
+  value: f32,
+) -> anyhow::Result<()> {
+  if !device_id.starts_with("soapy:") {
+    return Ok(());
+  }
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return Ok(());
+  }
+
+  let soapy = {
+    let streams = state.streams.lock().await;
+    streams
+      .get(device_id)
+      .and_then(|s| s.soapy.as_ref())
+      .map(|s| s.device.clone())
+  };
+  let Some(soapy) = soapy else {
+    return Ok(());
+  };
+
+  let stage = stage.to_string();
+  tokio::task::spawn_blocking(move || soapy.set_gain_element(&stage, value))
+    .await
+    .map_err(|_| anyhow::anyhow!("Soapy gain task failed"))??;
+  Ok(())
+}
+
+async fn maybe_apply_soapy_antenna(state: &Arc<DaemonState>, device_id: &str, port: &str) -> anyhow::Result<()> {
+  if !device_id.starts_with("soapy:") {
+    return Ok(());
+  }
+  let connected = {
+    let radio = state.radio.lock().await;
+    radio.state(device_id).map(|s| s.connected).unwrap_or(false)
+  };
+  if !connected {
+    return Ok(());
+  }
+
+  let soapy = {
+    let streams = state.streams.lock().await;
+    streams
+      .get(device_id)
+      .and_then(|s| s.soapy.as_ref())
+      .map(|s| s.device.clone())
+  };
+  let Some(soapy) = soapy else {
+    return Ok(());
+  };
+
+  let port = port.to_string();
+  tokio::task::spawn_blocking(move || soapy.set_antenna(&port))
+    .await
+    .map_err(|_| anyhow::anyhow!("Soapy antenna task failed"))??;
+  Ok(())
+}
+
 async fn ensure_fft_stream(
   state: &Arc<DaemonState>,
   device_id: &str,
@@ -2259,6 +2671,7 @@ async fn ensure_fft_stream(
     let iq_rate = {
       pipeline_task.lock().await.config().iq_sample_rate
     };
+    let mut soapy_buf: Option<Arc<StdMutex<VecDeque<Complex32>>>> = None;
 
     loop {
       interval.tick().await;
@@ -2290,7 +2703,18 @@ async fn ensure_fft_stream(
         continue;
       }
 
-      let iq = generate_dummy_iq(fft_size, iq_rate, t);
+      if soapy_buf.is_none() && device_id2.starts_with("soapy:") {
+        soapy_buf = ensure_soapy_reader_buffer(&state2, &device_id2).await;
+      }
+
+      let iq = if let Some(buf) = soapy_buf.as_ref() {
+        let Some(v) = latest_iq_window(buf, fft_size) else {
+          continue;
+        };
+        v
+      } else {
+        generate_dummy_iq(fft_size, iq_rate, t)
+      };
       let bins = {
         let mut p = pipeline_task.lock().await;
         apply_pipeline_controls(&mut p, &mode, filter.as_ref(), nr.as_ref(), nb.as_ref(), agc_enabled);
@@ -2350,6 +2774,12 @@ async fn ensure_audio_stream(state: &Arc<DaemonState>, device_id: &str, sample_r
   let pipeline = ensure_pipeline(&state2, &device_id2).await;
   let pipeline_task = Arc::clone(&pipeline);
 
+  {
+    let mut p = pipeline.lock().await;
+    let iq_rate = p.config().iq_sample_rate;
+    p.set_sample_rates(iq_rate, sample_rate);
+  }
+
   let audio_cfg = { state.config.lock().await.audio.clone() };
   let local_out = ThreadedAudioOutput::start(&audio_cfg.output_device, sample_rate).ok();
   let vc_out = if audio_cfg.virtual_cable {
@@ -2368,6 +2798,7 @@ async fn ensure_audio_stream(state: &Arc<DaemonState>, device_id: &str, sample_r
     };
     let iq_frame = (iq_rate as u64 * frame_ms / 1000).max(1024) as usize;
     let mut interval = tokio::time::interval(Duration::from_millis(20));
+    let mut soapy_buf: Option<Arc<StdMutex<VecDeque<Complex32>>>> = None;
 
     loop {
       interval.tick().await;
@@ -2384,7 +2815,6 @@ async fn ensure_audio_stream(state: &Arc<DaemonState>, device_id: &str, sample_r
         continue;
       }
 
-      let t = 0.0f32;
       let (mode, filter, nr, nb, agc_enabled) = {
         let radio = state2.radio.lock().await;
         let st = radio.state(&device_id2).cloned();
@@ -2394,7 +2824,18 @@ async fn ensure_audio_stream(state: &Arc<DaemonState>, device_id: &str, sample_r
         }
       };
 
-      let iq = generate_dummy_iq(iq_frame, iq_rate, t);
+      if soapy_buf.is_none() && device_id2.starts_with("soapy:") {
+        soapy_buf = ensure_soapy_reader_buffer(&state2, &device_id2).await;
+      }
+
+      let iq = if let Some(buf) = soapy_buf.as_ref() {
+        let Some(v) = consume_iq_chunk(buf, iq_frame) else {
+          continue;
+        };
+        v
+      } else {
+        generate_dummy_iq(iq_frame, iq_rate, 0.0)
+      };
       let samples = {
         let mut p = pipeline_task.lock().await;
         apply_pipeline_controls(&mut p, &mode, filter.as_ref(), nr.as_ref(), nb.as_ref(), agc_enabled);
@@ -2440,9 +2881,19 @@ async fn ensure_pipeline(state: &Arc<DaemonState>, device_id: &str) -> Arc<Mutex
     return p;
   }
 
+  let iq_sample_rate = {
+    let streams = state.streams.lock().await;
+    streams
+      .get(device_id)
+      .and_then(|s| s.soapy.as_ref())
+      .map(|s| s.sample_rate)
+      .unwrap_or(2_048_000)
+  };
+  let audio_sample_rate = { state.config.lock().await.dsp.default_audio_rate };
+
   let cfg = PipelineConfig {
-    iq_sample_rate: 2_048_000,
-    audio_sample_rate: 48_000,
+    iq_sample_rate,
+    audio_sample_rate,
     ..PipelineConfig::default()
   };
   let p = Arc::new(Mutex::new(DspPipeline::new(cfg)));
@@ -2548,6 +2999,9 @@ async fn stop_stream_if_no_subscribers(
       }
     }
   }
+
+  drop(streams);
+  stop_soapy_reader_if_idle(state, device_id).await;
 }
 
 async fn stop_device_streams_if_any(state: &Arc<DaemonState>, device_id: &str) {

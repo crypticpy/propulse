@@ -14,7 +14,8 @@ export type EquipmentCardType =
   | "antenna"
   | "feedline"
   | "accessory"
-  | "inline";
+  | "inline"
+  | "shack_accessory";
 
 export interface DraggableEquipmentCardProps {
   id: string;
@@ -32,17 +33,19 @@ export interface DraggableEquipmentCardProps {
 const ACCENT_COLORS: Record<EquipmentCardType, string> = {
   radio: "bg-plasma-orange",
   antenna: "bg-signal-green",
-  feedline: "bg-caution-amber",
+  feedline: "bg-feedline-teal",
   accessory: "bg-nebula-blue",
   inline: "bg-purple-400",
+  shack_accessory: "bg-gray-400",
 };
 
 const BORDER_COLORS: Record<EquipmentCardType, string> = {
   radio: "border-plasma-orange/30 hover:border-plasma-orange/60",
   antenna: "border-signal-green/30 hover:border-signal-green/60",
-  feedline: "border-caution-amber/30 hover:border-caution-amber/60",
+  feedline: "border-feedline-teal/30 hover:border-feedline-teal/60",
   accessory: "border-nebula-blue/30 hover:border-nebula-blue/60",
   inline: "border-purple-400/30 hover:border-purple-400/60",
+  shack_accessory: "border-gray-400/30 hover:border-gray-400/60",
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -59,6 +62,10 @@ export function DraggableEquipmentCard({
   const [isDragging, setIsDragging] = useState(false);
 
   function handleDragStart(e: React.DragEvent<HTMLDivElement>) {
+    if (inUse) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData(
       "application/x-equipment",
       JSON.stringify({ type, id }),
@@ -75,46 +82,35 @@ export function DraggableEquipmentCard({
 
   return (
     <div
-      draggable="true"
+      draggable={!inUse}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={`
         relative flex items-stretch overflow-hidden rounded-lg border
         bg-white/[0.03] transition-all duration-150 select-none
         ${BORDER_COLORS[type]}
-        ${isDragging ? "opacity-40 scale-95 cursor-grabbing" : "cursor-grab"}
-        ${inUse ? "opacity-60" : ""}
+        ${inUse ? "opacity-40 cursor-not-allowed" : isDragging ? "opacity-40 scale-95 cursor-grabbing" : "cursor-grab"}
       `}
     >
       {/* Left accent bar */}
       <div className={`w-[3px] shrink-0 ${ACCENT_COLORS[type]}`} />
 
-      {/* Grip dots (drag handle indicator) */}
-      <div className="flex items-center pl-2 pr-0.5 text-gray-600">
-        <svg className="w-3 h-3" viewBox="0 0 6 10" fill="currentColor">
-          <circle cx="1" cy="1" r="0.8" />
-          <circle cx="5" cy="1" r="0.8" />
-          <circle cx="1" cy="5" r="0.8" />
-          <circle cx="5" cy="5" r="0.8" />
-          <circle cx="1" cy="9" r="0.8" />
-          <circle cx="5" cy="9" r="0.8" />
-        </svg>
-      </div>
-
       {/* Content */}
-      <div className="flex-1 min-w-0 px-1.5 py-1.5">
+      <div className="flex-1 min-w-0 py-1 px-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium text-gray-200 truncate">
+          <span className="text-xs font-medium text-gray-200 truncate">
             {name}
           </span>
           {inUse && (
-            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-white/10 text-gray-400">
-              In use
+            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/10 text-gray-400 border border-white/5">
+              In Use
             </span>
           )}
         </div>
         {subLabel && (
-          <p className="text-xs text-gray-400 truncate mt-0.5">{subLabel}</p>
+          <p className="text-[10px] text-gray-400 truncate mt-0.5">
+            {subLabel}
+          </p>
         )}
       </div>
     </div>

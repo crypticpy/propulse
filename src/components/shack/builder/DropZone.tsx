@@ -44,7 +44,7 @@ export function DropZone({
 }: DropZoneProps) {
   const cx = x + width / 2;
   const cy = y + height / 2;
-  const plusR = 10;
+  const plusR = 14;
 
   return (
     <g>
@@ -84,29 +84,29 @@ export function DropZone({
         r={plusR}
         fill="rgba(255,255,255,0.05)"
         stroke={isActive ? COLOR_ACTIVE : COLOR_PLUS}
-        strokeWidth={1}
+        strokeWidth={1.5}
         style={{ cursor: "pointer" }}
         onClick={onClick}
       />
 
       {/* Plus sign */}
       <line
-        x1={cx - 4}
+        x1={cx - 6}
         y1={cy}
-        x2={cx + 4}
+        x2={cx + 6}
         y2={cy}
         stroke={isActive ? COLOR_ACTIVE : COLOR_PLUS}
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         pointerEvents="none"
       />
       <line
         x1={cx}
-        y1={cy - 4}
+        y1={cy - 6}
         x2={cx}
-        y2={cy + 4}
+        y2={cy + 6}
         stroke={isActive ? COLOR_ACTIVE : COLOR_PLUS}
-        strokeWidth={1.5}
+        strokeWidth={2}
         strokeLinecap="round"
         pointerEvents="none"
       />

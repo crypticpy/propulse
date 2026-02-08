@@ -14,11 +14,13 @@ import React, {
   useEffect,
 } from "react";
 import type { StationChain } from "@/types/stationChain";
+import type { AccessoryCategory } from "@/types/shack";
 import {
   FEEDLINE_TYPE_LABELS,
   ACCESSORY_CATEGORY_LABELS,
   ANTENNA_TYPE_LABELS,
 } from "@/types/shack";
+import { FEEDLINE_IMPEDANCE } from "@/lib/data/feedlines";
 import {
   useShackStore,
   useUserRadios,
@@ -39,17 +41,20 @@ import { ChainNode } from "./ChainNode";
 import { FeedlineRunNode, getFeedlineRunNodeHeight } from "./FeedlineRunNode";
 import { ConnectionLine } from "./ConnectionLine";
 import { DropZone } from "./DropZone";
+import { GroundBusBar } from "./GroundBusBar";
+import type { GroundStub } from "./GroundBusBar";
 
 // ─── Layout Constants ────────────────────────────────────────────────────────
 
-const NODE_WIDTH = 160;
-const FEEDLINE_NODE_WIDTH = 200;
-const NODE_HEIGHT = 90;
-const NODE_SPACING = 60; // space between nodes for lines + drop zones
-const CANVAS_PADDING_X = 30;
-const CANVAS_PADDING_Y = 20;
-const DROP_ZONE_WIDTH = 40;
-const MIN_CANVAS_HEIGHT = 260;
+const NODE_WIDTH = 220;
+const FEEDLINE_NODE_WIDTH = 260;
+const NODE_HEIGHT = 130;
+const NODE_SPACING = 140; // space between nodes for lines + drop zones
+const CANVAS_PADDING_X = 40;
+const CANVAS_PADDING_Y = 30;
+const DROP_ZONE_WIDTH = 50;
+const MIN_CANVAS_HEIGHT = 300;
+const GROUND_BUS_OFFSET = 50; // extra space below nodes for ground bus bar
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +71,12 @@ export interface BuilderCanvasProps {
   selectedBand?: string;
   /** When true, shows drop zones between nodes */
   isDraggingFromDrawer?: boolean;
+  /** When true, shows ground bus bar at bottom of canvas */
+  showGroundBus?: boolean;
+  /** Callback when a node is right-clicked (context menu) */
+  onNodeContextMenu?: (nodeIndex: number, x: number, y: number) => void;
+  /** Callback when user clicks "+" to add equipment at a position */
+  onAddEquipmentAtPosition?: (position: number) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -87,6 +98,9 @@ export function BuilderCanvas({
   onDropEquipment,
   selectedBand,
   isDraggingFromDrawer,
+  showGroundBus,
+  onNodeContextMenu,
+  onAddEquipmentAtPosition,
 }: BuilderCanvasProps) {
   // ── Container ref for measuring available width ────────────────────────
   const containerRef = useRef<HTMLDivElement>(null);
@@ -113,6 +127,15 @@ export function BuilderCanvas({
   const storeRadios = useShackStore((s) => s.radios);
   const customRadios = useShackStore((s) => s.customRadios);
   const reorderChainNodes = useShackStore((s) => s.reorderChainNodes);
+
+  // ── Zoom & pan state ───────────────────────────────────────────────────
+  const [zoom, setZoom] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const panStartOffset = useRef({ x: 0, y: 0 });
+  const didPan = useRef(false);
+  const PAN_DEAD_ZONE = 3;
 
   // ── Drop zone hover state ───────────────────────────────────────────────
   const [activeDropIndex, setActiveDropIndex] = useState<number | null>(null);
@@ -242,6 +265,63 @@ export function BuilderCanvas({
     return map;
   }, [chain.feedlineRuns, inlineComponents]);
 
+  // ── Accessory categories per node (for electrical symbol resolution) ────
+  const nodeAccessoryCategories = useMemo(() => {
+    return chain.nodes.map((node): AccessoryCategory | undefined => {
+      if (node.type === "accessory") {
+        const acc = accessories.find((a) => a.id === node.accessoryId);
+        return acc?.category;
+      }
+      return undefined;
+    });
+  }, [chain.nodes, accessories]);
+
+  // ── Impedance / spec labels per node ──────────────────────────────────
+  const nodeImpedanceLabels = useMemo(() => {
+    return chain.nodes.map((node): string | undefined => {
+      switch (node.type) {
+        case "feedline_run": {
+          const run = chain.feedlineRuns.find(
+            (r) => r.id === node.feedlineRunId,
+          );
+          if (run) {
+            const fl = feedlines.find((f) => f.id === run.feedlineId);
+            if (fl) return `${FEEDLINE_IMPEDANCE[fl.feedlineType]}\u03A9`;
+          }
+          return undefined;
+        }
+        case "antenna": {
+          const ant = antennas.find((a) => a.id === node.antennaId);
+          if (ant?.swrByBand && selectedBand) {
+            const swr = (ant.swrByBand as Record<string, number>)[selectedBand];
+            if (swr) return `SWR ${swr.toFixed(1)}:1`;
+          }
+          return undefined;
+        }
+        case "accessory": {
+          const acc = accessories.find((a) => a.id === node.accessoryId);
+          if (!acc) return undefined;
+          if (acc.category === "amplifier" && "gainDb" in acc) {
+            return `+${(acc as { gainDb: number }).gainDb} dB`;
+          }
+          return undefined;
+        }
+        default:
+          return undefined;
+      }
+    });
+  }, [chain, feedlines, antennas, accessories, selectedBand]);
+
+  // ── Feedline impedance per feedline run ────────────────────────────────
+  const feedlineImpedances = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const run of chain.feedlineRuns) {
+      const fl = feedlines.find((f) => f.id === run.feedlineId);
+      if (fl) map.set(run.id, FEEDLINE_IMPEDANCE[fl.feedlineType]);
+    }
+    return map;
+  }, [chain.feedlineRuns, feedlines]);
+
   // ── Compute layout ──────────────────────────────────────────────────────
   const { nodeLayouts, svgWidth, svgHeight, centerOffsetX } = useMemo(() => {
     const layouts: NodeLayout[] = [];
@@ -274,9 +354,10 @@ export function BuilderCanvas({
 
     const contentWidth = curX + CANVAS_PADDING_X;
     const effectiveWidth = Math.max(contentWidth, containerWidth);
+    const groundExtra = showGroundBus ? GROUND_BUS_OFFSET : 0;
     const totalHeight = Math.max(
-      MIN_CANVAS_HEIGHT,
-      maxHeight + CANVAS_PADDING_Y * 2,
+      MIN_CANVAS_HEIGHT + groundExtra,
+      maxHeight + CANVAS_PADDING_Y * 2 + groundExtra,
     );
 
     // Center content horizontally when narrower than container
@@ -294,7 +375,27 @@ export function BuilderCanvas({
       svgHeight: totalHeight,
       centerOffsetX: offsetX,
     };
-  }, [chain.nodes, chain.feedlineRuns, containerWidth]);
+  }, [chain.nodes, chain.feedlineRuns, containerWidth, showGroundBus]);
+
+  // ── Ground stubs for bus bar ──────────────────────────────────────────
+  const groundStubs = useMemo((): GroundStub[] => {
+    if (!showGroundBus) return [];
+    const stubs: GroundStub[] = [];
+
+    chain.nodes.forEach((node, i) => {
+      const layout = nodeLayouts[i];
+      if (!layout) return;
+      if (node.type === "radio") {
+        stubs.push({
+          nodeX: layout.x + layout.width / 2,
+          nodeBottomY: layout.y + layout.height,
+          label: "Chassis GND",
+        });
+      }
+    });
+
+    return stubs;
+  }, [showGroundBus, chain.nodes, nodeLayouts]);
 
   // ── Node compatibility for input/output edges ───────────────────────────
   const nodeCompatibility = useMemo(() => {
@@ -376,9 +477,90 @@ export function BuilderCanvas({
     [chain.id, reorderChainNodes, onDropEquipment],
   );
 
+  // ── Zoom handler (native wheel — passive:false to prevent page scroll) ──
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = el!.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      setZoom((prev) => {
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const next = Math.min(2.5, Math.max(0.3, prev + delta));
+        const s = next / prev;
+        setPanOffset((p) => ({
+          x: mx - s * (mx - p.x),
+          y: my - s * (my - p.y),
+        }));
+        return next;
+      });
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // ── Pan handlers (mouse drag on background) ──────────────────────────
+  const handleCanvasMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // Only pan when clicking on SVG background (not on nodes/zones)
+      const target = e.target as SVGElement;
+      if (
+        target === e.currentTarget ||
+        target.tagName === "svg" ||
+        target.classList.contains("canvas-bg")
+      ) {
+        setIsPanning(true);
+        setPanStart({ x: e.clientX, y: e.clientY });
+        panStartOffset.current = { x: panOffset.x, y: panOffset.y };
+        didPan.current = false;
+        e.preventDefault();
+      }
+    },
+    [panOffset],
+  );
+
+  const handleCanvasMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isPanning) return;
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      // Dead-zone: only start panning if moved > PAN_DEAD_ZONE px
+      if (!didPan.current && Math.sqrt(dx * dx + dy * dy) < PAN_DEAD_ZONE)
+        return;
+      didPan.current = true;
+      setPanOffset({
+        x: panStartOffset.current.x + dx,
+        y: panStartOffset.current.y + dy,
+      });
+    },
+    [isPanning, panStart],
+  );
+
+  const handleCanvasMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  // ── Zoom to fit ──────────────────────────────────────────────────────
+  const handleZoomToFit = useCallback(() => {
+    if (containerWidth <= 0 || svgWidth <= 0) return;
+    const fitZoom = Math.min(containerWidth / svgWidth, 1);
+    setZoom(Math.max(0.3, fitZoom));
+    setPanOffset({ x: 0, y: 0 });
+  }, [containerWidth, svgWidth]);
+
   // ── Click background to deselect ────────────────────────────────────────
   const handleBackgroundClick = useCallback(
     (e: React.MouseEvent) => {
+      if (didPan.current) return; // Don't deselect after a pan
       if (e.target === e.currentTarget) {
         onSelectNode(null);
       }
@@ -500,9 +682,9 @@ export function BuilderCanvas({
 
               {/* Feedline ghost */}
               <div className="flex flex-col items-center gap-1">
-                <div className="w-20 h-14 rounded-xl border border-caution-amber/30 bg-caution-amber/5 flex items-center justify-center">
+                <div className="w-20 h-14 rounded-xl border border-feedline-teal/30 bg-feedline-teal/5 flex items-center justify-center">
                   <svg
-                    className="w-5 h-5 text-caution-amber/50"
+                    className="w-5 h-5 text-feedline-teal/50"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -585,21 +767,57 @@ export function BuilderCanvas({
   return (
     <div
       ref={containerRef}
-      className="overflow-x-auto rounded-2xl bg-panel/30 backdrop-blur-sm border border-white/5"
+      className="relative rounded-2xl bg-panel/30 backdrop-blur-sm border border-white/5 overflow-hidden select-none"
+      style={{ cursor: isPanning ? "grabbing" : "grab" }}
     >
+      {/* Zoom controls */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-lg p-1">
+        <button
+          type="button"
+          onClick={() => setZoom((prev) => Math.min(2.5, prev + 0.2))}
+          className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-200 hover:bg-white/10 text-sm font-bold"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+        <span className="text-[10px] text-gray-500 font-mono w-10 text-center">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          type="button"
+          onClick={() => setZoom((prev) => Math.max(0.3, prev - 0.2))}
+          className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-200 hover:bg-white/10 text-sm font-bold"
+          aria-label="Zoom out"
+        >
+          {"\u2212"}
+        </button>
+        <div className="w-px h-4 bg-white/10 mx-0.5" />
+        <button
+          type="button"
+          onClick={handleZoomToFit}
+          className="px-1.5 h-7 flex items-center justify-center rounded text-gray-500 hover:text-gray-200 hover:bg-white/10 text-[10px] font-medium"
+          aria-label="Zoom to fit"
+        >
+          Fit
+        </button>
+      </div>
+
       <svg
-        width={svgWidth}
-        height={svgHeight}
+        ref={svgRef}
+        width="100%"
+        height={Math.max(svgHeight * zoom, MIN_CANVAS_HEIGHT)}
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        style={{ minWidth: svgWidth }}
+        style={{ minHeight: MIN_CANVAS_HEIGHT }}
         role="img"
         aria-label={`Signal chain builder: ${chain.name}`}
         onClick={handleBackgroundClick}
+        onMouseDown={handleCanvasMouseDown}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseUp={handleCanvasMouseUp}
+        onMouseLeave={handleCanvasMouseUp}
       >
         <g
-          transform={
-            centerOffsetX > 0 ? `translate(${centerOffsetX}, 0)` : undefined
-          }
+          transform={`translate(${panOffset.x}, ${panOffset.y}) scale(${zoom}) translate(${centerOffsetX || 0}, 0)`}
         >
           {/* Connection lines between adjacent nodes */}
           {compatResults.map((result) => {
@@ -623,6 +841,10 @@ export function BuilderCanvas({
                 ? toNodePerf.gainDb
                 : undefined;
 
+            // Gap center for split line rendering
+            const gapCenterX =
+              fromLayout.x + fromLayout.width + NODE_SPACING / 2;
+
             return (
               <ConnectionLine
                 key={`conn-${result.fromIndex}-${result.toIndex}`}
@@ -633,6 +855,7 @@ export function BuilderCanvas({
                 compatible={result.compatible}
                 lossDb={lossDb}
                 gainDb={gainDb}
+                gapCenterX={gapCenterX}
               />
             );
           })}
@@ -645,7 +868,7 @@ export function BuilderCanvas({
 
               if (i === 0) {
                 // Before first node
-                dzX = CANVAS_PADDING_X - DROP_ZONE_WIDTH - 4;
+                dzX = 4; // always visible
                 dzY = svgHeight / 2 - NODE_HEIGHT / 2;
               } else if (i === chain.nodes.length) {
                 // After last node
@@ -688,7 +911,7 @@ export function BuilderCanvas({
               let dzY: number;
 
               if (i === 0) {
-                dzX = CANVAS_PADDING_X - DROP_ZONE_WIDTH - 4;
+                dzX = 4; // always visible
                 dzY = svgHeight / 2 - NODE_HEIGHT / 2;
               } else if (i === chain.nodes.length) {
                 const lastLayout = nodeLayouts[nodeLayouts.length - 1];
@@ -717,6 +940,7 @@ export function BuilderCanvas({
                   onDragOver={(e) => handleDropZoneDragOver(e, i)}
                   onDragLeave={handleDropZoneDragLeave}
                   onDrop={(e) => handleDropZoneDrop(e, i)}
+                  onClick={() => onAddEquipmentAtPosition?.(i)}
                 />
               );
             })}
@@ -755,10 +979,15 @@ export function BuilderCanvas({
                     inputCompatible={compat?.inputCompatible}
                     outputCompatible={compat?.outputCompatible}
                     isSelected={selectedNodeIndex === i}
+                    impedanceOhms={feedlineImpedances.get(run.id)}
                     x={layout.x}
                     y={layout.y}
                     width={layout.width}
                     onClick={() => onSelectNode(i)}
+                    onContextMenu={(e: React.MouseEvent) => {
+                      e.preventDefault();
+                      onNodeContextMenu?.(i, e.clientX, e.clientY);
+                    }}
                   />
                 );
               }
@@ -776,15 +1005,31 @@ export function BuilderCanvas({
                 inputCompatible={compat?.inputCompatible}
                 outputCompatible={compat?.outputCompatible}
                 isSelected={selectedNodeIndex === i}
+                accessoryCategory={nodeAccessoryCategories[i]}
+                impedanceLabel={nodeImpedanceLabels[i]}
                 x={layout.x}
                 y={layout.y}
                 width={layout.width}
                 height={layout.height}
                 onClick={() => onSelectNode(i)}
                 onDragStart={(e) => handleNodeDragStart(e, i)}
+                onContextMenu={(e: React.MouseEvent) => {
+                  e.preventDefault();
+                  onNodeContextMenu?.(i, e.clientX, e.clientY);
+                }}
               />
             );
           })}
+
+          {/* Ground bus bar */}
+          {showGroundBus && groundStubs.length > 0 && (
+            <GroundBusBar
+              startX={CANVAS_PADDING_X}
+              endX={svgWidth - CANVAS_PADDING_X * 2}
+              busY={svgHeight - 20}
+              groundStubs={groundStubs}
+            />
+          )}
         </g>
       </svg>
     </div>

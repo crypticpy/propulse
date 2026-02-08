@@ -73,7 +73,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const data = (await upstream.json()) as unknown;
 
-    type CallookAddress = {
+    type CallookLocation = {
       latitude?: unknown;
       longitude?: unknown;
       gridsquare?: unknown;
@@ -82,14 +82,13 @@ export default async function handler(request: Request): Promise<Response> {
     type CallookResponse = {
       status?: unknown;
       name?: unknown;
-      address?: CallookAddress;
+      location?: CallookLocation;
       current?: {
         operClass?: unknown;
         name?: unknown;
-        address?: CallookAddress;
         trustee?: { name?: unknown };
       };
-      previous?: { address?: CallookAddress };
+      trustee?: { name?: unknown };
       otherInfo?: {
         grantDate?: unknown;
         expiryDate?: unknown;
@@ -109,20 +108,20 @@ export default async function handler(request: Request): Promise<Response> {
       );
     }
 
-    const address =
-      payload.address ?? payload.current?.address ?? payload.previous?.address;
+    const loc = payload.location;
     const latitude =
-      address?.latitude !== undefined ? Number(address.latitude) : undefined;
+      loc?.latitude !== undefined ? Number(loc.latitude) : undefined;
     const longitude =
-      address?.longitude !== undefined ? Number(address.longitude) : undefined;
+      loc?.longitude !== undefined ? Number(loc.longitude) : undefined;
     const grid =
-      address?.gridsquare !== undefined
-        ? String(address.gridsquare)
-        : undefined;
+      loc?.gridsquare !== undefined ? String(loc.gridsquare) : undefined;
     const name =
       (typeof payload.name === "string" ? payload.name : undefined) ??
       (typeof payload.current?.name === "string"
         ? payload.current.name
+        : undefined) ??
+      (typeof payload.trustee?.name === "string"
+        ? payload.trustee.name
         : undefined) ??
       (typeof payload.current?.trustee?.name === "string"
         ? payload.current.trustee.name

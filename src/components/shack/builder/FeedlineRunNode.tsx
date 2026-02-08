@@ -6,15 +6,35 @@
  * Height expands dynamically based on the number of inline components.
  */
 
+import React from "react";
 import type { FeedlineRun } from "@/types/stationChain";
 import type { ConnectorType } from "@/types/shack";
 import type { NodePerformance } from "@/hooks/useChainPerformance";
-import { ConnectorBadge } from "./ConnectorBadge";
+import { TransmissionLineSymbol } from "./ElectricalSymbols";
+
+// ─── Connector short labels ─────────────────────────────────────────────────
+
+const CONNECTOR_SHORT_LABELS: Record<ConnectorType, string> = {
+  pl259: "PL-259",
+  n_type: "N",
+  bnc: "BNC",
+  sma: "SMA",
+  sma_rp: "RP-SMA",
+  tnc: "TNC",
+  din_7_16: "7/16",
+  f_type: "F",
+  binding_post: "Bind",
+  banana: "Ban",
+  hardline_7_8: "\u215E HL",
+  hardline_1_5_8: "1\u215D HL",
+  anderson_powerpole: "PP",
+  none: "",
+};
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
-const BG_COLOR = "rgba(245,158,11,0.12)"; // caution-amber/12
-const BG_SELECTED = "rgba(245,158,11,0.22)";
+const BG_COLOR = "rgba(20,184,166,0.12)"; // teal-500/12
+const BG_SELECTED = "rgba(20,184,166,0.22)";
 const BORDER_DEFAULT = "rgba(255,255,255,0.1)";
 const BORDER_SELECTED = "rgba(249,115,22,0.5)"; // plasma-orange/50
 const TEXT_PRIMARY = "#E5E7EB"; // gray-200
@@ -25,9 +45,9 @@ const DIVIDER = "rgba(255,255,255,0.06)";
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 
-const HEADER_HEIGHT = 44;
-const INLINE_ROW_HEIGHT = 22;
-const FOOTER_HEIGHT = 24;
+const HEADER_HEIGHT = 64;
+const INLINE_ROW_HEIGHT = 28;
+const FOOTER_HEIGHT = 28;
 const PADDING_X = 8;
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -44,10 +64,14 @@ export interface FeedlineRunNodeProps {
   inputCompatible?: boolean;
   outputCompatible?: boolean;
   isSelected?: boolean;
+  /** Characteristic impedance in ohms (e.g. 50, 75, 300) */
+  impedanceOhms?: number;
   x: number;
   y: number;
   width: number;
   onClick?: () => void;
+  /** Context menu handler (kebab button + right-click) */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -73,10 +97,12 @@ export function FeedlineRunNode({
   inputCompatible,
   outputCompatible,
   isSelected,
+  impedanceOhms,
   x,
   y,
   width,
   onClick,
+  onContextMenu,
 }: FeedlineRunNodeProps) {
   const totalHeight = getFeedlineRunNodeHeight(inlineLabels.length);
   const centerX = x + width / 2;
@@ -86,7 +112,14 @@ export function FeedlineRunNode({
   const borderColor = isSelected ? BORDER_SELECTED : BORDER_DEFAULT;
 
   return (
-    <g style={{ cursor: "pointer" }} onClick={onClick}>
+    <g
+      style={{ cursor: "pointer" }}
+      onClick={onClick}
+      onContextMenu={(e: React.MouseEvent) => {
+        e.preventDefault();
+        onContextMenu?.(e);
+      }}
+    >
       {/* Main container rect with dashed border */}
       <rect
         x={x}
@@ -101,14 +134,50 @@ export function FeedlineRunNode({
         strokeDasharray="6 3"
       />
 
+      {/* Kebab menu button (top-right) */}
+      <g
+        style={{ cursor: "pointer" }}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          onContextMenu?.(e);
+        }}
+      >
+        <circle
+          cx={x + width - 14}
+          cy={y + 16}
+          r={10}
+          fill="rgba(255,255,255,0.05)"
+        />
+        <text
+          x={x + width - 14}
+          y={y + 16}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#9CA3AF"
+          fontSize={12}
+          fontFamily="system-ui, sans-serif"
+          fontWeight={700}
+        >
+          {"\u22EF"}
+        </text>
+      </g>
+
+      {/* Transmission line symbol in header */}
+      <TransmissionLineSymbol
+        cx={centerX}
+        cy={y + 14}
+        color="#14B8A6"
+        size={16}
+      />
+
       {/* Header: feedline name */}
       <text
         x={centerX}
-        y={y + 18}
+        y={y + 30}
         textAnchor="middle"
         dominantBaseline="middle"
         fill={TEXT_PRIMARY}
-        fontSize={11}
+        fontSize={14}
         fontFamily="system-ui, sans-serif"
         fontWeight={500}
       >
@@ -119,14 +188,30 @@ export function FeedlineRunNode({
       {feedlineSubLabel && (
         <text
           x={centerX}
-          y={y + 32}
+          y={y + 44}
           textAnchor="middle"
           dominantBaseline="middle"
           fill={TEXT_SECONDARY}
-          fontSize={9}
+          fontSize={11}
           fontFamily="system-ui, sans-serif"
         >
           {truncate(feedlineSubLabel, maxLabelChars + 4)}
+        </text>
+      )}
+
+      {/* Impedance annotation */}
+      {impedanceOhms != null && (
+        <text
+          x={centerX}
+          y={y + 56}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#9CA3AF"
+          fontSize={11}
+          fontFamily="monospace"
+        >
+          Z = {impedanceOhms}
+          {"\u03A9"}
         </text>
       )}
 
@@ -161,7 +246,7 @@ export function FeedlineRunNode({
               textAnchor="start"
               dominantBaseline="middle"
               fill={TEXT_SECONDARY}
-              fontSize={8.5}
+              fontSize={10}
               fontFamily="system-ui, sans-serif"
             >
               {truncate(inline.name, Math.floor(maxLabelChars * 0.65))}
@@ -173,7 +258,7 @@ export function FeedlineRunNode({
               textAnchor="end"
               dominantBaseline="middle"
               fill={COLOR_LOSS}
-              fontSize={8.5}
+              fontSize={10}
               fontFamily="system-ui, sans-serif"
               fontWeight={500}
             >
@@ -200,22 +285,22 @@ export function FeedlineRunNode({
       {totalLossDb != null && (
         <g>
           <rect
-            x={centerX - 36}
-            y={y + totalHeight - FOOTER_HEIGHT + 3}
-            width={72}
-            height={18}
-            rx={9}
+            x={centerX - 40}
+            y={y + totalHeight - FOOTER_HEIGHT + 4}
+            width={80}
+            height={20}
+            rx={10}
             fill="rgba(239,68,68,0.12)"
             stroke={COLOR_LOSS}
             strokeWidth={0.5}
           />
           <text
             x={centerX}
-            y={y + totalHeight - FOOTER_HEIGHT + 12}
+            y={y + totalHeight - FOOTER_HEIGHT + 14}
             textAnchor="middle"
             dominantBaseline="middle"
             fill={COLOR_LOSS}
-            fontSize={9}
+            fontSize={11}
             fontFamily="system-ui, sans-serif"
             fontWeight={600}
           >
@@ -224,26 +309,48 @@ export function FeedlineRunNode({
         </g>
       )}
 
-      {/* Input connector badge (left edge) */}
-      {inputConnector !== null && (
-        <g transform={`translate(${x},${y + totalHeight / 2})`}>
-          <ConnectorBadge
-            connector={inputConnector}
-            compatible={inputCompatible}
-            side="left"
-          />
-        </g>
+      {/* Connector labels at bottom of node */}
+      {inputConnector && inputConnector !== "none" && (
+        <text
+          x={x + 8}
+          y={y + totalHeight - 8}
+          textAnchor="start"
+          dominantBaseline="auto"
+          fill={
+            inputCompatible === false
+              ? "#EF4444"
+              : inputCompatible === true
+                ? "#22C55E"
+                : "#6B7280"
+          }
+          fontSize={10}
+          fontFamily="system-ui, sans-serif"
+          fontWeight={500}
+        >
+          {inputCompatible === false ? "\u26A0 " : ""}
+          {CONNECTOR_SHORT_LABELS[inputConnector] || inputConnector}
+        </text>
       )}
-
-      {/* Output connector badge (right edge) */}
-      {outputConnector !== null && (
-        <g transform={`translate(${x + width},${y + totalHeight / 2})`}>
-          <ConnectorBadge
-            connector={outputConnector}
-            compatible={outputCompatible}
-            side="right"
-          />
-        </g>
+      {outputConnector && outputConnector !== "none" && (
+        <text
+          x={x + width - 8}
+          y={y + totalHeight - 8}
+          textAnchor="end"
+          dominantBaseline="auto"
+          fill={
+            outputCompatible === false
+              ? "#EF4444"
+              : outputCompatible === true
+                ? "#22C55E"
+                : "#6B7280"
+          }
+          fontSize={10}
+          fontFamily="system-ui, sans-serif"
+          fontWeight={500}
+        >
+          {outputCompatible === false ? "\u26A0 " : ""}
+          {CONNECTOR_SHORT_LABELS[outputConnector] || outputConnector}
+        </text>
       )}
     </g>
   );

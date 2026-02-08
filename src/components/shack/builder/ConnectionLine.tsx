@@ -26,6 +26,8 @@ export interface ConnectionLineProps {
   lossDb?: number;
   /** If provided, show gain annotation above line (green) */
   gainDb?: number;
+  /** X coordinate of the "+" DropZone circle center; when set the line splits around it */
+  gapCenterX?: number;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -38,12 +40,14 @@ export function ConnectionLine({
   compatible,
   lossDb,
   gainDb,
+  gapCenterX,
 }: ConnectionLineProps) {
   const markerId = useId() + "-arrow";
   const midX = (fromX + toX) / 2;
   const midY = (fromY + toY) / 2;
 
   const strokeColor = compatible ? COLOR_COMPATIBLE : COLOR_INCOMPATIBLE;
+  const dashArray = compatible ? "none" : "6 3";
 
   // Determine annotation text and color
   let annotationText: string | null = null;
@@ -63,42 +67,80 @@ export function ConnectionLine({
       <defs>
         <marker
           id={markerId}
-          markerWidth="8"
-          markerHeight="6"
-          refX="8"
-          refY="3"
+          markerWidth="14"
+          markerHeight="10"
+          refX="14"
+          refY="5"
           orient="auto"
         >
-          <polygon points="0 0, 8 3, 0 6" fill={strokeColor} />
+          <polygon points="0 0, 14 5, 0 10" fill={strokeColor} />
         </marker>
       </defs>
 
-      {/* Connection line */}
-      <line
-        x1={fromX}
-        y1={fromY}
-        x2={toX - 10}
-        y2={toY}
-        stroke={strokeColor}
-        strokeWidth={1.5}
-        strokeDasharray={compatible ? "none" : "6 3"}
-        markerEnd={`url(#${markerId})`}
-      />
+      {/* Connection line — split around gap or single */}
+      {gapCenterX != null ? (
+        <>
+          {/* Left segment: source → gap (no arrowhead) */}
+          <line
+            x1={fromX}
+            y1={fromY}
+            x2={gapCenterX - 20}
+            y2={fromY}
+            stroke={strokeColor}
+            strokeWidth={3}
+            strokeDasharray={dashArray}
+          />
+          {/* Right segment: gap → destination (with arrowhead) */}
+          <line
+            x1={gapCenterX + 20}
+            y1={toY}
+            x2={toX - 10}
+            y2={toY}
+            stroke={strokeColor}
+            strokeWidth={3}
+            strokeDasharray={dashArray}
+            markerEnd={`url(#${markerId})`}
+          />
+        </>
+      ) : (
+        <line
+          x1={fromX}
+          y1={fromY}
+          x2={toX - 10}
+          y2={toY}
+          stroke={strokeColor}
+          strokeWidth={3}
+          strokeDasharray={dashArray}
+          markerEnd={`url(#${markerId})`}
+        />
+      )}
 
-      {/* dB annotation centered above line */}
+      {/* dB annotation centered above line with background pill */}
       {annotationText && (
-        <text
-          x={midX}
-          y={midY - 10}
-          textAnchor="middle"
-          dominantBaseline="auto"
-          fill={annotationColor}
-          fontSize={9}
-          fontFamily="system-ui, sans-serif"
-          fontWeight={600}
-        >
-          {annotationText}
-        </text>
+        <>
+          <rect
+            x={midX - 35}
+            y={midY - 52}
+            width={70}
+            height={22}
+            rx={10}
+            fill="rgba(10,10,20,0.85)"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth={0.5}
+          />
+          <text
+            x={midX}
+            y={midY - 42}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill={annotationColor}
+            fontSize={13}
+            fontFamily="system-ui, sans-serif"
+            fontWeight={600}
+          >
+            {annotationText}
+          </text>
+        </>
       )}
     </g>
   );

@@ -8,23 +8,43 @@
 
 import React from "react";
 import type { ChainNode as ChainNodeType } from "@/types/stationChain";
-import type { ConnectorType } from "@/types/shack";
+import type { AccessoryCategory, ConnectorType } from "@/types/shack";
 import type { NodePerformance } from "@/hooks/useChainPerformance";
-import { ConnectorBadge } from "./ConnectorBadge";
+import { getElectricalSymbol } from "./ElectricalSymbols";
+import { getRadioPorts } from "@/lib/data/radioPorts";
+
+// ─── Connector short labels ─────────────────────────────────────────────────
+
+const CONNECTOR_SHORT_LABELS: Record<ConnectorType, string> = {
+  pl259: "PL-259",
+  n_type: "N",
+  bnc: "BNC",
+  sma: "SMA",
+  sma_rp: "RP-SMA",
+  tnc: "TNC",
+  din_7_16: "7/16",
+  f_type: "F",
+  binding_post: "Bind",
+  banana: "Ban",
+  hardline_7_8: "\u215E HL",
+  hardline_1_5_8: "1\u215D HL",
+  anderson_powerpole: "PP",
+  none: "",
+};
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
 const NODE_BG: Record<ChainNodeType["type"], string> = {
   radio: "rgba(249,115,22,0.15)", // plasma-orange/15
   accessory: "rgba(59,130,246,0.15)", // nebula-blue/15
-  feedline_run: "rgba(245,158,11,0.15)", // caution-amber/15
+  feedline_run: "rgba(20,184,166,0.15)", // teal-500/15
   antenna: "rgba(34,197,94,0.15)", // signal-green/15
 };
 
 const NODE_BG_SELECTED: Record<ChainNodeType["type"], string> = {
   radio: "rgba(249,115,22,0.25)",
   accessory: "rgba(59,130,246,0.25)",
-  feedline_run: "rgba(245,158,11,0.25)",
+  feedline_run: "rgba(20,184,166,0.25)",
   antenna: "rgba(34,197,94,0.25)",
 };
 
@@ -35,113 +55,13 @@ const TEXT_SECONDARY = "#9CA3AF"; // gray-400
 const COLOR_GAIN = "#22C55E"; // signal-green
 const COLOR_LOSS = "#EF4444"; // alert-red
 
-// ─── Node Icons (simple SVG paths) ──────────────────────────────────────────
+// ─── Type colors for symbols ────────────────────────────────────────────────
 
-function RadioIcon({ cx, cy }: { cx: number; cy: number }) {
-  return (
-    <g transform={`translate(${cx - 8},${cy - 8})`}>
-      {/* Radio wave icon */}
-      <path
-        d="M4 10 Q8 2 12 10 Q16 18 12 10"
-        stroke="#F97316"
-        strokeWidth={1.5}
-        fill="none"
-        strokeLinecap="round"
-      />
-      <circle cx={8} cy={10} r={2} fill="#F97316" />
-      <path
-        d="M1 10 Q8 -2 15 10"
-        stroke="#F97316"
-        strokeWidth={1}
-        fill="none"
-        strokeLinecap="round"
-        opacity={0.5}
-      />
-    </g>
-  );
-}
-
-function AccessoryIcon({ cx, cy }: { cx: number; cy: number }) {
-  return (
-    <g transform={`translate(${cx - 7},${cy - 8})`}>
-      {/* Bolt/lightning icon */}
-      <path
-        d="M8 1 L3 9 L7 9 L6 15 L11 7 L7 7 Z"
-        fill="#3B82F6"
-        stroke="none"
-      />
-    </g>
-  );
-}
-
-function FeedlineIcon({ cx, cy }: { cx: number; cy: number }) {
-  return (
-    <g transform={`translate(${cx - 8},${cy - 6})`}>
-      {/* Cable icon — wavy horizontal line */}
-      <path
-        d="M0 6 Q4 2 8 6 Q12 10 16 6"
-        stroke="#F59E0B"
-        strokeWidth={2}
-        fill="none"
-        strokeLinecap="round"
-      />
-    </g>
-  );
-}
-
-function AntennaIcon({ cx, cy }: { cx: number; cy: number }) {
-  return (
-    <g transform={`translate(${cx - 7},${cy - 9})`}>
-      {/* Antenna tower icon */}
-      <line
-        x1={7}
-        y1={2}
-        x2={7}
-        y2={16}
-        stroke="#22C55E"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-      <line
-        x1={2}
-        y1={6}
-        x2={7}
-        y2={2}
-        stroke="#22C55E"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-      <line
-        x1={12}
-        y1={6}
-        x2={7}
-        y2={2}
-        stroke="#22C55E"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-      <line
-        x1={3}
-        y1={11}
-        x2={11}
-        y2={11}
-        stroke="#22C55E"
-        strokeWidth={1}
-        strokeLinecap="round"
-        opacity={0.6}
-      />
-    </g>
-  );
-}
-
-const NODE_ICON: Record<
-  ChainNodeType["type"],
-  React.FC<{ cx: number; cy: number }>
-> = {
-  radio: RadioIcon,
-  accessory: AccessoryIcon,
-  feedline_run: FeedlineIcon,
-  antenna: AntennaIcon,
+const TYPE_COLORS: Record<ChainNodeType["type"], string> = {
+  radio: "#F97316",
+  accessory: "#3B82F6",
+  feedline_run: "#14B8A6",
+  antenna: "#22C55E",
 };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -157,6 +77,10 @@ export interface ChainNodeProps {
   outputCompatible?: boolean;
   isSelected?: boolean;
   isDragging?: boolean;
+  /** Accessory category — used for symbol resolution */
+  accessoryCategory?: AccessoryCategory;
+  /** Impedance / gain annotation, e.g. "50\u03A9", "SWR 1.3:1", "+13 dB" */
+  impedanceLabel?: string;
   /** Position in the SVG canvas */
   x: number;
   y: number;
@@ -166,6 +90,8 @@ export interface ChainNodeProps {
   onClick?: () => void;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
+  /** Context menu handler (kebab button + right-click) */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -173,6 +99,26 @@ export interface ChainNodeProps {
 function truncateLabel(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
   return text.slice(0, maxChars - 1) + "\u2026";
+}
+
+function getTypeLabel(
+  type: ChainNodeType["type"],
+  category?: AccessoryCategory,
+): string {
+  switch (type) {
+    case "radio":
+      return "RADIO";
+    case "antenna":
+      return "ANTENNA";
+    case "feedline_run":
+      return "CABLE";
+    case "accessory":
+      if (category === "amplifier") return "AMP";
+      if (category === "tuner") return "TUNER";
+      if (category === "filter") return "FILTER";
+      if (category === "switch") return "SWITCH";
+      return "ACCESSORY";
+  }
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -188,6 +134,8 @@ export function ChainNode({
   outputCompatible,
   isSelected,
   isDragging,
+  accessoryCategory,
+  impedanceLabel,
   x,
   y,
   width,
@@ -195,12 +143,14 @@ export function ChainNode({
   onClick,
   onDragStart,
   onDragEnd,
+  onContextMenu,
 }: ChainNodeProps) {
   const centerX = x + width / 2;
   const bgColor = isSelected ? NODE_BG_SELECTED[node.type] : NODE_BG[node.type];
   const borderColor = isSelected ? BORDER_SELECTED : BORDER_DEFAULT;
 
-  const IconComponent = NODE_ICON[node.type];
+  const typeColor = TYPE_COLORS[node.type];
+  const SymbolComp = getElectricalSymbol(node.type, accessoryCategory);
 
   // Performance badge
   const netDb = nodePerformance?.netDb;
@@ -213,17 +163,21 @@ export function ChainNode({
   const perfColor = netDb != null && netDb >= 0 ? COLOR_GAIN : COLOR_LOSS;
 
   // Layout zones
-  const iconCy = y + 24;
-  const labelY = y + 48;
-  const subLabelY = y + 62;
+  const iconCy = y + 32;
+  const labelY = y + 58;
+  const subLabelY = y + 74;
 
-  // Max chars based on width (rough: ~7px per char at font 11)
-  const maxChars = Math.floor(width / 7.5);
+  // Max chars based on width (rough: ~8.5px per char at font 14)
+  const maxChars = Math.floor(width / 8.5);
 
   return (
     <g
       style={{ cursor: "pointer", opacity: isDragging ? 0.5 : 1 }}
       onClick={onClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu?.(e);
+      }}
       {...({
         draggable: "true",
         onDragStart,
@@ -243,8 +197,52 @@ export function ChainNode({
         strokeWidth={isSelected ? 2 : 1}
       />
 
-      {/* Icon */}
-      <IconComponent cx={centerX} cy={iconCy} />
+      {/* Kebab menu button (top-right) */}
+      <g
+        style={{ cursor: "pointer" }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onContextMenu?.(e);
+        }}
+      >
+        <circle
+          cx={x + width - 14}
+          cy={y + 16}
+          r={10}
+          fill="rgba(255,255,255,0.05)"
+          className="hover-circle"
+        />
+        <text
+          x={x + width - 14}
+          y={y + 16}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#9CA3AF"
+          fontSize={12}
+          fontFamily="system-ui, sans-serif"
+          fontWeight={700}
+        >
+          {"\u22EF"}
+        </text>
+      </g>
+
+      {/* Type label above icon */}
+      <text
+        x={centerX}
+        y={y + 14}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill={typeColor}
+        fontSize={11}
+        fontFamily="system-ui, sans-serif"
+        fontWeight={700}
+        letterSpacing="0.05em"
+      >
+        {getTypeLabel(node.type, accessoryCategory)}
+      </text>
+
+      {/* Electrical symbol */}
+      <SymbolComp cx={centerX} cy={iconCy} color={typeColor} size={32} />
 
       {/* Label */}
       <text
@@ -253,7 +251,7 @@ export function ChainNode({
         textAnchor="middle"
         dominantBaseline="middle"
         fill={TEXT_PRIMARY}
-        fontSize={11}
+        fontSize={14}
         fontFamily="system-ui, sans-serif"
         fontWeight={500}
       >
@@ -268,10 +266,26 @@ export function ChainNode({
           textAnchor="middle"
           dominantBaseline="middle"
           fill={TEXT_SECONDARY}
-          fontSize={9}
+          fontSize={11}
           fontFamily="system-ui, sans-serif"
         >
           {truncateLabel(subLabel, maxChars + 2)}
+        </text>
+      )}
+
+      {/* Impedance / annotation label */}
+      {impedanceLabel && (
+        <text
+          x={centerX}
+          y={subLabelY + 14}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#6B7280"
+          fontSize={10}
+          fontFamily="monospace"
+          fontWeight={500}
+        >
+          {impedanceLabel}
         </text>
       )}
 
@@ -279,9 +293,9 @@ export function ChainNode({
       {showPerf && perfText && (
         <g>
           <rect
-            x={x + width - 56}
+            x={x + width - 70}
             y={y + height - 20}
-            width={50}
+            width={64}
             height={16}
             rx={8}
             fill={netDb! >= 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)"}
@@ -289,12 +303,12 @@ export function ChainNode({
             strokeWidth={0.5}
           />
           <text
-            x={x + width - 31}
+            x={x + width - 38}
             y={y + height - 12}
             textAnchor="middle"
             dominantBaseline="middle"
             fill={perfColor}
-            fontSize={8}
+            fontSize={10}
             fontFamily="system-ui, sans-serif"
             fontWeight={600}
           >
@@ -303,26 +317,79 @@ export function ChainNode({
         </g>
       )}
 
-      {/* Input connector badge (left edge) */}
-      {inputConnector !== null && (
-        <g transform={`translate(${x},${y + height / 2})`}>
-          <ConnectorBadge
-            connector={inputConnector}
-            compatible={inputCompatible}
-            side="left"
-          />
-        </g>
-      )}
+      {/* Radio port indicator pills (right inner edge) */}
+      {node.type === "radio" &&
+        getRadioPorts().map((port, idx) => (
+          <g key={port.label}>
+            <rect
+              x={x + width - 54}
+              y={y + 44 + idx * 24}
+              width={48}
+              height={20}
+              rx={10}
+              fill={port.color}
+              fillOpacity={0.15}
+              stroke={port.color}
+              strokeWidth={0.5}
+              strokeOpacity={0.4}
+            />
+            <text
+              x={x + width - 30}
+              y={y + 44 + idx * 24 + 10}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={port.color}
+              fontSize={11}
+              fontWeight={600}
+              fontFamily="system-ui, sans-serif"
+            >
+              {port.label}
+            </text>
+          </g>
+        ))}
 
-      {/* Output connector badge (right edge) */}
-      {outputConnector !== null && (
-        <g transform={`translate(${x + width},${y + height / 2})`}>
-          <ConnectorBadge
-            connector={outputConnector}
-            compatible={outputCompatible}
-            side="right"
-          />
-        </g>
+      {/* Connector labels at bottom of node */}
+      {inputConnector && inputConnector !== "none" && (
+        <text
+          x={x + 8}
+          y={y + height - 8}
+          textAnchor="start"
+          dominantBaseline="auto"
+          fill={
+            inputCompatible === false
+              ? "#EF4444"
+              : inputCompatible === true
+                ? "#22C55E"
+                : "#6B7280"
+          }
+          fontSize={10}
+          fontFamily="system-ui, sans-serif"
+          fontWeight={500}
+        >
+          {inputCompatible === false ? "\u26A0 " : ""}
+          {CONNECTOR_SHORT_LABELS[inputConnector] || inputConnector}
+        </text>
+      )}
+      {outputConnector && outputConnector !== "none" && (
+        <text
+          x={x + width - 8}
+          y={y + height - 8}
+          textAnchor="end"
+          dominantBaseline="auto"
+          fill={
+            outputCompatible === false
+              ? "#EF4444"
+              : outputCompatible === true
+                ? "#22C55E"
+                : "#6B7280"
+          }
+          fontSize={10}
+          fontFamily="system-ui, sans-serif"
+          fontWeight={500}
+        >
+          {outputCompatible === false ? "\u26A0 " : ""}
+          {CONNECTOR_SHORT_LABELS[outputConnector] || outputConnector}
+        </text>
       )}
     </g>
   );

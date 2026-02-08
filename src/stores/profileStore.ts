@@ -15,13 +15,7 @@ import type {
   SocialLink,
 } from "@/types/user";
 
-// Lazy getter for settingsStore — avoids circular import issues at module load time
-// while ensuring the store is always available when needed (not a race condition).
-function getSettingsStore() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return (require("./settingsStore") as typeof import("./settingsStore"))
-    .useSettingsStore;
-}
+import { useSettingsStore } from "./settingsStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,10 +65,12 @@ interface ProfileStore {
   license: LicenseInfo | undefined;
   licenseHistory: LicenseHistoryEntry[];
   bio: string;
+  profileImageUrl: string;
   socialLinks: SocialLink[];
 
   setStation: (station: UserStation | null) => void;
   setBio: (bio: string) => void;
+  setProfileImageUrl: (url: string) => void;
   setSocialLinks: (links: SocialLink[]) => void;
 
   // Location management
@@ -123,6 +119,7 @@ export const useProfileStore = create<ProfileStore>()(
       license: undefined,
       licenseHistory: [],
       bio: "",
+      profileImageUrl: "",
       socialLinks: [],
 
       setStation: (station) =>
@@ -155,6 +152,7 @@ export const useProfileStore = create<ProfileStore>()(
         }),
 
       setBio: (bio) => set({ bio }),
+      setProfileImageUrl: (url) => set({ profileImageUrl: url }),
       setSocialLinks: (links) => set({ socialLinks: links }),
 
       // === Location Management ===
@@ -379,9 +377,8 @@ export const useProfileStore = create<ProfileStore>()(
       setLicense: (license) =>
         set(() => {
           // Cross-store side effect: sync licenseClass to settingsStore
-          const settingsStore = getSettingsStore();
-          const currentClass = settingsStore.getState().licenseClass;
-          settingsStore
+          const currentClass = useSettingsStore.getState().licenseClass;
+          useSettingsStore
             .getState()
             .setLicenseClass(
               license?.class ?? currentClass ?? ("GENERAL" as LicenseClass),
@@ -404,7 +401,7 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: "propulse-profile",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -412,18 +409,22 @@ export const useProfileStore = create<ProfileStore>()(
         license: state.license,
         licenseHistory: state.licenseHistory,
         bio: state.bio,
+        profileImageUrl: state.profileImageUrl,
         socialLinks: state.socialLinks,
-        // serviceCredentials intentionally NOT persisted
+        serviceCredentials: state.serviceCredentials,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
         if (version < 2) {
-          // Add new fields with defaults
           if (!("bio" in state)) state.bio = "";
           if (!("socialLinks" in state)) state.socialLinks = [];
         }
         if (version < 3) {
           if (!("licenseHistory" in state)) state.licenseHistory = [];
+        }
+        if (version < 4) {
+          if (!("profileImageUrl" in state)) state.profileImageUrl = "";
+          if (!("serviceCredentials" in state)) state.serviceCredentials = {};
         }
         return state as unknown as ProfileStore;
       },

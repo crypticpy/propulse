@@ -29,6 +29,7 @@ import type {
   FeedlineRun,
 } from "@/types/stationChain";
 import { MAX_CHAINS, MAX_CHAIN_NODES } from "@/types/stationChain";
+import { computeInsertPosition } from "@/lib/chainOrdering";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -187,6 +188,11 @@ interface ShackStore {
     chainId: string,
     fromIndex: number,
     toIndex: number,
+  ) => { ok: true } | { ok: false; error: string };
+  swapNodeEquipment: (
+    chainId: string,
+    nodeIndex: number,
+    newEquipmentId: string,
   ) => { ok: true } | { ok: false; error: string };
   addFeedlineRun: (
     chainId: string,
@@ -1343,6 +1349,77 @@ export const useShackStore = create<ShackStore>()(
         return result;
       },
 
+      swapNodeEquipment: (chainId, nodeIndex, newEquipmentId) => {
+        let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        set((state) => {
+          const idx = state.stationChains.findIndex((c) => c.id === chainId);
+          if (idx === -1) {
+            result = { ok: false, error: "Chain not found" };
+            return state;
+          }
+          const chain = state.stationChains[idx];
+          if (nodeIndex < 0 || nodeIndex >= chain.nodes.length) {
+            result = { ok: false, error: "Invalid node index" };
+            return state;
+          }
+          const node = chain.nodes[nodeIndex];
+
+          if (node.type === "feedline_run") {
+            // For feedline_run nodes, update the referenced FeedlineRun's feedlineId
+            const run = chain.feedlineRuns.find(
+              (r) => r.id === node.feedlineRunId,
+            );
+            if (!run) {
+              result = { ok: false, error: "Feedline run not found" };
+              return state;
+            }
+            const updatedRuns = chain.feedlineRuns.map((r) =>
+              r.id === node.feedlineRunId
+                ? { ...r, feedlineId: newEquipmentId }
+                : r,
+            );
+            return {
+              stationChains: state.stationChains.map((c, i) =>
+                i === idx ? { ...c, feedlineRuns: updatedRuns } : c,
+              ),
+            };
+          }
+
+          // For radio, antenna, accessory: replace the node in the nodes array
+          let newNode: ChainNode;
+          switch (node.type) {
+            case "radio":
+              newNode = { type: "radio", radioId: newEquipmentId };
+              break;
+            case "antenna":
+              newNode = { type: "antenna", antennaId: newEquipmentId };
+              break;
+            case "accessory":
+              newNode = { type: "accessory", accessoryId: newEquipmentId };
+              break;
+          }
+          const updatedNodes = chain.nodes.map((n, i) =>
+            i === nodeIndex ? newNode : n,
+          );
+          return {
+            stationChains: state.stationChains.map((c, i) =>
+              i === idx ? { ...c, nodes: updatedNodes } : c,
+            ),
+          };
+        });
+        if (result.ok) {
+          const chain = get().stationChains.find((c) => c.id === chainId);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "chain",
+            equipmentId: chainId,
+            equipmentName: chain?.name ?? "Unknown",
+            details: "Swapped equipment in chain",
+          });
+        }
+        return result;
+      },
+
       addFeedlineRun: (chainId, run) => {
         let runId: string | null = null;
         set((state) => {
@@ -1354,24 +1431,22 @@ export const useShackStore = create<ShackStore>()(
           runId = newRunId;
           const newRun: FeedlineRun = { ...run, id: newRunId };
           const updatedRuns = [...chain.feedlineRuns, newRun];
-          // Insert feedline_run node before the last antenna node if one exists
+          // Smart auto-ordering via canonical rank system
           const updatedNodes = [...chain.nodes];
           const feedlineNode: ChainNode = {
             type: "feedline_run",
             feedlineRunId: newRunId,
           };
-          let lastAntennaIdx = -1;
-          for (let i = updatedNodes.length - 1; i >= 0; i--) {
-            if (updatedNodes[i].type === "antenna") {
-              lastAntennaIdx = i;
-              break;
-            }
-          }
-          if (lastAntennaIdx >= 0) {
-            updatedNodes.splice(lastAntennaIdx, 0, feedlineNode);
-          } else {
-            updatedNodes.push(feedlineNode);
-          }
+          const getAccCat = (accId: string) => {
+            const acc = state.accessories.find((a) => a.id === accId);
+            return acc?.category ?? null;
+          };
+          const insertPos = computeInsertPosition(
+            updatedNodes,
+            feedlineNode,
+            getAccCat,
+          );
+          updatedNodes.splice(insertPos, 0, feedlineNode);
           return {
             stationChains: state.stationChains.map((c, i) =>
               i === idx

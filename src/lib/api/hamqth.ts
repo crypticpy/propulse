@@ -26,6 +26,12 @@ export interface HamQTHLookupResult {
   lat?: number;
   /** Longitude in decimal degrees */
   lon?: number;
+  /** Operator bio/about text */
+  bio?: string;
+  /** Profile picture URL */
+  picture?: string;
+  /** Personal website URL */
+  web?: string;
   /** Data source identifier */
   source: "hamqth";
 }
@@ -131,6 +137,9 @@ export async function fetchHamQTH(
         data.lon !== undefined && data.lon !== null
           ? Number(data.lon)
           : undefined,
+      bio: data.bio,
+      picture: data.picture,
+      web: data.web,
       source: "hamqth",
     };
   } catch (error) {

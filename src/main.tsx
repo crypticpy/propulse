@@ -10,6 +10,11 @@ import { runStoreDecompositionMigration } from "@/lib/migrations/userStoreMigrat
 // Must execute synchronously before React renders and stores hydrate
 runStoreDecompositionMigration();
 
+// Development utilities: attach __seedEquipment / __clearEquipment to window
+if (import.meta.env.DEV) {
+  import("@/lib/dev");
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

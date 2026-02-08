@@ -5,9 +5,13 @@
  * Each discovered field is a checkbox row with conflict detection —
  * fields where the user already has a value are unchecked by default.
  * Source badges (QRZ / HamQTH / Callook) indicate data provenance.
+ *
+ * Includes an inline QRZ API Key input when QRZ isn't configured,
+ * so users can easily enable bio/image lookups.
  */
 
 import { useState, useCallback } from "react";
+import { useProfileStore } from "@/stores/profileStore";
 import type { IngestionResult } from "@/hooks/useCallsignIngestion";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -22,6 +26,7 @@ export type IngestionField =
   | "expiryDate"
   | "licenseId"
   | "bio"
+  | "imageUrl"
   | "latLon";
 
 export interface CurrentValues {
@@ -101,6 +106,17 @@ const FIELD_DEFS: FieldDef[] = [
         : undefined,
   },
   {
+    key: "imageUrl",
+    label: "Photo",
+    getValue: (r) =>
+      r.imageUrl
+        ? r.imageUrl.length > 60
+          ? r.imageUrl.slice(0, 60) + "..."
+          : r.imageUrl
+        : undefined,
+    getCurrentValue: () => undefined,
+  },
+  {
     key: "latLon",
     label: "Location",
     getValue: (r) =>
@@ -126,6 +142,12 @@ export function CallsignLookupSuggestions({
   // Track which fields the user has checked
   const [selected, setSelected] = useState<Set<IngestionField>>(new Set());
   const [initialized, setInitialized] = useState(false);
+
+  // QRZ API key state
+  const qrzApiKey = useProfileStore((s) => s.serviceCredentials.qrz?.apiKey);
+  const setServiceCredentials = useProfileStore((s) => s.setServiceCredentials);
+  const [showQrzInput, setShowQrzInput] = useState(false);
+  const [qrzKeyDraft, setQrzKeyDraft] = useState("");
 
   // Initialize selection when result changes
   const initSelection = useCallback(
@@ -163,6 +185,15 @@ export function CallsignLookupSuggestions({
     });
   };
 
+  const handleSaveQrzKey = () => {
+    const trimmed = qrzKeyDraft.trim();
+    if (trimmed) {
+      setServiceCredentials({ qrz: { apiKey: trimmed } });
+      setShowQrzInput(false);
+      setQrzKeyDraft("");
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -180,6 +211,10 @@ export function CallsignLookupSuggestions({
   // Filter to fields that have new values
   const availableFields = FIELD_DEFS.filter((def) => def.getValue(result));
   if (availableFields.length === 0) return null;
+
+  const hasQrz = result.sources.includes("qrz");
+  const hasHamqth = result.sources.includes("hamqth");
+  const missingRichSources = !hasQrz && !hasHamqth;
 
   return (
     <div className="mt-2 px-3 py-2.5 bg-signal-green/5 border border-signal-green/20 rounded-lg">
@@ -240,6 +275,54 @@ export function CallsignLookupSuggestions({
           );
         })}
       </div>
+
+      {/* QRZ API Key prompt — shown when QRZ isn't in sources and no key configured */}
+      {missingRichSources && !qrzApiKey && (
+        <div className="mt-2 pt-2 border-t border-white/5">
+          {!showQrzInput ? (
+            <button
+              type="button"
+              onClick={() => setShowQrzInput(true)}
+              className="text-xs text-nebula-blue hover:text-nebula-blue/80 transition-colors"
+            >
+              + Add QRZ API key for bio, image &amp; more data
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={qrzKeyDraft}
+                onChange={(e) => setQrzKeyDraft(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveQrzKey()}
+                placeholder="QRZ XML API key"
+                className="flex-1 bg-void-black border border-white/10 rounded px-2 py-1 text-xs
+                           text-gray-200 placeholder-gray-600 focus:border-nebula-blue/50 focus:outline-none"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleSaveQrzKey}
+                disabled={!qrzKeyDraft.trim()}
+                className="px-2 py-1 text-xs rounded bg-nebula-blue/20 text-nebula-blue
+                           border border-nebula-blue/30 hover:bg-nebula-blue/30 transition-colors
+                           disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQrzInput(false);
+                  setQrzKeyDraft("");
+                }}
+                className="text-xs text-gray-500 hover:text-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Apply button */}
       <div className="mt-2.5 flex justify-end">

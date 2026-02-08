@@ -151,6 +151,9 @@ async function lookupCallsign(
     const itu = extractXmlValue(xml, "itu");
     const latitude = extractXmlValue(xml, "latitude");
     const longitude = extractXmlValue(xml, "longitude");
+    const about = extractXmlValue(xml, "about");
+    const picture = extractXmlValue(xml, "picture");
+    const web = extractXmlValue(xml, "web");
 
     // Build name from available fields
     const name = nick || adrName || undefined;
@@ -178,6 +181,9 @@ async function lookupCallsign(
         ituzone: Number.isFinite(ituzone) ? ituzone : undefined,
         lat: Number.isFinite(lat) ? lat : undefined,
         lon: Number.isFinite(lon) ? lon : undefined,
+        bio: about,
+        picture,
+        web,
         source: "hamqth",
       },
     };

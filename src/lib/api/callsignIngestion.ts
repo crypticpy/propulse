@@ -151,7 +151,7 @@ export async function ingestCallsign(
     expiryDate: pickString("expiryDate"),
     licenseId: pickString("licenseId"),
     bio: pickString("bioText", "bio"),
-    imageUrl: pickString("imageUrl"),
+    imageUrl: pickString("imageUrl", "image", "picture"),
     cqzone: pickNumber("cqzone"),
     ituzone: pickNumber("ituzone"),
     sources,

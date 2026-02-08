@@ -1,5 +1,5 @@
 /**
- * NodeConfigPanel -- Slide-in right panel showing details for a selected
+ * NodeConfigPanel -- Centered modal showing details for a selected
  * chain node with swap/remove actions.
  *
  * Renders content appropriate to the node type:
@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import type { StationChain, FeedlineRun } from "@/types/stationChain";
 import {
   ANTENNA_TYPE_LABELS,
@@ -135,87 +136,105 @@ export function NodeConfigPanel({
   const node = chain.nodes[nodeIndex];
   if (!node) return null;
 
-  return (
-    <div className="fixed inset-y-0 right-0 w-80 z-50 flex flex-col bg-void-black/95 backdrop-blur-md border-l border-white/10 shadow-2xl animate-slide-in-right">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">
-          Node Details
-        </h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
-          aria-label="Close panel"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-        {node.type === "radio" && (
-          <RadioSection
-            radioId={node.radioId}
-            radios={radios}
-            operatingPower={chain.operatingPowerWatts}
-          />
-        )}
-        {node.type === "accessory" && (
-          <AccessorySection
-            accessoryId={node.accessoryId}
-            accessories={accessories}
-          />
-        )}
-        {node.type === "feedline_run" && (
-          <FeedlineRunSection
-            feedlineRunId={node.feedlineRunId}
-            chain={chain}
-            feedlines={feedlines}
-            inlineComponents={inlineComponents}
-          />
-        )}
-        {node.type === "antenna" && (
-          <AntennaSection antennaId={node.antennaId} antennas={antennas} />
-        )}
-      </div>
-
-      {/* Footer actions */}
-      <div className="px-4 py-3 border-t border-white/10 space-y-2">
-        {onSwapEquipment && (
-          <ActionButton onClick={() => onSwapEquipment(nodeIndex)}>
+  const panel = (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      {/* Modal */}
+      <div className="relative bg-void-black/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+          <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">
             {node.type === "radio"
-              ? "Swap Radio"
+              ? "Radio Details"
               : node.type === "antenna"
-                ? "Swap Antenna"
+                ? "Antenna Details"
                 : node.type === "feedline_run"
-                  ? "Swap Feedline"
-                  : "Swap Accessory"}
-          </ActionButton>
-        )}
-        {onRemoveNode && (
-          <ActionButton
-            variant="danger"
-            onClick={() => onRemoveNode(nodeIndex)}
+                  ? "Feedline Details"
+                  : "Accessory Details"}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+            aria-label="Close panel"
           >
-            Remove from Chain
-          </ActionButton>
-        )}
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {node.type === "radio" && (
+            <RadioSection
+              radioId={node.radioId}
+              radios={radios}
+              operatingPower={chain.operatingPowerWatts}
+            />
+          )}
+          {node.type === "accessory" && (
+            <AccessorySection
+              accessoryId={node.accessoryId}
+              accessories={accessories}
+            />
+          )}
+          {node.type === "feedline_run" && (
+            <FeedlineRunSection
+              feedlineRunId={node.feedlineRunId}
+              chain={chain}
+              feedlines={feedlines}
+              inlineComponents={inlineComponents}
+            />
+          )}
+          {node.type === "antenna" && (
+            <AntennaSection antennaId={node.antennaId} antennas={antennas} />
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <div className="px-5 py-3 border-t border-white/10 space-y-2">
+          {onSwapEquipment && (
+            <ActionButton onClick={() => onSwapEquipment(nodeIndex)}>
+              {node.type === "radio"
+                ? "Swap Radio"
+                : node.type === "antenna"
+                  ? "Swap Antenna"
+                  : node.type === "feedline_run"
+                    ? "Swap Feedline"
+                    : "Swap Accessory"}
+            </ActionButton>
+          )}
+          {onRemoveNode && (
+            <ActionButton
+              variant="danger"
+              onClick={() => onRemoveNode(nodeIndex)}
+            >
+              Remove from Chain
+            </ActionButton>
+          )}
+        </div>
       </div>
     </div>
   );
+
+  return createPortal(panel, document.body);
 }
 
 // ---- Radio Section ---------------------------------------------------------
@@ -244,6 +263,11 @@ function RadioSection({
             equipment?.displayName ||
             `${equipment?.manufacturer ?? ""} ${equipment?.model ?? ""}`.trim() ||
             "Unknown Radio"}
+          {equipment && (
+            <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+              Your Inventory
+            </span>
+          )}
         </div>
         {nickname && equipment && (
           <div className="text-xs text-gray-500 mt-0.5">
@@ -314,7 +338,12 @@ function AccessorySection({
   return (
     <dl className="space-y-3">
       <div>
-        <div className="text-lg font-bold text-gray-100">{acc.name}</div>
+        <div className="text-lg font-bold text-gray-100">
+          {acc.name}
+          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+            Your Inventory
+          </span>
+        </div>
         <Badge color="bg-plasma-orange/15 text-plasma-orange">
           {ACCESSORY_CATEGORY_LABELS[acc.category]}
         </Badge>
@@ -504,7 +533,12 @@ function FeedlineRunSection({
   return (
     <dl className="space-y-3">
       <div>
-        <div className="text-lg font-bold text-gray-100">{feedline.name}</div>
+        <div className="text-lg font-bold text-gray-100">
+          {feedline.name}
+          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+            Your Inventory
+          </span>
+        </div>
         <Badge>{FEEDLINE_TYPE_LABELS[feedline.feedlineType]}</Badge>
       </div>
 
@@ -552,7 +586,7 @@ function FeedlineRunSection({
         </SectionLabel>
         {resolvedInlines.length === 0 ? (
           <dd className="text-xs text-gray-500 mt-1 italic">
-            No inline components
+            No inline components — add baluns, chokes, or ferrites here
           </dd>
         ) : (
           <dd className="mt-1 space-y-1.5">
@@ -677,7 +711,12 @@ function AntennaSection({
   return (
     <dl className="space-y-3">
       <div>
-        <div className="text-lg font-bold text-gray-100">{antenna.name}</div>
+        <div className="text-lg font-bold text-gray-100">
+          {antenna.name}
+          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+            Your Inventory
+          </span>
+        </div>
         <Badge>{ANTENNA_TYPE_LABELS[antenna.antennaType]}</Badge>
       </div>
 

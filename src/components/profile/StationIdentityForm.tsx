@@ -187,6 +187,11 @@ export function StationIdentityForm({
         useProfileStore.getState().setBio(result.bio);
       }
 
+      // Image → profileStore.setProfileImageUrl
+      if (selectedFields.has("imageUrl") && result.imageUrl) {
+        useProfileStore.getState().setProfileImageUrl(result.imageUrl);
+      }
+
       // Lat/Lon → update station
       if (
         selectedFields.has("latLon") &&

@@ -31,6 +31,7 @@ export default {
 
         // Additional accents
         "sunspot-blue": "#3a86ff",
+        "feedline-teal": "#14B8A6",
       },
       fontFamily: {
         orbitron: ["Orbitron", "sans-serif"],

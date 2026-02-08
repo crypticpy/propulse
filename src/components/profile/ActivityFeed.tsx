@@ -8,6 +8,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useSocialStore } from "@/stores/socialStore";
 import type { ActivityEventType } from "@/types/social";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { AuthRequiredPlaceholder } from "@/components/auth";
 
 // ── Time formatting ─────────────────────────────────────────────────────
 
@@ -77,6 +80,18 @@ function eventDescription(
 // ── Component ───────────────────────────────────────────────────────────
 
 export function ActivityFeed() {
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+
+  if (isSupabaseConfigured && !isAuthenticated) {
+    return (
+      <AuthRequiredPlaceholder prompt="Sign in to see your activity feed" />
+    );
+  }
+
+  return <ActivityFeedInner />;
+}
+
+function ActivityFeedInner() {
   const feed = useSocialStore((s) => s.feed);
   const isLoading = useSocialStore((s) => s.isLoadingFeed);
   const feedCursor = useSocialStore((s) => s.feedCursor);

@@ -16,6 +16,10 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { PublicProfile } from "@/types/social";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { useSocialStore } from "@/stores/socialStore";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { AuthRequiredPlaceholder } from "@/components/auth";
 import { LocationManager } from "@/components/settings/LocationManager";
 import {
   BioSection,
@@ -54,9 +58,21 @@ function OtherProfileView({
   callsign: string;
   isMobile: boolean;
 }) {
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const requireAuth = useRequireAuth();
+  const following = useSocialStore((s) => s.following);
+  const fetchFollowing = useSocialStore((s) => s.fetchFollowing);
+  const followUser = useSocialStore((s) => s.followUser);
+  const unfollowUser = useSocialStore((s) => s.unfollowUser);
+
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch following list for follow button state
+  useEffect(() => {
+    if (isAuthenticated) fetchFollowing();
+  }, [isAuthenticated, fetchFollowing]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -127,6 +143,25 @@ function OtherProfileView({
     };
   }, [callsign]);
 
+  // Auth gate: viewing other profiles requires sign-in
+  if (isSupabaseConfigured && !isAuthenticated) {
+    return (
+      <div
+        className={isMobile ? "px-4 py-4" : "max-w-[720px] mx-auto px-6 py-6"}
+      >
+        <div className="mb-4">
+          <Link
+            to="/profile"
+            className="text-sm text-plasma-orange hover:text-plasma-orange/80 underline"
+          >
+            &larr; Back to My Profile
+          </Link>
+        </div>
+        <AuthRequiredPlaceholder prompt="Sign in to view operator profiles" />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -183,10 +218,41 @@ function OtherProfileView({
               className="w-16 h-16 rounded-full object-cover border-2 border-white/10"
             />
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-plasma-orange tracking-wide font-mono">
-              {profile.callsign || "UNKNOWN"}
-            </h1>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-plasma-orange tracking-wide font-mono">
+                {profile.callsign || "UNKNOWN"}
+              </h1>
+              {/* Follow/Unfollow button */}
+              {isAuthenticated &&
+                profile.id &&
+                (() => {
+                  const isFollowing = following.some(
+                    (f) => f.id === profile.id,
+                  );
+                  return (
+                    <button
+                      onClick={() => {
+                        if (isFollowing) {
+                          unfollowUser(profile.id);
+                        } else {
+                          requireAuth(
+                            () => followUser(profile.id),
+                            "Sign in to follow operators",
+                          );
+                        }
+                      }}
+                      className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full border transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
+                        isFollowing
+                          ? "bg-signal-green/20 text-signal-green border-signal-green/30 hover:bg-signal-green/30"
+                          : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      {isFollowing ? "Following" : "Follow"}
+                    </button>
+                  );
+                })()}
+            </div>
             {profile.operatorName && (
               <p className="text-gray-300">{profile.operatorName}</p>
             )}

@@ -9,6 +9,21 @@ import {
 } from "@/lib/utils/settingsBackup";
 import { useLogbook } from "@/hooks/useLogbook";
 import { deleteDatabase } from "@/lib/db/index";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { useAuthUIStore } from "@/stores/authUIStore";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
+
+/** Format an ISO timestamp for display in the sync status line */
+function formatSyncTime(ts: string | null): string {
+  if (!ts) return "never";
+  const d = new Date(ts);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return d.toLocaleDateString();
+}
 
 /**
  * DataAccountSection - Export/import settings, export logbook, clear data, and about info.
@@ -172,8 +187,114 @@ export function DataAccountSection() {
     }
   }, [clearConfirm]);
 
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
+  const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
+  const syncStatus = useSyncStatus();
+
   return (
     <div className="space-y-6">
+      {/* ── 0. Account ────────────────────────────────────────── */}
+      {isSupabaseConfigured && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            Account
+          </h3>
+
+          {isAuthenticated ? (
+            <div className="space-y-4">
+              {/* User info */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-plasma-orange/20 flex items-center justify-center text-plasma-orange font-bold">
+                  {(user?.email?.[0] ?? "U").toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-200 truncate">
+                    {user?.email}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span
+                      className={`inline-flex items-center gap-1 text-xs font-medium ${
+                        syncStatus.state === "idle"
+                          ? "text-signal-green"
+                          : syncStatus.state === "syncing"
+                            ? "text-plasma-orange"
+                            : syncStatus.state === "offline"
+                              ? "text-gray-500"
+                              : "text-alert-red"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          syncStatus.state === "idle"
+                            ? "bg-signal-green"
+                            : syncStatus.state === "syncing"
+                              ? "bg-plasma-orange animate-pulse"
+                              : syncStatus.state === "offline"
+                                ? "bg-gray-500"
+                                : "bg-alert-red"
+                        }`}
+                      />
+                      {syncStatus.state === "idle"
+                        ? "Synced"
+                        : syncStatus.state === "syncing"
+                          ? "Syncing..."
+                          : syncStatus.state === "offline"
+                            ? "Offline"
+                            : "Sync error"}
+                    </span>
+                    {syncStatus.pendingCount > 0 && (
+                      <span className="text-xs text-gray-500">
+                        ({syncStatus.pendingCount} pending)
+                      </span>
+                    )}
+                  </div>
+                  {syncStatus.lastSyncAt && (
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      Last sync: {formatSyncTime(syncStatus.lastSyncAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Sync error */}
+              {syncStatus.error && (
+                <div className="p-3 bg-alert-red/10 border border-alert-red/20 rounded-lg">
+                  <p className="text-xs text-alert-red">{syncStatus.error}</p>
+                </div>
+              )}
+
+              {/* Sign out */}
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-400">
+                Sign in to sync your settings, logbook, and profile to the
+                cloud. Everything works offline — an account just adds cloud
+                backup and social features.
+              </p>
+              <button
+                type="button"
+                onClick={() => openAuthModal()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30 transition-colors"
+              >
+                Sign In
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isSupabaseConfigured && <div className="border-t border-white/10" />}
+
       {/* ── 1. Export / Import Settings ─────────────────────────── */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">

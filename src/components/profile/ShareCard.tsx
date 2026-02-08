@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useProfileStore } from "@/stores/profileStore";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { useAwardProgress } from "@/hooks/useAwardProgress";
 import {
@@ -21,6 +22,7 @@ import {
 export function ShareCard() {
   const station = useProfileStore((s) => s.station);
   const license = useProfileStore((s) => s.license);
+  const requireAuth = useRequireAuth();
   const { totalQSOs } = useLogbookStats();
   const { dxccWorkedCount } = useAwardProgress();
 
@@ -211,7 +213,12 @@ export function ShareCard() {
         </button>
 
         <button
-          onClick={handleShare}
+          onClick={() =>
+            requireAuth(
+              () => void handleShare(),
+              "Sign in to share your profile",
+            )
+          }
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           {/* Share icon */}

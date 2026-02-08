@@ -8,6 +8,7 @@
 import { useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useProfileStore } from "@/stores/profileStore";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import type {
   VisibilitySettings as VisibilitySettingsType,
   VisibilityLevel,
@@ -37,12 +38,16 @@ export function VisibilitySettings() {
   const isMobile = useIsMobile();
   const settings = useProfileStore((s) => s.visibilitySettings);
   const setVisibilitySettings = useProfileStore((s) => s.setVisibilitySettings);
+  const requireAuth = useRequireAuth();
 
   const handleChange = useCallback(
     (section: SectionKey, level: VisibilityLevel) => {
-      setVisibilitySettings({ [section]: level });
+      requireAuth(
+        () => setVisibilitySettings({ [section]: level }),
+        "Sign in to manage profile visibility",
+      );
     },
-    [setVisibilitySettings],
+    [setVisibilitySettings, requireAuth],
   );
 
   // ── Mobile: stacked cards ───────────────────────────────────────────

@@ -1,6 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import { ConditionsPill } from "@/components/map/ConditionsPill";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { useAuthUIStore } from "@/stores/authUIStore";
+import { useProfileStore } from "@/stores/profileStore";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 interface MobileHeaderProps {
   /** Number of active alerts */
@@ -24,6 +29,11 @@ export function MobileHeader({
   onAlertClick,
   onSettingsClick,
 }: MobileHeaderProps) {
+  const navigate = useNavigate();
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
+  const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
   return (
     <header className="h-12 flex items-center justify-between px-3 bg-void-black/90 backdrop-blur-sm border-b border-white/10 pt-safe z-50">
       {/* Brand */}
@@ -86,6 +96,47 @@ export function MobileHeader({
         )}
         <SyncStatusIndicator />
         <HealthStatusIndicator />
+        {/* Auth indicator */}
+        {isSupabaseConfigured && !isAuthenticated && (
+          <button
+            onClick={() => openAuthModal()}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Sign In"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+              />
+            </svg>
+          </button>
+        )}
+        {isSupabaseConfigured && isAuthenticated && (
+          <button
+            onClick={() => navigate("/profile")}
+            className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden transition-opacity hover:opacity-80"
+            aria-label="Operator Profile"
+          >
+            {profileImageUrl ? (
+              <img
+                src={profileImageUrl}
+                alt="Avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="w-full h-full flex items-center justify-center bg-plasma-orange/20 text-plasma-orange text-[10px] font-bold">
+                {(user?.email?.[0] ?? "U").toUpperCase()}
+              </span>
+            )}
+          </button>
+        )}
         <button
           onClick={onSettingsClick}
           className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"

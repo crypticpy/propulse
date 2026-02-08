@@ -14,6 +14,7 @@ import { UndoToast } from "@/components/ui/UndoToast";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
+import { AuthModal } from "@/components/auth";
 import { PWAInstallPrompt } from "@/components/ui/PWAInstallPrompt";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -163,6 +164,9 @@ export function MobileLayout() {
       {/* PWA Install + Update Prompts */}
       <PWAInstallPrompt />
       <PWAUpdatePrompt />
+
+      {/* Auth Modal */}
+      <AuthModal />
     </div>
   );
 }

@@ -8,6 +8,10 @@ import {
   useActiveLocation,
   useIsTemporaryActive,
 } from "@/hooks/useActiveLocation";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { useAuthUIStore } from "@/stores/authUIStore";
+import { useProfileStore } from "@/stores/profileStore";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 interface NavItem {
   path: string;
@@ -286,30 +290,8 @@ export function Header({
                 )}
                 <SyncStatusIndicator />
                 <HealthStatusIndicator />
-                {/* Profile */}
-                <button
-                  onClick={() => navigate("/profile")}
-                  className={`p-2 rounded-lg transition-colors ${
-                    location.pathname === "/profile"
-                      ? "text-plasma-orange bg-plasma-orange/10"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
-                  }`}
-                  aria-label="Operator Profile"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
-                </button>
+                {/* Profile / Auth */}
+                <AuthHeaderButton />
                 {/* Shack */}
                 <button
                   onClick={() => navigate("/shack")}
@@ -371,5 +353,80 @@ export function Header({
         </div>
       </header>
     </>
+  );
+}
+
+// ── Auth-aware profile/sign-in button ────────────────────────────────
+
+function AuthHeaderButton() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
+  const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+
+  // No Supabase → original profile icon
+  if (!isSupabaseConfigured) {
+    return (
+      <button
+        onClick={() => navigate("/profile")}
+        className={`p-2 rounded-lg transition-colors ${
+          location.pathname === "/profile"
+            ? "text-plasma-orange bg-plasma-orange/10"
+            : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+        }`}
+        aria-label="Operator Profile"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          />
+        </svg>
+      </button>
+    );
+  }
+
+  // Not authenticated → "Sign In" button
+  if (!isAuthenticated) {
+    return (
+      <button
+        onClick={() => openAuthModal()}
+        className="text-sm text-gray-400 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:text-gray-200 transition-colors"
+      >
+        Sign In
+      </button>
+    );
+  }
+
+  // Authenticated → avatar circle
+  const initial = (user?.email?.[0] ?? "U").toUpperCase();
+
+  return (
+    <button
+      onClick={() => navigate("/profile")}
+      className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+      aria-label="Operator Profile"
+    >
+      {profileImageUrl ? (
+        <img
+          src={profileImageUrl}
+          alt="Avatar"
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <span className="w-full h-full flex items-center justify-center bg-plasma-orange/20 text-plasma-orange text-xs font-bold">
+          {initial}
+        </span>
+      )}
+    </button>
   );
 }

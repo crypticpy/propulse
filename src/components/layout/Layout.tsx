@@ -12,6 +12,7 @@ import { UndoToast } from "@/components/ui/UndoToast";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
 import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
+import { AuthModal } from "@/components/auth";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -132,6 +133,9 @@ export function Layout() {
 
       {/* PWA Update Prompt */}
       <PWAUpdatePrompt />
+
+      {/* Auth Modal */}
+      <AuthModal />
     </div>
   );
 }

@@ -8,6 +8,9 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSocialStore } from "@/stores/socialStore";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { AuthRequiredPlaceholder } from "@/components/auth";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -21,6 +24,19 @@ function isOnline(lastActiveAt?: string): boolean {
 // ── Component ───────────────────────────────────────────────────────────
 
 export function FriendList() {
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+
+  // Auth gate: social features require sign-in
+  if (isSupabaseConfigured && !isAuthenticated) {
+    return (
+      <AuthRequiredPlaceholder prompt="Sign in to follow operators and see your friends" />
+    );
+  }
+
+  return <FriendListInner />;
+}
+
+function FriendListInner() {
   const following = useSocialStore((s) => s.following);
   const followers = useSocialStore((s) => s.followers);
   const isLoading = useSocialStore((s) => s.isLoadingFollowers);

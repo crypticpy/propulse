@@ -36,7 +36,7 @@ export function ProfileCardDesktop({
   formProps,
 }: ProfileCardDesktopProps) {
   return (
-    <div className="w-[320px] flex-shrink-0 sticky top-6 self-start">
+    <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
       <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
         {/* Callsign */}
         <div className="text-center mb-4">
@@ -152,6 +152,8 @@ interface ProfileCardMobileProps {
   displayName?: string;
   displayGrid: string;
   completeness: { score: number; tier: string; tierColor: string };
+  onShowQR?: () => void;
+  onEdit?: () => void;
 }
 
 export function ProfileCardMobile({
@@ -159,6 +161,8 @@ export function ProfileCardMobile({
   displayName,
   displayGrid,
   completeness,
+  onShowQR,
+  onEdit,
 }: ProfileCardMobileProps) {
   return (
     <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4">
@@ -173,6 +177,74 @@ export function ProfileCardMobile({
           {displayName && (
             <span className="text-sm text-gray-400">{displayName}</span>
           )}
+
+          {/* QR + Edit icon buttons */}
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+                aria-label="Edit profile"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M11.33 2.67a1.88 1.88 0 012.67 2.66L5.67 13.67l-3.67 1 1-3.67L11.33 2.67z"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+            {onShowQR && (
+              <button
+                onClick={onShowQR}
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+                aria-label="Show QR code"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect
+                    x="1"
+                    y="1"
+                    width="6"
+                    height="6"
+                    rx="1"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                  <rect
+                    x="9"
+                    y="1"
+                    width="6"
+                    height="6"
+                    rx="1"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                  <rect
+                    x="1"
+                    y="9"
+                    width="6"
+                    height="6"
+                    rx="1"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                  <rect
+                    x="10"
+                    y="10"
+                    width="4"
+                    height="4"
+                    rx="0.5"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+
           <ProfileCompletenessRing
             score={completeness.score}
             tier={completeness.tier}

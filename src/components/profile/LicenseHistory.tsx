@@ -95,7 +95,7 @@ export function LicenseHistory() {
                     {/* Remove button */}
                     <button
                       onClick={() => removeEntry(entry.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-600 hover:text-alert-red text-xs p-1 shrink-0"
+                      className="opacity-60 hover:opacity-100 transition-opacity text-gray-600 hover:text-alert-red text-xs p-1 shrink-0"
                       title="Remove entry"
                     >
                       <svg

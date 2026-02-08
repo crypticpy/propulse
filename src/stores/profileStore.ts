@@ -14,6 +14,8 @@ import type {
   LicenseClass,
   SocialLink,
 } from "@/types/user";
+import type { VisibilitySettings } from "@/types/social";
+import { DEFAULT_VISIBILITY } from "@/types/social";
 
 import { useSettingsStore } from "./settingsStore";
 
@@ -68,6 +70,7 @@ interface ProfileStore {
   profileImageUrl: string;
   lastIngestedCallsign: string;
   socialLinks: SocialLink[];
+  visibilitySettings: VisibilitySettings;
 
   setStation: (station: UserStation | null) => void;
   setBio: (bio: string) => void;
@@ -105,6 +108,9 @@ interface ProfileStore {
   // License
   setLicense: (license: LicenseInfo | null) => void;
 
+  // Visibility
+  setVisibilitySettings: (updates: Partial<VisibilitySettings>) => void;
+
   // License history
   addLicenseHistoryEntry: (entry: LicenseHistoryEntry) => void;
   removeLicenseHistoryEntry: (id: string) => void;
@@ -124,6 +130,7 @@ export const useProfileStore = create<ProfileStore>()(
       profileImageUrl: "",
       lastIngestedCallsign: "",
       socialLinks: [],
+      visibilitySettings: { ...DEFAULT_VISIBILITY },
 
       setStation: (station) =>
         set((state) => {
@@ -392,6 +399,13 @@ export const useProfileStore = create<ProfileStore>()(
           return { license: license ?? undefined };
         }),
 
+      // === Visibility ===
+
+      setVisibilitySettings: (updates) =>
+        set((state) => ({
+          visibilitySettings: { ...state.visibilitySettings, ...updates },
+        })),
+
       // === License History ===
 
       addLicenseHistoryEntry: (entry) =>
@@ -406,7 +420,7 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: "propulse-profile",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -418,6 +432,7 @@ export const useProfileStore = create<ProfileStore>()(
         lastIngestedCallsign: state.lastIngestedCallsign,
         socialLinks: state.socialLinks,
         serviceCredentials: state.serviceCredentials,
+        visibilitySettings: state.visibilitySettings,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -431,6 +446,10 @@ export const useProfileStore = create<ProfileStore>()(
         if (version < 4) {
           if (!("profileImageUrl" in state)) state.profileImageUrl = "";
           if (!("serviceCredentials" in state)) state.serviceCredentials = {};
+        }
+        if (version < 5) {
+          if (!("visibilitySettings" in state))
+            state.visibilitySettings = { ...DEFAULT_VISIBILITY };
         }
         return state as unknown as ProfileStore;
       },

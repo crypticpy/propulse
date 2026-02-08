@@ -22,11 +22,13 @@ export function BioSection() {
   const [draft, setDraft] = useState(bio);
   const [imageDraft, setImageDraft] = useState(profileImageUrl);
   const [imageError, setImageError] = useState(false);
+  const [imgError, setImgError] = useState(false);
   // Sync drafts when store changes externally (e.g., backup restore, ingestion)
   useEffect(() => {
     if (!isEditing) {
       setDraft(bio);
       setImageDraft(profileImageUrl);
+      setImgError(false);
     }
   }, [bio, profileImageUrl, isEditing]);
 
@@ -70,16 +72,14 @@ export function BioSection() {
         ) : (
           <div className="flex gap-5">
             {/* Photo */}
-            {profileImageUrl && (
+            {profileImageUrl && !imgError && (
               <div className="shrink-0">
                 <div className="w-28 h-28 rounded-xl overflow-hidden border border-white/10 bg-void-black">
                   <img
                     src={profileImageUrl}
                     alt="Operator"
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
+                    onError={() => setImgError(true)}
                   />
                 </div>
               </div>

@@ -398,7 +398,7 @@ export default function ProfilePage() {
 
   // Display values
   const displayCallsign = station?.callsign || "NO CALL";
-  const displayName = station?.operatorName || station?.name;
+  const displayName = station?.operatorName;
   const displayGrid = activeLocation?.grid || station?.grid || "----";
 
   // Shared form props
@@ -463,6 +463,14 @@ export default function ProfilePage() {
           {/* Equipment Summary */}
           <div className={panelClass}>
             <EquipmentSummary />
+            <div className="mt-3 text-right">
+              <Link
+                to="/shack"
+                className="text-sm text-plasma-orange hover:text-plasma-orange/80 transition-colors"
+              >
+                Go to Shack &rarr;
+              </Link>
+            </div>
           </div>
 
           {/* QSL Services */}
@@ -487,6 +495,14 @@ export default function ProfilePage() {
       {activeTab === "stats" && (
         <div className={panelClass}>
           <StatsTab />
+          <div className="mt-3 text-right">
+            <Link
+              to="/logbook"
+              className="text-sm text-plasma-orange hover:text-plasma-orange/80 transition-colors"
+            >
+              Go to Logbook &rarr;
+            </Link>
+          </div>
         </div>
       )}
 
@@ -501,9 +517,7 @@ export default function ProfilePage() {
           <div className={panelClass}>
             <VisibilitySettings />
           </div>
-          <div className={panelClass}>
-            <ShareCard />
-          </div>
+          <ShareCard />
         </div>
       )}
     </>
@@ -534,7 +548,14 @@ export default function ProfilePage() {
             onTabChange={setActiveTab}
             isMobile={false}
           />
-          {tabContent}
+          <div
+            role="tabpanel"
+            id={`profile-tabpanel-${activeTab}`}
+            aria-labelledby={`profile-tab-${activeTab}`}
+            className="mt-4"
+          >
+            {tabContent}
+          </div>
         </div>
 
         <QRCodeModal
@@ -564,7 +585,14 @@ export default function ProfilePage() {
         isMobile
       />
 
-      {tabContent}
+      <div
+        role="tabpanel"
+        id={`profile-tabpanel-${activeTab}`}
+        aria-labelledby={`profile-tab-${activeTab}`}
+        className="mt-4"
+      >
+        {tabContent}
+      </div>
 
       <QRCodeModal
         isOpen={showQR}

@@ -2,16 +2,16 @@
  * VisibilitySettings — Per-section privacy controls for the Social tab.
  *
  * Renders a matrix: 5 profile sections x 3 visibility levels.
- * Uses profileStore if visibility settings exist, otherwise local state.
+ * Persists to profileStore via visibilitySettings field.
  */
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useProfileStore } from "@/stores/profileStore";
 import type {
   VisibilitySettings as VisibilitySettingsType,
   VisibilityLevel,
 } from "@/types/social";
-import { DEFAULT_VISIBILITY } from "@/types/social";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -35,22 +35,14 @@ const LEVELS: { value: VisibilityLevel; label: string }[] = [
 
 export function VisibilitySettings() {
   const isMobile = useIsMobile();
-
-  // Local state — persistence will be added when profileStore gets visibility fields
-  const [settings, setSettings] = useState<VisibilitySettingsType>(() => {
-    // NOTE: When profileStore gains a visibilitySettings field, replace this
-    // with reading from the store. For now, use defaults.
-    console.info(
-      "[VisibilitySettings] Using local state — persistence will be added when profileStore is updated",
-    );
-    return { ...DEFAULT_VISIBILITY };
-  });
+  const settings = useProfileStore((s) => s.visibilitySettings);
+  const setVisibilitySettings = useProfileStore((s) => s.setVisibilitySettings);
 
   const handleChange = useCallback(
     (section: SectionKey, level: VisibilityLevel) => {
-      setSettings((prev) => ({ ...prev, [section]: level }));
+      setVisibilitySettings({ [section]: level });
     },
-    [],
+    [setVisibilitySettings],
   );
 
   // ── Mobile: stacked cards ───────────────────────────────────────────

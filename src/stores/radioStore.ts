@@ -10,6 +10,7 @@ export interface RadioStoreState {
   smeterDbmById: Record<string, number>;
   lastDaemonStatus: DaemonStatusMessage | null;
 
+  reset: () => void;
   setDevices: (devices: DeviceInfo[]) => void;
   setSelectedDeviceId: (deviceId: string | null) => void;
   setConnectedDeviceId: (deviceId: string | null) => void;
@@ -25,6 +26,16 @@ export const useRadioStore = create<RadioStoreState>()((set) => ({
   radioStateById: {},
   smeterDbmById: {},
   lastDaemonStatus: null,
+
+  reset: () =>
+    set({
+      devices: [],
+      selectedDeviceId: null,
+      connectedDeviceId: null,
+      radioStateById: {},
+      smeterDbmById: {},
+      lastDaemonStatus: null,
+    }),
 
   setDevices: (devices) =>
     set((s) => ({
@@ -49,4 +60,3 @@ export const useRadioStore = create<RadioStoreState>()((set) => ({
 
   setLastDaemonStatus: (status) => set({ lastDaemonStatus: status }),
 }));
-

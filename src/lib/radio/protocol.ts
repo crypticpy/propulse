@@ -115,6 +115,107 @@ export interface DaemonDiscoveryDaemonsMessage {
   }>;
 }
 
+export interface WsjtxStatus {
+  frequency: number;
+  mode: string;
+  dxCall?: string;
+  dxGrid?: string;
+  txEnabled: boolean;
+  decoding: boolean;
+  rxDF: number;
+  txDF: number;
+  instanceId?: string;
+}
+
+export interface WsjtxDecode {
+  isNew: boolean;
+  time: number;
+  snr: number;
+  deltaTime: number;
+  deltaFrequency: number;
+  mode: string;
+  message: string;
+  lowConfidence: boolean;
+  callsign?: string;
+  grid?: string;
+  instanceId?: string;
+}
+
+export interface WsjtxQsoLogged {
+  callsign: string;
+  grid?: string;
+  frequency: number;
+  mode: string;
+  reportSent: string;
+  reportReceived: string;
+  txPower: string;
+  comments: string;
+  timestamp: string;
+  adifRecord?: string;
+  instanceId?: string;
+}
+
+export interface WsjtxStatusMessage {
+  type: "wsjtx:status";
+  status: WsjtxStatus;
+}
+
+export interface WsjtxDecodeMessage {
+  type: "wsjtx:decode";
+  decode: WsjtxDecode;
+}
+
+export interface WsjtxQsoLoggedMessage {
+  type: "wsjtx:qso_logged";
+  qso: WsjtxQsoLogged;
+}
+
+export interface WsjtxClearMessage {
+  type: "wsjtx:clear";
+  window?: string;
+  instanceId?: string;
+}
+
+export interface ClusterSpot {
+  id?: string;
+  key?: string;
+  spotter: string;
+  spotterGrid?: string;
+  dx: string;
+  dxGrid?: string;
+  /** Frequency in kHz */
+  freq: number;
+  comment: string;
+  time: string;
+  mode?: string;
+  band?: string;
+}
+
+export interface ClusterSpotMessage {
+  type: "cluster:spot";
+  spotter: string;
+  spotterGrid?: string;
+  dx: string;
+  dxGrid?: string;
+  /** Frequency in kHz */
+  freq: number;
+  comment: string;
+  time: string;
+  mode?: string;
+  band?: string;
+  id?: string;
+  key?: string;
+}
+
+export interface ClusterStatusMessage {
+  type: "cluster:status";
+  node?: string;
+  connected: boolean;
+  spotsReceived: number;
+  lastSpotTime?: string;
+  key?: string;
+}
+
 export type DaemonIncomingMessage =
   | DaemonHelloMessage
   | DaemonResponseMessage
@@ -123,6 +224,12 @@ export type DaemonIncomingMessage =
   | RadioSmeterMessage
   | DaemonStatusMessage
   | DaemonDiscoveryDaemonsMessage
+  | WsjtxStatusMessage
+  | WsjtxDecodeMessage
+  | WsjtxQsoLoggedMessage
+  | WsjtxClearMessage
+  | ClusterSpotMessage
+  | ClusterStatusMessage
   | { type: string; [k: string]: unknown };
 
 export function isDevicesListMessage(
@@ -178,6 +285,24 @@ export function isDaemonDiscoveryDaemonsMessage(
     msg.type === "discovery:daemons" &&
     Array.isArray((msg as DaemonDiscoveryDaemonsMessage).daemons)
   );
+}
+
+export function isWsjtxStatusMessage(
+  msg: DaemonIncomingMessage,
+): msg is WsjtxStatusMessage {
+  return msg.type === "wsjtx:status" && typeof (msg as WsjtxStatusMessage).status === "object";
+}
+
+export function isWsjtxDecodeMessage(
+  msg: DaemonIncomingMessage,
+): msg is WsjtxDecodeMessage {
+  return msg.type === "wsjtx:decode" && typeof (msg as WsjtxDecodeMessage).decode === "object";
+}
+
+export function isClusterSpotMessage(
+  msg: DaemonIncomingMessage,
+): msg is ClusterSpotMessage {
+  return msg.type === "cluster:spot" && typeof (msg as ClusterSpotMessage).freq === "number";
 }
 
 export type RadioBinaryFrame =

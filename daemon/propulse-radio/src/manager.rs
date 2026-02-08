@@ -1,7 +1,13 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::dummy::{dummy_device, dummy_state};
 use crate::types::{DeviceInfo, RadioFilter, RadioNb, RadioNr, RadioState};
+
+#[derive(Debug, Default, Clone)]
+pub struct DeviceDelta {
+  pub added: Vec<DeviceInfo>,
+  pub removed: Vec<String>,
+}
 
 pub struct RadioManager {
   devices: Vec<DeviceInfo>,
@@ -20,6 +26,37 @@ impl RadioManager {
     }
 
     Self { devices, states }
+  }
+
+  pub fn replace_devices(&mut self, next: Vec<DeviceInfo>) -> DeviceDelta {
+    let prev_ids: HashSet<String> = self.devices.iter().map(|d| d.device_id.clone()).collect();
+    let next_ids: HashSet<String> = next.iter().map(|d| d.device_id.clone()).collect();
+
+    let mut delta = DeviceDelta::default();
+    for dev in &next {
+      if !prev_ids.contains(&dev.device_id) {
+        delta.added.push(dev.clone());
+      }
+    }
+    for id in &prev_ids {
+      if !next_ids.contains(id) {
+        delta.removed.push(id.clone());
+      }
+    }
+
+    // Replace device list while preserving existing states when possible.
+    self.devices = next;
+    for dev in &self.devices {
+      self
+        .states
+        .entry(dev.device_id.clone())
+        .or_insert_with(|| default_state_for_device(dev));
+    }
+    for removed in &delta.removed {
+      self.states.remove(removed);
+    }
+
+    delta
   }
 
   pub fn devices(&self) -> &[DeviceInfo] {
@@ -204,4 +241,16 @@ impl RadioManager {
     state.antenna = Some(antenna.to_string());
     Ok(state.clone())
   }
+}
+
+fn default_state_for_device(dev: &DeviceInfo) -> RadioState {
+  let mut st = dummy_state(14_074_000, "USB");
+  st.connected = false;
+  st.antenna = dev.capabilities.antennas.first().cloned();
+  // Initialize gains to each stage's minimum.
+  st.gains.clear();
+  for g in &dev.capabilities.gain_stages {
+    st.gains.insert(g.name.clone(), g.min);
+  }
+  st
 }

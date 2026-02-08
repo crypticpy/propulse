@@ -18,7 +18,9 @@ import {
   isDaemonDiscoveryDaemonsMessage,
   isDaemonResponseMessage,
   isDaemonStatusMessage,
+  isDevicesAddedMessage,
   isDevicesListMessage,
+  isDevicesRemovedMessage,
   isRadioSmeterMessage,
   isRadioStateMessage,
   isWsjtxDecodeMessage,
@@ -205,6 +207,11 @@ export function SdrConsole() {
       setDevices(msg.devices);
       return;
     }
+    if (isDevicesAddedMessage(msg) || isDevicesRemovedMessage(msg)) {
+      // Refresh the full list (device events are deltas only).
+      daemonSendCommand("devices:enumerate");
+      return;
+    }
     if (isRadioStateMessage(msg)) {
       upsertRadioState(msg.device_id, msg.state);
       return;
@@ -249,6 +256,7 @@ export function SdrConsole() {
     }
   }, [
     daemonLastMessage,
+    daemonSendCommand,
     setDevices,
     setLastDaemonStatus,
     setSmeterDbm,

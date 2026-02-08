@@ -13,6 +13,7 @@ mdns-sd.workspace = true
 serialport = "4"
 serde = { workspace = true, optional = true }
 tokio.workspace = true
+libloading.workspace = true
 
 [features]
 default = []

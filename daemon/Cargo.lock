@@ -1268,6 +1268,7 @@ dependencies = [
  "anyhow",
  "gethostname",
  "if-addrs",
+ "libloading",
  "mdns-sd",
  "serde",
  "serialport",

@@ -81,6 +81,17 @@ export interface DevicesListMessage {
   devices: DeviceInfo[];
 }
 
+export interface DevicesAddedMessage {
+  type: "devices:added";
+  device_id: string;
+  name: string;
+}
+
+export interface DevicesRemovedMessage {
+  type: "devices:removed";
+  device_id: string;
+}
+
 export interface RadioStateMessage {
   type: "radio:state";
   device_id: string;
@@ -220,6 +231,8 @@ export type DaemonIncomingMessage =
   | DaemonHelloMessage
   | DaemonResponseMessage
   | DevicesListMessage
+  | DevicesAddedMessage
+  | DevicesRemovedMessage
   | RadioStateMessage
   | RadioSmeterMessage
   | DaemonStatusMessage
@@ -236,6 +249,18 @@ export function isDevicesListMessage(
   msg: DaemonIncomingMessage,
 ): msg is DevicesListMessage {
   return msg.type === "devices:list" && Array.isArray((msg as DevicesListMessage).devices);
+}
+
+export function isDevicesAddedMessage(
+  msg: DaemonIncomingMessage,
+): msg is DevicesAddedMessage {
+  return msg.type === "devices:added" && typeof (msg as DevicesAddedMessage).device_id === "string";
+}
+
+export function isDevicesRemovedMessage(
+  msg: DaemonIncomingMessage,
+): msg is DevicesRemovedMessage {
+  return msg.type === "devices:removed" && typeof (msg as DevicesRemovedMessage).device_id === "string";
 }
 
 export function isRadioStateMessage(

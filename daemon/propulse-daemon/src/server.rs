@@ -18,13 +18,17 @@ use uuid::Uuid;
 use async_trait::async_trait;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
-use crate::config::{AppConfig, Cli};
+use crate::config::{AppConfig, Cli, HamlibRigConfig};
 use crate::protocol::{
   build_audio_frame, build_fft_frame, DaemonStatusEvent, DevicesList, Hello,
   PROTOCOL_VERSION, RadioSmeterEvent, RadioStateEvent, Response,
 };
 
-use propulse_radio::manager::RadioManager;
+use propulse_radio::{
+  dummy::dummy_device,
+  manager::{DeviceDelta, RadioManager},
+  types::{DeviceInfo, GainStage, RadioCapabilities, RadioType},
+};
 use sysinfo::System;
 
 use propulse_integrations::{
@@ -34,7 +38,11 @@ use propulse_integrations::{
   rig::{RigBackendKind, RigConnectConfig, RigService, RigStatus},
   wsjtx::{run_wsjtx_listener, WSJTXEvent},
 };
-use propulse_discovery::mdns::MdnsAdvertiser;
+use propulse_discovery::{
+  mdns::MdnsAdvertiser,
+  serial::list_serial_ports,
+  soapy_enum::enumerate_soapy_devices,
+};
 use propulse_dsp::{
   demod::DemodMode,
   fft::{FftConfig, WindowKind},
@@ -51,7 +59,7 @@ struct DaemonState {
   compat_bridge: bool,
   config: Mutex<AppConfig>,
   radio: Mutex<RadioManager>,
-  device_idx_by_id: HashMap<String, u8>,
+  device_idx_by_id: Mutex<HashMap<String, u8>>,
   clients: Mutex<HashMap<String, ClientState>>,
   streams: Mutex<HashMap<String, DeviceStreams>>,
   integrations: Mutex<IntegrationsState>,
@@ -160,7 +168,7 @@ where
     compat_bridge: cli.compat_bridge,
     config: Mutex::new(effective_config.clone()),
     radio: Mutex::new(radio),
-    device_idx_by_id,
+    device_idx_by_id: Mutex::new(device_idx_by_id),
     clients: Mutex::new(HashMap::new()),
     streams: Mutex::new(HashMap::new()),
     integrations: Mutex::new(IntegrationsState::default()),
@@ -168,6 +176,7 @@ where
 
   apply_runtime_config(&state, &effective_config).await;
   spawn_config_reload_watcher(Arc::clone(&state), config_path);
+  spawn_device_scanner(Arc::clone(&state));
 
   tokio::pin!(shutdown);
   loop {
@@ -358,6 +367,217 @@ fn spawn_config_reload_watcher(state: Arc<DaemonState>, config_path: PathBuf) {
         }
       }
     });
+  }
+}
+
+fn spawn_device_scanner(state: Arc<DaemonState>) {
+  tokio::spawn(async move {
+    let mut last_interval_secs: u64 = 5;
+    let mut interval = tokio::time::interval(Duration::from_secs(last_interval_secs));
+
+    loop {
+      interval.tick().await;
+
+      // Pull scan settings from the latest config.
+      let radio_cfg = { state.config.lock().await.radio.clone() };
+      let scan_secs = radio_cfg.soapy.scan_interval_secs.max(1);
+      if scan_secs != last_interval_secs {
+        last_interval_secs = scan_secs;
+        interval = tokio::time::interval(Duration::from_secs(last_interval_secs));
+        continue;
+      }
+
+      // Enumerate on a blocking thread (USB/serial APIs may block).
+      let next_devices = tokio::task::spawn_blocking(move || {
+        discover_devices(&radio_cfg)
+      })
+      .await
+      .unwrap_or_else(|_| Vec::new());
+
+      let delta = {
+        let mut radio = state.radio.lock().await;
+        radio.replace_devices(next_devices)
+      };
+
+      if !delta.added.is_empty() || !delta.removed.is_empty() {
+        rebuild_device_index(&state).await;
+        broadcast_device_delta(&state, &delta).await;
+      }
+    }
+  });
+}
+
+fn discover_devices(cfg: &crate::config::RadioConfig) -> Vec<DeviceInfo> {
+  let mut devices = Vec::new();
+
+  if cfg.dummy_enabled {
+    devices.push(dummy_device("dummy:0"));
+  }
+
+  if cfg.soapy.enabled {
+    if let Ok(list) = enumerate_soapy_devices() {
+      for d in list {
+        devices.push(DeviceInfo {
+          device_id: stable_soapy_device_id(&d),
+          name: d.label.clone(),
+          driver: d.driver.clone(),
+          device_type: RadioType::Sdr,
+          serial: d.serial.clone(),
+          port: None,
+          available: true,
+          capabilities: default_sdr_capabilities(),
+        });
+      }
+    }
+  }
+
+  if cfg.hamlib.enabled && !cfg.hamlib.rigs.is_empty() {
+    let ports = list_serial_ports().unwrap_or_default();
+    let port_names = ports
+      .iter()
+      .map(|p| p.port_name.as_str())
+      .collect::<HashSet<_>>();
+
+    for rig in &cfg.hamlib.rigs {
+      let available = port_names.contains(rig.port.as_str());
+      devices.push(hamlib_device_from_config(rig, available));
+    }
+  }
+
+  devices
+}
+
+fn stable_soapy_device_id(info: &propulse_discovery::soapy_enum::SoapyDeviceInfo) -> String {
+  if let Some(serial) = info.serial.as_deref() {
+    return format!("soapy:{}:{}", info.driver, serial);
+  }
+  let h = short_hash(&info.label);
+  format!("soapy:{}:{}", info.driver, h)
+}
+
+fn hamlib_device_from_config(rig: &HamlibRigConfig, available: bool) -> DeviceInfo {
+  DeviceInfo {
+    device_id: stable_hamlib_device_id(rig),
+    name: rig.name.clone(),
+    driver: "hamlib".to_string(),
+    device_type: RadioType::Transceiver,
+    serial: None,
+    port: Some(rig.port.clone()),
+    available,
+    capabilities: default_rig_capabilities(),
+  }
+}
+
+fn stable_hamlib_device_id(rig: &HamlibRigConfig) -> String {
+  format!("hamlib:{}:{}", rig.model, short_hash(&rig.port))
+}
+
+fn short_hash(input: &str) -> String {
+  use std::hash::{Hash, Hasher};
+  let mut h = std::collections::hash_map::DefaultHasher::new();
+  input.hash(&mut h);
+  format!("{:016x}", h.finish())
+}
+
+fn default_sdr_capabilities() -> RadioCapabilities {
+  RadioCapabilities {
+    can_transmit: false,
+    can_stream_iq: true,
+    can_stream_fft: true,
+    can_stream_audio: true,
+    antennas: vec!["RX".to_string()],
+    modes: vec![
+      "USB".to_string(),
+      "LSB".to_string(),
+      "CW".to_string(),
+      "AM".to_string(),
+      "FM".to_string(),
+    ],
+    frequency_range: (1_000, 2_000_000_000),
+    sample_rates: vec![2_048_000, 4_096_000],
+    gain_stages: vec![
+      GainStage {
+        name: "LNA".to_string(),
+        min: 0.0,
+        max: 30.0,
+        step: 1.0,
+      },
+      GainStage {
+        name: "IF".to_string(),
+        min: -59.0,
+        max: 0.0,
+        step: 1.0,
+      },
+    ],
+  }
+}
+
+fn default_rig_capabilities() -> RadioCapabilities {
+  RadioCapabilities {
+    can_transmit: true,
+    can_stream_iq: false,
+    can_stream_fft: false,
+    can_stream_audio: false,
+    antennas: vec!["ANT1".to_string(), "ANT2".to_string()],
+    modes: vec![
+      "USB".to_string(),
+      "LSB".to_string(),
+      "CW".to_string(),
+      "CW-R".to_string(),
+      "AM".to_string(),
+      "FM".to_string(),
+      "RTTY".to_string(),
+      "RTTY-R".to_string(),
+    ],
+    frequency_range: (30_000, 74_800_000),
+    sample_rates: Vec::new(),
+    gain_stages: vec![
+      GainStage {
+        name: "RF".to_string(),
+        min: 0.0,
+        max: 100.0,
+        step: 1.0,
+      },
+      GainStage {
+        name: "AF".to_string(),
+        min: 0.0,
+        max: 100.0,
+        step: 1.0,
+      },
+    ],
+  }
+}
+
+async fn rebuild_device_index(state: &Arc<DaemonState>) {
+  let map = {
+    let radio = state.radio.lock().await;
+    radio
+      .devices()
+      .iter()
+      .enumerate()
+      .map(|(idx, d)| (d.device_id.clone(), u8::try_from(idx).unwrap_or(0)))
+      .collect::<HashMap<_, _>>()
+  };
+
+  let mut idx = state.device_idx_by_id.lock().await;
+  *idx = map;
+}
+
+async fn broadcast_device_delta(state: &Arc<DaemonState>, delta: &DeviceDelta) {
+  for dev in &delta.added {
+    let msg = serde_json::json!({
+      "type": "devices:added",
+      "device_id": dev.device_id,
+      "name": dev.name,
+    });
+    let _ = broadcast_json(state, &msg).await;
+  }
+  for id in &delta.removed {
+    let msg = serde_json::json!({
+      "type": "devices:removed",
+      "device_id": id,
+    });
+    let _ = broadcast_json(state, &msg).await;
   }
 }
 
@@ -1933,7 +2153,8 @@ async fn ensure_fft_stream(
       let span = iq_rate as f64;
 
       let dev_idx = {
-        *state2.device_idx_by_id.get(&device_id2).unwrap_or(&0)
+        let map = state2.device_idx_by_id.lock().await;
+        *map.get(&device_id2).unwrap_or(&0)
       };
 
       broadcast_stream_frame(
@@ -2030,7 +2251,8 @@ async fn ensure_audio_stream(state: &Arc<DaemonState>, device_id: &str, sample_r
       };
 
       let dev_idx = {
-        *state2.device_idx_by_id.get(&device_id2).unwrap_or(&0)
+        let map = state2.device_idx_by_id.lock().await;
+        *map.get(&device_id2).unwrap_or(&0)
       };
 
       broadcast_stream_frame(

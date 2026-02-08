@@ -5,10 +5,13 @@
  * Uses data from profileStore.
  */
 
+import { useState } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 import { LICENSE_COUNTRY_NAMES } from "@/types/user";
 import type { LicenseClass } from "@/types/user";
 import { LicenseExpirationBar } from "./LicenseExpirationBar";
+import { LicenseHistory } from "./LicenseHistory";
+import { PrivilegeMatrix } from "./PrivilegeMatrix";
 
 /**
  * Map license class to a Tailwind badge color
@@ -60,6 +63,53 @@ const LICENSE_CLASS_DISPLAY: Record<string, string> = {
 
 function getDisplayName(licenseClass: LicenseClass): string {
   return LICENSE_CLASS_DISPLAY[licenseClass] || licenseClass;
+}
+
+/**
+ * Chevron icon that rotates when the section is open
+ */
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+/**
+ * Collapsible disclosure section
+ */
+function Disclosure({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t border-white/5 pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center justify-between w-full text-left group"
+      >
+        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider group-hover:text-gray-300 transition-colors">
+          {title}
+        </span>
+        <ChevronIcon open={open} />
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </div>
+  );
 }
 
 export function LicenseCard() {
@@ -117,6 +167,16 @@ export function LicenseCard() {
           <span className="font-mono text-gray-400">{license.licenseId}</span>
         </div>
       )}
+
+      {/* Collapsible: Upgrade History */}
+      <Disclosure title="Upgrade History">
+        <LicenseHistory />
+      </Disclosure>
+
+      {/* Collapsible: Band Privileges */}
+      <Disclosure title="Band Privileges">
+        <PrivilegeMatrix />
+      </Disclosure>
     </div>
   );
 }

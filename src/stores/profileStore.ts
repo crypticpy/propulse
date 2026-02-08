@@ -26,6 +26,16 @@ function getSettingsStore() {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /**
+ * A single entry in the license upgrade history timeline
+ */
+export interface LicenseHistoryEntry {
+  id: string;
+  date: string; // ISO date
+  class: string; // license class at that point
+  notes?: string;
+}
+
+/**
  * Saved target location for quick access
  */
 export interface SavedTarget {
@@ -59,6 +69,7 @@ interface ProfileStore {
   savedTargets: SavedTarget[];
   serviceCredentials: ServiceCredentials;
   license: LicenseInfo | undefined;
+  licenseHistory: LicenseHistoryEntry[];
   bio: string;
   socialLinks: SocialLink[];
 
@@ -95,6 +106,10 @@ interface ProfileStore {
 
   // License
   setLicense: (license: LicenseInfo | null) => void;
+
+  // License history
+  addLicenseHistoryEntry: (entry: LicenseHistoryEntry) => void;
+  removeLicenseHistoryEntry: (id: string) => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -106,6 +121,7 @@ export const useProfileStore = create<ProfileStore>()(
       savedTargets: [],
       serviceCredentials: {},
       license: undefined,
+      licenseHistory: [],
       bio: "",
       socialLinks: [],
 
@@ -373,15 +389,28 @@ export const useProfileStore = create<ProfileStore>()(
 
           return { license: license ?? undefined };
         }),
+
+      // === License History ===
+
+      addLicenseHistoryEntry: (entry) =>
+        set((state) => ({
+          licenseHistory: [...state.licenseHistory, entry].slice(-10),
+        })),
+
+      removeLicenseHistoryEntry: (id) =>
+        set((state) => ({
+          licenseHistory: state.licenseHistory.filter((e) => e.id !== id),
+        })),
     }),
     {
       name: "propulse-profile",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
         savedTargets: state.savedTargets,
         license: state.license,
+        licenseHistory: state.licenseHistory,
         bio: state.bio,
         socialLinks: state.socialLinks,
         // serviceCredentials intentionally NOT persisted
@@ -393,7 +422,10 @@ export const useProfileStore = create<ProfileStore>()(
           if (!("bio" in state)) state.bio = "";
           if (!("socialLinks" in state)) state.socialLinks = [];
         }
-        return state as never;
+        if (version < 3) {
+          if (!("licenseHistory" in state)) state.licenseHistory = [];
+        }
+        return state as unknown as ProfileStore;
       },
     },
   ),

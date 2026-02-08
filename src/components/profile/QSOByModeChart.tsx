@@ -82,7 +82,12 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
     <div className="flex flex-col items-center gap-4">
       {/* Donut */}
       <div className="relative" style={{ width: SIZE, height: SIZE }}>
-        <svg width={SIZE} height={SIZE} className="transform -rotate-90">
+        <svg
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          width="100%"
+          className="max-w-full transform -rotate-90"
+          style={{ aspectRatio: "1 / 1" }}
+        >
           {/* Background ring */}
           <circle
             cx={SIZE / 2}

@@ -7,51 +7,18 @@
  */
 
 import { useState } from "react";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import { useAchievements } from "@/hooks/useAchievements";
 import { ACHIEVEMENT_DEFINITIONS } from "@/lib/data/achievementDefinitions";
+import {
+  TIER_COLORS,
+  TIER_LABELS,
+  ICON_EMOJI,
+} from "@/lib/data/achievementConstants";
 import { AchievementDetail } from "./AchievementDetail";
 import type {
   AchievementDefinition,
-  AchievementTier,
   EarnedAchievement,
 } from "@/types/achievement";
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const TIER_COLORS: Record<AchievementTier, string> = {
-  bronze: "#CD7F32",
-  silver: "#C0C0C0",
-  gold: "#FFD700",
-  platinum: "#E5E4E2",
-};
-
-const TIER_LABELS: Record<AchievementTier, string> = {
-  bronze: "Bronze",
-  silver: "Silver",
-  gold: "Gold",
-  platinum: "Platinum",
-};
-
-const ICON_EMOJI: Record<string, string> = {
-  radio: "\uD83D\uDCFB",
-  calendar: "\uD83D\uDCC5",
-  "radio-tower": "\uD83D\uDCE1",
-  settings: "\u2699\uFE0F",
-  zap: "\u26A1",
-  flame: "\uD83D\uDD25",
-  globe: "\uD83C\uDF0D",
-  "check-circle": "\u2705",
-  users: "\uD83D\uDC65",
-  map: "\uD83D\uDDFA\uFE0F",
-  "map-pin": "\uD83D\uDCCD",
-  compass: "\uD83E\uDDED",
-  trophy: "\uD83C\uDFC6",
-  "message-circle": "\uD83D\uDCAC",
-  "heart-handshake": "\uD83E\uDD1D",
-  moon: "\uD83C\uDF19",
-  plane: "\u2708\uFE0F",
-};
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 
@@ -167,7 +134,6 @@ function BadgeTile({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function AchievementGrid() {
-  const isMobile = useIsMobile();
   const { achievements, isLoading } = useAchievements();
   const [selectedDef, setSelectedDef] = useState<AchievementDefinition | null>(
     null,
@@ -184,12 +150,7 @@ export function AchievementGrid() {
   // ── Loading state ──
   if (isLoading) {
     return (
-      <div
-        className="grid gap-3"
-        style={{
-          gridTemplateColumns: `repeat(${isMobile ? 3 : 4}, minmax(0, 1fr))`,
-        }}
-      >
+      <div className="grid gap-3 grid-cols-3 sm:grid-cols-4">
         {Array.from({ length: 12 }).map((_, i) => (
           <BadgeSkeleton key={i} />
         ))}
@@ -205,12 +166,7 @@ export function AchievementGrid() {
       </p>
 
       {/* Badge grid */}
-      <div
-        className="grid gap-3"
-        style={{
-          gridTemplateColumns: `repeat(${isMobile ? 3 : 4}, minmax(0, 1fr))`,
-        }}
-      >
+      <div className="grid gap-3 grid-cols-3 sm:grid-cols-4">
         {ACHIEVEMENT_DEFINITIONS.map((def) => (
           <BadgeTile
             key={def.id}

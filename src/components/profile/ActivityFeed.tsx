@@ -13,6 +13,7 @@ import type { ActivityEventType } from "@/types/social";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
+  if (isNaN(diff)) return "unknown";
   const seconds = Math.floor(diff / 1000);
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);

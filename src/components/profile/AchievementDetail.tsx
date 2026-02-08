@@ -6,49 +6,15 @@
  */
 
 import { DetailModal } from "@/components/ui/DetailModal";
+import {
+  TIER_COLORS,
+  TIER_LABELS,
+  ICON_EMOJI,
+} from "@/lib/data/achievementConstants";
 import type {
   AchievementDefinition,
-  AchievementTier,
   EarnedAchievement,
 } from "@/types/achievement";
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const TIER_COLORS: Record<AchievementTier, string> = {
-  bronze: "#CD7F32",
-  silver: "#C0C0C0",
-  gold: "#FFD700",
-  platinum: "#E5E4E2",
-};
-
-const TIER_LABELS: Record<AchievementTier, string> = {
-  bronze: "Bronze",
-  silver: "Silver",
-  gold: "Gold",
-  platinum: "Platinum",
-};
-
-// ─── Emoji map for icons ─────────────────────────────────────────────────────
-
-const ICON_EMOJI: Record<string, string> = {
-  radio: "\uD83D\uDCFB",
-  calendar: "\uD83D\uDCC5",
-  "radio-tower": "\uD83D\uDCE1",
-  settings: "\u2699\uFE0F",
-  zap: "\u26A1",
-  flame: "\uD83D\uDD25",
-  globe: "\uD83C\uDF0D",
-  "check-circle": "\u2705",
-  users: "\uD83D\uDC65",
-  map: "\uD83D\uDDFA\uFE0F",
-  "map-pin": "\uD83D\uDCCD",
-  compass: "\uD83E\uDDED",
-  trophy: "\uD83C\uDFC6",
-  "message-circle": "\uD83D\uDCAC",
-  "heart-handshake": "\uD83E\uDD1D",
-  moon: "\uD83C\uDF19",
-  plane: "\u2708\uFE0F",
-};
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 

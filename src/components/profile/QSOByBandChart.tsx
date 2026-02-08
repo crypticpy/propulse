@@ -48,9 +48,10 @@ export function QSOByBandChart({ data }: { data: Record<string, number> }) {
   return (
     <div className="overflow-x-auto">
       <svg
-        width={chartWidth}
-        height={svgHeight}
-        className="block mx-auto"
+        viewBox={`0 0 ${chartWidth} ${svgHeight}`}
+        width="100%"
+        className="block mx-auto max-w-full"
+        style={{ aspectRatio: `${chartWidth}/${svgHeight}` }}
         role="img"
         aria-label="QSO distribution by band"
       >

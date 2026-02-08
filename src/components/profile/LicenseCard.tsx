@@ -1,7 +1,7 @@
 /**
  * LicenseCard -- Enhanced license display card for the profile page.
  *
- * Shows colored class badge, country name, callsign, expiration bar, and grid square.
+ * Shows colored class badge, country name, expiration bar, license ID, upgrade history, and band privileges.
  * Uses data from profileStore.
  */
 
@@ -100,6 +100,7 @@ function Disclosure({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         className="flex items-center justify-between w-full text-left group rounded focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
       >
         <span className="text-xs font-medium text-gray-400 uppercase tracking-wider group-hover:text-gray-300 transition-colors">
@@ -114,7 +115,6 @@ function Disclosure({
 
 export function LicenseCard() {
   const license = useProfileStore((s) => s.license);
-  const station = useProfileStore((s) => s.station);
 
   if (!license) {
     return (
@@ -127,8 +127,6 @@ export function LicenseCard() {
   const badgeColor = getClassBadgeColor(license.class);
   const displayName = getDisplayName(license.class);
   const countryName = LICENSE_COUNTRY_NAMES[license.country] ?? license.country;
-  const displayCallsign = station?.callsign || "NO CALL";
-  const displayGrid = station?.grid || "----";
 
   return (
     <div className="space-y-3">
@@ -144,17 +142,6 @@ export function LicenseCard() {
           {displayName}
         </span>
         <span className="text-xs text-gray-400">{countryName}</span>
-      </div>
-
-      {/* Callsign large */}
-      <div className="font-mono text-xl font-bold text-plasma-orange">
-        {displayCallsign}
-      </div>
-
-      {/* Grid */}
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-gray-500">Grid</span>
-        <span className="font-mono text-gray-300">{displayGrid}</span>
       </div>
 
       {/* Expiration bar */}

@@ -159,8 +159,14 @@ export function BioSection() {
       </div>
 
       {/* Bio textarea */}
-      <label className="block text-xs text-gray-500 mb-1">Bio</label>
+      <label
+        htmlFor="bio-textarea"
+        className="block text-xs text-gray-500 mb-1"
+      >
+        Bio
+      </label>
       <textarea
+        id="bio-textarea"
         value={draft}
         onChange={(e) => setDraft(e.target.value.slice(0, MAX_BIO_LENGTH))}
         placeholder="Tell others about your station, operating history, interests, achievements, and antenna farm..."
@@ -168,6 +174,9 @@ export function BioSection() {
         className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm
                    text-gray-200 leading-relaxed focus:border-plasma-orange/50 focus:outline-none resize-y"
       />
+      <p className="text-xs text-gray-600 mt-1.5">
+        Supports **bold**, *italic*, [links](url), and - lists.
+      </p>
       <div className="flex items-center justify-between mt-2">
         <span className="text-xs text-gray-500">
           {draft.length.toLocaleString()}/{MAX_BIO_LENGTH.toLocaleString()}
@@ -189,9 +198,6 @@ export function BioSection() {
           </button>
         </div>
       </div>
-      <p className="text-xs text-gray-600 mt-1.5">
-        Supports **bold**, *italic*, [links](url), and - lists.
-      </p>
     </div>
   );
 }

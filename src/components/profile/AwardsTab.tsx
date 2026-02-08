@@ -9,6 +9,11 @@ import { useAwardProgress } from "@/hooks/useAwardProgress";
 import { AwardProgressRing } from "./AwardProgressRing";
 import { AchievementGrid } from "./AchievementGrid";
 
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+/** Current DXCC entity count — update when ARRL modifies the list */
+const DXCC_ENTITY_COUNT = 340;
+
 // ─── Color constants (hex values from project palette) ──────────────────────
 
 /** sunspot-blue: visible blue accent for "worked" arcs */
@@ -67,7 +72,7 @@ export function AwardsTab() {
           <AwardProgressRing
             worked={0}
             confirmed={0}
-            total={340}
+            total={DXCC_ENTITY_COUNT}
             label="DXCC"
             workedColor={COLOR_WORKED}
             confirmedColor={COLOR_CONFIRMED_GREEN}
@@ -105,7 +110,7 @@ export function AwardsTab() {
         <AwardProgressRing
           worked={dxccWorkedCount}
           confirmed={dxccConfirmedCount}
-          total={340}
+          total={DXCC_ENTITY_COUNT}
           label="DXCC"
           workedColor={COLOR_WORKED}
           confirmedColor={COLOR_CONFIRMED_GREEN}
@@ -135,7 +140,7 @@ export function AwardsTab() {
             label="DXCC"
             worked={dxccWorkedCount}
             confirmed={dxccConfirmedCount}
-            total={340}
+            total={DXCC_ENTITY_COUNT}
           />
           <SummaryColumn
             label="WAS"
@@ -165,7 +170,14 @@ export function AwardsTab() {
               className="inline-block w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: COLOR_CONFIRMED_GREEN }}
             />
-            <span className="text-xs text-gray-400">Confirmed</span>
+            <span className="text-xs text-gray-400">Confirmed (DXCC/WAS)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: COLOR_CONFIRMED_ORANGE }}
+            />
+            <span className="text-xs text-gray-400">Confirmed (WAZ)</span>
           </div>
         </div>
       </div>

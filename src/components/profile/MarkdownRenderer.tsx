@@ -39,6 +39,7 @@ function renderInline(line: string): string {
   );
 
   // Bold: **text** or __text__
+  // Note: nested bold/italic (e.g., **bold *and italic***) is not supported
   result = result.replace(
     /\*\*(.+?)\*\*/g,
     '<strong class="font-semibold text-white">$1</strong>',

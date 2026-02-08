@@ -37,7 +37,19 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="text-4xl mb-4 text-gray-600">...</div>
+      <svg
+        className="w-12 h-12 text-gray-600 mx-auto mb-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M3 13h2v8H3zM9 9h2v12H9zM15 5h2v16h-2zM21 1h2v20h-2z"
+        />
+      </svg>
       <h3 className="text-lg font-semibold text-gray-300 mb-2">
         No QSOs Logged Yet
       </h3>
@@ -51,26 +63,13 @@ function EmptyState() {
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "--";
-  // dateStr is "YYYY-MM-DD"
-  const parts = dateStr.split("-");
-  if (parts.length !== 3) return dateStr;
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const monthIdx = parseInt(parts[1], 10) - 1;
-  const month = months[monthIdx] ?? parts[1];
-  return `${month} ${parseInt(parts[2], 10)}, ${parts[0]}`;
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function getTopEntry(record: Record<string, number>): string {

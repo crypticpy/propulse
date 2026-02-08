@@ -5,6 +5,8 @@
  * Mobile: pill-shaped buttons in a horizontally scrollable row.
  */
 
+import { useRef } from "react";
+
 export type ProfileTab =
   | "overview"
   | "locations"
@@ -36,45 +38,61 @@ export function ProfileTabBar({
   onTabChange,
   isMobile,
 }: ProfileTabBarProps) {
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const currentIndex = TABS.findIndex((t) => t.id === activeTab);
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
       const next = TABS[(currentIndex + 1) % TABS.length];
       onTabChange(next.id);
+      tabRefs.current.get(next.id)?.focus();
     } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
       const prev = TABS[(currentIndex - 1 + TABS.length) % TABS.length];
       onTabChange(prev.id);
+      tabRefs.current.get(prev.id)?.focus();
     }
   };
 
   if (isMobile) {
     return (
-      <div
-        className="flex gap-2 overflow-x-auto scrollbar-none mb-4"
-        role="tablist"
-        aria-label="Profile sections"
-        onKeyDown={handleKeyDown}
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            tabIndex={activeTab === tab.id ? 0 : -1}
-            id={`profile-tab-${tab.id}`}
-            aria-controls={`profile-tabpanel-${tab.id}`}
-            onClick={() => onTabChange(tab.id)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
-              activeTab === tab.id
-                ? "bg-plasma-orange text-white"
-                : "bg-white/5 text-gray-400 hover:text-gray-200 hover:bg-white/10"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="relative mb-4">
+        <div
+          className="flex gap-2 overflow-x-auto scrollbar-none pr-6"
+          role="tablist"
+          aria-label="Profile sections"
+          onKeyDown={handleKeyDown}
+          style={{
+            maskImage:
+              "linear-gradient(to right, black calc(100% - 24px), transparent)",
+            WebkitMaskImage:
+              "linear-gradient(to right, black calc(100% - 24px), transparent)",
+          }}
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              ref={(el) => {
+                if (el) tabRefs.current.set(tab.id, el);
+                else tabRefs.current.delete(tab.id);
+              }}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+              id={`profile-tab-${tab.id}`}
+              aria-controls={`profile-tabpanel-${tab.id}`}
+              onClick={() => onTabChange(tab.id)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
+                activeTab === tab.id
+                  ? "bg-plasma-orange text-white"
+                  : "bg-white/5 text-gray-400 hover:text-gray-200 hover:bg-white/10"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
@@ -89,6 +107,10 @@ export function ProfileTabBar({
       {TABS.map((tab) => (
         <button
           key={tab.id}
+          ref={(el) => {
+            if (el) tabRefs.current.set(tab.id, el);
+            else tabRefs.current.delete(tab.id);
+          }}
           role="tab"
           aria-selected={activeTab === tab.id}
           tabIndex={activeTab === tab.id ? 0 : -1}

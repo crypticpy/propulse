@@ -94,7 +94,15 @@ export function LicenseHistory() {
 
                     {/* Remove button */}
                     <button
-                      onClick={() => removeEntry(entry.id)}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Remove the ${entry.class} license entry from ${entry.date}?`,
+                          )
+                        ) {
+                          removeEntry(entry.id);
+                        }
+                      }}
                       className="opacity-60 hover:opacity-100 transition-opacity text-gray-600 hover:text-alert-red text-xs p-1 shrink-0"
                       title="Remove entry"
                     >
@@ -130,6 +138,7 @@ export function LicenseHistory() {
                 type="date"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
+                max={new Date().toISOString().split("T")[0]}
                 className="w-full bg-void-black/50 border border-white/10 rounded-lg px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-plasma-orange/50"
               />
             </div>

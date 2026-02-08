@@ -6,6 +6,7 @@
  * Mobile: Compact horizontal card with callsign, grid, name, and completeness ring.
  */
 
+import { useProfileStore } from "@/stores/profileStore";
 import { ProfileCompletenessRing } from "./ProfileCompletenessRing";
 import { StationIdentityForm } from "./StationIdentityForm";
 import type { StationIdentityFormProps } from "./StationIdentityForm";
@@ -35,11 +36,23 @@ export function ProfileCardDesktop({
   onCancelEdit,
   formProps,
 }: ProfileCardDesktopProps) {
+  const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+
   return (
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
       <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
         {/* Callsign */}
         <div className="text-center mb-4">
+          {profileImageUrl && (
+            <img
+              src={profileImageUrl}
+              alt=""
+              className="w-16 h-16 rounded-full object-cover border-2 border-white/10 mx-auto mb-3"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          )}
           <h2 className="font-mono text-2xl font-bold text-plasma-orange">
             {displayCallsign}
           </h2>
@@ -164,14 +177,28 @@ export function ProfileCardMobile({
   onShowQR,
   onEdit,
 }: ProfileCardMobileProps) {
+  const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+
   return (
     <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-mono text-lg font-bold text-plasma-orange">
-            {displayCallsign}
-          </h2>
-          <p className="text-xs text-gray-400 font-mono">{displayGrid}</p>
+        <div className="flex items-center gap-3">
+          {profileImageUrl && (
+            <img
+              src={profileImageUrl}
+              alt=""
+              className="w-12 h-12 rounded-full object-cover border-2 border-white/10"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          )}
+          <div>
+            <h2 className="font-mono text-lg font-bold text-plasma-orange">
+              {displayCallsign}
+            </h2>
+            <p className="text-xs text-gray-400 font-mono">{displayGrid}</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {displayName && (

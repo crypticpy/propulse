@@ -160,6 +160,9 @@ function OtherProfileView({
     ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
     : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
 
+  // Visibility settings — no settings means show everything (safe default)
+  const vis = profile.visibilitySettings;
+
   return (
     <div className={isMobile ? "px-4 py-4" : "max-w-[720px] mx-auto px-6 py-6"}>
       <div className="mb-4">
@@ -187,7 +190,7 @@ function OtherProfileView({
             {profile.operatorName && (
               <p className="text-gray-300">{profile.operatorName}</p>
             )}
-            {profile.grid && (
+            {profile.grid && (!vis || vis.location !== "private") && (
               <p className="text-gray-500 text-sm font-mono">{profile.grid}</p>
             )}
           </div>
@@ -205,29 +208,31 @@ function OtherProfileView({
         </div>
       )}
 
-      {profile.socialLinks && profile.socialLinks.length > 0 && (
-        <div className={`${panelClass} mb-6`}>
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Links
-          </h3>
-          <ul className="space-y-1">
-            {profile.socialLinks.map((link, i) => (
-              <li key={i}>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-nebula-blue hover:underline"
-                >
-                  {link.type}: {link.url}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {(!vis || vis.activity !== "private") &&
+        profile.socialLinks &&
+        profile.socialLinks.length > 0 && (
+          <div className={`${panelClass} mb-6`}>
+            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Links
+            </h3>
+            <ul className="space-y-1">
+              {profile.socialLinks.map((link, i) => (
+                <li key={i}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-nebula-blue hover:underline"
+                  >
+                    {link.type}: {link.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      {profile.statsCache && (
+      {(!vis || vis.stats === "public") && profile.statsCache && (
         <div className={`${panelClass} mb-6`}>
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
             Stats
@@ -358,26 +363,41 @@ export default function ProfilePage() {
           lon: coords.lon,
         });
       } else {
-        const homeLocationId = crypto.randomUUID();
-        const homeLocation = {
-          id: homeLocationId,
-          name: "Home",
-          grid: gridUpper,
-          lat: coords.lat,
-          lon: coords.lon,
-          type: "home" as const,
-          createdAt: new Date().toISOString(),
-        };
-        setStation({
-          callsign: trimmedCallsign,
-          operatorName: operatorName.trim() || undefined,
-          homeLocationId,
-          activeLocationId: null,
-          savedLocations: [homeLocation],
-          grid: gridUpper,
-          lat: coords.lat,
-          lon: coords.lon,
-        });
+        // Only create home location if grid is provided
+        if (grid) {
+          const homeLocationId = crypto.randomUUID();
+          const homeLocation = {
+            id: homeLocationId,
+            name: "Home",
+            grid: gridUpper,
+            lat: coords.lat,
+            lon: coords.lon,
+            type: "home" as const,
+            createdAt: new Date().toISOString(),
+          };
+          setStation({
+            callsign: trimmedCallsign,
+            operatorName: operatorName.trim() || undefined,
+            homeLocationId,
+            activeLocationId: null,
+            savedLocations: [homeLocation],
+            grid: gridUpper,
+            lat: coords.lat,
+            lon: coords.lon,
+          });
+        } else {
+          // Callsign only, no grid — create station without location
+          setStation({
+            callsign: trimmedCallsign,
+            operatorName: operatorName.trim() || undefined,
+            homeLocationId: "",
+            activeLocationId: null,
+            savedLocations: station?.savedLocations ?? [],
+            grid: "",
+            lat: 0,
+            lon: 0,
+          });
+        }
       }
     } else {
       setStation(null);
@@ -434,16 +454,47 @@ export default function ProfilePage() {
     <>
       {activeTab === "overview" && (
         <div className={isMobile ? "space-y-4" : "space-y-8"}>
-          {/* Station Identity Form */}
-          <div className={panelClass}>
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-              Station Identity
-            </h3>
-            <StationIdentityForm
-              {...formProps}
-              idPrefix={isMobile ? "mobile" : "profile"}
-            />
-          </div>
+          {/* Station Identity — only show form on mobile where sidebar doesn't exist */}
+          {isMobile ? (
+            <div className={panelClass}>
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                Station Identity
+              </h3>
+              <StationIdentityForm {...formProps} idPrefix="mobile" />
+            </div>
+          ) : (
+            <div className={panelClass}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  Station Identity
+                </h3>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs text-plasma-orange hover:text-plasma-orange/80 transition-colors"
+                >
+                  Edit in sidebar
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500 text-xs block">Callsign</span>
+                  <span className="text-gray-200 font-mono">
+                    {displayCallsign}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block">Name</span>
+                  <span className="text-gray-200">
+                    {displayName || "\u2014"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block">Grid</span>
+                  <span className="text-gray-200 font-mono">{displayGrid}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* License Card */}
           <div className={panelClass}>
@@ -577,6 +628,8 @@ export default function ProfilePage() {
         displayName={displayName}
         displayGrid={displayGrid}
         completeness={completeness}
+        onShowQR={() => setShowQR(true)}
+        onEdit={() => setIsEditing(true)}
       />
 
       <ProfileTabBar

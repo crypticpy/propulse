@@ -10,7 +10,7 @@
  * - Share button with Web Share API fallback to clipboard
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { DetailModal } from "@/components/ui/DetailModal";
 
@@ -83,7 +83,7 @@ export function QRCodeModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, callsign, qrzUrl]);
+  }, [isOpen, callsign]);
 
   // Listen for fullscreen exit via Esc or browser controls
   useEffect(() => {
@@ -142,10 +142,56 @@ export function QRCodeModal({
 
   const activeDataUrl = brightMode ? brightDataUrl : dataUrl;
 
+  // Refs for fullscreen focus management
+  const fullscreenRef = useRef<HTMLDivElement>(null);
+  const exitBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Focus the exit button when entering fullscreen
+  useEffect(() => {
+    if (isFullscreen && exitBtnRef.current) {
+      exitBtnRef.current.focus();
+    }
+  }, [isFullscreen]);
+
+  // Tab-trap handler for fullscreen overlay
+  const handleFullscreenKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "Tab") return;
+      const container = fullscreenRef.current;
+      if (!container) return;
+
+      const focusable = container.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    },
+    [],
+  );
+
   // Fullscreen overlay — renders outside the modal when active
   if (isFullscreen && activeDataUrl) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white">
+      <div
+        ref={fullscreenRef}
+        tabIndex={-1}
+        onKeyDown={handleFullscreenKeyDown}
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white"
+      >
         {/* Large QR code on white for maximum contrast */}
         <img
           src={brightDataUrl ?? activeDataUrl}
@@ -157,6 +203,7 @@ export function QRCodeModal({
         </p>
         {grid && <p className="mt-1 text-lg font-mono text-gray-500">{grid}</p>}
         <button
+          ref={exitBtnRef}
           onClick={toggleFullscreen}
           className="mt-6 px-6 py-2 text-sm rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >

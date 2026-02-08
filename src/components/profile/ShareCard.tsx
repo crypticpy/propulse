@@ -101,8 +101,8 @@ export function ShareCard() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {
-      // Silently fail — download is best-effort
+    } catch (err) {
+      console.error("Failed to generate profile card:", err);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template, cardData.callsign]);

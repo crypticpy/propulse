@@ -30,6 +30,7 @@ export function FriendList() {
   const unfollowUser = useSocialStore((s) => s.unfollowUser);
 
   const [search, setSearch] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Fetch on mount
   useEffect(() => {
@@ -65,15 +66,25 @@ export function FriendList() {
   }, [followers, search]);
 
   const handleFollow = useCallback(
-    (userId: string) => {
-      followUser(userId);
+    async (userId: string) => {
+      try {
+        setActionError(null);
+        await followUser(userId);
+      } catch {
+        setActionError("Failed to follow user. Please try again.");
+      }
     },
     [followUser],
   );
 
   const handleUnfollow = useCallback(
-    (userId: string) => {
-      unfollowUser(userId);
+    async (userId: string) => {
+      try {
+        setActionError(null);
+        await unfollowUser(userId);
+      } catch {
+        setActionError("Failed to unfollow user. Please try again.");
+      }
     },
     [unfollowUser],
   );
@@ -94,6 +105,8 @@ export function FriendList() {
         onChange={(e) => setSearch(e.target.value)}
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 transition-colors"
       />
+
+      {actionError && <p className="text-xs text-alert-red">{actionError}</p>}
 
       {isLoading && (
         <p className="text-sm text-gray-500 animate-pulse motion-reduce:animate-none">

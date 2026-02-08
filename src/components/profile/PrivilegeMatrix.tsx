@@ -266,7 +266,12 @@ export function PrivilegeMatrix() {
       ) : isMobile ? (
         <MobileList summaries={summaries} />
       ) : (
-        <DesktopGrid summaries={summaries} />
+        <>
+          <DesktopGrid summaries={summaries} />
+          <p className="text-[10px] text-gray-600 mt-1 text-right sm:hidden">
+            Scroll for more bands &rarr;
+          </p>
+        </>
       )}
     </div>
   );

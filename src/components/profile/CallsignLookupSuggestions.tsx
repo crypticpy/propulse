@@ -10,7 +10,7 @@
  * so users can easily enable bio/image lookups.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 import type { IngestionResult } from "@/hooks/useCallsignIngestion";
 
@@ -166,15 +166,15 @@ export function CallsignLookupSuggestions({
     [currentValues],
   );
 
-  // Re-initialize when result appears
-  if (result && !initialized) {
-    initSelection(result);
-  }
-
-  // Reset initialization when result clears
-  if (!result && initialized) {
-    setInitialized(false);
-  }
+  // Re-initialize when result appears; reset when result clears
+  useEffect(() => {
+    if (result && !initialized) {
+      initSelection(result);
+    }
+    if (!result && initialized) {
+      setInitialized(false);
+    }
+  }, [result, initialized, initSelection]);
 
   const toggleField = (key: IngestionField) => {
     setSelected((prev) => {

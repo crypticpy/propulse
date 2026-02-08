@@ -113,9 +113,10 @@ export function ActivityHeatmap({
   return (
     <div className="overflow-x-auto">
       <svg
-        width={svgWidth}
-        height={svgHeight}
-        className="block"
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        width="100%"
+        style={{ aspectRatio: `${svgWidth}/${svgHeight}` }}
+        className="block max-w-full"
         role="img"
         aria-label="QSO activity heatmap for the last 365 days"
       >

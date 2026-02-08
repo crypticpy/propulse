@@ -13,11 +13,13 @@ function EquipmentCard({
   label,
   name,
   detail,
+  extraCount = 0,
 }: {
   icon: string;
   label: string;
   name: string;
   detail?: string;
+  extraCount?: number;
 }) {
   return (
     <div className="bg-panel/30 border border-white/5 rounded-lg p-3 flex items-start gap-3 min-w-0">
@@ -31,7 +33,14 @@ function EquipmentCard({
         <p className="text-xs text-gray-500 uppercase tracking-wider">
           {label}
         </p>
-        <p className="text-sm font-medium text-gray-200 truncate">{name}</p>
+        <p className="text-sm font-medium text-gray-200 truncate">
+          {name}
+          {extraCount > 0 && (
+            <span className="text-xs text-gray-500 ml-1">
+              +{extraCount} more
+            </span>
+          )}
+        </p>
         {detail && (
           <p className="text-xs text-gray-500 truncate mt-0.5">{detail}</p>
         )}
@@ -107,6 +116,7 @@ export function EquipmentSummary() {
             label="Antenna"
             name={primaryAntenna.name}
             detail={`${primaryAntenna.heightMeters}m ${primaryAntenna.antennaType}`}
+            extraCount={antennas.length > 1 ? antennas.length - 1 : 0}
           />
         )}
 
@@ -116,6 +126,7 @@ export function EquipmentSummary() {
             label="Feedline"
             name={primaryFeedline.name}
             detail={`${primaryFeedline.lengthFeet}ft ${primaryFeedline.feedlineType}`}
+            extraCount={feedlines.length > 1 ? feedlines.length - 1 : 0}
           />
         )}
       </div>

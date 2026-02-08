@@ -66,9 +66,13 @@ const LICENSE_CLASS_MAP: Record<string, LicenseClass> = {
 };
 
 function mapLicenseClass(raw: string): LicenseClass {
-  return (
-    LICENSE_CLASS_MAP[raw.toLowerCase().trim()] ?? ("GENERAL" as LicenseClass)
-  );
+  const mapped = LICENSE_CLASS_MAP[raw.toLowerCase().trim()];
+  if (!mapped) {
+    console.warn(
+      `[Propulse] Unknown license class "${raw}", defaulting to GENERAL`,
+    );
+  }
+  return mapped ?? ("GENERAL" as LicenseClass);
 }
 
 export interface StationIdentityFormProps {
@@ -281,9 +285,9 @@ export function StationIdentityForm({
 
       {/* Grid Locator */}
       <div>
-        <label className={gridLabelClass}>
+        <span className={gridLabelClass}>
           {compact ? "Grid Locator" : "Home Grid Square"}
-        </label>
+        </span>
         <LocationInput
           value={grid}
           onChange={(v) => {

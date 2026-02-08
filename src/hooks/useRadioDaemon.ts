@@ -22,6 +22,11 @@ export interface RadioDaemonConnectionOptions {
   maxReconnectDelay?: number;
   connectionTimeout?: number;
   authToken?: string;
+  onMessage?: (
+    message: DaemonIncomingMessage,
+    api: Pick<RadioDaemonConnection, "send" | "sendCommand">,
+  ) => void;
+  onFrame?: (frame: RadioBinaryFrame) => void;
 }
 
 export interface RadioDaemonConnection {
@@ -37,15 +42,16 @@ export interface RadioDaemonConnection {
   disconnect: () => void;
 }
 
-const DEFAULT_OPTIONS: Required<Omit<RadioDaemonConnectionOptions, "authToken">> =
-  {
-    url: DEFAULT_DAEMON_URL,
-    enabled: true,
-    autoReconnect: true,
-    reconnectDelay: 1000,
-    maxReconnectDelay: 30000,
-    connectionTimeout: 5000,
-  };
+const DEFAULT_OPTIONS: Required<
+  Omit<RadioDaemonConnectionOptions, "authToken" | "onMessage" | "onFrame">
+> = {
+  url: DEFAULT_DAEMON_URL,
+  enabled: true,
+  autoReconnect: true,
+  reconnectDelay: 1000,
+  maxReconnectDelay: 30000,
+  connectionTimeout: 5000,
+};
 
 function calculateBackoff(attempt: number, baseDelay: number, maxDelay: number) {
   const delay = baseDelay * Math.pow(2, attempt);
@@ -81,6 +87,12 @@ export function useRadioDaemon(
   optsRef.current = opts;
   const authTokenRef = useRef<string | undefined>(options.authToken);
   authTokenRef.current = options.authToken;
+  const onMessageRef = useRef<RadioDaemonConnectionOptions["onMessage"]>(
+    options.onMessage,
+  );
+  onMessageRef.current = options.onMessage;
+  const onFrameRef = useRef<RadioDaemonConnectionOptions["onFrame"]>(options.onFrame);
+  onFrameRef.current = options.onFrame;
 
   const clearTimers = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -272,16 +284,35 @@ export function useRadioDaemon(
           return;
         }
 
+        // Ensure the active socket ref points at the socket that actually opened.
+        // In React dev (StrictMode) it's possible to create/close sockets quickly; we want
+        // initial commands to always go out on the socket that is currently open.
+        wsRef.current = ws;
+
         clearTimers();
         setState("connected");
         setError(null);
         reconnectAttemptRef.current = 0;
 
-        // Authenticate (optional) and request device list
+        const sendJson = (message: Record<string, unknown>) => {
+          try {
+            ws.send(JSON.stringify(message));
+            return true;
+          } catch {
+            return false;
+          }
+        };
+
+        // Authenticate (optional) and request device list.
+        // Use the `ws` instance directly to avoid races with wsRef readiness.
         if (authTokenRef.current) {
-          sendCommand("hello", { auth_token: authTokenRef.current });
+          sendJson({
+            id: generateCommandId(),
+            type: "hello",
+            auth_token: authTokenRef.current,
+          });
         }
-        sendCommand("devices:enumerate");
+        sendJson({ id: generateCommandId(), type: "devices:enumerate" });
       };
 
       ws.onclose = (event) => {
@@ -311,6 +342,11 @@ export function useRadioDaemon(
           try {
             const msg = JSON.parse(event.data) as DaemonIncomingMessage;
             setLastMessage(msg);
+            try {
+              onMessageRef.current?.(msg, { send, sendCommand });
+            } catch {
+              // ignore handler errors
+            }
           } catch {
             // Ignore malformed JSON
           }
@@ -319,7 +355,14 @@ export function useRadioDaemon(
 
         if (event.data instanceof ArrayBuffer) {
           const frame = parseBinaryFrame(event.data);
-          if (frame) setLastFrame(frame);
+          if (frame) {
+            setLastFrame(frame);
+            try {
+              onFrameRef.current?.(frame);
+            } catch {
+              // ignore handler errors
+            }
+          }
         }
       };
     } catch {
@@ -327,7 +370,7 @@ export function useRadioDaemon(
       setError("Failed to create WebSocket connection");
       scheduleReconnect();
     }
-  }, [clearTimers, scheduleReconnect, sendCommand]);
+  }, [clearTimers, scheduleReconnect, send, sendCommand]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -417,6 +460,11 @@ export function useRadioDaemon(
         try {
           const parsed = JSON.parse(msg.text) as DaemonIncomingMessage;
           setLastMessage(parsed);
+          try {
+            onMessageRef.current?.(parsed, { send, sendCommand });
+          } catch {
+            // ignore
+          }
         } catch {
           // ignore
         }
@@ -425,13 +473,20 @@ export function useRadioDaemon(
 
       if (msg.type === "binary" && msg.data instanceof ArrayBuffer) {
         const frame = parseBinaryFrame(msg.data);
-        if (frame) setLastFrame(frame);
+        if (frame) {
+          setLastFrame(frame);
+          try {
+            onFrameRef.current?.(frame);
+          } catch {
+            // ignore
+          }
+        }
       }
     };
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [clearTimers, scheduleReconnect, sendCommand]);
+  }, [clearTimers, scheduleReconnect, send, sendCommand]);
 
   useEffect(() => {
     if (enabled) connect();

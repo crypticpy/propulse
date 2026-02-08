@@ -62,13 +62,6 @@ export function SdrConsole() {
       return DEFAULT_DAEMON_URL;
     }
   });
-  const daemon = useRadioDaemon({ enabled: true, url: daemonUrl });
-  const daemonConnected = daemon.connected;
-  const daemonConnecting = daemon.connecting;
-  const daemonError = daemon.error;
-  const daemonLastMessage = daemon.lastMessage;
-  const daemonLastFrame = daemon.lastFrame;
-  const daemonSendCommand = daemon.sendCommand;
   const [devicePickerOpen, setDevicePickerOpen] = useState(false);
   const [discoveredDaemons, setDiscoveredDaemons] = useState<
     DaemonDiscoveryDaemonsMessage["daemons"]
@@ -112,6 +105,91 @@ export function SdrConsole() {
   const [freqInput, setFreqInput] = useState("");
   const [freqUnit, setFreqUnit] = useState<"MHz" | "kHz" | "Hz">("MHz");
   const [draftState, setDraftState] = useState<RadioState | null>(null);
+
+  const handleDaemonMessage = useCallback(
+    (
+      msg: DaemonIncomingMessage,
+      api: Pick<ReturnType<typeof useRadioDaemon>, "sendCommand">,
+    ) => {
+      if (isDevicesListMessage(msg)) {
+        setDevices(msg.devices);
+        return;
+      }
+      if (isDevicesAddedMessage(msg) || isDevicesRemovedMessage(msg)) {
+        // Refresh the full list (device events are deltas only).
+        api.sendCommand("devices:enumerate");
+        return;
+      }
+      if (isRadioStateMessage(msg)) {
+        upsertRadioState(msg.device_id, msg.state);
+        return;
+      }
+      if (isRadioSmeterMessage(msg)) {
+        setSmeterDbm(msg.device_id, msg.dbm);
+        return;
+      }
+      if (isDaemonStatusMessage(msg)) {
+        setLastDaemonStatus(msg);
+        return;
+      }
+      if (isDaemonResponseMessage(msg)) {
+        const err = typeof msg.error === "string" ? msg.error : "Command failed";
+        setLastResponseError(msg.success ? null : err);
+        return;
+      }
+      if (isDaemonDiscoveryDaemonsMessage(msg)) {
+        setDiscoveredDaemons(msg.daemons);
+        return;
+      }
+      if (isWsjtxStatusMessage(msg)) {
+        setWsjtxStatus(msg.status);
+        return;
+      }
+      if (isWsjtxDecodeMessage(msg)) {
+        setWsjtxDecodes((prev) => {
+          const next = [msg.decode, ...prev];
+          if (next.length > 200) next.length = 200;
+          return next;
+        });
+        return;
+      }
+      if (isClusterSpotMessage(msg)) {
+        setClusterSpots((prev) => {
+          const next = [msg, ...prev];
+          if (next.length > 200) next.length = 200;
+          return next;
+        });
+      }
+    },
+    [
+      setClusterSpots,
+      setDevices,
+      setLastDaemonStatus,
+      setLastResponseError,
+      setSmeterDbm,
+      setWsjtxDecodes,
+      setWsjtxStatus,
+      upsertRadioState,
+    ],
+  );
+
+  const handleDaemonFrame = useCallback(
+    (frame: RadioBinaryFrame) => {
+      setFrame(frame);
+    },
+    [setFrame],
+  );
+
+  const daemon = useRadioDaemon({
+    enabled: true,
+    url: daemonUrl,
+    onMessage: handleDaemonMessage,
+    onFrame: handleDaemonFrame,
+  });
+  const daemonConnected = daemon.connected;
+  const daemonConnecting = daemon.connecting;
+  const daemonError = daemon.error;
+  const daemonSendCommand = daemon.sendCommand;
 
   const selectedDevice = useMemo(
     () => devices.find((d) => d.device_id === selectedDeviceId) ?? null,
@@ -240,76 +318,6 @@ export function SdrConsole() {
     fftEnabled,
     setFftEnabled,
   ]);
-
-  useEffect(() => {
-    const msg = daemonLastMessage as DaemonIncomingMessage | null;
-    if (!msg) return;
-
-    if (isDevicesListMessage(msg)) {
-      setDevices(msg.devices);
-      return;
-    }
-    if (isDevicesAddedMessage(msg) || isDevicesRemovedMessage(msg)) {
-      // Refresh the full list (device events are deltas only).
-      daemonSendCommand("devices:enumerate");
-      return;
-    }
-    if (isRadioStateMessage(msg)) {
-      upsertRadioState(msg.device_id, msg.state);
-      return;
-    }
-    if (isRadioSmeterMessage(msg)) {
-      setSmeterDbm(msg.device_id, msg.dbm);
-      return;
-    }
-    if (isDaemonStatusMessage(msg)) {
-      setLastDaemonStatus(msg);
-      return;
-    }
-    if (isDaemonResponseMessage(msg)) {
-      const err =
-        typeof msg.error === "string" ? msg.error : "Command failed";
-      setLastResponseError(msg.success ? null : err);
-      return;
-    }
-    if (isDaemonDiscoveryDaemonsMessage(msg)) {
-      setDiscoveredDaemons(msg.daemons);
-      return;
-    }
-    if (isWsjtxStatusMessage(msg)) {
-      setWsjtxStatus(msg.status);
-      return;
-    }
-    if (isWsjtxDecodeMessage(msg)) {
-      setWsjtxDecodes((prev) => {
-        const next = [msg.decode, ...prev];
-        if (next.length > 200) next.length = 200;
-        return next;
-      });
-      return;
-    }
-    if (isClusterSpotMessage(msg)) {
-      setClusterSpots((prev) => {
-        const next = [msg, ...prev];
-        if (next.length > 200) next.length = 200;
-        return next;
-      });
-      return;
-    }
-  }, [
-    daemonLastMessage,
-    daemonSendCommand,
-    setDevices,
-    setLastDaemonStatus,
-    setSmeterDbm,
-    upsertRadioState,
-  ]);
-
-  useEffect(() => {
-    const frame = daemonLastFrame as RadioBinaryFrame | null;
-    if (!frame) return;
-    setFrame(frame);
-  }, [daemonLastFrame, setFrame]);
 
   const canControlDevice = daemonConnected && !!selectedDeviceId;
   const canControlConnected = daemonConnected && !!connectedDeviceId;

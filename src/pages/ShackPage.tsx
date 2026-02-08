@@ -20,6 +20,8 @@ import { AccessoryManager } from "@/components/shack/AccessoryManager";
 import { InlineComponentManager } from "@/components/shack/InlineComponentManager";
 import { PresetBuilder } from "@/components/shack/PresetBuilder";
 import { PerformanceDashboard } from "@/components/shack/PerformanceDashboard";
+import { WhatIfSimulator } from "@/components/shack/WhatIfSimulator";
+import { PresetComparison } from "@/components/shack/PresetComparison";
 import { BandCapabilityStrip } from "@/components/shack/BandCapabilityStrip";
 import { SignalChainDiagram } from "@/components/shack/SignalChainDiagram";
 import { useStationPerformance } from "@/hooks/useStationPerformance";
@@ -335,8 +337,16 @@ export default function ShackPage() {
         )}
 
         {activeTab === "performance" && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-            <PerformanceDashboard />
+          <div className="space-y-6">
+            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+              <PerformanceDashboard />
+            </div>
+            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+              <WhatIfSimulator />
+            </div>
+            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
+              <PresetComparison />
+            </div>
           </div>
         )}
       </div>
@@ -409,8 +419,16 @@ export default function ShackPage() {
       )}
 
       {activeTab === "performance" && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-          <PerformanceDashboard />
+        <div className="space-y-4">
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+            <PerformanceDashboard />
+          </div>
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+            <WhatIfSimulator />
+          </div>
+          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+            <PresetComparison />
+          </div>
         </div>
       )}
     </div>

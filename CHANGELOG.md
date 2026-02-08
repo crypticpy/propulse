@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.13.0] — 2026-02-08
+
+### Propulse Radio Daemon + SDR Console (Waterfall, Audio, Integrations)
+
+This release introduces the **Propulse Radio Daemon** (Rust) and a new **SDR Console** page that brings waterfall/spectrum, DSP controls, and radio/rig integration directly into Propulse. The daemon provides a unified WebSocket API (superset of the legacy `bridge/` protocol) with binary FFT/audio frames, local network discovery, and common ham integrations.
+
+- **New daemon workspace (`daemon/`)** — `propulse-daemon` binary plus supporting crates for discovery, DSP, audio output, and integrations.
+- **SoapySDR discovery + IQ streaming** — optional runtime-loaded SoapySDR backend for SDR device enumeration and live IQ → FFT/audio streaming.
+- **DSP pipeline** — FFT streaming, demodulated audio streaming, AGC, bandpass filtering, noise reduction and noise blanker controls.
+- **Integrations** — WSJT-X UDP listener, DX Cluster telnet client, N1MM+ UDP interop, and a virtual CAT (rigctld) server.
+- **mDNS/Bonjour discovery** — daemon advertises on LAN and can browse other daemons for the Device Picker.
+- **New `/sdr` page** — WebGL2 waterfall with Canvas fallback, spectrum scope, click-to-tune, drag-select bandwidth (filter), wheel/pinch zoom, and overlays (cluster spots + WSJT-X decodes).
+- **Contest integration** — contest band map can render daemon FFT background when available; contest logging auto-fills band/mode from radio state.
+- **Settings** — configurable SDR waterfall palette in Appearance.
+- **Distribution** — GitHub Actions workflow builds and attaches multi-platform daemon binaries on tag releases.
+
 ## [0.12.0] — 2026-02-07
 
 ### Operator Profile, Shack Builder, Settings Redesign, and Supabase Foundation
@@ -411,6 +427,7 @@ A complete contest logging system and major DX operations improvements.
 
 ---
 
+[0.13.0]: https://github.com/crypticpy/propulse/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/crypticpy/propulse/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.11.0
 [0.10.1]: https://github.com/crypticpy/propulse/compare/v0.10.0...v0.10.1

@@ -1224,7 +1224,7 @@ dependencies = [
 
 [[package]]
 name = "propulse-audio"
-version = "0.1.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "cpal",
@@ -1235,7 +1235,7 @@ dependencies = [
 
 [[package]]
 name = "propulse-daemon"
-version = "0.1.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1263,7 +1263,7 @@ dependencies = [
 
 [[package]]
 name = "propulse-discovery"
-version = "0.1.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "gethostname",
@@ -1277,7 +1277,7 @@ dependencies = [
 
 [[package]]
 name = "propulse-dsp"
-version = "0.1.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "num-complex",
@@ -1286,7 +1286,7 @@ dependencies = [
 
 [[package]]
 name = "propulse-integrations"
-version = "0.1.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "propulse-radio"
-version = "0.1.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "libloading",

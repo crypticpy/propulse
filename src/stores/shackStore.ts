@@ -167,7 +167,7 @@ interface ShackStore {
 
 export const useShackStore = create<ShackStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       radios: [],
       customRadios: [],
       activeRadioId: null,
@@ -181,6 +181,7 @@ export const useShackStore = create<ShackStore>()(
 
       addRadio: (radioId, nickname) => {
         let instanceId: string | null = null;
+        let wasAdded = false;
 
         set((state) => {
           const existing = state.radios.find((r) => r.equipmentId === radioId);
@@ -196,6 +197,7 @@ export const useShackStore = create<ShackStore>()(
             nickname,
           });
           instanceId = newRadio.id;
+          wasAdded = true;
 
           const updatedRadios = [...state.radios, newRadio];
           const activeRadioId =
@@ -204,6 +206,16 @@ export const useShackStore = create<ShackStore>()(
 
           return { radios: updatedRadios, activeRadioId };
         });
+
+        if (wasAdded && instanceId) {
+          const radioEquip = resolveEquipmentById(radioId, get().customRadios);
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "radio",
+            equipmentId: instanceId,
+            equipmentName: nickname ?? radioEquip?.displayName ?? radioId,
+          });
+        }
 
         return instanceId;
       },
@@ -225,6 +237,16 @@ export const useShackStore = create<ShackStore>()(
 
           return { radios: updatedRadios, activeRadioId };
         });
+
+        if (instanceId) {
+          const radioEquip = resolveEquipmentById(radioId, get().customRadios);
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "radio",
+            equipmentId: instanceId,
+            equipmentName: nickname ?? radioEquip?.displayName ?? radioId,
+          });
+        }
 
         return instanceId;
       },
@@ -258,10 +280,30 @@ export const useShackStore = create<ShackStore>()(
           return { radios: next };
         });
 
+        if (result.ok) {
+          const radio = get().radios.find((r) => r.id === id);
+          const radioEquip = radio
+            ? resolveEquipmentById(radio.equipmentId, get().customRadios)
+            : undefined;
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "radio",
+            equipmentId: id,
+            equipmentName:
+              radio?.nickname ?? radioEquip?.displayName ?? "Unknown",
+          });
+        }
+
         return result;
       },
 
-      removeRadio: (radioId) =>
+      removeRadio: (radioId) => {
+        const radio = get().radios.find((r) => r.id === radioId);
+        const radioEquip = radio
+          ? resolveEquipmentById(radio.equipmentId, get().customRadios)
+          : undefined;
+        const name = radio?.nickname ?? radioEquip?.displayName ?? "Unknown";
+
         set((state) => {
           const updatedRadios = state.radios.filter((r) => r.id !== radioId);
           const activeRadioId =
@@ -271,7 +313,15 @@ export const useShackStore = create<ShackStore>()(
                 : null
               : state.activeRadioId;
           return { radios: updatedRadios, activeRadioId };
-        }),
+        });
+
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "radio",
+          equipmentId: radioId,
+          equipmentName: name,
+        });
+      },
 
       setActiveRadio: (radioId) => set({ activeRadioId: radioId }),
 
@@ -306,11 +356,21 @@ export const useShackStore = create<ShackStore>()(
           };
         });
 
+        if (result.ok) {
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "radio",
+            equipmentId: id,
+            equipmentName: displayName,
+          });
+        }
+
         return result;
       },
 
       updateCustomRadio: (id, updates) => {
         let result: { ok: true } | { ok: false; error: string } = { ok: true };
+        let updatedName = "";
 
         set((state) => {
           const existing = state.customRadios || [];
@@ -344,6 +404,7 @@ export const useShackStore = create<ShackStore>()(
             return state;
           }
 
+          updatedName = nextDisplayName;
           const nextCustom = existing.map((r, i) =>
             i === idx ? { ...r, ...updates, displayName: nextDisplayName } : r,
           );
@@ -351,10 +412,22 @@ export const useShackStore = create<ShackStore>()(
           return { customRadios: nextCustom };
         });
 
+        if (result.ok) {
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "radio",
+            equipmentId: id,
+            equipmentName: updatedName,
+          });
+        }
+
         return result;
       },
 
-      removeCustomRadio: (id) =>
+      removeCustomRadio: (id) => {
+        const customRadio = (get().customRadios || []).find((r) => r.id === id);
+        const name = customRadio?.displayName ?? "Unknown";
+
         set((state) => {
           const nextCustom = (state.customRadios || []).filter(
             (r) => r.id !== id,
@@ -376,7 +449,15 @@ export const useShackStore = create<ShackStore>()(
             radios: updatedRadios,
             activeRadioId,
           };
-        }),
+        });
+
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "radio",
+          equipmentId: id,
+          equipmentName: name,
+        });
+      },
 
       // === Antenna Actions ===
 
@@ -393,6 +474,14 @@ export const useShackStore = create<ShackStore>()(
             ],
           };
         });
+        if (id) {
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "antenna",
+            equipmentId: id,
+            equipmentName: antenna.name,
+          });
+        }
         return id;
       },
 
@@ -410,36 +499,65 @@ export const useShackStore = create<ShackStore>()(
             ),
           };
         });
+        if (result.ok) {
+          const antenna = get().antennas.find((a) => a.id === id);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "antenna",
+            equipmentId: id,
+            equipmentName: antenna?.name ?? "Unknown",
+          });
+        }
         return result;
       },
 
-      removeAntenna: (id) =>
+      removeAntenna: (id) => {
+        const antenna = get().antennas.find((a) => a.id === id);
+        const name = antenna?.name ?? "Unknown";
         set((state) => ({
           antennas: state.antennas.filter((a) => a.id !== id),
           // Clean up presets referencing this antenna
           stationPresets: state.stationPresets.filter(
             (p) => p.antennaId !== id,
           ),
-        })),
+        }));
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "antenna",
+          equipmentId: id,
+          equipmentName: name,
+        });
+      },
 
       duplicateAntenna: (id) => {
         let newId: string | null = null;
+        const src = get().antennas.find((a) => a.id === id);
+        const originalName = src?.name ?? "Unknown";
         set((state) => {
-          const src = state.antennas.find((a) => a.id === id);
-          if (!src || state.antennas.length >= MAX_ANTENNAS) return state;
+          const current = state.antennas.find((a) => a.id === id);
+          if (!current || state.antennas.length >= MAX_ANTENNAS) return state;
           newId = crypto.randomUUID();
           return {
             antennas: [
               ...state.antennas,
               {
-                ...src,
+                ...current,
                 id: newId,
-                name: `${src.name} (copy)`,
+                name: `${current.name} (copy)`,
                 addedAt: new Date().toISOString(),
               },
             ],
           };
         });
+        if (newId) {
+          get()._addHistoryEntry({
+            action: "duplicated",
+            equipmentType: "antenna",
+            equipmentId: newId,
+            equipmentName: `${originalName} (copy)`,
+            details: `Duplicated from ${originalName}`,
+          });
+        }
         return newId;
       },
 
@@ -458,6 +576,14 @@ export const useShackStore = create<ShackStore>()(
             ],
           };
         });
+        if (id) {
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "feedline",
+            equipmentId: id,
+            equipmentName: feedline.name,
+          });
+        }
         return id;
       },
 
@@ -475,36 +601,65 @@ export const useShackStore = create<ShackStore>()(
             ),
           };
         });
+        if (result.ok) {
+          const feedline = get().feedlines.find((f) => f.id === id);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "feedline",
+            equipmentId: id,
+            equipmentName: feedline?.name ?? "Unknown",
+          });
+        }
         return result;
       },
 
-      removeFeedline: (id) =>
+      removeFeedline: (id) => {
+        const feedline = get().feedlines.find((f) => f.id === id);
+        const name = feedline?.name ?? "Unknown";
         set((state) => ({
           feedlines: state.feedlines.filter((f) => f.id !== id),
           // Clean up presets referencing this feedline
           stationPresets: state.stationPresets.map((p) =>
             p.feedlineId === id ? { ...p, feedlineId: undefined } : p,
           ),
-        })),
+        }));
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "feedline",
+          equipmentId: id,
+          equipmentName: name,
+        });
+      },
 
       duplicateFeedline: (id) => {
         let newId: string | null = null;
+        const src = get().feedlines.find((f) => f.id === id);
+        const originalName = src?.name ?? "Unknown";
         set((state) => {
-          const src = state.feedlines.find((f) => f.id === id);
-          if (!src || state.feedlines.length >= MAX_FEEDLINES) return state;
+          const current = state.feedlines.find((f) => f.id === id);
+          if (!current || state.feedlines.length >= MAX_FEEDLINES) return state;
           newId = crypto.randomUUID();
           return {
             feedlines: [
               ...state.feedlines,
               {
-                ...src,
+                ...current,
                 id: newId,
-                name: `${src.name} (copy)`,
+                name: `${current.name} (copy)`,
                 addedAt: new Date().toISOString(),
               },
             ],
           };
         });
+        if (newId) {
+          get()._addHistoryEntry({
+            action: "duplicated",
+            equipmentType: "feedline",
+            equipmentId: newId,
+            equipmentName: `${originalName} (copy)`,
+            details: `Duplicated from ${originalName}`,
+          });
+        }
         return newId;
       },
 
@@ -528,6 +683,14 @@ export const useShackStore = create<ShackStore>()(
             ],
           };
         });
+        if (id) {
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "inline_component",
+            equipmentId: id,
+            equipmentName: component.name,
+          });
+        }
         return id;
       },
 
@@ -545,10 +708,21 @@ export const useShackStore = create<ShackStore>()(
             ),
           };
         });
+        if (result.ok) {
+          const component = get().inlineComponents.find((c) => c.id === id);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "inline_component",
+            equipmentId: id,
+            equipmentName: component?.name ?? "Unknown",
+          });
+        }
         return result;
       },
 
-      removeInlineComponent: (id) =>
+      removeInlineComponent: (id) => {
+        const component = get().inlineComponents.find((c) => c.id === id);
+        const name = component?.name ?? "Unknown";
         set((state) => ({
           inlineComponents: state.inlineComponents.filter((c) => c.id !== id),
           stationPresets: state.stationPresets.map((p) => ({
@@ -557,27 +731,48 @@ export const useShackStore = create<ShackStore>()(
               (cid) => cid !== id,
             ),
           })),
-        })),
+        }));
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "inline_component",
+          equipmentId: id,
+          equipmentName: name,
+        });
+      },
 
       duplicateInlineComponent: (id) => {
         let newId: string | null = null;
+        const src = get().inlineComponents.find((c) => c.id === id);
+        const originalName = src?.name ?? "Unknown";
         set((state) => {
-          const src = state.inlineComponents.find((c) => c.id === id);
-          if (!src || state.inlineComponents.length >= MAX_INLINE_COMPONENTS)
+          const current = state.inlineComponents.find((c) => c.id === id);
+          if (
+            !current ||
+            state.inlineComponents.length >= MAX_INLINE_COMPONENTS
+          )
             return state;
           newId = crypto.randomUUID();
           return {
             inlineComponents: [
               ...state.inlineComponents,
               {
-                ...src,
+                ...current,
                 id: newId,
-                name: `${src.name} (copy)`,
+                name: `${current.name} (copy)`,
                 addedAt: new Date().toISOString(),
               } as InlineComponent,
             ],
           };
         });
+        if (newId) {
+          get()._addHistoryEntry({
+            action: "duplicated",
+            equipmentType: "inline_component",
+            equipmentId: newId,
+            equipmentName: `${originalName} (copy)`,
+            details: `Duplicated from ${originalName}`,
+          });
+        }
         return newId;
       },
 
@@ -600,6 +795,14 @@ export const useShackStore = create<ShackStore>()(
             ],
           };
         });
+        if (id) {
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "accessory",
+            equipmentId: id,
+            equipmentName: accessory.name,
+          });
+        }
         return id;
       },
 
@@ -617,10 +820,21 @@ export const useShackStore = create<ShackStore>()(
             ),
           };
         });
+        if (result.ok) {
+          const accessory = get().accessories.find((a) => a.id === id);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "accessory",
+            equipmentId: id,
+            equipmentName: accessory?.name ?? "Unknown",
+          });
+        }
         return result;
       },
 
-      removeAccessory: (id) =>
+      removeAccessory: (id) => {
+        const accessory = get().accessories.find((a) => a.id === id);
+        const name = accessory?.name ?? "Unknown";
         set((state) => ({
           accessories: state.accessories.filter((a) => a.id !== id),
           // Remove this accessory from all presets' accessoryIds
@@ -628,26 +842,45 @@ export const useShackStore = create<ShackStore>()(
             ...p,
             accessoryIds: p.accessoryIds.filter((aid) => aid !== id),
           })),
-        })),
+        }));
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "accessory",
+          equipmentId: id,
+          equipmentName: name,
+        });
+      },
 
       duplicateAccessory: (id) => {
         let newId: string | null = null;
+        const src = get().accessories.find((a) => a.id === id);
+        const originalName = src?.name ?? "Unknown";
         set((state) => {
-          const src = state.accessories.find((a) => a.id === id);
-          if (!src || state.accessories.length >= MAX_ACCESSORIES) return state;
+          const current = state.accessories.find((a) => a.id === id);
+          if (!current || state.accessories.length >= MAX_ACCESSORIES)
+            return state;
           newId = crypto.randomUUID();
           return {
             accessories: [
               ...state.accessories,
               {
-                ...src,
+                ...current,
                 id: newId,
-                name: `${src.name} (copy)`,
+                name: `${current.name} (copy)`,
                 addedAt: new Date().toISOString(),
               } as UserAccessory,
             ],
           };
         });
+        if (newId) {
+          get()._addHistoryEntry({
+            action: "duplicated",
+            equipmentType: "accessory",
+            equipmentId: newId,
+            equipmentName: `${originalName} (copy)`,
+            details: `Duplicated from ${originalName}`,
+          });
+        }
         return newId;
       },
 
@@ -666,6 +899,14 @@ export const useShackStore = create<ShackStore>()(
             ],
           };
         });
+        if (id) {
+          get()._addHistoryEntry({
+            action: "added",
+            equipmentType: "preset",
+            equipmentId: id,
+            equipmentName: preset.name,
+          });
+        }
         return id;
       },
 
@@ -683,37 +924,67 @@ export const useShackStore = create<ShackStore>()(
             ),
           };
         });
+        if (result.ok) {
+          const preset = get().stationPresets.find((p) => p.id === id);
+          get()._addHistoryEntry({
+            action: "modified",
+            equipmentType: "preset",
+            equipmentId: id,
+            equipmentName: preset?.name ?? "Unknown",
+          });
+        }
         return result;
       },
 
-      removePreset: (id) =>
+      removePreset: (id) => {
+        const preset = get().stationPresets.find((p) => p.id === id);
+        const name = preset?.name ?? "Unknown";
         set((state) => ({
           stationPresets: state.stationPresets.filter((p) => p.id !== id),
           // Clear activePresetId if it matches the removed preset
           activePresetId:
             state.activePresetId === id ? null : state.activePresetId,
-        })),
+        }));
+        get()._addHistoryEntry({
+          action: "removed",
+          equipmentType: "preset",
+          equipmentId: id,
+          equipmentName: name,
+        });
+      },
 
       setActivePreset: (id) => set({ activePresetId: id }),
 
       duplicatePreset: (id) => {
         let newId: string | null = null;
+        const src = get().stationPresets.find((p) => p.id === id);
+        const originalName = src?.name ?? "Unknown";
         set((state) => {
-          const src = state.stationPresets.find((p) => p.id === id);
-          if (!src || state.stationPresets.length >= MAX_PRESETS) return state;
+          const current = state.stationPresets.find((p) => p.id === id);
+          if (!current || state.stationPresets.length >= MAX_PRESETS)
+            return state;
           newId = crypto.randomUUID();
           return {
             stationPresets: [
               ...state.stationPresets,
               {
-                ...src,
+                ...current,
                 id: newId,
-                name: `${src.name} (copy)`,
+                name: `${current.name} (copy)`,
                 createdAt: new Date().toISOString(),
               },
             ],
           };
         });
+        if (newId) {
+          get()._addHistoryEntry({
+            action: "duplicated",
+            equipmentType: "preset",
+            equipmentId: newId,
+            equipmentName: `${originalName} (copy)`,
+            details: `Duplicated from ${originalName}`,
+          });
+        }
         return newId;
       },
 

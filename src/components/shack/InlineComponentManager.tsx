@@ -131,14 +131,13 @@ function formFromComponent(c: InlineComponent): ComponentForm {
     }
     case "choke": {
       const ch = c as ChokeComponent;
-      // Map chokeType to our material select
       base.chokeMaterial =
         ch.chokeType === "common_mode"
           ? "ferrite_core"
           : ch.chokeType === "line_isolator"
             ? "air_wound"
             : "snap_on";
-      base.chokeTurns = "";
+      base.chokeTurns = ch.turns !== undefined ? String(ch.turns) : "";
       base.chokeImpedanceOhms =
         ch.impedance !== undefined ? String(ch.impedance) : "";
       base.chokeFrequencyRangeMHz = ch.bands?.join(", ") ?? "";
@@ -166,7 +165,8 @@ function formFromComponent(c: InlineComponent): ComponentForm {
       const f = c as FerriteComponent;
       base.ferriteMaterial = f.material ?? "";
       base.ferriteTurns = f.turns !== undefined ? String(f.turns) : "1";
-      base.ferriteImpedanceOhms = "";
+      base.ferriteImpedanceOhms =
+        f.impedanceOhms !== undefined ? String(f.impedanceOhms) : "";
       break;
     }
   }
@@ -220,6 +220,9 @@ function buildPayload(
         impedance: form.chokeImpedanceOhms
           ? Number.parseFloat(form.chokeImpedanceOhms)
           : undefined,
+        turns: form.chokeTurns
+          ? Number.parseInt(form.chokeTurns, 10)
+          : undefined,
         bands: form.chokeFrequencyRangeMHz.trim()
           ? [form.chokeFrequencyRangeMHz.trim()]
           : undefined,
@@ -254,6 +257,9 @@ function buildPayload(
         count: 1,
         turns: form.ferriteTurns
           ? Number.parseInt(form.ferriteTurns, 10)
+          : undefined,
+        impedanceOhms: form.ferriteImpedanceOhms
+          ? Number.parseFloat(form.ferriteImpedanceOhms)
           : undefined,
       } as Omit<FerriteComponent, "id" | "addedAt">;
   }

@@ -290,6 +290,7 @@ export interface ChokeComponent extends InlineComponentBase {
   componentType: "choke";
   chokeType: "common_mode" | "line_isolator" | "feed_through";
   impedance?: number;
+  turns?: number;
   bands?: string[];
 }
 
@@ -306,6 +307,7 @@ export interface FerriteComponent extends InlineComponentBase {
   material?: "43" | "31" | "61" | "77" | "unknown";
   count: number;
   turns?: number;
+  impedanceOhms?: number;
 }
 
 export type InlineComponent =
@@ -482,7 +484,8 @@ export type EquipmentHistoryAction =
   | "modified"
   | "retired"
   | "removed"
-  | "activated";
+  | "activated"
+  | "duplicated";
 
 export interface EquipmentHistoryEntry {
   id: string;

@@ -18,6 +18,7 @@ import {
   FEEDLINE_TYPE_NAMES,
   calculateTotalFeedlineLoss,
 } from "@/lib/data/feedlines";
+import { FeedlineLossSparkline } from "@/components/shack/FeedlineLossSparkline";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -225,6 +226,7 @@ export function FeedlineManager() {
                   <span className="text-caution-amber font-medium">
                     Loss @ 20m: {loss.toFixed(2)} dB
                   </span>
+                  <FeedlineLossSparkline feedlineId={f.id} />
                 </div>
               </div>
             );

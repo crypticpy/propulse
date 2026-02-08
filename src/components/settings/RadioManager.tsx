@@ -20,6 +20,7 @@ import {
   getEffectiveReceiverSpecs,
 } from "@/lib/data/radios";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   calculateReceiverScore,
   getTierLabel,
@@ -234,10 +235,15 @@ export function RadioManager({
     createDefaultCustomForm(),
   );
   const [customBaseQuery, setCustomBaseQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [instanceModalOpen, setInstanceModalOpen] = useState(false);
-  const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
-  const [instanceModalError, setInstanceModalError] = useState<string | null>(null);
+  const [editingInstanceId, setEditingInstanceId] = useState<string | null>(
+    null,
+  );
+  const [instanceModalError, setInstanceModalError] = useState<string | null>(
+    null,
+  );
   const [instanceForm, setInstanceForm] = useState<{
     nickname: string;
     customPowerLimit: string;
@@ -355,10 +361,7 @@ export function RadioManager({
       instanceForm.customPowerLimit.trim() === ""
         ? undefined
         : Number.parseFloat(instanceForm.customPowerLimit);
-    if (
-      typeof limit === "number" &&
-      (!Number.isFinite(limit) || limit <= 0)
-    ) {
+    if (typeof limit === "number" && (!Number.isFinite(limit) || limit <= 0)) {
       setInstanceModalError("Power limit must be a positive number");
       return;
     }
@@ -433,10 +436,12 @@ export function RadioManager({
   };
 
   const handleDeleteCustomRadio = (id: string) => {
-    if (!window.confirm("Delete this custom radio?")) {
-      return;
-    }
-    removeCustomRadio(id);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) removeCustomRadio(deleteTarget);
+    setDeleteTarget(null);
   };
 
   const validateCustomRadioForm = (): string | null => {
@@ -591,7 +596,10 @@ export function RadioManager({
     return searchRadios(customBaseQuery).slice(0, 8);
   }, [customBaseQuery]);
 
-  const importFromDatabase = (base: RadioEquipment, mode: "factory" | "tested") => {
+  const importFromDatabase = (
+    base: RadioEquipment,
+    mode: "factory" | "tested",
+  ) => {
     const receiver =
       mode === "tested" && base.testedSpecs ? base.testedSpecs : base.receiver;
     setCustomForm((prev) => ({
@@ -693,7 +701,9 @@ export function RadioManager({
             </span>
             <button
               type="button"
-              onClick={() => activeUserRadio && openEditInstance(activeUserRadio.id)}
+              onClick={() =>
+                activeUserRadio && openEditInstance(activeUserRadio.id)
+              }
               className="ml-auto px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
             >
               Edit
@@ -1033,7 +1043,8 @@ export function RadioManager({
                       const rx = getEffectiveReceiverSpecs(radio, preferTested);
                       return (
                         <>
-                          RX Score: {calculateReceiverScore(rx)} | RMDR: {rx.rmdr}dB
+                          RX Score: {calculateReceiverScore(rx)} | RMDR:{" "}
+                          {rx.rmdr}dB
                           {" | "}IMD3: {rx.imdr3}dB
                         </>
                       );
@@ -1078,7 +1089,10 @@ export function RadioManager({
               <input
                 value={instanceForm.nickname}
                 onChange={(e) =>
-                  setInstanceForm((prev) => ({ ...prev, nickname: e.target.value }))
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    nickname: e.target.value,
+                  }))
                 }
                 placeholder="e.g., Portable, Shack #1"
                 className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
@@ -1113,7 +1127,10 @@ export function RadioManager({
                 type="date"
                 value={instanceForm.purchaseDate}
                 onChange={(e) =>
-                  setInstanceForm((prev) => ({ ...prev, purchaseDate: e.target.value }))
+                  setInstanceForm((prev) => ({
+                    ...prev,
+                    purchaseDate: e.target.value,
+                  }))
                 }
                 className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
                            text-white focus:outline-none focus:border-plasma-orange/50"
@@ -1165,7 +1182,10 @@ export function RadioManager({
                 onChange={(e) =>
                   setInstanceForm((prev) => ({
                     ...prev,
-                    specPreference: e.target.value as "global" | "factory" | "tested",
+                    specPreference: e.target.value as
+                      | "global"
+                      | "factory"
+                      | "tested",
                   }))
                 }
                 className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
@@ -1257,7 +1277,8 @@ export function RadioManager({
               Start from database (optional)
             </div>
             <div className="text-xs text-gray-400">
-              Import a base radio from the built-in database, then tweak specs as needed.
+              Import a base radio from the built-in database, then tweak specs
+              as needed.
             </div>
             <input
               value={customBaseQuery}
@@ -1681,6 +1702,16 @@ export function RadioManager({
           </div>
         </div>
       </DetailModal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        title="Delete Custom Radio"
+        message="Are you sure you want to delete this custom radio? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

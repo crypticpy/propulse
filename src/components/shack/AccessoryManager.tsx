@@ -297,6 +297,10 @@ export function AccessoryManager() {
         }
         break;
       }
+      case "rotator":
+      case "keyer":
+      case "audio_dsp":
+        break;
     }
 
     return null;

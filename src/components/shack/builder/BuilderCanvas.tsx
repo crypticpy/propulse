@@ -737,7 +737,7 @@ export function BuilderCanvas({
             {/* Instructions */}
             <p className="text-sm text-gray-400 text-center max-w-xs">
               Drag equipment from the drawer below to start building your signal
-              chain
+              signal path
             </p>
 
             {/* Animated down arrow */}
@@ -809,7 +809,7 @@ export function BuilderCanvas({
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         style={{ minHeight: MIN_CANVAS_HEIGHT }}
         role="img"
-        aria-label={`Signal chain builder: ${chain.name}`}
+        aria-label={`Signal path builder: ${chain.name}`}
         onClick={handleBackgroundClick}
         onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleCanvasMouseMove}

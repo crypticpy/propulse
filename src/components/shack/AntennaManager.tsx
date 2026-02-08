@@ -3,9 +3,10 @@
  *
  * Displays antenna cards with name, type, bands, height, mounting, and polarization.
  * Add/edit via DetailModal form; delete with confirmation.
+ * Uses EquipmentCard for display and EquipmentDetailModal for detail view.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useShackStore, useUserAntennas } from "@/stores/shackStore";
 import type {
   UserAntenna,
@@ -20,6 +21,10 @@ import {
 } from "@/types/shack";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EquipmentCard } from "@/components/shack/EquipmentCard";
+import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
+import type { EquipmentCardStat } from "@/components/shack/EquipmentCard";
+import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
 import { ALL_BANDS } from "@/types/user";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
@@ -94,6 +99,95 @@ function formFromAntenna(a: UserAntenna): AntennaForm {
   };
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildAntennaStats(a: UserAntenna): EquipmentCardStat[] {
+  const stats: EquipmentCardStat[] = [];
+
+  // Gain — show first per-band override or omit
+  const gainEntries = a.gainDbiOverride
+    ? Object.entries(a.gainDbiOverride)
+    : [];
+  if (gainEntries.length > 0) {
+    const [band, gain] = gainEntries[0];
+    stats.push({
+      icon: "gain",
+      label: `Gain (${band})`,
+      value: `${gain} dBi`,
+    });
+  }
+
+  // Bands count
+  stats.push({
+    icon: "bands",
+    label: "Bands",
+    value: `${a.bands.length} band${a.bands.length !== 1 ? "s" : ""}`,
+  });
+
+  // Height
+  stats.push({
+    icon: "length",
+    label: "Height",
+    value: `${a.heightMeters} m`,
+  });
+
+  // Mounting
+  stats.push({
+    icon: "impedance",
+    label: "Mount",
+    value: MOUNTING_LABELS[a.mounting],
+  });
+
+  return stats;
+}
+
+function buildAntennaDetailFields(a: UserAntenna): EquipmentDetailField[] {
+  const fields: EquipmentDetailField[] = [
+    { label: "Name", value: a.name },
+    {
+      label: "Type",
+      value: ANTENNA_TYPE_LABELS[a.antennaType] ?? a.antennaType,
+    },
+    { label: "Bands", value: a.bands.join(", ") },
+    { label: "Height", value: a.heightMeters, unit: "m" },
+    { label: "Mounting", value: MOUNTING_LABELS[a.mounting] },
+    { label: "Polarization", value: POLARIZATION_LABELS[a.polarization] },
+    { label: "Rotatable", value: a.isRotatable ?? false },
+  ];
+
+  if (a.azimuthDeg != null) {
+    fields.push({ label: "Azimuth", value: a.azimuthDeg, unit: "\u00B0" });
+  }
+
+  if (a.manufacturer) {
+    fields.push({ label: "Manufacturer", value: a.manufacturer });
+  }
+
+  if (a.modelNumber) {
+    fields.push({ label: "Model", value: a.modelNumber });
+  }
+
+  // Gain overrides
+  const gainEntries = a.gainDbiOverride
+    ? Object.entries(a.gainDbiOverride)
+    : [];
+  for (const [band, gain] of gainEntries) {
+    fields.push({ label: `Gain (${band})`, value: gain, unit: "dBi" });
+  }
+
+  // SWR measurements
+  const swrEntries = a.swrByBand ? Object.entries(a.swrByBand) : [];
+  for (const [band, swr] of swrEntries) {
+    fields.push({ label: `SWR (${band})`, value: swr.toFixed(1) });
+  }
+
+  if (a.notes) {
+    fields.push({ label: "Notes", value: a.notes });
+  }
+
+  return fields;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function AntennaManager() {
@@ -105,6 +199,15 @@ export function AntennaManager() {
   const [form, setForm] = useState<AntennaForm>(createDefaultForm);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [viewAntennaId, setViewAntennaId] = useState<string | null>(null);
+
+  const viewedAntenna = useMemo(
+    () =>
+      viewAntennaId
+        ? (antennas.find((a) => a.id === viewAntennaId) ?? null)
+        : null,
+    [viewAntennaId, antennas],
+  );
 
   // ─── Handlers ────────────────────────────────────────────────────────
 
@@ -120,6 +223,7 @@ export function AntennaManager() {
   };
 
   const openEdit = (a: UserAntenna) => {
+    setViewAntennaId(null);
     setEditingId(a.id);
     setForm(formFromAntenna(a));
     setError(null);
@@ -127,6 +231,7 @@ export function AntennaManager() {
   };
 
   const handleDelete = (id: string) => {
+    setViewAntennaId(null);
     setDeleteTarget(id);
   };
 
@@ -196,13 +301,10 @@ export function AntennaManager() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Antennas
-        </h3>
         <button
           onClick={openAdd}
           className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors"
+                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors ml-auto"
         >
           + Add Antenna
         </button>
@@ -212,60 +314,17 @@ export function AntennaManager() {
       {antennas.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {antennas.map((a) => (
-            <div
+            <EquipmentCard
               key={a.id}
-              className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-3"
-            >
-              {/* Title row */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-white font-medium truncate">
-                    {a.name}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-0.5">
-                    {ANTENNA_TYPE_LABELS[a.antennaType] ?? a.antennaType}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(a)}
-                    className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(a.id)}
-                    className="px-2 py-1 text-[10px] rounded bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              {/* Band chips */}
-              <div className="flex flex-wrap gap-1">
-                {a.bands.map((b) => (
-                  <span
-                    key={b}
-                    className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-plasma-orange/15 text-plasma-orange"
-                  >
-                    {b}
-                  </span>
-                ))}
-              </div>
-
-              {/* Details row */}
-              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                <span>{a.heightMeters}m height</span>
-                <span>{MOUNTING_LABELS[a.mounting]}</span>
-                <span>{POLARIZATION_LABELS[a.polarization]}</span>
-                {a.isRotatable && (
-                  <span className="text-signal-green">Rotatable</span>
-                )}
-              </div>
-            </div>
+              title={a.name}
+              subtitle={ANTENNA_TYPE_LABELS[a.antennaType] ?? a.antennaType}
+              equipmentType="antenna"
+              stats={buildAntennaStats(a)}
+              bandPills={a.bands}
+              onClick={() => setViewAntennaId(a.id)}
+              onEdit={() => openEdit(a)}
+              onDelete={() => handleDelete(a.id)}
+            />
           ))}
         </div>
       ) : (
@@ -273,6 +332,23 @@ export function AntennaManager() {
           No antennas added yet. Add your first antenna to track your station
           setup.
         </div>
+      )}
+
+      {/* Detail view modal */}
+      {viewedAntenna && (
+        <EquipmentDetailModal
+          open={viewAntennaId !== null}
+          onClose={() => setViewAntennaId(null)}
+          title={viewedAntenna.name}
+          subtitle={
+            ANTENNA_TYPE_LABELS[viewedAntenna.antennaType] ??
+            viewedAntenna.antennaType
+          }
+          equipmentType="antenna"
+          fields={buildAntennaDetailFields(viewedAntenna)}
+          onEdit={() => openEdit(viewedAntenna)}
+          onDelete={() => handleDelete(viewedAntenna.id)}
+        />
       )}
 
       {/* Add / Edit Modal */}

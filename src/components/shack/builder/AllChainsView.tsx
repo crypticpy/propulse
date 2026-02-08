@@ -540,8 +540,8 @@ function ExpandedChainBody({
         createPortal(
           <ConfirmDialog
             open={true}
-            title="Remove from Chain?"
-            message={`Remove ${confirmAction.label} from the signal chain? This action cannot be undone.`}
+            title="Remove from Signal Path?"
+            message={`Remove ${confirmAction.label} from the signal path? This action cannot be undone.`}
             confirmLabel="Remove"
             variant="destructive"
             onConfirm={handleConfirmRemoveNode}
@@ -755,7 +755,7 @@ function ChainCardHeader({
                   setIsEditingName(true);
                 }}
                 className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors shrink-0"
-                aria-label="Edit chain name"
+                aria-label="Edit signal path name"
               >
                 <svg
                   className="w-3.5 h-3.5"
@@ -827,7 +827,7 @@ function ChainCardHeader({
               onDuplicate();
             }}
             className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-            aria-label="Duplicate chain"
+            aria-label="Duplicate signal path"
             title="Duplicate"
           >
             <svg
@@ -852,7 +852,7 @@ function ChainCardHeader({
               onDelete();
             }}
             className="p-2 rounded-lg hover:bg-alert-red/10 text-gray-400 hover:text-alert-red transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-            aria-label="Delete chain"
+            aria-label="Delete signal path"
             title="Delete"
           >
             <svg
@@ -879,7 +879,9 @@ function ChainCardHeader({
             onToggle();
           }}
           className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
-          aria-label={isExpanded ? "Collapse chain" : "Expand chain"}
+          aria-label={
+            isExpanded ? "Collapse signal path" : "Expand signal path"
+          }
         >
           <svg
             className={`w-5 h-5 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
@@ -952,7 +954,7 @@ export function AllChainsView({
 
   const handleCreateChain = useCallback(() => {
     const chainId = addChain({
-      name: `Chain ${chains.length + 1}`,
+      name: `Signal Path ${chains.length + 1}`,
       nodes: [],
       feedlineRuns: [],
       operatingPowerWatts: 100,
@@ -999,7 +1001,7 @@ export function AllChainsView({
   // Create chain from schematic empty state and switch to edit mode
   const handleCreateChainFromSchematic = useCallback(() => {
     const chainId = addChain({
-      name: `Chain ${chains.length + 1}`,
+      name: `Signal Path ${chains.length + 1}`,
       nodes: [],
       feedlineRuns: [],
       operatingPowerWatts: 100,
@@ -1033,7 +1035,7 @@ export function AllChainsView({
               : "bg-white/5 text-gray-400 hover:text-gray-200"
           }`}
         >
-          Edit Chains
+          Edit Signal Paths
         </button>
       </div>
 
@@ -1120,7 +1122,7 @@ export function AllChainsView({
                 d="M12 4v16m8-8H4"
               />
             </svg>
-            <span className="text-sm font-medium">Add Chain</span>
+            <span className="text-sm font-medium">Add Signal Path</span>
           </button>
         </>
       )}
@@ -1130,8 +1132,8 @@ export function AllChainsView({
         createPortal(
           <ConfirmDialog
             open={true}
-            title="Delete Chain?"
-            message={`Delete "${deleteConfirm.name}"? This will remove the chain and all its nodes.`}
+            title="Delete Signal Path?"
+            message={`Delete "${deleteConfirm.name}"? This will remove the signal path and all its nodes.`}
             confirmLabel="Delete"
             variant="destructive"
             onConfirm={handleConfirmDelete}

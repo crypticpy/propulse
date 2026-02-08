@@ -2,8 +2,8 @@
  * InlineComponentManager — Card-list CRUD for inline signal chain components
  * (adapters, pigtails, chokes, baluns, ferrites).
  *
- * Displays component cards with type-specific details, insertion loss badge,
- * and connector info. Add/edit/duplicate via DetailModal, delete via ConfirmDialog.
+ * Uses EquipmentCard for display and EquipmentDetailModal for detail view.
+ * Add/edit/duplicate via DetailModal, delete via ConfirmDialog.
  */
 
 import { useState } from "react";
@@ -25,6 +25,10 @@ import {
 } from "@/types/shack";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EquipmentCard } from "@/components/shack/EquipmentCard";
+import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
+import type { EquipmentCardStat } from "@/components/shack/EquipmentCard";
+import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -56,6 +60,29 @@ const BALUN_TYPES = [
   { value: "current", label: "Current Balun" },
   { value: "voltage", label: "Voltage Balun" },
 ] as const;
+
+const CHOKE_TYPE_LABELS: Record<string, string> = {
+  common_mode: "Common Mode",
+  line_isolator: "Line Isolator",
+  feed_through: "Feed-Through",
+};
+
+const FERRITE_TYPE_LABELS: Record<string, string> = {
+  snap_on: "Snap-On",
+  toroid: "Toroid",
+  bead: "Bead",
+};
+
+const TYPE_BADGE_COLOR: Record<
+  InlineComponentType,
+  "orange" | "green" | "amber" | "red" | "blue" | "gray"
+> = {
+  adapter: "gray",
+  pigtail: "blue",
+  choke: "amber",
+  balun: "orange",
+  ferrite: "green",
+};
 
 // ─── Form state ───────────────────────────────────────────────────────────────
 
@@ -265,41 +292,216 @@ function buildPayload(
   }
 }
 
-/** Summarize connector info for a card */
-function getConnectorSummary(c: InlineComponent): string | null {
-  switch (c.componentType) {
-    case "adapter":
-    case "pigtail": {
-      const comp = c as AdapterComponent | PigtailComponent;
-      return `${CONNECTOR_TYPE_LABELS[comp.connectorFrom]} → ${CONNECTOR_TYPE_LABELS[comp.connectorTo]}`;
-    }
-    default:
-      return null;
-  }
-}
+// ─── Card helpers ─────────────────────────────────────────────────────────────
 
-/** Type-specific detail for card subtitle */
-function getTypeDetail(c: InlineComponent): string | null {
+function getInlineStats(c: InlineComponent): EquipmentCardStat[] {
+  const stats: EquipmentCardStat[] = [];
+
+  // Common: insertion loss
+  stats.push({
+    icon: "loss",
+    label: "Loss",
+    value: `${c.insertionLossDb.toFixed(2)} dB`,
+  });
+
   switch (c.componentType) {
+    case "adapter": {
+      const a = c as AdapterComponent;
+      stats.push({
+        icon: "connector",
+        label: "From",
+        value: CONNECTOR_TYPE_LABELS[a.connectorFrom],
+      });
+      stats.push({
+        icon: "connector",
+        label: "To",
+        value: CONNECTOR_TYPE_LABELS[a.connectorTo],
+      });
+      break;
+    }
     case "pigtail": {
       const p = c as PigtailComponent;
-      return `${p.lengthInches}" pigtail`;
+      stats.push({
+        icon: "connector",
+        label: "From",
+        value: CONNECTOR_TYPE_LABELS[p.connectorFrom],
+      });
+      stats.push({
+        icon: "connector",
+        label: "To",
+        value: CONNECTOR_TYPE_LABELS[p.connectorTo],
+      });
+      stats.push({
+        icon: "length",
+        label: "Length",
+        value: `${p.lengthInches}"`,
+      });
+      break;
     }
     case "choke": {
       const ch = c as ChokeComponent;
-      return ch.impedance ? `${ch.impedance} \u03A9 impedance` : null;
+      stats.push({
+        icon: "score",
+        label: "Type",
+        value: CHOKE_TYPE_LABELS[ch.chokeType] ?? ch.chokeType,
+      });
+      if (ch.impedance != null)
+        stats.push({
+          icon: "impedance",
+          label: "Impedance",
+          value: `${ch.impedance} \u03A9`,
+        });
+      if (ch.turns != null)
+        stats.push({
+          icon: "score",
+          label: "Turns",
+          value: String(ch.turns),
+        });
+      if (ch.bands && ch.bands.length > 0)
+        stats.push({
+          icon: "frequency",
+          label: "Range",
+          value: ch.bands.join(", "),
+        });
+      break;
     }
     case "balun": {
       const b = c as BalunComponent;
-      return `${b.ratio} ratio${b.maxPowerWatts ? ` / ${b.maxPowerWatts}W` : ""}`;
+      stats.push({
+        icon: "impedance",
+        label: "Ratio",
+        value: b.ratio.replace(/_current$/, ""),
+      });
+      if (b.maxPowerWatts != null)
+        stats.push({
+          icon: "power",
+          label: "Max Power",
+          value: `${b.maxPowerWatts}W`,
+        });
+      break;
     }
     case "ferrite": {
       const f = c as FerriteComponent;
-      return f.material ? `Material: ${f.material}` : null;
+      stats.push({
+        icon: "score",
+        label: "Style",
+        value: FERRITE_TYPE_LABELS[f.ferriteType] ?? f.ferriteType,
+      });
+      if (f.material)
+        stats.push({
+          icon: "score",
+          label: "Material",
+          value: `Type ${f.material}`,
+        });
+      if (f.impedanceOhms != null)
+        stats.push({
+          icon: "impedance",
+          label: "Impedance",
+          value: `${f.impedanceOhms} \u03A9`,
+        });
+      if (f.turns != null && f.turns > 1)
+        stats.push({
+          icon: "score",
+          label: "Turns",
+          value: String(f.turns),
+        });
+      break;
     }
-    default:
-      return null;
   }
+
+  return stats;
+}
+
+function getInlineDetailFields(c: InlineComponent): EquipmentDetailField[] {
+  const fields: EquipmentDetailField[] = [
+    { label: "Name", value: c.name },
+    { label: "Type", value: INLINE_COMPONENT_LABELS[c.componentType] },
+    { label: "Insertion Loss", value: c.insertionLossDb, unit: "dB" },
+  ];
+
+  if (c.manufacturer)
+    fields.push({ label: "Manufacturer", value: c.manufacturer });
+
+  switch (c.componentType) {
+    case "adapter": {
+      const a = c as AdapterComponent;
+      fields.push({
+        label: "From Connector",
+        value: CONNECTOR_TYPE_LABELS[a.connectorFrom],
+      });
+      fields.push({
+        label: "To Connector",
+        value: CONNECTOR_TYPE_LABELS[a.connectorTo],
+      });
+      break;
+    }
+    case "pigtail": {
+      const p = c as PigtailComponent;
+      fields.push({
+        label: "From Connector",
+        value: CONNECTOR_TYPE_LABELS[p.connectorFrom],
+      });
+      fields.push({
+        label: "To Connector",
+        value: CONNECTOR_TYPE_LABELS[p.connectorTo],
+      });
+      fields.push({ label: "Length", value: p.lengthInches, unit: "inches" });
+      if (p.cableType) fields.push({ label: "Cable Type", value: p.cableType });
+      break;
+    }
+    case "choke": {
+      const ch = c as ChokeComponent;
+      fields.push({
+        label: "Choke Type",
+        value: CHOKE_TYPE_LABELS[ch.chokeType] ?? ch.chokeType,
+      });
+      if (ch.impedance != null)
+        fields.push({
+          label: "Impedance",
+          value: ch.impedance,
+          unit: "\u03A9",
+        });
+      if (ch.turns != null) fields.push({ label: "Turns", value: ch.turns });
+      if (ch.bands && ch.bands.length > 0)
+        fields.push({ label: "Frequency Range", value: ch.bands.join(", ") });
+      break;
+    }
+    case "balun": {
+      const b = c as BalunComponent;
+      fields.push({ label: "Ratio", value: b.ratio.replace(/_current$/, "") });
+      fields.push({
+        label: "Balun Type",
+        value: b.ratio.includes("current") ? "Current" : "Voltage",
+      });
+      if (b.maxPowerWatts != null)
+        fields.push({ label: "Max Power", value: b.maxPowerWatts, unit: "W" });
+      if (b.bands && b.bands.length > 0)
+        fields.push({ label: "Bands", value: b.bands.join(", ") });
+      break;
+    }
+    case "ferrite": {
+      const f = c as FerriteComponent;
+      fields.push({
+        label: "Ferrite Style",
+        value: FERRITE_TYPE_LABELS[f.ferriteType] ?? f.ferriteType,
+      });
+      if (f.material)
+        fields.push({ label: "Material", value: `Type ${f.material}` });
+      fields.push({ label: "Count", value: f.count });
+      if (f.turns != null) fields.push({ label: "Turns", value: f.turns });
+      if (f.impedanceOhms != null)
+        fields.push({
+          label: "Impedance",
+          value: f.impedanceOhms,
+          unit: "\u03A9",
+        });
+      break;
+    }
+  }
+
+  if (c.notes) fields.push({ label: "Notes", value: c.notes });
+
+  return fields;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -317,12 +519,17 @@ export function InlineComponentManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ComponentForm>(createDefaultForm);
   const [error, setError] = useState<string | null>(null);
+  const [viewInlineId, setViewInlineId] = useState<string | null>(null);
 
   // ConfirmDialog state
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
+
+  const viewedComponent = viewInlineId
+    ? (components.find((c) => c.id === viewInlineId) ?? null)
+    : null;
 
   // ─── Handlers ──────────────────────────────────────────────────────────
 
@@ -464,68 +671,54 @@ export function InlineComponentManager() {
         </button>
       </div>
 
-      {/* Card list */}
+      {/* Card grid */}
       {components.length > 0 ? (
-        <div className="space-y-3">
-          {components.map((c) => {
-            const connectorInfo = getConnectorSummary(c);
-            const detail = getTypeDetail(c);
-
-            return (
-              <div
-                key={c.id}
-                className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-white font-medium truncate">
-                      {c.name}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {INLINE_COMPONENT_LABELS[c.componentType]}
-                      {detail && <> &middot; {detail}</>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicate(c.id)}
-                      className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
-                    >
-                      Duplicate
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openEdit(c)}
-                      className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => requestDelete(c)}
-                      className="px-2 py-1 text-[10px] rounded bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-400">
-                  {connectorInfo && <span>{connectorInfo}</span>}
-                  <span className="text-caution-amber font-medium">
-                    Loss: {c.insertionLossDb.toFixed(2)} dB
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {components.map((c) => (
+            <EquipmentCard
+              key={c.id}
+              title={c.name}
+              subtitle={INLINE_COMPONENT_LABELS[c.componentType]}
+              equipmentType="inline"
+              badges={[
+                {
+                  label: INLINE_COMPONENT_LABELS[c.componentType],
+                  color: TYPE_BADGE_COLOR[c.componentType],
+                },
+              ]}
+              stats={getInlineStats(c)}
+              onClick={() => setViewInlineId(c.id)}
+              onEdit={() => openEdit(c)}
+              onDelete={() => requestDelete(c)}
+              onDuplicate={() => handleDuplicate(c.id)}
+            />
+          ))}
         </div>
       ) : (
         <div className="p-6 text-center text-gray-500 text-sm bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl">
           No inline components added yet. Add adapters, pigtails, chokes,
           baluns, or ferrites to track signal chain loss.
         </div>
+      )}
+
+      {/* View Detail Modal */}
+      {viewedComponent && (
+        <EquipmentDetailModal
+          open={viewInlineId !== null}
+          onClose={() => setViewInlineId(null)}
+          title={viewedComponent.name}
+          subtitle={INLINE_COMPONENT_LABELS[viewedComponent.componentType]}
+          equipmentType="inline"
+          fields={getInlineDetailFields(viewedComponent)}
+          onEdit={() => {
+            setViewInlineId(null);
+            openEdit(viewedComponent);
+          }}
+          onDelete={() => {
+            setViewInlineId(null);
+            requestDelete(viewedComponent);
+          }}
+        />
       )}
 
       {/* Add / Edit Modal */}

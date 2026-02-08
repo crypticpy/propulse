@@ -79,7 +79,7 @@ export function ChainSelector({
         "
       >
         <span className="flex-1 min-w-0 truncate text-sm font-medium text-gray-200">
-          {activeChain?.name ?? "No chain selected"}
+          {activeChain?.name ?? "No signal path selected"}
         </span>
         <svg
           className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
@@ -109,7 +109,7 @@ export function ChainSelector({
           <div className="max-h-60 overflow-y-auto py-1">
             {chains.length === 0 && (
               <p className="text-xs text-gray-500 italic text-center py-4 px-3">
-                No chains yet
+                No signal paths yet
               </p>
             )}
 
@@ -151,7 +151,7 @@ export function ChainSelector({
                         setMenuChainId(isMenuOpen ? null : chain.id);
                       }}
                       className="shrink-0 p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200"
-                      aria-label="Chain actions"
+                      aria-label="Signal path actions"
                     >
                       <svg
                         className="w-3.5 h-3.5"
@@ -221,7 +221,7 @@ export function ChainSelector({
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              New Chain
+              New Signal Path
             </button>
           </div>
         </div>

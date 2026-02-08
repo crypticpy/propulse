@@ -318,7 +318,7 @@ export function Header({
                       ? "text-plasma-orange bg-plasma-orange/10"
                       : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
                   }`}
-                  aria-label="Shack Builder"
+                  aria-label="My Shack"
                 >
                   <svg
                     className="w-5 h-5"

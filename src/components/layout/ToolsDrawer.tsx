@@ -52,8 +52,8 @@ const stationItems = [
   },
   {
     path: "/shack",
-    label: "Shack Builder",
-    description: "Equipment, presets & performance",
+    label: "My Shack",
+    description: "Equipment, signal paths & performance",
     icon: "shack",
   },
 ];

@@ -1,11 +1,12 @@
 /**
- * FeedlineManager — Card-list CRUD for user feedlines with inline loss display.
+ * FeedlineManager — Card-grid CRUD for user feedlines with inline loss display.
  *
  * Displays feedline cards with type, length, connectors, condition, and
  * calculated loss at 14.1 MHz (20m center freq). Add/edit via DetailModal.
+ * Uses EquipmentCard for display and EquipmentDetailModal for detail view.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useShackStore, useUserFeedlines } from "@/stores/shackStore";
 import type {
   UserFeedline,
@@ -21,6 +22,10 @@ import {
 import { FeedlineLossSparkline } from "@/components/shack/FeedlineLossSparkline";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EquipmentCard } from "@/components/shack/EquipmentCard";
+import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
+import type { EquipmentCardStat } from "@/components/shack/EquipmentCard";
+import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +37,17 @@ const CONDITION_LABELS: Record<FeedlineCondition, string> = {
   good: "Good",
   fair: "Fair",
   poor: "Poor",
+};
+
+/** Map feedline condition to badge color */
+const CONDITION_BADGE_COLOR: Record<
+  FeedlineCondition,
+  "green" | "blue" | "amber" | "red"
+> = {
+  new: "blue",
+  good: "green",
+  fair: "amber",
+  poor: "red",
 };
 
 const ALL_FEEDLINE_TYPES = Object.keys(FEEDLINE_TYPE_NAMES) as FeedlineType[];
@@ -74,6 +90,78 @@ function formFromFeedline(f: UserFeedline): FeedlineForm {
   };
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildFeedlineStats(f: UserFeedline): EquipmentCardStat[] {
+  const stats: EquipmentCardStat[] = [];
+  const loss = calculateTotalFeedlineLoss(f, 14.1);
+
+  stats.push({
+    icon: "length",
+    label: "Length",
+    value: `${f.lengthFeet} ft`,
+  });
+
+  stats.push({
+    icon: "loss",
+    label: "Loss @ 20m",
+    value: `${loss.toFixed(2)} dB`,
+  });
+
+  stats.push({
+    icon: "connector",
+    label: "Connectors",
+    value: `${f.connectorCount}x ${CONNECTOR_LABELS[f.connectorType]}`,
+  });
+
+  if (f.connectorTypeFarEnd && f.connectorTypeFarEnd !== f.connectorType) {
+    stats.push({
+      icon: "connector",
+      label: "Far End",
+      value: CONNECTOR_LABELS[f.connectorTypeFarEnd],
+    });
+  }
+
+  return stats;
+}
+
+function buildFeedlineDetailFields(f: UserFeedline): EquipmentDetailField[] {
+  const loss = calculateTotalFeedlineLoss(f, 14.1);
+
+  const fields: EquipmentDetailField[] = [
+    { label: "Name", value: f.name },
+    { label: "Type", value: FEEDLINE_TYPE_NAMES[f.feedlineType] },
+    { label: "Length", value: f.lengthFeet, unit: "ft" },
+    { label: "Condition", value: CONDITION_LABELS[f.condition] },
+    {
+      label: "Connectors",
+      value: `${f.connectorCount}x ${CONNECTOR_LABELS[f.connectorType]}`,
+    },
+    { label: "Loss @ 20m", value: loss.toFixed(2), unit: "dB" },
+  ];
+
+  if (f.connectorTypeFarEnd && f.connectorTypeFarEnd !== f.connectorType) {
+    fields.push({
+      label: "Far End Connector",
+      value: CONNECTOR_LABELS[f.connectorTypeFarEnd],
+    });
+  }
+
+  if (f.manufacturer) {
+    fields.push({ label: "Manufacturer", value: f.manufacturer });
+  }
+
+  if (f.yearInstalled) {
+    fields.push({ label: "Year Installed", value: f.yearInstalled });
+  }
+
+  if (f.notes) {
+    fields.push({ label: "Notes", value: f.notes });
+  }
+
+  return fields;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function FeedlineManager() {
@@ -85,6 +173,15 @@ export function FeedlineManager() {
   const [form, setForm] = useState<FeedlineForm>(createDefaultForm);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [viewFeedlineId, setViewFeedlineId] = useState<string | null>(null);
+
+  const viewedFeedline = useMemo(
+    () =>
+      viewFeedlineId
+        ? (feedlines.find((f) => f.id === viewFeedlineId) ?? null)
+        : null,
+    [viewFeedlineId, feedlines],
+  );
 
   // ─── Handlers ────────────────────────────────────────────────────────
 
@@ -100,6 +197,7 @@ export function FeedlineManager() {
   };
 
   const openEdit = (f: UserFeedline) => {
+    setViewFeedlineId(null);
     setEditingId(f.id);
     setForm(formFromFeedline(f));
     setError(null);
@@ -107,6 +205,7 @@ export function FeedlineManager() {
   };
 
   const handleDelete = (id: string) => {
+    setViewFeedlineId(null);
     setDeleteTarget(id);
   };
 
@@ -168,75 +267,70 @@ export function FeedlineManager() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Feedlines
-        </h3>
         <button
           onClick={openAdd}
           className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors"
+                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors ml-auto"
         >
           + Add Feedline
         </button>
       </div>
 
-      {/* Card list */}
+      {/* Card grid */}
       {feedlines.length > 0 ? (
-        <div className="space-y-3">
-          {feedlines.map((f) => {
-            const loss = calculateTotalFeedlineLoss(f, 14.1);
-            return (
-              <div
-                key={f.id}
-                className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-white font-medium truncate">
-                      {f.name}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {FEEDLINE_TYPE_NAMES[f.feedlineType]} &middot;{" "}
-                      {f.lengthFeet} ft
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(f)}
-                      className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(f.id)}
-                      className="px-2 py-1 text-[10px] rounded bg-alert-red/10 border border-alert-red/30 text-alert-red hover:bg-alert-red/20 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-400">
-                  <span>
-                    {f.connectorCount}x {CONNECTOR_LABELS[f.connectorType]}
-                  </span>
-                  <span>Condition: {CONDITION_LABELS[f.condition]}</span>
-                  <span className="text-caution-amber font-medium">
-                    Loss @ 20m: {loss.toFixed(2)} dB
-                  </span>
-                  <FeedlineLossSparkline feedlineId={f.id} />
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {feedlines.map((f) => (
+            <EquipmentCard
+              key={f.id}
+              title={f.name}
+              subtitle={`${FEEDLINE_TYPE_NAMES[f.feedlineType]} \u00B7 ${f.lengthFeet} ft`}
+              equipmentType="feedline"
+              stats={buildFeedlineStats(f)}
+              badges={[
+                {
+                  label: CONDITION_LABELS[f.condition],
+                  color: CONDITION_BADGE_COLOR[f.condition],
+                },
+              ]}
+              visualization={
+                <FeedlineLossSparkline
+                  feedlineId={f.id}
+                  height={48}
+                  width={160}
+                />
+              }
+              onClick={() => setViewFeedlineId(f.id)}
+              onEdit={() => openEdit(f)}
+              onDelete={() => handleDelete(f.id)}
+            />
+          ))}
         </div>
       ) : (
         <div className="p-6 text-center text-gray-500 text-sm bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl">
           No feedlines added yet. Add your first feedline to calculate signal
           chain loss.
         </div>
+      )}
+
+      {/* Detail view modal */}
+      {viewedFeedline && (
+        <EquipmentDetailModal
+          open={viewFeedlineId !== null}
+          onClose={() => setViewFeedlineId(null)}
+          title={viewedFeedline.name}
+          subtitle={`${FEEDLINE_TYPE_NAMES[viewedFeedline.feedlineType]} \u00B7 ${viewedFeedline.lengthFeet} ft`}
+          equipmentType="feedline"
+          fields={buildFeedlineDetailFields(viewedFeedline)}
+          visualization={
+            <FeedlineLossSparkline
+              feedlineId={viewedFeedline.id}
+              height={48}
+              width={240}
+            />
+          }
+          onEdit={() => openEdit(viewedFeedline)}
+          onDelete={() => handleDelete(viewedFeedline.id)}
+        />
       )}
 
       {/* Add / Edit Modal */}

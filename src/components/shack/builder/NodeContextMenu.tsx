@@ -308,7 +308,7 @@ export function NodeContextMenu({
         role="menuitem"
       >
         <TrashIcon />
-        Remove from Chain
+        Remove from Signal Path
       </button>
     </div>
   );

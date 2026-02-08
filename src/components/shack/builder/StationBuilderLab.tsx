@@ -167,7 +167,13 @@ function CableIcon({ className }: { className?: string }) {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function StationBuilderLab() {
+interface StationBuilderLabProps {
+  onNavigateToEquipment?: () => void;
+}
+
+export function StationBuilderLab({
+  onNavigateToEquipment,
+}: StationBuilderLabProps) {
   const [selectedBand, setSelectedBand] = useState<string>("20m");
 
   // ── Store ──────────────────────────────────────────────────────────────
@@ -185,7 +191,7 @@ export function StationBuilderLab() {
   // ── Create new chain ──────────────────────────────────────────────────
   const handleCreateChain = useCallback(() => {
     const chainId = addChain({
-      name: `Chain ${chains.length + 1}`,
+      name: `Signal Path ${chains.length + 1}`,
       nodes: [],
       feedlineRuns: [],
       operatingPowerWatts: 100,
@@ -194,16 +200,20 @@ export function StationBuilderLab() {
     if (chainId) setActiveChain(chainId);
   }, [addChain, setActiveChain, chains.length]);
 
-  // ── Navigate to inventory tab (dispatches custom event for ShackPage) ─
+  // ── Navigate to equipment tab ─────────────────────────────────────────
   const navigateToTab = useCallback(
-    (tab: "radios" | "antennas" | "feedlines") => {
-      window.dispatchEvent(
-        new CustomEvent("shack:navigate", {
-          detail: { view: "inventory", tab },
-        }),
-      );
+    (_tab: "radios" | "antennas" | "feedlines") => {
+      if (onNavigateToEquipment) {
+        onNavigateToEquipment();
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("shack:navigate", {
+            detail: { view: "equipment", tab: _tab },
+          }),
+        );
+      }
     },
-    [],
+    [onNavigateToEquipment],
   );
 
   // ── Empty state: no equipment at all ───────────────────────────────────
@@ -219,8 +229,8 @@ export function StationBuilderLab() {
               Set Up Your Station
             </h3>
             <p className="text-sm text-gray-400 max-w-md mx-auto">
-              To build signal chains, first add your equipment to the inventory.
-              Start with a radio, then add your feedlines and antennas.
+              To build signal paths, first add your equipment. Start with a
+              radio, then add your feedlines and antennas.
             </p>
           </div>
 
@@ -229,7 +239,7 @@ export function StationBuilderLab() {
             <OnboardingCard
               icon={<RadioIcon className="w-5 h-5 text-plasma-orange" />}
               title="Add Your Radio"
-              description="Your transceiver is the heart of every signal chain"
+              description="Your transceiver is the heart of every signal path"
               color="plasma-orange"
               onClick={() => navigateToTab("radios")}
             />
@@ -256,9 +266,9 @@ export function StationBuilderLab() {
               onClick={() => navigateToTab("radios")}
               className="text-plasma-orange hover:underline"
             >
-              Inventory
+              Equipment
             </button>{" "}
-            view above to add equipment
+            tab to add equipment
           </p>
         </div>
       </div>
@@ -287,12 +297,12 @@ export function StationBuilderLab() {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-200">
-              Build Your First Station Chain
+              Build Your First Signal Path
             </h3>
             <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto">
-              A station chain maps the signal path from your radio through
-              cables and accessories to the antenna. Create one to visualize
-              your setup and calculate performance.
+              A signal path maps the route from your radio through cables and
+              accessories to the antenna. Create one to visualize your setup and
+              calculate performance.
             </p>
             <p className="text-xs text-gray-500 mt-2">
               You have {radios.length} radio{radios.length !== 1 ? "s" : ""},{" "}
@@ -319,7 +329,7 @@ export function StationBuilderLab() {
                 d="M12 4v16m8-8H4"
               />
             </svg>
-            Create Station Chain
+            Create Signal Path
           </button>
         </div>
       </div>

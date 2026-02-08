@@ -92,7 +92,9 @@ export function ChainStripPreview({
       {/* Left: Node type indicators */}
       <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-hide">
         {chain.nodes.length === 0 ? (
-          <span className="text-xs text-gray-500 italic">Empty chain</span>
+          <span className="text-xs text-gray-500 italic">
+            Empty signal path
+          </span>
         ) : (
           chain.nodes.map((node, i) => {
             const config = getNodeTypeConfig(node);

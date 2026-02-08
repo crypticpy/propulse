@@ -961,11 +961,11 @@ export function ShackSchematicView({
           </svg>
         </div>
         <h3 className="text-base font-semibold text-gray-200 mb-2">
-          No station chains yet
+          No signal paths yet
         </h3>
         <p className="text-sm text-gray-500 max-w-sm mb-6">
-          Build your station&apos;s signal path from radio to antenna. Map out
-          each chain like a QST magazine station diagram.
+          Build your station&apos;s signal paths from radio to antenna. Map out
+          each path like a QST magazine station diagram.
         </p>
         {onCreateChain && (
           <button
@@ -992,7 +992,7 @@ export function ShackSchematicView({
                 d="M12 4v16m8-8H4"
               />
             </svg>
-            Create Your First Chain
+            Create Your First Signal Path
           </button>
         )}
       </div>
@@ -1059,7 +1059,7 @@ export function ShackSchematicView({
           />
         </svg>
         <span className="text-[10px] text-gray-400 font-medium">
-          {chains.length} chain{chains.length !== 1 ? "s" : ""}
+          {chains.length} signal path{chains.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -1085,7 +1085,9 @@ export function ShackSchematicView({
 
       {/* Hint badge (bottom-left) */}
       <div className="absolute bottom-2 left-2 z-10 px-2.5 py-1 bg-void-black/60 backdrop-blur-sm border border-white/10 rounded-lg">
-        <span className="text-[10px] text-gray-500">Click a chain to edit</span>
+        <span className="text-[10px] text-gray-500">
+          Click a signal path to edit
+        </span>
       </div>
 
       <svg

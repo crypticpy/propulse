@@ -21,3 +21,6 @@ export { AchievementDetail } from "./AchievementDetail";
 export { QSLSummary } from "./QSLSummary";
 export { EquipmentSummary } from "./EquipmentSummary";
 export { ShareCard } from "./ShareCard";
+export { FriendList } from "./FriendList";
+export { ActivityFeed } from "./ActivityFeed";
+export { VisibilitySettings } from "./VisibilitySettings";

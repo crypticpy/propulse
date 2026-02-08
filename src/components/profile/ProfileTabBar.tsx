@@ -5,7 +5,12 @@
  * Mobile: pill-shaped buttons in a horizontally scrollable row.
  */
 
-export type ProfileTab = "overview" | "locations" | "awards" | "stats";
+export type ProfileTab =
+  | "overview"
+  | "locations"
+  | "awards"
+  | "stats"
+  | "social";
 
 interface TabDef {
   id: ProfileTab;
@@ -17,6 +22,7 @@ const TABS: TabDef[] = [
   { id: "locations", label: "Locations" },
   { id: "awards", label: "Awards" },
   { id: "stats", label: "Stats" },
+  { id: "social", label: "Social" },
 ];
 
 interface ProfileTabBarProps {

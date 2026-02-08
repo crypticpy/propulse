@@ -26,6 +26,10 @@ import {
 } from "@/components/profile";
 import { EquipmentSummary } from "@/components/profile/EquipmentSummary";
 import { QSLSummary } from "@/components/profile/QSLSummary";
+import { FriendList } from "@/components/profile/FriendList";
+import { ActivityFeed } from "@/components/profile/ActivityFeed";
+import { VisibilitySettings } from "@/components/profile/VisibilitySettings";
+import { ShareCard } from "@/components/profile/ShareCard";
 import type { ProfileTab } from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 
@@ -247,6 +251,23 @@ export default function ProfilePage() {
       {activeTab === "stats" && (
         <div className={panelClass}>
           <StatsTab />
+        </div>
+      )}
+
+      {activeTab === "social" && (
+        <div className={isMobile ? "space-y-4" : "space-y-8"}>
+          <div className={panelClass}>
+            <FriendList />
+          </div>
+          <div className={panelClass}>
+            <ActivityFeed />
+          </div>
+          <div className={panelClass}>
+            <VisibilitySettings />
+          </div>
+          <div className={panelClass}>
+            <ShareCard />
+          </div>
         </div>
       )}
     </>

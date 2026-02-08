@@ -24,3 +24,4 @@ export { ShareCard } from "./ShareCard";
 export { FriendList } from "./FriendList";
 export { ActivityFeed } from "./ActivityFeed";
 export { VisibilitySettings } from "./VisibilitySettings";
+export { ProfileSkeleton, ProfileTabSkeleton } from "./ProfileSkeleton";

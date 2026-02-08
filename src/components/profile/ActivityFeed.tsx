@@ -154,7 +154,7 @@ export function ActivityFeed() {
 
       {/* Loading indicator */}
       {isLoading && (
-        <p className="text-sm text-gray-500 text-center animate-pulse py-2">
+        <p className="text-sm text-gray-500 text-center animate-pulse motion-reduce:animate-none py-2">
           Loading...
         </p>
       )}

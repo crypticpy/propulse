@@ -158,7 +158,7 @@ export function QRCodeModal({
         {grid && <p className="mt-1 text-lg font-mono text-gray-500">{grid}</p>}
         <button
           onClick={toggleFullscreen}
-          className="mt-6 px-6 py-2 text-sm rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+          className="mt-6 px-6 py-2 text-sm rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           Exit Fullscreen
         </button>
@@ -177,7 +177,7 @@ export function QRCodeModal({
       <div className="flex flex-col items-center gap-4 py-4">
         {/* QR Code area */}
         {loading && (
-          <div className="w-[256px] h-[256px] rounded-lg bg-panel/30 border border-white/5 animate-pulse" />
+          <div className="w-[256px] h-[256px] rounded-lg bg-panel/30 border border-white/5 animate-pulse motion-reduce:animate-none" />
         )}
 
         {error && (
@@ -222,7 +222,7 @@ export function QRCodeModal({
           {/* Brightness mode toggle */}
           <button
             onClick={() => setBrightMode((b) => !b)}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
               brightMode
                 ? "border-plasma-orange bg-plasma-orange/10 text-plasma-orange"
                 : "border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20"
@@ -249,7 +249,7 @@ export function QRCodeModal({
           {/* Fullscreen toggle */}
           <button
             onClick={toggleFullscreen}
-            className="px-3 py-1.5 text-xs rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20 transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 text-xs rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20 transition-colors flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
             title="Fullscreen mode for easy scanning"
           >
             {/* Expand icon */}
@@ -275,7 +275,7 @@ export function QRCodeModal({
           {/* Share button */}
           <button
             onClick={handleShare}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
           >
             {/* Share icon */}
             <svg
@@ -297,7 +297,7 @@ export function QRCodeModal({
           {/* Close button */}
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex-1 px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
           >
             Close
           </button>
@@ -305,7 +305,7 @@ export function QRCodeModal({
 
         {/* Share status toast */}
         {shareStatus && (
-          <p className="text-xs text-signal-green animate-pulse">
+          <p className="text-xs text-signal-green animate-pulse motion-reduce:animate-none">
             {shareStatus}
           </p>
         )}

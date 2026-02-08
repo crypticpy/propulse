@@ -157,7 +157,7 @@ export function ShareCard() {
           <button
             key={t.id}
             onClick={() => setTemplate(t.id)}
-            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
               template === t.id
                 ? "border-plasma-orange bg-plasma-orange/10 text-plasma-orange"
                 : "border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20"
@@ -173,7 +173,7 @@ export function ShareCard() {
       <div className="relative aspect-[1200/630] w-full rounded-lg overflow-hidden border border-white/5 bg-black mb-4">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin motion-reduce:animate-none" />
           </div>
         )}
         {previewUrl && (
@@ -191,7 +191,7 @@ export function ShareCard() {
       <div className="flex gap-3">
         <button
           onClick={handleDownload}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           {/* Download icon */}
           <svg
@@ -212,7 +212,7 @@ export function ShareCard() {
 
         <button
           onClick={handleShare}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           {/* Share icon */}
           <svg
@@ -234,7 +234,7 @@ export function ShareCard() {
 
       {/* Share status toast */}
       {shareStatus && (
-        <p className="mt-2 text-xs text-center text-signal-green animate-pulse">
+        <p className="mt-2 text-xs text-center text-signal-green animate-pulse motion-reduce:animate-none">
           {shareStatus}
         </p>
       )}

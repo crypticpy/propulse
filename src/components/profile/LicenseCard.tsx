@@ -100,7 +100,7 @@ function Disclosure({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between w-full text-left group"
+        className="flex items-center justify-between w-full text-left group rounded focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
       >
         <span className="text-xs font-medium text-gray-400 uppercase tracking-wider group-hover:text-gray-300 transition-colors">
           {title}

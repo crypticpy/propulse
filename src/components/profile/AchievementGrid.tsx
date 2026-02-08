@@ -57,7 +57,7 @@ const ICON_EMOJI: Record<string, string> = {
 
 function BadgeSkeleton() {
   return (
-    <div className="bg-white/5 rounded-xl p-4 animate-pulse">
+    <div className="bg-white/5 rounded-xl p-4 animate-pulse motion-reduce:animate-none">
       <div className="flex flex-col items-center gap-2">
         <div className="w-10 h-10 rounded-full bg-white/5" />
         <div className="w-16 h-3 rounded bg-white/5" />
@@ -111,7 +111,7 @@ function BadgeTile({
       className={`
         group relative bg-panel/30 backdrop-blur-sm border rounded-xl p-4
         transition-all duration-200 text-left
-        hover:bg-white/5 hover:border-white/10 focus:outline-none focus:ring-1 focus:ring-white/20
+        hover:bg-white/5 hover:border-white/10 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none
         ${isEarned ? "border-white/5" : "border-white/3 opacity-50 grayscale"}
       `}
       aria-label={`${definition.name}${isEarned ? `, ${TIER_LABELS[earned.tier]} tier` : ", not yet earned"}`}

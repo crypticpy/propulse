@@ -75,7 +75,7 @@ export function VisibilitySettings() {
                 <button
                   key={level.value}
                   onClick={() => handleChange(section.key, level.value)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
                     settings[section.key] === level.value
                       ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
                       : "bg-white/5 text-gray-500 border border-white/10 hover:text-gray-300"
@@ -129,7 +129,7 @@ export function VisibilitySettings() {
                 <td key={level.value} className="text-center py-3 px-4">
                   <button
                     onClick={() => handleChange(section.key, level.value)}
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors hover:bg-white/5"
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
                     aria-label={`Set ${section.label} to ${level.label}`}
                   >
                     <RadioDot

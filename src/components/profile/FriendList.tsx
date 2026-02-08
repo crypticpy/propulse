@@ -92,11 +92,13 @@ export function FriendList() {
         placeholder="Search by callsign or name..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 transition-colors"
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 transition-colors"
       />
 
       {isLoading && (
-        <p className="text-sm text-gray-500 animate-pulse">Loading...</p>
+        <p className="text-sm text-gray-500 animate-pulse motion-reduce:animate-none">
+          Loading...
+        </p>
       )}
 
       {!isLoading && isEmpty && (
@@ -195,8 +197,8 @@ function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
         onClick={onToggle}
         className={
           isFollowing
-            ? "bg-white/5 text-gray-400 border border-white/10 rounded-full px-3 py-1 text-xs hover:bg-white/10 transition-colors flex-shrink-0"
-            : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 rounded-full px-3 py-1 text-xs hover:bg-plasma-orange/25 transition-colors flex-shrink-0"
+            ? "bg-white/5 text-gray-400 border border-white/10 rounded-full px-3 py-1 text-xs hover:bg-white/10 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+            : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 rounded-full px-3 py-1 text-xs hover:bg-plasma-orange/25 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         }
       >
         {isFollowing ? "Unfollow" : "Follow"}

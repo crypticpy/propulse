@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.13.2] — 2026-02-08
+
+### SDR Console Reliability Fixes
+
+- **Reliable daemon device loading** — SDR Console now consistently requests the daemon device list on connect.
+- **No dropped state updates** — Daemon JSON events are handled without losing connect/disconnect/state transitions under high message rates.
+
 ## [0.13.1] — 2026-02-08
 
 ### SDRconnect Setup, Daemon Bridge Extension, and UX Fixes

@@ -7,6 +7,7 @@
 
 import { useAwardProgress } from "@/hooks/useAwardProgress";
 import { AwardProgressRing } from "./AwardProgressRing";
+import { AchievementGrid } from "./AchievementGrid";
 
 // ─── Color constants (hex values from project palette) ──────────────────────
 
@@ -167,6 +168,14 @@ export function AwardsTab() {
             <span className="text-xs text-gray-400">Confirmed</span>
           </div>
         </div>
+      </div>
+
+      {/* Achievement Badges */}
+      <div className="border-t border-white/5 pt-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+          Achievement Badges
+        </h3>
+        <AchievementGrid />
       </div>
     </div>
   );

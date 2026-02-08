@@ -1,62 +1,69 @@
 /**
  * ShackPage — Station equipment & signal chain management.
  *
- * 8-tab interface: Overview, Radios, Antennas, Feedlines, Accessories, Inline, Presets, Performance.
- * Desktop: centered content (max-width 1200px) with horizontal button tabs.
- * Mobile: scrollable pill tabs with stacked content.
+ * 3-view design: Builder (default), Inventory, Analysis.
+ * Desktop: centered content (max-width 1200px) with segmented control.
+ * Mobile: stacked with horizontally scrollable segmented control.
  */
 
 import { useState } from "react";
-import {
-  useActiveRadio,
-  useShackStore,
-  useUserRadios,
-} from "@/stores/shackStore";
+import { useActiveRadio } from "@/stores/shackStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { RadioManager } from "@/components/settings/RadioManager";
 import { AntennaManager } from "@/components/shack/AntennaManager";
 import { FeedlineManager } from "@/components/shack/FeedlineManager";
 import { AccessoryManager } from "@/components/shack/AccessoryManager";
 import { InlineComponentManager } from "@/components/shack/InlineComponentManager";
-import { PresetBuilder } from "@/components/shack/PresetBuilder";
 import { PerformanceDashboard } from "@/components/shack/PerformanceDashboard";
 import { WhatIfSimulator } from "@/components/shack/WhatIfSimulator";
 import { PresetComparison } from "@/components/shack/PresetComparison";
-import { BandCapabilityStrip } from "@/components/shack/BandCapabilityStrip";
-import { SignalChainDiagram } from "@/components/shack/SignalChainDiagram";
-import { useStationPerformance } from "@/hooks/useStationPerformance";
+import { StationBuilderLab } from "@/components/shack/builder/StationBuilderLab";
 
-// ─── Tab types ───────────────────────────────────────────────────────────────
+// ─── View & Tab types ────────────────────────────────────────────────────────
 
-type ShackTab =
-  | "overview"
+type ShackView = "builder" | "inventory" | "analysis";
+
+type InventoryTab =
   | "radios"
   | "antennas"
   | "feedlines"
   | "accessories"
-  | "inline"
-  | "presets"
-  | "performance";
+  | "inline";
 
-interface TabDef {
-  id: ShackTab;
+interface ViewDef {
+  id: ShackView;
+  label: string;
+  subtitle: string;
+}
+
+const VIEWS: ViewDef[] = [
+  { id: "builder", label: "Builder", subtitle: "Station Builder Lab" },
+  { id: "inventory", label: "Inventory", subtitle: "Equipment Inventory" },
+  { id: "analysis", label: "Analysis", subtitle: "Performance Analysis" },
+];
+
+interface InventoryTabDef {
+  id: InventoryTab;
   label: string;
 }
 
-const TABS: TabDef[] = [
-  { id: "overview", label: "Overview" },
+const INVENTORY_TABS: InventoryTabDef[] = [
   { id: "radios", label: "Radios" },
   { id: "antennas", label: "Antennas" },
   { id: "feedlines", label: "Feedlines" },
   { id: "accessories", label: "Accessories" },
   { id: "inline", label: "Inline" },
-  { id: "presets", label: "Presets" },
-  { id: "performance", label: "Performance" },
 ];
 
 // ─── Header ─────────────────────────────────────────────────────────────────
 
-function ShackHeader({ isMobile }: { isMobile: boolean }) {
+function ShackHeader({
+  isMobile,
+  subtitle,
+}: {
+  isMobile: boolean;
+  subtitle: string;
+}) {
   const activeRadio = useActiveRadio();
 
   return (
@@ -69,9 +76,7 @@ function ShackHeader({ isMobile }: { isMobile: boolean }) {
         >
           Shack
         </h1>
-        <p className="text-sm text-gray-400 mt-0.5">
-          Station equipment &amp; signal chain
-        </p>
+        <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -86,282 +91,48 @@ function ShackHeader({ isMobile }: { isMobile: boolean }) {
   );
 }
 
-// ─── Overview tab ───────────────────────────────────────────────────────────
+// ─── View Switcher (segmented control) ───────────────────────────────────────
 
-function OverviewTab({
-  setActiveTab,
+function ViewSwitcher({
+  activeView,
+  onChangeView,
 }: {
-  setActiveTab: (tab: ShackTab) => void;
+  activeView: ShackView;
+  onChangeView: (view: ShackView) => void;
 }) {
-  const radios = useShackStore((s) => s.radios);
-  const antennas = useShackStore((s) => s.antennas);
-  const feedlines = useShackStore((s) => s.feedlines);
-  const accessories = useShackStore((s) => s.accessories);
-  const inlineComponents = useShackStore((s) => s.inlineComponents);
-  const activePresetId = useShackStore((s) => s.activePresetId);
-  const presets = useShackStore((s) => s.stationPresets);
-  const activePreset = presets.find((p) => p.id === activePresetId);
-  const userRadios = useUserRadios();
-  const performance = useStationPerformance();
-
-  const counts = [
-    { label: "Radios", count: radios.length, color: "text-plasma-orange" },
-    { label: "Antennas", count: antennas.length, color: "text-signal-green" },
-    {
-      label: "Feedlines",
-      count: feedlines.length,
-      color: "text-caution-amber",
-    },
-    {
-      label: "Accessories",
-      count: accessories.length,
-      color: "text-nebula-blue",
-    },
-    {
-      label: "Inline",
-      count: inlineComponents.length,
-      color: "text-purple-400",
-    },
-  ];
-
-  const isEmpty = counts.every((c) => c.count === 0);
-
-  const bandLossData = performance.bands.map((b) => ({
-    band: b.band,
-    lossDb: b.feedlineLossDb,
-  }));
-
   return (
-    <div className="space-y-6">
-      {/* Equipment count cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {counts.map((item) => (
-          <div
-            key={item.label}
-            className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 text-center"
-          >
-            <div className={`text-3xl font-bold ${item.color}`}>
-              {item.count}
-            </div>
-            <div className="text-xs text-gray-400 mt-1">{item.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Active preset summary */}
-      {activePreset && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-300">
-              Active Preset
-            </h3>
-            <span className="text-xs text-plasma-orange font-medium">
-              {activePreset.name}
-            </span>
-          </div>
-          <div className="text-xs text-gray-400 space-y-1">
-            <div>
-              Radio:{" "}
-              {(() => {
-                const r = userRadios.find(
-                  (x) => x.userRadio.id === activePreset.radioId,
-                );
-                return (
-                  r?.equipment?.displayName ??
-                  r?.equipment?.model ??
-                  r?.userRadio.nickname ??
-                  "\u2014"
-                );
-              })()}
-            </div>
-            <div>
-              Antenna:{" "}
-              {antennas.find((a) => a.id === activePreset.antennaId)?.name ??
-                "\u2014"}
-            </div>
-            <div>Power: {activePreset.operatingPowerWatts}W</div>
-          </div>
-
-          {/* Signal chain diagram */}
-          <SignalChainDiagram
-            radioName={(() => {
-              const r = userRadios.find(
-                (x) => x.userRadio.id === activePreset.radioId,
-              );
-              return (
-                r?.equipment?.displayName ??
-                r?.equipment?.model ??
-                r?.userRadio.nickname ??
-                undefined
-              );
-            })()}
-            accessoryNames={accessories
-              .filter((a) => activePreset.accessoryIds.includes(a.id))
-              .map((a) => a.name)}
-            feedlineName={
-              feedlines.find((f) => f.id === activePreset.feedlineId)?.name
-            }
-            antennaName={
-              antennas.find((a) => a.id === activePreset.antennaId)?.name
-            }
-            feedlineLossDb={
-              performance.bands.length > 0
-                ? performance.bands.reduce(
-                    (sum, b) => sum + b.feedlineLossDb,
-                    0,
-                  ) / performance.bands.length
-                : undefined
-            }
-            accessoryGainDb={
-              performance.bands.length > 0
-                ? performance.bands[0].accessoryGainDb
-                : undefined
-            }
-          />
-
-          {bandLossData.length > 0 && (
-            <BandCapabilityStrip bands={bandLossData} />
-          )}
-        </div>
-      )}
-
-      {/* Guidance when empty */}
-      {isEmpty && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6 text-center space-y-3">
-          <div className="text-lg font-semibold text-gray-200">
-            Build your station
-          </div>
-          <p className="text-sm text-gray-400 max-w-md mx-auto">
-            Start by adding your radios, antennas, feedlines, and accessories to
-            build a complete station profile. This data powers propagation
-            predictions, signal chain loss calculations, and performance
-            analysis.
-          </p>
-          <div className="flex flex-wrap justify-center gap-2 pt-2">
-            {(
-              [
-                "radios",
-                "antennas",
-                "feedlines",
-                "accessories",
-                "inline",
-              ] as ShackTab[]
-            ).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className="px-3 py-1 text-xs rounded-full bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-gray-200 transition-colors capitalize"
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="inline-flex bg-white/5 rounded-xl p-1 overflow-x-auto scrollbar-none">
+      {VIEWS.map((view) => (
+        <button
+          key={view.id}
+          onClick={() => onChangeView(view.id)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            activeView === view.id
+              ? "bg-plasma-orange/15 text-plasma-orange"
+              : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+          }`}
+        >
+          {view.label}
+        </button>
+      ))}
     </div>
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────────────────────────
+// ─── Inventory View ──────────────────────────────────────────────────────────
 
-export default function ShackPage() {
-  const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<ShackTab>("overview");
+function InventoryView({ isMobile }: { isMobile: boolean }) {
+  const [activeTab, setActiveTab] = useState<InventoryTab>("radios");
 
-  // ─── Desktop layout ────────────────────────────────────────────────
-
-  if (!isMobile) {
-    return (
-      <div className="max-w-[1200px] mx-auto px-6 py-6">
-        <ShackHeader isMobile={false} />
-
-        {/* Desktop tab bar — horizontal buttons */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        {activeTab === "overview" && (
-          <OverviewTab setActiveTab={setActiveTab} />
-        )}
-
-        {activeTab === "radios" && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-            <h2 className="text-lg font-semibold text-gray-200 mb-4">
-              Radio Fleet
-            </h2>
-            <RadioManager />
-          </div>
-        )}
-
-        {activeTab === "antennas" && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-            <AntennaManager />
-          </div>
-        )}
-
-        {activeTab === "feedlines" && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-            <FeedlineManager />
-          </div>
-        )}
-
-        {activeTab === "accessories" && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-            <AccessoryManager />
-          </div>
-        )}
-
-        {activeTab === "inline" && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-            <InlineComponentManager />
-          </div>
-        )}
-
-        {activeTab === "presets" && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-            <PresetBuilder />
-          </div>
-        )}
-
-        {activeTab === "performance" && (
-          <div className="space-y-6">
-            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-              <PerformanceDashboard />
-            </div>
-            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-              <WhatIfSimulator />
-            </div>
-            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-              <PresetComparison />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ─── Mobile layout ─────────────────────────────────────────────────
+  const padding = isMobile ? "p-4" : "p-6";
 
   return (
-    <div className="px-4 py-4">
-      <ShackHeader isMobile={true} />
-
-      {/* Mobile tab bar — scrollable pills */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-3 -mx-4 px-4 mb-4">
-        {TABS.map((tab) => (
+    <div className="space-y-4">
+      {/* Inventory tab bar */}
+      <div
+        className={`flex gap-2 ${isMobile ? "overflow-x-auto scrollbar-none -mx-4 px-4" : "flex-wrap"}`}
+      >
+        {INVENTORY_TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -377,11 +148,13 @@ export default function ShackPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === "overview" && <OverviewTab setActiveTab={setActiveTab} />}
-
       {activeTab === "radios" && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-          <h2 className="text-base font-semibold text-gray-200 mb-3">
+        <div
+          className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+        >
+          <h2
+            className={`${isMobile ? "text-base" : "text-lg"} font-semibold text-gray-200 mb-${isMobile ? "3" : "4"}`}
+          >
             Radio Fleet
           </h2>
           <RadioManager />
@@ -389,48 +162,110 @@ export default function ShackPage() {
       )}
 
       {activeTab === "antennas" && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+        <div
+          className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+        >
           <AntennaManager />
         </div>
       )}
 
       {activeTab === "feedlines" && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+        <div
+          className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+        >
           <FeedlineManager />
         </div>
       )}
 
       {activeTab === "accessories" && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+        <div
+          className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+        >
           <AccessoryManager />
         </div>
       )}
 
       {activeTab === "inline" && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
+        <div
+          className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+        >
           <InlineComponentManager />
         </div>
       )}
+    </div>
+  );
+}
 
-      {activeTab === "presets" && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-          <PresetBuilder />
-        </div>
-      )}
+// ─── Analysis View ───────────────────────────────────────────────────────────
 
-      {activeTab === "performance" && (
-        <div className="space-y-4">
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-            <PerformanceDashboard />
-          </div>
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-            <WhatIfSimulator />
-          </div>
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-            <PresetComparison />
-          </div>
+function AnalysisView({ isMobile }: { isMobile: boolean }) {
+  const padding = isMobile ? "p-4" : "p-6";
+  const spacing = isMobile ? "space-y-4" : "space-y-6";
+
+  return (
+    <div className={spacing}>
+      <div
+        className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+      >
+        <PerformanceDashboard />
+      </div>
+      <div
+        className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+      >
+        <WhatIfSimulator />
+      </div>
+      <div
+        className={`bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl ${padding}`}
+      >
+        <PresetComparison />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ──────────────────────────────────────────────────────────────
+
+export default function ShackPage() {
+  const isMobile = useIsMobile();
+  const [activeView, setActiveView] = useState<ShackView>("builder");
+
+  const currentViewDef = VIEWS.find((v) => v.id === activeView) ?? VIEWS[0];
+
+  // ─── Desktop layout ────────────────────────────────────────────────
+
+  if (!isMobile) {
+    return (
+      <div className="max-w-[1200px] mx-auto px-6 py-6">
+        <ShackHeader isMobile={false} subtitle={currentViewDef.subtitle} />
+
+        {/* View switcher */}
+        <div className="mb-6">
+          <ViewSwitcher activeView={activeView} onChangeView={setActiveView} />
         </div>
-      )}
+
+        {/* View content */}
+        {activeView === "builder" && <StationBuilderLab />}
+        {activeView === "inventory" && <InventoryView isMobile={false} />}
+        {activeView === "analysis" && <AnalysisView isMobile={false} />}
+      </div>
+    );
+  }
+
+  // ─── Mobile layout ─────────────────────────────────────────────────
+
+  return (
+    <div className="px-4 py-4">
+      <ShackHeader isMobile={true} subtitle={currentViewDef.subtitle} />
+
+      {/* View switcher */}
+      <div className="mb-4 overflow-x-auto scrollbar-none -mx-4 px-4">
+        <ViewSwitcher activeView={activeView} onChangeView={setActiveView} />
+      </div>
+
+      {/* View content */}
+      {activeView === "builder" && <StationBuilderLab />}
+      {activeView === "inventory" && <InventoryView isMobile={true} />}
+      {activeView === "analysis" && <AnalysisView isMobile={true} />}
     </div>
   );
 }

@@ -27,6 +27,7 @@ import type {
   StationPreset,
   InlineComponent,
 } from "@/types/shack";
+import type { StationChain } from "@/types/stationChain";
 
 /** Current backup format version */
 const CURRENT_VERSION = 1;
@@ -74,6 +75,8 @@ export interface SettingsBackup {
     accessories: UserAccessory[];
     stationPresets: StationPreset[];
     activePresetId: string | null;
+    stationChains?: StationChain[];
+    activeChainId?: string | null;
   };
 }
 
@@ -174,6 +177,8 @@ export function exportSettings(): SettingsBackup {
       accessories: shack.accessories,
       stationPresets: shack.stationPresets,
       activePresetId: shack.activePresetId,
+      stationChains: shack.stationChains,
+      activeChainId: shack.activeChainId,
     },
   };
 }
@@ -371,6 +376,13 @@ export function importSettings(backup: SettingsBackup): ImportResult {
           accessories: backup.shackEquipment.accessories ?? [],
           stationPresets: backup.shackEquipment.stationPresets ?? [],
           activePresetId: backup.shackEquipment.activePresetId ?? null,
+          // Station chains — gracefully handle old backups that lack these fields
+          ...(backup.shackEquipment.stationChains !== undefined
+            ? { stationChains: backup.shackEquipment.stationChains }
+            : {}),
+          ...(backup.shackEquipment.activeChainId !== undefined
+            ? { activeChainId: backup.shackEquipment.activeChainId }
+            : {}),
         });
       }
 
@@ -548,6 +560,9 @@ export function getBackupSummary(backup: SettingsBackup): string {
     counts.push(
       `${backup.shackEquipment.stationPresets.length} station presets`,
     );
+  }
+  if (backup.shackEquipment?.stationChains?.length) {
+    counts.push(`${backup.shackEquipment.stationChains.length} station chains`);
   }
 
   if (counts.length > 0) {

@@ -1,7 +1,7 @@
 /**
  * Zustand store for authentication state
  *
- * Manages Supabase Auth sessions, magic-link sign-in, and OAuth flows.
+ * Manages Supabase Auth sessions, magic-link sign-in, and email/password flows.
  * Does NOT persist to localStorage — Supabase manages its own session storage.
  * Gracefully handles "no-account mode" when Supabase env vars are not configured.
  */
@@ -31,13 +31,21 @@ interface AuthState {
   loading: boolean;
   /** Last auth error message */
   error: string | null;
+  /** Whether a password recovery flow is active (user clicked reset link in email) */
+  isRecoveryMode: boolean;
 
   /** Check for existing session and set up auth listener. Call once on app boot. */
   initialize: () => Promise<void>;
   /** Send a magic-link email for passwordless sign-in */
   signInWithMagicLink: (email: string) => Promise<void>;
-  /** Initiate an OAuth sign-in flow */
-  signInWithOAuth: (provider: "google" | "github") => Promise<void>;
+  /** Sign up with email and password */
+  signUpWithPassword: (email: string, password: string) => Promise<void>;
+  /** Sign in with email and password */
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  /** Send a password reset email */
+  resetPassword: (email: string) => Promise<void>;
+  /** Update the current user's password (used during recovery flow) */
+  updatePassword: (newPassword: string) => Promise<void>;
   /** Sign out and clear user/session */
   signOut: () => Promise<void>;
   /** Clear the current error */
@@ -60,6 +68,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   initialized: false,
   loading: false,
   error: null,
+  isRecoveryMode: false,
 
   initialize: () => {
     // Deduplicate concurrent calls — return existing promise if in-flight
@@ -93,15 +102,19 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           initialized: true,
         });
 
-        // Listen for auth state changes (sign-in, sign-out, token refresh)
-        // C1: Store the subscription so it can be cleaned up
+        // Listen for auth state changes (sign-in, sign-out, token refresh, recovery)
         const {
           data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        } = supabase.auth.onAuthStateChange((event, session) => {
           set({
             user: session?.user ?? null,
             session: session ?? null,
           });
+
+          // Detect password recovery flow
+          if (event === "PASSWORD_RECOVERY") {
+            set({ isRecoveryMode: true });
+          }
         });
         authSubscription = subscription;
       } catch (err) {
@@ -127,7 +140,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       return;
     }
 
-    // M5: Basic email validation before calling Supabase
     if (!EMAIL_RE.test(email)) {
       set({ error: "Please enter a valid email address." });
       return;
@@ -153,7 +165,106 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
   },
 
-  signInWithOAuth: async (provider: "google" | "github") => {
+  signUpWithPassword: async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      set({ error: NO_SUPABASE_ERROR });
+      return;
+    }
+
+    if (!EMAIL_RE.test(email)) {
+      set({ error: "Please enter a valid email address." });
+      return;
+    }
+
+    set({ loading: true, error: null });
+
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.auth.signUp({ email, password });
+
+      if (error) {
+        set({ error: error.message, loading: false });
+        return;
+      }
+
+      set({ loading: false });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : "Failed to create account",
+        loading: false,
+      });
+    }
+  },
+
+  signInWithPassword: async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      set({ error: NO_SUPABASE_ERROR });
+      return;
+    }
+
+    if (!EMAIL_RE.test(email)) {
+      set({ error: "Please enter a valid email address." });
+      return;
+    }
+
+    set({ loading: true, error: null });
+
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        set({ error: error.message, loading: false });
+        return;
+      }
+
+      set({ loading: false });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : "Failed to sign in",
+        loading: false,
+      });
+    }
+  },
+
+  resetPassword: async (email: string) => {
+    if (!isSupabaseConfigured) {
+      set({ error: NO_SUPABASE_ERROR });
+      return;
+    }
+
+    if (!EMAIL_RE.test(email)) {
+      set({ error: "Please enter a valid email address." });
+      return;
+    }
+
+    set({ loading: true, error: null });
+
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+
+      if (error) {
+        set({ error: error.message, loading: false });
+        return;
+      }
+
+      set({ loading: false });
+    } catch (err) {
+      set({
+        error:
+          err instanceof Error ? err.message : "Failed to send reset email",
+        loading: false,
+      });
+    }
+  },
+
+  updatePassword: async (newPassword: string) => {
     if (!isSupabaseConfigured) {
       set({ error: NO_SUPABASE_ERROR });
       return;
@@ -163,12 +274,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     try {
       const supabase = getSupabase();
-      // M4: Preserve current path in redirect URL
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}${window.location.pathname}`,
-        },
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
       });
 
       if (error) {
@@ -176,12 +283,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         return;
       }
 
-      // OAuth redirects away from the page, so loading stays true
-      // until the redirect completes and onAuthStateChange fires
+      set({ loading: false, isRecoveryMode: false });
     } catch (err) {
       set({
-        error:
-          err instanceof Error ? err.message : "Failed to initiate OAuth flow",
+        error: err instanceof Error ? err.message : "Failed to update password",
         loading: false,
       });
     }
@@ -204,8 +309,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         return;
       }
 
-      // M2: Let onAuthStateChange be the source of truth for user/session.
-      // Only manage loading state here.
       set({ loading: false });
     } catch (err) {
       set({
@@ -215,10 +318,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
   },
 
-  // S2: Clear error action
   clearError: () => set({ error: null }),
 
-  // C1: Clean up the auth listener subscription
   cleanup: () => {
     if (authSubscription) {
       authSubscription.unsubscribe();

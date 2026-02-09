@@ -21,6 +21,7 @@ import { logbookSync } from "./logbookSync";
 import { contestSync } from "./contestSync";
 import { shackSync } from "./shackSync";
 import { dxccSync } from "./dxccSync";
+import { imageSync } from "./imageSync";
 import { useProfileStore } from "@/stores/profileStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShackStore } from "@/stores/shackStore";
@@ -49,6 +50,7 @@ export function registerAllModules(): void {
   manager.registerModule(pinSync);
   manager.registerModule(skedSync);
   manager.registerModule(alertRuleSync);
+  manager.registerModule(imageSync);
 
   // ── Store → Sync wiring ───────────────────────────────────────────────
   // Subscribe to Tier 1 stores so any state change schedules an eager push.
@@ -77,3 +79,4 @@ export { skedSync } from "./skedSync";
 export { alertRuleSync } from "./alertRuleSync";
 export { shackSync } from "./shackSync";
 export { dxccSync } from "./dxccSync";
+export { imageSync } from "./imageSync";

@@ -447,7 +447,7 @@ export const useProfileStore = create<ProfileStore>()(
         profileImageId: state.profileImageId,
         lastIngestedCallsign: state.lastIngestedCallsign,
         socialLinks: state.socialLinks,
-        serviceCredentials: state.serviceCredentials,
+        // NOTE: serviceCredentials intentionally excluded — use credentialStore (encrypted IDB) instead
         visibilitySettings: state.visibilitySettings,
       }),
       migrate: (persisted: unknown, version: number) => {

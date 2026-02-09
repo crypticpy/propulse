@@ -27,7 +27,8 @@ function jsonResponse(
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, X-Api-Key",
       ...extraHeaders,
     },
   });
@@ -273,15 +274,33 @@ export default async function handler(request: Request): Promise<Response> {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, X-Api-Key",
       },
     });
   }
 
-  const url = new URL(request.url);
-  const callsign = normalizeCallsign(url.searchParams.get("callsign"));
-  const apiKey = url.searchParams.get("apiKey");
+  let callsign: string | null = null;
+  let apiKey: string | null = null;
+
+  if (request.method === "POST") {
+    // POST: read callsign and apiKey from JSON body
+    let body: { callsign?: string; apiKey?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+    callsign = normalizeCallsign(body.callsign ?? null);
+    apiKey = body.apiKey ?? null;
+  } else if (request.method === "GET") {
+    // GET: callsign from query param, apiKey from X-Api-Key header (not query param)
+    const url = new URL(request.url);
+    callsign = normalizeCallsign(url.searchParams.get("callsign"));
+    apiKey = request.headers.get("X-Api-Key");
+  } else {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
 
   if (!callsign) {
     return jsonResponse({ error: "Invalid or missing callsign" }, 400);

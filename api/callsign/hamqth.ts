@@ -28,7 +28,6 @@ function jsonResponse(
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Expose-Headers": "X-HamQTH-Session-Id",
       ...extraHeaders,
     },
   });
@@ -230,7 +229,6 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   let sessionId = providedSessionId;
-  let newSession = false;
 
   // If no session ID provided, authenticate first
   if (!sessionId) {
@@ -239,7 +237,6 @@ export default async function handler(request: Request): Promise<Response> {
       return jsonResponse({ error: authResult.error, provider: "hamqth" }, 500);
     }
     sessionId = authResult.sessionId!;
-    newSession = true;
   }
 
   // Attempt lookup
@@ -252,7 +249,6 @@ export default async function handler(request: Request): Promise<Response> {
       return jsonResponse({ error: authResult.error, provider: "hamqth" }, 500);
     }
     sessionId = authResult.sessionId!;
-    newSession = true;
 
     // Retry lookup with new session
     lookupResult = await lookupCallsign(sessionId, callsign);
@@ -280,11 +276,5 @@ export default async function handler(request: Request): Promise<Response> {
     return jsonResponse({ error: lookupResult.error, provider: "hamqth" }, 500);
   }
 
-  // Return success response with session ID header for frontend caching
-  const extraHeaders: Record<string, string> = {};
-  if (newSession && sessionId) {
-    extraHeaders["X-HamQTH-Session-Id"] = sessionId;
-  }
-
-  return jsonResponse(lookupResult.data, 200, extraHeaders);
+  return jsonResponse(lookupResult.data, 200);
 }

@@ -3,8 +3,8 @@
  *
  * Proxies requests to eQSL.cc inbox download to avoid CORS issues.
  *
- * GET: Download incoming eQSL confirmations
- *   - Query params: username, password, since (YYYY-MM-DD)
+ * POST: Download incoming eQSL confirmations
+ *   - Body: { username: string, password: string, since?: string }
  *   - Fetches from https://www.eqsl.cc/qslcard/DownloadInBox.cfm
  *
  * No caching — requests contain user credentials.
@@ -29,7 +29,7 @@ function jsonResponse(
       "Content-Type": "application/json",
       "Cache-Control": "no-store, no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       ...extraHeaders,
     },
@@ -53,26 +53,20 @@ export default async function handler(request: Request): Promise<Response> {
   let password: string | null = null;
   let since: string | null = null;
 
-  if (request.method === "POST") {
-    // Preferred: credentials in POST body
-    let body: { username?: string; password?: string; since?: string };
-    try {
-      body = await request.json();
-    } catch {
-      return jsonResponse({ error: "Invalid JSON body" }, 400);
-    }
-    username = body.username ?? null;
-    password = body.password ?? null;
-    since = body.since ?? null;
-  } else if (request.method === "GET") {
-    // Deprecated: query params
-    const url = new URL(request.url);
-    username = url.searchParams.get("username");
-    password = url.searchParams.get("password");
-    since = url.searchParams.get("since");
-  } else {
+  if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
+
+  // Credentials in POST body
+  let body: { username?: string; password?: string; since?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
+  }
+  username = body.username ?? null;
+  password = body.password ?? null;
+  since = body.since ?? null;
 
   // Validate required params
   if (!username) {

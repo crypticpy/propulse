@@ -27,7 +27,7 @@ function jsonResponse(
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       ...extraHeaders,
     },
@@ -45,7 +45,7 @@ function textResponse(
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache, no-store",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       ...extraHeaders,
     },
@@ -129,26 +129,14 @@ function parseEqslResponse(html: string): {
 /**
  * Handle inbox download requests for eQSL.
  * Accepts POST body: { username, password, since? }
- * Falls back to GET query params for backwards compatibility (deprecated).
  */
 async function handleInboxRequest(
-  request: Request,
-  preBody?: { username?: string; password?: string; since?: string },
+  _request: Request,
+  preBody: { username?: string; password?: string; since?: string },
 ): Promise<Response> {
-  let username: string | null = null;
-  let password: string | null = null;
-  let since: string | null = null;
-
-  if (preBody) {
-    username = preBody.username ?? null;
-    password = preBody.password ?? null;
-    since = preBody.since ?? null;
-  } else {
-    const url = new URL(request.url);
-    username = url.searchParams.get("username");
-    password = url.searchParams.get("password");
-    since = url.searchParams.get("since");
-  }
+  const username = preBody.username ?? null;
+  const password = preBody.password ?? null;
+  const since = preBody.since ?? null;
 
   if (!username || !password) {
     return jsonResponse(
@@ -222,11 +210,6 @@ export default async function handler(request: Request): Promise<Response> {
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
-  }
-
-  // Deprecated: GET with query params for inbox checking
-  if (request.method === "GET") {
-    return handleInboxRequest(request);
   }
 
   // Only allow POST

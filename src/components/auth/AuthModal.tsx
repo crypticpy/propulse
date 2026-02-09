@@ -113,6 +113,7 @@ function PasswordInput({
   disabled,
   autoFocus,
   inputRef,
+  maxLength = 128,
 }: {
   id: string;
   value: string;
@@ -123,6 +124,7 @@ function PasswordInput({
   disabled?: boolean;
   autoFocus?: boolean;
   inputRef?: React.Ref<HTMLInputElement>;
+  maxLength?: number;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -139,6 +141,7 @@ function PasswordInput({
         onKeyDown={onKeyDown}
         disabled={disabled}
         autoFocus={autoFocus}
+        maxLength={maxLength}
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 pr-10 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
       />
       <button
@@ -286,6 +289,13 @@ export function AuthModal() {
       setConfirmError("Password must be at least 8 characters.");
       return;
     }
+    const pwStrength = getPasswordStrength(password);
+    if (pwStrength === "weak") {
+      setConfirmError(
+        "Password is too weak. Add numbers and special characters.",
+      );
+      return;
+    }
     await signUpWithPassword(email.trim(), password);
     // If signup succeeded (no error), show check_email
     if (!useAuthStore.getState().error) {
@@ -311,6 +321,13 @@ export function AuthModal() {
     }
     if (password.length < 8) {
       setConfirmError("Password must be at least 8 characters.");
+      return;
+    }
+    const pwStrength = getPasswordStrength(password);
+    if (pwStrength === "weak") {
+      setConfirmError(
+        "Password is too weak. Add numbers and special characters.",
+      );
       return;
     }
     await updatePassword(password);
@@ -424,6 +441,7 @@ export function AuthModal() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={loading}
+                  maxLength={254}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
                 />
               </div>
@@ -489,6 +507,7 @@ export function AuthModal() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={loading}
+                  maxLength={254}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
                 />
               </div>
@@ -550,7 +569,8 @@ export function AuthModal() {
                   !email.trim() ||
                   !password ||
                   !confirmPassword ||
-                  password.length < 8
+                  password.length < 8 ||
+                  getPasswordStrength(password) === "weak"
                 }
                 className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
@@ -593,6 +613,7 @@ export function AuthModal() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={loading}
+                  maxLength={254}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
                 />
               </div>
@@ -719,7 +740,8 @@ export function AuthModal() {
                   loading ||
                   !password ||
                   !confirmPassword ||
-                  password.length < 8
+                  password.length < 8 ||
+                  getPasswordStrength(password) === "weak"
                 }
                 className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >

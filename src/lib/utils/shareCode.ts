@@ -15,11 +15,13 @@ const LOCKOUT_MINUTES = 5;
  * Generate a share code in format XXX-NNN (e.g., "KWB-742")
  */
 export function generateShareCode(): string {
+  const rand = new Uint32Array(4);
+  crypto.getRandomValues(rand);
   const letters = Array.from(
     { length: 3 },
-    () => CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)],
+    (_, i) => CONSONANTS[rand[i] % CONSONANTS.length],
   ).join("");
-  const digits = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+  const digits = String(rand[3] % 1000).padStart(3, "0");
   return `${letters}-${digits}`;
 }
 

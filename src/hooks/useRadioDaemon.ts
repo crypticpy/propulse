@@ -7,7 +7,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BridgeConnectionState } from "@/types/bridge";
-import type { DaemonIncomingMessage, RadioBinaryFrame } from "@/lib/radio/protocol";
+import type {
+  DaemonIncomingMessage,
+  RadioBinaryFrame,
+} from "@/lib/radio/protocol";
 import { generateCommandId, parseBinaryFrame } from "@/lib/radio/protocol";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
@@ -37,7 +40,10 @@ export interface RadioDaemonConnection {
   lastMessage: DaemonIncomingMessage | null;
   lastFrame: RadioBinaryFrame | null;
   send: (message: Record<string, unknown>) => boolean;
-  sendCommand: (type: string, payload?: Record<string, unknown>) => string | null;
+  sendCommand: (
+    type: string,
+    payload?: Record<string, unknown>,
+  ) => string | null;
   connect: () => void;
   disconnect: () => void;
 }
@@ -53,7 +59,11 @@ const DEFAULT_OPTIONS: Required<
   connectionTimeout: 5000,
 };
 
-function calculateBackoff(attempt: number, baseDelay: number, maxDelay: number) {
+function calculateBackoff(
+  attempt: number,
+  baseDelay: number,
+  maxDelay: number,
+) {
   const delay = baseDelay * Math.pow(2, attempt);
   const jitter = delay * Math.random() * 0.2;
   return Math.min(delay + jitter, maxDelay);
@@ -91,7 +101,9 @@ export function useRadioDaemon(
     options.onMessage,
   );
   onMessageRef.current = options.onMessage;
-  const onFrameRef = useRef<RadioDaemonConnectionOptions["onFrame"]>(options.onFrame);
+  const onFrameRef = useRef<RadioDaemonConnectionOptions["onFrame"]>(
+    options.onFrame,
+  );
   onFrameRef.current = options.onFrame;
 
   const clearTimers = useCallback(() => {
@@ -138,7 +150,7 @@ export function useRadioDaemon(
             sessionId,
             text: JSON.stringify(message),
           },
-          "*",
+          window.location.origin,
         );
         return true;
       } catch {
@@ -179,7 +191,7 @@ export function useRadioDaemon(
             type: "disconnect",
             sessionId: bridgeSessionIdRef.current,
           },
-          "*",
+          window.location.origin,
         );
       } catch {
         // ignore
@@ -212,7 +224,7 @@ export function useRadioDaemon(
             type: "disconnect",
             sessionId: bridgeSessionIdRef.current,
           },
-          "*",
+          window.location.origin,
         );
       } catch {
         // ignore
@@ -247,7 +259,7 @@ export function useRadioDaemon(
             sessionId,
             url: currentOpts.url,
           },
-          "*",
+          window.location.origin,
         );
 
         connectionTimeoutRef.current = setTimeout(() => {
@@ -411,7 +423,11 @@ export function useRadioDaemon(
       if (msg.source !== BRIDGE_SOURCE_TO_PAGE) return;
 
       const sessionId = msg.sessionId;
-      if (bridgeSessionIdRef.current && sessionId && sessionId !== bridgeSessionIdRef.current) {
+      if (
+        bridgeSessionIdRef.current &&
+        sessionId &&
+        sessionId !== bridgeSessionIdRef.current
+      ) {
         return;
       }
 

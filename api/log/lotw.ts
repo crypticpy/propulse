@@ -7,8 +7,8 @@
  *   - Body: { adif: string, username: string, password: string }
  *   - Forwards to https://lotw.arrl.org/lotwuser/upload
  *
- * GET: Download QSL confirmations from LoTW
- *   - Query params: username, password, since (YYYY-MM-DD)
+ * POST: Download QSL confirmations from LoTW
+ *   - Body: { username: string, password: string, since?: string }
  *   - Fetches from https://lotw.arrl.org/lotwuser/lotwreport.adi
  *
  * No caching — requests contain user credentials.
@@ -33,7 +33,7 @@ function jsonResponse(
       "Content-Type": "application/json",
       "Cache-Control": "no-store, no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       ...extraHeaders,
     },
@@ -199,28 +199,14 @@ async function handleUpload(
 /**
  * Handle download requests — download QSL confirmations from LoTW
  * Accepts POST with JSON body: { username, password, since? }
- * Also accepts GET with query params for backwards compatibility (deprecated).
  */
 async function handleDownload(
-  request: Request,
-  preBody?: { username?: string; password?: string; since?: string },
+  _request: Request,
+  preBody: { username?: string; password?: string; since?: string },
 ): Promise<Response> {
-  let username: string | null = null;
-  let password: string | null = null;
-  let since: string | null = null;
-
-  if (preBody) {
-    // Pre-parsed POST body
-    username = preBody.username ?? null;
-    password = preBody.password ?? null;
-    since = preBody.since ?? null;
-  } else {
-    // GET — deprecated path, query params
-    const url = new URL(request.url);
-    username = url.searchParams.get("username");
-    password = url.searchParams.get("password");
-    since = url.searchParams.get("since");
-  }
+  const username = preBody.username ?? null;
+  const password = preBody.password ?? null;
+  const since = preBody.since ?? null;
 
   if (!username) {
     return jsonResponse({ error: "LoTW username is required" }, 400);
@@ -326,11 +312,6 @@ export default async function handler(request: Request): Promise<Response> {
       return handleUpload(request, body);
     }
     return handleDownload(request, body);
-  }
-
-  // Deprecated: GET with query params still works for backwards compat
-  if (request.method === "GET") {
-    return handleDownload(request);
   }
 
   return jsonResponse({ error: "Method not allowed" }, 405);

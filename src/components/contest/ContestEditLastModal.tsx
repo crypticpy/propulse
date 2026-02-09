@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Card } from "@/components/ui";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getDefaultRST } from "@/types/contest";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 
 export interface ContestEditLastModalProps {
   /** Whether the modal is open */
@@ -26,6 +27,7 @@ export function ContestEditLastModal({
   onClose,
   qso,
 }: ContestEditLastModalProps) {
+  const { use24h } = useTimeFormat();
   const editQSO = useContestStore((s) => s.editQSO);
 
   // Form state
@@ -123,7 +125,12 @@ export function ContestEditLastModal({
               Edit QSO
             </h3>
             <span className="text-xs text-gray-400">
-              #{qso.serialSent} • {new Date(qso.timestamp).toLocaleTimeString()}
+              #{qso.serialSent} •{" "}
+              {new Date(qso.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: !use24h,
+              })}
             </span>
           </div>
 

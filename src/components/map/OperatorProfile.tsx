@@ -20,6 +20,7 @@ import {
   useIsTemporaryActive,
   useLicenseStatus,
 } from "@/hooks/useActiveLocation";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 
 interface OperatorProfileProps {
@@ -124,6 +125,7 @@ function SunsetIcon({ className = "" }: { className?: string }) {
 }
 
 export function OperatorProfile({ className = "" }: OperatorProfileProps) {
+  const { use24h } = useTimeFormat();
   const [showHelp, setShowHelp] = useState(false);
   const station = useUserStore((state) => state.station);
   const preferences = useUserStore((state) => state.preferences);
@@ -281,14 +283,14 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             className="flex flex-col items-center"
             title={
               sunTimes.sunrise
-                ? `Sunrise at QTH: ${formatCompactTime(sunTimes.sunrise, true)} UTC`
+                ? `Sunrise at QTH: ${formatCompactTime(sunTimes.sunrise, use24h)} UTC`
                 : "No sunrise today"
             }
           >
             <SunriseIcon className="w-10 h-10" />
             <span className="text-xl font-mono font-bold text-amber-400 mt-1">
               {sunTimes.sunrise
-                ? formatCompactTime(sunTimes.sunrise, true)
+                ? formatCompactTime(sunTimes.sunrise, use24h)
                 : (getPolarLabel() ?? "--:--")}
             </span>
             <span className="text-[10px] text-gray-500 uppercase">Sunrise</span>
@@ -302,14 +304,14 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             className="flex flex-col items-center"
             title={
               sunTimes.sunset
-                ? `Sunset at QTH: ${formatCompactTime(sunTimes.sunset, true)} UTC`
+                ? `Sunset at QTH: ${formatCompactTime(sunTimes.sunset, use24h)} UTC`
                 : "No sunset today"
             }
           >
             <SunsetIcon className="w-10 h-10" />
             <span className="text-xl font-mono font-bold text-orange-400 mt-1">
               {sunTimes.sunset
-                ? formatCompactTime(sunTimes.sunset, true)
+                ? formatCompactTime(sunTimes.sunset, use24h)
                 : (getPolarLabel() ?? "--:--")}
             </span>
             <span className="text-[10px] text-gray-500 uppercase">Sunset</span>

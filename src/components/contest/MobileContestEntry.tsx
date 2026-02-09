@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useContestStore } from "@/stores/contestStore";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import type { ContestQSO } from "@/stores/contestStore";
 
 const BANDS = ["160m", "80m", "40m", "20m", "15m", "10m"];
@@ -55,6 +56,7 @@ function ScoreStrip({
 }
 
 function RecentQsoList({ qsos }: { qsos: ContestQSO[] }) {
+  const { use24h } = useTimeFormat();
   const recent = useMemo(() => qsos.slice(-5).reverse(), [qsos]);
 
   if (recent.length === 0) {
@@ -74,9 +76,10 @@ function RecentQsoList({ qsos }: { qsos: ContestQSO[] }) {
         >
           <div className="flex items-center gap-2">
             <span className="text-gray-400 font-mono w-12">
-              {new Date(qso.timestamp).toLocaleTimeString("en-GB", {
+              {new Date(qso.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
+                hour12: !use24h,
               })}
             </span>
             <span className="text-white font-mono font-bold">

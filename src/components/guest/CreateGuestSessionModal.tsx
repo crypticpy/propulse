@@ -6,6 +6,7 @@ import { useState, useCallback } from "react";
 import { Card } from "@/components/ui";
 import { useGuestStore } from "@/stores/guestStore";
 import { useUserStore } from "@/stores/userStore";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { QRCodeDisplay } from "./QRCodeDisplay";
 
 export interface CreateGuestSessionModalProps {
@@ -25,6 +26,7 @@ export function CreateGuestSessionModal({
   isOpen,
   onClose,
 }: CreateGuestSessionModalProps) {
+  const { use24h } = useTimeFormat();
   const { activeSession, createSession, endSession } = useGuestStore();
   const { station } = useUserStore();
 
@@ -193,6 +195,7 @@ export function CreateGuestSessionModal({
                     {new Date(activeSession.expiresAt).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
+                      hour12: !use24h,
                     })}
                   </span>
                 </div>

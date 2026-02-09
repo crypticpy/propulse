@@ -13,6 +13,8 @@
  */
 
 import type { WatchAlertType } from "@/types/user";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { isQuietHours } from "@/lib/utils/time";
 
 // =============================================================================
 // TYPES
@@ -236,13 +238,21 @@ export async function playAlertSound(type: WatchAlertType): Promise<boolean> {
     return false;
   }
 
+  // Suppress audio during quiet hours
+  const { notifications } = useSettingsStore.getState();
+  if (
+    isQuietHours(notifications?.quietHoursStart, notifications?.quietHoursEnd)
+  ) {
+    return false;
+  }
+
   // Ensure audio context is running
   const isRunning = await ensureAudioContextRunning();
   if (!isRunning || !audioState.context || !audioState.gainNode) {
     return false;
   }
 
-  const {context, gainNode} = audioState;
+  const { context, gainNode } = audioState;
   const config = SOUND_CONFIGS[type];
 
   if (!config) {

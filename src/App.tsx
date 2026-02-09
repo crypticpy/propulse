@@ -5,6 +5,7 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useTextScale } from "@/hooks/useTextScale";
 import { useHighContrast } from "@/hooks/useHighContrast";
+import { useColorBlindMode } from "@/hooks/useColorBlindMode";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSync } from "@/hooks/useSync";
 import { useAuthStore } from "@/stores/authStore";
@@ -69,6 +70,8 @@ function App() {
   useTextScale();
   // Apply high-contrast mode class to <html>
   useHighContrast();
+  // Apply color blind mode CSS variable palette to <html>
+  useColorBlindMode();
 
   // Initialize auth on app boot (checks for existing session, sets up listener)
   const initAuth = useAuthStore((s) => s.initialize);

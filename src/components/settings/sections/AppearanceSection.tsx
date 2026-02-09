@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect } from "react";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { THEMES, type ThemeId } from "@/lib/themes";
 
 // ─── Hex validation ─────────────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ export function AppearanceSection() {
   const customSecondary = useThemeStore((s) => s.customSecondary);
   const setCustomColors = useThemeStore((s) => s.setCustomColors);
   const setAccent = useThemeStore((s) => s.setAccent);
+  const themeId = useThemeStore((s) => s.themeId);
+  const setTheme = useThemeStore((s) => s.setTheme);
   const sdrWaterfallPalette = useSettingsStore((s) => s.sdrWaterfallPalette);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
@@ -197,19 +200,39 @@ export function AppearanceSection() {
           Theme
         </h3>
         <p className="text-xs text-gray-500 mb-4">
-          Propulse is designed for dark environments. Light mode is not
-          currently supported.
+          Choose a base theme for the interface
         </p>
-        <div className="flex gap-2">
-          <button className="px-4 py-2 rounded-lg text-sm font-medium bg-plasma-orange text-white">
-            Dark
-          </button>
-          <button
-            disabled
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-void-black text-gray-600 border border-white/5 cursor-not-allowed"
-          >
-            Light
-          </button>
+        <div className="grid grid-cols-2 gap-2">
+          {THEMES.map((theme) => {
+            const isActive = themeId === theme.id;
+            return (
+              <button
+                key={theme.id}
+                onClick={() => setTheme(theme.id as ThemeId)}
+                className={`relative px-4 py-3 rounded-lg text-left transition-colors border ${
+                  isActive
+                    ? "bg-plasma-orange/15 border-plasma-orange/40 text-white"
+                    : "bg-void-black border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-3 h-3 rounded-full border border-white/20 shrink-0"
+                    style={{ backgroundColor: theme.colors.bgPrimary }}
+                  />
+                  <span className="text-sm font-medium">{theme.name}</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                  {theme.description}
+                </p>
+                {isActive && (
+                  <span className="absolute top-2 right-2 text-plasma-orange text-xs">
+                    &#10003;
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -218,7 +241,8 @@ export function AppearanceSection() {
           SDR Waterfall
         </h3>
         <p className="text-xs text-gray-500 mb-4">
-          Controls the color palette used by the SDR Console waterfall and spectrum.
+          Controls the color palette used by the SDR Console waterfall and
+          spectrum.
         </p>
         <div className="max-w-sm">
           <label className="block text-xs font-medium text-gray-400 mb-1">
@@ -228,12 +252,15 @@ export function AppearanceSection() {
             value={sdrWaterfallPalette}
             onChange={(e) =>
               updatePreferences({
-                sdrWaterfallPalette: e.target.value as typeof sdrWaterfallPalette,
+                sdrWaterfallPalette: e.target
+                  .value as typeof sdrWaterfallPalette,
               })
             }
             className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
           >
-            <option value="classic">Classic (black→blue→cyan→yellow→red)</option>
+            <option value="classic">
+              Classic (black→blue→cyan→yellow→red)
+            </option>
             <option value="viridis">Viridis</option>
             <option value="magma">Magma</option>
             <option value="gray">Grayscale</option>

@@ -54,6 +54,7 @@ import {
   FLARE_THRESHOLDS,
 } from "@/constants/alertThresholds";
 import type { SolarAlert } from "@/types/alerts";
+import { isQuietHours } from "@/lib/utils/time";
 
 // =============================================================================
 // CONFIGURATION CONSTANTS
@@ -206,7 +207,7 @@ export function useSolarAlerts(
    * Returns null if no data is available
    */
   const latestKp = useMemo(() => {
-    const {data} = kIndexQuery;
+    const { data } = kIndexQuery;
     if (!data || data.length === 0) {
       return null;
     }
@@ -218,7 +219,7 @@ export function useSolarAlerts(
    * Bz can sometimes be null in the feed, so we search backward for a valid reading
    */
   const latestBz = useMemo(() => {
-    const {data} = magnetometerQuery;
+    const { data } = magnetometerQuery;
     if (!data || data.length === 0) {
       return null;
     }
@@ -346,6 +347,11 @@ export function useSolarAlerts(
     // Update last check time in store
     setLastCheckTime(new Date());
 
+    // Suppress new alerts during quiet hours (still update previous values below)
+    const quietStart = notificationPrefs?.quietHoursStart;
+    const quietEnd = notificationPrefs?.quietHoursEnd;
+    const inQuietHours = isQuietHours(quietStart, quietEnd);
+
     // =========================================================================
     // EVALUATE K-INDEX (GEOMAGNETIC STORM)
     // =========================================================================
@@ -375,7 +381,12 @@ export function useSolarAlerts(
             KP_THRESHOLDS.cooldownMs,
           );
 
-          if (crossedThreshold && noActiveAlert && notInCooldown) {
+          if (
+            crossedThreshold &&
+            noActiveAlert &&
+            notInCooldown &&
+            !inQuietHours
+          ) {
             const partialAlert = evaluateKpAlert(kpValue);
             if (partialAlert) {
               const completeAlert = buildCompleteAlert(partialAlert);
@@ -429,7 +440,12 @@ export function useSolarAlerts(
             BZ_THRESHOLDS.cooldownMs,
           );
 
-          if (crossedThreshold && noActiveAlert && notInCooldown) {
+          if (
+            crossedThreshold &&
+            noActiveAlert &&
+            notInCooldown &&
+            !inQuietHours
+          ) {
             const partialAlert = evaluateBzAlert(bzValue);
             if (partialAlert) {
               const completeAlert = buildCompleteAlert(partialAlert);
@@ -484,7 +500,12 @@ export function useSolarAlerts(
           FLARE_THRESHOLDS.mClass.cooldownMs,
         );
 
-        if (crossedThreshold && noActiveAlert && notInCooldown) {
+        if (
+          crossedThreshold &&
+          noActiveAlert &&
+          notInCooldown &&
+          !inQuietHours
+        ) {
           const partialAlert = evaluateFlareAlert(probabilities);
           if (partialAlert) {
             const completeAlert = buildCompleteAlert(partialAlert);

@@ -9,20 +9,7 @@ import { useMemo } from "react";
 import { useAlertsStore, selectActiveAlertCount } from "@/stores/alertsStore";
 import type { SolarAlert, AlertPriority } from "@/types/alerts";
 import { useUserStore } from "@/stores/userStore";
-
-// ---------------------------------------------------------------------------
-// Quiet-hours helper
-// ---------------------------------------------------------------------------
-
-function isQuietHours(quietStart?: number, quietEnd?: number): boolean {
-  if (quietStart == null || quietEnd == null) return false;
-  const now = new Date().getUTCHours();
-  if (quietStart <= quietEnd) {
-    return now >= quietStart && now < quietEnd;
-  }
-  // wraps midnight
-  return now >= quietStart || now < quietEnd;
-}
+import { isQuietHours } from "@/lib/utils/time";
 
 // ---------------------------------------------------------------------------
 // Priority config

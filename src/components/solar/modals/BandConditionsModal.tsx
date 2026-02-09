@@ -2,6 +2,7 @@ import React from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
 import { calculateBandConditions } from "@/lib/utils/bands";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import type { BandCondition, VHFCondition } from "@/types/solar";
 
 export interface BandConditionsModalProps {
@@ -209,6 +210,8 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
   kIndex,
   solarFlux,
 }) => {
+  const { use24h } = useTimeFormat();
+
   if (kIndex === null || solarFlux === null) {
     return (
       <DetailModal
@@ -260,6 +263,7 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
               {now.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
+                hour12: !use24h,
               })}
             </span>
           </div>

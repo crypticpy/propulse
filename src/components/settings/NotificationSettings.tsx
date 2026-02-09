@@ -170,7 +170,7 @@ export function NotificationSettings({
             checked={notifications.greylineAlerts}
             onChange={(checked) => handleToggle("greylineAlerts", checked)}
             label="Greyline alerts"
-            description="Notify at sunrise/sunset for optimal propagation"
+            description="Notify at sunrise/sunset for optimal propagation (coming soon)"
           />
         </div>
 
@@ -207,7 +207,7 @@ export function NotificationSettings({
             checked={notifications.bandOpeningAlerts}
             onChange={(checked) => handleToggle("bandOpeningAlerts", checked)}
             label="Band opening notifications"
-            description="Alert when selected bands show good propagation"
+            description="Alert when selected bands show good propagation (coming soon)"
           />
           <div className="pl-[52px]">
             <div className="text-xs text-gray-400 mb-2">Monitor bands:</div>

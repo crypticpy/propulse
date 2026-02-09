@@ -142,6 +142,24 @@ export function formatDeltaSince(timestampIso: string): string {
 }
 
 /**
+ * Check if the current UTC hour falls within quiet hours.
+ * Handles wrap-around midnight (e.g., start=22, end=6 means 22:00-06:00 UTC).
+ *
+ * @param quietStart - UTC hour (0-23) when quiet period begins, or undefined
+ * @param quietEnd - UTC hour (0-23) when quiet period ends, or undefined
+ * @returns True if currently within quiet hours
+ */
+export function isQuietHours(quietStart?: number, quietEnd?: number): boolean {
+  if (quietStart == null || quietEnd == null) return false;
+  const now = new Date().getUTCHours();
+  if (quietStart <= quietEnd) {
+    return now >= quietStart && now < quietEnd;
+  }
+  // wraps midnight
+  return now >= quietStart || now < quietEnd;
+}
+
+/**
  * Check if the sun is currently up at a given location
  * Uses a simplified solar position algorithm
  *

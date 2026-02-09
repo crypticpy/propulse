@@ -18,6 +18,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { addHours, format, differenceInHours, nextSaturday } from "date-fns";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 import { DateTimePicker } from "./DateTimePicker";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import SunCalc from "suncalc";
 
 interface TimeControlProps {
@@ -288,6 +289,7 @@ function PresetIcon({
 }
 
 export function TimeControl({ className = "" }: TimeControlProps) {
+  const { use24h } = useTimeFormat();
   const {
     timeOffset,
     setTimeOffset,
@@ -555,7 +557,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                   </span>
                   {time && (
                     <span className="text-gray-500 font-mono text-[10px]">
-                      {format(time, "HH:mm")} UTC
+                      {format(time, use24h ? "HH:mm" : "h:mm a")} UTC
                     </span>
                   )}
                 </button>
@@ -609,7 +611,11 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                     {scenario.name}
                   </div>
                   <div className="text-[10px] text-gray-500">
-                    {format(new Date(scenario.time), "MMM d, HH:mm")} UTC
+                    {format(
+                      new Date(scenario.time),
+                      use24h ? "MMM d, HH:mm" : "MMM d, h:mm a",
+                    )}{" "}
+                    UTC
                     {scenario.target &&
                       ` - ${scenario.target.name || scenario.target.grid}`}
                   </div>

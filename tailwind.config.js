@@ -9,9 +9,11 @@ export default {
           "rgb(var(--theme-accent-primary-rgb, 255 107 53) / <alpha-value>)",
         "signal-green":
           "rgb(var(--theme-accent-secondary-rgb, 0 255 136) / <alpha-value>)",
-        "caution-amber": "#ffd23f",
-        "caution-yellow": "#ffd23f",
-        "alert-red": "#ff4455",
+        "caution-amber":
+          "rgb(var(--color-caution-rgb, 255 210 63) / <alpha-value>)",
+        "caution-yellow":
+          "rgb(var(--color-caution-rgb, 255 210 63) / <alpha-value>)",
+        "alert-red": "rgb(var(--color-alert-rgb, 255 68 85) / <alpha-value>)",
         "aurora-purple": "#aa44ff",
         "cosmic-cyan": "#44ddff",
 
@@ -23,11 +25,11 @@ export default {
         panel: "#0f0f23",
         "space-900": "#0a0e1a",
 
-        // Condition colors
-        excellent: "#00ff88",
-        good: "#44dd66",
-        fair: "#ffaa00",
-        poor: "#ff4455",
+        // Condition colors (CSS-variable-driven for color blind mode)
+        excellent: "rgb(var(--color-excellent-rgb, 0 255 136) / <alpha-value>)",
+        good: "rgb(var(--color-good-rgb, 68 221 102) / <alpha-value>)",
+        fair: "rgb(var(--color-fair-rgb, 255 170 0) / <alpha-value>)",
+        poor: "rgb(var(--color-poor-rgb, 255 68 85) / <alpha-value>)",
 
         // Additional accents
         "sunspot-blue": "#3a86ff",

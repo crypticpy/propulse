@@ -3,13 +3,13 @@
  *
  * Syncs the user's text scale preference to the DOM.
  * Applies data-text-scale attribute to document.documentElement,
- * which triggers CSS custom property changes for scaled text sizes.
+ * which triggers root font-size changes that scale all rem-based sizes.
  *
  * Call this hook once at the app root level.
  */
 
 import { useEffect } from "react";
-import { useUserStore } from "@/stores/userStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type { TextScale } from "@/types/user";
 
 /**
@@ -17,9 +17,7 @@ import type { TextScale } from "@/types/user";
  * Should be called once in App.tsx or similar root component
  */
 export function useTextScale(): TextScale {
-  const textScale = useUserStore(
-    (state) => state.preferences.textScale ?? "md",
-  );
+  const textScale = useSettingsStore((s) => s.textScale ?? "md");
 
   useEffect(() => {
     // Apply the data attribute to the root element
@@ -42,10 +40,8 @@ export function useTextScalePreference(): {
   textScale: TextScale;
   setTextScale: (scale: TextScale) => void;
 } {
-  const textScale = useUserStore(
-    (state) => state.preferences.textScale ?? "md",
-  );
-  const updatePreferences = useUserStore((state) => state.updatePreferences);
+  const textScale = useSettingsStore((s) => s.textScale ?? "md");
+  const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
   const setTextScale = (scale: TextScale) => {
     updatePreferences({ textScale: scale });

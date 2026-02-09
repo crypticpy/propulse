@@ -12,6 +12,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { Card } from "@/components/ui/Card";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { useSatellites } from "@/hooks/useSatellites";
 import type {
   SatelliteInfo,
@@ -137,8 +138,10 @@ function SatelliteRow({
 
 /** Pass prediction row */
 function PassRow({ pass }: { pass: PassPrediction }) {
+  const { use24h } = useTimeFormat();
   const isActive = pass.aos <= new Date() && pass.los >= new Date();
   const isFuture = pass.aos > new Date();
+  const timeFmt = use24h ? "HH:mm" : "h:mm a";
 
   return (
     <div
@@ -157,12 +160,12 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {isActive
               ? "NOW"
               : isFuture
-                ? format(pass.aos, "HH:mm")
-                : format(pass.aos, "HH:mm")}
+                ? format(pass.aos, timeFmt)
+                : format(pass.aos, timeFmt)}
           </span>
           <span className="text-gray-500">-</span>
           <span className="font-mono text-gray-400">
-            {format(pass.los, "HH:mm")}
+            {format(pass.los, timeFmt)}
           </span>
         </div>
         {isFuture && (

@@ -17,6 +17,7 @@ import {
   addMonths,
   subMonths,
 } from "date-fns";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 
 export interface DateTimePickerProps {
   value: Date;
@@ -31,6 +32,7 @@ export function DateTimePicker({
   onClose,
   className = "",
 }: DateTimePickerProps) {
+  const { use24h } = useTimeFormat();
   const [viewMonth, setViewMonth] = useState(value);
   const [selectedDate, setSelectedDate] = useState(value);
   const [hours, setHours] = useState(value.getUTCHours());
@@ -224,7 +226,7 @@ export function DateTimePicker({
 
         {/* Local time display */}
         <div className="text-center mt-2 text-xs text-gray-500">
-          Local: {format(selectedDate, "h:mm a")}
+          Local: {format(selectedDate, use24h ? "HH:mm" : "h:mm a")}
         </div>
       </div>
 

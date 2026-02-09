@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export interface TimeDisplayProps {
   /** The time to display - accepts Date object or Unix timestamp (milliseconds) */
@@ -9,8 +10,6 @@ export interface TimeDisplayProps {
   className?: string;
   /** Whether to show seconds in the time display (default: false) */
   showSeconds?: boolean;
-  /** Use 12-hour format with AM/PM (default: false for 24-hour) */
-  hour12?: boolean;
 }
 
 /**
@@ -30,8 +29,6 @@ export interface TimeDisplayProps {
  * // With seconds
  * <TimeDisplay time={new Date()} showSeconds />
  *
- * // 12-hour format
- * <TimeDisplay time={new Date()} hour12 />
  * ```
  */
 export const TimeDisplay: React.FC<TimeDisplayProps> = ({
@@ -39,8 +36,8 @@ export const TimeDisplay: React.FC<TimeDisplayProps> = ({
   format = "utc",
   className = "",
   showSeconds = false,
-  hour12 = false,
 }) => {
+  const hour12 = useSettingsStore((s) => s.timeFormat !== "24h");
   const date = useMemo(
     () => (time instanceof Date ? time : new Date(time)),
     [time],

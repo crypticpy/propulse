@@ -167,26 +167,61 @@
 /* For accessibility    */
 /* ==================== */
 
-/* Default scale (md = 100%) */
+/* Default scale (md = 100%) — all Tailwind rem sizes scale proportionally */
 :root {
-  --text-scale: 1;
+  font-size: 16px;
 }
 
 /* Small scale (90%) - compact display */
 :root[data-text-scale="sm"] {
-  --text-scale: 0.9;
+  font-size: 14.4px; /* 16 × 0.9 */
 }
 
 /* Large scale (115%) - larger for older eyes/glasses */
 :root[data-text-scale="lg"] {
-  --text-scale: 1.15;
+  font-size: 18.4px; /* 16 × 1.15 */
 }
 
-/* Scalable text size utilities - use these for text that should respect user preference */
+/* ============================== */
+/* Color Blind Mode               */
+/* Status/condition color palette */
+/* ============================== */
+
 :root {
-  --text-xs-scaled: calc(0.75rem * var(--text-scale));    /* 12px * scale */
-  --text-sm-scaled: calc(0.875rem * var(--text-scale));   /* 14px * scale */
-  --text-base-scaled: calc(1rem * var(--text-scale));     /* 16px * scale */
-  --text-lg-scaled: calc(1.125rem * var(--text-scale));   /* 18px * scale */
-  --text-xl-scaled: calc(1.25rem * var(--text-scale));    /* 20px * scale */
+  --color-excellent-rgb: 0 255 136;
+  --color-good-rgb: 68 221 102;
+  --color-fair-rgb: 255 170 0;
+  --color-poor-rgb: 255 68 85;
+  --color-caution-rgb: 255 210 63;
+  --color-alert-rgb: 255 68 85;
+}
+
+/* Deuteranopia — red-green color blindness (most common, ~8% of males) */
+:root[data-color-blind="deuteranopia"] {
+  --color-excellent-rgb: 0 119 187;
+  --color-good-rgb: 0 119 187;
+  --color-fair-rgb: 238 119 51;
+  --color-poor-rgb: 204 51 17;
+  --color-caution-rgb: 238 119 51;
+  --color-alert-rgb: 204 51 17;
+}
+
+/* Protanopia — red color blindness (~1% of males) */
+:root[data-color-blind="protanopia"] {
+  --color-excellent-rgb: 0 153 136;
+  --color-good-rgb: 0 153 136;
+  --color-fair-rgb: 238 119 51;
+  --color-poor-rgb: 170 68 153;
+  --color-caution-rgb: 238 119 51;
+  --color-alert-rgb: 170 68 153;
+}
+
+/* Tritanopia — blue-yellow color blindness (rare, ~0.01%) */
+:root[data-color-blind="tritanopia"] {
+  --color-excellent-rgb: 68 170 153;
+  --color-good-rgb: 68 170 153;
+  --color-fair-rgb: 221 204 119;
+  --color-poor-rgb: 204 102 119;
+  --color-caution-rgb: 221 204 119;
+  --color-alert-rgb: 204 102 119;
 }

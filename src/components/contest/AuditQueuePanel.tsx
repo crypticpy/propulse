@@ -18,6 +18,8 @@ import {
   type AuditFlag,
   type AuditSeverity,
 } from "@/lib/contest/audit";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
+import { formatLocal } from "@/lib/utils/time";
 
 // ============================================================================
 // Types
@@ -93,14 +95,6 @@ function AuditFlagItem({ flag }: { flag: AuditFlag }) {
 }
 
 /**
- * Format timestamp for display
- */
-function formatTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toISOString().slice(11, 16).replace(":", "");
-}
-
-/**
  * Flagged QSO row component
  */
 function FlaggedQSORow({
@@ -110,6 +104,7 @@ function FlaggedQSORow({
   flaggedQso: FlaggedQSO;
   onEdit?: (qso: ContestQSO) => void;
 }) {
+  const { use24h } = useTimeFormat();
   const { qso, flags, maxSeverity, severityCounts } = flaggedQso;
 
   const handleClick = useCallback(() => {
@@ -153,7 +148,7 @@ function FlaggedQSORow({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <span className="text-gray-500 text-xs font-mono">
-            {formatTime(qso.timestamp)}
+            {formatLocal(new Date(qso.timestamp), use24h)}
           </span>
           <span className="text-white font-bold font-mono">{qso.callsign}</span>
           <span className="text-gray-400 text-sm font-mono">

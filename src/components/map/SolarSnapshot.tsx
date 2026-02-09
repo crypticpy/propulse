@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
+import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { calculatePropagationIndex } from "@/components/solar/PropagationIndex";
 import { getRecommendations } from "@/lib/utils/recommendations";
 import {
@@ -243,6 +244,7 @@ export function SolarSnapshot({
   displayTime,
   className = "",
 }: SolarSnapshotProps) {
+  const { use24h } = useTimeFormat();
   const [showHelp, setShowHelp] = useState(false);
 
   // Fetch solar data
@@ -435,7 +437,7 @@ export function SolarSnapshot({
             className="text-[10px] text-gray-400 font-mono"
             title={
               greylineStatus.nextEventTime
-                ? `Next: ${greylineStatus.nextEventTime.toLocaleTimeString()}`
+                ? `Next: ${greylineStatus.nextEventTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !use24h })}`
                 : undefined
             }
           >

@@ -46,7 +46,6 @@ export { PathAnalysis } from "./PathAnalysis";
 export { PropagationForecast } from "./PropagationForecast";
 export { PropagationForecastMini } from "./PropagationForecastMini";
 export { BandConditionsPanel } from "./BandConditionsPanel";
-export { ViewModeToggle } from "./ViewModeToggle";
 export { QuickTargets } from "./QuickTargets";
 
 // Fullscreen view
@@ -76,8 +75,8 @@ export {
   type DifficultyLevel,
 } from "./LocationMarker";
 
-// Lite Mode toggle
-export { LiteModeToggle } from "./LiteModeToggle";
+// Layout mode dropdown (replaces LiteModeToggle)
+export { LayoutModeDropdown } from "./LayoutModeDropdown";
 
 // Visual style selector (Realistic / High-Viz, Mode / Band coloring)
 export { StyleSelector } from "./StyleSelector";

@@ -397,7 +397,7 @@ function GlobeScene({
   const currentSFI = useCurrentSFI();
   const compassRosePrefs = useCompassRosePrefs();
   const holdDurationMs = useSettingsStore(
-    (s) => s.uiInteraction?.holdDurationMs ?? 2500,
+    (s) => s.uiInteraction?.holdDurationMs ?? 500,
   );
 
   // Calculate path difficulty when station and target are set

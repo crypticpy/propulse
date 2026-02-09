@@ -606,7 +606,7 @@ export const DEFAULT_FORECAST_DISPLAY: ForecastDisplayPreferences = {
  * Default UI interaction preferences
  */
 export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
-  holdDurationMs: 2500,
+  holdDurationMs: 500,
   flyoutAutoDismissMs: 2500,
   flyoutAutoDismissEnabled: true,
   showSpotCallsignLabels: true,

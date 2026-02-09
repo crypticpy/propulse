@@ -7,6 +7,7 @@ import type {
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
+export type LayoutMode = "normal" | "pro" | "lite" | "hamclock";
 
 // Layer preset configurations for common use cases
 export const LAYER_PRESETS = {
@@ -192,6 +193,10 @@ interface MapState {
   isLiteMode: boolean;
   setLiteMode: (value: boolean) => void;
   toggleLiteMode: () => void;
+
+  // Unified layout mode (normal/pro/lite/hamclock)
+  layoutMode: LayoutMode;
+  setLayoutMode: (mode: LayoutMode) => void;
 
   // DX Console expanded state
   isDXConsoleExpanded: boolean;
@@ -396,6 +401,30 @@ function saveMapStyle(style: MapStyle) {
   localStorage.setItem("propulse-map-style", style);
 }
 
+// Layout mode persistence
+function loadLayoutMode(): LayoutMode {
+  try {
+    const saved = localStorage.getItem("propulse-layout-mode");
+    if (
+      saved === "normal" ||
+      saved === "pro" ||
+      saved === "lite" ||
+      saved === "hamclock"
+    ) {
+      // Don't restore fullscreen modes on page load — start in normal
+      if (saved === "pro" || saved === "hamclock") return "normal";
+      return saved;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "normal";
+}
+
+function saveLayoutMode(mode: LayoutMode) {
+  localStorage.setItem("propulse-layout-mode", mode);
+}
+
 // Load saved region presets from localStorage, merging user presets with built-in defaults
 function loadRegionPresets(): RegionPreset[] {
   const builtIns = DEFAULT_REGION_PRESETS.map((p) => ({ ...p }));
@@ -471,6 +500,7 @@ const initialState = {
   activePreset: null as PresetName | null,
   isFullscreen: false,
   isLiteMode: false,
+  layoutMode: loadLayoutMode(),
   isDXConsoleExpanded: false,
   interactionMode: "normal" as MapInteractionMode,
   overlayLayers: {} as Record<string, OverlayLayerModel>,
@@ -645,24 +675,41 @@ export const useMapStore = create<MapState>((set, get) => ({
       activePreset: null,
     })),
 
-  setFullscreen: (isFullscreen) => set({ isFullscreen }),
+  setFullscreen: (isFullscreen) =>
+    set({
+      isFullscreen,
+      layoutMode: isFullscreen ? "pro" : "normal",
+    }),
 
   toggleFullscreen: () =>
-    set((state) => ({ isFullscreen: !state.isFullscreen })),
+    set((state) => ({
+      isFullscreen: !state.isFullscreen,
+      layoutMode: !state.isFullscreen ? "pro" : "normal",
+    })),
 
   setLiteMode: (isLiteMode) =>
     set({
       isLiteMode,
-      // Auto-collapse DX Console when entering lite mode
+      layoutMode: isLiteMode ? "lite" : "normal",
       ...(isLiteMode && { isDXConsoleExpanded: false }),
     }),
 
   toggleLiteMode: () =>
     set((state) => ({
       isLiteMode: !state.isLiteMode,
-      // Auto-collapse DX Console when entering lite mode
+      layoutMode: !state.isLiteMode ? "lite" : "normal",
       ...(!state.isLiteMode && { isDXConsoleExpanded: false }),
     })),
+
+  setLayoutMode: (layoutMode) => {
+    saveLayoutMode(layoutMode);
+    set({
+      layoutMode,
+      isFullscreen: layoutMode === "pro",
+      isLiteMode: layoutMode === "lite",
+      ...(layoutMode === "lite" && { isDXConsoleExpanded: false }),
+    });
+  },
 
   setDXConsoleExpanded: (isDXConsoleExpanded) => set({ isDXConsoleExpanded }),
 

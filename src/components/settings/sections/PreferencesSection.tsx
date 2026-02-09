@@ -486,8 +486,8 @@ export function PreferencesSection() {
           label="Hold Duration"
           description="Time to hold for context menu"
           value={uiInteraction.holdDurationMs}
-          min={1500}
-          max={5000}
+          min={300}
+          max={2000}
           step={100}
           formatValue={(v) => `${(v / 1000).toFixed(1)}s`}
           onChange={(v) => updateUIInteraction({ holdDurationMs: v })}

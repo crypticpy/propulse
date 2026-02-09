@@ -30,7 +30,7 @@ import {
   OptimalBandsPanel,
   OperatorProfile,
   SolarSnapshot,
-  LiteModeToggle,
+  LayoutModeDropdown,
   StyleSelector,
   MapStyleToggle,
   DXNewsTicker,
@@ -48,6 +48,11 @@ import {
 const FullscreenPropSphere = lazy(() =>
   import("@/components/map/FullscreenPropSphere").then((m) => ({
     default: m.FullscreenPropSphere,
+  })),
+);
+const HamClockView = lazy(() =>
+  import("@/components/map/HamClockView").then((m) => ({
+    default: m.HamClockView,
   })),
 );
 import { DXSpotList } from "@/components/dx";
@@ -117,8 +122,7 @@ export function PropSphere() {
     toggleLayer,
     activePreset,
     applyPreset,
-    isFullscreen,
-    setFullscreen,
+    layoutMode,
     isLiteMode,
     isDXConsoleExpanded,
     setDXConsoleExpanded,
@@ -381,7 +385,10 @@ export function PropSphere() {
   // Initialize keyboard shortcuts
   useKeyboardShortcuts({
     onAction: handleShortcutAction,
-    enabled: !showShortcutsHelp && !showOptimalBandHelp && !isFullscreen,
+    enabled:
+      !showShortcutsHelp &&
+      !showOptimalBandHelp &&
+      (layoutMode === "normal" || layoutMode === "lite"),
   });
 
   // Resize handle dragging
@@ -505,11 +512,11 @@ export function PropSphere() {
                 : "max-h-[500px] opacity-100"
             }`}
           >
-            {/* Pro View Entry + Time Machine */}
+            {/* Layout Mode + Share + Time Machine */}
             <div className="col-span-1 flex flex-col gap-2">
-              {/* View Mode Toggle Row */}
+              {/* Layout Mode Dropdown + Share */}
               <div className="hidden lg:flex gap-2">
-                <LiteModeToggle className="flex-1" />
+                <LayoutModeDropdown className="flex-1" />
                 <button
                   onClick={() => setShowShareModal(true)}
                   className="p-2 rounded-lg bg-white/[0.03] border border-white/10
@@ -531,48 +538,6 @@ export function PropSphere() {
                     />
                   </svg>
                 </button>
-              </div>
-
-              {/* Pro View Entry Point - more compact */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setFullscreen(true)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setFullscreen(true);
-                  }
-                }}
-                className="p-2.5 rounded-xl bg-white/[0.03] backdrop-blur-md border border-plasma-orange/30
-                           hover:border-plasma-orange/60 hover:bg-plasma-orange/5
-                           cursor-pointer transition-all duration-200 group"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-white group-hover:text-plasma-orange transition-colors truncate">
-                      Pro View
-                    </div>
-                    <div className="text-[9px] text-gray-400 truncate">
-                      Full-screen experience
-                    </div>
-                  </div>
-                  <div className="p-1.5 rounded-lg bg-plasma-orange/10 text-plasma-orange group-hover:bg-plasma-orange/20 transition-colors flex-shrink-0">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                      />
-                    </svg>
-                  </div>
-                </div>
               </div>
 
               {/* Time Machine */}
@@ -900,33 +865,9 @@ export function PropSphere() {
                 <div className="absolute inset-0 pointer-events-none z-10 hidden lg:block">
                   {/* ─── TOP HUD BAR ─── */}
                   <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-4 pointer-events-auto">
-                    {/* Left cluster: Mode toggles */}
+                    {/* Left cluster: Layout mode dropdown + Share */}
                     <div className="flex items-center gap-2">
-                      <LiteModeToggle />
-                      <button
-                        onClick={() => setFullscreen(true)}
-                        className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-                                   bg-black/60 backdrop-blur-md border border-white/10
-                                   hover:border-plasma-orange/50 hover:bg-black/70
-                                   transition-all duration-200"
-                      >
-                        <svg
-                          className="w-3.5 h-3.5 text-plasma-orange"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                          />
-                        </svg>
-                        <span className="text-[11px] font-medium text-gray-300 group-hover:text-white">
-                          Pro
-                        </span>
-                      </button>
+                      <LayoutModeDropdown className="bg-black/60 backdrop-blur-md" />
                       <button
                         onClick={() => setShowShareModal(true)}
                         className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
@@ -1292,9 +1233,8 @@ export function PropSphere() {
         </div>
       </main>
 
-      {/* Fullscreen mode */}
-      {/* Fullscreen mode - lazy loaded for performance */}
-      {isFullscreen && (
+      {/* Fullscreen Pro mode - lazy loaded for performance */}
+      {layoutMode === "pro" && (
         <Suspense
           fallback={
             <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
@@ -1308,6 +1248,27 @@ export function PropSphere() {
           }
         >
           <FullscreenPropSphere
+            displayTime={displayTime}
+            onLocationClick={handleLocationClick}
+          />
+        </Suspense>
+      )}
+
+      {/* HamClock dense-information dashboard view */}
+      {layoutMode === "hamclock" && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <div className="w-8 h-8 border-2 border-signal-green border-t-transparent rounded-full animate-spin" />
+                <p className="text-gray-400 text-sm">
+                  Loading HamClock view...
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <HamClockView
             displayTime={displayTime}
             onLocationClick={handleLocationClick}
           />

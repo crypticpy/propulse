@@ -2243,7 +2243,7 @@ export function FlatMapView({
   const spotColorMode: SpotColorMode =
     preferences?.uiInteraction?.spotColorMode ?? "mode";
   const highViz = preferences?.uiInteraction?.visualStyle === "high-viz";
-  const holdDurationMs = preferences?.uiInteraction?.holdDurationMs ?? 2500;
+  const holdDurationMs = preferences?.uiInteraction?.holdDurationMs ?? 500;
 
   // Award progress for WAS overlay (only compute when enabled)
   const { wasStates } = useAwardProgress(labelOptions.wasOverlay);

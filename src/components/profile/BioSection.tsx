@@ -8,6 +8,8 @@
 
 import { useState, useEffect } from "react";
 import { useProfileStore } from "@/stores/profileStore";
+import { ImageUploadButton } from "@/components/ui/ImageUploadButton";
+import { useImageUrl } from "@/hooks/useImageUrl";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 
 const MAX_BIO_LENGTH = 10_000;
@@ -17,6 +19,9 @@ export function BioSection() {
   const setBio = useProfileStore((s) => s.setBio);
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
   const setProfileImageUrl = useProfileStore((s) => s.setProfileImageUrl);
+  const profileImageId = useProfileStore((s) => s.profileImageId);
+  const setProfileImageId = useProfileStore((s) => s.setProfileImageId);
+  const { url: uploadedImageUrl } = useImageUrl(profileImageId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(bio);
@@ -44,7 +49,8 @@ export function BioSection() {
     setIsEditing(false);
   };
 
-  const isEmpty = !bio && !profileImageUrl;
+  const displayImageUrl = uploadedImageUrl || profileImageUrl;
+  const isEmpty = !bio && !displayImageUrl;
 
   // ─── Read mode ──────────────────────────────────────────────────────────
 
@@ -72,11 +78,11 @@ export function BioSection() {
         ) : (
           <div className="flex gap-5">
             {/* Photo */}
-            {profileImageUrl && !imgError && (
+            {displayImageUrl && !imgError && (
               <div className="shrink-0">
                 <div className="w-28 h-28 rounded-xl overflow-hidden border border-white/10 bg-void-black">
                   <img
-                    src={profileImageUrl}
+                    src={displayImageUrl}
                     alt="Operator"
                     className="w-full h-full object-cover"
                     onError={() => setImgError(true)}
@@ -111,10 +117,25 @@ export function BioSection() {
         About
       </h3>
 
+      {/* Upload photo */}
+      <div className="mb-3">
+        <label className="block text-xs text-gray-500 mb-1">Upload Photo</label>
+        <ImageUploadButton
+          imageId={profileImageId}
+          onImageChange={(id) => setProfileImageId(id)}
+          aspect={1}
+          cropShape="round"
+          maxOutputWidth={500}
+          maxOutputHeight={500}
+          quality={0.85}
+          label="Upload Photo"
+        />
+      </div>
+
       {/* Photo URL input */}
       <div className="mb-3">
         <label className="block text-xs text-gray-500 mb-1">
-          Profile Photo URL
+          Profile Photo URL (alternative)
         </label>
         <div className="flex gap-3 items-start">
           {/* Preview */}

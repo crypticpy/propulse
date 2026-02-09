@@ -149,6 +149,10 @@ export interface UserRadio {
   wiringConfiguration?: string;
   /** Optional additional notes */
   notes?: string;
+  /** UUID referencing a stored image in IndexedDB */
+  imageId?: string;
+  /** Additional photo gallery (up to 5 images, stored in IndexedDB) */
+  galleryImageIds?: string[];
   /**
    * Optional per-radio override for receiver spec source.
    * - "global": use user preference `preferTestedSpecs`

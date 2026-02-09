@@ -7,6 +7,7 @@
  */
 
 import { useProfileStore } from "@/stores/profileStore";
+import { useImageUrl } from "@/hooks/useImageUrl";
 import { ProfileCompletenessRing } from "./ProfileCompletenessRing";
 import { StationIdentityForm } from "./StationIdentityForm";
 import type { StationIdentityFormProps } from "./StationIdentityForm";
@@ -37,15 +38,18 @@ export function ProfileCardDesktop({
   formProps,
 }: ProfileCardDesktopProps) {
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+  const profileImageId = useProfileStore((s) => s.profileImageId);
+  const { url: uploadedImageUrl } = useImageUrl(profileImageId);
+  const avatarSrc = uploadedImageUrl || profileImageUrl || null;
 
   return (
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
       <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
         {/* Callsign */}
         <div className="text-center mb-4">
-          {profileImageUrl && (
+          {avatarSrc && (
             <img
-              src={profileImageUrl}
+              src={avatarSrc}
               alt=""
               className="w-16 h-16 rounded-full object-cover border-2 border-white/10 mx-auto mb-3"
               onError={(e) => {
@@ -178,14 +182,17 @@ export function ProfileCardMobile({
   onEdit,
 }: ProfileCardMobileProps) {
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+  const profileImageId = useProfileStore((s) => s.profileImageId);
+  const { url: uploadedImageUrl } = useImageUrl(profileImageId);
+  const avatarSrc = uploadedImageUrl || profileImageUrl || null;
 
   return (
     <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {profileImageUrl && (
+          {avatarSrc && (
             <img
-              src={profileImageUrl}
+              src={avatarSrc}
               alt=""
               className="w-12 h-12 rounded-full object-cover border-2 border-white/10"
               onError={(e) => {

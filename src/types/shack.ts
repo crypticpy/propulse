@@ -177,6 +177,10 @@ export interface UserAntenna {
   /** Ferrites installed at feedpoint */
   feedpointFerrites?: FeedpointFerrite;
   notes?: string;
+  /** UUID referencing a stored image in IndexedDB */
+  imageId?: string;
+  /** Additional photo gallery (up to 5 images, stored in IndexedDB) */
+  galleryImageIds?: string[];
   addedAt: string;
   retiredAt?: string;
   photos?: string[];
@@ -249,6 +253,8 @@ export interface UserFeedline {
   manufacturer?: string;
   yearInstalled?: number;
   notes?: string;
+  /** UUID referencing a stored image in IndexedDB */
+  imageId?: string;
   addedAt: string;
   retiredAt?: string;
 }
@@ -269,6 +275,8 @@ export interface InlineComponentBase {
   insertionLossDb: number;
   manufacturer?: string;
   notes?: string;
+  /** UUID referencing a stored image in IndexedDB */
+  imageId?: string;
   addedAt: string;
 }
 
@@ -347,6 +355,10 @@ export interface AccessoryBase {
   modelNumber?: string;
   currentDrawAmps?: number;
   notes?: string;
+  /** UUID referencing a stored image in IndexedDB */
+  imageId?: string;
+  /** Additional photo gallery (up to 5 images, stored in IndexedDB) */
+  galleryImageIds?: string[];
   addedAt: string;
   retiredAt?: string;
 }

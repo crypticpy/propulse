@@ -30,6 +30,7 @@ import type {
 } from "@/types/stationChain";
 import { MAX_CHAINS, MAX_CHAIN_NODES } from "@/types/stationChain";
 import { computeInsertPosition } from "@/lib/chainOrdering";
+import { deleteImage } from "@/lib/db/imageStore";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -204,6 +205,29 @@ interface ShackStore {
     updates: Partial<Omit<FeedlineRun, "id">>,
   ) => { ok: true } | { ok: false; error: string };
 
+  // Image management
+  setEquipmentImage: (
+    type: "radio" | "antenna" | "feedline" | "accessory" | "inline",
+    equipmentId: string,
+    imageId: string,
+  ) => void;
+  clearEquipmentImage: (
+    type: "radio" | "antenna" | "feedline" | "accessory" | "inline",
+    equipmentId: string,
+  ) => void;
+
+  // Gallery management (radios, antennas, accessories only)
+  addGalleryImage: (
+    type: "radio" | "antenna" | "accessory",
+    equipmentId: string,
+    imageId: string,
+  ) => void;
+  removeGalleryImage: (
+    type: "radio" | "antenna" | "accessory",
+    equipmentId: string,
+    imageId: string,
+  ) => void;
+
   // History
   _addHistoryEntry: (
     entry: Omit<EquipmentHistoryEntry, "id" | "timestamp">,
@@ -352,6 +376,21 @@ export const useShackStore = create<ShackStore>()(
           ? resolveEquipmentById(radio.equipmentId, get().customRadios)
           : undefined;
         const name = radio?.nickname ?? radioEquip?.displayName ?? "Unknown";
+
+        // Orphan cleanup: delete associated image blob
+        if (radio?.imageId) {
+          deleteImage(radio.imageId).catch(() => {
+            /* best-effort cleanup */
+          });
+        }
+        // Orphan cleanup: delete gallery image blobs
+        if (radio?.galleryImageIds) {
+          for (const gid of radio.galleryImageIds) {
+            deleteImage(gid).catch(() => {
+              /* best-effort cleanup */
+            });
+          }
+        }
 
         set((state) => {
           const updatedRadios = state.radios.filter((r) => r.id !== radioId);
@@ -585,6 +624,22 @@ export const useShackStore = create<ShackStore>()(
       removeAntenna: (id) => {
         const antenna = get().antennas.find((a) => a.id === id);
         const name = antenna?.name ?? "Unknown";
+
+        // Orphan cleanup: delete associated image blob
+        if (antenna?.imageId) {
+          deleteImage(antenna.imageId).catch(() => {
+            /* best-effort cleanup */
+          });
+        }
+        // Orphan cleanup: delete gallery image blobs
+        if (antenna?.galleryImageIds) {
+          for (const gid of antenna.galleryImageIds) {
+            deleteImage(gid).catch(() => {
+              /* best-effort cleanup */
+            });
+          }
+        }
+
         set((state) => ({
           antennas: state.antennas.filter((a) => a.id !== id),
           // Clean up presets referencing this antenna
@@ -694,6 +749,14 @@ export const useShackStore = create<ShackStore>()(
       removeFeedline: (id) => {
         const feedline = get().feedlines.find((f) => f.id === id);
         const name = feedline?.name ?? "Unknown";
+
+        // Orphan cleanup: delete associated image blob
+        if (feedline?.imageId) {
+          deleteImage(feedline.imageId).catch(() => {
+            /* best-effort cleanup */
+          });
+        }
+
         set((state) => {
           // Find FeedlineRun IDs that reference this feedline
           const affectedRunIds = new Set<string>();
@@ -824,6 +887,14 @@ export const useShackStore = create<ShackStore>()(
       removeInlineComponent: (id) => {
         const component = get().inlineComponents.find((c) => c.id === id);
         const name = component?.name ?? "Unknown";
+
+        // Orphan cleanup: delete associated image blob
+        if (component?.imageId) {
+          deleteImage(component.imageId).catch(() => {
+            /* best-effort cleanup */
+          });
+        }
+
         set((state) => ({
           inlineComponents: state.inlineComponents.filter((c) => c.id !== id),
           stationPresets: state.stationPresets.map((p) => ({
@@ -946,6 +1017,22 @@ export const useShackStore = create<ShackStore>()(
       removeAccessory: (id) => {
         const accessory = get().accessories.find((a) => a.id === id);
         const name = accessory?.name ?? "Unknown";
+
+        // Orphan cleanup: delete associated image blob
+        if (accessory?.imageId) {
+          deleteImage(accessory.imageId).catch(() => {
+            /* best-effort cleanup */
+          });
+        }
+        // Orphan cleanup: delete gallery image blobs
+        if (accessory?.galleryImageIds) {
+          for (const gid of accessory.galleryImageIds) {
+            deleteImage(gid).catch(() => {
+              /* best-effort cleanup */
+            });
+          }
+        }
+
         set((state) => ({
           accessories: state.accessories.filter((a) => a.id !== id),
           // Remove this accessory from all presets' accessoryIds
@@ -1504,6 +1591,225 @@ export const useShackStore = create<ShackStore>()(
         return result;
       },
 
+      // === Image Management ===
+
+      setEquipmentImage: (type, equipmentId, imageId) => {
+        set((state) => {
+          switch (type) {
+            case "radio":
+              return {
+                radios: state.radios.map((r) =>
+                  r.id === equipmentId ? { ...r, imageId } : r,
+                ),
+              };
+            case "antenna":
+              return {
+                antennas: state.antennas.map((a) =>
+                  a.id === equipmentId ? { ...a, imageId } : a,
+                ),
+              };
+            case "feedline":
+              return {
+                feedlines: state.feedlines.map((f) =>
+                  f.id === equipmentId ? { ...f, imageId } : f,
+                ),
+              };
+            case "accessory":
+              return {
+                accessories: state.accessories.map((a) =>
+                  a.id === equipmentId
+                    ? ({ ...a, imageId } as UserAccessory)
+                    : a,
+                ),
+              };
+            case "inline":
+              return {
+                inlineComponents: state.inlineComponents.map((c) =>
+                  c.id === equipmentId
+                    ? ({ ...c, imageId } as InlineComponent)
+                    : c,
+                ),
+              };
+          }
+        });
+      },
+
+      clearEquipmentImage: (type, equipmentId) => {
+        let oldImageId: string | undefined;
+
+        // Find the current imageId before clearing
+        const state = get();
+        switch (type) {
+          case "radio":
+            oldImageId = state.radios.find(
+              (r) => r.id === equipmentId,
+            )?.imageId;
+            break;
+          case "antenna":
+            oldImageId = state.antennas.find(
+              (a) => a.id === equipmentId,
+            )?.imageId;
+            break;
+          case "feedline":
+            oldImageId = state.feedlines.find(
+              (f) => f.id === equipmentId,
+            )?.imageId;
+            break;
+          case "accessory":
+            oldImageId = state.accessories.find(
+              (a) => a.id === equipmentId,
+            )?.imageId;
+            break;
+          case "inline":
+            oldImageId = state.inlineComponents.find(
+              (c) => c.id === equipmentId,
+            )?.imageId;
+            break;
+        }
+
+        // Delete the blob from IndexedDB
+        if (oldImageId) {
+          deleteImage(oldImageId).catch(() => {
+            /* best-effort cleanup */
+          });
+        }
+
+        set((s) => {
+          switch (type) {
+            case "radio":
+              return {
+                radios: s.radios.map((r) =>
+                  r.id === equipmentId ? { ...r, imageId: undefined } : r,
+                ),
+              };
+            case "antenna":
+              return {
+                antennas: s.antennas.map((a) =>
+                  a.id === equipmentId ? { ...a, imageId: undefined } : a,
+                ),
+              };
+            case "feedline":
+              return {
+                feedlines: s.feedlines.map((f) =>
+                  f.id === equipmentId ? { ...f, imageId: undefined } : f,
+                ),
+              };
+            case "accessory":
+              return {
+                accessories: s.accessories.map((a) =>
+                  a.id === equipmentId
+                    ? ({ ...a, imageId: undefined } as UserAccessory)
+                    : a,
+                ),
+              };
+            case "inline":
+              return {
+                inlineComponents: s.inlineComponents.map((c) =>
+                  c.id === equipmentId
+                    ? ({ ...c, imageId: undefined } as InlineComponent)
+                    : c,
+                ),
+              };
+          }
+        });
+      },
+
+      // === Gallery Management ===
+
+      addGalleryImage: (type, equipmentId, imageId) => {
+        set((state) => {
+          switch (type) {
+            case "radio": {
+              return {
+                radios: state.radios.map((r) => {
+                  if (r.id !== equipmentId) return r;
+                  const existing = r.galleryImageIds ?? [];
+                  if (existing.length >= 5) return r;
+                  if (existing.includes(imageId)) return r;
+                  return { ...r, galleryImageIds: [...existing, imageId] };
+                }),
+              };
+            }
+            case "antenna": {
+              return {
+                antennas: state.antennas.map((a) => {
+                  if (a.id !== equipmentId) return a;
+                  const existing = a.galleryImageIds ?? [];
+                  if (existing.length >= 5) return a;
+                  if (existing.includes(imageId)) return a;
+                  return { ...a, galleryImageIds: [...existing, imageId] };
+                }),
+              };
+            }
+            case "accessory": {
+              return {
+                accessories: state.accessories.map((a) => {
+                  if (a.id !== equipmentId) return a;
+                  const existing = a.galleryImageIds ?? [];
+                  if (existing.length >= 5) return a;
+                  if (existing.includes(imageId)) return a;
+                  return {
+                    ...a,
+                    galleryImageIds: [...existing, imageId],
+                  } as UserAccessory;
+                }),
+              };
+            }
+          }
+        });
+      },
+
+      removeGalleryImage: (type, equipmentId, imageId) => {
+        // Delete the blob from IndexedDB
+        deleteImage(imageId).catch(() => {
+          /* best-effort cleanup */
+        });
+
+        set((state) => {
+          switch (type) {
+            case "radio": {
+              return {
+                radios: state.radios.map((r) => {
+                  if (r.id !== equipmentId) return r;
+                  return {
+                    ...r,
+                    galleryImageIds: (r.galleryImageIds ?? []).filter(
+                      (id) => id !== imageId,
+                    ),
+                  };
+                }),
+              };
+            }
+            case "antenna": {
+              return {
+                antennas: state.antennas.map((a) => {
+                  if (a.id !== equipmentId) return a;
+                  return {
+                    ...a,
+                    galleryImageIds: (a.galleryImageIds ?? []).filter(
+                      (id) => id !== imageId,
+                    ),
+                  };
+                }),
+              };
+            }
+            case "accessory": {
+              return {
+                accessories: state.accessories.map((a) => {
+                  if (a.id !== equipmentId) return a;
+                  return {
+                    ...a,
+                    galleryImageIds: (a.galleryImageIds ?? []).filter(
+                      (id) => id !== imageId,
+                    ),
+                  } as UserAccessory;
+                }),
+              };
+            }
+          }
+        });
+      },
+
       // === History ===
 
       _addHistoryEntry: (entry) =>
@@ -1520,7 +1826,7 @@ export const useShackStore = create<ShackStore>()(
     }),
     {
       name: "propulse-shack",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         radios: state.radios,
@@ -1590,6 +1896,9 @@ export const useShackStore = create<ShackStore>()(
           });
           state.stationChains = chains;
           state.activeChainId = (state.activePresetId as string | null) ?? null;
+        }
+        if (version < 5) {
+          // v4→v5: imageId fields are optional — no data migration needed
         }
         return state as never;
       },

@@ -18,6 +18,7 @@ import type { VisibilitySettings } from "@/types/social";
 import { DEFAULT_VISIBILITY } from "@/types/social";
 
 import { useSettingsStore } from "./settingsStore";
+import { deleteImage } from "@/lib/db/imageStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,8 @@ interface ProfileStore {
   licenseHistory: LicenseHistoryEntry[];
   bio: string;
   profileImageUrl: string;
+  /** UUID referencing a stored profile image in IndexedDB */
+  profileImageId: string | undefined;
   lastIngestedCallsign: string;
   socialLinks: SocialLink[];
   visibilitySettings: VisibilitySettings;
@@ -75,6 +78,7 @@ interface ProfileStore {
   setStation: (station: UserStation | null) => void;
   setBio: (bio: string) => void;
   setProfileImageUrl: (url: string) => void;
+  setProfileImageId: (imageId: string | undefined) => void;
   setLastIngestedCallsign: (callsign: string) => void;
   setSocialLinks: (links: SocialLink[]) => void;
 
@@ -128,6 +132,7 @@ export const useProfileStore = create<ProfileStore>()(
       licenseHistory: [],
       bio: "",
       profileImageUrl: "",
+      profileImageId: undefined,
       lastIngestedCallsign: "",
       socialLinks: [],
       visibilitySettings: { ...DEFAULT_VISIBILITY },
@@ -163,6 +168,16 @@ export const useProfileStore = create<ProfileStore>()(
 
       setBio: (bio) => set({ bio }),
       setProfileImageUrl: (url) => set({ profileImageUrl: url }),
+      setProfileImageId: (imageId) =>
+        set((state) => {
+          // Delete the old blob from IndexedDB if replacing or clearing
+          if (state.profileImageId && state.profileImageId !== imageId) {
+            deleteImage(state.profileImageId).catch(() => {
+              /* best-effort cleanup */
+            });
+          }
+          return { profileImageId: imageId };
+        }),
       setLastIngestedCallsign: (callsign) =>
         set({ lastIngestedCallsign: callsign }),
       setSocialLinks: (links) => set({ socialLinks: links }),
@@ -420,7 +435,7 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: "propulse-profile",
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -429,6 +444,7 @@ export const useProfileStore = create<ProfileStore>()(
         licenseHistory: state.licenseHistory,
         bio: state.bio,
         profileImageUrl: state.profileImageUrl,
+        profileImageId: state.profileImageId,
         lastIngestedCallsign: state.lastIngestedCallsign,
         socialLinks: state.socialLinks,
         serviceCredentials: state.serviceCredentials,
@@ -450,6 +466,9 @@ export const useProfileStore = create<ProfileStore>()(
         if (version < 5) {
           if (!("visibilitySettings" in state))
             state.visibilitySettings = { ...DEFAULT_VISIBILITY };
+        }
+        if (version < 6) {
+          if (!("profileImageId" in state)) state.profileImageId = undefined;
         }
         return state as unknown as ProfileStore;
       },

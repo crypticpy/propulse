@@ -295,6 +295,7 @@ export function StationIdentityForm({
           }}
           error={gridError}
           onError={setGridError}
+          compact={compact}
         />
       </div>
 

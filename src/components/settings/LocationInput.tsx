@@ -28,6 +28,8 @@ interface LocationInputProps {
   error?: string | null;
   /** Callback to set error */
   onError: (error: string | null) => void;
+  /** Compact mode — icon-only buttons for narrow containers */
+  compact?: boolean;
 }
 
 interface LookupState {
@@ -44,12 +46,14 @@ function ModeButton({
   onClick,
   icon,
   label,
+  compact,
 }: {
   mode: InputMode;
   activeMode: InputMode;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  compact?: boolean;
 }) {
   const isActive = mode === activeMode;
   return (
@@ -67,7 +71,7 @@ function ModeButton({
       title={label}
     >
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      {!compact && <span className="hidden sm:inline">{label}</span>}
     </button>
   );
 }
@@ -80,6 +84,7 @@ export function LocationInput({
   onChange,
   error,
   onError,
+  compact = false,
 }: LocationInputProps) {
   const [mode, setMode] = useState<InputMode>("grid");
   const [lookupState, setLookupState] = useState<LookupState>({
@@ -263,6 +268,7 @@ export function LocationInput({
           onClick={() => setMode("grid")}
           icon={<GridIcon />}
           label="Grid"
+          compact={compact}
         />
         <ModeButton
           mode="geolocation"
@@ -273,6 +279,7 @@ export function LocationInput({
           }}
           icon={<LocationIcon />}
           label="My Location"
+          compact={compact}
         />
         <ModeButton
           mode="gps"
@@ -280,6 +287,7 @@ export function LocationInput({
           onClick={() => setMode("gps")}
           icon={<CoordIcon />}
           label="Coordinates"
+          compact={compact}
         />
         <ModeButton
           mode="address"
@@ -287,6 +295,7 @@ export function LocationInput({
           onClick={() => setMode("address")}
           icon={<SearchIcon />}
           label="Address"
+          compact={compact}
         />
       </div>
 
@@ -334,17 +343,20 @@ export function LocationInput({
               type="button"
               onClick={handleGeolocation}
               disabled={lookupState.status === "loading"}
-              className="px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
+              className="shrink-0 px-3 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
                          text-plasma-orange hover:bg-plasma-orange/30
                          transition-colors text-sm font-medium
                          disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+              title="Get Location"
             >
               {lookupState.status === "loading" ? (
                 <SpinnerIcon />
               ) : (
                 <LocationIcon />
               )}
-              <span className="hidden sm:inline">Get Location</span>
+              {!compact && (
+                <span className="hidden sm:inline">Get Location</span>
+              )}
             </button>
           </div>
         )}
@@ -375,11 +387,12 @@ export function LocationInput({
             <button
               type="button"
               onClick={handleCoordSubmit}
-              className="px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
+              className="shrink-0 px-3 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
                          text-plasma-orange hover:bg-plasma-orange/30
                          transition-colors text-sm font-medium"
+              title="Convert coordinates to grid"
             >
-              Convert
+              {compact ? <CoordIcon /> : "Convert"}
             </button>
           </div>
         )}

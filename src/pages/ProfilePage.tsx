@@ -44,7 +44,14 @@ import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 
 // ---- Callsign validation ----------------------------------------------------
 
-const CALLSIGN_REGEX = /^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z]$/i;
+/** Amateur radio: 1-3 prefix + digit + 0-3 middle + letter suffix (W5XXX, VE3ABC) */
+const AMATEUR_CALLSIGN_REGEX = /^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z]$/i;
+/** GMRS: W + 3 letters + 3 digits (WSLK349, WRFQ375) */
+const GMRS_CALLSIGN_REGEX = /^W[A-Z]{3}[0-9]{3}$/i;
+
+function isValidCallsign(cs: string): boolean {
+  return AMATEUR_CALLSIGN_REGEX.test(cs) || GMRS_CALLSIGN_REGEX.test(cs);
+}
 
 // ---- Other profile view -----------------------------------------------------
 
@@ -387,9 +394,9 @@ export default function ProfilePage() {
   const handleSave = useCallback(() => {
     // Validate callsign
     const trimmedCallsign = callsign.toUpperCase().trim();
-    if (trimmedCallsign && !CALLSIGN_REGEX.test(trimmedCallsign)) {
+    if (trimmedCallsign && !isValidCallsign(trimmedCallsign)) {
       setCallsignError(
-        "Please enter a valid amateur radio callsign (e.g., W5XXX, VE3XXX)",
+        "Please enter a valid callsign (e.g., W5XXX, VE3XXX, or GMRS like WSLK349)",
       );
       return;
     }

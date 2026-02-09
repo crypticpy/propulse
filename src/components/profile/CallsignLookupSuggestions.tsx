@@ -229,9 +229,24 @@ export function CallsignLookupSuggestions({
         <button
           type="button"
           onClick={onDismiss}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium
+                     text-gray-400 hover:text-white bg-white/5 hover:bg-white/10
+                     border border-white/10 hover:border-white/20 transition-colors"
           aria-label="Dismiss suggestions"
         >
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
           Dismiss
         </button>
       </div>

@@ -25,6 +25,7 @@ import type { RadioEquipment } from "@/types/radio";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { SIGNAL_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 import { useMapStore } from "@/stores/mapStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 type WizardMode = "SSB" | "CW" | "FT8";
 
@@ -208,6 +209,7 @@ export function DXWizard() {
   const antennaType = useUserStore(
     (s) => s.preferences.antennaType ?? "isotropic",
   );
+  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
 
   const [targetQuery, setTargetQuery] = useState("");
   const [targetError, setTargetError] = useState<string | null>(null);
@@ -450,6 +452,7 @@ export function DXWizard() {
       txPowerBaseline,
       mode,
       antennaGainDbi,
+      noiseEnvironment,
     );
 
     const snrTarget = MODE_SNR_TARGET_DB[mode];
@@ -523,6 +526,7 @@ export function DXWizard() {
     selectedRadio?.maxPower,
     txPowerCeilingWatts,
     antennaType,
+    noiseEnvironment,
   ]);
 
   const tips = useMemo(() => getModeTips(mode), [mode]);

@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
@@ -245,6 +246,7 @@ export function BandConditionsPanel({
   const showCorrelation = useMapStore((s) => s.showCorrelation);
   const station = useUserStore((s) => s.station);
   const { antennaType } = useActiveStationGain();
+  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const syncMode = useDXStore((s) => s.syncMode);
   const syncedBand = useDXStore((s) => s.syncedBand);
   const uiPrefs = useUIInteractionPrefs();
@@ -385,11 +387,20 @@ export function BandConditionsPanel({
         100, // Default 100W TX power
         "FT8", // Default to FT8 mode
         antennaGainDbi,
+        noiseEnvironment,
       );
     } catch {
       return null;
     }
-  }, [station, target, currentKp, currentSfi, displayTime, antennaType]);
+  }, [
+    station,
+    target,
+    currentKp,
+    currentSfi,
+    displayTime,
+    antennaType,
+    noiseEnvironment,
+  ]);
 
   // Use enhanced conditions if available
   const bandConditions = enhancedBandConditions || basicBandConditions;

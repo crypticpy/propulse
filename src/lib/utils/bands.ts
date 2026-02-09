@@ -11,6 +11,7 @@ import type {
 } from "../../types/solar";
 import { getIonosphericParameters } from "./ionosphere";
 import { predictSignalStrength } from "./signal";
+import type { NoiseEnvironment } from "./signal";
 import type { SignalPrediction, SUnit } from "@/types/signal";
 import { traceRayPath } from "./rayTrace";
 import { getGeomagneticLatitude, pathCrossesAuroralZone } from "./geomagnetic";
@@ -794,6 +795,7 @@ export function getEnhancedBandConditions(
   txPowerWatts: number = 100,
   mode: "SSB" | "CW" | "FT8" = "FT8",
   antennaGainDbi: number = 0,
+  noiseEnvironment?: NoiseEnvironment,
 ): PathBandCondition[] {
   // Calculate great circle distance
   const distance = calculateGreatCircleDistance(
@@ -853,7 +855,7 @@ export function getEnhancedBandConditions(
       txPowerWatts,
       mode,
       antennaGainDbi,
-      undefined, // noiseEnvironment
+      noiseEnvironment,
       rayResult.terrainLoss, // terrainLossDb
       kp,
       sfi,

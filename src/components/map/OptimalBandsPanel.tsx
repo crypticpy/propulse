@@ -10,6 +10,7 @@ import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import {
@@ -69,6 +70,7 @@ export function OptimalBandsPanel({
   const { target } = useMapStore();
   const { station } = useUserStore();
   const { antennaType } = useActiveStationGain();
+  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const [isExpanded, setIsExpanded] = useState(true);
 
   // Draggable position state - default to top-left
@@ -201,6 +203,7 @@ export function OptimalBandsPanel({
         100,
         "FT8",
         antennaGainDbi,
+        noiseEnvironment,
       );
     } catch {
       return null;
@@ -213,6 +216,7 @@ export function OptimalBandsPanel({
     currentSfi,
     displayTime,
     antennaType,
+    noiseEnvironment,
   ]);
 
   // Get optimal bands

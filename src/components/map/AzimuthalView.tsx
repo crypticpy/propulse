@@ -13,6 +13,7 @@ import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getDistance } from "@/lib/utils/path";
 import {
@@ -892,6 +893,7 @@ export function AzimuthalView({
     useMapStore();
   const { station } = useUserStore();
   const { antennaType } = useActiveStationGain();
+  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
   const kIndexQuery = useKIndex();
@@ -1155,6 +1157,7 @@ export function AzimuthalView({
         100,
         "FT8",
         antennaGainDbi,
+        noiseEnvironment,
       );
       const best = pickOptimalBandCondition(conditions);
       if (!best) {
@@ -1180,6 +1183,7 @@ export function AzimuthalView({
     displayTime,
     isEstimatedConditions,
     antennaType,
+    noiseEnvironment,
   ]);
 
   const targetHitPoint = useMemo(() => {

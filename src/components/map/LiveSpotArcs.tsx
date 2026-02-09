@@ -261,6 +261,8 @@ export interface ResolvedSpot {
   frequency: number;
   time: Date;
   callsign: string;
+  /** Spotter (reporting station) callsign */
+  spotter?: string;
   source: SpotSource;
 }
 
@@ -330,6 +332,7 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
       frequency: spot.frequency,
       time: spot.time,
       callsign: spot.dx,
+      spotter: spot.spotter,
       source: spot.source,
     });
   }
@@ -581,6 +584,7 @@ export function LiveSpotArcs({
       {(() => {
         // Track callsigns already labeled and positions for stacking
         const labeledCallsigns = new Set<string>();
+        const labeledSpotters = new Set<string>();
         // Track occupied label positions to assign stack indices
         const labelPositions: Array<{ lat: number; lon: number }> = [];
 
@@ -649,6 +653,25 @@ export function LiveSpotArcs({
                       mode={spot.mode}
                       frequency={spot.frequency}
                       stackIndex={stackIndex}
+                      color={color}
+                    />
+                  );
+                })()}
+              {/* Spotter label — shown when both master labels and spotter labels are enabled */}
+              {uiPrefs.showSpotCallsignLabels &&
+                uiPrefs.showSpotterLabels &&
+                spot.spotter &&
+                !labeledSpotters.has(spot.spotter) &&
+                (() => {
+                  labeledSpotters.add(spot.spotter!);
+                  return (
+                    <SpotLabel
+                      lat={spot.spotterLat}
+                      lon={spot.spotterLon}
+                      callsign={spot.spotter!}
+                      mode={spot.mode}
+                      isSpotter
+                      opacity={0.6}
                       color={color}
                     />
                   );

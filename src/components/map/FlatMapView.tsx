@@ -9,6 +9,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import {
   getPathPoints,
@@ -1552,6 +1553,75 @@ function drawCallsignLabels(
 }
 
 /**
+ * Draw spotter (reporting station) callsign labels at the spotter endpoint
+ * of each arc. Rendered dimmer and slightly smaller than DX labels to
+ * visually distinguish them.
+ */
+function drawSpotterLabels(
+  ctx: CanvasRenderingContext2D,
+  spots: ResolvedSpot[],
+  width: number,
+  height: number,
+  colorMode: SpotColorMode = "mode",
+  highViz = false,
+) {
+  const fontSize = highViz ? 10 : 9;
+  const pillRadius = 3;
+  const spotterOpacity = 0.6;
+
+  // Deduplicate: only draw one label per spotter callsign
+  const seen = new Set<string>();
+
+  ctx.save();
+  ctx.font = `${fontSize}px monospace`;
+  ctx.textBaseline = "bottom";
+
+  for (const spot of spots) {
+    const spotter = spot.spotter;
+    if (!spotter || seen.has(spotter)) {
+      continue;
+    }
+    seen.add(spotter);
+
+    const { x, y } = latLonToCanvas(
+      spot.spotterLat,
+      spot.spotterLon,
+      width,
+      height,
+    );
+    const textW = ctx.measureText(spotter).width + 6;
+    const textH = fontSize + 4;
+    const bx = x - textW / 2;
+    const by = y - textH - 6; // place above spotter dot
+
+    const modeColor = getSpotColor(spot, colorMode);
+
+    ctx.globalAlpha = spotterOpacity;
+
+    // Background pill
+    ctx.fillStyle = highViz ? "rgba(10, 10, 26, 0.8)" : "rgba(10, 10, 26, 0.6)";
+    drawPillPath(ctx, bx, by, textW, textH, pillRadius);
+    ctx.fill();
+
+    // Mode color underline accent
+    ctx.fillStyle = modeColor;
+    ctx.fillRect(bx + 2, by + textH - 2, textW - 4, 1.5);
+
+    // Spotter callsign text
+    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+    ctx.shadowBlur = 2;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.textAlign = "center";
+    ctx.fillText(spotter, bx + textW / 2, by + textH - 3);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
  * Draw texture-based night lights (city lights on dark side).
  * Uses the NASA Black Marble style earth-night.jpg texture for realistic city lights.
  * The texture is equirectangular, matching the flat map projection 1:1.
@@ -2155,6 +2225,7 @@ export function FlatMapView({
   const regionPresets = useMapStore((s) => s.regionPresets);
   const { station, preferences } = useUserStore();
   const { antennaType } = useActiveStationGain();
+  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
   const kIndexQuery = useKIndex();
@@ -2167,9 +2238,12 @@ export function FlatMapView({
   const compassRoseEnabled = preferences?.compassRose?.enabled ?? false;
   const showCallsignLabels =
     preferences?.uiInteraction?.showSpotCallsignLabels ?? true;
+  const showSpotterLabels =
+    preferences?.uiInteraction?.showSpotterLabels ?? false;
   const spotColorMode: SpotColorMode =
     preferences?.uiInteraction?.spotColorMode ?? "mode";
   const highViz = preferences?.uiInteraction?.visualStyle === "high-viz";
+  const holdDurationMs = preferences?.uiInteraction?.holdDurationMs ?? 2500;
 
   // Award progress for WAS overlay (only compute when enabled)
   const { wasStates } = useAwardProgress(labelOptions.wasOverlay);
@@ -2320,6 +2394,7 @@ export function FlatMapView({
         100,
         "FT8",
         antennaGainDbi,
+        noiseEnvironment,
       );
       const best = pickOptimalBandCondition(conditions);
       if (!best) {
@@ -2345,6 +2420,7 @@ export function FlatMapView({
     displayTime,
     isEstimatedConditions,
     antennaType,
+    noiseEnvironment,
   ]);
 
   // Check watch activity when spots change
@@ -3227,7 +3303,7 @@ export function FlatMapView({
     onDoubleClick: handleDoubleClick,
     onLocationHover: handleMapHover,
     onHoverEnd: handleHoverEnd,
-    holdDurationMs: 500,
+    holdDurationMs,
     isGesturing,
   });
 
@@ -3415,6 +3491,23 @@ export function FlatMapView({
       );
     }
 
+    // Draw spotter labels at spotter positions (only when both toggles are on)
+    if (
+      showCallsignLabels &&
+      showSpotterLabels &&
+      layers.spots &&
+      resolvedSpots.length > 0
+    ) {
+      drawSpotterLabels(
+        ctx,
+        resolvedSpots,
+        renderWidth,
+        renderHeight,
+        spotColorMode,
+        highViz,
+      );
+    }
+
     // Draw highlight for hovered spot arc
     if (hoveredSpotData && layers.spots) {
       const hoveredSpot = resolvedSpots.find(
@@ -3548,6 +3641,7 @@ export function FlatMapView({
     displaySize,
     compassRoseEnabled,
     showCallsignLabels,
+    showSpotterLabels,
     spotColorMode,
     highViz,
     mapStyle,

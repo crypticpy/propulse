@@ -238,8 +238,11 @@ export async function playAlertSound(type: WatchAlertType): Promise<boolean> {
     return false;
   }
 
-  // Suppress audio during quiet hours
+  // Check master sound toggle and quiet hours
   const { notifications } = useSettingsStore.getState();
+  if (notifications?.soundEnabled === false) {
+    return false;
+  }
   if (
     isQuietHours(notifications?.quietHoursStart, notifications?.quietHoursEnd)
   ) {

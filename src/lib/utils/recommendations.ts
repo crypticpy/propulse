@@ -20,6 +20,7 @@ import {
   type BestWindow,
 } from "./bands";
 import { MODE_PARAMETERS } from "./signal";
+import type { NoiseEnvironment } from "./signal";
 import type { BandCorrelationSummary } from "./spotCorrelation";
 import { getHistoricalNote } from "@/lib/data/historicalPropagation";
 
@@ -178,6 +179,7 @@ export function getOptimalBand(
   mode: OperatingMode,
   correlationData?: BandCorrelationSummary[],
   antennaGainDbi: number = 0,
+  noiseEnvironment?: NoiseEnvironment,
 ): BandRecommendation | null {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -190,6 +192,7 @@ export function getOptimalBand(
     100, // Default 100W
     mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
     antennaGainDbi,
+    noiseEnvironment,
   );
 
   // Filter out closed bands and score the rest
@@ -237,6 +240,7 @@ export function getAlternateBands(
   mode: OperatingMode,
   correlationData?: BandCorrelationSummary[],
   antennaGainDbi: number = 0,
+  noiseEnvironment?: NoiseEnvironment,
 ): BandRecommendation[] {
   const conditions = getEnhancedBandConditions(
     homeLat,
@@ -249,6 +253,7 @@ export function getAlternateBands(
     100,
     mode === "FT8" ? "FT8" : mode === "CW" ? "CW" : "SSB",
     antennaGainDbi,
+    noiseEnvironment,
   );
 
   // Score and sort all non-closed bands
@@ -404,6 +409,7 @@ export function getRecommendations(
   mode: OperatingMode,
   correlationData?: BandCorrelationSummary[],
   antennaGainDbi: number = 0,
+  noiseEnvironment?: NoiseEnvironment,
 ): PropagationRecommendations {
   const optimal = getOptimalBand(
     homeLat,
@@ -416,6 +422,7 @@ export function getRecommendations(
     mode,
     correlationData,
     antennaGainDbi,
+    noiseEnvironment,
   );
 
   const alternatives = getAlternateBands(
@@ -429,6 +436,7 @@ export function getRecommendations(
     mode,
     correlationData,
     antennaGainDbi,
+    noiseEnvironment,
   );
 
   const timeWindows = getBestTimeWindows(

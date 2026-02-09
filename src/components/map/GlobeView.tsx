@@ -18,6 +18,7 @@ import {
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getBearing, getDistance } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -395,6 +396,9 @@ function GlobeScene({
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
   const compassRosePrefs = useCompassRosePrefs();
+  const holdDurationMs = useSettingsStore(
+    (s) => s.uiInteraction?.holdDurationMs ?? 2500,
+  );
 
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
@@ -480,6 +484,7 @@ function GlobeScene({
         onDoubleClick={onDoubleClick}
         onLocationHover={handleGlobeHover}
         onHoverEnd={onHoverEnd}
+        holdDurationMs={holdDurationMs}
       >
         {/* Earth sphere */}
         <EarthSphere
@@ -671,6 +676,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   } = useMapStore();
   const { station } = useUserStore();
   const { antennaType } = useActiveStationGain();
+  const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const { addPin } = usePinStore();
   const { updateFilter } = useDXStore();
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
@@ -784,6 +790,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
         100,
         "FT8",
         antennaGainDbi,
+        noiseEnvironment,
       );
       const best = pickOptimalBandCondition(conditions);
       if (!best) {
@@ -809,6 +816,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     displayTime,
     isEstimatedConditions,
     antennaType,
+    noiseEnvironment,
   ]);
 
   // Handle globe click - show flyout

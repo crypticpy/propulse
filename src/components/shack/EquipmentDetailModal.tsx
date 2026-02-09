@@ -1,5 +1,8 @@
+/** @deprecated Use EquipmentHeroCard instead — this modal is superseded by the XL hero card. */
+
 import { useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { getEquipmentSymbol } from "./EquipmentSymbols";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -11,6 +14,11 @@ export interface EquipmentDetailField {
   unit?: string;
 }
 
+export interface EquipmentDetailGroup {
+  heading: string;
+  fields: EquipmentDetailField[];
+}
+
 export interface EquipmentDetailModalProps {
   open: boolean;
   onClose: () => void;
@@ -18,6 +26,8 @@ export interface EquipmentDetailModalProps {
   subtitle?: string;
   equipmentType?: "radio" | "antenna" | "feedline" | "accessory" | "inline";
   fields: EquipmentDetailField[];
+  groups?: EquipmentDetailGroup[];
+  badges?: Array<{ label: string; color?: string }>;
   visualization?: React.ReactNode;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -26,119 +36,15 @@ export interface EquipmentDetailModalProps {
 }
 
 // ---------------------------------------------------------------------------
-// Color map — matches the accent colors used in EquipmentCard / managers
+// Accent hex map — matches EquipmentCard (defined locally to avoid circular)
 // ---------------------------------------------------------------------------
 
-const ACCENT_COLORS: Record<
-  NonNullable<EquipmentDetailModalProps["equipmentType"]>,
-  { border: string; bg: string; text: string }
-> = {
-  radio: {
-    border: "border-plasma-orange",
-    bg: "bg-plasma-orange",
-    text: "text-plasma-orange",
-  },
-  antenna: {
-    border: "border-signal-green",
-    bg: "bg-signal-green",
-    text: "text-signal-green",
-  },
-  feedline: {
-    border: "border-teal-500",
-    bg: "bg-teal-500",
-    text: "text-teal-500",
-  },
-  accessory: {
-    border: "border-caution-amber",
-    bg: "bg-caution-amber",
-    text: "text-caution-amber",
-  },
-  inline: {
-    border: "border-gray-500",
-    bg: "bg-gray-500",
-    text: "text-gray-500",
-  },
-};
-
-const TYPE_ICONS: Record<
-  NonNullable<EquipmentDetailModalProps["equipmentType"]>,
-  JSX.Element
-> = {
-  radio: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9.348 14.652a3.75 3.75 0 010-5.304m5.304 0a3.75 3.75 0 010 5.304m-7.425 2.121a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.807-3.808-9.98 0-13.788m13.788 0c3.808 3.807 3.808 9.98 0 13.788M12 12h.008v.008H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-      />
-    </svg>
-  ),
-  antenna: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-      />
-    </svg>
-  ),
-  feedline: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-      />
-    </svg>
-  ),
-  accessory: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25"
-      />
-    </svg>
-  ),
-  inline: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-      />
-    </svg>
-  ),
+const ACCENT_HEX: Record<string, string> = {
+  radio: "#F97316",
+  antenna: "#22C55E",
+  feedline: "#14B8A6",
+  accessory: "#F59E0B",
+  inline: "#6B7280",
 };
 
 // ---------------------------------------------------------------------------
@@ -155,6 +61,54 @@ function formatFieldValue(
   return unit ? `${str} ${unit}` : str;
 }
 
+function isNumericValue(value: string | number | boolean | undefined): boolean {
+  if (typeof value === "number") return true;
+  if (typeof value === "string") return /^-?\d+(\.\d+)?$/.test(value.trim());
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function FieldCell({ field }: { field: EquipmentDetailField }) {
+  const numeric = isNumericValue(field.value);
+  const formatted = formatFieldValue(field.value, field.unit);
+
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+        {field.label}
+      </dt>
+      <dd
+        className={`mt-0.5 text-sm truncate ${
+          numeric ? "font-mono font-bold text-white" : "font-mono text-white"
+        }`}
+      >
+        {formatted}
+      </dd>
+    </div>
+  );
+}
+
+function GroupSection({ group }: { group: EquipmentDetailGroup }) {
+  // Use 3-column grid for groups with 3+ fields, 2-column otherwise
+  const cols = group.fields.length >= 3 ? "grid-cols-3" : "grid-cols-2";
+
+  return (
+    <div className="px-5 py-3">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 pb-2 mb-2.5 border-b border-white/5">
+        {group.heading}
+      </h3>
+      <dl className={`grid ${cols} gap-x-6 gap-y-2.5`}>
+        {group.fields.map((field) => (
+          <FieldCell key={field.label} field={field} />
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -166,6 +120,8 @@ export function EquipmentDetailModal({
   subtitle,
   equipmentType = "radio",
   fields,
+  groups,
+  badges,
   visualization,
   onEdit,
   onDelete,
@@ -173,8 +129,10 @@ export function EquipmentDetailModal({
   isActive,
 }: EquipmentDetailModalProps) {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
-  const accent = ACCENT_COLORS[equipmentType];
-  const icon = TYPE_ICONS[equipmentType];
+  const accentHex = ACCENT_HEX[equipmentType] ?? ACCENT_HEX.radio;
+
+  // Resolve the equipment symbol component
+  const SymbolComponent = getEquipmentSymbol(equipmentType);
 
   // --- Escape key ---
   const handleKeyDown = useCallback(
@@ -212,6 +170,7 @@ export function EquipmentDetailModal({
 
   const titleId = "equipment-detail-title";
   const hasActions = onEdit || onDelete || onSetActive;
+  const hasGroups = groups && groups.length > 0;
 
   return createPortal(
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
@@ -230,38 +189,20 @@ export function EquipmentDetailModal({
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        {/* ---- Header ---- */}
-        <div className="flex items-start gap-3 p-5 pb-0">
-          {/* Left accent bar */}
-          <div
-            className={`w-[3px] self-stretch rounded-full ${accent.bg} shrink-0`}
-          />
-
-          {/* Icon + titles */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className={accent.text}>{icon}</span>
-              <h2
-                id={titleId}
-                className="text-lg font-bold text-white truncate"
-              >
-                {title}
-              </h2>
-            </div>
-            {subtitle && (
-              <p className="mt-0.5 text-sm text-gray-400 truncate">
-                {subtitle}
-              </p>
-            )}
-          </div>
-
-          {/* Close button */}
+        {/* ---- Hero Zone ---- */}
+        <div
+          className="relative py-6 px-5"
+          style={{
+            background: `linear-gradient(180deg, ${accentHex}10 0%, transparent 100%)`,
+          }}
+        >
+          {/* Close button — absolute top-right */}
           <button
             ref={closeBtnRef}
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 p-1.5 rounded-lg text-gray-500 hover:text-white
+            className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-500 hover:text-white
                        hover:bg-white/5 transition-colors focus:outline-none
                        focus-visible:ring-2 focus-visible:ring-white/30"
           >
@@ -279,26 +220,72 @@ export function EquipmentDetailModal({
               />
             </svg>
           </button>
+
+          {/* Large equipment symbol */}
+          <div className="flex justify-center">
+            <SymbolComponent className="w-24 h-24" />
+          </div>
+
+          {/* Visualization slot (between symbol and title) */}
+          {visualization && <div className="mt-3">{visualization}</div>}
+
+          {/* Title */}
+          <h2
+            id={titleId}
+            className="text-xl font-bold text-white text-center mt-3"
+            style={{ color: accentHex }}
+          >
+            {title}
+          </h2>
+
+          {/* Subtitle */}
+          {subtitle && (
+            <p className="text-sm text-gray-400 text-center mt-0.5">
+              {subtitle}
+            </p>
+          )}
+
+          {/* Badges */}
+          {badges && badges.length > 0 && (
+            <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
+              {badges.map((badge) => (
+                <span
+                  key={badge.label}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px]
+                             font-semibold uppercase tracking-wider"
+                  style={{
+                    backgroundColor: `${badge.color ?? accentHex}18`,
+                    color: badge.color ?? accentHex,
+                    border: `1px solid ${badge.color ?? accentHex}30`,
+                  }}
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* ---- Divider ---- */}
-        <div className="mx-5 mt-4 border-t border-white/5" />
+        {/* ---- Divider after hero ---- */}
+        <div className="border-t border-white/5" />
 
-        {/* ---- Visualization slot ---- */}
-        {visualization && <div className="px-5 pt-4">{visualization}</div>}
+        {/* ---- Grouped Fields (new layout) ---- */}
+        {hasGroups && (
+          <div>
+            {groups.map((group, idx) => (
+              <div key={group.heading}>
+                {idx > 0 && <div className="border-t border-white/5 mx-5" />}
+                <GroupSection group={group} />
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* ---- Fields grid ---- */}
-        {fields.length > 0 && (
+        {/* ---- Flat Fields Fallback (backward compatibility) ---- */}
+        {!hasGroups && fields.length > 0 && (
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 px-5 pt-4 pb-2">
             {fields.map((field) => (
-              <div key={field.label} className="min-w-0">
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-gray-500">
-                  {field.label}
-                </dt>
-                <dd className="mt-0.5 text-sm text-white truncate">
-                  {formatFieldValue(field.value, field.unit)}
-                </dd>
-              </div>
+              <FieldCell key={field.label} field={field} />
             ))}
           </div>
         )}
@@ -306,15 +293,16 @@ export function EquipmentDetailModal({
         {/* ---- Action buttons ---- */}
         {hasActions && (
           <>
-            <div className="mx-5 mt-3 border-t border-white/5" />
-            <div className="flex items-center gap-3 p-5 pt-4">
+            <div className="border-t border-white/5 mx-5 mt-1" />
+            <div className="flex gap-3 px-5 pb-5 pt-3">
               {onEdit && (
                 <button
                   type="button"
                   onClick={onEdit}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                             bg-blue-500/15 border border-blue-500/30 text-blue-400
-                             hover:bg-blue-500/25 focus:outline-none
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium text-center
+                             transition-colors min-h-[44px]
+                             bg-blue-500/10 text-blue-400 border border-blue-500/20
+                             hover:bg-blue-500/20 focus:outline-none
                              focus-visible:ring-2 focus-visible:ring-blue-500/50"
                 >
                   Edit
@@ -324,10 +312,11 @@ export function EquipmentDetailModal({
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                             bg-alert-red/15 border border-alert-red/30 text-alert-red
-                             hover:bg-alert-red/25 focus:outline-none
-                             focus-visible:ring-2 focus-visible:ring-alert-red/50"
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium text-center
+                             transition-colors min-h-[44px]
+                             bg-red-500/10 text-red-400 border border-red-500/20
+                             hover:bg-red-500/20 focus:outline-none
+                             focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
                   Delete
                 </button>
@@ -336,15 +325,23 @@ export function EquipmentDetailModal({
                 <button
                   type="button"
                   onClick={onSetActive}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                             focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/50
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium text-center
+                             transition-colors min-h-[44px]
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-green/50
                              ${
                                isActive
-                                 ? "bg-plasma-orange/25 border border-plasma-orange/50 text-plasma-orange"
-                                 : "bg-plasma-orange/15 border border-plasma-orange/30 text-plasma-orange hover:bg-plasma-orange/25"
+                                 ? "bg-signal-green/20 border border-signal-green/40 text-signal-green"
+                                 : "bg-signal-green/10 border border-signal-green/20 text-signal-green hover:bg-signal-green/20"
                              }`}
                 >
-                  {isActive ? "Active" : "Set Active"}
+                  {isActive ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
+                      Active
+                    </span>
+                  ) : (
+                    "Set Active"
+                  )}
                 </button>
               )}
             </div>

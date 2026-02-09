@@ -23,9 +23,12 @@ import { FeedlineLossSparkline } from "@/components/shack/FeedlineLossSparkline"
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
-import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
+import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
 import type { EquipmentCardStat } from "@/components/shack/EquipmentCard";
-import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
+import type {
+  EquipmentDetailField,
+  EquipmentDetailGroup,
+} from "@/components/shack/equipmentCardTypes";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
@@ -162,9 +165,68 @@ function buildFeedlineDetailFields(f: UserFeedline): EquipmentDetailField[] {
   return fields;
 }
 
+function buildFeedlineDetailGroups(f: UserFeedline): EquipmentDetailGroup[] {
+  const loss80m = calculateTotalFeedlineLoss(f, 3.5);
+  const loss20m = calculateTotalFeedlineLoss(f, 14.1);
+  const loss10m = calculateTotalFeedlineLoss(f, 28.5);
+
+  const groups: EquipmentDetailGroup[] = [
+    {
+      heading: "Specifications",
+      fields: [
+        { label: "Type", value: FEEDLINE_TYPE_NAMES[f.feedlineType] },
+        { label: "Length", value: f.lengthFeet, unit: "ft" },
+        { label: "Impedance", value: 50, unit: "\u03A9" },
+        { label: "Condition", value: CONDITION_LABELS[f.condition] },
+      ].filter((fld) => fld.value != null),
+    },
+    {
+      heading: "Loss",
+      fields: [
+        { label: "Loss @ 3.5 MHz", value: loss80m.toFixed(2), unit: "dB" },
+        { label: "Loss @ 14.1 MHz", value: loss20m.toFixed(2), unit: "dB" },
+        { label: "Loss @ 28.5 MHz", value: loss10m.toFixed(2), unit: "dB" },
+      ].filter((fld) => fld.value != null),
+    },
+    {
+      heading: "Connectors",
+      fields: [
+        { label: "Near End", value: CONNECTOR_LABELS[f.connectorType] },
+        {
+          label: "Far End",
+          value: f.connectorTypeFarEnd
+            ? CONNECTOR_LABELS[f.connectorTypeFarEnd]
+            : undefined,
+        },
+      ].filter((fld) => fld.value != null),
+    },
+  ];
+
+  // Configuration group for optional metadata
+  const configFields: EquipmentDetailField[] = [];
+  if (f.manufacturer)
+    configFields.push({ label: "Manufacturer", value: f.manufacturer });
+  if (f.yearInstalled)
+    configFields.push({ label: "Year Installed", value: f.yearInstalled });
+  if (f.notes) configFields.push({ label: "Notes", value: f.notes });
+  if (configFields.length > 0) {
+    groups.push({ heading: "Configuration", fields: configFields });
+  }
+
+  return groups.filter((g) => g.fields.length > 0);
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FeedlineManager() {
+interface FeedlineManagerProps {
+  sectionLabel?: string;
+  sectionCount?: number;
+}
+
+export function FeedlineManager({
+  sectionLabel,
+  sectionCount,
+}: FeedlineManagerProps) {
   const feedlines = useUserFeedlines();
   const { addFeedline, updateFeedline, removeFeedline } = useShackStore();
 
@@ -265,12 +327,18 @@ export function FeedlineManager() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          {sectionLabel ?? "Feedlines"}
+        </h2>
+        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+          {sectionCount ?? feedlines.length}
+        </span>
+        <div className="flex-1" />
         <button
           onClick={openAdd}
-          className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors ml-auto"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
         >
           + Add Feedline
         </button>
@@ -285,6 +353,9 @@ export function FeedlineManager() {
               title={f.name}
               subtitle={`${FEEDLINE_TYPE_NAMES[f.feedlineType]} \u00B7 ${f.lengthFeet} ft`}
               equipmentType="feedline"
+              typeLabel={
+                FEEDLINE_TYPE_NAMES[f.feedlineType]?.toUpperCase() ?? "FEEDLINE"
+              }
               stats={buildFeedlineStats(f)}
               badges={[
                 {
@@ -299,6 +370,7 @@ export function FeedlineManager() {
                   width={160}
                 />
               }
+              imageId={f.imageId}
               onClick={() => setViewFeedlineId(f.id)}
               onEdit={() => openEdit(f)}
               onDelete={() => handleDelete(f.id)}
@@ -314,13 +386,23 @@ export function FeedlineManager() {
 
       {/* Detail view modal */}
       {viewedFeedline && (
-        <EquipmentDetailModal
+        <EquipmentHeroCard
           open={viewFeedlineId !== null}
           onClose={() => setViewFeedlineId(null)}
           title={viewedFeedline.name}
           subtitle={`${FEEDLINE_TYPE_NAMES[viewedFeedline.feedlineType]} \u00B7 ${viewedFeedline.lengthFeet} ft`}
           equipmentType="feedline"
+          typeLabel={
+            FEEDLINE_TYPE_NAMES[viewedFeedline.feedlineType]?.toUpperCase() ??
+            "FEEDLINE"
+          }
+          stats={buildFeedlineStats(viewedFeedline)}
           fields={buildFeedlineDetailFields(viewedFeedline)}
+          groups={buildFeedlineDetailGroups(viewedFeedline)}
+          badges={[
+            { label: "Feedline", color: "#14B8A6" },
+            { label: CONDITION_LABELS[viewedFeedline.condition] },
+          ]}
           visualization={
             <FeedlineLossSparkline
               feedlineId={viewedFeedline.id}
@@ -328,6 +410,18 @@ export function FeedlineManager() {
               width={240}
             />
           }
+          imageId={viewedFeedline.imageId}
+          onImageChange={(newImageId) => {
+            if (newImageId) {
+              useShackStore
+                .getState()
+                .setEquipmentImage("feedline", viewedFeedline.id, newImageId);
+            } else {
+              useShackStore
+                .getState()
+                .clearEquipmentImage("feedline", viewedFeedline.id);
+            }
+          }}
           onEdit={() => openEdit(viewedFeedline)}
           onDelete={() => handleDelete(viewedFeedline.id)}
         />

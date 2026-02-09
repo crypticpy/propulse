@@ -26,9 +26,15 @@ import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AccessoryCategoryFields } from "./AccessoryCategoryFields";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
-import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
-import type { EquipmentCardStat } from "@/components/shack/EquipmentCard";
-import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
+import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
+import type {
+  EquipmentCardStat,
+  EquipmentCardCapability,
+} from "@/components/shack/EquipmentCard";
+import type {
+  EquipmentDetailField,
+  EquipmentDetailGroup,
+} from "@/components/shack/equipmentCardTypes";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
@@ -88,6 +94,18 @@ const CATEGORY_BADGE_COLOR: Record<
   rotator: "blue",
   keyer: "gray",
   audio_dsp: "blue",
+};
+
+const CATEGORY_BADGE_HEX: Record<AccessoryCategory, string> = {
+  amplifier: "#F97316",
+  tuner: "#3B82F6",
+  filter: "#22C55E",
+  switch: "#9CA3AF",
+  power_supply: "#F59E0B",
+  grounding: "#22C55E",
+  rotator: "#3B82F6",
+  keyer: "#9CA3AF",
+  audio_dsp: "#3B82F6",
 };
 
 // ─── Form state ──────────────────────────────────────────────────────────────
@@ -364,15 +382,34 @@ function getAccessoryStats(a: UserAccessory): EquipmentCardStat[] {
   return stats;
 }
 
-function getAccessoryBandPills(a: UserAccessory): string[] | undefined {
-  switch (a.category) {
-    case "amplifier":
-      return a.bands;
-    case "filter":
-      return a.bands;
-    default:
-      return undefined;
+function getAccessoryCapabilities(
+  a: UserAccessory,
+): EquipmentCardCapability[] | undefined {
+  const caps: EquipmentCardCapability[] = [];
+
+  // Band capabilities for amplifiers and filters
+  if (a.category === "amplifier" && a.bands && a.bands.length > 0) {
+    for (const b of a.bands) caps.push({ label: b, category: "band" as const });
   }
+  if (a.category === "filter" && a.bands && a.bands.length > 0) {
+    for (const b of a.bands) caps.push({ label: b, category: "band" as const });
+  }
+
+  // Feature capabilities for certain categories
+  if (a.category === "tuner") {
+    caps.push({
+      label: a.type === "automatic" ? "Auto" : "Manual",
+      category: "feature" as const,
+    });
+  }
+  if (a.category === "audio_dsp") {
+    if (a.noiseReduction)
+      caps.push({ label: "NR", category: "feature" as const });
+    if (a.notchFilter)
+      caps.push({ label: "Notch", category: "feature" as const });
+  }
+
+  return caps.length > 0 ? caps : undefined;
 }
 
 function getAccessoryDetailFields(a: UserAccessory): EquipmentDetailField[] {
@@ -539,9 +576,221 @@ function getAccessoryDetailFields(a: UserAccessory): EquipmentDetailField[] {
   return fields;
 }
 
+function buildAccessoryDetailGroups(a: UserAccessory): EquipmentDetailGroup[] {
+  const groups: EquipmentDetailGroup[] = [];
+
+  // Group 1: Identity
+  groups.push({
+    heading: "Identity",
+    fields: [
+      { label: "Category", value: CATEGORY_LABELS[a.category] },
+      { label: "Manufacturer", value: a.manufacturer },
+      { label: "Model", value: a.modelNumber },
+    ].filter((fld) => fld.value != null),
+  });
+
+  // Group 2: Specifications (category-specific)
+  const specFields: EquipmentDetailField[] = [];
+  switch (a.category) {
+    case "amplifier":
+      specFields.push({
+        label: "Max Power",
+        value: a.maxPowerWatts,
+        unit: "W",
+      });
+      specFields.push({ label: "Gain", value: a.gainDb, unit: "dB" });
+      if (a.dutyCycle != null)
+        specFields.push({ label: "Duty Cycle", value: a.dutyCycle, unit: "%" });
+      if (a.warmupTimeSec != null)
+        specFields.push({
+          label: "Warmup Time",
+          value: a.warmupTimeSec,
+          unit: "s",
+        });
+      if (a.currentDrawTxAmps != null)
+        specFields.push({
+          label: "TX Current",
+          value: a.currentDrawTxAmps,
+          unit: "A",
+        });
+      if (a.bands && a.bands.length > 0)
+        specFields.push({ label: "Bands", value: a.bands.join(", ") });
+      break;
+    case "tuner":
+      specFields.push({
+        label: "Tuner Type",
+        value: a.type === "automatic" ? "Automatic" : "Manual",
+      });
+      specFields.push({
+        label: "Max Power",
+        value: a.maxPowerWatts,
+        unit: "W",
+      });
+      if (a.insertionLossDb != null)
+        specFields.push({
+          label: "Insertion Loss",
+          value: a.insertionLossDb,
+          unit: "dB",
+        });
+      break;
+    case "filter":
+      specFields.push({
+        label: "Filter Type",
+        value: FILTER_TYPE_LABELS[a.filterType],
+      });
+      specFields.push({
+        label: "Insertion Loss",
+        value: a.insertionLossDb,
+        unit: "dB",
+      });
+      if (a.bands && a.bands.length > 0)
+        specFields.push({ label: "Bands", value: a.bands.join(", ") });
+      if (a.selectivityDb != null)
+        specFields.push({
+          label: "Selectivity",
+          value: a.selectivityDb,
+          unit: "dB",
+        });
+      if (a.passbandMHz)
+        specFields.push({
+          label: "Passband",
+          value: `${a.passbandMHz.low}-${a.passbandMHz.high}`,
+          unit: "MHz",
+        });
+      break;
+    case "switch":
+      specFields.push({ label: "Ports", value: a.ports });
+      specFields.push({
+        label: "Insertion Loss",
+        value: a.insertionLossDb,
+        unit: "dB",
+      });
+      if (a.isolationDb != null)
+        specFields.push({
+          label: "Isolation",
+          value: a.isolationDb,
+          unit: "dB",
+        });
+      if (a.maxPowerWatts != null)
+        specFields.push({
+          label: "Max Power",
+          value: a.maxPowerWatts,
+          unit: "W",
+        });
+      break;
+    case "power_supply":
+      specFields.push({ label: "Voltage", value: a.voltageOutput, unit: "V" });
+      specFields.push({
+        label: "Max Current",
+        value: a.maxCurrentAmps,
+        unit: "A",
+      });
+      if (a.regulated != null)
+        specFields.push({ label: "Regulated", value: a.regulated });
+      if (a.rippleMv != null)
+        specFields.push({ label: "Ripple", value: a.rippleMv, unit: "mV" });
+      break;
+    case "grounding":
+      specFields.push({
+        label: "Ground Type",
+        value: GROUND_TYPE_LABELS[a.groundType] ?? a.groundType,
+      });
+      if (a.radialCount != null)
+        specFields.push({ label: "Radial Count", value: a.radialCount });
+      if (a.groundResistanceOhms != null)
+        specFields.push({
+          label: "Resistance",
+          value: a.groundResistanceOhms,
+          unit: "\u03A9",
+        });
+      break;
+    case "rotator":
+      specFields.push({
+        label: "Rotator Type",
+        value: ROTATOR_TYPE_LABELS[a.rotatorType] ?? a.rotatorType,
+      });
+      if (a.speedDegPerSec != null)
+        specFields.push({
+          label: "Speed",
+          value: a.speedDegPerSec,
+          unit: "\u00B0/s",
+        });
+      if (a.rangeDeg != null)
+        specFields.push({ label: "Range", value: a.rangeDeg, unit: "\u00B0" });
+      if (a.brakeType)
+        specFields.push({
+          label: "Brake",
+          value: a.brakeType.replace(/_/g, " "),
+        });
+      if (a.maxWindLoadSqFt != null)
+        specFields.push({
+          label: "Max Wind Load",
+          value: a.maxWindLoadSqFt,
+          unit: "sq ft",
+        });
+      break;
+    case "keyer":
+      specFields.push({
+        label: "Keyer Type",
+        value: KEYER_TYPE_LABELS[a.keyerType] ?? a.keyerType,
+      });
+      if (a.speedRangeWpm)
+        specFields.push({
+          label: "Speed Range",
+          value: `${a.speedRangeWpm.min}-${a.speedRangeWpm.max}`,
+          unit: "WPM",
+        });
+      if (a.memorySlots != null)
+        specFields.push({ label: "Memory Slots", value: a.memorySlots });
+      break;
+    case "audio_dsp":
+      specFields.push({
+        label: "DSP Type",
+        value: DSP_TYPE_LABELS[a.dspType] ?? a.dspType,
+      });
+      if (a.noiseReduction != null)
+        specFields.push({ label: "Noise Reduction", value: a.noiseReduction });
+      if (a.notchFilter != null)
+        specFields.push({ label: "Notch Filter", value: a.notchFilter });
+      if (a.bandwidthHz)
+        specFields.push({
+          label: "Bandwidth",
+          value: `${a.bandwidthHz.min}-${a.bandwidthHz.max}`,
+          unit: "Hz",
+        });
+      break;
+  }
+  if (specFields.length > 0) {
+    groups.push({ heading: "Specifications", fields: specFields });
+  }
+
+  // Group 3: Configuration (common fields)
+  const configFields: EquipmentDetailField[] = [];
+  if (a.currentDrawAmps != null)
+    configFields.push({
+      label: "Current Draw",
+      value: a.currentDrawAmps,
+      unit: "A",
+    });
+  if (a.notes) configFields.push({ label: "Notes", value: a.notes });
+  if (configFields.length > 0) {
+    groups.push({ heading: "Configuration", fields: configFields });
+  }
+
+  return groups.filter((g) => g.fields.length > 0);
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AccessoryManager() {
+interface AccessoryManagerProps {
+  sectionLabel?: string;
+  sectionCount?: number;
+}
+
+export function AccessoryManager({
+  sectionLabel,
+  sectionCount,
+}: AccessoryManagerProps) {
   const accessories = useUserAccessories();
   const { addAccessory, updateAccessory, removeAccessory } = useShackStore();
 
@@ -808,15 +1057,18 @@ export function AccessoryManager() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Accessories
-        </h3>
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          {sectionLabel ?? "Accessories"}
+        </h2>
+        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+          {sectionCount ?? accessories.length}
+        </span>
+        <div className="flex-1" />
         <button
           onClick={openAdd}
-          className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
         >
           + Add Accessory
         </button>
@@ -841,6 +1093,9 @@ export function AccessoryManager() {
                         .join(" ") || CATEGORY_LABELS[a.category]
                     }
                     equipmentType="accessory"
+                    typeLabel={
+                      CATEGORY_LABELS[a.category]?.toUpperCase() ?? "ACCESSORY"
+                    }
                     badges={[
                       {
                         label: CATEGORY_LABELS[a.category],
@@ -848,7 +1103,11 @@ export function AccessoryManager() {
                       },
                     ]}
                     stats={getAccessoryStats(a)}
-                    bandPills={getAccessoryBandPills(a)}
+                    capabilities={getAccessoryCapabilities(a)}
+                    imageId={a.imageId}
+                    galleryImageIds={
+                      a.category === "amplifier" ? a.galleryImageIds : undefined
+                    }
                     onClick={() => setViewAccessoryId(a.id)}
                     onEdit={() => openEdit(a)}
                     onDelete={() => handleDelete(a.id)}
@@ -867,7 +1126,7 @@ export function AccessoryManager() {
 
       {/* View Detail Modal */}
       {viewedAccessory && (
-        <EquipmentDetailModal
+        <EquipmentHeroCard
           open={viewAccessoryId !== null}
           onClose={() => setViewAccessoryId(null)}
           title={viewedAccessory.name}
@@ -877,7 +1136,54 @@ export function AccessoryManager() {
               .join(" ") || CATEGORY_LABELS[viewedAccessory.category]
           }
           equipmentType="accessory"
+          typeLabel={
+            CATEGORY_LABELS[viewedAccessory.category]?.toUpperCase() ??
+            "ACCESSORY"
+          }
+          capabilities={getAccessoryCapabilities(viewedAccessory)}
+          stats={getAccessoryStats(viewedAccessory)}
           fields={getAccessoryDetailFields(viewedAccessory)}
+          groups={buildAccessoryDetailGroups(viewedAccessory)}
+          badges={[
+            {
+              label: CATEGORY_LABELS[viewedAccessory.category],
+              color: CATEGORY_BADGE_HEX[viewedAccessory.category],
+            },
+          ]}
+          imageId={viewedAccessory.imageId}
+          onImageChange={(newImageId) => {
+            if (newImageId) {
+              useShackStore
+                .getState()
+                .setEquipmentImage("accessory", viewedAccessory.id, newImageId);
+            } else {
+              useShackStore
+                .getState()
+                .clearEquipmentImage("accessory", viewedAccessory.id);
+            }
+          }}
+          galleryImageIds={
+            viewedAccessory.category === "amplifier"
+              ? viewedAccessory.galleryImageIds
+              : undefined
+          }
+          onGalleryAdd={
+            viewedAccessory.category === "amplifier"
+              ? (imgId) =>
+                  useShackStore
+                    .getState()
+                    .addGalleryImage("accessory", viewedAccessory.id, imgId)
+              : undefined
+          }
+          onGalleryRemove={
+            viewedAccessory.category === "amplifier"
+              ? (imgId) =>
+                  useShackStore
+                    .getState()
+                    .removeGalleryImage("accessory", viewedAccessory.id, imgId)
+              : undefined
+          }
+          maxGalleryImages={5}
           onEdit={() => {
             setViewAccessoryId(null);
             openEdit(viewedAccessory);

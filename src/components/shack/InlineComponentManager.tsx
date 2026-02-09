@@ -26,9 +26,12 @@ import {
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
-import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
+import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
 import type { EquipmentCardStat } from "@/components/shack/EquipmentCard";
-import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
+import type {
+  EquipmentDetailField,
+  EquipmentDetailGroup,
+} from "@/components/shack/equipmentCardTypes";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -82,6 +85,14 @@ const TYPE_BADGE_COLOR: Record<
   choke: "amber",
   balun: "orange",
   ferrite: "green",
+};
+
+const TYPE_BADGE_HEX: Record<InlineComponentType, string> = {
+  adapter: "#9CA3AF",
+  pigtail: "#3B82F6",
+  choke: "#F59E0B",
+  balun: "#F97316",
+  ferrite: "#22C55E",
 };
 
 // ─── Form state ───────────────────────────────────────────────────────────────
@@ -504,9 +515,139 @@ function getInlineDetailFields(c: InlineComponent): EquipmentDetailField[] {
   return fields;
 }
 
+function buildInlineDetailGroups(c: InlineComponent): EquipmentDetailGroup[] {
+  const groups: EquipmentDetailGroup[] = [];
+
+  // Common specs
+  const specFields: EquipmentDetailField[] = [
+    { label: "Type", value: INLINE_COMPONENT_LABELS[c.componentType] },
+    { label: "Insertion Loss", value: c.insertionLossDb, unit: "dB" },
+  ];
+  if (c.manufacturer) {
+    specFields.push({ label: "Manufacturer", value: c.manufacturer });
+  }
+
+  // Type-specific specs
+  switch (c.componentType) {
+    case "adapter": {
+      const a = c as AdapterComponent;
+      specFields.push({
+        label: "From Connector",
+        value: CONNECTOR_TYPE_LABELS[a.connectorFrom],
+      });
+      specFields.push({
+        label: "To Connector",
+        value: CONNECTOR_TYPE_LABELS[a.connectorTo],
+      });
+      break;
+    }
+    case "pigtail": {
+      const p = c as PigtailComponent;
+      specFields.push({
+        label: "From Connector",
+        value: CONNECTOR_TYPE_LABELS[p.connectorFrom],
+      });
+      specFields.push({
+        label: "To Connector",
+        value: CONNECTOR_TYPE_LABELS[p.connectorTo],
+      });
+      specFields.push({
+        label: "Length",
+        value: p.lengthInches,
+        unit: "inches",
+      });
+      if (p.cableType)
+        specFields.push({ label: "Cable Type", value: p.cableType });
+      break;
+    }
+    case "choke": {
+      const ch = c as ChokeComponent;
+      specFields.push({
+        label: "Choke Type",
+        value: CHOKE_TYPE_LABELS[ch.chokeType] ?? ch.chokeType,
+      });
+      if (ch.impedance != null)
+        specFields.push({
+          label: "Impedance",
+          value: ch.impedance,
+          unit: "\u03A9",
+        });
+      if (ch.turns != null)
+        specFields.push({ label: "Turns", value: ch.turns });
+      if (ch.bands && ch.bands.length > 0)
+        specFields.push({
+          label: "Frequency Range",
+          value: ch.bands.join(", "),
+        });
+      break;
+    }
+    case "balun": {
+      const b = c as BalunComponent;
+      specFields.push({
+        label: "Ratio",
+        value: b.ratio.replace(/_current$/, ""),
+      });
+      specFields.push({
+        label: "Balun Type",
+        value: b.ratio.includes("current") ? "Current" : "Voltage",
+      });
+      if (b.maxPowerWatts != null)
+        specFields.push({
+          label: "Max Power",
+          value: b.maxPowerWatts,
+          unit: "W",
+        });
+      if (b.bands && b.bands.length > 0)
+        specFields.push({ label: "Bands", value: b.bands.join(", ") });
+      break;
+    }
+    case "ferrite": {
+      const f = c as FerriteComponent;
+      specFields.push({
+        label: "Ferrite Style",
+        value: FERRITE_TYPE_LABELS[f.ferriteType] ?? f.ferriteType,
+      });
+      if (f.material)
+        specFields.push({ label: "Material", value: `Type ${f.material}` });
+      specFields.push({ label: "Count", value: f.count });
+      if (f.turns != null) specFields.push({ label: "Turns", value: f.turns });
+      if (f.impedanceOhms != null)
+        specFields.push({
+          label: "Impedance",
+          value: f.impedanceOhms,
+          unit: "\u03A9",
+        });
+      break;
+    }
+  }
+
+  groups.push({
+    heading: "Specifications",
+    fields: specFields.filter((fld) => fld.value != null),
+  });
+
+  // Notes group
+  if (c.notes) {
+    groups.push({
+      heading: "Notes",
+      fields: [{ label: "Notes", value: c.notes }],
+    });
+  }
+
+  return groups.filter((g) => g.fields.length > 0);
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function InlineComponentManager() {
+interface InlineComponentManagerProps {
+  sectionLabel?: string;
+  sectionCount?: number;
+}
+
+export function InlineComponentManager({
+  sectionLabel,
+  sectionCount,
+}: InlineComponentManagerProps) {
   const components = useInlineComponents();
   const {
     addInlineComponent,
@@ -654,20 +795,20 @@ export function InlineComponentManager() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Inline Components
-          {components.length > 0 && (
-            <span className="ml-2 text-gray-500">({components.length})</span>
-          )}
-        </h3>
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          {sectionLabel ?? "Inline Components"}
+        </h2>
+        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+          {sectionCount ?? components.length}
+        </span>
+        <div className="flex-1" />
         <button
           onClick={openAdd}
-          className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
         >
-          + Add Component
+          + Add Inline Component
         </button>
       </div>
 
@@ -680,6 +821,10 @@ export function InlineComponentManager() {
               title={c.name}
               subtitle={INLINE_COMPONENT_LABELS[c.componentType]}
               equipmentType="inline"
+              typeLabel={
+                INLINE_COMPONENT_LABELS[c.componentType]?.toUpperCase() ??
+                "INLINE"
+              }
               badges={[
                 {
                   label: INLINE_COMPONENT_LABELS[c.componentType],
@@ -687,6 +832,7 @@ export function InlineComponentManager() {
                 },
               ]}
               stats={getInlineStats(c)}
+              imageId={c.imageId}
               onClick={() => setViewInlineId(c.id)}
               onEdit={() => openEdit(c)}
               onDelete={() => requestDelete(c)}
@@ -703,13 +849,38 @@ export function InlineComponentManager() {
 
       {/* View Detail Modal */}
       {viewedComponent && (
-        <EquipmentDetailModal
+        <EquipmentHeroCard
           open={viewInlineId !== null}
           onClose={() => setViewInlineId(null)}
           title={viewedComponent.name}
           subtitle={INLINE_COMPONENT_LABELS[viewedComponent.componentType]}
           equipmentType="inline"
+          typeLabel={
+            INLINE_COMPONENT_LABELS[
+              viewedComponent.componentType
+            ]?.toUpperCase() ?? "INLINE"
+          }
+          stats={getInlineStats(viewedComponent)}
           fields={getInlineDetailFields(viewedComponent)}
+          groups={buildInlineDetailGroups(viewedComponent)}
+          badges={[
+            {
+              label: INLINE_COMPONENT_LABELS[viewedComponent.componentType],
+              color: TYPE_BADGE_HEX[viewedComponent.componentType],
+            },
+          ]}
+          imageId={viewedComponent.imageId}
+          onImageChange={(newImageId) => {
+            if (newImageId) {
+              useShackStore
+                .getState()
+                .setEquipmentImage("inline", viewedComponent.id, newImageId);
+            } else {
+              useShackStore
+                .getState()
+                .clearEquipmentImage("inline", viewedComponent.id);
+            }
+          }}
           onEdit={() => {
             setViewInlineId(null);
             openEdit(viewedComponent);

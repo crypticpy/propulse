@@ -13,6 +13,7 @@ import {
   useUserRadios,
   usePreferTestedSpecs,
 } from "@/stores/userStore";
+import { useShackStore } from "@/stores/shackStore";
 import {
   RADIO_DATABASE,
   getRadiosByManufacturer,
@@ -23,12 +24,16 @@ import {
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
-import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
+import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
 import type {
   EquipmentCardStat,
   EquipmentCardBadge,
+  EquipmentCardCapability,
 } from "@/components/shack/EquipmentCard";
-import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
+import type {
+  EquipmentDetailField,
+  EquipmentDetailGroup,
+} from "@/components/shack/equipmentCardTypes";
 import {
   calculateReceiverScore,
   getTierLabel,
@@ -41,6 +46,10 @@ interface RadioManagerProps {
   compact?: boolean;
   /** Optional z-index override for nested modals */
   modalZIndexClassName?: string;
+  /** Override section header label (default: "RADIOS") */
+  sectionLabel?: string;
+  /** Override section item count shown in badge */
+  sectionCount?: number;
 }
 
 const CUSTOM_BANDS: string[] = [
@@ -411,12 +420,192 @@ function buildRadioDetailFields(
   return fields;
 }
 
+/** Build capability pills (bands + modes) for EquipmentCard */
+function buildRadioCapabilities(
+  equipment: RadioEquipment,
+): EquipmentCardCapability[] {
+  const caps: EquipmentCardCapability[] = [];
+  for (const band of equipment.bands) {
+    caps.push({ label: band, category: "band" });
+  }
+  for (const mode of equipment.modes) {
+    caps.push({ label: mode, category: "mode" });
+  }
+  return caps;
+}
+
+/** Build grouped fields for EquipmentDetailModal */
+function buildRadioDetailGroups(
+  equipment: RadioEquipment,
+  effectiveReceiver: {
+    rmdr: number;
+    imdr3: number;
+    blockingGain: number;
+    sensitivity: number;
+    noiseFloorDbm?: number;
+    ip3Dbm?: number;
+  },
+  userRadioFields?: {
+    nickname?: string;
+    customPowerLimit?: number;
+    purchaseDate?: string;
+    purchaseLocation?: string;
+    firmwareRevision?: string;
+    wiringConfiguration?: string;
+    notes?: string;
+    specPreference?: "global" | "factory" | "tested";
+  },
+): EquipmentDetailGroup[] {
+  const groups: EquipmentDetailGroup[] = [];
+
+  // Group 1: Identity
+  groups.push({
+    heading: "Identity",
+    fields: [
+      { label: "Manufacturer", value: equipment.manufacturer },
+      { label: "Model", value: equipment.model },
+      { label: "Tier", value: getTierLabel(equipment.tier) },
+      { label: "Release Year", value: equipment.releaseYear },
+    ].filter((f) => f.value != null),
+  });
+
+  // Group 2: Performance
+  groups.push({
+    heading: "Performance",
+    fields: [
+      { label: "Max Power", value: equipment.maxPower, unit: "W" },
+      { label: "Min Power", value: equipment.minPower, unit: "W" },
+      { label: "Bands", value: equipment.bands.join(", ") },
+      { label: "Modes", value: equipment.modes.join(", ") },
+      { label: "Impedance", value: 50, unit: "\u03A9" },
+    ].filter((f) => f.value != null),
+  });
+
+  // Group 3: Receiver
+  const rxFields: EquipmentDetailField[] = [
+    { label: "RX Score", value: calculateReceiverScore(effectiveReceiver) },
+    { label: "RMDR", value: effectiveReceiver.rmdr, unit: "dB" },
+    { label: "IMD3", value: effectiveReceiver.imdr3, unit: "dB" },
+    { label: "Blocking", value: effectiveReceiver.blockingGain, unit: "dB" },
+    {
+      label: "Sensitivity",
+      value: effectiveReceiver.sensitivity,
+      unit: "\u00B5V",
+    },
+  ];
+  if (typeof effectiveReceiver.noiseFloorDbm === "number") {
+    rxFields.push({
+      label: "Noise Floor",
+      value: effectiveReceiver.noiseFloorDbm,
+      unit: "dBm",
+    });
+  }
+  if (typeof effectiveReceiver.ip3Dbm === "number") {
+    rxFields.push({
+      label: "IP3",
+      value: effectiveReceiver.ip3Dbm,
+      unit: "dBm",
+    });
+  }
+  groups.push({ heading: "Receiver", fields: rxFields });
+
+  // Group 4: Transmit (if data exists)
+  if (equipment.transmit) {
+    const txFields: EquipmentDetailField[] = [];
+    if (typeof equipment.transmit.imd3Db === "number") {
+      txFields.push({
+        label: "TX IMD3",
+        value: equipment.transmit.imd3Db,
+        unit: "dB",
+      });
+    }
+    if (typeof equipment.transmit.spuriousDbc === "number") {
+      txFields.push({
+        label: "Spurious",
+        value: equipment.transmit.spuriousDbc,
+        unit: "dBc",
+      });
+    }
+    if (equipment.transmit.notes) {
+      txFields.push({ label: "TX Notes", value: equipment.transmit.notes });
+    }
+    if (txFields.length > 0) {
+      groups.push({ heading: "Transmit", fields: txFields });
+    }
+  }
+
+  if (hasTestedSpecs(equipment)) {
+    groups.push({
+      heading: "Data Source",
+      fields: [{ label: "Tested Specs", value: "Available (Sherwood)" }],
+    });
+  }
+
+  // Group 5: Configuration (user instance fields)
+  if (userRadioFields) {
+    const configFields: EquipmentDetailField[] = [];
+    if (userRadioFields.nickname) {
+      configFields.push({ label: "Nickname", value: userRadioFields.nickname });
+    }
+    if (typeof userRadioFields.customPowerLimit === "number") {
+      configFields.push({
+        label: "Power Limit",
+        value: userRadioFields.customPowerLimit,
+        unit: "W",
+      });
+    }
+    if (userRadioFields.purchaseDate) {
+      configFields.push({
+        label: "Purchase Date",
+        value: userRadioFields.purchaseDate,
+      });
+    }
+    if (userRadioFields.purchaseLocation) {
+      configFields.push({
+        label: "Purchase Location",
+        value: userRadioFields.purchaseLocation,
+      });
+    }
+    if (userRadioFields.firmwareRevision) {
+      configFields.push({
+        label: "Firmware",
+        value: userRadioFields.firmwareRevision,
+      });
+    }
+    if (
+      userRadioFields.specPreference &&
+      userRadioFields.specPreference !== "global"
+    ) {
+      configFields.push({
+        label: "Spec Preference",
+        value: userRadioFields.specPreference,
+      });
+    }
+    if (userRadioFields.wiringConfiguration) {
+      configFields.push({
+        label: "Wiring",
+        value: userRadioFields.wiringConfiguration,
+      });
+    }
+    if (userRadioFields.notes) {
+      configFields.push({ label: "Notes", value: userRadioFields.notes });
+    }
+    if (configFields.length > 0) {
+      groups.push({ heading: "Configuration", fields: configFields });
+    }
+  }
+
+  return groups.filter((g) => g.fields.length > 0);
+}
+
 /**
  * Radio Manager - Add, remove, and select radios
  */
 export function RadioManager({
   compact = false,
   modalZIndexClassName,
+  sectionLabel,
+  sectionCount,
 }: RadioManagerProps) {
   const {
     addRadio,
@@ -488,6 +677,9 @@ export function RadioManager({
 
   // Filtered radios for the add modal
   const filteredRadios = useMemo(() => {
+    if (selectedManufacturer === "Custom") {
+      return [];
+    }
     if (searchQuery.trim()) {
       return searchRadios(searchQuery);
     }
@@ -498,6 +690,28 @@ export function RadioManager({
     }
     return RADIO_DATABASE;
   }, [searchQuery, selectedManufacturer]);
+
+  // Filtered custom radios for the add modal
+  const filteredCustomRadios = useMemo(() => {
+    if (selectedManufacturer && selectedManufacturer !== "Custom") {
+      // When a specific manufacturer is selected, show matching custom radios
+      return customRadios.filter(
+        (r) =>
+          r.manufacturer.toLowerCase() === selectedManufacturer.toLowerCase(),
+      );
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return customRadios.filter(
+        (r) =>
+          r.displayName?.toLowerCase().includes(q) ||
+          r.manufacturer.toLowerCase().includes(q) ||
+          r.model.toLowerCase().includes(q),
+      );
+    }
+    // "All" or "Custom" — show all custom radios
+    return customRadios;
+  }, [searchQuery, selectedManufacturer, customRadios]);
 
   // Group radios by manufacturer for display
   const radiosByManufacturer = useMemo(() => getRadiosByManufacturer(), []);
@@ -883,15 +1097,15 @@ export function RadioManager({
 
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
-      {/* Action buttons — no header (parent EquipmentSection provides it) */}
-      <div className="flex items-center justify-end gap-2">
-        <button
-          onClick={openNewCustomRadio}
-          className="px-3 py-1 text-sm bg-white/5 border border-white/10
-                     text-gray-200 rounded-lg hover:bg-white/10 hover:text-white transition-colors"
-        >
-          + Custom
-        </button>
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          {sectionLabel ?? "RADIOS"}
+        </h2>
+        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+          {sectionCount ?? userRadios.length + customRadios.length}
+        </span>
+        <div className="flex-1" />
         <button
           onClick={() => setShowAddModal(true)}
           className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
@@ -901,8 +1115,8 @@ export function RadioManager({
         </button>
       </div>
 
-      {/* Radio cards grid — instance radios */}
-      {userRadios.length > 0 ? (
+      {/* Radio cards grid — instance radios + custom radios merged */}
+      {userRadios.length > 0 || customRadios.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {userRadios.map(({ userRadio, equipment }) => {
             if (!equipment) {
@@ -928,6 +1142,7 @@ export function RadioManager({
                 title={title}
                 subtitle={subtitle}
                 equipmentType="radio"
+                typeLabel="TRANSCEIVER"
                 tier={mapTier(equipment.tier)}
                 isActive={isActive}
                 onToggleActive={() =>
@@ -939,10 +1154,64 @@ export function RadioManager({
                   effectiveReceiver,
                   userRadio.customPowerLimit,
                 )}
-                bandPills={equipment.bands}
+                capabilities={buildRadioCapabilities(equipment)}
+                imageId={userRadio.imageId}
+                galleryImageIds={userRadio.galleryImageIds}
                 onClick={() => setViewRadioId(userRadio.id)}
                 onEdit={() => openEditInstance(userRadio.id)}
                 onDelete={() => handleRemoveRadio(userRadio.id)}
+              />
+            );
+          })}
+          {customRadios.map((radio) => {
+            const activeInstance =
+              (preferences.radios || []).find(
+                (r) => r.id === preferences.activeRadioId,
+              ) ?? null;
+            const isActive = activeInstance?.equipmentId === radio.id;
+            const count = instanceCountByEquipment.get(radio.id) ?? 0;
+            const effectivePreferTestedCustom = getEffectivePreferTested({
+              globalPreferTested: preferTested,
+              specPreference: undefined,
+            });
+            const effectiveReceiver = getEffectiveReceiverSpecs(
+              radio,
+              effectivePreferTestedCustom,
+            );
+            const title = getRadioDisplayLabel(radio);
+            const subtitle = `${radio.manufacturer} ${radio.model}`;
+
+            const badges: EquipmentCardBadge[] = [
+              { label: "Custom", color: "gray" },
+              ...buildRadioBadges(radio),
+            ];
+            if (count > 0) {
+              badges.push({ label: `x${count} instances`, color: "gray" });
+            }
+
+            return (
+              <EquipmentCard
+                key={radio.id}
+                title={title}
+                subtitle={subtitle}
+                equipmentType="radio"
+                typeLabel="TRANSCEIVER"
+                tier={mapTier(radio.tier)}
+                isActive={isActive}
+                onToggleActive={() => handleSetActiveEquipment(radio.id)}
+                badges={badges}
+                stats={buildRadioStats(radio, effectiveReceiver)}
+                capabilities={buildRadioCapabilities(radio)}
+                onClick={() => setViewRadioId(radio.id)}
+                onEdit={() => openEditCustomRadio(radio)}
+                onDelete={() => handleDeleteCustomRadio(radio.id)}
+                onDuplicate={() => {
+                  const id = addRadioInstance(radio.id);
+                  if (id) {
+                    setActiveRadio(id);
+                    openEditInstance(id);
+                  }
+                }}
               />
             );
           })}
@@ -953,150 +1222,162 @@ export function RadioManager({
         </div>
       )}
 
-      {/* Custom radios */}
-      {customRadios.length > 0 && (
-        <div className="pt-2 border-t border-white/10">
-          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Custom Radios
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {customRadios.map((radio) => {
-              const activeInstance =
-                (preferences.radios || []).find(
-                  (r) => r.id === preferences.activeRadioId,
-                ) ?? null;
-              const isActive = activeInstance?.equipmentId === radio.id;
-              const count = instanceCountByEquipment.get(radio.id) ?? 0;
-              const effectivePreferTestedCustom = getEffectivePreferTested({
-                globalPreferTested: preferTested,
-                specPreference: undefined,
-              });
-              const effectiveReceiver = getEffectiveReceiverSpecs(
-                radio,
-                effectivePreferTestedCustom,
-              );
-              const title = getRadioDisplayLabel(radio);
-              const subtitle = `${radio.manufacturer} ${radio.model}`;
-
-              const badges = buildRadioBadges(radio);
-              if (count > 0) {
-                badges.push({ label: `x${count} instances`, color: "gray" });
-              }
-
-              return (
-                <EquipmentCard
-                  key={radio.id}
-                  title={title}
-                  subtitle={subtitle}
-                  equipmentType="radio"
-                  tier={mapTier(radio.tier)}
-                  isActive={isActive}
-                  onToggleActive={() => handleSetActiveEquipment(radio.id)}
-                  badges={badges}
-                  stats={buildRadioStats(radio, effectiveReceiver)}
-                  bandPills={radio.bands}
-                  onClick={() => setViewRadioId(radio.id)}
-                  onEdit={() => openEditCustomRadio(radio)}
-                  onDelete={() => handleDeleteCustomRadio(radio.id)}
-                  onDuplicate={() => {
-                    const id = addRadioInstance(radio.id);
-                    if (id) {
-                      setActiveRadio(id);
-                      openEditInstance(id);
-                    }
-                  }}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Empty state for custom radios when no instance radios and no customs */}
-      {customRadios.length === 0 && userRadios.length > 0 && (
-        <div className="pt-2 border-t border-white/10">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Custom Radios
-            </h4>
-          </div>
-          <div className="mt-2 p-4 text-center text-gray-500 text-sm bg-nebula-blue rounded-lg border border-white/10">
-            No custom radios yet. Click "+ Custom" to create one.
-          </div>
-        </div>
-      )}
-
       {/* Detail Modal */}
-      {viewedRadioData && (
-        <EquipmentDetailModal
-          open={viewRadioId != null}
-          onClose={() => setViewRadioId(null)}
-          title={
-            viewedRadioData.type === "instance"
-              ? getRadioDisplayLabel(
-                  viewedRadioData.equipment,
-                  viewedRadioData.userRadio.nickname,
-                )
-              : getRadioDisplayLabel(viewedRadioData.equipment)
-          }
-          subtitle={`${viewedRadioData.equipment.manufacturer} ${viewedRadioData.equipment.model}`}
-          equipmentType="radio"
-          fields={buildRadioDetailFields(
+      {viewedRadioData &&
+        (() => {
+          const detailReceiver = getEffectiveReceiverSpecs(
             viewedRadioData.equipment,
-            getEffectiveReceiverSpecs(
-              viewedRadioData.equipment,
-              getEffectivePreferTested({
-                globalPreferTested: preferTested,
-                specPreference:
-                  viewedRadioData.type === "instance"
-                    ? viewedRadioData.userRadio.specPreference
-                    : undefined,
-              }),
-            ),
+            getEffectivePreferTested({
+              globalPreferTested: preferTested,
+              specPreference:
+                viewedRadioData.type === "instance"
+                  ? viewedRadioData.userRadio.specPreference
+                  : undefined,
+            }),
+          );
+          const detailUserFields =
             viewedRadioData.type === "instance"
               ? viewedRadioData.userRadio
-              : undefined,
-          )}
-          onEdit={() => {
-            if (viewedRadioData.type === "instance") {
-              openEditInstance(viewedRadioData.userRadio.id);
-            } else {
-              openEditCustomRadio(viewedRadioData.equipment);
-            }
-            setViewRadioId(null);
-          }}
-          onDelete={() => {
-            if (viewedRadioData.type === "instance") {
-              handleRemoveRadio(viewedRadioData.userRadio.id);
-            } else {
-              handleDeleteCustomRadio(viewedRadioData.equipment.id);
-            }
-            setViewRadioId(null);
-          }}
-          onSetActive={() => {
-            if (viewedRadioData.type === "instance") {
-              const isActive =
-                preferences.activeRadioId === viewedRadioData.userRadio.id;
-              setActiveRadio(isActive ? null : viewedRadioData.userRadio.id);
-            } else {
-              handleSetActiveEquipment(viewedRadioData.equipment.id);
-            }
-          }}
-          isActive={
-            viewedRadioData.type === "instance"
-              ? preferences.activeRadioId === viewedRadioData.userRadio.id
-              : (() => {
-                  const activeInst =
-                    (preferences.radios || []).find(
-                      (r) => r.id === preferences.activeRadioId,
-                    ) ?? null;
-                  return (
-                    activeInst?.equipmentId === viewedRadioData.equipment.id
+              : undefined;
+          const tierColor = getTierColor(viewedRadioData.equipment.tier);
+          const tierLabel = getTierLabel(viewedRadioData.equipment.tier);
+
+          return (
+            <EquipmentHeroCard
+              open={viewRadioId != null}
+              onClose={() => setViewRadioId(null)}
+              title={
+                viewedRadioData.type === "instance"
+                  ? getRadioDisplayLabel(
+                      viewedRadioData.equipment,
+                      viewedRadioData.userRadio.nickname,
+                    )
+                  : getRadioDisplayLabel(viewedRadioData.equipment)
+              }
+              subtitle={`${viewedRadioData.equipment.manufacturer} ${viewedRadioData.equipment.model}`}
+              equipmentType="radio"
+              typeLabel="TRANSCEIVER"
+              tier={mapTier(viewedRadioData.equipment.tier)}
+              stats={buildRadioStats(
+                viewedRadioData.equipment,
+                detailReceiver,
+                detailUserFields?.customPowerLimit,
+              )}
+              capabilities={buildRadioCapabilities(viewedRadioData.equipment)}
+              fields={buildRadioDetailFields(
+                viewedRadioData.equipment,
+                detailReceiver,
+                detailUserFields,
+              )}
+              groups={buildRadioDetailGroups(
+                viewedRadioData.equipment,
+                detailReceiver,
+                detailUserFields,
+              )}
+              badges={[
+                { label: "Radio", color: "#F97316" },
+                { label: tierLabel, color: tierColor },
+              ]}
+              onEdit={() => {
+                if (viewedRadioData.type === "instance") {
+                  openEditInstance(viewedRadioData.userRadio.id);
+                } else {
+                  openEditCustomRadio(viewedRadioData.equipment);
+                }
+                setViewRadioId(null);
+              }}
+              onDelete={() => {
+                if (viewedRadioData.type === "instance") {
+                  handleRemoveRadio(viewedRadioData.userRadio.id);
+                } else {
+                  handleDeleteCustomRadio(viewedRadioData.equipment.id);
+                }
+                setViewRadioId(null);
+              }}
+              onSetActive={() => {
+                if (viewedRadioData.type === "instance") {
+                  const isActive =
+                    preferences.activeRadioId === viewedRadioData.userRadio.id;
+                  setActiveRadio(
+                    isActive ? null : viewedRadioData.userRadio.id,
                   );
-                })()
-          }
-        />
-      )}
+                } else {
+                  handleSetActiveEquipment(viewedRadioData.equipment.id);
+                }
+              }}
+              imageId={
+                viewedRadioData.type === "instance"
+                  ? viewedRadioData.userRadio.imageId
+                  : undefined
+              }
+              onImageChange={
+                viewedRadioData.type === "instance"
+                  ? (newImageId) => {
+                      if (newImageId) {
+                        useShackStore
+                          .getState()
+                          .setEquipmentImage(
+                            "radio",
+                            viewedRadioData.userRadio.id,
+                            newImageId,
+                          );
+                      } else {
+                        useShackStore
+                          .getState()
+                          .clearEquipmentImage(
+                            "radio",
+                            viewedRadioData.userRadio.id,
+                          );
+                      }
+                    }
+                  : undefined
+              }
+              galleryImageIds={
+                viewedRadioData.type === "instance"
+                  ? viewedRadioData.userRadio.galleryImageIds
+                  : undefined
+              }
+              onGalleryAdd={
+                viewedRadioData.type === "instance"
+                  ? (imgId) =>
+                      useShackStore
+                        .getState()
+                        .addGalleryImage(
+                          "radio",
+                          viewedRadioData.userRadio.id,
+                          imgId,
+                        )
+                  : undefined
+              }
+              onGalleryRemove={
+                viewedRadioData.type === "instance"
+                  ? (imgId) =>
+                      useShackStore
+                        .getState()
+                        .removeGalleryImage(
+                          "radio",
+                          viewedRadioData.userRadio.id,
+                          imgId,
+                        )
+                  : undefined
+              }
+              maxGalleryImages={5}
+              isActive={
+                viewedRadioData.type === "instance"
+                  ? preferences.activeRadioId === viewedRadioData.userRadio.id
+                  : (() => {
+                      const activeInst =
+                        (preferences.radios || []).find(
+                          (r) => r.id === preferences.activeRadioId,
+                        ) ?? null;
+                      return (
+                        activeInst?.equipmentId === viewedRadioData.equipment.id
+                      );
+                    })()
+              }
+            />
+          );
+        })()}
 
       {/* Add Radio Modal */}
       <DetailModal
@@ -1107,7 +1388,7 @@ export function RadioManager({
           setSelectedManufacturer(null);
         }}
         title="Add Radio"
-        subtitle="Add a radio from the built-in database to your profile."
+        subtitle="Add a radio from the database or your custom collection."
         size="lg"
         zIndexClassName={modalZIndexClassName ?? "z-[450]"}
       >
@@ -1152,19 +1433,154 @@ export function RadioManager({
                   {mfr}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setSelectedManufacturer("Custom")}
+                className={`px-2 py-1 text-xs rounded-lg transition-colors ${
+                  selectedManufacturer === "Custom"
+                    ? "bg-plasma-orange/20 text-plasma-orange border border-dashed border-plasma-orange/50"
+                    : "bg-nebula-blue text-gray-300 border border-dashed border-white/10"
+                }`}
+              >
+                Custom
+              </button>
             </div>
           )}
 
           <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
+            {/* Create New Custom Radio CTA — shown when Custom filter or searching */}
+            {(selectedManufacturer === "Custom" || searchQuery.trim()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddModal(false);
+                  openNewCustomRadio();
+                }}
+                className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-white/10 hover:border-plasma-orange/30 hover:bg-white/5 transition-colors w-full text-left"
+              >
+                <span className="text-2xl text-gray-500">+</span>
+                <div>
+                  <div className="text-sm font-medium text-gray-200">
+                    Create Custom Radio
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Add a radio not in our database
+                  </div>
+                </div>
+              </button>
+            )}
+
+            {/* Custom radios in results */}
+            {filteredCustomRadios.map((radio) => {
+              const count = instanceCountByEquipment.get(radio.id) ?? 0;
+              return (
+                <div
+                  key={`custom-${radio.id}`}
+                  className="p-3 rounded-lg border transition-colors bg-nebula-blue border-white/10 hover:border-plasma-orange/50 cursor-pointer"
+                  onClick={() => handleAddRadio(radio)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-white font-medium truncate">
+                        {radio.displayName ||
+                          `${radio.manufacturer} ${radio.model}`}
+                      </span>
+                      <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-white/10 text-gray-300 border border-white/10">
+                        Custom
+                      </span>
+                      {count > 0 && (
+                        <span className="text-xs text-gray-500">
+                          ({count} in profile)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAddModal(false);
+                          openEditCustomRadio(radio);
+                        }}
+                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                        title="Edit custom radio"
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCustomRadio(radio.id);
+                        }}
+                        className="p-1 rounded hover:bg-alert-red/20 text-gray-400 hover:text-alert-red transition-colors"
+                        title="Delete custom radio"
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                      <span
+                        className="px-1.5 py-0.5 rounded text-xs font-medium"
+                        style={{
+                          backgroundColor: getTierColor(radio.tier) + "20",
+                          color: getTierColor(radio.tier),
+                        }}
+                      >
+                        {getTierLabel(radio.tier)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
+                    <span>{radio.maxPower}W</span>
+                    <span>|</span>
+                    <span>{radio.bands.join(", ")}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {(() => {
+                      const rx = getEffectiveReceiverSpecs(radio, preferTested);
+                      return (
+                        <>
+                          RX Score: {calculateReceiverScore(rx)} | RMDR:{" "}
+                          {rx.rmdr}dB
+                          {" | "}IMD3: {rx.imdr3}dB
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Database radios */}
             {filteredRadios.map((radio) => {
               const count = instanceCountByEquipment.get(radio.id) ?? 0;
               return (
                 <div
                   key={radio.id}
-                  className={`
-                    p-3 rounded-lg border transition-colors
-                    bg-nebula-blue border-white/10 hover:border-plasma-orange/50 cursor-pointer
-                  `}
+                  className="p-3 rounded-lg border transition-colors bg-nebula-blue border-white/10 hover:border-plasma-orange/50 cursor-pointer"
                   onClick={() => handleAddRadio(radio)}
                 >
                   <div className="flex items-center justify-between">
@@ -1208,11 +1624,14 @@ export function RadioManager({
                 </div>
               );
             })}
-            {filteredRadios.length === 0 && (
-              <div className="p-4 text-center text-gray-500 text-sm">
-                No radios found matching "{searchQuery}"
-              </div>
-            )}
+            {filteredRadios.length === 0 &&
+              filteredCustomRadios.length === 0 && (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  {selectedManufacturer === "Custom"
+                    ? "No custom radios yet. Create one above."
+                    : `No radios found matching "${searchQuery}"`}
+                </div>
+              )}
           </div>
         </div>
       </DetailModal>

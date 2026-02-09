@@ -20,14 +20,14 @@ import { SetupWizard } from "./SetupWizard";
 export function EquipmentSection() {
   const [wizardDismissed, setWizardDismissed] = useState(false);
 
-  const radioCount = useShackStore((s) => s.radios.length);
-  const antennaCount = useShackStore((s) => s.antennas.length);
-  const feedlineCount = useShackStore((s) => s.feedlines.length);
-  const accessoryCount = useShackStore((s) => s.accessories.length);
-  const inlineCount = useShackStore((s) => s.inlineComponents.length);
-
-  const totalCount =
-    radioCount + antennaCount + feedlineCount + accessoryCount + inlineCount;
+  const totalCount = useShackStore(
+    (s) =>
+      s.radios.length +
+      s.antennas.length +
+      s.feedlines.length +
+      s.accessories.length +
+      s.inlineComponents.length,
+  );
 
   // ---- Empty state: show wizard or CTA ----
   if (totalCount === 0 && !wizardDismissed) {
@@ -84,37 +84,15 @@ export function EquipmentSection() {
   }
 
   // ---- Populated: render all sections ----
-  const sections = [
-    { label: "RADIOS", count: radioCount, content: <RadioManager /> },
-    { label: "ANTENNAS", count: antennaCount, content: <AntennaManager /> },
-    { label: "FEEDLINES", count: feedlineCount, content: <FeedlineManager /> },
-    {
-      label: "ACCESSORIES",
-      count: accessoryCount,
-      content: <AccessoryManager />,
-    },
-    {
-      label: "INLINE COMPONENTS",
-      count: inlineCount,
-      content: <InlineComponentManager />,
-    },
-  ];
-
+  // Each manager renders its own section header (label + count + add button),
+  // so EquipmentSection just spaces them vertically.
   return (
     <div className="space-y-8">
-      {sections.map((section) => (
-        <section key={section.label}>
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-              {section.label}
-            </h2>
-            <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
-              {section.count}
-            </span>
-          </div>
-          {section.content}
-        </section>
-      ))}
+      <RadioManager />
+      <AntennaManager />
+      <FeedlineManager />
+      <AccessoryManager />
+      <InlineComponentManager />
     </div>
   );
 }

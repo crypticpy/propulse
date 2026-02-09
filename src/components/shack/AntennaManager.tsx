@@ -22,9 +22,15 @@ import {
 import { DetailModal } from "@/components/ui/DetailModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
-import { EquipmentDetailModal } from "@/components/shack/EquipmentDetailModal";
-import type { EquipmentCardStat } from "@/components/shack/EquipmentCard";
-import type { EquipmentDetailField } from "@/components/shack/EquipmentDetailModal";
+import { EquipmentHeroCard } from "@/components/shack/EquipmentHeroCard";
+import type {
+  EquipmentCardStat,
+  EquipmentCardCapability,
+} from "@/components/shack/EquipmentCard";
+import type {
+  EquipmentDetailField,
+  EquipmentDetailGroup,
+} from "@/components/shack/equipmentCardTypes";
 import { ALL_BANDS } from "@/types/user";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
@@ -188,9 +194,95 @@ function buildAntennaDetailFields(a: UserAntenna): EquipmentDetailField[] {
   return fields;
 }
 
+/** Build grouped fields for EquipmentDetailModal */
+function buildAntennaDetailGroups(a: UserAntenna): EquipmentDetailGroup[] {
+  const groups: EquipmentDetailGroup[] = [];
+
+  // Group 1: Specifications
+  const specFields: EquipmentDetailField[] = [
+    {
+      label: "Type",
+      value: ANTENNA_TYPE_LABELS[a.antennaType] ?? a.antennaType,
+    },
+    { label: "Height", value: a.heightMeters, unit: "m" },
+    { label: "Polarization", value: POLARIZATION_LABELS[a.polarization] },
+    { label: "Mounting", value: MOUNTING_LABELS[a.mounting] },
+    { label: "Rotatable", value: a.isRotatable ?? false },
+  ];
+  if (a.manufacturer) {
+    specFields.push({ label: "Manufacturer", value: a.manufacturer });
+  }
+  if (a.modelNumber) {
+    specFields.push({ label: "Model", value: a.modelNumber });
+  }
+  groups.push({ heading: "Specifications", fields: specFields });
+
+  // Group 2: Coverage
+  const coverageFields: EquipmentDetailField[] = [
+    { label: "Bands", value: a.bands.join(", ") },
+  ];
+  if (a.azimuthDeg != null) {
+    coverageFields.push({
+      label: "Azimuth",
+      value: a.azimuthDeg,
+      unit: "\u00B0",
+    });
+  }
+  groups.push({ heading: "Coverage", fields: coverageFields });
+
+  // Group 3: Gain (if overrides exist)
+  const gainEntries = a.gainDbiOverride
+    ? Object.entries(a.gainDbiOverride)
+    : [];
+  if (gainEntries.length > 0) {
+    groups.push({
+      heading: "Gain",
+      fields: gainEntries.map(([band, gain]) => ({
+        label: `Gain (${band})`,
+        value: gain,
+        unit: "dBi",
+      })),
+    });
+  }
+
+  // Group 4: SWR (if measurements exist)
+  const swrEntries = a.swrByBand ? Object.entries(a.swrByBand) : [];
+  if (swrEntries.length > 0) {
+    groups.push({
+      heading: "SWR Measurements",
+      fields: swrEntries.map(([band, swr]) => ({
+        label: `SWR (${band})`,
+        value: swr.toFixed(1),
+      })),
+    });
+  }
+
+  // Group 5: Notes (if present)
+  if (a.notes) {
+    groups.push({
+      heading: "Notes",
+      fields: [{ label: "Notes", value: a.notes }],
+    });
+  }
+
+  return groups.filter((g) => g.fields.length > 0);
+}
+
+// ─── Component props ─────────────────────────────────────────────────────────
+
+interface AntennaManagerProps {
+  /** Override section header label (default: "ANTENNAS") */
+  sectionLabel?: string;
+  /** Override section item count shown in badge */
+  sectionCount?: number;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AntennaManager() {
+export function AntennaManager({
+  sectionLabel,
+  sectionCount,
+}: AntennaManagerProps) {
   const antennas = useUserAntennas();
   const { addAntenna, updateAntenna, removeAntenna } = useShackStore();
 
@@ -299,12 +391,19 @@ export function AntennaManager() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          {sectionLabel ?? "ANTENNAS"}
+        </h2>
+        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+          {sectionCount ?? antennas.length}
+        </span>
+        <div className="flex-1" />
         <button
           onClick={openAdd}
           className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors ml-auto"
+                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors"
         >
           + Add Antenna
         </button>
@@ -319,8 +418,18 @@ export function AntennaManager() {
               title={a.name}
               subtitle={ANTENNA_TYPE_LABELS[a.antennaType] ?? a.antennaType}
               equipmentType="antenna"
+              typeLabel={(
+                ANTENNA_TYPE_LABELS[a.antennaType] ?? a.antennaType
+              ).toUpperCase()}
               stats={buildAntennaStats(a)}
-              bandPills={a.bands}
+              capabilities={a.bands.map(
+                (b): EquipmentCardCapability => ({
+                  label: b,
+                  category: "band" as const,
+                }),
+              )}
+              imageId={a.imageId}
+              galleryImageIds={a.galleryImageIds}
               onClick={() => setViewAntennaId(a.id)}
               onEdit={() => openEdit(a)}
               onDelete={() => handleDelete(a.id)}
@@ -336,7 +445,7 @@ export function AntennaManager() {
 
       {/* Detail view modal */}
       {viewedAntenna && (
-        <EquipmentDetailModal
+        <EquipmentHeroCard
           open={viewAntennaId !== null}
           onClose={() => setViewAntennaId(null)}
           title={viewedAntenna.name}
@@ -345,7 +454,51 @@ export function AntennaManager() {
             viewedAntenna.antennaType
           }
           equipmentType="antenna"
+          typeLabel={(
+            ANTENNA_TYPE_LABELS[viewedAntenna.antennaType] ??
+            viewedAntenna.antennaType
+          ).toUpperCase()}
+          stats={buildAntennaStats(viewedAntenna)}
+          capabilities={viewedAntenna.bands.map((b) => ({
+            label: b,
+            category: "band" as const,
+          }))}
           fields={buildAntennaDetailFields(viewedAntenna)}
+          groups={buildAntennaDetailGroups(viewedAntenna)}
+          badges={[
+            { label: "Antenna", color: "#3B82F6" },
+            {
+              label: (
+                ANTENNA_TYPE_LABELS[viewedAntenna.antennaType] ??
+                viewedAntenna.antennaType
+              ).toUpperCase(),
+              color: "#6B7280",
+            },
+          ]}
+          imageId={viewedAntenna.imageId}
+          onImageChange={(newImageId) => {
+            if (newImageId) {
+              useShackStore
+                .getState()
+                .setEquipmentImage("antenna", viewedAntenna.id, newImageId);
+            } else {
+              useShackStore
+                .getState()
+                .clearEquipmentImage("antenna", viewedAntenna.id);
+            }
+          }}
+          galleryImageIds={viewedAntenna.galleryImageIds}
+          onGalleryAdd={(imgId) =>
+            useShackStore
+              .getState()
+              .addGalleryImage("antenna", viewedAntenna.id, imgId)
+          }
+          onGalleryRemove={(imgId) =>
+            useShackStore
+              .getState()
+              .removeGalleryImage("antenna", viewedAntenna.id, imgId)
+          }
+          maxGalleryImages={5}
           onEdit={() => openEdit(viewedAntenna)}
           onDelete={() => handleDelete(viewedAntenna.id)}
         />

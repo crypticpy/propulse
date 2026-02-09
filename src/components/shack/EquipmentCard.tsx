@@ -1,137 +1,98 @@
 /**
- * EquipmentCard — Collectible trading-card style equipment display.
+ * EquipmentCard — Collectible playing-card style equipment display.
  *
  * Renders ham radio equipment (radios, antennas, feedlines, accessories,
- * inline components) as premium sci-fi cards with type-colored accents,
- * corner targeting brackets, stat grids, and band pills.
+ * inline components) as premium collectible cards with type-colored frames,
+ * large centered symbols, stat blocks, capability pills, and active toggles.
  *
  * Design language: MTG/Pokemon card aesthetic — color-coded by equipment
  * type, with electrical schematic symbols and a dark space theme.
  */
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { getEquipmentSymbol } from "./EquipmentSymbols";
+import { useImageUrl } from "@/hooks/useImageUrl";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type EquipmentType =
-  | "radio"
-  | "antenna"
-  | "feedline"
-  | "accessory"
-  | "inline";
-
-export type EquipmentTier = "entry" | "midrange" | "highend" | "flagship";
-
-export type StatIcon =
-  | "power"
-  | "frequency"
-  | "gain"
-  | "loss"
-  | "score"
-  | "length"
-  | "impedance"
-  | "connector"
-  | "bands";
-
-export type BadgeColor = "orange" | "green" | "amber" | "red" | "blue" | "gray";
-
-export interface EquipmentCardBadge {
-  label: string;
-  color?: BadgeColor;
+// Inject card-level keyframe once
+const CARD_STYLE_ID = "equipment-card-styles";
+function ensureCardStyles() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(CARD_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = CARD_STYLE_ID;
+  style.textContent = `
+@keyframes cardSheen {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-sheen { animation: none !important; }
+}`;
+  document.head.appendChild(style);
 }
 
-export interface EquipmentCardStat {
-  icon: StatIcon;
-  label: string;
-  value: string;
-}
+// Re-export all shared types for backward compatibility
+export type {
+  EquipmentType,
+  EquipmentTier,
+  EquipmentCardSize,
+  StatIcon,
+  BadgeColor,
+  CapabilityCategory,
+  EquipmentCardBadge,
+  EquipmentCardStat,
+  EquipmentCardCapability,
+  EquipmentDetailField,
+  EquipmentDetailGroup,
+  EquipmentCardData,
+} from "./equipmentCardTypes";
+
+import {
+  type EquipmentType,
+  type EquipmentTier,
+  type StatIcon,
+  type EquipmentCardBadge,
+  type EquipmentCardStat,
+  type EquipmentCardCapability,
+  ACCENT_HEX,
+  ACCENT_BG,
+  ACCENT_TEXT,
+  TIER_LABELS,
+  GLOW_SHADOW,
+  BADGE_STYLES,
+  BAND_PILL_COLORS,
+  DEFAULT_BAND_PILL,
+  CAPABILITY_STYLES,
+} from "./equipmentCardTypes";
 
 export interface EquipmentCardProps {
   title: string;
   subtitle?: string;
   equipmentType: EquipmentType;
+  /** Override label shown above title: "TRANSCEIVER", "YAGI", "COAX", etc. */
+  typeLabel?: string;
   tier?: EquipmentTier;
   badges?: EquipmentCardBadge[];
   stats?: EquipmentCardStat[];
+  capabilities?: EquipmentCardCapability[];
+  /** @deprecated Use capabilities with category "band" instead */
   bandPills?: string[];
   isActive?: boolean;
   onToggleActive?: () => void;
   visualization?: ReactNode;
+  /** UUID referencing a stored image in IndexedDB */
+  imageId?: string;
+  /** Gallery image IDs for photo count badge display */
+  galleryImageIds?: string[];
   onClick?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── StatIconSvg (16x16, stroke-based, currentColor) ────────────────────────
 
-/** Left accent bar & corner bracket colors per equipment type */
-const ACCENT_COLORS: Record<EquipmentType, string> = {
-  radio: "#F97316",
-  antenna: "#22C55E",
-  feedline: "#14B8A6",
-  accessory: "#F59E0B",
-  inline: "#6B7280",
-};
-
-/** Tailwind classes for the hover glow shadow per type */
-const GLOW_SHADOW: Record<EquipmentType, string> = {
-  radio: "shadow-[0_4px_24px_rgba(249,115,22,0.20)]",
-  antenna: "shadow-[0_4px_24px_rgba(34,197,94,0.20)]",
-  feedline: "shadow-[0_4px_24px_rgba(20,184,166,0.20)]",
-  accessory: "shadow-[0_4px_24px_rgba(245,158,11,0.20)]",
-  inline: "shadow-[0_4px_24px_rgba(107,114,128,0.20)]",
-};
-
-/** Tier badge styling */
-const TIER_STYLES: Record<EquipmentTier, string> = {
-  entry: "bg-gray-700 text-gray-300",
-  midrange: "bg-signal-green/15 text-signal-green",
-  highend: "bg-nebula-blue text-blue-400",
-  flagship: "bg-plasma-orange/15 text-plasma-orange",
-};
-
-const TIER_LABELS: Record<EquipmentTier, string> = {
-  entry: "Entry",
-  midrange: "Mid",
-  highend: "High",
-  flagship: "Flag",
-};
-
-/** Badge color → Tailwind classes */
-const BADGE_STYLES: Record<BadgeColor, string> = {
-  orange: "bg-plasma-orange/15 text-plasma-orange",
-  green: "bg-signal-green/15 text-signal-green",
-  amber: "bg-caution-amber/15 text-caution-amber",
-  red: "bg-alert-red/15 text-alert-red",
-  blue: "bg-blue-500/15 text-blue-400",
-  gray: "bg-gray-700 text-gray-300",
-};
-
-/** Band pill colors — HF warm, VHF/UHF cool */
-const BAND_PILL_COLORS: Record<string, string> = {
-  "160m": "bg-red-900/40 text-red-300 border-red-700/40",
-  "80m": "bg-orange-900/40 text-orange-300 border-orange-700/40",
-  "60m": "bg-amber-900/40 text-amber-300 border-amber-700/40",
-  "40m": "bg-yellow-900/40 text-yellow-300 border-yellow-700/40",
-  "30m": "bg-lime-900/40 text-lime-300 border-lime-700/40",
-  "20m": "bg-green-900/40 text-green-300 border-green-700/40",
-  "17m": "bg-emerald-900/40 text-emerald-300 border-emerald-700/40",
-  "15m": "bg-teal-900/40 text-teal-300 border-teal-700/40",
-  "12m": "bg-cyan-900/40 text-cyan-300 border-cyan-700/40",
-  "10m": "bg-sky-900/40 text-sky-300 border-sky-700/40",
-  "6m": "bg-blue-900/40 text-blue-300 border-blue-700/40",
-  "2m": "bg-indigo-900/40 text-indigo-300 border-indigo-700/40",
-  "70cm": "bg-violet-900/40 text-violet-300 border-violet-700/40",
-  "23cm": "bg-purple-900/40 text-purple-300 border-purple-700/40",
-};
-
-const DEFAULT_BAND_PILL = "bg-gray-800/50 text-gray-400 border-gray-600/40";
-
-// ─── Stat Icon SVGs (16x16, stroke-based, currentColor) ─────────────────────
-
-function StatIconSvg({ icon }: { icon: StatIcon }) {
+export function StatIconSvg({ icon }: { icon: StatIcon }) {
   const base = "w-4 h-4 flex-shrink-0";
   const svgProps = {
     width: 16,
@@ -148,7 +109,6 @@ function StatIconSvg({ icon }: { icon: StatIcon }) {
 
   switch (icon) {
     case "power":
-      // Lightning bolt
       return (
         <svg {...svgProps}>
           <path d="M9 1.5L4 9h4l-1 5.5L12 7H8l1-5.5z" />
@@ -156,14 +116,12 @@ function StatIconSvg({ icon }: { icon: StatIcon }) {
       );
     case "frequency":
     case "bands":
-      // Sine wave
       return (
         <svg {...svgProps}>
           <path d="M1 8c1.5-4 3-4 4.5 0s3 4 4.5 0 3-4 4.5 0" />
         </svg>
       );
     case "gain":
-      // Upward arrow with signal lines
       return (
         <svg {...svgProps}>
           <path d="M8 13V3m0 0l-3 3m3-3l3 3" />
@@ -171,14 +129,12 @@ function StatIconSvg({ icon }: { icon: StatIcon }) {
         </svg>
       );
     case "loss":
-      // Downward arrow
       return (
         <svg {...svgProps}>
           <path d="M8 3v10m0 0l-3-3m3 3l3-3" />
         </svg>
       );
     case "score":
-      // Crosshair / target
       return (
         <svg {...svgProps}>
           <circle cx={8} cy={8} r={5} />
@@ -187,7 +143,6 @@ function StatIconSvg({ icon }: { icon: StatIcon }) {
         </svg>
       );
     case "length":
-      // Ruler marks
       return (
         <svg {...svgProps}>
           <path d="M2 12h12" />
@@ -196,7 +151,6 @@ function StatIconSvg({ icon }: { icon: StatIcon }) {
         </svg>
       );
     case "impedance":
-      // Omega symbol as text
       return (
         <svg {...svgProps}>
           <text
@@ -213,7 +167,6 @@ function StatIconSvg({ icon }: { icon: StatIcon }) {
         </svg>
       );
     case "connector":
-      // Small plug icon
       return (
         <svg {...svgProps}>
           <rect x={5} y={2} width={6} height={4} rx={1} />
@@ -227,118 +180,99 @@ function StatIconSvg({ icon }: { icon: StatIcon }) {
   }
 }
 
-// ─── Corner Bracket SVG ──────────────────────────────────────────────────────
+// ─── ArtZonePattern (type-specific background SVG patterns) ─────────────────
 
-function CornerBracket({
-  position,
-  color,
-}: {
-  position: "tl" | "tr" | "bl" | "br";
-  color: string;
-}) {
-  // 8x8 L-shaped bracket at each corner
-  const rotation: Record<string, string> = {
-    tl: "",
-    tr: "scale(-1,1) translate(-8,0)",
-    bl: "scale(1,-1) translate(0,-8)",
-    br: "scale(-1,-1) translate(-8,-8)",
-  };
-
-  const posClass: Record<string, string> = {
-    tl: "top-1 left-1",
-    tr: "top-1 right-1",
-    bl: "bottom-1 left-1",
-    br: "bottom-1 right-1",
-  };
-
-  return (
-    <svg
-      width={8}
-      height={8}
-      viewBox="0 0 8 8"
-      className={`absolute ${posClass[position]} pointer-events-none`}
-      aria-hidden="true"
-    >
-      <g transform={rotation[position]}>
-        <path
-          d="M0 0v8M0 0h8"
-          stroke={color}
-          strokeWidth={1.5}
-          fill="none"
-          opacity={0.4}
-        />
-      </g>
-    </svg>
-  );
-}
-
-// ─── Type Icon (small 20x20 inline symbol for header) ────────────────────────
-
-function TypeIcon({ type }: { type: EquipmentType }) {
-  const color = ACCENT_COLORS[type];
+export function ArtZonePattern({ type }: { type: EquipmentType }) {
   const svgProps = {
-    width: 20,
-    height: 20,
-    viewBox: "0 0 20 20",
+    width: "100%",
+    height: "100%",
+    viewBox: "0 0 200 120",
     fill: "none",
-    stroke: color,
+    stroke: "currentColor",
     strokeWidth: 1.5,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
-    className: "w-5 h-5 flex-shrink-0",
+    preserveAspectRatio: "xMidYMid slice" as const,
     "aria-hidden": true as const,
   };
 
   switch (type) {
     case "radio":
-      // Transceiver knob + dial
+      // Concentric arc quarter-circles emanating from center-right (RF waves)
       return (
         <svg {...svgProps}>
-          <rect x={2} y={5} width={16} height={11} rx={2} />
-          <circle cx={7} cy={11} r={2.5} />
-          <rect x={12} y={8} width={4} height={2} rx={0.5} />
-          <path d="M7 5V3" />
+          <path d="M140 60 Q140 30 170 30" strokeWidth={2} />
+          <path d="M140 60 Q140 20 180 20" strokeWidth={1.8} />
+          <path d="M140 60 Q140 10 190 10" strokeWidth={1.5} />
+          <path d="M140 60 Q140 90 170 90" strokeWidth={2} />
+          <path d="M140 60 Q140 100 180 100" strokeWidth={1.8} />
+          <path d="M140 60 Q140 110 190 110" strokeWidth={1.5} />
         </svg>
       );
     case "antenna":
-      // Vertical antenna with radials
+      // Horizontal dashed lines at varying heights (radiation pattern)
       return (
         <svg {...svgProps}>
-          <path d="M10 2v14" />
-          <path d="M10 6l-5 5m5-5l5 5" />
-          <path d="M10 10l-3 3m3-3l3 3" strokeWidth={1} opacity={0.6} />
+          <line x1="20" y1="20" x2="180" y2="20" strokeDasharray="8 6" />
+          <line x1="30" y1="40" x2="170" y2="40" strokeDasharray="6 8" />
+          <line x1="10" y1="60" x2="190" y2="60" strokeDasharray="10 5" />
+          <line x1="30" y1="80" x2="170" y2="80" strokeDasharray="6 8" />
+          <line x1="20" y1="100" x2="180" y2="100" strokeDasharray="8 6" />
         </svg>
       );
     case "feedline":
-      // Coax cable cross-section
+      // Diagonal parallel lines at 45 deg (transmission line pattern)
       return (
         <svg {...svgProps}>
-          <circle cx={10} cy={10} r={7} />
-          <circle cx={10} cy={10} r={3} />
-          <circle cx={10} cy={10} r={1} fill={color} stroke="none" />
+          <line x1="0" y1="30" x2="30" y2="0" />
+          <line x1="0" y1="60" x2="60" y2="0" />
+          <line x1="0" y1="90" x2="90" y2="0" />
+          <line x1="0" y1="120" x2="120" y2="0" />
+          <line x1="30" y1="120" x2="150" y2="0" />
+          <line x1="60" y1="120" x2="180" y2="0" />
+          <line x1="90" y1="120" x2="200" y2="10" />
+          <line x1="120" y1="120" x2="200" y2="40" />
+          <line x1="150" y1="120" x2="200" y2="70" />
+          <line x1="180" y1="120" x2="200" y2="100" />
         </svg>
       );
     case "accessory":
-      // Wrench / tool
+      // Hexagonal grid pattern (PCB motif)
       return (
         <svg {...svgProps}>
-          <path d="M14.5 5.5a4 4 0 01-5 5L5 15l-1.5-1.5 4.5-4.5a4 4 0 015-5z" />
-          <circle cx={12} cy={8} r={1} fill={color} stroke="none" />
+          {[0, 40, 80, 120, 160].map((x) =>
+            [0, 35, 70, 105].map((y) => (
+              <polygon
+                key={`${x}-${y}`}
+                points={`${x + 20},${y} ${x + 35},${y + 8} ${x + 35},${y + 24} ${x + 20},${y + 32} ${x + 5},${y + 24} ${x + 5},${y + 8}`}
+                strokeWidth={1}
+              />
+            )),
+          )}
         </svg>
       );
     case "inline":
-      // Inline component (transformer symbol)
+      // Sine wave ripples stacked vertically
       return (
         <svg {...svgProps}>
-          <path d="M2 10h4m12 0h-4" />
-          <path d="M6 6c2 0 2 2 2 4s0 4 2 4" />
-          <path d="M14 6c-2 0-2 2-2 4s0 4-2 4" />
+          <path
+            d="M0 30 Q25 10 50 30 T100 30 T150 30 T200 30"
+            strokeWidth={1.5}
+          />
+          <path
+            d="M0 60 Q25 40 50 60 T100 60 T150 60 T200 60"
+            strokeWidth={1.5}
+          />
+          <path
+            d="M0 90 Q25 70 50 90 T100 90 T150 90 T200 90"
+            strokeWidth={1.5}
+          />
         </svg>
       );
   }
 }
 
-// ─── Action Button Icons ─────────────────────────────────────────────────────
+// ─── Action Button Icons ────────────────────────────────────────────────────
 
 function EditIcon() {
   return (
@@ -396,31 +330,69 @@ function DuplicateIcon() {
   );
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+function ExpandHintIcon() {
+  return (
+    <svg
+      width={12}
+      height={12}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 2h8v8" />
+      <path d="M14 2L7 9" />
+    </svg>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
 
 export function EquipmentCard({
   title,
   subtitle,
   equipmentType,
+  typeLabel,
   tier,
   badges,
   stats,
+  capabilities,
   bandPills,
   isActive,
   onToggleActive,
   visualization,
+  imageId,
+  galleryImageIds,
   onClick,
   onEdit,
   onDelete,
   onDuplicate,
 }: EquipmentCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const accent = ACCENT_COLORS[equipmentType];
+  useEffect(() => {
+    ensureCardStyles();
+  }, []);
+  const { url: imageUrl } = useImageUrl(imageId);
+  const accentHex = ACCENT_HEX[equipmentType];
   const glowClass = GLOW_SHADOW[equipmentType];
   const hasActions = onEdit || onDelete || onDuplicate;
 
   // Resolve the large centered symbol
   const SymbolComponent = getEquipmentSymbol(equipmentType);
+
+  // Backward compat: convert bandPills to capabilities if capabilities not provided
+  const effectiveCapabilities =
+    capabilities ??
+    bandPills?.map((b) => ({ label: b, category: "band" as const }));
+
+  // Truncate stats to 3
+  const displayStats = stats?.slice(0, 3);
+
+  // Resolved type label
+  const resolvedTypeLabel = typeLabel || equipmentType.toUpperCase();
 
   return (
     <div
@@ -442,63 +414,123 @@ export function EquipmentCard({
       onMouseLeave={() => setIsHovered(false)}
       className={[
         // Layout
-        "relative flex flex-col w-full min-w-0",
-        // Background & border
-        "bg-[#0f1420] border border-white/[0.06] rounded-lg overflow-hidden",
-        // Left accent bar
-        "border-l-[3px]",
+        "group relative flex flex-col w-full min-w-0",
+        // Background & shape
+        "bg-[#0f1420] rounded-xl overflow-hidden",
+        // Border (dynamic color set via style)
+        "border-2",
         // Cursor
         onClick ? "cursor-pointer" : "",
         // Transitions
         "transition-all duration-200",
         // Hover lift + glow
         isHovered ? `-translate-y-0.5 ${glowClass}` : "",
+        // Press feedback
+        "active:scale-[0.98]",
+        // Active card ring + glow
+        isActive
+          ? "ring-1 ring-signal-green/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
+          : "",
       ]
         .filter(Boolean)
         .join(" ")}
       style={{
-        borderLeftColor: accent,
-        // Subtle gradient overlay
+        borderColor: isHovered ? `${accentHex}66` : `${accentHex}40`,
         backgroundImage: `linear-gradient(160deg, rgba(255,255,255,0.02) 0%, transparent 40%, rgba(0,0,0,0.15) 100%)`,
       }}
     >
-      {/* Corner brackets */}
-      <CornerBracket position="tl" color={accent} />
-      <CornerBracket position="tr" color={accent} />
-      <CornerBracket position="bl" color={accent} />
-      <CornerBracket position="br" color={accent} />
+      {/* ── Top Accent Bar ── */}
+      <div className={`h-1 w-full ${ACCENT_BG[equipmentType]}`} />
 
-      {/* ── Header ── */}
-      <div className="relative px-3 pt-3 pb-2 flex items-start gap-2 min-w-0">
-        <TypeIcon type={equipmentType} />
+      {/* ── Corner Brackets ── */}
+      <svg
+        className="absolute top-1.5 left-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
+        viewBox="0 0 14 14"
+        fill="none"
+        stroke={accentHex}
+        strokeWidth={1.2}
+        aria-hidden="true"
+      >
+        <path d="M1 5V2a1 1 0 011-1h3" />
+      </svg>
+      <svg
+        className="absolute top-1.5 right-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
+        viewBox="0 0 14 14"
+        fill="none"
+        stroke={accentHex}
+        strokeWidth={1.2}
+        aria-hidden="true"
+      >
+        <path d="M13 5V2a1 1 0 00-1-1h-3" />
+      </svg>
+      <svg
+        className="absolute bottom-1.5 left-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
+        viewBox="0 0 14 14"
+        fill="none"
+        stroke={accentHex}
+        strokeWidth={1.2}
+        aria-hidden="true"
+      >
+        <path d="M1 9v3a1 1 0 001 1h3" />
+      </svg>
+      <svg
+        className="absolute bottom-1.5 right-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
+        viewBox="0 0 14 14"
+        fill="none"
+        stroke={accentHex}
+        strokeWidth={1.2}
+        aria-hidden="true"
+      >
+        <path d="M13 9v3a1 1 0 01-1 1h-3" />
+      </svg>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <h3 className="text-sm font-semibold text-white truncate leading-tight">
-              {title}
-            </h3>
-            {tier && (
-              <span
-                className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded ${TIER_STYLES[tier]}`}
-              >
-                {TIER_LABELS[tier]}
-              </span>
-            )}
-          </div>
-          {subtitle && (
-            <p className="text-[11px] text-gray-500 truncate leading-tight mt-0.5">
-              {subtitle}
-            </p>
+      {/* ── Holographic Foil Sheen (hover only) ── */}
+      <div
+        className="absolute inset-0 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        style={{
+          background: `linear-gradient(115deg, transparent 20%, ${accentHex}08 40%, ${accentHex}15 50%, ${accentHex}08 60%, transparent 80%)`,
+          backgroundSize: "200% 100%",
+          animation: isHovered ? "cardSheen 1.5s ease-in-out" : "none",
+        }}
+      />
+
+      {/* ── Header Zone ── */}
+      <div className="relative px-4 pt-3 pb-2 min-w-0">
+        {/* Type label + tier */}
+        <div className="flex items-center gap-1">
+          <span
+            className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]}`}
+          >
+            {resolvedTypeLabel}
+          </span>
+          {tier && (
+            <span
+              className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-60`}
+            >
+              {" "}
+              &middot; {TIER_LABELS[tier]}
+            </span>
           )}
         </div>
 
-        {/* Action buttons — visible on hover */}
+        {/* Title */}
+        <h3 className="text-base font-bold text-white leading-tight truncate mt-0.5">
+          {title}
+        </h3>
+
+        {/* Subtitle */}
+        {subtitle && (
+          <p className="text-xs text-gray-400 truncate leading-tight mt-0.5">
+            {subtitle}
+          </p>
+        )}
+
+        {/* Action buttons — hover only */}
         {hasActions && (
           <div
             className={[
-              "absolute top-2 right-2 flex items-center gap-0.5",
-              "transition-opacity duration-150",
-              isHovered ? "opacity-100" : "opacity-0 pointer-events-none",
+              "absolute top-2 right-2 flex items-center gap-1",
+              "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
             ].join(" ")}
           >
             {onEdit && (
@@ -508,7 +540,7 @@ export function EquipmentCard({
                   e.stopPropagation();
                   onEdit();
                 }}
-                className="w-7 h-7 min-h-[44px] min-w-[44px] -m-2 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
                 aria-label={`Edit ${title}`}
                 title="Edit"
               >
@@ -522,7 +554,7 @@ export function EquipmentCard({
                   e.stopPropagation();
                   onDuplicate();
                 }}
-                className="w-7 h-7 min-h-[44px] min-w-[44px] -m-2 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
                 aria-label={`Duplicate ${title}`}
                 title="Duplicate"
               >
@@ -536,7 +568,7 @@ export function EquipmentCard({
                   e.stopPropagation();
                   onDelete();
                 }}
-                className="w-7 h-7 min-h-[44px] min-w-[44px] -m-2 flex items-center justify-center rounded text-gray-400 hover:text-alert-red hover:bg-alert-red/10 transition-colors"
+                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-alert-red transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
                 aria-label={`Delete ${title}`}
                 title="Delete"
               >
@@ -547,117 +579,182 @@ export function EquipmentCard({
         )}
       </div>
 
-      {/* ── Divider ── */}
-      <div className="mx-3 h-px bg-white/[0.06]" />
-
-      {/* ── Symbol / Visualization zone ── */}
-      <div className="flex items-center justify-center py-5 px-3 min-h-[80px]">
+      {/* ── Symbol Art Zone ── */}
+      <div className="min-h-[100px] sm:min-h-[120px] py-3 sm:py-4 flex items-center justify-center relative overflow-hidden mx-3">
         {visualization ? (
           visualization
+        ) : imageUrl ? (
+          <>
+            <img
+              src={imageUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
+          </>
         ) : (
-          <div style={{ opacity: 0.6 }}>
-            <SymbolComponent className="w-12 h-12" />
+          <>
+            {/* Type-specific background pattern */}
+            <div
+              className={`absolute inset-0 pointer-events-none opacity-[0.05] ${ACCENT_TEXT[equipmentType]}`}
+            >
+              <ArtZonePattern type={equipmentType} />
+            </div>
+
+            {/* Radial glow behind symbol */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `radial-gradient(circle, ${accentHex}18 0%, transparent 65%)`,
+              }}
+            />
+
+            {/* Symbol — responsive */}
+            <div
+              className={ACCENT_TEXT[equipmentType]}
+              style={{ filter: `drop-shadow(0 0 10px ${accentHex}25)` }}
+            >
+              <SymbolComponent className="w-16 h-16 sm:w-20 sm:h-20" />
+            </div>
+          </>
+        )}
+        {/* Photo count badge */}
+        {galleryImageIds && galleryImageIds.length > 0 && (
+          <div className="absolute bottom-1.5 right-1.5 z-[3] bg-black/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="w-2.5 h-2.5 text-white/70"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5.5 2L4 4H2.5A1 1 0 001.5 5v7a1 1 0 001 1h11a1 1 0 001-1V5a1 1 0 00-1-1H12l-1.5-2h-5z"
+              />
+              <circle cx={8} cy={8.5} r={2.5} />
+            </svg>
+            <span className="text-[10px] font-mono text-white/70">
+              {1 + galleryImageIds.length}
+            </span>
           </div>
         )}
       </div>
 
       {/* ── Divider ── */}
-      {stats && stats.length > 0 && (
-        <div className="mx-3 h-px bg-white/[0.06]" />
+      {displayStats && displayStats.length > 0 && (
+        <div
+          className="mx-4 h-px"
+          style={{ backgroundColor: `${accentHex}33` }}
+        />
       )}
 
-      {/* ── Stats grid ── */}
-      {stats && stats.length > 0 && (
-        <div className="px-3 py-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
-          {stats.map((stat) => (
+      {/* ── Stats Zone ── */}
+      {displayStats && displayStats.length > 0 && (
+        <div className="flex items-center justify-around px-3 sm:px-4 py-2.5 sm:py-3">
+          {displayStats.map((stat) => (
             <div
               key={`${stat.icon}-${stat.label}`}
-              className="flex items-center gap-1.5 min-w-0"
+              className="flex flex-col items-center gap-0.5 min-w-0 px-0.5"
             >
               <span className="text-gray-500">
                 <StatIconSvg icon={stat.icon} />
               </span>
-              <span className="text-[11px] text-gray-500 flex-shrink-0">
-                {stat.label}:
-              </span>
-              <span className="text-[11px] text-gray-200 font-medium truncate">
+              <span className="text-xs sm:text-sm font-mono font-bold text-gray-100">
                 {stat.value}
+              </span>
+              <span className="text-[9px] sm:text-[10px] text-gray-500 truncate max-w-[60px] text-center">
+                {stat.label}
               </span>
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Badges ── */}
-      {badges && badges.length > 0 && (
-        <>
-          <div className="mx-3 h-px bg-white/[0.06]" />
-          <div className="px-3 py-2 flex flex-wrap gap-1">
-            {badges.map((badge) => (
+      {/* ── Capabilities Row ── */}
+      {effectiveCapabilities && effectiveCapabilities.length > 0 && (
+        <div className="px-4 pb-2 flex flex-wrap gap-1">
+          {effectiveCapabilities.map((cap) => {
+            let pillStyle: string;
+            if (cap.category === "band") {
+              pillStyle = BAND_PILL_COLORS[cap.label] ?? DEFAULT_BAND_PILL;
+            } else {
+              pillStyle = CAPABILITY_STYLES[cap.category];
+            }
+            return (
               <span
-                key={badge.label}
-                className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
+                key={`${cap.category}-${cap.label}`}
+                className={`px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
               >
-                {badge.label}
+                {cap.label}
               </span>
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
       )}
 
-      {/* ── Band pills + Active toggle footer ── */}
-      {((bandPills && bandPills.length > 0) || equipmentType === "radio") && (
-        <>
-          <div className="mx-3 h-px bg-white/[0.06]" />
-          <div className="px-3 py-2.5 flex items-center gap-2 min-w-0">
-            {/* Band pills */}
-            {bandPills && bandPills.length > 0 && (
-              <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                {bandPills.map((band) => (
-                  <span
-                    key={band}
-                    className={`px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${BAND_PILL_COLORS[band] ?? DEFAULT_BAND_PILL}`}
-                  >
-                    {band}
-                  </span>
-                ))}
-              </div>
-            )}
+      {/* ── Footer Zone ── */}
+      <div className="px-4 pb-3 flex items-end justify-between min-h-[28px]">
+        {/* Left: badges */}
+        <div className="flex flex-wrap gap-1 min-w-0 flex-1">
+          {badges?.map((badge) => (
+            <span
+              key={badge.label}
+              className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
+            >
+              {badge.label}
+            </span>
+          ))}
+        </div>
 
-            {/* Active toggle (radios only) */}
-            {equipmentType === "radio" && onToggleActive && (
+        {/* Right: toggle + expand hint */}
+        <div className="flex items-end gap-2 flex-shrink-0">
+          {/* Active Toggle (radios only) */}
+          {equipmentType === "radio" && onToggleActive && (
+            <div className="flex flex-col items-center gap-0.5">
               <button
                 type="button"
+                role="switch"
+                aria-checked={isActive}
+                aria-label="Toggle active radio"
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleActive();
                 }}
                 className={[
-                  "flex-shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-full",
-                  "text-[10px] font-semibold uppercase tracking-wider",
-                  "min-h-[44px] min-w-[44px] -my-2",
-                  "transition-colors duration-150",
-                  isActive
-                    ? "bg-signal-green/15 text-signal-green"
-                    : "bg-gray-800 text-gray-500 hover:text-gray-400",
+                  "relative w-9 h-5 rounded-full transition-colors",
+                  isActive ? "bg-signal-green" : "bg-gray-700",
+                  isActive ? "shadow-[0_0_10px_rgba(34,197,94,0.4)]" : "",
                 ].join(" ")}
-                aria-label={isActive ? "Deactivate radio" : "Activate radio"}
-                aria-pressed={isActive}
               >
                 <span
                   className={[
-                    "w-2 h-2 rounded-full transition-colors",
-                    isActive
-                      ? "bg-signal-green shadow-[0_0_6px_rgba(34,197,94,0.5)]"
-                      : "border border-gray-600 bg-transparent",
+                    "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                    isActive ? "translate-x-4" : "translate-x-0",
                   ].join(" ")}
                 />
-                {isActive ? "Active" : "Inactive"}
               </button>
-            )}
-          </div>
-        </>
-      )}
+              <span
+                className={[
+                  "text-[10px] font-semibold uppercase tracking-wider",
+                  isActive ? "text-signal-green" : "text-gray-500",
+                ].join(" ")}
+              >
+                {isActive ? "Active" : "Standby"}
+              </span>
+            </div>
+          )}
+
+          {/* Expand hint */}
+          {onClick && (
+            <span className="text-gray-500 opacity-0 group-hover:opacity-30 transition-opacity mb-1">
+              <ExpandHintIcon />
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

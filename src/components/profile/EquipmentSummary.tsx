@@ -1,53 +1,13 @@
 /**
  * Compact equipment overview for the profile Overview tab.
- * Shows the active radio, first antenna, and first feedline from shackStore.
+ * Shows the active radio, first antenna, and first feedline from shackStore
+ * using the shared EquipmentCardSm component.
  */
 
 import { useShackStore, useUserRadios } from "@/stores/shackStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function EquipmentCard({
-  icon,
-  label,
-  name,
-  detail,
-  extraCount = 0,
-}: {
-  icon: string;
-  label: string;
-  name: string;
-  detail?: string;
-  extraCount?: number;
-}) {
-  return (
-    <div className="bg-panel/30 border border-white/5 rounded-lg p-3 flex items-start gap-3 min-w-0">
-      <span
-        className="text-lg leading-none mt-0.5 flex-shrink-0"
-        aria-hidden="true"
-      >
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-gray-500 uppercase tracking-wider">
-          {label}
-        </p>
-        <p className="text-sm font-medium text-gray-200 truncate">
-          {name}
-          {extraCount > 0 && (
-            <span className="text-xs text-gray-500 ml-1">
-              +{extraCount} more
-            </span>
-          )}
-        </p>
-        {detail && (
-          <p className="text-xs text-gray-500 truncate mt-0.5">{detail}</p>
-        )}
-      </div>
-    </div>
-  );
-}
+import { EquipmentCardSm } from "@/components/shack/EquipmentCardSm";
+import type { EquipmentType } from "@/components/shack/equipmentCardTypes";
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -90,6 +50,58 @@ export function EquipmentSummary() {
     );
   }
 
+  // Build card items
+  const items: Array<{
+    key: string;
+    title: string;
+    subtitle?: string;
+    equipmentType: EquipmentType;
+    stats?: Array<{ icon: "power" | "length"; label: string; value: string }>;
+  }> = [];
+
+  if (radioName) {
+    items.push({
+      key: "radio",
+      title: radioName,
+      subtitle: activeEntry?.equipment?.manufacturer,
+      equipmentType: "radio",
+      stats: activeEntry?.equipment
+        ? [
+            {
+              icon: "power",
+              label: "Power",
+              value: `${activeEntry.equipment.maxPower}W`,
+            },
+          ]
+        : undefined,
+    });
+  }
+
+  if (primaryAntenna) {
+    items.push({
+      key: "antenna",
+      title: primaryAntenna.name,
+      subtitle: `${primaryAntenna.heightMeters}m ${primaryAntenna.antennaType}`,
+      equipmentType: "antenna",
+    });
+  }
+
+  if (primaryFeedline) {
+    items.push({
+      key: "feedline",
+      title: primaryFeedline.name,
+      subtitle: `${primaryFeedline.lengthFeet}ft ${primaryFeedline.feedlineType}`,
+      equipmentType: "feedline",
+      stats: [
+        {
+          icon: "length",
+          label: "Length",
+          value: `${primaryFeedline.lengthFeet}ft`,
+        },
+      ],
+    });
+  }
+
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
@@ -97,38 +109,15 @@ export function EquipmentSummary() {
       </h3>
 
       <div className={isMobile ? "space-y-2" : "grid grid-cols-3 gap-3"}>
-        {radioName && (
-          <EquipmentCard
-            icon={"\u{1F4FB}"} // radio
-            label="Radio"
-            name={radioName}
-            detail={
-              activeEntry?.equipment
-                ? `${activeEntry.equipment.maxPower}W`
-                : undefined
-            }
+        {items.map((item) => (
+          <EquipmentCardSm
+            key={item.key}
+            title={item.title}
+            subtitle={item.subtitle}
+            equipmentType={item.equipmentType}
+            stats={item.stats}
           />
-        )}
-
-        {primaryAntenna && (
-          <EquipmentCard
-            icon={"\u{1F4E1}"} // satellite antenna
-            label="Antenna"
-            name={primaryAntenna.name}
-            detail={`${primaryAntenna.heightMeters}m ${primaryAntenna.antennaType}`}
-            extraCount={antennas.length > 1 ? antennas.length - 1 : 0}
-          />
-        )}
-
-        {primaryFeedline && (
-          <EquipmentCard
-            icon={"\u{1F50C}"} // electric plug
-            label="Feedline"
-            name={primaryFeedline.name}
-            detail={`${primaryFeedline.lengthFeet}ft ${primaryFeedline.feedlineType}`}
-            extraCount={feedlines.length > 1 ? feedlines.length - 1 : 0}
-          />
-        )}
+        ))}
       </div>
     </div>
   );

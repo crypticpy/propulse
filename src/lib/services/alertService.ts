@@ -12,12 +12,17 @@ import type {
   AlertSource,
 } from "@/types/alerts";
 import type { SolarProbabilities } from "@/lib/api/types";
+import type { GreylineStatus } from "@/lib/utils/greyline";
+import type { BandOpening } from "@/lib/services/bandOpeningDetector";
+import { getBandOpeningPriority } from "@/lib/services/bandOpeningDetector";
 import {
   KP_THRESHOLDS,
   BZ_THRESHOLDS,
   FLARE_THRESHOLDS,
   PROTON_THRESHOLDS,
   ALERT_EXPIRY_HOURS,
+  GREYLINE_THRESHOLDS,
+  BAND_OPENING_THRESHOLDS,
   getAffectedBands,
   getDegradationDescription,
 } from "@/constants/alertThresholds";
@@ -321,6 +326,83 @@ export function evaluateProtonAlert(
     source: "PROTON_FLUX" as AlertSource,
     thresholdValue: PROTON_THRESHOLDS.infoThreshold,
     currentValue: protonProb,
+  };
+}
+
+/**
+ * Evaluate greyline status and generate alert when approaching sunrise/sunset
+ * @param status - Current greyline status from getGreylineStatus()
+ * @param affectedBands - Low bands that benefit from greyline (pre-filtered)
+ * @returns Partial SolarAlert if greyline is active, null otherwise
+ */
+export function evaluateGreylineAlert(
+  status: GreylineStatus,
+  affectedBands: string[],
+): Partial<SolarAlert> | null {
+  if (!status.isActive) return null;
+
+  const priority: AlertPriority =
+    status.intensity === "peak" ? "WARNING" : "INFO";
+  const eventLabel = status.nextEventType === "sunrise" ? "sunrise" : "sunset";
+  const minutesLabel =
+    status.minutesToNextEvent !== null
+      ? `${status.minutesToNextEvent} min to ${eventLabel}`
+      : eventLabel;
+
+  const title =
+    status.intensity === "peak" ? "Greyline Active" : "Greyline Approaching";
+
+  const message =
+    status.intensity === "peak"
+      ? `Peak greyline propagation now — ${minutesLabel}. Low bands (${affectedBands.join(", ")}) enhanced for DX.`
+      : `Greyline approaching — ${minutesLabel}. Low-band propagation will improve for ${affectedBands.join(", ")}.`;
+
+  return {
+    type: "GREYLINE_APPROACHING",
+    priority,
+    title,
+    message,
+    affectedBands,
+    source: "GREYLINE",
+    thresholdValue: GREYLINE_THRESHOLDS.enhancedMinutes,
+    currentValue: status.minutesToNextEvent ?? 0,
+  };
+}
+
+/**
+ * Evaluate a band opening and generate alert
+ * @param opening - Band opening detected by BandOpeningDetector
+ * @returns Partial SolarAlert for the band opening
+ */
+export function evaluateBandOpeningAlert(
+  opening: BandOpening,
+): Partial<SolarAlert> | null {
+  if (!opening.isActive) return null;
+
+  // Map detector priority to alert priority
+  const detectorPriority = getBandOpeningPriority(opening.band);
+  const priority: AlertPriority =
+    detectorPriority === "critical" ? "WARNING" : "INFO";
+
+  const title = `${opening.band} Band Opening`;
+
+  // Build a rich message
+  const fromName = opening.fromRegion;
+  const toName = opening.toRegion;
+  const spotInfo = `${opening.spotCount} spots`;
+  const snrInfo =
+    opening.averageSNR !== 0 ? ` — avg SNR ${opening.averageSNR} dB` : "";
+  const message = `${opening.band} open between ${fromName} and ${toName}. ${spotInfo}${snrInfo}. Get on the air!`;
+
+  return {
+    type: "BAND_OPENING",
+    priority,
+    title,
+    message,
+    affectedBands: [opening.band],
+    source: "SPOT_DETECTOR",
+    thresholdValue: BAND_OPENING_THRESHOLDS.minSpots,
+    currentValue: opening.spotCount,
   };
 }
 

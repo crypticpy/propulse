@@ -45,6 +45,8 @@ import {
   evaluateKpAlert,
   evaluateBzAlert,
   evaluateFlareAlert,
+  evaluateGreylineAlert,
+  evaluateBandOpeningAlert,
   buildCompleteAlert,
   shouldResolveAlert,
 } from "@/lib/services/alertService";
@@ -52,9 +54,21 @@ import {
   KP_THRESHOLDS,
   BZ_THRESHOLDS,
   FLARE_THRESHOLDS,
+  GREYLINE_THRESHOLDS,
+  BAND_OPENING_THRESHOLDS,
 } from "@/constants/alertThresholds";
 import type { SolarAlert } from "@/types/alerts";
 import { isQuietHours } from "@/lib/utils/time";
+import { useActiveLocation } from "@/hooks/useActiveLocation";
+import {
+  getGreylineStatus,
+  isGreylineActiveForBand,
+  GREYLINE_LOW_BANDS,
+  type GreylineIntensity,
+} from "@/lib/utils/greyline";
+import { getBandOpeningDetector } from "@/lib/services/bandOpeningService";
+import { playSolarAlertSound } from "@/lib/services/watchAudioService";
+import type { BandId } from "@/types/user";
 
 // =============================================================================
 // CONFIGURATION CONSTANTS
@@ -158,6 +172,12 @@ export function useSolarAlerts(
   const previousMProb = useRef<number | null>(null);
   const previousXProb = useRef<number | null>(null);
 
+  /**
+   * Track previous greyline intensity to detect transitions
+   * Only fires when intensity changes from none/normal → enhanced/peak
+   */
+  const previousGreylineIntensity = useRef<GreylineIntensity>("none");
+
   // =========================================================================
   // SOLAR DATA QUERIES
   // =========================================================================
@@ -173,6 +193,8 @@ export function useSolarAlerts(
   const notificationPrefs = useUserStore(
     (state) => state.preferences.notifications,
   );
+
+  const activeLocation = useActiveLocation();
 
   // =========================================================================
   // ALERT STORE STATE AND ACTIONS
@@ -392,6 +414,7 @@ export function useSolarAlerts(
               const completeAlert = buildCompleteAlert(partialAlert);
               addAlert(completeAlert);
               recordAlertFired("GEOMAGNETIC_STORM");
+              playSolarAlertSound(completeAlert.priority);
             }
           }
         } else {
@@ -451,6 +474,7 @@ export function useSolarAlerts(
               const completeAlert = buildCompleteAlert(partialAlert);
               addAlert(completeAlert);
               recordAlertFired("IMF_SOUTHWARD");
+              playSolarAlertSound(completeAlert.priority);
             }
           }
         } else {
@@ -511,6 +535,7 @@ export function useSolarAlerts(
             const completeAlert = buildCompleteAlert(partialAlert);
             addAlert(completeAlert);
             recordAlertFired("SOLAR_FLARE");
+            playSolarAlertSound(completeAlert.priority);
           }
         }
       } else {
@@ -553,6 +578,140 @@ export function useSolarAlerts(
     isDataFresh,
     hasCrossedThresholdUp,
     hasCrossedThresholdDown,
+  ]);
+
+  // =========================================================================
+  // GREYLINE MONITORING
+  // =========================================================================
+
+  /**
+   * Polls greyline status every 60 seconds and fires an alert when intensity
+   * transitions from inactive (none/normal) to active (enhanced/peak).
+   * Uses a separate interval since greyline changes slowly compared to solar data.
+   */
+  useEffect(() => {
+    if (!enabled || notificationPrefs?.greylineAlerts === false) return;
+
+    const checkGreyline = () => {
+      if (!activeLocation) return;
+
+      const quietStart = notificationPrefs?.quietHoursStart;
+      const quietEnd = notificationPrefs?.quietHoursEnd;
+      if (isQuietHours(quietStart, quietEnd)) return;
+
+      const status = getGreylineStatus(
+        activeLocation.lat,
+        activeLocation.lon,
+        new Date(),
+      );
+
+      // Auto-resolve when greyline becomes inactive
+      if (!status.isActive) {
+        const activeGreylineAlert = getActiveAlerts().find(
+          (a) => a.type === "GREYLINE_APPROACHING",
+        );
+        if (activeGreylineAlert) {
+          resolveAlert(activeGreylineAlert.id);
+        }
+        previousGreylineIntensity.current = status.intensity;
+        return;
+      }
+
+      // Only alert on transition from inactive → active
+      const wasInactive =
+        previousGreylineIntensity.current === "none" ||
+        previousGreylineIntensity.current === "normal";
+      const noActiveAlert = !hasActiveAlertOfType("GREYLINE_APPROACHING");
+      const notInCooldown = !isInCooldown(
+        "GREYLINE_APPROACHING",
+        GREYLINE_THRESHOLDS.cooldownMs,
+      );
+
+      if (wasInactive && noActiveAlert && notInCooldown) {
+        const bands = GREYLINE_LOW_BANDS.filter((b) =>
+          isGreylineActiveForBand(b, status.intensity),
+        );
+        const partial = evaluateGreylineAlert(status, [...bands]);
+        if (partial) {
+          const alert = buildCompleteAlert(partial);
+          addAlert(alert);
+          recordAlertFired("GREYLINE_APPROACHING");
+          playSolarAlertSound(alert.priority);
+        }
+      }
+
+      previousGreylineIntensity.current = status.intensity;
+    };
+
+    // Delay initial check to let data stabilize after mount
+    const initialTimeout = setTimeout(checkGreyline, 5_000);
+    const interval = setInterval(checkGreyline, 60_000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [
+    enabled,
+    notificationPrefs?.greylineAlerts,
+    notificationPrefs?.quietHoursStart,
+    notificationPrefs?.quietHoursEnd,
+    activeLocation,
+    addAlert,
+    resolveAlert,
+    getActiveAlerts,
+    hasActiveAlertOfType,
+    isInCooldown,
+    recordAlertFired,
+  ]);
+
+  // =========================================================================
+  // BAND OPENING MONITORING
+  // =========================================================================
+
+  /**
+   * Subscribes to the shared BandOpeningDetector singleton.
+   * When a band opening is detected, fires an alert if the opened band is
+   * in the user's monitored bands list and not in cooldown.
+   */
+  useEffect(() => {
+    if (!enabled || notificationPrefs?.bandOpeningAlerts === false) return;
+    const monitoredBands: BandId[] = notificationPrefs?.bandOpeningBands ?? [];
+    if (monitoredBands.length === 0) return;
+
+    const detector = getBandOpeningDetector();
+
+    const unsub = detector.subscribe((opening) => {
+      const quietStart = notificationPrefs?.quietHoursStart;
+      const quietEnd = notificationPrefs?.quietHoursEnd;
+      if (isQuietHours(quietStart, quietEnd)) return;
+
+      // Only alert for bands the user selected
+      if (!monitoredBands.includes(opening.band as BandId)) return;
+
+      // Per-band cooldown using composite key
+      const cooldownKey = `BAND_OPENING_${opening.band}`;
+      if (isInCooldown(cooldownKey, BAND_OPENING_THRESHOLDS.cooldownMs)) return;
+
+      const partial = evaluateBandOpeningAlert(opening);
+      if (partial) {
+        const alert = buildCompleteAlert(partial);
+        addAlert(alert);
+        recordAlertFired(cooldownKey);
+        playSolarAlertSound(alert.priority);
+      }
+    });
+
+    return unsub;
+  }, [
+    enabled,
+    notificationPrefs?.bandOpeningAlerts,
+    notificationPrefs?.bandOpeningBands,
+    notificationPrefs?.quietHoursStart,
+    notificationPrefs?.quietHoursEnd,
+    addAlert,
+    isInCooldown,
+    recordAlertFired,
   ]);
 
   // =========================================================================

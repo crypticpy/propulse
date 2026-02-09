@@ -106,6 +106,40 @@ export const PROTON_THRESHOLDS: AlertThreshold = {
 };
 
 // =============================================================================
+// GREYLINE THRESHOLDS
+// =============================================================================
+
+/**
+ * Greyline alert thresholds
+ * Based on minutes until sunrise/sunset at user's QTH
+ * Enhanced (30 min) = good low-band propagation window approaching
+ * Peak (15 min) = optimal greyline propagation happening now
+ */
+export const GREYLINE_THRESHOLDS = {
+  type: "GREYLINE_APPROACHING" as AlertType,
+  enhancedMinutes: 30, // INFO: greyline approaching
+  peakMinutes: 15, // WARNING: peak greyline propagation
+  cooldownMs: 2 * 60 * MINUTE, // 2-hour cooldown between alerts
+  expiryHours: 1,
+};
+
+// =============================================================================
+// BAND OPENING THRESHOLDS
+// =============================================================================
+
+/**
+ * Band opening alert thresholds
+ * Triggered when BandOpeningDetector finds cross-continental activity
+ * Cooldown is per-band to avoid spam but allow different bands to alert
+ */
+export const BAND_OPENING_THRESHOLDS = {
+  type: "BAND_OPENING" as AlertType,
+  minSpots: 5, // minimum cross-continental spots to trigger
+  cooldownMs: 30 * MINUTE, // 30-min cooldown per band
+  expiryHours: 1,
+};
+
+// =============================================================================
 // BAND DEGRADATION MAP
 // =============================================================================
 
@@ -167,6 +201,8 @@ export const ALERT_EXPIRY_HOURS: Record<AlertType, number> = {
   PROTON_EVENT: 12, // Proton events can last longer
   IMF_SOUTHWARD: 2, // IMF changes frequently
   AURORA_WARNING: 6, // Aurora can last hours
+  GREYLINE_APPROACHING: 1, // Greyline window is brief
+  BAND_OPENING: 1, // Band openings can be fleeting
 };
 
 // =============================================================================
@@ -184,6 +220,8 @@ export const ALERT_ICONS: Record<AlertType, string> = {
   PROTON_EVENT: "\u2622\uFE0F", // radioactive
   IMF_SOUTHWARD: "\u{1F9F2}", // magnet
   AURORA_WARNING: "\u{1F30C}", // milky way
+  GREYLINE_APPROACHING: "\u{1F305}", // sunrise
+  BAND_OPENING: "\u{1F4E1}", // satellite antenna (band activity)
 };
 
 // =============================================================================

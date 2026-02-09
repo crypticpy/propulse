@@ -17,7 +17,9 @@ export type AlertType =
   | "BAND_DEGRADATION" // Specific bands affected by conditions
   | "PROTON_EVENT" // Solar proton event affecting polar paths
   | "IMF_SOUTHWARD" // Bz strongly negative
-  | "AURORA_WARNING"; // High latitude aurora activity
+  | "AURORA_WARNING" // High latitude aurora activity
+  | "GREYLINE_APPROACHING" // Greyline nearing user's QTH
+  | "BAND_OPENING"; // Band opening detected on monitored band
 
 /**
  * Alert severity levels
@@ -38,6 +40,8 @@ export type AlertSource =
   | "SOLAR_FLUX"
   | "FLARE_PROBABILITY"
   | "PROTON_FLUX"
+  | "GREYLINE"
+  | "SPOT_DETECTOR"
   | "MANUAL";
 
 // =============================================================================

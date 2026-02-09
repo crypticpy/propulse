@@ -13,6 +13,7 @@
  */
 
 import type { WatchAlertType } from "@/types/user";
+import type { AlertPriority } from "@/types/alerts";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isQuietHours } from "@/lib/utils/time";
 
@@ -194,6 +195,34 @@ const SOUND_CONFIGS: Record<WatchAlertType, SoundConfig> = {
 };
 
 /**
+ * Sound configurations for solar/propagation alert priorities
+ *
+ * - WARNING: Descending two-tone (attention, something important)
+ * - INFO: Single gentle ping (informational, not urgent)
+ * - CRITICAL: Urgent triple-pulse (rarely used, demands attention)
+ */
+const SOLAR_ALERT_SOUNDS: Record<AlertPriority, SoundConfig> = {
+  INFO: {
+    frequencies: [587.33], // D5 — single gentle ping
+    durations: [0.2],
+    waveType: "sine",
+    gap: 0,
+  },
+  WARNING: {
+    frequencies: [659.25, 523.25], // E5, C5 — descending attention
+    durations: [0.15, 0.2],
+    waveType: "triangle",
+    gap: 0.06,
+  },
+  CRITICAL: {
+    frequencies: [880, 880, 880], // A5 × 3 — urgent triple pulse
+    durations: [0.1, 0.1, 0.15],
+    waveType: "square",
+    gap: 0.08,
+  },
+};
+
+/**
  * Play an oscillator note with envelope
  */
 function playNote(
@@ -282,6 +311,50 @@ export async function playAlertSound(type: WatchAlertType): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Failed to play alert sound:", error);
+    return false;
+  }
+}
+
+/**
+ * Play a solar/propagation alert sound based on priority level
+ * @param priority - Alert priority (INFO, WARNING, CRITICAL)
+ * @returns Promise that resolves to true if sound played
+ */
+export async function playSolarAlertSound(
+  priority: AlertPriority,
+): Promise<boolean> {
+  if (isMuted) return false;
+
+  const { notifications } = useSettingsStore.getState();
+  if (notifications?.soundEnabled === false) return false;
+  if (
+    isQuietHours(notifications?.quietHoursStart, notifications?.quietHoursEnd)
+  )
+    return false;
+
+  const isRunning = await ensureAudioContextRunning();
+  if (!isRunning || !audioState.context || !audioState.gainNode) return false;
+
+  const { context, gainNode } = audioState;
+  const config = SOLAR_ALERT_SOUNDS[priority];
+  if (!config) return false;
+
+  try {
+    let currentTime = context.currentTime + 0.02;
+    for (let i = 0; i < config.frequencies.length; i++) {
+      playNote(
+        context,
+        gainNode,
+        config.frequencies[i],
+        currentTime,
+        config.durations[i],
+        config.waveType,
+      );
+      currentTime += config.durations[i] + config.gap;
+    }
+    return true;
+  } catch (error) {
+    console.error("Failed to play solar alert sound:", error);
     return false;
   }
 }

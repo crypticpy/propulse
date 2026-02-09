@@ -43,9 +43,10 @@ import {
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { detectEsOpening, type EsDetection } from "@/lib/utils/sporadicE";
 import {
-  BandOpeningDetector,
+  type BandOpeningDetector,
   type BandOpening,
 } from "@/lib/services/bandOpeningDetector";
+import { getBandOpeningDetector } from "@/lib/services/bandOpeningService";
 
 interface BandConditionsPanelProps {
   displayTime: Date;
@@ -452,9 +453,9 @@ export function BandConditionsPanel({
   const bandOpeningDetectorRef = useRef<BandOpeningDetector | null>(null);
   const [activeOpenings, setActiveOpenings] = useState<BandOpening[]>([]);
 
-  // Initialize the band opening detector once
+  // Initialize the band opening detector (shared singleton)
   useEffect(() => {
-    const detector = new BandOpeningDetector();
+    const detector = getBandOpeningDetector();
     bandOpeningDetectorRef.current = detector;
 
     const unsub = detector.subscribe(() => {
@@ -463,7 +464,7 @@ export function BandConditionsPanel({
 
     return () => {
       unsub();
-      detector.destroy();
+      // Don't destroy — singleton persists across components
     };
   }, []);
 

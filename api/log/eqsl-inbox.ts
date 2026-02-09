@@ -18,6 +18,18 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
+/** Reject browser requests from unauthorized origins */
+function validateOrigin(request: Request): Response | null {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== getAllowedOrigin()) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 function jsonResponse(
   body: unknown,
   status: number,
@@ -48,6 +60,9 @@ export default async function handler(request: Request): Promise<Response> {
       },
     });
   }
+
+  const originError = validateOrigin(request);
+  if (originError) return originError;
 
   let username: string | null = null;
   let password: string | null = null;

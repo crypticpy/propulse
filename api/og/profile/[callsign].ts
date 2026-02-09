@@ -51,16 +51,16 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
   let operatorName = "";
   let grid = "";
   let qsoCount = "";
 
   // Fetch profile data from Supabase if configured
-  if (supabaseUrl && supabaseServiceKey) {
+  if (supabaseUrl && supabaseAnonKey) {
     try {
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
       const { data: profile } = await supabase
         .from("profiles")

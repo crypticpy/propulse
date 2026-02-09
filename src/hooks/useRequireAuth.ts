@@ -15,6 +15,11 @@ export function useRequireAuth() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
 
+  // NOTE: When Supabase is not configured (!isSupabaseConfigured), auth
+  // is bypassed entirely. This is intentional — it allows the app to
+  // run in anonymous/offline mode without a backend. All data stays
+  // local (localStorage + IndexedDB). Server sync only activates when
+  // both Supabase is configured AND the user is authenticated.
   return useCallback(
     (callback: () => void, prompt?: string) => {
       if (!isSupabaseConfigured || isAuthenticated) {

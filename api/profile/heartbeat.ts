@@ -15,6 +15,18 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
+/** Reject browser requests from unauthorized origins */
+function validateOrigin(request: Request): Response | null {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== getAllowedOrigin()) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -33,6 +45,9 @@ export default async function handler(request: Request): Promise<Response> {
     return jsonResponse({}, 204);
   }
 
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -47,17 +62,19 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseServiceKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     return jsonResponse({ error: "Server misconfiguration" }, 500);
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify the user's JWT to extract the user ID
     const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+
+    // Verify the user's JWT
     const {
       data: { user },
       error: authError,

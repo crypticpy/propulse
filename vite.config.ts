@@ -496,7 +496,9 @@ export default defineConfig({
         navigateFallback: "/index.html",
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\/api\//,
+            // Cache public data APIs only — exclude credential-forwarding endpoints
+            urlPattern:
+              /^https:\/\/.*\/api\/(?!log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
             handler: "NetworkFirst",
             options: {
               cacheName: "api-cache",

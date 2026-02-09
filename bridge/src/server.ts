@@ -583,6 +583,17 @@ function handleRigSetPTT(
 // Server Setup
 // ============================================================================
 
+/**
+ * Start the WebSocket server.
+ *
+ * SECURITY MODEL: The bridge binds exclusively to localhost (127.0.0.1/::1).
+ * This means only processes on the same machine can connect. No authentication
+ * is required because:
+ * 1. Localhost binding prevents remote connections entirely
+ * 2. The bridge controls local rig hardware (CAT/CI-V) — no sensitive data
+ * 3. Adding auth would complicate the setup for ham operators
+ * If network-exposed operation is ever needed, add token-based auth first.
+ */
 function startServer(): void {
   const config = loadConfig();
 

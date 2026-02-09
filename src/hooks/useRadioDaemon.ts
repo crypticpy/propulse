@@ -420,6 +420,8 @@ export function useRadioDaemon(
         data?: ArrayBuffer;
       };
 
+      if (typeof msg.source !== "string" || typeof msg.type !== "string")
+        return;
       if (msg.source !== BRIDGE_SOURCE_TO_PAGE) return;
 
       const sessionId = msg.sessionId;

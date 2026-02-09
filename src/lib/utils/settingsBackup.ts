@@ -32,6 +32,43 @@ import type { StationChain } from "@/types/stationChain";
 /** Current backup format version */
 const CURRENT_VERSION = 1;
 
+/** Allowlisted keys for each backup section to prevent state injection */
+const ALLOWED_SETTINGS_KEYS = new Set([
+  "units",
+  "timeFormat",
+  "theme",
+  "ituRegion",
+  "licenseClass",
+  "textScale",
+  "colorBlindMode",
+  "noiseEnvironment",
+  "antennaType",
+  "bridgeEnabled",
+  "preferTestedSpecs",
+  "favoredBands",
+  "bandPresets",
+  "notifications",
+  "spotClustering",
+  "compassRose",
+  "spotAge",
+  "watchAlerts",
+  "uiInteraction",
+  "forecastDisplay",
+]);
+
+function sanitizeObject<T extends Record<string, unknown>>(
+  obj: T,
+  allowedKeys: Set<string>,
+): Partial<T> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(obj)) {
+    if (allowedKeys.has(key)) {
+      result[key] = obj[key];
+    }
+  }
+  return result as Partial<T>;
+}
+
 /**
  * Backup data structure containing all exportable settings
  */
@@ -346,7 +383,11 @@ export function importSettings(backup: SettingsBackup): ImportResult {
           station: _station,
           ...settingsFields
         } = prefs as Record<string, unknown>;
-        useSettingsStore.getState().updatePreferences(settingsFields as never);
+        const sanitized = sanitizeObject(
+          settingsFields as Record<string, unknown>,
+          ALLOWED_SETTINGS_KEYS,
+        );
+        useSettingsStore.getState().updatePreferences(sanitized as never);
 
         // Route to shack store
         if (
@@ -390,11 +431,15 @@ export function importSettings(backup: SettingsBackup): ImportResult {
         // Clear existing targets and add imported ones
         profileStore.clearTargets();
         for (const target of backup.userPreferences.savedTargets) {
+          if (typeof target.lat !== "number" || typeof target.lon !== "number")
+            continue;
+          if (!Number.isFinite(target.lat) || !Number.isFinite(target.lon))
+            continue;
           profileStore.addTarget({
-            name: target.name,
+            name: String(target.name ?? ""),
             lat: target.lat,
             lon: target.lon,
-            grid: target.grid,
+            grid: target.grid ? String(target.grid) : undefined,
           });
         }
       }
@@ -475,15 +520,18 @@ export function importSettings(backup: SettingsBackup): ImportResult {
 
       // Add imported pins
       for (const pin of backup.pins) {
+        if (typeof pin.lat !== "number" || typeof pin.lon !== "number")
+          continue;
+        if (!Number.isFinite(pin.lat) || !Number.isFinite(pin.lon)) continue;
         pinStore.addPin({
           lat: pin.lat,
           lon: pin.lon,
-          grid: pin.grid,
-          name: pin.name,
-          color: pin.color,
-          category: pin.category,
-          notes: pin.notes,
-          expiresAt: pin.expiresAt,
+          grid: pin.grid ? String(pin.grid) : "",
+          name: pin.name ? String(pin.name) : undefined,
+          color: pin.color ? String(pin.color) : undefined,
+          category: pin.category as MapPin["category"],
+          notes: pin.notes ? String(pin.notes) : undefined,
+          expiresAt: pin.expiresAt ? String(pin.expiresAt) : undefined,
         });
       }
 

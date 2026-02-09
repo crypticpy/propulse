@@ -398,6 +398,7 @@ function SpotArc({
   segments = 30,
   ageVisualizationEnabled = true,
   colorMode = "mode",
+  sizeScale = 1.0,
 }: {
   spot: ResolvedSpot;
   segments?: number;
@@ -405,6 +406,8 @@ function SpotArc({
   ageVisualizationEnabled?: boolean;
   /** Spot color mode: "mode" or "band" */
   colorMode?: SpotColorMode;
+  /** Scale multiplier for line width (from spotDotScale) */
+  sizeScale?: number;
 }) {
   // Validate coordinates to prevent NaN errors in THREE.js
   const hasValidCoords =
@@ -449,7 +452,8 @@ function SpotArc({
   // Calculate age-based opacity using new getSpotAgeInfo
   const ageInfo = useMemo(() => getSpotAgeInfo(spot.time), [spot.time]);
   const opacity = ageVisualizationEnabled ? ageInfo.opacity : 1.0;
-  const lineWidth = ageVisualizationEnabled ? 1.5 * ageInfo.scale : 1.5;
+  const lineWidth =
+    (ageVisualizationEnabled ? 1.5 * ageInfo.scale : 1.5) * sizeScale;
 
   // Return null for invalid coordinates or insufficient points
   if (!hasValidCoords || points.length < 2) {
@@ -589,6 +593,7 @@ export function LiveSpotArcs({
         const labelPositions: Array<{ lat: number; lon: number }> = [];
 
         const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
+        const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
 
         return resolvedSingles.map((spot) => {
           const color = getSpotColor(spot, colorMode);
@@ -622,13 +627,14 @@ export function LiveSpotArcs({
                 spot={spot}
                 ageVisualizationEnabled={spotAgePrefs.enabled}
                 colorMode={colorMode}
+                sizeScale={spotDotScale}
               />
               {/* Endpoint markers with age-based styling */}
               <SpotEndpoint
                 lat={spot.spotterLat}
                 lon={spot.spotterLon}
                 color={color}
-                size={0.006}
+                size={0.006 * spotDotScale}
                 opacity={endpointOpacity}
                 scale={endpointScale}
               />
@@ -636,7 +642,7 @@ export function LiveSpotArcs({
                 lat={spot.dxLat}
                 lon={spot.dxLon}
                 color={color}
-                size={0.008}
+                size={0.008 * spotDotScale}
                 opacity={endpointOpacity}
                 scale={endpointScale}
               />

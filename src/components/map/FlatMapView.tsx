@@ -50,12 +50,14 @@ import { WatchListPanel } from "./WatchListPanel";
 import { WatchIndicator } from "./WatchIndicator";
 import { latLonToGrid, gridToLatLon } from "@/lib/utils/grid";
 import { usePinStore } from "@/stores/pinStore";
+import { useUndoStore } from "@/stores/undoStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
+import { MapSizeSliders } from "./MapSizeSliders";
 import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
@@ -666,6 +668,7 @@ function drawMarker(
   width: number = MAP_WIDTH,
   height: number = MAP_HEIGHT,
   highViz = false,
+  pinScale = 1.0,
 ) {
   const { x, y } = latLonToCanvas(lat, lon, width, height);
 
@@ -675,7 +678,7 @@ function drawMarker(
   ctx.arc(
     x,
     y,
-    isHome ? (highViz ? 14 : 10) : highViz ? 18 : 14,
+    Math.round((isHome ? (highViz ? 14 : 10) : highViz ? 18 : 14) * pinScale),
     0,
     Math.PI * 2,
   );
@@ -684,7 +687,13 @@ function drawMarker(
   // Inner dot
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.arc(x, y, isHome ? (highViz ? 7 : 5) : highViz ? 10 : 7, 0, Math.PI * 2);
+  ctx.arc(
+    x,
+    y,
+    Math.round((isHome ? (highViz ? 7 : 5) : highViz ? 10 : 7) * pinScale),
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
 
   // Pulsing ring for target
@@ -692,7 +701,7 @@ function drawMarker(
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, highViz ? 16 : 12, 0, Math.PI * 2);
+    ctx.arc(x, y, Math.round((highViz ? 16 : 12) * pinScale), 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -934,6 +943,7 @@ function drawSpotArc(
   height: number,
   colorMode: SpotColorMode = "mode",
   highViz = false,
+  spotDotScale = 1.0,
 ) {
   const color = getSpotColor(spot, colorMode);
   const opacity = 1;
@@ -957,7 +967,7 @@ function drawSpotArc(
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = color;
-  ctx.lineWidth = highViz ? 3 : 1.5;
+  ctx.lineWidth = Math.round((highViz ? 3 : 1.5) * spotDotScale);
   ctx.lineCap = "round";
 
   if (wrapAround) {
@@ -1008,20 +1018,38 @@ function drawSpotArc(
   // Draw endpoint markers with distinct source/target styling
   // Spotter (source): hollow ring — reads as origin/transmitter
   ctx.beginPath();
-  ctx.arc(start.x, start.y, highViz ? 5 : 3.5, 0, Math.PI * 2);
+  ctx.arc(
+    start.x,
+    start.y,
+    Math.round((highViz ? 5 : 3.5) * spotDotScale),
+    0,
+    Math.PI * 2,
+  );
   ctx.strokeStyle = color;
-  ctx.lineWidth = highViz ? 2 : 1.5;
+  ctx.lineWidth = Math.round((highViz ? 2 : 1.5) * spotDotScale);
   ctx.stroke();
 
   // DX (target): filled circle with white outer ring — reads as destination
   ctx.beginPath();
-  ctx.arc(end.x, end.y, highViz ? 5 : 4, 0, Math.PI * 2);
+  ctx.arc(
+    end.x,
+    end.y,
+    Math.round((highViz ? 5 : 4) * spotDotScale),
+    0,
+    Math.PI * 2,
+  );
   ctx.fillStyle = color;
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(end.x, end.y, highViz ? 7 : 5.5, 0, Math.PI * 2);
+  ctx.arc(
+    end.x,
+    end.y,
+    Math.round((highViz ? 7 : 5.5) * spotDotScale),
+    0,
+    Math.PI * 2,
+  );
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.lineWidth = highViz ? 1.5 : 1;
+  ctx.lineWidth = Math.round((highViz ? 1.5 : 1) * spotDotScale);
   ctx.stroke();
 
   ctx.restore();
@@ -1037,9 +1065,10 @@ function drawSpotArcs(
   height: number,
   colorMode: SpotColorMode = "mode",
   highViz = false,
+  spotDotScale = 1.0,
 ) {
   for (const spot of spots) {
-    drawSpotArc(ctx, spot, width, height, colorMode, highViz);
+    drawSpotArc(ctx, spot, width, height, colorMode, highViz, spotDotScale);
   }
 }
 
@@ -2114,18 +2143,19 @@ function drawPin(
   isHovered: boolean,
   width: number,
   height: number,
+  pinScale = 1.0,
 ) {
   const { x, y } = latLonToCanvas(lat, lon, width, height);
 
   // Outer glow (larger when hovered)
-  const glowRadius = isHovered ? 10 : 7;
+  const glowRadius = Math.round((isHovered ? 10 : 7) * pinScale);
   ctx.fillStyle = color + "30";
   ctx.beginPath();
   ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
   ctx.fill();
 
   // Inner filled circle
-  const innerRadius = isHovered ? 5 : 4;
+  const innerRadius = Math.round((isHovered ? 5 : 4) * pinScale);
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
@@ -2244,12 +2274,15 @@ export function FlatMapView({
     preferences?.uiInteraction?.spotColorMode ?? "mode";
   const highViz = preferences?.uiInteraction?.visualStyle === "high-viz";
   const holdDurationMs = preferences?.uiInteraction?.holdDurationMs ?? 500;
+  const spotDotScale = preferences?.uiInteraction?.spotDotScale ?? 1.0;
+  const mapPinScale = preferences?.uiInteraction?.mapPinScale ?? 1.0;
 
   // Award progress for WAS overlay (only compute when enabled)
   const { wasStates } = useAwardProgress(labelOptions.wasOverlay);
 
   // Pin store
-  const { addPin } = usePinStore();
+  const { addPin, removePin, getPinById } = usePinStore();
+  const { pushAction } = useUndoStore();
   const pins = usePinStore((state) => state.pins);
 
   // DX stores
@@ -2645,6 +2678,22 @@ export function FlatMapView({
     setAddPinData({ lat: pin.lat, lon: pin.lon, grid: pin.grid });
     setHoveredPinData(null);
   }, []);
+
+  // Handle delete pin from PinFlyout
+  const handleDeletePinFromFlyout = useCallback(() => {
+    if (!hoveredPinData) return;
+    const pin = getPinById(hoveredPinData.pin.id);
+    if (pin) {
+      pushAction({
+        type: "DELETE_PIN",
+        pinId: pin.id,
+        pinData: pin,
+        description: `Deleted pin "${pin.name || pin.grid}"`,
+      });
+      removePin(pin.id);
+    }
+    setHoveredPinData(null);
+  }, [hoveredPinData, getPinById, pushAction, removePin]);
 
   // Handle set target from PinFlyout
   const handleSetTargetFromFlyout = useCallback(
@@ -3476,6 +3525,7 @@ export function FlatMapView({
         renderHeight,
         spotColorMode,
         highViz,
+        spotDotScale,
       );
     }
 
@@ -3525,6 +3575,7 @@ export function FlatMapView({
           renderHeight,
           spotColorMode,
           true, // force high-viz style for highlight
+          spotDotScale,
         );
         ctx.restore();
       }
@@ -3561,6 +3612,7 @@ export function FlatMapView({
         renderWidth,
         renderHeight,
         highViz,
+        mapPinScale,
       );
     }
 
@@ -3582,6 +3634,7 @@ export function FlatMapView({
         renderWidth,
         renderHeight,
         highViz,
+        mapPinScale,
       );
     }
 
@@ -3599,6 +3652,7 @@ export function FlatMapView({
           hoveredPinData?.pin.id === pin.id,
           renderWidth,
           renderHeight,
+          mapPinScale,
         );
       }
     }
@@ -3644,6 +3698,8 @@ export function FlatMapView({
     showSpotterLabels,
     spotColorMode,
     highViz,
+    spotDotScale,
+    mapPinScale,
     mapStyle,
     wasStates,
   ]);
@@ -3763,6 +3819,9 @@ export function FlatMapView({
         <WatchIndicator onClick={() => setWatchListOpen(true)} />
       </div>
 
+      {/* Spot & pin size sliders - bottom left corner */}
+      <MapSizeSliders />
+
       {/* Bearing/Distance overlay - shown when hovering over the map */}
       {hoverBearingDistance && (
         <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
@@ -3792,6 +3851,7 @@ export function FlatMapView({
           currentTargetGrid={target?.grid}
           onSetTarget={handleSetTargetFromFlyout}
           onEditPin={handleEditPinFromFlyout}
+          onDeletePin={handleDeletePinFromFlyout}
           onClose={handlePinFlyoutClose}
         />
       )}

@@ -336,10 +336,12 @@ export function PropagationForecastMini({
   const fadeSpan = Math.max(Math.floor(hoursToShow / 2), 1);
 
   // Caret center-on-column position (CSS calc)
+  // Band label column = w-8 (2rem), flex gap = gap-1 (0.25rem) → 2.25rem offset
+  // Grid gap = 3px (inline, pixel-based), caret width = 24px → center offset = 12px
   const totalGapPx = (hoursToShow - 1) * 3;
   const caretLeft =
     currentHourIndex >= 0
-      ? `calc(${36 + currentHourIndex * 3}px + ${2 * currentHourIndex + 1} * (100% - ${36 + totalGapPx}px) / ${2 * hoursToShow} - 18px)`
+      ? `calc(2.25rem + ${currentHourIndex * 3}px + ${2 * currentHourIndex + 1} * (100% - 2.25rem - ${totalGapPx}px) / ${2 * hoursToShow} - 12px)`
       : "0px";
 
   // Calculate target sunrise/sunset times
@@ -806,7 +808,8 @@ export function PropagationForecastMini({
         <div className="flex-1 flex flex-col min-h-0">
           {/* Heatmap row: labels + grid */}
           <div className="flex-1 flex gap-1 min-h-0 relative">
-            {/* Current hour caret markers */}
+            {/* Current hour caret markers — clip-path triangles (immune to
+                .contrast-more border-color !important overrides) */}
             {currentHourIndex >= 0 && (
               <>
                 {/* Top caret - points down */}
@@ -814,13 +817,12 @@ export function PropagationForecastMini({
                   className="absolute pointer-events-none z-20"
                   style={{
                     left: caretLeft,
-                    top: "-2px",
-                    width: 0,
-                    height: 0,
-                    borderLeft: "18px solid transparent",
-                    borderRight: "18px solid transparent",
-                    borderTop: "18px solid white",
-                    filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.9))",
+                    top: "-1px",
+                    width: 24,
+                    height: 12,
+                    backgroundColor: "white",
+                    clipPath: "polygon(0% 0%, 100% 0%, 50% 100%)",
+                    filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.9))",
                   }}
                 />
                 {/* Bottom caret - points up */}
@@ -828,12 +830,11 @@ export function PropagationForecastMini({
                   className="absolute pointer-events-none z-20"
                   style={{
                     left: caretLeft,
-                    bottom: "-2px",
-                    width: 0,
-                    height: 0,
-                    borderLeft: "18px solid transparent",
-                    borderRight: "18px solid transparent",
-                    borderBottom: "18px solid white",
+                    bottom: "-1px",
+                    width: 24,
+                    height: 12,
+                    backgroundColor: "white",
+                    clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
                     filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
                   }}
                 />
@@ -1446,12 +1447,13 @@ export function PropagationForecastMini({
                   className="absolute top-1/2 -translate-y-1/2"
                   style={{
                     [pos.side === "right" ? "left" : "right"]: -6,
-                    width: 0,
-                    height: 0,
-                    borderTop: "6px solid transparent",
-                    borderBottom: "6px solid transparent",
-                    [pos.side === "right" ? "borderRight" : "borderLeft"]:
-                      "6px solid rgba(30, 41, 59, 0.95)",
+                    width: 6,
+                    height: 12,
+                    backgroundColor: "rgba(30, 41, 59, 0.95)",
+                    clipPath:
+                      pos.side === "right"
+                        ? "polygon(100% 0%, 100% 100%, 0% 50%)"
+                        : "polygon(0% 0%, 0% 100%, 100% 50%)",
                   }}
                 />
               </div>

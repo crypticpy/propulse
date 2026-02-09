@@ -365,7 +365,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -374,10 +374,30 @@ export const useSettingsStore = create<SettingsStore>()(
           if (state.highContrast === undefined) state.highContrast = false;
         }
         if (version < 3) {
-          // Fix holdDurationMs default from 2500ms to 500ms
+          // Fix holdDurationMs — clamp any value above slider max (2000) back to default (500)
           const ui = state.uiInteraction as Record<string, unknown> | undefined;
-          if (ui?.holdDurationMs === 2500) {
+          if (
+            ui &&
+            typeof ui.holdDurationMs === "number" &&
+            ui.holdDurationMs > 2000
+          ) {
             ui.holdDurationMs = 500;
+          }
+        }
+        if (version < 4) {
+          // Re-run holdDurationMs fix for users already on v3 with stale 2500ms value
+          const ui = state.uiInteraction as Record<string, unknown> | undefined;
+          if (
+            ui &&
+            typeof ui.holdDurationMs === "number" &&
+            ui.holdDurationMs > 2000
+          ) {
+            ui.holdDurationMs = 500;
+          }
+          // Add new scale preferences with defaults
+          if (ui) {
+            if (ui.spotDotScale === undefined) ui.spotDotScale = 1.0;
+            if (ui.mapPinScale === undefined) ui.mapPinScale = 1.0;
           }
         }
         return state as unknown as SettingsState & SettingsStore;

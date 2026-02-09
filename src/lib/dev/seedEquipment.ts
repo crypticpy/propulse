@@ -218,6 +218,31 @@ const SEED_ACCESSORIES: AccessoryInput[] = [
     notes: "Seed data — 3x 811A tube amplifier, 800W PEP output",
   } satisfies Omit<AmplifierAccessory, "id" | "addedAt">,
   {
+    category: "amplifier",
+    name: "Elecraft KPA1500",
+    manufacturer: "Elecraft",
+    gainDb: 13,
+    maxPowerWatts: 1500,
+    bands: [
+      "160m",
+      "80m",
+      "40m",
+      "30m",
+      "20m",
+      "17m",
+      "15m",
+      "12m",
+      "10m",
+      "6m",
+    ],
+    dutyCycle: 1.0,
+    warmupTimeSec: 0,
+    currentDrawAmps: 3,
+    currentDrawTxAmps: 25,
+    protectionFeatures: ["swr_protection", "thermal_protection"],
+    notes: "Seed data — solid-state no-tune amplifier, full legal limit",
+  } satisfies Omit<AmplifierAccessory, "id" | "addedAt">,
+  {
     category: "tuner",
     name: "Palstar AT2K",
     manufacturer: "Palstar",
@@ -340,6 +365,7 @@ const SEED_RADIOS: Array<{ equipmentId: string; nickname?: string }> = [
   { equipmentId: "yaesu-ft991a", nickname: "All-Band Base" },
   { equipmentId: "elecraft-kx3", nickname: "Portable QRP" },
   { equipmentId: "kenwood-ts590sg", nickname: "Contest Backup" },
+  { equipmentId: "elecraft-k4", nickname: "DX Chaser" },
 ];
 
 // ─── Seed & Clear Functions ─────────────────────────────────────────────────

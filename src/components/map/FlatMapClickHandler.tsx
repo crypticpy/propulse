@@ -26,7 +26,7 @@ const HOVER_DEBOUNCE_MS = 100;
 const DRAG_THRESHOLD_PX = 5;
 
 /** Minimum time before hold timer starts (prevents accidental holds) */
-const HOLD_START_DELAY_MS = 200;
+const HOLD_START_DELAY_MS = 120;
 
 /** Default hold duration to trigger menu */
 const DEFAULT_HOLD_DURATION_MS = 500;

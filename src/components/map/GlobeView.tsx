@@ -59,9 +59,14 @@ import { WatchIndicator } from "./WatchIndicator";
 import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { gridToLatLon } from "@/lib/utils/grid";
-import { useUserStore, useCompassRosePrefs } from "@/stores/userStore";
+import {
+  useUserStore,
+  useCompassRosePrefs,
+  useUIInteractionPrefs,
+} from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { usePinStore } from "@/stores/pinStore";
+import { useUndoStore } from "@/stores/undoStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
@@ -74,6 +79,7 @@ import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
+import { MapSizeSliders } from "./MapSizeSliders";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -399,6 +405,7 @@ function GlobeScene({
   const holdDurationMs = useSettingsStore(
     (s) => s.uiInteraction?.holdDurationMs ?? 500,
   );
+  const mapPinScale = useUIInteractionPrefs().mapPinScale ?? 1.0;
 
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
@@ -553,6 +560,7 @@ function GlobeScene({
             label={pin.name || pin.grid}
             emoji={catMeta.icon}
             size={0.02}
+            sizeScale={mapPinScale}
             onHover={(isHovered, screenPos) => {
               if (isHovered && onPinHover) {
                 onPinHover(pin, screenPos);
@@ -572,6 +580,7 @@ function GlobeScene({
           color="#4488FF"
           label={station.callsign}
           type="home"
+          sizeScale={mapPinScale}
         />
       )}
 
@@ -617,6 +626,7 @@ function GlobeScene({
             type="target"
             difficulty={pathDifficulty}
             showDifficultyTag={true}
+            sizeScale={mapPinScale}
           />
 
           {/* Path arc between home and target - Color based on difficulty */}
@@ -677,7 +687,8 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   const { station } = useUserStore();
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
-  const { addPin } = usePinStore();
+  const { addPin, removePin, getPinById } = usePinStore();
+  const { pushAction } = useUndoStore();
   const { updateFilter } = useDXStore();
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster();
@@ -906,6 +917,22 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     setHoveredPinData(null);
   }, []);
 
+  // Handle delete pin from PinFlyout
+  const handleDeletePinFromFlyout = useCallback(() => {
+    if (!hoveredPinData) return;
+    const pin = getPinById(hoveredPinData.pin.id);
+    if (pin) {
+      pushAction({
+        type: "DELETE_PIN",
+        pinId: pin.id,
+        pinData: pin,
+        description: `Deleted pin "${pin.name || pin.grid}"`,
+      });
+      removePin(pin.id);
+    }
+    setHoveredPinData(null);
+  }, [hoveredPinData, getPinById, pushAction, removePin]);
+
   // Handle set target from PinFlyout
   const handleSetTargetFromFlyout = useCallback(
     (lat: number, lon: number, grid: string) => {
@@ -1105,9 +1132,13 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
           currentTargetGrid={target?.grid}
           onSetTarget={handleSetTargetFromFlyout}
           onEditPin={handleEditPinFromFlyout}
+          onDeletePin={handleDeletePinFromFlyout}
           onClose={handlePinFlyoutClose}
         />
       )}
+
+      {/* Spot & pin size sliders - bottom left corner */}
+      <MapSizeSliders />
 
       {/* Watch activity indicator - top right corner */}
       <div className="absolute top-3 right-3 z-10">

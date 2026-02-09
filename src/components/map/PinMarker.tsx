@@ -38,6 +38,8 @@ export interface PinMarkerProps {
   color?: string;
   /** Pin size */
   size?: number;
+  /** Overall size scale multiplier (default 1.0) */
+  sizeScale?: number;
   /** Optional label text */
   label?: string;
   /** Category emoji to display on pin */
@@ -90,7 +92,7 @@ function getUpDirection(lat: number, lon: number): THREE.Vector3 {
 function getScreenPositionFromEvent(
   event: ThreeEvent<MouseEvent | PointerEvent>,
 ): { x: number; y: number } {
-  const {nativeEvent} = event;
+  const { nativeEvent } = event;
   return {
     x: nativeEvent.clientX,
     y: nativeEvent.clientY,
@@ -105,12 +107,14 @@ export function PinMarker({
   lon,
   pinId,
   color = DEFAULT_COLOR,
-  size = DEFAULT_SIZE,
+  size: rawSize = DEFAULT_SIZE,
+  sizeScale = 1.0,
   label,
   emoji = "\uD83D\uDCCD",
   onClick,
   onHover,
 }: PinMarkerProps) {
+  const size = rawSize * sizeScale;
   const groupRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Mesh>(null);
   const stemMaterialRef = useRef<THREE.MeshBasicMaterial>(null);

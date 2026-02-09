@@ -55,6 +55,8 @@ interface LocationMarkerProps {
   difficulty?: DifficultyLevel;
   /** Whether to show the difficulty tag */
   showDifficultyTag?: boolean;
+  /** Overall size scale multiplier (default 1.0) */
+  sizeScale?: number;
 }
 
 /**
@@ -90,7 +92,8 @@ function locationMarkerPropsAreEqual(
     prevProps.label === nextProps.label &&
     prevProps.type === nextProps.type &&
     prevProps.difficulty === nextProps.difficulty &&
-    prevProps.showDifficultyTag === nextProps.showDifficultyTag
+    prevProps.showDifficultyTag === nextProps.showDifficultyTag &&
+    prevProps.sizeScale === nextProps.sizeScale
   );
 }
 
@@ -102,6 +105,7 @@ function LocationMarkerInner({
   type = "target",
   difficulty,
   showDifficultyTag = true,
+  sizeScale = 1.0,
 }: LocationMarkerProps) {
   const markerRef = useRef<THREE.Mesh>(null);
   const pulseRef = useRef<THREE.Mesh>(null);
@@ -127,7 +131,7 @@ function LocationMarkerInner({
     }
   });
 
-  const markerSize = type === "home" ? 0.02 : 0.025;
+  const markerSize = (type === "home" ? 0.02 : 0.025) * sizeScale;
   const pulseSize = markerSize * 2;
 
   // Difficulty tag for targets

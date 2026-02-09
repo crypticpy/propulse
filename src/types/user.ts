@@ -312,7 +312,7 @@ export interface ForecastDisplayPreferences {
  * Controls gesture detection and menu behavior
  */
 export interface UIInteractionPreferences {
-  /** Press-and-hold duration in milliseconds to trigger menu (1500-5000, default: 2500) */
+  /** Press-and-hold duration in milliseconds to trigger menu (300-2000, default: 500) */
   holdDurationMs: number;
   /** Auto-dismiss timeout for flyout in milliseconds (1000-10000, default: 2500) */
   flyoutAutoDismissMs: number;
@@ -328,6 +328,10 @@ export interface UIInteractionPreferences {
   spotColorMode: "mode" | "band";
   /** Visual style: "realistic" is the default clean look, "high-viz" uses bolder colors and larger markers inspired by OpenHamClock */
   visualStyle: "realistic" | "high-viz";
+  /** Scale multiplier for spot dots on all map views (0.5-2.0, default: 1.0) */
+  spotDotScale: number;
+  /** Scale multiplier for map pins on all map views (0.5-2.0, default: 1.0) */
+  mapPinScale: number;
 }
 
 // =============================================================================
@@ -614,6 +618,8 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
   spotHitRadiusMultiplier: 1.0,
   spotColorMode: "mode",
   visualStyle: "realistic",
+  spotDotScale: 1.0,
+  mapPinScale: 1.0,
 };
 
 // =============================================================================

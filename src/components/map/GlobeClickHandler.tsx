@@ -22,7 +22,7 @@ const HOVER_DEBOUNCE_MS = 100;
 const DRAG_THRESHOLD_PX = 5;
 
 /** Minimum time before hold timer starts (prevents accidental holds) */
-const HOLD_START_DELAY_MS = 200;
+const HOLD_START_DELAY_MS = 120;
 
 /** Default hold duration to trigger menu */
 const DEFAULT_HOLD_DURATION_MS = 500;
@@ -98,7 +98,7 @@ function pointToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
 function getScreenPositionFromEvent(
   event: ThreeEvent<MouseEvent | PointerEvent>,
 ): { x: number; y: number } {
-  const {nativeEvent} = event;
+  const { nativeEvent } = event;
   return {
     x: nativeEvent.clientX,
     y: nativeEvent.clientY,

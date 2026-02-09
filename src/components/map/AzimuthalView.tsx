@@ -40,6 +40,7 @@ import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
 import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
+import { MapSizeSliders } from "./MapSizeSliders";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 
@@ -439,6 +440,7 @@ function drawSpotArcs(
   centerLat: number,
   centerLon: number,
   colorMode: SpotColorMode = "mode",
+  spotDotScale = 1.0,
 ) {
   for (const spot of spots) {
     const color = getSpotColor(spot, colorMode);
@@ -475,7 +477,7 @@ function drawSpotArcs(
     ctx.save();
     ctx.globalAlpha = opacity;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = Math.round(1.5 * spotDotScale);
     ctx.shadowColor = color;
     ctx.shadowBlur = 3;
 
@@ -491,14 +493,26 @@ function drawSpotArcs(
     // Spotter location (smaller, only if inside circle)
     if (spotterDist <= 1) {
       ctx.beginPath();
-      ctx.arc(spotterCanvas.x, spotterCanvas.y, 3, 0, Math.PI * 2);
+      ctx.arc(
+        spotterCanvas.x,
+        spotterCanvas.y,
+        Math.round(3 * spotDotScale),
+        0,
+        Math.PI * 2,
+      );
       ctx.fill();
     }
 
     // DX location (larger, only if inside circle)
     if (dxDist <= 1) {
       ctx.beginPath();
-      ctx.arc(dxCanvas.x, dxCanvas.y, 4, 0, Math.PI * 2);
+      ctx.arc(
+        dxCanvas.x,
+        dxCanvas.y,
+        Math.round(4 * spotDotScale),
+        0,
+        Math.PI * 2,
+      );
       ctx.fill();
     }
 
@@ -896,6 +910,7 @@ export function AzimuthalView({
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
+  const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
   const kIndexQuery = useKIndex();
   const solarFluxQuery = useSolarFlux();
 
@@ -1414,7 +1429,14 @@ export function AzimuthalView({
 
     // Draw live spot arcs (straight lines in azimuthal projection)
     if (layers.spots && resolvedSpots.length > 0) {
-      drawSpotArcs(ctx, resolvedSpots, center.lat, center.lon, spotColorMode);
+      drawSpotArcs(
+        ctx,
+        resolvedSpots,
+        center.lat,
+        center.lon,
+        spotColorMode,
+        spotDotScale,
+      );
     }
 
     // Draw target and path if set
@@ -1447,6 +1469,7 @@ export function AzimuthalView({
     pathDifficulty,
     zoom,
     spotColorMode,
+    spotDotScale,
     labelOptions,
     mapStyle,
   ]);
@@ -1516,8 +1539,11 @@ export function AzimuthalView({
           <div className="text-gray-400 text-sm">Loading map...</div>
         </div>
       )}
+      {/* Spot & pin size sliders - bottom left corner */}
+      <MapSizeSliders />
+
       {/* Legend overlay */}
-      <div className="absolute bottom-4 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">
+      <div className="absolute bottom-14 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">
         <div className="flex items-center gap-2">
           <span
             className="w-3 h-0.5 inline-block"

@@ -1,7 +1,7 @@
 # Propulse Feature Tracker
 
 > Master reference of all planned features, their delivery status, and remaining gaps.
-> Updated 2026-02-07 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
+> Updated 2026-02-08 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
 
 ---
 
@@ -17,9 +17,10 @@
 | QoL PRD (20 items)                 | 19        | 1       | 0           | 0        | 20      |
 | PWA Package                        | 6         | 0       | 1           | 0        | 7       |
 | Profile/Shack/Settings Plan        | 10        | 0       | 0           | 0        | 10      |
-| **Grand Total**                    | **170**   | **4**   | **8**       | **1**    | **183** |
+| v0.13.x New Features (2026-02-08)  | 22        | 0       | 0           | 0        | 22      |
+| **Grand Total**                    | **192**   | **4**   | **8**       | **1**    | **205** |
 
-**Delivery rate: 93% delivered, 2% partial, 4% not started** _(was 92/2/5 before v0.12.0)_
+**Delivery rate: 94% delivered, 2% partial, 4% not started** _(was 93/2/4 before v0.13.0)_
 
 ---
 
@@ -368,6 +369,71 @@ The following 13 items remain undelivered. All are either infeasible without bac
 | Multi-select spots (lasso)     | 2D Map     | Canvas hit-testing for arbitrary shapes = complex       |
 | 3D terrain elevation           | 2D Map     | Scope creep (deferred)                                  |
 | QoL5 Smart notifications       | Impl. Plan | Duplicate of push notifications above                   |
+
+---
+
+## 9. v0.13.x New Features (2026-02-08)
+
+_Delivered across v0.13.0, v0.13.1, and v0.13.2 releases._
+
+### Callsign Ingestion & Profile (5)
+
+| Feature                       | Notes                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| Multi-source callsign lookup  | HamQTH + QRZ ingestion service with bio, profile images, grid auto-fill       |
+| Bio showcase section          | Markdown-capable bio with image uploads and larger character limits           |
+| GMRS callsign validation      | WSLK349-format GMRS callsigns accepted alongside amateur radio formats        |
+| Profile page audit (46 fixes) | Comprehensive usability audit across 25 files — spacing, labels, interactions |
+| Dev mode auto-seed            | Auto-populate equipment and KB0EL profile data in development mode            |
+
+### SDR & Radio Daemon (6)
+
+| Feature                  | Notes                                                                   |
+| ------------------------ | ----------------------------------------------------------------------- |
+| Radio daemon workspace   | SDR console page with device picker, discovery UI, SoapySDR integration |
+| SDR waterfall UI         | Interactive waterfall display with filter drag-select and IQ streaming  |
+| Device scanning          | SoapySDR device discovery with automatic enumeration                    |
+| SDRconnect backend       | Chrome daemon bridge with WebSocket API for SDR control                 |
+| SDR setup guide          | Dedicated setup guide page with configuration resources                 |
+| Daemon integration tests | Test suite for daemon communication and device management               |
+
+### Shack & Equipment (4)
+
+| Feature                      | Notes                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| Shack UX overhaul            | 3-tab layout (Equipment/Diagram/Performance), trading-card aesthetic           |
+| S/M/L/XL equipment cards     | 4-size card system with holographic effects, gallery strips, type-colored bars |
+| Image upload system          | Client-side compression (Canvas API), cropping (react-easy-crop), IDB storage  |
+| Station Builder Lab overhaul | Shack Overview as primary view, drag-and-drop signal path builder              |
+
+### Authentication & Sync (3)
+
+| Feature               | Notes                                                                 |
+| --------------------- | --------------------------------------------------------------------- |
+| Email/password auth   | AuthModal with 5 views, magic link recovery, soft-prompt access tiers |
+| Image cloud sync      | Supabase Storage `equipment-images` bucket with migration             |
+| Sync engine expansion | DXCC, shack sub-tables, preferences consolidated; composite PK fix    |
+
+### PropSphere Views (2)
+
+| Feature                         | Notes                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| Unified layout mode dropdown    | Single dropdown replacing LiteModeToggle + Pro View card — 4 modes           |
+| HamClock dense-information view | Full-screen CSS Grid dashboard: DE/DX panels, solar indices, band conditions |
+
+### Alerts & Preferences (2)
+
+| Feature                        | Notes                                                                                                            |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Greyline & band opening alerts | Two new alert types wired into full pipeline (detect → evaluate → sound)                                         |
+| Preferences wiring (8 prefs)   | Text scale, time format, color blind mode, themes, quiet hours, hold duration, spotter labels, noise environment |
+
+### Security & Fixes (2 — not counted in feature total)
+
+| Fix                               | Notes                                                            |
+| --------------------------------- | ---------------------------------------------------------------- |
+| Security audit (20 + 6 findings)  | XSS, CSRF, input validation, CSP, rate limiting across 10+ files |
+| Supabase onConflict composite PKs | Fixed 13 tables across 9 sync modules matching composite PKs     |
 
 ---
 

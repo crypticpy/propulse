@@ -62,7 +62,7 @@ export async function pushAchievements(
 
   const { error } = await supabase
     .from("achievements")
-    .upsert(rows, { onConflict: "id" });
+    .upsert(rows, { onConflict: "user_id,id" });
 
   if (error) {
     throw new Error(`Achievement push failed: ${error.message}`);

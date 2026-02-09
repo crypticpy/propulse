@@ -365,13 +365,20 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
         if (version < 2) {
           // Added in v2: highContrast, forecastDisplay, uiInteraction, bandPresets, spotClustering, compassRose, spotAge
           if (state.highContrast === undefined) state.highContrast = false;
+        }
+        if (version < 3) {
+          // Fix holdDurationMs default from 2500ms to 500ms
+          const ui = state.uiInteraction as Record<string, unknown> | undefined;
+          if (ui?.holdDurationMs === 2500) {
+            ui.holdDurationMs = 500;
+          }
         }
         return state as unknown as SettingsState & SettingsStore;
       },

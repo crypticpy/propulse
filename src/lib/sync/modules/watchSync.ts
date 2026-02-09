@@ -92,7 +92,7 @@ export const watchSync: SyncModule = {
       const rows = watches.map((w) => watchToRow(w, userId));
       const { error } = await supabase
         .from("watches")
-        .upsert(rows, { onConflict: "id" });
+        .upsert(rows, { onConflict: "user_id,id" });
 
       if (error) {
         throw new Error(`Watches push failed: ${error.message}`);

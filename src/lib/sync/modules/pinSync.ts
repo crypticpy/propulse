@@ -88,7 +88,7 @@ export const pinSync: SyncModule = {
       const rows = pins.map((p) => pinToRow(p, userId));
       const { error } = await supabase
         .from("map_pins")
-        .upsert(rows, { onConflict: "id" });
+        .upsert(rows, { onConflict: "user_id,id" });
 
       if (error) {
         throw new Error(`Pins push failed: ${error.message}`);

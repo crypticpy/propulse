@@ -94,7 +94,7 @@ export const skedSync: SyncModule = {
       const rows = skeds.map((s) => skedToRow(s, userId));
       const { error } = await supabase
         .from("skeds")
-        .upsert(rows, { onConflict: "id" });
+        .upsert(rows, { onConflict: "user_id,id" });
 
       if (error) {
         throw new Error(`Skeds push failed: ${error.message}`);

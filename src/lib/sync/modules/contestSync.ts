@@ -255,7 +255,7 @@ export const contestSync: SyncModule = {
       const sessionRow = sessionToRow(session, userId);
       const { error: sessionError } = await supabase
         .from("contest_sessions")
-        .upsert(sessionRow, { onConflict: "id" });
+        .upsert(sessionRow, { onConflict: "user_id,id" });
 
       if (sessionError) {
         throw new Error(`Contest session push failed: ${sessionError.message}`);
@@ -269,7 +269,7 @@ export const contestSync: SyncModule = {
 
           const { error: qsoError } = await supabase
             .from("contest_qsos")
-            .upsert(rows, { onConflict: "id" });
+            .upsert(rows, { onConflict: "user_id,session_id,id" });
 
           if (qsoError) {
             throw new Error(`Contest QSOs push failed: ${qsoError.message}`);
@@ -301,7 +301,7 @@ export const contestSync: SyncModule = {
             ...data,
             user_id: userId,
           } as TablesInsert<"contest_sessions">,
-          { onConflict: "id" },
+          { onConflict: "user_id,id" },
         );
         if (!error) processed.push(entry.queueId);
       }
@@ -325,7 +325,7 @@ export const contestSync: SyncModule = {
 
           const { error } = await supabase
             .from("contest_qsos")
-            .upsert(rows, { onConflict: "id" });
+            .upsert(rows, { onConflict: "user_id,session_id,id" });
 
           if (!error) {
             for (const entry of upserts) {

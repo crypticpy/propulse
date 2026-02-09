@@ -957,7 +957,7 @@ export const shackSync: SyncModule = {
       const radioRows = radios.map((r) => radioToRow(r, userId));
       const { error: radioError } = await supabase
         .from("user_radios")
-        .upsert(radioRows, { onConflict: "instance_id" });
+        .upsert(radioRows, { onConflict: "user_id,instance_id" });
 
       if (radioError) {
         throw new Error(`Shack radios push failed: ${radioError.message}`);
@@ -969,7 +969,7 @@ export const shackSync: SyncModule = {
       const antennaRows = antennas.map((a) => antennaToRow(a, userId));
       const { error: antennaError } = await supabase
         .from("antennas")
-        .upsert(antennaRows, { onConflict: "id" });
+        .upsert(antennaRows, { onConflict: "user_id,id" });
 
       if (antennaError) {
         throw new Error(`Shack antennas push failed: ${antennaError.message}`);
@@ -981,7 +981,7 @@ export const shackSync: SyncModule = {
       const feedlineRows = feedlines.map((f) => feedlineToRow(f, userId));
       const { error: feedlineError } = await supabase
         .from("feedlines")
-        .upsert(feedlineRows, { onConflict: "id" });
+        .upsert(feedlineRows, { onConflict: "user_id,id" });
 
       if (feedlineError) {
         throw new Error(
@@ -995,7 +995,7 @@ export const shackSync: SyncModule = {
       const accessoryRows = accessories.map((a) => accessoryToRow(a, userId));
       const { error: accessoryError } = await supabase
         .from("accessories")
-        .upsert(accessoryRows, { onConflict: "id" });
+        .upsert(accessoryRows, { onConflict: "user_id,id" });
 
       if (accessoryError) {
         throw new Error(
@@ -1009,7 +1009,7 @@ export const shackSync: SyncModule = {
       const presetRows = stationPresets.map((p) => presetToRow(p, userId));
       const { error: presetError } = await supabase
         .from("station_presets")
-        .upsert(presetRows, { onConflict: "id" });
+        .upsert(presetRows, { onConflict: "user_id,id" });
 
       if (presetError) {
         throw new Error(

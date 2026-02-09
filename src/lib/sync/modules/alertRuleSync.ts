@@ -93,7 +93,7 @@ export const alertRuleSync: SyncModule = {
       const rows = rules.map((r) => alertRuleToRow(r, userId));
       const { error } = await supabase
         .from("alert_rules")
-        .upsert(rows, { onConflict: "id" });
+        .upsert(rows, { onConflict: "user_id,id" });
 
       if (error) {
         throw new Error(`Alert rules push failed: ${error.message}`);

@@ -110,7 +110,7 @@ export const targetsSync: SyncModule = {
 
       const { error: upsertError } = await supabase
         .from("saved_targets")
-        .upsert(rows, { onConflict: "id" });
+        .upsert(rows, { onConflict: "user_id,id" });
 
       if (upsertError) {
         throw new Error(`Targets push failed: ${upsertError.message}`);

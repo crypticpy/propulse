@@ -222,7 +222,7 @@ export const profileSync: SyncModule = {
 
       const { error: locationError } = await supabase
         .from("saved_locations")
-        .upsert(locationRows, { onConflict: "id" });
+        .upsert(locationRows, { onConflict: "user_id,id" });
 
       if (locationError) {
         throw new Error(

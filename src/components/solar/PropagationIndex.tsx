@@ -256,7 +256,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
   const markerY2 = gaugeCenter + markerOuterRadius * Math.sin(markerRad);
 
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="relative overflow-hidden group hover:border-white/20">
       {/* Background gradient glow */}
       <div
         className="absolute inset-0 opacity-20 blur-3xl"
@@ -264,6 +264,31 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
           background: `radial-gradient(circle at center, ${scoreColor}40 0%, transparent 70%)`,
         }}
       />
+
+      {/* Expand icon - hover only */}
+      {onExpand && (
+        <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={onExpand}
+            className="p-1 text-gray-500 hover:text-white transition-colors"
+            aria-label="Expand propagation index"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <div className="relative z-10">
         {/* Header */}
@@ -277,27 +302,6 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
               Composite HF propagation quality score
             </p>
           </div>
-          {onExpand && (
-            <button
-              onClick={onExpand}
-              className="p-2 text-gray-500 hover:text-white transition-colors rounded-lg hover:bg-white/5"
-              aria-label="View details"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </button>
-          )}
         </div>
 
         {loading ? (
@@ -598,7 +602,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                       e.stopPropagation();
                       onExpandSummary();
                     }}
-                    className="p-1 text-gray-500 hover:text-white transition-colors"
+                    className="p-1 text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
                     aria-label="Expand summary"
                   >
                     <svg

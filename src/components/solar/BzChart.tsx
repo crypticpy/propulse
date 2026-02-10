@@ -250,7 +250,40 @@ export const BzChart: React.FC<BzChartProps> = ({
   const bzCondition = getBzCondition(chartData.currentBz);
 
   return (
-    <Card className="h-full">
+    <Card
+      className={`h-full relative ${onExpand ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""}`}
+      onClick={onExpand}
+      role={onExpand ? "button" : undefined}
+      tabIndex={onExpand ? 0 : undefined}
+      onKeyDown={
+        onExpand
+          ? (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onExpand();
+              }
+            }
+          : undefined
+      }
+    >
+      {/* Expand icon - hover only */}
+      {onExpand && (
+        <div className="absolute top-3 right-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
+          </svg>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -261,30 +294,7 @@ export const BzChart: React.FC<BzChartProps> = ({
             Interplanetary Magnetic Field - Z component
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {loading && <LoadingSpinner size="sm" />}
-          {onExpand && (
-            <button
-              onClick={onExpand}
-              className="p-1 text-gray-500 hover:text-white transition-colors"
-              aria-label="Expand chart"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
+        {loading && <LoadingSpinner size="sm" />}
       </div>
 
       {loading ? (

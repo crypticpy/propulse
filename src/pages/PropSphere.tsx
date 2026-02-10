@@ -663,11 +663,11 @@ export function PropSphere() {
 
             {/* Layer controls bar */}
             <div
-              className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10"
+              className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10"
               data-tour="layer-controls"
             >
-              {/* Layer toggles */}
-              <div className="flex flex-wrap gap-1">
+              {/* ── Group 1: Layer toggles ── */}
+              <div className="flex flex-wrap items-center gap-1">
                 {(
                   [
                     "terminator",
@@ -680,7 +680,6 @@ export function PropSphere() {
                     "satellites",
                   ] as const
                 ).map((layer) => {
-                  // Display names for layers
                   const displayNames: Record<string, string> = {
                     terminator: "Day/Night",
                     greyline: "Greyline",
@@ -705,70 +704,106 @@ export function PropSphere() {
                     </button>
                   );
                 })}
+
+                {/* Follow toggle (grouped with layers) */}
+                <button
+                  onClick={() => setAutoPanToSpots(!autoPanToSpots)}
+                  aria-pressed={autoPanToSpots}
+                  title={
+                    autoPanToSpots
+                      ? "Stop following new spots"
+                      : "Auto-pan to new spots as they arrive"
+                  }
+                  className={`px-2 py-0.5 text-[10px] rounded transition-all flex items-center gap-1 ${
+                    autoPanToSpots
+                      ? "bg-signal-green/20 text-signal-green"
+                      : "text-gray-400 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                      strokeLinecap="round"
+                      d="M12 2v4m0 12v4m10-10h-4M6 12H2"
+                    />
+                  </svg>
+                  Follow
+                </button>
               </div>
 
-              {/* Auto-pan to new spots toggle */}
-              <button
-                onClick={() => setAutoPanToSpots(!autoPanToSpots)}
-                aria-pressed={autoPanToSpots}
-                title={
-                  autoPanToSpots
-                    ? "Stop following new spots"
-                    : "Auto-follow new spots"
-                }
-                className={`px-2 py-0.5 text-[10px] rounded transition-all flex items-center gap-1 ${
-                  autoPanToSpots
-                    ? "bg-signal-green/20 text-signal-green border border-signal-green/40"
-                    : "text-gray-400 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  {/* Crosshair / target icon */}
-                  <circle cx="12" cy="12" r="3" />
-                  <path
-                    strokeLinecap="round"
-                    d="M12 2v4m0 12v4m10-10h-4M6 12H2"
+              {/* ── Divider ── */}
+              <div className="hidden sm:block w-px h-4 bg-white/20 flex-shrink-0" />
+
+              {/* ── Group 2: Map style + Region ── */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <MapStyleToggle className="flex-shrink-0" />
+                {viewMode !== "azimuthal" && (
+                  <RegionPresetSelector
+                    onOpenManager={() => setShowPresetManager(true)}
+                    className="flex-shrink-0"
                   />
-                </svg>
-                Follow
-              </button>
+                )}
+              </div>
 
-              {/* Map style toggle (Satellite / Standard) */}
-              <MapStyleToggle className="flex-shrink-0" />
+              {/* ── Divider ── */}
+              <div className="hidden sm:block w-px h-4 bg-white/20 flex-shrink-0" />
 
-              {/* Region preset selector */}
-              {viewMode !== "azimuthal" && (
-                <RegionPresetSelector
-                  onOpenManager={() => setShowPresetManager(true)}
-                  className="flex-shrink-0"
-                />
-              )}
-
-              {/* Visual style selector */}
+              {/* ── Group 3: Visual style ── */}
               <StyleSelector compact className="flex-shrink-0" />
 
-              {/* Layer preset buttons */}
-              <div className="flex gap-1 flex-wrap justify-start sm:justify-end">
-                {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => applyPreset(preset)}
-                    title={PRESET_CONFIG[preset].description}
-                    className={`px-2 py-0.5 text-[10px] rounded transition-all ${
-                      activePreset === preset
-                        ? "bg-plasma-orange/30 text-plasma-orange"
-                        : "text-gray-400 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    {PRESET_CONFIG[preset].label}
-                  </button>
-                ))}
+              {/* ── Divider ── */}
+              <div className="hidden sm:block w-px h-4 bg-white/20 flex-shrink-0" />
+
+              {/* ── Group 4: Operating mode presets ── */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <span className="hidden lg:inline text-[9px] uppercase tracking-wider text-gray-500 mr-0.5">
+                  Mode
+                </span>
+                {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => {
+                  const cfg = PRESET_CONFIG[preset];
+                  const isActive = activePreset === preset;
+                  const activeStyles: Record<PresetName, string> = {
+                    "dx-hunter":
+                      "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
+                    contest:
+                      "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
+                    vhf: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40",
+                    emergency:
+                      "bg-alert-red/20 text-alert-red border-alert-red/40",
+                  };
+                  return (
+                    <button
+                      key={preset}
+                      onClick={() => applyPreset(preset)}
+                      title={`${cfg.description}\n${cfg.layerSummary}`}
+                      className={`px-2 py-0.5 text-[10px] rounded border transition-all flex items-center gap-1 ${
+                        isActive
+                          ? activeStyles[preset]
+                          : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
+                      }`}
+                    >
+                      <svg
+                        className="w-3 h-3 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d={cfg.iconPath} />
+                      </svg>
+                      <span className="hidden md:inline">{cfg.label}</span>
+                      <span className="md:hidden">{cfg.shortLabel}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

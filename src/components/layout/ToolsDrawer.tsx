@@ -72,6 +72,12 @@ const tools = [
     icon: "📡",
   },
   {
+    path: "/log",
+    label: "Logbook",
+    description: "QSO log, import & ADIF export",
+    icon: "📓",
+  },
+  {
     path: "/sdr",
     label: "SDR Console",
     description: "Waterfall, tuning & radio control",

@@ -144,22 +144,23 @@ function getOpeningDescription(
   const bandNum = parseInt(band);
 
   if (condition === "Aurora") {
-    return "Aurora possible";
+    return "VHF aurora scatter";
   }
 
   if (condition === "Excellent") {
-    return isDay ? "Strong opening" : "Excellent conditions";
+    if (bandNum <= 20) return isDay ? "Work worldwide DX" : "Long-haul DX open";
+    return isDay ? "Strong opening — call CQ" : "Excellent night path";
   }
 
   if (condition === "Good") {
     if (bandNum <= 30) {
-      return isDay ? "Good DX" : "Good night path";
+      return isDay ? "Solid DX path" : "Good night path";
     }
-    return "Open for DX";
+    return "Open — try CQ DX";
   }
 
   if (condition === "Fair") {
-    return "Marginal opening";
+    return "Marginal — monitor";
   }
 
   return "Weak signals";
@@ -303,11 +304,14 @@ export function PredictionsCard({
         <div className="flex items-center gap-2">
           <ForecastIcon className="w-4 h-4 text-signal-green" />
           <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
-            Band Openings
+            Best Bands Now
           </span>
         </div>
-        <span className="text-[10px] text-gray-400 px-1.5 py-0.5 rounded bg-white/5">
-          {isDay ? "Day" : "Night"}
+        <span className="text-[10px] text-gray-300 px-1.5 py-0.5 rounded bg-white/5 flex items-center gap-1">
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full ${isDay ? "bg-caution-amber" : "bg-cosmic-cyan"}`}
+          />
+          {isDay ? "Daytime" : "Nighttime"}
         </span>
       </div>
 
@@ -365,12 +369,17 @@ export function PredictionsCard({
             </div>
           ))}
 
-          {/* Time hint */}
+          {/* Context footer */}
           <div className="pt-2 border-t border-white/10 mt-2">
-            <div className="text-xs text-gray-400">
+            <div className="text-[10px] text-gray-500">
               {isDay
                 ? "Higher bands favored during daylight"
                 : "Lower bands favored at night"}
+              {currentSfi !== null && currentKp !== null && (
+                <span className="ml-1.5 text-gray-600">
+                  SFI {currentSfi} / Kp {currentKp}
+                </span>
+              )}
             </div>
           </div>
         </div>

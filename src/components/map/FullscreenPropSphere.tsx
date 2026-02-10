@@ -192,20 +192,44 @@ export function FullscreenPropSphere({
             <div
               className={`${glassPanel} rounded-lg p-2 pointer-events-auto flex gap-1`}
             >
-              {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => applyPreset(preset)}
-                  title={PRESET_CONFIG[preset].description}
-                  className={`px-2 py-1 text-[10px] rounded transition-all ${
-                    activePreset === preset
-                      ? "bg-plasma-orange/30 text-plasma-orange"
-                      : "text-gray-400 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  {PRESET_CONFIG[preset].label}
-                </button>
-              ))}
+              {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => {
+                const cfg = PRESET_CONFIG[preset];
+                const isActive = activePreset === preset;
+                const activeStyles: Record<PresetName, string> = {
+                  "dx-hunter":
+                    "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
+                  contest:
+                    "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
+                  vhf: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40",
+                  emergency:
+                    "bg-alert-red/20 text-alert-red border-alert-red/40",
+                };
+                return (
+                  <button
+                    key={preset}
+                    onClick={() => applyPreset(preset)}
+                    title={`${cfg.description}\n${cfg.layerSummary}`}
+                    className={`px-2 py-1 text-[10px] rounded border transition-all flex items-center gap-1 ${
+                      isActive
+                        ? activeStyles[preset]
+                        : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
+                    }`}
+                  >
+                    <svg
+                      className="w-3 h-3 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d={cfg.iconPath} />
+                    </svg>
+                    {cfg.label}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Region Presets */}

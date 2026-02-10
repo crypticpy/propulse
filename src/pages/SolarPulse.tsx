@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   PrimaryMetrics,
-  SolarSummary,
   BandConditions,
   KIndexChart,
   AIndexChart,
@@ -668,13 +667,7 @@ export function SolarPulse() {
           loading={isLoading}
         />
 
-        {/* Summary */}
-        <SolarSummary
-          kIndex={currentKp}
-          solarFlux={currentFlux}
-          loading={isLoading}
-          onExpand={() => setSummaryOpen(true)}
-        />
+        {/* Summary — merged into PropagationIndex above; standalone removed */}
 
         {/* Operational "Now" cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

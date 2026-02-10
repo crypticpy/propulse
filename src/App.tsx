@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState, useCallback } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -84,6 +84,25 @@ function MapRoute() {
   return isMobile ? <MobileMap /> : <PropSphere />;
 }
 
+function NotFound() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+      <div className="text-6xl font-mono font-bold text-plasma-orange">404</div>
+      <h1 className="text-xl font-semibold text-white">Page Not Found</h1>
+      <p className="text-gray-400 max-w-md">
+        The frequency you&apos;re looking for isn&apos;t propagating. Check your
+        heading and try again.
+      </p>
+      <Link
+        to="/"
+        className="px-4 py-2 rounded-lg bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium"
+      >
+        Return to Dashboard
+      </Link>
+    </div>
+  );
+}
+
 function App() {
   // Apply text scale preference to DOM
   useTextScale();
@@ -166,6 +185,7 @@ function App() {
           <Route path="/health" element={<SystemHealthPage />} />
           <Route path="/bridge" element={<BridgeInfoPage />} />
           <Route path="/setup" element={<SetupGuidePage />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </ErrorBoundary>

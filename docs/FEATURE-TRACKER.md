@@ -1,26 +1,27 @@
 # Propulse Feature Tracker
 
 > Master reference of all planned features, their delivery status, and remaining gaps.
-> Updated 2026-02-08 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
+> Updated 2026-02-10 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
 
 ---
 
 ## Summary
 
-| Source Document                    | Delivered | Partial | Not Started | Deferred | Total   |
-| ---------------------------------- | --------- | ------- | ----------- | -------- | ------- |
-| Implementation Plan (37 features)  | 35        | 0       | 2           | 0        | 37      |
-| 2D Map Feature Parity PRD          | 39        | 1       | 2           | 1        | 43      |
-| Contest PropSphere Integration PRD | 34        | 2       | 1           | 0        | 37      |
-| Mobile Design Plan                 | 18        | 0       | 1           | 0        | 19      |
-| UI Review Recommendations          | 9         | 0       | 1           | 0        | 10      |
-| QoL PRD (20 items)                 | 19        | 1       | 0           | 0        | 20      |
-| PWA Package                        | 6         | 0       | 1           | 0        | 7       |
-| Profile/Shack/Settings Plan        | 10        | 0       | 0           | 0        | 10      |
-| v0.13.x New Features (2026-02-08)  | 22        | 0       | 0           | 0        | 22      |
-| **Grand Total**                    | **192**   | **4**   | **8**       | **1**    | **205** |
+| Source Document                     | Delivered | Partial | Not Started | Deferred | Total   |
+| ----------------------------------- | --------- | ------- | ----------- | -------- | ------- |
+| Implementation Plan (37 features)   | 35        | 0       | 2           | 0        | 37      |
+| 2D Map Feature Parity PRD           | 39        | 1       | 2           | 1        | 43      |
+| Contest PropSphere Integration PRD  | 34        | 2       | 1           | 0        | 37      |
+| Mobile Design Plan                  | 18        | 0       | 1           | 0        | 19      |
+| UI Review Recommendations           | 9         | 0       | 1           | 0        | 10      |
+| QoL PRD (20 items)                  | 19        | 1       | 0           | 0        | 20      |
+| PWA Package                         | 6         | 0       | 1           | 0        | 7       |
+| Profile/Shack/Settings Plan         | 10        | 0       | 0           | 0        | 10      |
+| v0.13.x New Features (2026-02-08)   | 22        | 0       | 0           | 0        | 22      |
+| v0.14.0 Polish & Infra (2026-02-10) | 12        | 1       | 0           | 0        | 13      |
+| **Grand Total**                     | **204**   | **5**   | **8**       | **1**    | **218** |
 
-**Delivery rate: 94% delivered, 2% partial, 4% not started** _(was 93/2/4 before v0.13.0)_
+**Delivery rate: 94% delivered, 2% partial, 4% not started**
 
 ---
 
@@ -437,19 +438,65 @@ _Delivered across v0.13.0, v0.13.1, and v0.13.2 releases._
 
 ---
 
+## 10. v0.14.0 Polish & Infrastructure (2026-02-10)
+
+_Delivered in v0.14.0 release. Focus on UX consistency, map interaction quality, and propagation data architecture._
+
+### Solar Dashboard Polish (1)
+
+| Feature               | Notes                                                                          |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Clickable solar cards | All 8 solar chart cards use whole-card click with hover expand icon + keyboard |
+
+### Map Interaction Improvements (6)
+
+| Feature                           | Notes                                                                      |
+| --------------------------------- | -------------------------------------------------------------------------- |
+| Hover-to-surface spot labels      | Stacked labels individually navigable with z-index boost on hover          |
+| Band-color underline consistency  | 3px solid edge-to-edge underlines matching across globe and flat map views |
+| Distance-aware globe occlusion    | Dynamic limb fading replaces fixed thresholds — labels fade at globe edge  |
+| Portal-based time control popover | Presets/scenarios use portal popover with click-outside + Escape dismiss   |
+| Map flyout polish                 | Indentation fix, shorter action labels                                     |
+| Spot cluster improvements         | Minor rendering fixes for dense cluster display                            |
+
+### UX Audit Fixes (5)
+
+| Feature                       | Notes                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| Map toolbar consistency       | Dividers between 4 groups, per-preset accent colors with icons and borders |
+| 404 catch-all route           | Ham-themed NotFound page instead of blank route fallback                   |
+| Best Bands Now card           | Action-oriented descriptions, day/night indicator, SFI/Kp context footer   |
+| Remove duplicate SolarSummary | Standalone card removed from SolarPulse (modal version kept)               |
+| Mobile tools drawer parity    | Logbook entry added for nav parity with desktop dropdown                   |
+
+### Partial (1)
+
+| Feature                          | Status                        | Gap                                     |
+| -------------------------------- | ----------------------------- | --------------------------------------- |
+| Location-aware propagation model | Architecture plan doc written | Implementation pending 14+ days of data |
+
+### Documentation
+
+| Document                              | Notes                                                          |
+| ------------------------------------- | -------------------------------------------------------------- |
+| Location-aware propagation model plan | 3-level architecture (region stats → ML model → path-specific) |
+
+---
+
 ## Source Documents Index
 
-| Category     | File                                                           | Description                               |
-| ------------ | -------------------------------------------------------------- | ----------------------------------------- |
-| Requirements | `docs/requirements/2d-map-feature-parity-prd.md`               | 2D map feature parity with 3D globe       |
-| Requirements | `docs/requirements/CONTEST-MODE-PROPSPHERE-INTEGRATION-PRD.md` | Contest mode in PropSphere map context    |
-| Requirements | `docs/requirements/MOBILE-DESIGN-PLAN.md`                      | Mobile-first UI redesign                  |
-| Plans        | `docs/plans/IMPLEMENTATION-PLAN.md`                            | Master 37-feature implementation plan     |
-| Plans        | `docs/plans/IMPLEMENTATION-PLAN-PHASE1.md`                     | Phase 1 foundation (Vite + React + Solar) |
-| Reviews      | `docs/reviews/UI-REVIEW-2026-02.md`                            | UI review with persona analysis           |
-| Reviews      | `docs/reviews/DX-WIZARD-EXPERT-REVIEW.md`                      | Expert review: 23 features + 14 QoL       |
-| Reviews      | `docs/reviews/CONTEST-MODE-QA.md`                              | Contest mode QA checklist                 |
-| Guides       | `docs/guides/CONTEST-MODE-USER-GUIDE.md`                       | Contest mode user documentation           |
-| Guides       | `docs/guides/CONTEST-BRIDGE-PROTOCOL.md`                       | WebSocket bridge protocol spec            |
-| Internal     | `.claude/plans/prd-qol-and-pwa-features.md`                    | QoL (20 items) + PWA (7 items) PRD        |
-| Internal     | `.claude/plans/deferred-bugs.md`                               | 13 deferred bugs from audit               |
+| Category     | File                                                           | Description                                |
+| ------------ | -------------------------------------------------------------- | ------------------------------------------ |
+| Requirements | `docs/requirements/2d-map-feature-parity-prd.md`               | 2D map feature parity with 3D globe        |
+| Requirements | `docs/requirements/CONTEST-MODE-PROPSPHERE-INTEGRATION-PRD.md` | Contest mode in PropSphere map context     |
+| Requirements | `docs/requirements/MOBILE-DESIGN-PLAN.md`                      | Mobile-first UI redesign                   |
+| Plans        | `docs/plans/IMPLEMENTATION-PLAN.md`                            | Master 37-feature implementation plan      |
+| Plans        | `docs/plans/IMPLEMENTATION-PLAN-PHASE1.md`                     | Phase 1 foundation (Vite + React + Solar)  |
+| Reviews      | `docs/reviews/UI-REVIEW-2026-02.md`                            | UI review with persona analysis            |
+| Reviews      | `docs/reviews/DX-WIZARD-EXPERT-REVIEW.md`                      | Expert review: 23 features + 14 QoL        |
+| Reviews      | `docs/reviews/CONTEST-MODE-QA.md`                              | Contest mode QA checklist                  |
+| Guides       | `docs/guides/CONTEST-MODE-USER-GUIDE.md`                       | Contest mode user documentation            |
+| Guides       | `docs/guides/CONTEST-BRIDGE-PROTOCOL.md`                       | WebSocket bridge protocol spec             |
+| Internal     | `.claude/plans/prd-qol-and-pwa-features.md`                    | QoL (20 items) + PWA (7 items) PRD         |
+| Internal     | `.claude/plans/deferred-bugs.md`                               | 13 deferred bugs from audit                |
+| Plans        | `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md`               | Location-aware propagation model (3-level) |

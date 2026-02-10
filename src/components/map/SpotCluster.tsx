@@ -142,10 +142,8 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   // Globe occlusion - fade out clusters on the far side
-  const { opacityRef: occlusionRef } = useGlobeOcclusion(
-    cluster.center.lat,
-    cluster.center.lon,
-  );
+  const { opacityRef: occlusionRef, opacity: occlusionOpacity } =
+    useGlobeOcclusion(cluster.center.lat, cluster.center.lon);
 
   // Calculate base position on globe surface
   const basePosition = useMemo(() => {
@@ -360,6 +358,7 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
         style={{
           pointerEvents: "none",
           transition: "opacity 0.2s ease",
+          opacity: occlusionOpacity,
         }}
       >
         <div

@@ -608,7 +608,7 @@ export function PinFlyout({
           }
         >
           <span aria-hidden="true">{"\uD83C\uDFAF"}</span>
-          <span>{isCurrentTarget ? "Targeted" : "Set Target"}</span>
+          <span>{isCurrentTarget ? "Targeted" : "Target"}</span>
         </button>
         <button
           onClick={handleEditPin}

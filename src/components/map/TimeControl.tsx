@@ -8,7 +8,15 @@
  * - Visual timeline scrubber with play/animate capability
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useLayoutEffect,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   useMapStore,
   getDisplayTime,
@@ -316,6 +324,66 @@ export function TimeControl({ className = "" }: TimeControlProps) {
   const [newScenarioName, setNewScenarioName] = useState("");
   const [now, setNow] = useState(new Date());
 
+  // Ref for positioning portal-based popovers
+  const headerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverRect, setPopoverRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const popoverOpen = showPresets || showScenarios;
+
+  // Measure header position whenever a popover opens / window resizes
+  useLayoutEffect(() => {
+    if (!popoverOpen) {
+      setPopoverRect(null);
+      return;
+    }
+
+    const measure = () => {
+      if (!headerRef.current) return;
+      const r = headerRef.current.getBoundingClientRect();
+      setPopoverRect({ top: r.bottom + 4, left: r.left, width: r.width });
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [popoverOpen]);
+
+  // Close popovers on click outside or Escape
+  useEffect(() => {
+    if (!popoverOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (headerRef.current?.contains(t) || popoverRef.current?.contains(t))
+        return;
+      setShowPresets(false);
+      setShowScenarios(false);
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowPresets(false);
+        setShowScenarios(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [popoverOpen]);
+
   // Update time every second
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
@@ -392,13 +460,46 @@ export function TimeControl({ className = "" }: TimeControlProps) {
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div
+        ref={headerRef}
+        className="relative flex items-center justify-between mb-2"
+      >
         <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
           Time Machine
         </h3>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setShowScenarios(!showScenarios)}
+            onClick={() => {
+              setShowPresets(!showPresets);
+              if (!showPresets) setShowScenarios(false);
+            }}
+            className={`p-1 rounded transition-colors ${
+              showPresets
+                ? "bg-plasma-orange/20 text-plasma-orange"
+                : "text-gray-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="Smart presets"
+            aria-label="Toggle smart presets"
+          >
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={() => {
+              setShowScenarios(!showScenarios);
+              if (!showScenarios) setShowPresets(false);
+            }}
             className={`p-1 rounded transition-colors ${
               showScenarios
                 ? "bg-plasma-orange/20 text-plasma-orange"
@@ -424,6 +525,141 @@ export function TimeControl({ className = "" }: TimeControlProps) {
           <HelpButton onClick={() => setShowHelp(true)} />
         </div>
       </div>
+
+      {/* Portal-rendered popovers — escape Card's backdrop-blur stacking context */}
+      {popoverOpen &&
+        popoverRect &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{
+              position: "fixed",
+              top: popoverRect.top,
+              left: popoverRect.left,
+              width: popoverRect.width,
+              zIndex: 9999,
+            }}
+          >
+            {/* Smart presets popover */}
+            {showPresets && (
+              <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-white/10 shadow-lg shadow-black/50">
+                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
+                  Smart Presets
+                </div>
+                <div className="space-y-1">
+                  {availablePresets.map((preset) => {
+                    const time = preset.getTime(station, target);
+                    return (
+                      <button
+                        key={preset.id}
+                        onClick={() => handlePresetSelect(preset)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-xs rounded hover:bg-white/10 transition-colors group"
+                        title={preset.description}
+                      >
+                        <PresetIcon
+                          type={preset.icon}
+                          className="text-gray-400 group-hover:text-plasma-orange"
+                        />
+                        <span className="flex-1 text-gray-300 group-hover:text-white">
+                          {preset.label}
+                        </span>
+                        {time && (
+                          <span className="text-gray-500 font-mono text-[10px]">
+                            {format(time, use24h ? "HH:mm" : "h:mm a")} UTC
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {availablePresets.length === 0 && (
+                    <div className="text-xs text-gray-500 text-center py-2">
+                      Set your station location to enable presets
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Scenarios popover */}
+            {showScenarios && (
+              <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-white/10 shadow-lg shadow-black/50">
+                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
+                  Saved Scenarios
+                </div>
+
+                <div className="flex gap-1 mb-2">
+                  <input
+                    type="text"
+                    value={newScenarioName}
+                    onChange={(e) => setNewScenarioName(e.target.value)}
+                    placeholder="Scenario name..."
+                    className="flex-1 px-2 py-1 text-xs bg-white/5 border border-white/10 rounded text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange"
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveScenario()}
+                  />
+                  <button
+                    onClick={handleSaveScenario}
+                    disabled={!newScenarioName.trim()}
+                    className="px-2 py-1 text-xs font-medium bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 rounded hover:bg-plasma-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save
+                  </button>
+                </div>
+
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {timeScenarios.map((scenario) => (
+                    <div
+                      key={scenario.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/10 transition-colors group"
+                    >
+                      <button
+                        onClick={() => applyTimeScenario(scenario.id)}
+                        className="flex-1 text-left"
+                      >
+                        <div className="text-xs text-gray-300 group-hover:text-white">
+                          {scenario.name}
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          {format(
+                            new Date(scenario.time),
+                            use24h ? "MMM d, HH:mm" : "MMM d, h:mm a",
+                          )}{" "}
+                          UTC
+                          {scenario.target &&
+                            ` - ${scenario.target.name || scenario.target.grid}`}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => removeTimeScenario(scenario.id)}
+                        className="p-1 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Delete scenario"
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                  {timeScenarios.length === 0 && (
+                    <div className="text-xs text-gray-500 text-center py-2">
+                      No saved scenarios
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>,
+          document.body,
+        )}
 
       {/* Main time display */}
       <div className="flex items-center justify-center gap-3 mb-3">
@@ -503,152 +739,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             {preset.label}
           </button>
         ))}
-
-        <button
-          onClick={() => setShowPresets(!showPresets)}
-          className={`
-            px-2 py-1.5 text-xs font-medium rounded transition-all
-            ${
-              showPresets
-                ? "bg-plasma-orange text-white"
-                : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
-            }
-          `}
-          title="Smart presets"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-        </button>
       </div>
-
-      {/* Smart presets dropdown */}
-      {showPresets && (
-        <div className="mb-3 p-2 bg-white/5 rounded-lg border border-white/10">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
-            Smart Presets
-          </div>
-          <div className="space-y-1">
-            {availablePresets.map((preset) => {
-              const time = preset.getTime(station, target);
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => handlePresetSelect(preset)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-xs rounded hover:bg-white/10 transition-colors group"
-                  title={preset.description}
-                >
-                  <PresetIcon
-                    type={preset.icon}
-                    className="text-gray-400 group-hover:text-plasma-orange"
-                  />
-                  <span className="flex-1 text-gray-300 group-hover:text-white">
-                    {preset.label}
-                  </span>
-                  {time && (
-                    <span className="text-gray-500 font-mono text-[10px]">
-                      {format(time, use24h ? "HH:mm" : "h:mm a")} UTC
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            {availablePresets.length === 0 && (
-              <div className="text-xs text-gray-500 text-center py-2">
-                Set your station location to enable presets
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Scenarios panel */}
-      {showScenarios && (
-        <div className="mb-3 p-2 bg-white/5 rounded-lg border border-white/10">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
-            Saved Scenarios
-          </div>
-
-          <div className="flex gap-1 mb-2">
-            <input
-              type="text"
-              value={newScenarioName}
-              onChange={(e) => setNewScenarioName(e.target.value)}
-              placeholder="Scenario name..."
-              className="flex-1 px-2 py-1 text-xs bg-white/5 border border-white/10 rounded text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange"
-              onKeyDown={(e) => e.key === "Enter" && handleSaveScenario()}
-            />
-            <button
-              onClick={handleSaveScenario}
-              disabled={!newScenarioName.trim()}
-              className="px-2 py-1 text-xs font-medium bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 rounded hover:bg-plasma-orange/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Save
-            </button>
-          </div>
-
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {timeScenarios.map((scenario) => (
-              <div
-                key={scenario.id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/10 transition-colors group"
-              >
-                <button
-                  onClick={() => applyTimeScenario(scenario.id)}
-                  className="flex-1 text-left"
-                >
-                  <div className="text-xs text-gray-300 group-hover:text-white">
-                    {scenario.name}
-                  </div>
-                  <div className="text-[10px] text-gray-500">
-                    {format(
-                      new Date(scenario.time),
-                      use24h ? "MMM d, HH:mm" : "MMM d, h:mm a",
-                    )}{" "}
-                    UTC
-                    {scenario.target &&
-                      ` - ${scenario.target.name || scenario.target.grid}`}
-                  </div>
-                </button>
-                <button
-                  onClick={() => removeTimeScenario(scenario.id)}
-                  className="p-1 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                  title="Delete scenario"
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            ))}
-            {timeScenarios.length === 0 && (
-              <div className="text-xs text-gray-500 text-center py-2">
-                No saved scenarios
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Time slider with play controls */}
       <div className="relative mt-auto">

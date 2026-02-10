@@ -14,18 +14,14 @@ import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 
 /**
- * Dot product above which elements are fully visible.
- * -0.1 means: the entire front hemisphere plus a sliver past the
- * geometric edge is always fully opaque, at every zoom level.
+ * Fade region width around the geometric limb of the globe.
+ * The limb dot product (1/cameraDistance) is computed per frame,
+ * and we fade from fully visible to fully hidden across this range.
+ * FADE_BEFORE: how far before the limb to start fading (higher = earlier fade)
+ * FADE_AFTER: how far past the limb until fully hidden
  */
-const VISIBLE_THRESHOLD = -0.1;
-
-/**
- * Dot product below which elements are fully hidden.
- * -0.5 is well into the back hemisphere — only genuinely
- * back-of-globe elements disappear.
- */
-const HIDDEN_THRESHOLD = -0.5;
+const FADE_BEFORE = 0.05;
+const FADE_AFTER = 0.12;
 
 /**
  * Minimum change in opacity before updating React state.
@@ -101,16 +97,21 @@ export function useGlobeOcclusion(lat: number, lon: number): GlobeOcclusion {
     // Dot product of surface normal and camera direction
     const dot = nx * dx + ny * dy + nz * dz;
 
-    // Map dot product to opacity using fixed thresholds.
-    // Front hemisphere (dot > -0.1) is always fully visible.
-    // Back hemisphere fades from -0.1 to -0.5.
+    // Dynamic limb threshold based on camera distance.
+    // For a unit sphere viewed from distance D, the geometric limb
+    // (tangent point) has dot(surfaceNormal, cameraDir) = 1/D.
+    const limbDot = 1.0 / camLen;
+    const visibleThreshold = limbDot + FADE_BEFORE;
+    const hiddenThreshold = limbDot - FADE_AFTER;
+
+    // Map dot product to opacity — fade across the limb region.
     let newOpacity: number;
-    if (dot > VISIBLE_THRESHOLD) {
+    if (dot > visibleThreshold) {
       newOpacity = 1.0;
-    } else if (dot < HIDDEN_THRESHOLD) {
+    } else if (dot < hiddenThreshold) {
       newOpacity = 0.0;
     } else {
-      newOpacity = smoothstep(HIDDEN_THRESHOLD, VISIBLE_THRESHOLD, dot);
+      newOpacity = smoothstep(hiddenThreshold, visibleThreshold, dot);
     }
 
     // Always update the ref (no cost, read by useFrame consumers)

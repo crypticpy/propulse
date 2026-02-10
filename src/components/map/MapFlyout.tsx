@@ -76,7 +76,7 @@ const ACTION_BUTTONS: ActionButton[] = [
   {
     action: "setTarget",
     icon: "\uD83C\uDFAF",
-    label: "Set Target",
+    label: "Target",
     title: "Set this location as path analysis target",
   },
   {
@@ -262,28 +262,27 @@ export function MapFlyout({
         e.clientY <= rect.bottom + PROXIMITY_PADDING;
 
       if (isNear) {
-              // Mouse is near - clear any pending dismiss timer
-              mouseInFlyoutRef.current = true;
-              if (dismissTimerRef.current) {
-                clearTimeout(dismissTimerRef.current);
-                dismissTimerRef.current = null;
-              }
-              // Cancel fading if it started
-              if (isFading) {
-                setIsFading(false);
-              }
-            }
-      else if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
-                mouseInFlyoutRef.current = false;
-                dismissTimerRef.current = setTimeout(() => {
-                  // Start fade animation
-                  setIsFading(true);
-                  // Close after fade completes
-                  setTimeout(() => {
-                    onClose();
-                  }, 200); // Match CSS transition duration
-                }, autoDismissMs);
-              }
+        // Mouse is near - clear any pending dismiss timer
+        mouseInFlyoutRef.current = true;
+        if (dismissTimerRef.current) {
+          clearTimeout(dismissTimerRef.current);
+          dismissTimerRef.current = null;
+        }
+        // Cancel fading if it started
+        if (isFading) {
+          setIsFading(false);
+        }
+      } else if (mouseInFlyoutRef.current && !dismissTimerRef.current) {
+        mouseInFlyoutRef.current = false;
+        dismissTimerRef.current = setTimeout(() => {
+          // Start fade animation
+          setIsFading(true);
+          // Close after fade completes
+          setTimeout(() => {
+            onClose();
+          }, 200); // Match CSS transition duration
+        }, autoDismissMs);
+      }
     };
 
     // Track mouse movement

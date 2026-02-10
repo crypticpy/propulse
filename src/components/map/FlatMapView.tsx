@@ -1564,16 +1564,18 @@ function drawCallsignLabels(
     drawPillPath(ctx, bbox.x, bbox.y, bbox.w, bbox.h, pillRadius);
     ctx.fill();
 
-    // Band color underline accent (always shows band, not mode)
-    ctx.fillStyle = spot.frequency ? getBandColor(spot.frequency) : modeColor;
-    ctx.fillRect(bbox.x + 2, bbox.y + bbox.h - 2, bbox.w - 4, 1.5);
+    // DO NOT CHANGE — band-color underline must be solid, bright, edge-to-edge.
+    // Matches SpotLabel.tsx styling exactly (3px solid, full opacity, no inset).
+    const bandColor = spot.frequency ? getBandColor(spot.frequency) : modeColor;
+    ctx.fillStyle = bandColor;
+    ctx.fillRect(bbox.x, bbox.y + bbox.h - 3, bbox.w, 3);
 
     // Callsign text with shadow
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
     ctx.shadowBlur = 2;
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
     ctx.textAlign = "center";
-    ctx.fillText(spot.callsign, bbox.x + bbox.w / 2, bbox.y + bbox.h - 3);
+    ctx.fillText(spot.callsign, bbox.x + bbox.w / 2, bbox.y + bbox.h - 5);
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
   }
@@ -1636,16 +1638,18 @@ function drawSpotterLabels(
     drawPillPath(ctx, bx, by, textW, textH, pillRadius);
     ctx.fill();
 
-    // Band color underline accent (always shows band, not mode)
-    ctx.fillStyle = spot.frequency ? getBandColor(spot.frequency) : modeColor;
-    ctx.fillRect(bx + 2, by + textH - 2, textW - 4, 1.5);
+    // DO NOT CHANGE — band-color underline must be solid, bright, edge-to-edge.
+    // Matches SpotLabel.tsx styling exactly (3px solid, full opacity, no inset).
+    const bandColor = spot.frequency ? getBandColor(spot.frequency) : modeColor;
+    ctx.fillStyle = bandColor;
+    ctx.fillRect(bx, by + textH - 3, textW, 3);
 
     // Spotter callsign text
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
     ctx.shadowBlur = 2;
     ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
     ctx.textAlign = "center";
-    ctx.fillText(spotter, bx + textW / 2, by + textH - 3);
+    ctx.fillText(spotter, bx + textW / 2, by + textH - 5);
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
   }

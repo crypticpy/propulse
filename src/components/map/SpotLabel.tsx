@@ -10,9 +10,12 @@
  * - Sender vs receiver styling (outline vs filled)
  * - Age-based opacity decay
  * - Compact display optimized for dense spot views
+ * - Hover-to-surface: hovered labels pop above the stack with
+ *   scale bump + elevated z-index so you can flip through a
+ *   crowded pile-up without losing your place.
  */
 
-import { useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
@@ -104,6 +107,8 @@ export function SpotLabel({
   onHover,
   onHoverEnd,
 }: SpotLabelProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
   // Validate coordinates
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
 
@@ -134,6 +139,21 @@ export function SpotLabel({
   const sizeClasses =
     size === "sm" ? "text-[11px] px-1.5 py-0.5" : "text-[13px] px-2 py-1";
 
+  // Hover handlers — always enabled so labels in a stack are navigable,
+  // even spotter labels that don't have an onHover detail callback.
+  const handleMouseEnter = useCallback(
+    (e: React.MouseEvent) => {
+      setIsHovered(true);
+      onHover?.({ x: e.clientX, y: e.clientY });
+    },
+    [onHover],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    onHoverEnd?.();
+  }, [onHoverEnd]);
+
   if (!hasValidCoords) {
     return null;
   }
@@ -141,44 +161,68 @@ export function SpotLabel({
   // Vertical pixel offset for stacked labels (each label ~22px tall)
   const stackOffsetY = stackIndex * -24;
 
+  // Text opacity fades with age/occlusion but underline stays fully bright
+  const textOpacity = Math.max(combinedOpacity, 0.35);
+
   return (
     <Html
       position={position}
       center
-      zIndexRange={[1, 0]}
+      // When hovered, boost z-index so this label renders above all others
+      // in the stack. Default [1,0] keeps non-hovered labels in paint order.
+      zIndexRange={isHovered ? [9000, 8999] : [1, 0]}
       style={{
-        pointerEvents: onHover ? "auto" : "none",
+        // Always accept pointer events so any label in a stack can be hovered
+        pointerEvents: "auto",
         userSelect: "none",
-        opacity: combinedOpacity,
         transition: "opacity 0.3s ease",
         transform: stackOffsetY ? `translateY(${stackOffsetY}px)` : undefined,
+        // Outer wrapper only hides when fully occluded (behind globe)
+        opacity: combinedOpacity < 0.05 ? 0 : 1,
       }}
     >
       <div
         className={`
-          font-mono font-bold whitespace-nowrap rounded
+          font-mono font-bold whitespace-nowrap
           ${sizeClasses}
         `}
-        onMouseEnter={
-          onHover ? (e) => onHover({ x: e.clientX, y: e.clientY }) : undefined
-        }
-        onMouseLeave={onHoverEnd || undefined}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        // DO NOT CHANGE — this underline styling is precisely tuned.
+        // The 3px solid borderBottom + full-opacity boxShadow glow keeps
+        // the band-color bar vivid regardless of age/occlusion fade.
+        // Flat bottom radius (4px 4px 0 0) ensures edge-to-edge coverage.
         style={{
-          cursor: onHover ? "pointer" : undefined,
-          color: "rgba(255, 255, 255, 0.95)",
-          backgroundColor: "rgba(10, 10, 26, 0.82)",
-          borderBottom: `2px solid ${underlineColor}`,
-          boxShadow: `0 2px 6px rgba(0,0,0,0.6)`,
-          textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+          cursor: "pointer",
+          color: isHovered
+            ? "rgba(255, 255, 255, 1)"
+            : `rgba(255, 255, 255, ${textOpacity})`,
+          backgroundColor: isHovered
+            ? "rgba(10, 10, 26, 0.95)"
+            : `rgba(10, 10, 26, ${0.88 * textOpacity})`,
+          borderBottom: `3px solid ${underlineColor}`,
+          borderRadius: "4px 4px 0 0",
+          boxShadow: isHovered
+            ? `0 3px 0 ${underlineColor}, 0 0 12px ${underlineColor}80, 0 6px 16px rgba(0,0,0,0.7)`
+            : `0 3px 0 ${underlineColor}, 0 5px 10px rgba(0,0,0,0.5)`,
+          textShadow: "0 1px 2px rgba(0,0,0,0.8)",
           letterSpacing: "0.03em",
           lineHeight: 1.2,
+          // Smooth scale + shadow transitions; z-index change is instant
+          transform: isHovered ? "scale(1.15)" : "scale(1)",
+          transformOrigin: "center bottom",
+          transition:
+            "transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, color 0.15s ease-out",
         }}
       >
         {callsign}
         {frequency && (
           <span
             className="ml-1"
-            style={{ fontSize: "0.9em", color: "rgba(255,255,255,0.7)" }}
+            style={{
+              fontSize: "0.9em",
+              opacity: isHovered ? 0.9 : 0.75,
+            }}
           >
             {formatFrequency(frequency)}
           </span>

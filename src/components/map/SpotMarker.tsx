@@ -64,7 +64,7 @@ function latLonToVector3(
 function getScreenPositionFromEvent(
   event: ThreeEvent<MouseEvent | PointerEvent>,
 ): { x: number; y: number } {
-  const {nativeEvent} = event;
+  const { nativeEvent } = event;
   return {
     x: nativeEvent.clientX,
     y: nativeEvent.clientY,
@@ -225,6 +225,7 @@ export function SpotMarker({
         <Html
           position={[0, size * 3, 0]}
           center
+          zIndexRange={[1, 0]}
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",

@@ -16,6 +16,8 @@ import type {
 } from "@/types/user";
 import type { VisibilitySettings } from "@/types/social";
 import { DEFAULT_VISIBILITY } from "@/types/social";
+import type { OperatorRank, RankPreferences } from "@/types/rank";
+import { DEFAULT_OPERATOR_RANK } from "@/types/rank";
 
 import { useSettingsStore } from "./settingsStore";
 import { deleteImage } from "@/lib/db/imageStore";
@@ -118,6 +120,19 @@ interface ProfileStore {
   // License history
   addLicenseHistoryEntry: (entry: LicenseHistoryEntry) => void;
   removeLicenseHistoryEntry: (id: string) => void;
+
+  // Rank system
+  operatorRank: OperatorRank;
+  lastLoginDate: string | null; // ISO date "YYYY-MM-DD"
+  loginStreakDays: number;
+  rankCelebrationSeen: string | null; // ISO timestamp of last seen celebration
+
+  // Rank actions
+  updateRankData: (updates: Partial<OperatorRank>) => void;
+  setCardSignature: (signature: string) => void;
+  setRankPreferences: (prefs: Partial<RankPreferences>) => void;
+  recordLogin: () => void;
+  markCelebrationSeen: () => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -136,6 +151,10 @@ export const useProfileStore = create<ProfileStore>()(
       lastIngestedCallsign: "",
       socialLinks: [],
       visibilitySettings: { ...DEFAULT_VISIBILITY },
+      operatorRank: DEFAULT_OPERATOR_RANK,
+      lastLoginDate: null,
+      loginStreakDays: 0,
+      rankCelebrationSeen: null,
 
       setStation: (station) =>
         set((state) => {
@@ -432,10 +451,55 @@ export const useProfileStore = create<ProfileStore>()(
         set((state) => ({
           licenseHistory: state.licenseHistory.filter((e) => e.id !== id),
         })),
+
+      // === Rank System ===
+
+      updateRankData: (updates) =>
+        set((state) => ({
+          operatorRank: { ...state.operatorRank, ...updates },
+        })),
+
+      setCardSignature: (signature) =>
+        set((state) => ({
+          operatorRank: {
+            ...state.operatorRank,
+            cardSignature: signature.slice(0, 40),
+          },
+        })),
+
+      setRankPreferences: (prefs) =>
+        set((state) => ({
+          operatorRank: {
+            ...state.operatorRank,
+            preferences: { ...state.operatorRank.preferences, ...prefs },
+          },
+        })),
+
+      recordLogin: () =>
+        set((state) => {
+          const today = new Date().toISOString().split("T")[0];
+          if (state.lastLoginDate === today) return state;
+
+          let loginStreakDays = 1;
+          if (state.lastLoginDate) {
+            const lastDate = new Date(state.lastLoginDate + "T00:00:00");
+            const todayDate = new Date(today + "T00:00:00");
+            const diffMs = todayDate.getTime() - lastDate.getTime();
+            const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+            if (diffDays === 1) {
+              loginStreakDays = state.loginStreakDays + 1;
+            }
+          }
+
+          return { lastLoginDate: today, loginStreakDays };
+        }),
+
+      markCelebrationSeen: () =>
+        set({ rankCelebrationSeen: new Date().toISOString() }),
     }),
     {
       name: "propulse-profile",
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -449,6 +513,10 @@ export const useProfileStore = create<ProfileStore>()(
         socialLinks: state.socialLinks,
         // NOTE: serviceCredentials intentionally excluded — use credentialStore (encrypted IDB) instead
         visibilitySettings: state.visibilitySettings,
+        operatorRank: state.operatorRank,
+        lastLoginDate: state.lastLoginDate,
+        loginStreakDays: state.loginStreakDays,
+        rankCelebrationSeen: state.rankCelebrationSeen,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -469,6 +537,26 @@ export const useProfileStore = create<ProfileStore>()(
         }
         if (version < 6) {
           if (!("profileImageId" in state)) state.profileImageId = undefined;
+        }
+        if (version < 7) {
+          if (!("operatorRank" in state)) {
+            state.operatorRank = {
+              currentRank: "novice",
+              rankPoints: 0,
+              rankHistory: [],
+              unlockedBackgrounds: ["schematic"],
+              preferences: {
+                selectedBackground: "schematic",
+                enableParticles: true,
+                enableSound: false,
+                enableMouseTilt: true,
+              },
+            };
+          }
+          if (!("lastLoginDate" in state)) state.lastLoginDate = null;
+          if (!("loginStreakDays" in state)) state.loginStreakDays = 0;
+          if (!("rankCelebrationSeen" in state))
+            state.rankCelebrationSeen = null;
         }
         return state as unknown as ProfileStore;
       },

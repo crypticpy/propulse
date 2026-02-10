@@ -12,6 +12,8 @@ import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { RankBadge } from "@/components/rank/RankBadge";
 
 interface NavItem {
   path: string;
@@ -365,6 +367,7 @@ function AuthHeaderButton() {
   const user = useAuthStore((s) => s.user);
   const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+  const { rank } = useOperatorRank();
 
   // No Supabase → original profile icon
   if (!isSupabaseConfigured) {
@@ -407,26 +410,29 @@ function AuthHeaderButton() {
     );
   }
 
-  // Authenticated → avatar circle
+  // Authenticated → avatar circle with rank badge
   const initial = (user?.email?.[0] ?? "U").toUpperCase();
 
   return (
-    <button
-      onClick={() => navigate("/profile")}
-      className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
-      aria-label="Operator Profile"
-    >
-      {profileImageUrl ? (
-        <img
-          src={profileImageUrl}
-          alt="Avatar"
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <span className="w-full h-full flex items-center justify-center bg-plasma-orange/20 text-plasma-orange text-xs font-bold">
-          {initial}
-        </span>
-      )}
-    </button>
+    <div className="flex items-center gap-1.5">
+      <RankBadge rank={rank} size="sm" />
+      <button
+        onClick={() => navigate("/profile")}
+        className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+        aria-label="Operator Profile"
+      >
+        {profileImageUrl ? (
+          <img
+            src={profileImageUrl}
+            alt="Avatar"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="w-full h-full flex items-center justify-center bg-plasma-orange/20 text-plasma-orange text-xs font-bold">
+            {initial}
+          </span>
+        )}
+      </button>
+    </div>
   );
 }

@@ -26,7 +26,10 @@ import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
 } from "@/lib/data/prefixLocations";
-import { useSpotClustering } from "@/hooks/useSpotClustering";
+import {
+  useSpotClustering,
+  type SpotCluster as SpotClusterData,
+} from "@/hooks/useSpotClustering";
 import { SpotCluster } from "./SpotCluster";
 import { SpotLabel } from "./SpotLabel";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
@@ -358,6 +361,11 @@ interface LiveSpotArcsProps {
   ) => void;
   /** Callback when spot hover ends */
   onSpotHoverEnd?: () => void;
+  /** Callback when a cluster is clicked */
+  onClusterClick?: (
+    cluster: SpotClusterData,
+    screenPos: { x: number; y: number },
+  ) => void;
 }
 
 /**
@@ -529,6 +537,7 @@ export function LiveSpotArcs({
   maxArcs = 50,
   onSpotHover,
   onSpotHoverEnd,
+  onClusterClick,
 }: LiveSpotArcsProps) {
   // Get source filter from dxStore - shared with DXSpotList
   const filters = useDXStore((state) => state.filters);
@@ -581,7 +590,11 @@ export function LiveSpotArcs({
     <group name="live-spot-arcs">
       {/* Render clustered spots as cluster markers */}
       {clusters.map((cluster) => (
-        <SpotCluster key={cluster.id} cluster={cluster} />
+        <SpotCluster
+          key={cluster.id}
+          cluster={cluster}
+          onClick={onClusterClick}
+        />
       ))}
 
       {/* Render non-clustered spots as individual arcs with age-based styling */}
@@ -651,6 +664,7 @@ export function LiveSpotArcs({
                 !labeledCallsigns.has(spot.callsign) &&
                 (() => {
                   labeledCallsigns.add(spot.callsign);
+                  const orig = singlesMap.get(spot.id);
                   return (
                     <SpotLabel
                       lat={spot.dxLat}
@@ -660,6 +674,30 @@ export function LiveSpotArcs({
                       frequency={spot.frequency}
                       stackIndex={stackIndex}
                       color={color}
+                      onHover={
+                        onSpotHover
+                          ? (screenPos) =>
+                              onSpotHover(
+                                {
+                                  callsign: spot.callsign,
+                                  dxGrid: orig?.dxGrid,
+                                  dxLat: spot.dxLat,
+                                  dxLon: spot.dxLon,
+                                  spotter: orig?.spotter,
+                                  spotterGrid: orig?.spotterGrid,
+                                  frequency: spot.frequency,
+                                  band: orig?.band,
+                                  mode: spot.mode,
+                                  time: spot.time,
+                                  source: spot.source,
+                                  snr: orig?.snr,
+                                  wpm: orig?.wpm,
+                                },
+                                screenPos,
+                              )
+                          : undefined
+                      }
+                      onHoverEnd={onSpotHoverEnd}
                     />
                   );
                 })()}

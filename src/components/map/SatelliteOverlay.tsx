@@ -206,6 +206,7 @@ function SatelliteMarker({
       <Html
         position={[0, MARKER_SIZE * 4, 0]}
         center
+        zIndexRange={[1, 0]}
         style={{
           pointerEvents: "none",
           transition: "opacity 0.2s ease",

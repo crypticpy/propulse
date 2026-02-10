@@ -1,13 +1,14 @@
 /**
  * SpotCluster Component
  *
- * Renders a cluster marker on the 3D globe representing multiple DX spots
- * in the same geographic area. Features include:
- * - Larger marker than individual spots
- * - Count badge showing number of spots
- * - Hexagonal shape for visual distinction
- * - Hover tooltip with callsign list
- * - Click to expand/zoom functionality
+ * Renders an elevated pin-style beacon on the 3D globe representing multiple
+ * DX spots in the same geographic area. Features include:
+ * - Vertical stem with hexagonal head (distinct from cone-style individual pins)
+ * - Count badge floating above the head
+ * - Base glow ring and head glow with pulsing animation
+ * - Gentle bobbing motion along the surface normal
+ * - Globe occlusion (fades on far side of globe)
+ * - Click/hover callbacks for external popover handling
  */
 
 import { useRef, useMemo, useState, useCallback, useEffect } from "react";
@@ -15,27 +16,26 @@ import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
-import {
-  getClusterCallsignSummary,
-  getClusterModes,
-} from "@/hooks/useSpotClustering";
 import { getModeColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Radius offset to prevent z-fighting with globe surface */
-const SURFACE_OFFSET = 1.025;
+const SURFACE_OFFSET = 1.02;
 
-/** Base size for cluster markers (larger than regular spots) */
-const CLUSTER_SIZE = 0.035;
+/** Height of the pin stem above the globe surface */
+const STEM_HEIGHT = 0.08;
 
-/** Maximum spots to show in tooltip */
-const MAX_TOOLTIP_CALLSIGNS = 10;
+/** Base radius for the hexagonal head */
+const HEAD_SIZE = 0.02;
 
 export interface SpotClusterProps {
   /** The cluster data to render */
   cluster: SpotClusterType;
   /** Click handler for cluster expansion */
-  onClick?: (cluster: SpotClusterType) => void;
+  onClick?: (
+    cluster: SpotClusterType,
+    screenPos: { x: number; y: number },
+  ) => void;
   /** Hover handler for tooltip display */
   onHover?: (
     cluster: SpotClusterType | null,
@@ -62,6 +62,20 @@ function latLonToVector3(
 }
 
 /**
+ * Get the "up" direction at a given lat/lon (normal to the sphere surface)
+ */
+function getUpDirection(lat: number, lon: number): THREE.Vector3 {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+
+  return new THREE.Vector3(
+    -Math.sin(phi) * Math.cos(theta),
+    Math.cos(phi),
+    Math.sin(phi) * Math.sin(theta),
+  ).normalize();
+}
+
+/**
  * Get screen position from native mouse/pointer event
  */
 function getScreenPositionFromEvent(
@@ -75,7 +89,7 @@ function getScreenPositionFromEvent(
 }
 
 /**
- * Create hexagon geometry for cluster marker
+ * Create hexagon geometry for cluster marker head
  */
 function createHexagonGeometry(
   radius: number,
@@ -105,7 +119,7 @@ function createHexagonGeometry(
 }
 
 /**
- * SpotCluster renders a cluster marker on the globe surface
+ * SpotCluster renders an elevated pin-style beacon on the globe surface
  *
  * @example
  * ```tsx
@@ -117,14 +131,15 @@ function createHexagonGeometry(
  * ```
  */
 export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
-  const markerRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const headRef = useRef<THREE.Mesh>(null);
+  const headGlowMeshRef = useRef<THREE.Mesh>(null);
+  const baseGlowMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const stemMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const hexMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
-  const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const headGlowMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
 
   const [isHovered, setIsHovered] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
 
   // Globe occlusion - fade out clusters on the far side
   const { opacityRef: occlusionRef } = useGlobeOcclusion(
@@ -132,8 +147,8 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
     cluster.center.lon,
   );
 
-  // Calculate 3D position from cluster center
-  const position = useMemo(() => {
+  // Calculate base position on globe surface
+  const basePosition = useMemo(() => {
     return latLonToVector3(
       cluster.center.lat,
       cluster.center.lon,
@@ -141,38 +156,55 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
     );
   }, [cluster.center.lat, cluster.center.lon]);
 
+  // Calculate up direction for orienting the pin
+  const upDirection = useMemo(() => {
+    return getUpDirection(cluster.center.lat, cluster.center.lon);
+  }, [cluster.center.lat, cluster.center.lon]);
+
   // Get color from primary spot's mode
   const color = useMemo(() => {
     return getModeColor(cluster.primarySpot.mode);
   }, [cluster.primarySpot.mode]);
 
-  // Get modes in cluster for tooltip
-  const modes = useMemo(() => {
-    return getClusterModes(cluster);
-  }, [cluster]);
+  // Calculate dynamic size based on cluster count
+  const sizeMultiplier = Math.min(1 + (cluster.count - 3) * 0.05, 1.5);
 
-  // Get callsign summary for tooltip
-  const callsignSummary = useMemo(() => {
-    return getClusterCallsignSummary(cluster, MAX_TOOLTIP_CALLSIGNS);
-  }, [cluster]);
-
-  // Create hexagon geometry (memoized with cleanup)
+  // Create hexagon geometry for the head (memoized with cleanup)
   const hexGeometry = useMemo(() => {
-    return createHexagonGeometry(CLUSTER_SIZE);
+    return createHexagonGeometry(HEAD_SIZE);
   }, []);
 
-  // Dispose geometry on unmount to prevent memory leaks
+  // Create stem geometry
+  const stemGeometry = useMemo(() => {
+    return new THREE.CylinderGeometry(0.003, 0.003, STEM_HEIGHT, 8);
+  }, []);
+
+  // Dispose geometries on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       hexGeometry.dispose();
+      stemGeometry.dispose();
     };
-  }, [hexGeometry]);
+  }, [hexGeometry, stemGeometry]);
+
+  // Pre-allocate reusable vectors to avoid per-frame GC pressure
+  const tempBobVec = useMemo(() => new THREE.Vector3(), []);
+  const tempScaleVec = useMemo(() => new THREE.Vector3(), []);
+
+  // Calculate rotation to align pin with surface normal
+  const rotation = useMemo(() => {
+    const quaternion = new THREE.Quaternion();
+    const defaultUp = new THREE.Vector3(0, 1, 0);
+    quaternion.setFromUnitVectors(defaultUp, upDirection);
+    return new THREE.Euler().setFromQuaternion(quaternion);
+  }, [upDirection]);
 
   // Handle click event
   const handleClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
       event.stopPropagation();
-      onClick?.(cluster);
+      const screenPos = getScreenPositionFromEvent(event);
+      onClick?.(cluster, screenPos);
     },
     [cluster, onClick],
   );
@@ -182,7 +214,6 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
     (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
       setIsHovered(true);
-      setShowTooltip(true);
 
       if (onHover) {
         const screenPos = getScreenPositionFromEvent(event);
@@ -195,98 +226,137 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
   // Handle pointer leave
   const handlePointerLeave = useCallback(() => {
     setIsHovered(false);
-    setShowTooltip(false);
     onHover?.(null, { x: 0, y: 0 });
   }, [onHover]);
 
-  // Animate glow effect and apply globe occlusion
-  useFrame(({ clock }) => {
+  // Animate pin (bobbing, pulsing, hover) and apply globe occlusion
+  useFrame(({ clock, camera }) => {
     const occlusion = occlusionRef.current;
+    const time = clock.elapsedTime;
 
-    if (glowRef.current && materialRef.current) {
-      // Pulsing glow effect
-      const time = clock.elapsedTime * 2;
-      const pulse = 0.5 + Math.sin(time) * 0.3;
-      const baseOpacity = 0.6 * pulse;
-
-      materialRef.current.opacity =
-        (isHovered ? baseOpacity * 1.5 : baseOpacity) * occlusion;
-
-      // Scale glow when hovered
-      const glowScale = isHovered ? 1.5 : 1;
-      glowRef.current.scale.setScalar(glowScale);
+    // Gentle bob animation along the up direction
+    if (groupRef.current) {
+      const bobOffset = Math.sin(time * 1.5) * 0.003;
+      tempBobVec.copy(upDirection).multiplyScalar(bobOffset);
+      groupRef.current.position.copy(basePosition).add(tempBobVec);
     }
 
-    // Apply occlusion to hexagonal marker material
+    // Hover: lerp head scale to 1.2
+    if (headRef.current) {
+      const targetScale = isHovered ? 1.2 * sizeMultiplier : sizeMultiplier;
+      tempScaleVec.set(targetScale, targetScale, 1);
+      headRef.current.scale.lerp(tempScaleVec, 0.1);
+
+      // Billboard: always face the camera so the head is clickable from any angle
+      headRef.current.lookAt(camera.position);
+    }
+
+    // Billboard: head glow also faces the camera
+    if (headGlowMeshRef.current) {
+      headGlowMeshRef.current.lookAt(camera.position);
+    }
+
+    // Pulsing glow on base ring
+    if (baseGlowMaterialRef.current) {
+      const pulse = 0.5 + Math.sin(time * 2) * 0.3;
+      const baseOpacity = isHovered ? 0.5 * pulse : 0.3 * pulse;
+      baseGlowMaterialRef.current.opacity = baseOpacity * occlusion;
+    }
+
+    // Stem material occlusion
+    if (stemMaterialRef.current) {
+      stemMaterialRef.current.opacity = 0.6 * occlusion;
+    }
+
+    // Hexagonal head material occlusion + hover brighten
     if (hexMaterialRef.current) {
       hexMaterialRef.current.opacity = (isHovered ? 1 : 0.9) * occlusion;
     }
 
-    // Apply occlusion to outer ring material
-    if (ringMaterialRef.current) {
-      ringMaterialRef.current.opacity = (isHovered ? 0.8 : 0.5) * occlusion;
+    // Pulsing head glow
+    if (headGlowMaterialRef.current) {
+      const headPulse = 0.5 + Math.sin(time * 2 + 1) * 0.3;
+      const headGlowOpacity = isHovered ? 0.5 * headPulse : 0.3 * headPulse;
+      headGlowMaterialRef.current.opacity = headGlowOpacity * occlusion;
     }
   });
 
-  const glowSize = CLUSTER_SIZE * 2.5;
-
-  // Calculate dynamic size based on cluster count
-  const sizeMultiplier = Math.min(1 + (cluster.count - 3) * 0.05, 1.5);
-
   return (
-    <group position={position}>
-      {/* Glow effect behind marker */}
-      <mesh ref={glowRef} renderOrder={0}>
-        <circleGeometry args={[glowSize, 32]} />
+    <group ref={groupRef} position={basePosition} rotation={rotation}>
+      {/* 1. Base glow ring — flat on surface, pulsing */}
+      <mesh
+        rotation={[Math.PI / 2, 0, 0]}
+        position={[0, 0.001, 0]}
+        renderOrder={0}
+      >
+        <ringGeometry args={[HEAD_SIZE * 0.8, HEAD_SIZE * 1.5, 6]} />
         <meshBasicMaterial
-          ref={materialRef}
+          ref={baseGlowMaterialRef}
           color={color}
           transparent
-          opacity={0.4}
+          opacity={0.3}
           side={THREE.DoubleSide}
           depthTest={false}
           depthWrite={false}
         />
       </mesh>
 
-      {/* Main hexagonal marker */}
+      {/* 2. Stem — thin cylinder from surface to head */}
+      <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
+        <primitive object={stemGeometry} attach="geometry" />
+        <meshBasicMaterial
+          ref={stemMaterialRef}
+          color={color}
+          transparent
+          opacity={0.6}
+          depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* 3. Hexagonal head — scaled by cluster count */}
       <mesh
-        ref={markerRef}
+        ref={headRef}
         geometry={hexGeometry}
+        position={[0, STEM_HEIGHT, 0]}
         onClick={handleClick}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
-        renderOrder={2}
+        renderOrder={3}
         scale={[sizeMultiplier, sizeMultiplier, 1]}
-        rotation={[0, 0, 0]}
       >
         <meshBasicMaterial
           ref={hexMaterialRef}
           color={color}
           transparent
-          opacity={isHovered ? 1 : 0.9}
+          opacity={0.9}
           depthTest={false}
         />
       </mesh>
 
-      {/* Outer ring for emphasis */}
-      <mesh renderOrder={1} scale={[sizeMultiplier, sizeMultiplier, 1]}>
-        <ringGeometry args={[CLUSTER_SIZE * 1.1, CLUSTER_SIZE * 1.3, 6]} />
+      {/* 4. Head glow — circle behind the hexagonal head */}
+      <mesh
+        ref={headGlowMeshRef}
+        position={[0, STEM_HEIGHT, 0]}
+        renderOrder={2}
+      >
+        <circleGeometry args={[HEAD_SIZE * 2, 32]} />
         <meshBasicMaterial
-          ref={ringMaterialRef}
+          ref={headGlowMaterialRef}
           color={color}
           transparent
-          opacity={isHovered ? 0.8 : 0.5}
+          opacity={0.3}
           side={THREE.DoubleSide}
           depthTest={false}
           depthWrite={false}
         />
       </mesh>
 
-      {/* Count badge using Html overlay */}
+      {/* Count badge — floating above the head */}
       <Html
-        position={[0, CLUSTER_SIZE * 2.5, 0]}
+        position={[0, STEM_HEIGHT + HEAD_SIZE * 3, 0]}
         center
+        zIndexRange={[1, 0]}
         style={{
           pointerEvents: "none",
           transition: "opacity 0.2s ease",
@@ -305,41 +375,10 @@ export function SpotCluster({ cluster, onClick, onHover }: SpotClusterProps) {
           {cluster.count}
         </div>
       </Html>
-
-      {/* Tooltip on hover */}
-      {showTooltip && (
-        <Html
-          position={[0, CLUSTER_SIZE * 5, 0]}
-          center
-          style={{
-            pointerEvents: "none",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            className="px-3 py-2 rounded-lg text-xs max-w-[200px]"
-            style={{
-              backgroundColor: "rgba(10, 10, 26, 0.95)",
-              border: `1px solid ${color}`,
-              boxShadow: `0 0 15px ${color}40`,
-            }}
-          >
-            <div className="font-bold mb-1" style={{ color }}>
-              {cluster.count} Spots
-            </div>
-            {modes.length > 0 && (
-              <div className="text-gray-400 text-[10px] mb-1">
-                {modes.join(", ")}
-              </div>
-            )}
-            <div className="text-gray-300 text-[10px] leading-relaxed break-words">
-              {callsignSummary}
-            </div>
-          </div>
-        </Html>
-      )}
     </group>
   );
 }
+
+SpotCluster.displayName = "SpotCluster";
 
 export default SpotCluster;

@@ -18,7 +18,7 @@ export interface BzChartProps {
 /** Chart dimensions */
 const CHART_WIDTH = 400;
 const CHART_HEIGHT = 200;
-const PADDING = { top: 20, right: 20, bottom: 30, left: 45 };
+const PADDING = { top: 20, right: 40, bottom: 30, left: 45 };
 
 /** Calculate inner chart dimensions */
 const INNER_WIDTH = CHART_WIDTH - PADDING.left - PADDING.right;
@@ -213,8 +213,8 @@ export const BzChart: React.FC<BzChartProps> = ({
       if (recentAvg - olderAvg > 2) {
         trend = "rising";
       } else if (olderAvg - recentAvg > 2) {
-               trend = "falling";
-             }
+        trend = "falling";
+      }
     }
 
     return {
@@ -385,12 +385,13 @@ export const BzChart: React.FC<BzChartProps> = ({
 
               {/* Zero reference label */}
               <text
-                x={PADDING.left + INNER_WIDTH + 8}
+                x={CHART_WIDTH - 4}
                 y={chartData.zeroY || PADDING.top + INNER_HEIGHT / 2}
                 fill="rgba(255,255,255,0.6)"
                 fontSize="10"
                 fontFamily="sans-serif"
                 dominantBaseline="middle"
+                textAnchor="end"
               >
                 0 nT
               </text>

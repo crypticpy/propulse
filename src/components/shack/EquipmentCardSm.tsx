@@ -12,6 +12,7 @@ import React, { useState } from "react";
 import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
 import {
   type EquipmentCardData,
   ACCENT_HEX,
@@ -50,6 +51,7 @@ export function EquipmentCardSm({
 }: EquipmentCardSmProps) {
   const [hovered, setHovered] = useState(false);
   const { url: imageUrl } = useImageUrl(imageId);
+  const { rank, color: rankColor } = useOperatorRank();
   const accentHex = ACCENT_HEX[equipmentType];
   const SymbolComponent = getEquipmentSymbol(equipmentType);
 
@@ -104,7 +106,10 @@ export function EquipmentCardSm({
       {/* ── Left accent bar ── */}
       <div
         className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg"
-        style={{ backgroundColor: accentHex }}
+        style={{
+          background: `linear-gradient(to top, ${accentHex}, ${accentHex}CC)`,
+          boxShadow: rank !== "novice" ? `0 0 3px ${rankColor}30` : undefined,
+        }}
       />
 
       {/* ── Symbol / Image ── */}

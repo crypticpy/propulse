@@ -365,7 +365,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -398,6 +398,13 @@ export const useSettingsStore = create<SettingsStore>()(
           if (ui) {
             if (ui.spotDotScale === undefined) ui.spotDotScale = 1.0;
             if (ui.mapPinScale === undefined) ui.mapPinScale = 1.0;
+          }
+        }
+        if (version < 5) {
+          // Add showHoverTooltips preference
+          const ui = state.uiInteraction as Record<string, unknown> | undefined;
+          if (ui && ui.showHoverTooltips === undefined) {
+            ui.showHoverTooltips = true;
           }
         }
         return state as unknown as SettingsState & SettingsStore;

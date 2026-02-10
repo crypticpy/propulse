@@ -326,6 +326,7 @@ function BackfaceLabel({
     <Html
       position={[label.px, label.py, label.pz]}
       center
+      zIndexRange={[1, 0]}
       style={{
         pointerEvents: "none",
         userSelect: "none",

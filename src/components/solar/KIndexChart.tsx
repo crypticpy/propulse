@@ -67,7 +67,7 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
   // Chart dimensions - use wider aspect ratio like SolarFluxChart
   const chartWidth = 400;
   const chartHeight = 200;
-  const padding = { top: 20, right: 20, bottom: 30, left: 45 };
+  const padding = { top: 20, right: 50, bottom: 30, left: 45 };
   const innerWidth = chartWidth - padding.left - padding.right;
   const innerHeight = chartHeight - padding.top - padding.bottom;
 
@@ -223,12 +223,13 @@ export const KIndexChart: React.FC<KIndexChartProps> = ({
             opacity="0.6"
           />
           <text
-            x={padding.left + innerWidth + 4}
+            x={chartWidth - 4}
             y={yScale(5)}
             fill="#ff4455"
             fontSize="10"
             fontFamily="sans-serif"
             dominantBaseline="middle"
+            textAnchor="end"
             opacity="0.8"
           >
             Storm

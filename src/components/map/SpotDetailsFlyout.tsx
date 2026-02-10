@@ -105,10 +105,10 @@ export function SpotDetailsFlyout({
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
 
-  // Calculate feasibility if we have grids
+  // Calculate feasibility if we have grids (truncate to 6 chars — gridToLatLon rejects 8-char extended grids)
   const feasibility = useFeasibility({
-    fromGrid: homeGrid,
-    toGrid: spot?.dxGrid || "",
+    fromGrid: homeGrid.slice(0, 6),
+    toGrid: (spot?.dxGrid || "").slice(0, 6),
   });
 
   // Calculate adjusted position to keep flyout on screen

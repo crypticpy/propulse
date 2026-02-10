@@ -80,6 +80,9 @@ import { pickOptimalBandCondition } from "@/lib/utils/optimalBand";
 import type { OrbitControls as OrbitControlsType } from "three-stdlib";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapSizeSliders } from "./MapSizeSliders";
+import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
+import { ClusterDetailPopover } from "./ClusterDetailPopover";
+import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -367,6 +370,9 @@ function GlobeScene({
   onPinLeave,
   onTargetHover,
   onTargetHoverEnd,
+  onSpotHover,
+  onSpotHoverEnd,
+  onClusterClick,
 }: {
   displayTime: Date;
   onLocationClick?: (
@@ -394,6 +400,18 @@ function GlobeScene({
   onTargetHover?: (screenPos: { x: number; y: number }) => void;
   /** Called when leaving the selected target marker */
   onTargetHoverEnd?: () => void;
+  /** Called when hovering over a spot label or endpoint */
+  onSpotHover?: (
+    data: SpotDetailsData,
+    screenPos: { x: number; y: number },
+  ) => void;
+  /** Called when spot hover ends */
+  onSpotHoverEnd?: () => void;
+  /** Called when a cluster is clicked */
+  onClusterClick?: (
+    cluster: SpotClusterData,
+    screenPos: { x: number; y: number },
+  ) => void;
 }) {
   const { layers, target, autoRotate, pathMode, mapStyle } = useMapStore();
   const isStandard = mapStyle === "standard";
@@ -545,7 +563,15 @@ function GlobeScene({
       {layers.satellites && <SatelliteOverlay />}
 
       {/* Live spot arcs */}
-      {layers.spots && <LiveSpotArcs grid={station?.grid} maxArcs={50} />}
+      {layers.spots && (
+        <LiveSpotArcs
+          grid={station?.grid}
+          maxArcs={50}
+          onSpotHover={onSpotHover}
+          onSpotHoverEnd={onSpotHoverEnd}
+          onClusterClick={onClusterClick}
+        />
+      )}
 
       {/* Pin markers from saved locations - distinctive pushpin style */}
       {pins.map((pin) => {
@@ -727,6 +753,22 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     y: number;
   } | null>(null);
 
+  // State for spot hover tooltip (SpotDetailsFlyout)
+  const [hoveredSpotData, setHoveredSpotData] =
+    useState<SpotDetailsData | null>(null);
+  const [hoveredSpotPos, setHoveredSpotPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // State for cluster click popover
+  const [selectedCluster, setSelectedCluster] =
+    useState<SpotClusterData | null>(null);
+  const [clusterScreenPos, setClusterScreenPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   // Check watch activity when spots change
   useEffect(() => {
     if (allSpots.length > 0) {
@@ -838,6 +880,8 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       setTooltipPosition(null); // Hide tooltip when flyout opens
       setHoveredPinData(null); // Clear pin flyout
       setHoveredTargetPos(null); // Clear target hover
+      setSelectedCluster(null); // Close cluster popover
+      setClusterScreenPos(null);
       onLocationClick?.(lat, lon);
     },
     [setFlyoutPosition, setTooltipPosition, onLocationClick],
@@ -907,6 +951,34 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
 
   const handleTargetHoverEnd = useCallback(() => {
     setHoveredTargetPos(null);
+  }, []);
+
+  // Handle spot hover from LiveSpotArcs (via SpotLabel or SpotEndpointHitArea)
+  const handleSpotHover = useCallback(
+    (data: SpotDetailsData, screenPos: { x: number; y: number }) => {
+      setHoveredSpotData(data);
+      setHoveredSpotPos(screenPos);
+    },
+    [],
+  );
+
+  const handleSpotHoverEnd = useCallback(() => {
+    setHoveredSpotData(null);
+    setHoveredSpotPos(null);
+  }, []);
+
+  // Handle cluster click from LiveSpotArcs → SpotCluster
+  const handleClusterClick = useCallback(
+    (cluster: SpotClusterData, screenPos: { x: number; y: number }) => {
+      setSelectedCluster(cluster);
+      setClusterScreenPos(screenPos);
+    },
+    [],
+  );
+
+  const handleClusterClose = useCallback(() => {
+    setSelectedCluster(null);
+    setClusterScreenPos(null);
   }, []);
 
   // Handle edit pin from PinFlyout
@@ -1046,7 +1118,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   );
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative">
+    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate">
       <GlobeErrorBoundary
         fallback={
           <div className="w-full h-full flex items-center justify-center bg-deep-space text-gray-500">
@@ -1078,6 +1150,9 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
               onPinLeave={handlePinLeave}
               onTargetHover={handleTargetHover}
               onTargetHoverEnd={handleTargetHoverEnd}
+              onSpotHover={handleSpotHover}
+              onSpotHoverEnd={handleSpotHoverEnd}
+              onClusterClick={handleClusterClick}
             />
           </Suspense>
         </Canvas>
@@ -1089,7 +1164,9 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
           !!tooltipPosition &&
           !flyoutPosition &&
           !hoveredPinData &&
-          !hoveredTargetPos
+          !hoveredTargetPos &&
+          !hoveredSpotData &&
+          !selectedCluster
         }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
@@ -1106,6 +1183,26 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
         signalUnavailableReason={
           station ? undefined : "Set your QTH to see optimal-band signal"
         }
+      />
+
+      {/* Spot detail flyout - shown when hovering over a spot label or endpoint */}
+      <SpotDetailsFlyout
+        visible={
+          !!hoveredSpotData &&
+          !flyoutPosition &&
+          !hoveredPinData &&
+          !selectedCluster
+        }
+        position={hoveredSpotPos || { x: 0, y: 0 }}
+        spot={hoveredSpotData}
+      />
+
+      {/* Cluster detail popover - shown when clicking a spot cluster */}
+      <ClusterDetailPopover
+        visible={!!selectedCluster}
+        position={clusterScreenPos || { x: 0, y: 0 }}
+        cluster={selectedCluster}
+        onClose={handleClusterClose}
       />
 
       {/* Flyout menu overlay - rendered outside Canvas */}

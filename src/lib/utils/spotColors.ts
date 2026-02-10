@@ -148,7 +148,7 @@ export function getModeTailwindColor(mode: string | undefined): string {
 export const BAND_COLORS: Record<string, string> = {
   "160m": "#ff6666",
   "80m": "#ff9966",
-  "60m": "#ffbb66",
+  "60m": "#e8963c",
   "40m": "#ffcc66",
   "30m": "#99ff66",
   "20m": "#66ff99",

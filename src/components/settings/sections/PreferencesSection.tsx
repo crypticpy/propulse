@@ -481,6 +481,15 @@ export function PreferencesSection() {
       <section className="space-y-4">
         <SectionHeader>Interaction</SectionHeader>
 
+        <ToggleSwitch
+          label="Show Hover Info Tips"
+          description="Show brief explanations when hovering info icons"
+          checked={uiInteraction.showHoverTooltips ?? true}
+          onChange={(checked) =>
+            updateUIInteraction({ showHoverTooltips: checked })
+          }
+        />
+
         <SettingSlider
           id="pref-hold-duration"
           label="Hold Duration"

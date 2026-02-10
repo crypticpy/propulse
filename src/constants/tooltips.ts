@@ -21,6 +21,12 @@ export const SOLAR_TOOLTIPS = {
     "Proton Flux — energetic proton density from the sun. Elevated levels cause polar cap absorption events.",
   xrayFlux:
     "X-ray Flux — solar X-ray intensity. Flares (C/M/X class) can cause sudden ionospheric disturbances.",
+  solarCycle:
+    "Solar Cycle — ~11-year pattern of solar activity. We are in Cycle 25. Higher activity = better HF propagation.",
+  noaaScales:
+    "NOAA Scales — R (radio blackouts), S (solar radiation), G (geomagnetic storms). Higher numbers = more severe impact.",
+  liveMaps:
+    "Live Maps — real-time satellite imagery showing HF absorption, aurora activity, and solar surface features.",
 } as const;
 
 // ─── Propagation & Band Conditions ────────────────────────────────────────

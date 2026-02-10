@@ -7,6 +7,7 @@
  */
 
 import type { ReactNode } from "react";
+export type { RankTier } from "@/types/rank";
 
 // ─── Core Types ──────────────────────────────────────────────────────────────
 

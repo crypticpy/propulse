@@ -11,6 +11,9 @@ import { useState } from "react";
 import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg, ArtZonePattern } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { RankBadge } from "@/components/rank/RankBadge";
+import { getRankBorderStyle } from "@/components/rank/RankBorderStyles";
 
 import {
   type EquipmentCardData,
@@ -93,7 +96,9 @@ export function EquipmentCardMd({
 }: EquipmentCardMdProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { url: imageUrl } = useImageUrl(imageId);
+  const { rank } = useOperatorRank();
   const accentHex = ACCENT_HEX[equipmentType];
+  const rankBorderStyle = getRankBorderStyle(rank, accentHex);
   const glowClass = GLOW_SHADOW[equipmentType];
   const hasActions = onEdit || onDelete;
 
@@ -139,9 +144,7 @@ export function EquipmentCardMd({
       ]
         .filter(Boolean)
         .join(" ")}
-      style={{
-        borderColor: `${accentHex}4D`, // 30% opacity
-      }}
+      style={{ ...rankBorderStyle }}
     >
       {/* ── 4px Top Accent Bar ── */}
       <div className={`h-1 w-full ${ACCENT_BG[equipmentType]}`} />
@@ -292,6 +295,11 @@ export function EquipmentCardMd({
           ))}
         </div>
       )}
+
+      {/* ── Rank Badge ── */}
+      <div className="px-3 pb-2">
+        <RankBadge rank={rank} size="sm" />
+      </div>
     </div>
   );
 }

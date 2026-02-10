@@ -22,6 +22,21 @@ import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg, ArtZonePattern } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { ImageUploadButton } from "@/components/ui/ImageUploadButton";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { getRankBorderStyle } from "@/components/rank/RankBorderStyles";
+import { ParticleAurora } from "@/components/rank/ParticleAurora";
+import { StatCountUp } from "@/components/rank/StatCountUp";
+import { RankBadge } from "@/components/rank/RankBadge";
+import {
+  EnergyBorderOverlay,
+  FiligreeCorners,
+  CardSignature,
+} from "@/components/rank/LegendaryEffects";
+import {
+  ChromaticBorderOverlay,
+  RuneCorners,
+  DimensionalRift,
+} from "@/components/rank/EtherealEffects";
 
 import {
   type EquipmentType,
@@ -318,6 +333,8 @@ export function EquipmentHeroCard({
   const displayImageId = activeImageId ?? imageId;
   const { url: imageUrl } = useImageUrl(displayImageId);
   const accentHex = ACCENT_HEX[equipmentType] ?? ACCENT_HEX.radio;
+  const rankState = useOperatorRank();
+  const rankBorderStyle = getRankBorderStyle(rankState.rank, accentHex);
 
   // Reset active gallery image when modal closes
   useEffect(() => {
@@ -427,7 +444,9 @@ export function EquipmentHeroCard({
           className="h-1.5 w-full rounded-t-2xl flex-shrink-0 hero-shimmer"
           style={{
             backgroundColor: accentHex,
-            backgroundImage: `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
+            backgroundImage: rankState.hasChromaticEffects
+              ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
+              : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
             backgroundSize: "200% 100%",
             animation: "heroShimmer 3s ease-in-out infinite",
           }}
@@ -438,8 +457,15 @@ export function EquipmentHeroCard({
           className="overflow-y-auto flex-1 min-h-0 rounded-b-2xl"
           style={{
             backgroundColor: "#0a0e18",
-            border: `2px solid ${accentHex}4D`,
-            borderTop: "none",
+            ...(rankBorderStyle.border
+              ? {
+                  ...rankBorderStyle,
+                  border: undefined,
+                  borderLeft: rankBorderStyle.border,
+                  borderRight: rankBorderStyle.border,
+                  borderBottom: rankBorderStyle.border,
+                }
+              : rankBorderStyle),
             backgroundImage: `linear-gradient(160deg, rgba(255,255,255,0.03) 0%, transparent 30%, rgba(0,0,0,0.2) 100%)`,
           }}
         >
@@ -464,27 +490,35 @@ export function EquipmentHeroCard({
               <CloseIcon />
             </button>
 
-            {/* Corner flourishes */}
-            <svg
-              className="absolute top-2 left-2 w-5 h-5 pointer-events-none"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke={`${accentHex}40`}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            >
-              <path d="M1 8V2a1 1 0 011-1h6" />
-            </svg>
-            <svg
-              className="absolute top-2 right-10 w-5 h-5 pointer-events-none"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke={`${accentHex}40`}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            >
-              <path d="M19 8V2a1 1 0 00-1-1h-6" />
-            </svg>
+            {/* Corner decorations */}
+            {rankState.hasChromaticEffects ? (
+              <RuneCorners enabled={true} />
+            ) : rankState.hasFiligreeCorners ? (
+              <FiligreeCorners enabled={true} accentHex={accentHex} />
+            ) : (
+              <>
+                <svg
+                  className="absolute top-2 left-2 w-5 h-5 pointer-events-none"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke={`${accentHex}40`}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                >
+                  <path d="M1 8V2a1 1 0 011-1h6" />
+                </svg>
+                <svg
+                  className="absolute top-2 right-10 w-5 h-5 pointer-events-none"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke={`${accentHex}40`}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                >
+                  <path d="M19 8V2a1 1 0 00-1-1h-6" />
+                </svg>
+              </>
+            )}
 
             {visualization ? (
               <div className="flex items-center justify-center py-6 sm:py-8 px-6 min-h-[160px] sm:min-h-[200px]">
@@ -569,27 +603,25 @@ export function EquipmentHeroCard({
               </div>
             )}
 
-            {/* Bottom corner flourishes */}
-            <svg
-              className="absolute bottom-2 left-2 w-5 h-5 pointer-events-none"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke={`${accentHex}30`}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            >
-              <path d="M1 12v6a1 1 0 001 1h6" />
-            </svg>
-            <svg
-              className="absolute bottom-2 right-10 w-5 h-5 pointer-events-none"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke={`${accentHex}30`}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            >
-              <path d="M19 12v6a1 1 0 01-1 1h-6" />
-            </svg>
+            {/* Rank particle effects */}
+            <ParticleAurora
+              enabled={
+                rankState.hasParticles && rankState.preferences.enableParticles
+              }
+              rank={rankState.rank}
+              accentHex={accentHex}
+            />
+            {rankState.hasChromaticEffects && (
+              <DimensionalRift enabled={true} accentHex={accentHex} />
+            )}
+
+            {/* Rank border overlays */}
+            {rankState.hasEnergyBorders && !rankState.hasChromaticEffects && (
+              <EnergyBorderOverlay enabled={true} accentHex={accentHex} />
+            )}
+            {rankState.hasChromaticEffects && (
+              <ChromaticBorderOverlay enabled={true} />
+            )}
           </div>
 
           {/* ── Gallery Strip ── */}
@@ -722,6 +754,11 @@ export function EquipmentHeroCard({
               </p>
             )}
 
+            {/* Rank badge */}
+            <div className="mt-2">
+              <RankBadge rank={rankState.rank} size="md" />
+            </div>
+
             {/* Badges */}
             {badges && badges.length > 0 && (
               <div className="flex items-center gap-2 mt-2.5 flex-wrap">
@@ -771,7 +808,11 @@ export function EquipmentHeroCard({
                         textShadow: `0 0 12px ${accentHex}30`,
                       }}
                     >
-                      {stat.value}
+                      <StatCountUp
+                        value={stat.value}
+                        enabled={rankState.hasStatCountUp}
+                        duration={600}
+                      />
                     </span>
                     <span className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider">
                       {stat.label}
@@ -864,6 +905,13 @@ export function EquipmentHeroCard({
             </div>
           )}
 
+          {/* ── Card Signature ── */}
+          <CardSignature
+            signature={rankState.cardSignature}
+            enabled={rankState.hasCardSignature}
+            className="px-5 pb-2"
+          />
+
           {/* ── Action Buttons ── */}
           {hasActions && (
             <>
@@ -934,7 +982,9 @@ export function EquipmentHeroCard({
           className="h-1.5 w-full rounded-b-2xl flex-shrink-0 hero-shimmer"
           style={{
             backgroundColor: accentHex,
-            backgroundImage: `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
+            backgroundImage: rankState.hasChromaticEffects
+              ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
+              : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
             backgroundSize: "200% 100%",
             animation: "heroShimmer 3s ease-in-out infinite 1.5s",
           }}

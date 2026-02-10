@@ -15,6 +15,8 @@ export interface BridgeStatusIndicatorProps {
   error?: string | null;
   /** Number of reconnection attempts */
   reconnectCount?: number;
+  /** Seconds until next reconnect attempt */
+  reconnectIn?: number | null;
   /** WebSocket URL being connected to */
   url?: string;
   /** Additional CSS classes */
@@ -100,6 +102,7 @@ export function BridgeStatusIndicator({
   state,
   error,
   reconnectCount = 0,
+  reconnectIn = null,
   url = "ws://127.0.0.1:9867",
   className = "",
   showLabel = false,
@@ -218,7 +221,7 @@ export function BridgeStatusIndicator({
               </span>
             </div>
 
-            {state === "connecting" && reconnectCount > 0 && (
+            {reconnectCount > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-500">Reconnect attempt</span>
                 <span className="text-plasma-orange font-mono">
@@ -227,9 +230,20 @@ export function BridgeStatusIndicator({
               </div>
             )}
 
+            {reconnectIn != null && reconnectIn > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Retrying in</span>
+                <span className="text-plasma-orange font-mono">
+                  {reconnectIn}s
+                </span>
+              </div>
+            )}
+
             {error && (
               <div className="mt-2 p-2 rounded bg-alert-red/10 border border-alert-red/30">
-                <span className="text-alert-red text-[10px]">{error}</span>
+                <span className="text-alert-red text-[10px] line-clamp-3">
+                  {error}
+                </span>
               </div>
             )}
 

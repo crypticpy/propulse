@@ -19,7 +19,7 @@ export interface AIndexChartProps {
 /** Chart dimensions */
 const CHART_WIDTH = 400;
 const CHART_HEIGHT = 200;
-const PADDING = { top: 20, right: 20, bottom: 30, left: 45 };
+const PADDING = { top: 20, right: 75, bottom: 30, left: 45 };
 
 /** Calculate inner chart dimensions */
 const INNER_WIDTH = CHART_WIDTH - PADDING.left - PADDING.right;
@@ -167,8 +167,8 @@ export const AIndexChart: React.FC<AIndexChartProps> = ({
       if (recentAvg - olderAvg > 5) {
         trend = "rising";
       } else if (olderAvg - recentAvg > 5) {
-               trend = "falling";
-             }
+        trend = "falling";
+      }
     }
 
     return {
@@ -349,12 +349,13 @@ export const AIndexChart: React.FC<AIndexChartProps> = ({
                       strokeDasharray="6,4"
                     />
                     <text
-                      x={PADDING.left + INNER_WIDTH + 4}
+                      x={CHART_WIDTH - 4}
                       y={y}
                       fill={color.replace("66", "ff")}
                       fontSize="9"
                       fontFamily="sans-serif"
                       dominantBaseline="middle"
+                      textAnchor="end"
                     >
                       {label}
                     </text>

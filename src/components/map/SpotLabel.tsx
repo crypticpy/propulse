@@ -14,7 +14,7 @@
 
 import { useMemo } from "react";
 import { Html } from "@react-three/drei";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Offset from globe surface to prevent z-fighting */
@@ -41,6 +41,10 @@ export interface SpotLabelProps {
   stackIndex?: number;
   /** Pre-computed color (hex). When provided, used instead of getModeColor(mode). */
   color?: string;
+  /** Called when mouse enters this label */
+  onHover?: (screenPos: { x: number; y: number }) => void;
+  /** Called when mouse leaves this label */
+  onHoverEnd?: () => void;
 }
 
 /**
@@ -97,6 +101,8 @@ export function SpotLabel({
   frequency,
   stackIndex = 0,
   color: colorProp,
+  onHover,
+  onHoverEnd,
 }: SpotLabelProps) {
   // Validate coordinates
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
@@ -116,6 +122,11 @@ export function SpotLabel({
   // Use pre-computed color when provided, otherwise fall back to mode color
   const color = colorProp ?? getModeColor(mode);
 
+  // Band-indicator underline: always derive from frequency so the underline
+  // shows which band a spot is on, regardless of the mode/band color setting.
+  // Falls back to the general spot color when no frequency is available.
+  const underlineColor = frequency ? getBandColor(frequency) : color;
+
   // Combined opacity: age-based decay multiplied by globe occlusion
   const combinedOpacity = opacity * occlusionOpacity;
 
@@ -134,8 +145,9 @@ export function SpotLabel({
     <Html
       position={position}
       center
+      zIndexRange={[1, 0]}
       style={{
-        pointerEvents: "none",
+        pointerEvents: onHover ? "auto" : "none",
         userSelect: "none",
         opacity: combinedOpacity,
         transition: "opacity 0.3s ease",
@@ -147,10 +159,15 @@ export function SpotLabel({
           font-mono font-bold whitespace-nowrap rounded
           ${sizeClasses}
         `}
+        onMouseEnter={
+          onHover ? (e) => onHover({ x: e.clientX, y: e.clientY }) : undefined
+        }
+        onMouseLeave={onHoverEnd || undefined}
         style={{
+          cursor: onHover ? "pointer" : undefined,
           color: "rgba(255, 255, 255, 0.95)",
           backgroundColor: "rgba(10, 10, 26, 0.82)",
-          borderBottom: `2px solid ${color}`,
+          borderBottom: `2px solid ${underlineColor}`,
           boxShadow: `0 2px 6px rgba(0,0,0,0.6)`,
           textShadow: "0 1px 2px rgba(0,0,0,0.6)",
           letterSpacing: "0.03em",

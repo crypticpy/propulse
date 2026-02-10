@@ -332,6 +332,8 @@ export interface UIInteractionPreferences {
   spotDotScale: number;
   /** Scale multiplier for map pins on all map views (0.5-2.0, default: 1.0) */
   mapPinScale: number;
+  /** Show hover info tips on info icons (default: true) */
+  showHoverTooltips: boolean;
 }
 
 // =============================================================================
@@ -620,6 +622,7 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
   visualStyle: "realistic",
   spotDotScale: 1.0,
   mapPinScale: 1.0,
+  showHoverTooltips: true,
 };
 
 // =============================================================================

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   PrimaryMetrics,
   SolarSummary,
@@ -35,6 +35,9 @@ import { DraggablePanel } from "@/components/layout/DraggablePanel";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileSolarPulse } from "@/components/mobile/MobileSolarPulse";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -409,6 +412,10 @@ export function SolarPulse() {
   const [auroraOpen, setAuroraOpen] = useState(false);
   const [synopticOpen, setSynopticOpen] = useState(false);
 
+  // Help modal states
+  const [helpModal, setHelpModal] = useState<string | null>(null);
+  const closeHelp = useCallback(() => setHelpModal(null), []);
+
   // Update store when data changes
   useEffect(() => {
     if (kIndexData && !kError) {
@@ -674,9 +681,13 @@ export function SolarPulse() {
           {/* NOAA scales */}
           <section className="rounded-2xl border border-plasma-orange/20 bg-white/[0.03] backdrop-blur-md p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                NOAA Scales
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                  NOAA Scales
+                </h2>
+                <InfoTip content={SOLAR_TOOLTIPS.noaaScales} />
+                <HelpButton onClick={() => setHelpModal("noaaScales")} />
+              </div>
               <span className="text-xs text-gray-400 font-mono">
                 {scaleStamp}
               </span>
@@ -745,9 +756,13 @@ export function SolarPulse() {
           {/* Latest GOES X-ray flare */}
           <section className="rounded-2xl border border-alert-red/20 bg-white/[0.03] backdrop-blur-md p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                GOES X-ray Flare
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                  GOES X-ray Flare
+                </h2>
+                <InfoTip content={SOLAR_TOOLTIPS.xrayFlux} />
+                <HelpButton onClick={() => setHelpModal("xrayFlare")} />
+              </div>
               <span className="text-xs text-gray-400 font-mono">
                 {xrayLatest?.time_tag ?? "—"}
               </span>
@@ -791,9 +806,13 @@ export function SolarPulse() {
           {/* Solar wind (5-minute) */}
           <section className="rounded-2xl border border-cosmic-cyan/20 bg-white/[0.03] backdrop-blur-md p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                Solar Wind
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                  Solar Wind
+                </h2>
+                <InfoTip content={SOLAR_TOOLTIPS.solarWind} />
+                <HelpButton onClick={() => setHelpModal("solarWind")} />
+              </div>
               <span className="text-xs text-gray-400 font-mono">
                 {swStamp}Z
               </span>
@@ -862,9 +881,13 @@ export function SolarPulse() {
         {/* Live Maps - unified section with efficient grid */}
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-              Live Maps
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                Live Maps
+              </h2>
+              <InfoTip content={SOLAR_TOOLTIPS.liveMaps} />
+              <HelpButton onClick={() => setHelpModal("liveMaps")} />
+            </div>
             <a
               href="https://www.swpc.noaa.gov/"
               target="_blank"
@@ -1448,6 +1471,18 @@ export function SolarPulse() {
         sourceUrl="https://www.swpc.noaa.gov/products/solar-synoptic-map"
         sourceLabel="View at NOAA"
       />
+
+      {/* Help Modals for solar sections */}
+      {helpModal && HELP_CONTENT[helpModal as keyof typeof HELP_CONTENT] && (
+        <HelpModal
+          isOpen={true}
+          onClose={closeHelp}
+          title={HELP_CONTENT[helpModal as keyof typeof HELP_CONTENT].title}
+          sections={
+            HELP_CONTENT[helpModal as keyof typeof HELP_CONTENT].sections
+          }
+        />
+      )}
     </div>
   );
 }

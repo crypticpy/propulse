@@ -36,6 +36,9 @@ export interface HealthSnapshot {
   services: ServiceHealth[];
   bridgeConnected: boolean;
   bridgeState: string; // "connected" | "connecting" | "disconnected" | "error"
+  bridgeError: string | null;
+  bridgeReconnectCount: number;
+  bridgeReconnectIn: number | null;
   activeErrors: number;
   lastRefresh: number; // when this snapshot was computed
 }
@@ -169,6 +172,9 @@ export function useHealthMonitor(): HealthSnapshot {
     // ------ Bridge state ------
     const bridgeConnected = bridge.connected;
     const bridgeState = bridge.state;
+    const bridgeError = bridge.error;
+    const bridgeReconnectCount = bridge.reconnectCount;
+    const bridgeReconnectIn = bridge.reconnectIn;
 
     // ------ Derive overall health ------
     const activeErrors = services.filter((s) => s.status === "error").length;
@@ -186,11 +192,22 @@ export function useHealthMonitor(): HealthSnapshot {
       services,
       bridgeConnected,
       bridgeState,
+      bridgeError,
+      bridgeReconnectCount,
+      bridgeReconnectIn,
       activeErrors,
       lastRefresh: now,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, queryClient, bridge.state, bridge.connected]);
+  }, [
+    tick,
+    queryClient,
+    bridge.state,
+    bridge.connected,
+    bridge.error,
+    bridge.reconnectCount,
+    bridge.reconnectIn,
+  ]);
 
   return snapshot;
 }

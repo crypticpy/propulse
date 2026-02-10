@@ -18,7 +18,7 @@ export interface SolarFluxChartProps {
 /** Chart dimensions */
 const CHART_WIDTH = 400;
 const CHART_HEIGHT = 140;
-const PADDING = { top: 10, right: 10, bottom: 30, left: 40 };
+const PADDING = { top: 10, right: 20, bottom: 30, left: 40 };
 
 /** Calculate inner chart dimensions */
 const INNER_WIDTH = CHART_WIDTH - PADDING.left - PADDING.right;

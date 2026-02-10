@@ -163,6 +163,7 @@ function LocationMarkerInner({
         <Html
           position={[0, markerSize * 3, 0]}
           center
+          zIndexRange={[1, 0]}
           style={{
             pointerEvents: "none",
           }}

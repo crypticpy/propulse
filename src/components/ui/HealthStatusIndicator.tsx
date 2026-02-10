@@ -9,6 +9,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useHealthMonitor } from "@/hooks/useHealthMonitor";
 import type { ServiceStatus, ServiceHealth } from "@/hooks/useHealthMonitor";
 import { getTimeAgo } from "@/lib/utils/time";
@@ -80,13 +81,22 @@ function bridgeDotClass(state: string): string {
   }
 }
 
-function bridgeLabel(state: string): string {
+function bridgeLabel(
+  state: string,
+  reconnectIn: number | null,
+  reconnectCount: number,
+): string {
   switch (state) {
     case "connected":
       return "Connected";
     case "connecting":
-      return "Connecting...";
+      return reconnectCount > 0
+        ? `Reconnecting (attempt ${reconnectCount})...`
+        : "Connecting...";
     case "disconnected":
+      if (reconnectIn != null && reconnectIn > 0) {
+        return `Retry in ${reconnectIn}s`;
+      }
       return "Disconnected";
     case "error":
       return "Error";
@@ -182,7 +192,7 @@ export function HealthStatusIndicator(): JSX.Element {
       {expanded && (
         <div
           ref={panelRef}
-          className="absolute top-full right-0 mt-1 z-50 w-[280px]
+          className="absolute top-full right-0 mt-1 z-50 w-[min(280px,90vw)]
                      bg-void-black/95 backdrop-blur-md
                      border border-white/10 rounded-xl shadow-2xl
                      animate-in fade-in slide-in-from-top-1"
@@ -191,9 +201,26 @@ export function HealthStatusIndicator(): JSX.Element {
         >
           {/* Header */}
           <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-white/10">
-            <span className="text-xs font-semibold text-gray-200">
+            <Link
+              to="/health"
+              onClick={() => setExpanded(false)}
+              className="text-xs font-semibold text-gray-200 hover:text-plasma-orange transition-colors flex items-center gap-1"
+            >
               System Health
-            </span>
+              <svg
+                className="w-3 h-3 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </Link>
             <button
               onClick={() => setExpanded(false)}
               className="p-0.5 rounded hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
@@ -222,15 +249,55 @@ export function HealthStatusIndicator(): JSX.Element {
               <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
                 Bridge
               </span>
-              <div className="flex items-center gap-2 mt-1">
+              <Link
+                to="/bridge"
+                onClick={() => setExpanded(false)}
+                className="flex items-center gap-2 mt-1 -mx-1 px-1 py-0.5 rounded-md hover:bg-white/5 transition-colors group"
+              >
                 <span
                   className={`w-2 h-2 rounded-full shrink-0 ${bridgeDotClass(health.bridgeState)}`}
                   aria-hidden="true"
                 />
-                <span className="text-xs text-gray-300">
-                  Bridge: {bridgeLabel(health.bridgeState)}
+                <span className="text-xs text-gray-300 group-hover:text-gray-100 transition-colors">
+                  Bridge:{" "}
+                  {bridgeLabel(
+                    health.bridgeState,
+                    health.bridgeReconnectIn,
+                    health.bridgeReconnectCount,
+                  )}
                 </span>
-              </div>
+                <svg
+                  className="w-3 h-3 text-gray-600 group-hover:text-gray-400 ml-auto transition-colors"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Link>
+              {health.bridgeError && health.bridgeState !== "connected" && (
+                <p
+                  className="mt-1 text-[10px] text-gray-500 leading-tight line-clamp-2"
+                  title={health.bridgeError}
+                >
+                  {health.bridgeError}
+                </p>
+              )}
+              {(health.bridgeState === "disconnected" ||
+                health.bridgeState === "error") && (
+                <Link
+                  to="/setup"
+                  onClick={() => setExpanded(false)}
+                  className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-plasma-orange hover:underline"
+                >
+                  Setup Guide →
+                </Link>
+              )}
             </div>
 
             {/* API Services section */}
@@ -258,10 +325,17 @@ export function HealthStatusIndicator(): JSX.Element {
           </div>
 
           {/* Footer */}
-          <div className="px-3 py-2 border-t border-white/10">
+          <div className="px-3 py-2 border-t border-white/10 flex items-center justify-between">
             <span className="text-[10px] text-gray-600">
               Refreshes every 30s
             </span>
+            <Link
+              to="/health"
+              onClick={() => setExpanded(false)}
+              className="text-[10px] text-gray-500 hover:text-plasma-orange transition-colors"
+            >
+              View full dashboard
+            </Link>
           </div>
         </div>
       )}

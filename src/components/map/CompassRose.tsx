@@ -233,6 +233,7 @@ function CardinalLabel({
     <Html
       position={position}
       center
+      zIndexRange={[1, 0]}
       style={{
         pointerEvents: "none",
         userSelect: "none",
@@ -267,7 +268,7 @@ function BearingLine({
   // Animate bearing line with subtle pulse
   useFrame(({ clock }) => {
     if (lineRef.current && lineRef.current.material) {
-      const {material} = lineRef.current;
+      const { material } = lineRef.current;
       if (material.opacity !== undefined) {
         const pulse = 0.7 + Math.sin(clock.elapsedTime * 3) * 0.3;
         material.opacity = pulse;
@@ -454,6 +455,7 @@ export function CompassRose({
         <Html
           position={[0, 0.002, 0]}
           center
+          zIndexRange={[1, 0]}
           style={{
             pointerEvents: "none",
             userSelect: "none",

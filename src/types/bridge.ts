@@ -156,6 +156,8 @@ export interface BridgeConnectionOptions {
   pingInterval?: number;
   /** Connection timeout in ms */
   connectionTimeout?: number;
+  /** Pong response timeout in ms (default 5000). If no pong after ping, connection is dead. */
+  pongTimeout?: number;
 }
 
 /**
@@ -180,6 +182,8 @@ export interface BridgeConnection {
   disconnect: () => void;
   /** Number of reconnection attempts */
   reconnectCount: number;
+  /** Seconds until next reconnect attempt (null if not waiting to reconnect) */
+  reconnectIn: number | null;
 }
 
 /**

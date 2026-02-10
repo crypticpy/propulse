@@ -1,9 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   getSolarCyclePosition,
   compareToCycle24,
   getSolarCycleTrend,
 } from "@/lib/data/historicalPropagation";
+import { InfoTip } from "@/components/ui/Tooltip";
+import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
 
 interface SolarCycleContextProps {
   currentSFI: number | null;
@@ -16,6 +19,7 @@ export function SolarCycleContext({
   recentSFI,
   loading,
 }: SolarCycleContextProps) {
+  const [helpOpen, setHelpOpen] = useState(false);
   const cyclePos = useMemo(() => getSolarCyclePosition(), []);
   const comparison = useMemo(
     () =>
@@ -62,9 +66,13 @@ export function SolarCycleContext({
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-          Solar Cycle 25
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+            Solar Cycle 25
+          </h2>
+          <InfoTip content={SOLAR_TOOLTIPS.solarCycle} />
+          <HelpButton onClick={() => setHelpOpen(true)} />
+        </div>
         <span className={`text-sm font-mono ${phase.color}`}>
           {phase.icon} {phase.label}
         </span>
@@ -98,6 +106,12 @@ export function SolarCycleContext({
           </div>
         </div>
       </div>
+      <HelpModal
+        isOpen={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        title={HELP_CONTENT.solarCycle.title}
+        sections={HELP_CONTENT.solarCycle.sections}
+      />
     </section>
   );
 }

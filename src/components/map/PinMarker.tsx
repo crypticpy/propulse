@@ -305,6 +305,7 @@ export function PinMarker({
       <Html
         position={[0, STEM_HEIGHT + size * 2, 0]}
         center
+        zIndexRange={[1, 0]}
         style={{
           pointerEvents: "none",
           transition: "all 0.2s ease",
@@ -330,6 +331,7 @@ export function PinMarker({
         <Html
           position={[0, STEM_HEIGHT + size * 3.5, 0]}
           center
+          zIndexRange={[1, 0]}
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",

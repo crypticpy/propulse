@@ -29,7 +29,11 @@ import {
   getGreatCirclePoints,
   type ResolvedSpot,
 } from "./LiveSpotArcs";
-import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import {
+  getSpotColor,
+  getBandColor,
+  type SpotColorMode,
+} from "@/lib/utils/spotColors";
 import {
   getDifficultyColor,
   DIFFICULTY_LABELS,
@@ -1560,8 +1564,8 @@ function drawCallsignLabels(
     drawPillPath(ctx, bbox.x, bbox.y, bbox.w, bbox.h, pillRadius);
     ctx.fill();
 
-    // Mode color underline accent
-    ctx.fillStyle = modeColor;
+    // Band color underline accent (always shows band, not mode)
+    ctx.fillStyle = spot.frequency ? getBandColor(spot.frequency) : modeColor;
     ctx.fillRect(bbox.x + 2, bbox.y + bbox.h - 2, bbox.w - 4, 1.5);
 
     // Callsign text with shadow
@@ -1632,8 +1636,8 @@ function drawSpotterLabels(
     drawPillPath(ctx, bx, by, textW, textH, pillRadius);
     ctx.fill();
 
-    // Mode color underline accent
-    ctx.fillStyle = modeColor;
+    // Band color underline accent (always shows band, not mode)
+    ctx.fillStyle = spot.frequency ? getBandColor(spot.frequency) : modeColor;
     ctx.fillRect(bx + 2, by + textH - 2, textW - 4, 1.5);
 
     // Spotter callsign text

@@ -1,4 +1,4 @@
-import { lazy, useEffect } from "react";
+import { lazy, useEffect, useState, useCallback } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -9,6 +9,10 @@ import { useColorBlindMode } from "@/hooks/useColorBlindMode";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSync } from "@/hooks/useSync";
 import { useAuthStore } from "@/stores/authStore";
+import { useProfileStore } from "@/stores/profileStore";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { RankUpCelebration } from "@/components/rank/RankUpCelebration";
+import type { RankTier } from "@/types/rank";
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
 import { clearExpiredCache } from "@/lib/utils/idbCache";
@@ -54,6 +58,21 @@ const RadioDaemonSetup = lazy(() =>
     default: m.RadioDaemonSetup,
   })),
 );
+const SystemHealthPage = lazy(() =>
+  import("@/pages/SystemHealthPage").then((m) => ({
+    default: m.SystemHealthPage,
+  })),
+);
+const BridgeInfoPage = lazy(() =>
+  import("@/pages/BridgeInfoPage").then((m) => ({
+    default: m.BridgeInfoPage,
+  })),
+);
+const SetupGuidePage = lazy(() =>
+  import("@/pages/SetupGuidePage").then((m) => ({
+    default: m.SetupGuidePage,
+  })),
+);
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -82,8 +101,53 @@ function App() {
   // Start/stop sync engine based on auth state
   useSync();
 
+  // Record daily login for streak tracking
+  const recordLogin = useProfileStore((s) => s.recordLogin);
+  useEffect(() => {
+    recordLogin();
+  }, [recordLogin]);
+
+  // Rank-up celebration — invoke hook to trigger rank computation side-effects
+  useOperatorRank();
+  const rankHistory = useProfileStore((s) => s.operatorRank.rankHistory);
+  const rankCelebrationSeen = useProfileStore((s) => s.rankCelebrationSeen);
+  const markCelebrationSeen = useProfileStore((s) => s.markCelebrationSeen);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationRanks, setCelebrationRanks] = useState<{
+    from: RankTier;
+    to: RankTier;
+  } | null>(null);
+
+  // Check if there's a new rank transition to celebrate
+  useEffect(() => {
+    if (rankHistory.length === 0) return;
+    const latestTransition = rankHistory[rankHistory.length - 1];
+    const latestTimestamp = latestTransition.timestamp;
+
+    // Show celebration if latest transition is newer than last seen
+    if (!rankCelebrationSeen || latestTimestamp > rankCelebrationSeen) {
+      setCelebrationRanks({
+        from: latestTransition.from,
+        to: latestTransition.to,
+      });
+      setShowCelebration(true);
+    }
+  }, [rankHistory, rankCelebrationSeen]);
+
+  const handleDismissCelebration = useCallback(() => {
+    setShowCelebration(false);
+    markCelebrationSeen();
+  }, [markCelebrationSeen]);
+
   return (
     <ErrorBoundary>
+      {showCelebration && celebrationRanks && (
+        <RankUpCelebration
+          fromRank={celebrationRanks.from}
+          toRank={celebrationRanks.to}
+          onDismiss={handleDismissCelebration}
+        />
+      )}
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
@@ -99,6 +163,9 @@ function App() {
           <Route path="/shack" element={<ShackPage />} />
           <Route path="/sdr" element={<SdrConsole />} />
           <Route path="/sdr/setup" element={<RadioDaemonSetup />} />
+          <Route path="/health" element={<SystemHealthPage />} />
+          <Route path="/bridge" element={<BridgeInfoPage />} />
+          <Route path="/setup" element={<SetupGuidePage />} />
         </Route>
       </Routes>
     </ErrorBoundary>

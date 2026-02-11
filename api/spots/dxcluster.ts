@@ -5,6 +5,8 @@
  * Transforms ^-delimited CSV response to unified DXSpot JSON format
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -160,6 +162,9 @@ export default async function handler(req: Request) {
     });
   }
 
+  const limited = applyRateLimit(req, "spots/dxcluster", 20, 60);
+  if (limited) return limited;
+
   const url = new URL(req.url);
 
   // Validate and clamp limit (1-200)
@@ -202,7 +207,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ spots }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, s-maxage=30",
+        "Cache-Control": "s-maxage=30, stale-while-revalidate=15",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
       },
     });

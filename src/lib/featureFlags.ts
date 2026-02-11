@@ -1,9 +1,8 @@
 /**
  * Feature Flag System
  *
- * Lightweight client-side feature gating based on subscription tier.
- * No actual billing — just a flag on profileStore that can be toggled
- * from settings or future billing integration.
+ * Client-side feature gating based on subscription tier.
+ * Server-authoritative: Stripe webhook → Supabase → profileSync → profileStore.
  */
 
 import { useProfileStore } from "@/stores/profileStore";
@@ -27,6 +26,10 @@ export interface FeatureFlags {
   savedWatchLimit: number;
   /** Maximum arc density slider value */
   densityMax: number;
+  /** Custom profile images / gear photos — pro (storage cost) */
+  customImages: boolean;
+  /** Per-user propagation modeling — pro (compute cost) */
+  perUserPropModeling: boolean;
 }
 
 // ─── Flag Resolution ─────────────────────────────────────────────────────────
@@ -39,6 +42,8 @@ const FREE_FLAGS: FeatureFlags = {
   ambientMode: true,
   savedWatchLimit: 5,
   densityMax: 100,
+  customImages: false,
+  perUserPropModeling: false,
 };
 
 const PRO_FLAGS: FeatureFlags = {
@@ -49,6 +54,8 @@ const PRO_FLAGS: FeatureFlags = {
   ambientMode: true,
   savedWatchLimit: 20,
   densityMax: 200,
+  customImages: true,
+  perUserPropModeling: true,
 };
 
 /**

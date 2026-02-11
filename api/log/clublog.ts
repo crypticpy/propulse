@@ -11,6 +11,8 @@
  * Returns JSON with success status and message.
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -222,6 +224,9 @@ export default async function handler(request: Request): Promise<Response> {
 
   const originError = validateOrigin(request);
   if (originError) return originError;
+
+  const limited = applyRateLimit(request, "log/clublog", 10, 60);
+  if (limited) return limited;
 
   // Handle GET requests for status queries
   if (request.method === "GET") {

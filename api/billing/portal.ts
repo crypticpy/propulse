@@ -1,8 +1,9 @@
 /**
- * Vercel Edge Function: Profile Heartbeat
+ * Vercel Edge Function: Create Stripe Customer Portal Session
  *
- * Updates `last_active_at` on the user's profile row.
- * Called periodically by the client to indicate the user is active.
+ * Creates a Stripe Customer Portal session so users can manage
+ * their subscription (cancel, update payment method, view invoices).
+ * Auth-gated via Supabase JWT.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -36,6 +37,7 @@ function jsonResponse(body: unknown, status: number): Response {
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
       "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type",
     },
   });
 }
@@ -46,15 +48,16 @@ export default async function handler(request: Request): Promise<Response> {
     return jsonResponse({}, 204);
   }
 
-  const limited = applyRateLimit(request, "profile/heartbeat", 10, 60);
-  if (limited) return limited;
-
   const originError = validateOrigin(request);
   if (originError) return originError;
 
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
+
+  // Rate limit: 5 requests per 60 seconds
+  const limited = applyRateLimit(request, "billing/portal", 5, 60);
+  if (limited) return limited;
 
   // Extract Authorization header (Supabase JWT)
   const authHeader = request.headers.get("authorization");
@@ -67,8 +70,9 @@ export default async function handler(request: Request): Promise<Response> {
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseAnonKey || !stripeSecretKey) {
     return jsonResponse({ error: "Server misconfiguration" }, 500);
   }
 
@@ -88,22 +92,61 @@ export default async function handler(request: Request): Promise<Response> {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    // Update last_active_at
-    const { error: updateError } = await supabase
+    // Look up existing Stripe customer ID
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .update({ last_active_at: new Date().toISOString() })
-      .eq("id", user.id);
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .single();
 
-    if (updateError) {
+    if (profileError) {
       return jsonResponse(
-        { error: `Failed to update heartbeat: ${updateError.message}` },
+        { error: `Failed to fetch profile: ${profileError.message}` },
         500,
       );
     }
 
-    return jsonResponse({ ok: true }, 200);
+    if (!profile?.stripe_customer_id) {
+      return jsonResponse(
+        { error: "No billing account found. Please subscribe first." },
+        400,
+      );
+    }
+
+    // Create Stripe Customer Portal session
+    const returnUrl =
+      process.env.STRIPE_PORTAL_RETURN_URL || getAllowedOrigin();
+
+    const portalRes = await fetch(
+      "https://api.stripe.com/v1/billing_portal/sessions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${stripeSecretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          customer: profile.stripe_customer_id,
+          return_url: returnUrl,
+        }),
+      },
+    );
+
+    if (!portalRes.ok) {
+      const err = await portalRes.text();
+      return jsonResponse(
+        { error: `Failed to create portal session: ${err}` },
+        500,
+      );
+    }
+
+    const session = (await portalRes.json()) as { url: string };
+    return jsonResponse({ url: session.url }, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return jsonResponse({ error: `Heartbeat failed: ${message}` }, 500);
+    return jsonResponse(
+      { error: `Portal session creation failed: ${message}` },
+      500,
+    );
   }
 }

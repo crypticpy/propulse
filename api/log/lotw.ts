@@ -14,6 +14,8 @@
  * No caching — requests contain user credentials.
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -309,6 +311,9 @@ export default async function handler(request: Request): Promise<Response> {
 
   const originError = validateOrigin(request);
   if (originError) return originError;
+
+  const limited = applyRateLimit(request, "log/lotw", 10, 60);
+  if (limited) return limited;
 
   if (request.method === "POST") {
     // Parse body once and route: upload (has adif) vs download (no adif)

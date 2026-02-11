@@ -12,6 +12,7 @@ import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
 import { useProfileStore } from "@/stores/profileStore";
 import { useShackStore } from "@/stores/shackStore";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 
 import type {
   RankTier,
@@ -35,6 +36,54 @@ import {
   RANK_TITLES,
   isRankAtLeast,
 } from "@/lib/data/rankConstants";
+
+// ─── Anonymous fallback ──────────────────────────────────────────────────────
+
+const ANONYMOUS_RANK_STATE: OperatorRankState = {
+  rank: "novice",
+  rankPoints: 0,
+  breakdown: {
+    achievements: 0,
+    qsos: 0,
+    dxcc: 0,
+    bandModeSlots: 0,
+    contests: 0,
+    loginStreaks: 0,
+    equipment: 0,
+    signalPaths: 0,
+    profileComplete: 0,
+    shares: 0,
+    elmerSessions: 0,
+    total: 0,
+  },
+  progress: {
+    current: "novice",
+    next: "apprentice",
+    progressPercent: 0,
+    pointsToNext: 400,
+  },
+  color: "#9CA3AF",
+  label: "Novice",
+  icon: "",
+  title: "Welcome to the Bands",
+  unlockedBackgrounds: ["schematic"],
+  preferences: {
+    selectedBackground: "schematic",
+    enableParticles: true,
+    enableSound: false,
+    enableMouseTilt: true,
+  },
+  isLoading: false,
+  hasCardFlip: false,
+  hasMouseTilt: false,
+  hasParticles: false,
+  hasStatCountUp: false,
+  hasEquipmentWear: false,
+  hasCardSignature: false,
+  hasEnergyBorders: false,
+  hasFiligreeCorners: false,
+  hasChromaticEffects: false,
+};
 
 // ─── Public Interface ─────────────────────────────────────────────────────────
 
@@ -72,6 +121,9 @@ export interface OperatorRankState {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useOperatorRank(): OperatorRankState {
+  // 0. Auth gate — gamification requires a signed-in account
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+
   // 1. Gather data from dependent hooks and stores
   const { achievements, isLoading: achievementsLoading } = useAchievements();
   const stats = useLogbookStats();
@@ -89,6 +141,7 @@ export function useOperatorRank(): OperatorRankState {
   const stationChains = useShackStore((s) => s.stationChains);
 
   const isLoading = achievementsLoading || stats.isLoading;
+  const rankOverride = operatorRank.rankOverride ?? null;
 
   // 2. Compute rank state
   const computed = useMemo(() => {
@@ -126,7 +179,10 @@ export function useOperatorRank(): OperatorRankState {
 
     // Compute breakdown and total points
     const breakdown = computeRankPoints(input);
-    const rank = getRankForPoints(breakdown.total);
+    const computedRank = getRankForPoints(breakdown.total);
+
+    // Apply rank override if set — bypass RP computation for demo/test accounts
+    const rank = rankOverride ?? computedRank;
     const progress = getRankProgress(breakdown.total);
     const unlockedBackgrounds = getUnlockedBackgrounds(rank);
 
@@ -180,13 +236,14 @@ export function useOperatorRank(): OperatorRankState {
     inlineComponents.length,
     stationChains.length,
     completeness.score,
+    rankOverride,
   ]);
 
-  // 3. Side effect: persist rank if it changed
+  // 3. Side effect: persist rank if it changed (skip when override is active)
   const prevRankRef = useRef<RankTier>(operatorRank.currentRank);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!isAuthenticated || isLoading || rankOverride) return;
 
     const { rank, rankPoints, unlockedBackgrounds } = computed;
 
@@ -222,14 +279,23 @@ export function useOperatorRank(): OperatorRankState {
     updateRankData,
   ]);
 
-  // 4. Return memoized state
+  // 4. Return memoized state (anonymous users get locked novice state)
   return useMemo<OperatorRankState>(
-    () => ({
-      ...computed,
-      preferences: operatorRank.preferences,
-      cardSignature: operatorRank.cardSignature,
+    () =>
+      isAuthenticated
+        ? {
+            ...computed,
+            preferences: operatorRank.preferences,
+            cardSignature: operatorRank.cardSignature,
+            isLoading,
+          }
+        : ANONYMOUS_RANK_STATE,
+    [
+      isAuthenticated,
+      computed,
+      operatorRank.preferences,
+      operatorRank.cardSignature,
       isLoading,
-    }),
-    [computed, operatorRank.preferences, operatorRank.cardSignature, isLoading],
+    ],
   );
 }

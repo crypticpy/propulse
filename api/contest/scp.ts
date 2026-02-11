@@ -10,6 +10,8 @@
  * The MASTER.SCP file is updated infrequently (weekly at most).
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -37,6 +39,9 @@ export default async function handler(req: Request) {
       },
     });
   }
+
+  const limited = applyRateLimit(req, "contest/scp", 10, 60);
+  if (limited) return limited;
 
   // Only allow GET requests
   if (req.method !== "GET") {

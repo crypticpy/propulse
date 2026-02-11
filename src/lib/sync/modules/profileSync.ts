@@ -12,6 +12,8 @@ import { useProfileStore } from "@/stores/profileStore";
 import type { SyncModule, SyncableTable } from "../types";
 import type { Tables, TablesInsert } from "@/types/supabase";
 import type { OperatingLocation } from "@/types/user";
+import type { RankTier } from "@/types/rank";
+import { RANK_ORDER } from "@/lib/data/rankConstants";
 
 /**
  * Return the latest `updated_at` from a list of ISO timestamps.
@@ -169,6 +171,34 @@ export const profileSync: SyncModule = {
       if (profileRows.social_links != null) {
         stateUpdate.socialLinks = profileRows.social_links;
       }
+
+      // Subscription fields (server-authoritative via Stripe webhooks)
+      const row = profileRows as Record<string, unknown>;
+      if (row.subscription_tier != null) {
+        stateUpdate.subscriptionTier = row.subscription_tier as string;
+      }
+      if (row.subscription_status != null) {
+        stateUpdate.subscriptionStatus = row.subscription_status as string;
+      }
+      if (row.subscription_period_end != null) {
+        stateUpdate.subscriptionPeriodEnd =
+          row.subscription_period_end as string;
+      }
+
+      // Rank override (server-authoritative — admin can set this in Supabase)
+      const serverOverride = profileRows.rank_override as string | null;
+      const validOverride =
+        serverOverride && RANK_ORDER.includes(serverOverride as RankTier)
+          ? (serverOverride as RankTier)
+          : null;
+      const currentOverride = state.operatorRank.rankOverride ?? null;
+      if (validOverride !== currentOverride) {
+        stateUpdate.operatorRank = {
+          ...state.operatorRank,
+          ...(stateUpdate.operatorRank as Record<string, unknown> | undefined),
+          rankOverride: validOverride,
+        };
+      }
     }
 
     // Single setState call for the entire pull
@@ -185,11 +215,12 @@ export const profileSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const { station, bio, socialLinks } = useProfileStore.getState();
+    const { station, bio, socialLinks, operatorRank } =
+      useProfileStore.getState();
 
     if (!station) return;
 
-    // --- Upsert profile (including bio + social_links) ---
+    // --- Upsert profile (including bio + social_links + rank) ---
     const socialLinksPayload = socialLinks.length > 0 ? socialLinks : null;
     const { error: profileError } = await supabase.from("profiles").upsert(
       {
@@ -205,6 +236,8 @@ export const profileSync: SyncModule = {
         bio: bio || null,
         social_links:
           socialLinksPayload as TablesInsert<"profiles">["social_links"],
+        operator_rank: operatorRank.currentRank,
+        rank_points: operatorRank.rankPoints,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" },

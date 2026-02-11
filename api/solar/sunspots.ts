@@ -3,8 +3,10 @@
  * Fetches sunspot number data from NOAA SWPC to avoid CORS restrictions
  *
  * Source: https://services.swpc.noaa.gov/json/solar-cycle/sunspots.json
- * Cache: 6 hours with 1 day stale-while-revalidate
+ * Cache: 24 hours with 2 hour stale-while-revalidate
  */
+
+import { applyRateLimit } from "../_lib/rateLimit";
 
 export const config = {
   runtime: "edge",
@@ -21,7 +23,10 @@ function getAllowedOrigin(): string {
 const NOAA_URL =
   "https://services.swpc.noaa.gov/json/solar-cycle/sunspots.json";
 
-export default async function handler(_request: Request): Promise<Response> {
+export default async function handler(request: Request): Promise<Response> {
+  const limited = applyRateLimit(request, "solar/sunspots", 30, 60);
+  if (limited) return limited;
+
   try {
     const response = await fetch(NOAA_URL, {
       headers: {
@@ -52,7 +57,7 @@ export default async function handler(_request: Request): Promise<Response> {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "s-maxage=21600, stale-while-revalidate=86400",
+        "Cache-Control": "s-maxage=86400, stale-while-revalidate=7200",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
         "Access-Control-Allow-Methods": "GET, OPTIONS",
       },

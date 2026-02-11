@@ -39,6 +39,7 @@ export interface OperatorRank {
   unlockedBackgrounds: CardBackground[];
   cardSignature?: string; // Legendary+ only, max 40 chars
   preferences: RankPreferences;
+  rankOverride?: RankTier | null; // Force a specific rank tier (bypasses RP computation)
 }
 
 export interface RankPointBreakdown {

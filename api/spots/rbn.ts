@@ -5,6 +5,8 @@
  * Transforms object-keyed response to unified spot array format
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -60,6 +62,9 @@ export default async function handler(req: Request) {
       },
     });
   }
+
+  const limited = applyRateLimit(req, "spots/rbn", 20, 60);
+  if (limited) return limited;
 
   const url = new URL(req.url);
 
@@ -154,7 +159,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ spots }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=30",
+        "Cache-Control": "s-maxage=30, stale-while-revalidate=15",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
       },
     });

@@ -989,7 +989,7 @@ export const useMapStore = create<MapState>((set, get) => ({
       if (state.activePresetId) {
         saveActivePresetId(null);
       }
-      return { zoom: Math.max(0.5, Math.min(10, zoom)), activePresetId: null };
+      return { zoom: Math.max(1, Math.min(10, zoom)), activePresetId: null };
     }),
 
   setAutoRotate: (autoRotate) => set({ autoRotate }),

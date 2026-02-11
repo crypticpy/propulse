@@ -5,6 +5,8 @@
  * Returns recent WSPR spots from the past 30 minutes
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -47,6 +49,9 @@ export default async function handler(req: Request) {
       },
     });
   }
+
+  const limited = applyRateLimit(req, "wspr/spots", 10, 60);
+  if (limited) return limited;
 
   try {
     const query = `SELECT tx_sign, tx_lat, tx_lon, rx_sign, rx_lat, rx_lon, band, frequency, snr, power, time FROM wspr.rx WHERE time > subtractMinutes(now(), 30) ORDER BY time DESC LIMIT 200 FORMAT JSONEachRow`;
@@ -107,7 +112,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ spots }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=120",
+        "Cache-Control": "s-maxage=120, stale-while-revalidate=60",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
       },
     });

@@ -7,6 +7,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { applyRateLimit } from "../../_lib/rateLimit";
 
 export const config = {
   runtime: "edge",
@@ -34,12 +35,15 @@ function svgResponse(svg: string, status: number = 200): Response {
     status,
     headers: {
       "Content-Type": "image/svg+xml",
-      "Cache-Control": "public, max-age=3600, s-maxage=86400",
+      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
     },
   });
 }
 
 export default async function handler(request: Request): Promise<Response> {
+  const limited = applyRateLimit(request, "og/profile", 20, 60);
+  if (limited) return limited;
+
   const url = new URL(request.url);
 
   // Extract callsign from the URL path: /api/og/profile/[callsign]

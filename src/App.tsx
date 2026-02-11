@@ -12,6 +12,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankUpCelebration } from "@/components/rank/RankUpCelebration";
+import { WelcomeOverlay } from "@/components/onboarding";
 import type { RankTier } from "@/types/rank";
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
@@ -73,6 +74,7 @@ const SetupGuidePage = lazy(() =>
     default: m.SetupGuidePage,
   })),
 );
+const FeaturesPage = lazy(() => import("@/pages/FeaturesPage"));
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -132,6 +134,7 @@ function App() {
   const rankCelebrationSeen = useProfileStore((s) => s.rankCelebrationSeen);
   const markCelebrationSeen = useProfileStore((s) => s.markCelebrationSeen);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [upgradeToast, setUpgradeToast] = useState(false);
   const [celebrationRanks, setCelebrationRanks] = useState<{
     from: RankTier;
     to: RankTier;
@@ -153,6 +156,17 @@ function App() {
     }
   }, [rankHistory, rankCelebrationSeen]);
 
+  // Upgrade success toast — detect ?upgraded=true and show briefly
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgraded") === "true") {
+      setUpgradeToast(true);
+      window.history.replaceState({}, "", window.location.pathname);
+      const timer = setTimeout(() => setUpgradeToast(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   const handleDismissCelebration = useCallback(() => {
     setShowCelebration(false);
     markCelebrationSeen();
@@ -166,6 +180,12 @@ function App() {
           toRank={celebrationRanks.to}
           onDismiss={handleDismissCelebration}
         />
+      )}
+      <WelcomeOverlay />
+      {upgradeToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[600] px-5 py-3 rounded-xl bg-signal-green/20 border border-signal-green/30 backdrop-blur-lg text-signal-green text-sm font-medium shadow-lg animate-fade-in">
+          Welcome to Pro! All features unlocked.
+        </div>
       )}
       <Routes>
         <Route element={<AppLayout />}>
@@ -185,6 +205,7 @@ function App() {
           <Route path="/health" element={<SystemHealthPage />} />
           <Route path="/bridge" element={<BridgeInfoPage />} />
           <Route path="/setup" element={<SetupGuidePage />} />
+          <Route path="/features" element={<FeaturesPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

@@ -16,7 +16,7 @@ import type {
 } from "@/types/user";
 import type { VisibilitySettings } from "@/types/social";
 import { DEFAULT_VISIBILITY } from "@/types/social";
-import type { OperatorRank, RankPreferences } from "@/types/rank";
+import type { OperatorRank, RankPreferences, RankTier } from "@/types/rank";
 import { DEFAULT_OPERATOR_RANK } from "@/types/rank";
 
 import { useSettingsStore } from "./settingsStore";
@@ -121,9 +121,20 @@ interface ProfileStore {
   addLicenseHistoryEntry: (entry: LicenseHistoryEntry) => void;
   removeLicenseHistoryEntry: (id: string) => void;
 
-  // Subscription tier (no billing yet — just a client-side flag)
+  // Subscription (server-authoritative via Stripe webhook → Supabase → sync)
   subscriptionTier: "free" | "pro";
+  subscriptionStatus:
+    | "active"
+    | "trialing"
+    | "past_due"
+    | "canceled"
+    | "inactive";
+  subscriptionPeriodEnd: string | null;
   setSubscriptionTier: (tier: "free" | "pro") => void;
+  setSubscriptionStatus: (
+    status: "active" | "trialing" | "past_due" | "canceled" | "inactive",
+  ) => void;
+  setSubscriptionPeriodEnd: (periodEnd: string | null) => void;
 
   // Rank system
   operatorRank: OperatorRank;
@@ -135,6 +146,7 @@ interface ProfileStore {
   updateRankData: (updates: Partial<OperatorRank>) => void;
   setCardSignature: (signature: string) => void;
   setRankPreferences: (prefs: Partial<RankPreferences>) => void;
+  setRankOverride: (rank: RankTier | null) => void;
   recordLogin: () => void;
   markCelebrationSeen: () => void;
 }
@@ -156,7 +168,12 @@ export const useProfileStore = create<ProfileStore>()(
       socialLinks: [],
       visibilitySettings: { ...DEFAULT_VISIBILITY },
       subscriptionTier: "free" as const,
+      subscriptionStatus: "inactive" as const,
+      subscriptionPeriodEnd: null,
       setSubscriptionTier: (tier) => set({ subscriptionTier: tier }),
+      setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
+      setSubscriptionPeriodEnd: (periodEnd) =>
+        set({ subscriptionPeriodEnd: periodEnd }),
       operatorRank: DEFAULT_OPERATOR_RANK,
       lastLoginDate: null,
       loginStreakDays: 0,
@@ -481,6 +498,14 @@ export const useProfileStore = create<ProfileStore>()(
           },
         })),
 
+      setRankOverride: (rank) =>
+        set((state) => ({
+          operatorRank: {
+            ...state.operatorRank,
+            rankOverride: rank,
+          },
+        })),
+
       recordLogin: () =>
         set((state) => {
           const today = new Date().toISOString().split("T")[0];
@@ -505,7 +530,7 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: "propulse-profile",
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -524,6 +549,8 @@ export const useProfileStore = create<ProfileStore>()(
         loginStreakDays: state.loginStreakDays,
         rankCelebrationSeen: state.rankCelebrationSeen,
         subscriptionTier: state.subscriptionTier,
+        subscriptionStatus: state.subscriptionStatus,
+        subscriptionPeriodEnd: state.subscriptionPeriodEnd,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -567,6 +594,12 @@ export const useProfileStore = create<ProfileStore>()(
         }
         if (version < 8) {
           if (!("subscriptionTier" in state)) state.subscriptionTier = "free";
+        }
+        if (version < 9) {
+          if (!("subscriptionStatus" in state))
+            state.subscriptionStatus = "inactive";
+          if (!("subscriptionPeriodEnd" in state))
+            state.subscriptionPeriodEnd = null;
         }
         return state as unknown as ProfileStore;
       },

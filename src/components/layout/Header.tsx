@@ -367,6 +367,7 @@ function AuthHeaderButton() {
   const user = useAuthStore((s) => s.user);
   const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const { rank } = useOperatorRank();
 
   // No Supabase → original profile icon
@@ -416,6 +417,11 @@ function AuthHeaderButton() {
   return (
     <div className="flex items-center gap-1.5">
       <RankBadge rank={rank} size="sm" />
+      {subscriptionTier === "pro" && (
+        <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30">
+          PRO
+        </span>
+      )}
       <button
         onClick={() => navigate("/profile")}
         className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"

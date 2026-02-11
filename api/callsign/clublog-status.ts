@@ -10,6 +10,8 @@
  * Cached for 5 minutes (DXCC entity data changes infrequently).
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -56,6 +58,9 @@ export default async function handler(request: Request): Promise<Response> {
       },
     });
   }
+
+  const limited = applyRateLimit(request, "callsign/clublog-status", 30, 60);
+  if (limited) return limited;
 
   // Only allow GET
   if (request.method !== "GET") {
@@ -118,7 +123,7 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     return jsonResponse(data, 200, {
-      "Cache-Control": "public, max-age=300, s-maxage=300",
+      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

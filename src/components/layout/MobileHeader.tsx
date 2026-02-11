@@ -34,6 +34,7 @@ export function MobileHeader({
   const user = useAuthStore((s) => s.user);
   const openAuthModal = useAuthUIStore((s) => s.openAuthModal);
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   return (
     <header className="h-12 flex items-center justify-between px-3 bg-void-black/90 backdrop-blur-sm border-b border-white/10 pt-safe z-50">
       {/* Brand */}
@@ -119,23 +120,30 @@ export function MobileHeader({
           </button>
         )}
         {isSupabaseConfigured && isAuthenticated && (
-          <button
-            onClick={() => navigate("/profile")}
-            className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden transition-opacity hover:opacity-80"
-            aria-label="Operator Profile"
-          >
-            {profileImageUrl ? (
-              <img
-                src={profileImageUrl}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="w-full h-full flex items-center justify-center bg-plasma-orange/20 text-plasma-orange text-[10px] font-bold">
-                {(user?.email?.[0] ?? "U").toUpperCase()}
+          <div className="flex items-center gap-1">
+            {subscriptionTier === "pro" && (
+              <span className="text-[8px] font-bold tracking-wider px-1 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30">
+                PRO
               </span>
             )}
-          </button>
+            <button
+              onClick={() => navigate("/profile")}
+              className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden transition-opacity hover:opacity-80"
+              aria-label="Operator Profile"
+            >
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="w-full h-full flex items-center justify-center bg-plasma-orange/20 text-plasma-orange text-[10px] font-bold">
+                  {(user?.email?.[0] ?? "U").toUpperCase()}
+                </span>
+              )}
+            </button>
+          </div>
         )}
         <button
           onClick={onSettingsClick}

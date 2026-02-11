@@ -8,6 +8,8 @@
  * Returns normalized location data (lat/lon/grid) when available.
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -25,7 +27,10 @@ function jsonResponse(
     status,
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "no-cache",
+      "Cache-Control":
+        status === 200
+          ? "public, s-maxage=86400, stale-while-revalidate=3600"
+          : "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       ...extraHeaders,
@@ -204,6 +209,9 @@ export default async function handler(request: Request): Promise<Response> {
       },
     });
   }
+
+  const limited = applyRateLimit(request, "callsign/hamqth", 30, 60);
+  if (limited) return limited;
 
   const url = new URL(request.url);
   const callsign = normalizeCallsign(url.searchParams.get("callsign"));

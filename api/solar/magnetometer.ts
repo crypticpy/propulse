@@ -5,8 +5,10 @@
  * Primary source: https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json
  * Fallback source: https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json
  * Returns Bz (IMF Z-component), By, and Bt (total field) values
- * Cache: 60 seconds with 5 minute stale-while-revalidate
+ * Cache: 5 minutes with 1 minute stale-while-revalidate
  */
+
+import { applyRateLimit } from "../_lib/rateLimit";
 
 export const config = {
   runtime: "edge",
@@ -20,8 +22,7 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-const NOAA_URL =
-  "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json";
+const NOAA_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json";
 
 const NOAA_FALLBACK_URL =
   "https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json";
@@ -76,13 +77,18 @@ async function fetchJson(url: string): Promise<unknown> {
   });
 
   if (!response.ok) {
-    throw new Error(`NOAA API returned ${response.status}: ${response.statusText}`);
+    throw new Error(
+      `NOAA API returned ${response.status}: ${response.statusText}`,
+    );
   }
 
   return response.json();
 }
 
-export default async function handler(_request: Request): Promise<Response> {
+export default async function handler(request: Request): Promise<Response> {
+  const limited = applyRateLimit(request, "solar/magnetometer", 30, 60);
+  if (limited) return limited;
+
   try {
     let processedData: MagnetometerDataPoint[] = [];
 
@@ -102,14 +108,23 @@ export default async function handler(_request: Request): Promise<Response> {
 
     // Fallback to product feed (array-of-arrays). This feed can occasionally return header-only.
     if (processedData.length === 0) {
-      const rawData = (await fetchJson(NOAA_FALLBACK_URL)) as NOAAMagnetometerResponse;
+      const rawData = (await fetchJson(
+        NOAA_FALLBACK_URL,
+      )) as NOAAMagnetometerResponse;
       processedData = rawData.slice(1).map((row) => ({
         time_tag: row[0],
         by_gsm:
-          row[2] !== null && row[2] !== "" ? toFiniteOrNull(parseFloat(row[2])) : null,
+          row[2] !== null && row[2] !== ""
+            ? toFiniteOrNull(parseFloat(row[2]))
+            : null,
         bz_gsm:
-          row[3] !== null && row[3] !== "" ? toFiniteOrNull(parseFloat(row[3])) : null,
-        bt: row[6] !== null && row[6] !== "" ? toFiniteOrNull(parseFloat(row[6])) : null,
+          row[3] !== null && row[3] !== ""
+            ? toFiniteOrNull(parseFloat(row[3]))
+            : null,
+        bt:
+          row[6] !== null && row[6] !== ""
+            ? toFiniteOrNull(parseFloat(row[6]))
+            : null,
       }));
     }
 
@@ -134,7 +149,7 @@ export default async function handler(_request: Request): Promise<Response> {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "s-maxage=60, stale-while-revalidate=300",
+        "Cache-Control": "s-maxage=300, stale-while-revalidate=60",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
         "Access-Control-Allow-Methods": "GET, OPTIONS",
       },

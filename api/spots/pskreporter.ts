@@ -5,6 +5,8 @@
  * Parses XML response and transforms to unified spot JSON format
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -118,6 +120,9 @@ export default async function handler(req: Request) {
     });
   }
 
+  const limited = applyRateLimit(req, "spots/pskreporter", 10, 60);
+  if (limited) return limited;
+
   const url = new URL(req.url);
 
   // Validate and clamp limit (1-200)
@@ -210,7 +215,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ spots }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": "s-maxage=60, stale-while-revalidate=30",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
       },
     });

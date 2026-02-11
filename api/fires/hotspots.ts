@@ -5,6 +5,8 @@
  * Returns active fire hotspots worldwide as a clean JSON array.
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -34,6 +36,9 @@ export default async function handler(req: Request) {
     });
   }
 
+  const limited = applyRateLimit(req, "fires/hotspots", 10, 60);
+  if (limited) return limited;
+
   const mapKey = process.env.FIRMS_MAP_KEY;
 
   // Graceful degradation when no API key is configured
@@ -46,7 +51,7 @@ export default async function handler(req: Request) {
       {
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=3600",
+          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=1800",
           "Access-Control-Allow-Origin": getAllowedOrigin(),
         },
       },
@@ -82,7 +87,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ hotspots }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=1800",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
       },
     });
@@ -109,9 +114,7 @@ export default async function handler(req: Request) {
  * latitude, longitude, bright_ti4, scan, track, acq_date, acq_time,
  * satellite, confidence, version, bright_ti5, frp, daynight
  */
-function parseCsv(
-  csv: string,
-): {
+function parseCsv(csv: string): {
   lat: number;
   lon: number;
   brightness: number;

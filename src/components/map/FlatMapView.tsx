@@ -424,9 +424,9 @@ function drawNightSide(
   const blueData = blueCtx.createImageData(width, height);
   const bluePixels = blueData.data;
 
-  // Twilight zone spans solar angles 85-95 degrees with smooth hermite interpolation
-  const TWILIGHT_START = 85;
-  const TWILIGHT_END = 95;
+  // Twilight zone spans solar angles 88-93 degrees with smooth hermite interpolation
+  const TWILIGHT_START = 88;
+  const TWILIGHT_END = 93;
   const TWILIGHT_RANGE = TWILIGHT_END - TWILIGHT_START;
 
   for (let y = 0; y < height; y++) {
@@ -443,12 +443,12 @@ function drawNightSide(
       const idx = (rowOffset + x) * 4;
 
       if (angle <= TWILIGHT_START) {
-        // Subtle day-side softening to reduce eye strain on bright satellite imagery
+        // Day-side softening to reduce eye strain on bright satellite imagery
         if (variant === "satellite") {
-          darkPixels[idx] = Math.floor(255 * 0.92); // slight red reduction
-          darkPixels[idx + 1] = Math.floor(255 * 0.92); // slight green reduction
-          darkPixels[idx + 2] = Math.floor(255 * 0.96); // preserve blue more (sky feel)
-          darkPixels[idx + 3] = Math.floor(255 * 0.18); // very subtle overlay
+          darkPixels[idx] = Math.floor(255 * 0.88); // red reduction
+          darkPixels[idx + 1] = Math.floor(255 * 0.88); // green reduction
+          darkPixels[idx + 2] = Math.floor(255 * 0.93); // preserve blue more (sky feel)
+          darkPixels[idx + 3] = Math.floor(255 * 0.26); // moderate overlay
         }
         continue;
       }
@@ -712,7 +712,7 @@ function drawMarker(
   zoomScale = 1.0,
 ) {
   const { x, y } = latLonToCanvas(lat, lon, width, height);
-  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+  const zoomDamp = Math.max(1, zoomScale);
 
   // Outer glow
   ctx.fillStyle = color + "40";
@@ -746,7 +746,7 @@ function drawMarker(
   // Pulsing ring for target
   if (!isHome) {
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 / zoomDamp;
     ctx.beginPath();
     ctx.arc(
       x,
@@ -770,39 +770,54 @@ function drawMarker(
         : `${bearing}° / ${distKm}km`;
     }
 
-    ctx.font = highViz ? "bold 13px monospace" : "bold 11px monospace";
-    const textWidth = ctx.measureText(labelText).width + 12;
-    const boxWidth = Math.max(60, textWidth);
+    const s = 1 / zoomDamp; // uniform scale factor for label elements
+    const labelFontSize = Math.max(1, Math.round((highViz ? 13 : 11) * s));
+    ctx.font = `bold ${labelFontSize}px monospace`;
+    const textWidth = ctx.measureText(labelText).width;
+    const padX = 6 * s;
+    const boxWidth = Math.max(60 * s, textWidth + padX * 2);
+    const boxH = 16 * s;
+    const gap = 12 * s; // gap between marker center and bottom of label box
 
     // Label background
     ctx.fillStyle = "#0a0a1a";
-    ctx.fillRect(x - boxWidth / 2, y - 28, boxWidth, 16);
+    ctx.fillRect(x - boxWidth / 2, y - gap - boxH, boxWidth, boxH);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x - boxWidth / 2, y - 28, boxWidth, 16);
+    ctx.lineWidth = s;
+    ctx.strokeRect(x - boxWidth / 2, y - gap - boxH, boxWidth, boxH);
 
-    // Label text
+    // Label text (vertically centered in the box)
     ctx.fillStyle = color;
     ctx.textAlign = "center";
-    ctx.fillText(labelText, x, y - 16);
+    ctx.textBaseline = "middle";
+    ctx.fillText(labelText, x, y - gap - boxH / 2);
+    ctx.textBaseline = "alphabetic";
 
     // Difficulty tag above label for target markers
     if (!isHome && difficulty) {
       const difficultyLabel = DIFFICULTY_LABELS[difficulty];
-      ctx.font = "bold 10px sans-serif";
-      const tagWidth = ctx.measureText(difficultyLabel).width + 10;
+      const diffFontSize = Math.max(1, Math.round(10 * s));
+      ctx.font = `bold ${diffFontSize}px sans-serif`;
+      const tagTextW = ctx.measureText(difficultyLabel).width;
+      const tagPad = 5 * s;
+      const tagWidth = tagTextW + tagPad * 2;
+      const tagH = 14 * s;
+      const tagGap = 4 * s; // gap between label box and difficulty tag
+      const tagBottom = y - gap - boxH - tagGap;
 
       // Background for difficulty tag
       ctx.fillStyle = color + "20";
-      ctx.fillRect(x - tagWidth / 2, y - 46, tagWidth, 14);
+      ctx.fillRect(x - tagWidth / 2, tagBottom - tagH, tagWidth, tagH);
       ctx.strokeStyle = color + "50";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x - tagWidth / 2, y - 46, tagWidth, 14);
+      ctx.lineWidth = s;
+      ctx.strokeRect(x - tagWidth / 2, tagBottom - tagH, tagWidth, tagH);
 
       // Difficulty label text
       ctx.fillStyle = color;
       ctx.textAlign = "center";
-      ctx.fillText(difficultyLabel, x, y - 35);
+      ctx.textBaseline = "middle";
+      ctx.fillText(difficultyLabel, x, tagBottom - tagH / 2);
+      ctx.textBaseline = "alphabetic";
     }
   }
 }
@@ -819,15 +834,17 @@ function drawPath(
   color: string = COLORS.path,
   width: number = MAP_WIDTH,
   height: number = MAP_HEIGHT,
+  zoomScale = 1.0,
 ) {
+  const zoomDamp = Math.max(1, zoomScale);
   const points = getPathPoints(startLat, startLon, endLat, endLon, 100);
 
   // Draw path with crisp lines (no shadow blur for sharpness)
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.8;
+  ctx.lineWidth = 1.8 / zoomDamp;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.setLineDash([6, 5]);
+  ctx.setLineDash([6 / zoomDamp, 5 / zoomDamp]);
   ctx.globalAlpha = 0.55;
 
   ctx.beginPath();
@@ -941,13 +958,15 @@ function drawEarthquakes(
   earthquakes: EarthquakeEvent[],
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
+  const zoomDamp = Math.max(1, zoomScale);
   ctx.save();
   for (const eq of earthquakes) {
     const { x, y } = latLonToCanvas(eq.lat, eq.lon, width, height);
 
     // Size based on magnitude (M2.5-M9 mapped to 3-20px radius)
-    const radius = Math.max(3, Math.min(20, (eq.magnitude - 1) * 3));
+    const radius = Math.max(3, Math.min(20, (eq.magnitude - 1) * 3)) / zoomDamp;
 
     // Color based on magnitude
     let color: string;
@@ -976,20 +995,25 @@ function drawEarthquakes(
     // Outline
     ctx.globalAlpha = 0.9;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / zoomDamp;
     ctx.stroke();
 
     // Magnitude label for M5+
     if (eq.magnitude >= 5) {
+      const fontSize = Math.max(1, Math.round(7 / zoomDamp));
       ctx.globalAlpha = 1;
-      ctx.font = "bold 7px monospace";
+      ctx.font = `bold ${fontSize}px monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.strokeStyle = "rgba(0,0,0,0.6)";
-      ctx.lineWidth = 2;
-      ctx.strokeText(`M${eq.magnitude.toFixed(1)}`, x, y - radius - 2);
+      ctx.lineWidth = 2 / zoomDamp;
+      ctx.strokeText(
+        `M${eq.magnitude.toFixed(1)}`,
+        x,
+        y - radius - 2 / zoomDamp,
+      );
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(`M${eq.magnitude.toFixed(1)}`, x, y - radius - 2);
+      ctx.fillText(`M${eq.magnitude.toFixed(1)}`, x, y - radius - 2 / zoomDamp);
     }
   }
   ctx.globalAlpha = 1;
@@ -1005,7 +1029,9 @@ function drawWeatherAlerts(
   alerts: WeatherAlert[],
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
+  const zoomDamp = Math.max(1, zoomScale);
   ctx.save();
   for (const alert of alerts) {
     const { x, y } = latLonToCanvas(alert.lat, alert.lon, width, height);
@@ -1028,7 +1054,7 @@ function drawWeatherAlerts(
     }
 
     // Warning triangle
-    const size = 6;
+    const size = 6 / zoomDamp;
     ctx.globalAlpha = 0.8;
     ctx.beginPath();
     ctx.moveTo(x, y - size); // top
@@ -1038,12 +1064,13 @@ function drawWeatherAlerts(
     ctx.fillStyle = color;
     ctx.fill();
     ctx.strokeStyle = "rgba(0,0,0,0.5)";
-    ctx.lineWidth = 0.5;
+    ctx.lineWidth = 0.5 / zoomDamp;
     ctx.stroke();
 
     // Exclamation mark inside triangle
     ctx.fillStyle = "#000000";
-    ctx.font = "bold 7px sans-serif";
+    const fontSize = Math.max(1, Math.round(7 / zoomDamp));
+    ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("!", x, y);
@@ -1061,7 +1088,9 @@ function drawLightning(
   strikes: LightningStrike[],
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
+  const zoomDamp = Math.max(1, zoomScale);
   ctx.save();
   const now = Date.now();
   for (const strike of strikes) {
@@ -1074,13 +1103,13 @@ function drawLightning(
     // Bright bolt dot
     ctx.globalAlpha = alpha * 0.3;
     ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.arc(x, y, 4 / zoomDamp, 0, Math.PI * 2);
     ctx.fillStyle = "#ffe566";
     ctx.fill();
 
     ctx.globalAlpha = alpha * 0.8;
     ctx.beginPath();
-    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.arc(x, y, 1.5 / zoomDamp, 0, Math.PI * 2);
     ctx.fillStyle = "#ffffff";
     ctx.fill();
   }
@@ -1097,13 +1126,15 @@ function drawFires(
   hotspots: FireHotspot[],
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
+  const zoomDamp = Math.max(1, zoomScale);
   ctx.save();
   for (const hp of hotspots) {
     if (hp.confidence === "low") continue;
 
     const { x, y } = latLonToCanvas(hp.lat, hp.lon, width, height);
-    const radius = Math.max(1.5, Math.min(6, hp.frp / 80));
+    const radius = Math.max(1.5, Math.min(6, hp.frp / 80)) / zoomDamp;
 
     // Outer glow
     ctx.globalAlpha = 0.2;
@@ -1132,10 +1163,12 @@ function drawWsprPaths(
   spots: WsprSpot[],
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
+  const zd = Math.max(1, zoomScale);
   ctx.save();
   ctx.globalAlpha = 0.35;
-  ctx.lineWidth = 0.8;
+  ctx.lineWidth = 0.8 / zd;
 
   for (const spot of spots) {
     const tx = latLonToCanvas(spot.txLat, spot.txLon, width, height);
@@ -1169,7 +1202,7 @@ function drawWsprPaths(
     // Small TX dot
     ctx.globalAlpha = 0.6;
     ctx.beginPath();
-    ctx.arc(tx.x, tx.y, 1.5, 0, Math.PI * 2);
+    ctx.arc(tx.x, tx.y, 1.5 / zd, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
     ctx.globalAlpha = 0.35;
@@ -1188,7 +1221,9 @@ function drawContestQsos(
   data: ContestQsoOverlayData,
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
+  const zd = Math.max(1, zoomScale);
   ctx.save();
   const home = latLonToCanvas(data.homeLat, data.homeLon, width, height);
 
@@ -1204,7 +1239,7 @@ function drawContestQsos(
     // Arc line
     ctx.globalAlpha = 0.5;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.2 / zd;
     ctx.beginPath();
     ctx.moveTo(home.x, home.y);
     ctx.lineTo(dx.x, dx.y);
@@ -1213,7 +1248,7 @@ function drawContestQsos(
     // DX endpoint dot
     ctx.globalAlpha = qso.isMultiplier ? 0.9 : 0.7;
     ctx.beginPath();
-    ctx.arc(dx.x, dx.y, qso.isMultiplier ? 3 : 2, 0, Math.PI * 2);
+    ctx.arc(dx.x, dx.y, (qso.isMultiplier ? 3 : 2) / zd, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
 
@@ -1221,9 +1256,9 @@ function drawContestQsos(
     if (qso.isMultiplier) {
       ctx.globalAlpha = 0.9;
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / zd;
       ctx.beginPath();
-      ctx.arc(dx.x, dx.y, 4.5, 0, Math.PI * 2);
+      ctx.arc(dx.x, dx.y, 4.5 / zd, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -1241,7 +1276,9 @@ function drawLoggedQsos(
   data: LogQsoOverlayData,
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
+  const zd = Math.max(1, zoomScale);
   ctx.save();
   const home = latLonToCanvas(data.homeLat, data.homeLon, width, height);
 
@@ -1257,7 +1294,7 @@ function drawLoggedQsos(
     // Thinner, more transparent arcs for logged QSOs (can be many)
     ctx.globalAlpha = 0.25;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 0.6;
+    ctx.lineWidth = 0.6 / zd;
     ctx.beginPath();
     ctx.moveTo(home.x, home.y);
     ctx.lineTo(dx.x, dx.y);
@@ -1266,7 +1303,7 @@ function drawLoggedQsos(
     // Small DX dot
     ctx.globalAlpha = 0.5;
     ctx.beginPath();
-    ctx.arc(dx.x, dx.y, 1.5, 0, Math.PI * 2);
+    ctx.arc(dx.x, dx.y, 1.5 / zd, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
   }
@@ -1379,7 +1416,7 @@ function drawSpotArc(
   zoomScale = 1.0,
 ) {
   const color = getSpotColor(spot, colorMode);
-  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+  const zoomDamp = Math.max(1, zoomScale);
 
   // Get start and end points
   const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
@@ -1400,10 +1437,7 @@ function drawSpotArc(
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(
-    1,
-    Math.round(((highViz ? 3 : 1.5) * spotDotScale) / zoomDamp),
-  );
+  ctx.lineWidth = ((highViz ? 3 : 1.5) * spotDotScale) / zoomDamp;
   ctx.lineCap = "round";
 
   if (wrapAround) {
@@ -1457,15 +1491,12 @@ function drawSpotArc(
   ctx.arc(
     start.x,
     start.y,
-    Math.round(((highViz ? 5 : 3.5) * spotDotScale) / zoomDamp),
+    ((highViz ? 5 : 3.5) * spotDotScale) / zoomDamp,
     0,
     Math.PI * 2,
   );
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(
-    1,
-    Math.round(((highViz ? 2 : 1.5) * spotDotScale) / zoomDamp),
-  );
+  ctx.lineWidth = ((highViz ? 2 : 1.5) * spotDotScale) / zoomDamp;
   ctx.stroke();
 
   // DX (target): filled circle with white outer ring — reads as destination
@@ -1473,7 +1504,7 @@ function drawSpotArc(
   ctx.arc(
     end.x,
     end.y,
-    Math.max(1, Math.round(((highViz ? 5 : 4) * spotDotScale) / zoomDamp)),
+    ((highViz ? 5 : 4) * spotDotScale) / zoomDamp,
     0,
     Math.PI * 2,
   );
@@ -1483,15 +1514,12 @@ function drawSpotArc(
   ctx.arc(
     end.x,
     end.y,
-    Math.max(1, Math.round(((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp)),
+    ((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp,
     0,
     Math.PI * 2,
   );
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.lineWidth = Math.max(
-    1,
-    Math.round(((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp),
-  );
+  ctx.lineWidth = ((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp;
   ctx.stroke();
 
   ctx.restore();
@@ -1554,7 +1582,7 @@ function drawSelectedSpotArc(
 
   const highlightColor = "rgba(255, 107, 53, 1)";
   const glowColor = "rgba(255, 107, 53, 0.3)";
-  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+  const zoomDamp = Math.max(1, zoomScale);
 
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -1602,17 +1630,17 @@ function drawSelectedSpotArc(
 
   // Glow arc (wider, blurred)
   ctx.strokeStyle = glowColor;
-  ctx.lineWidth = Math.max(2, Math.round((6 * spotDotScale) / zoomDamp));
+  ctx.lineWidth = (6 * spotDotScale) / zoomDamp;
   ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 12 / zoomDamp;
   ctx.lineCap = "round";
   strokeArcPath();
 
   // Main arc (thinner, solid)
   ctx.strokeStyle = highlightColor;
-  ctx.lineWidth = Math.max(1, Math.round((3 * spotDotScale) / zoomDamp));
+  ctx.lineWidth = (3 * spotDotScale) / zoomDamp;
   ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 8 / zoomDamp;
   strokeArcPath();
 
   // Reset shadow for endpoints
@@ -1620,50 +1648,50 @@ function drawSelectedSpotArc(
   ctx.shadowBlur = 0;
 
   // Spotter endpoint — hollow ring (larger than normal arcs)
-  const spotterRadius = Math.max(2, Math.round((5 * spotDotScale) / zoomDamp));
+  const spotterRadius = (5 * spotDotScale) / zoomDamp;
   ctx.beginPath();
   ctx.arc(start.x, start.y, spotterRadius, 0, Math.PI * 2);
   ctx.strokeStyle = highlightColor;
-  ctx.lineWidth = Math.max(1, Math.round((2 * spotDotScale) / zoomDamp));
+  ctx.lineWidth = (2 * spotDotScale) / zoomDamp;
   ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = 6 / zoomDamp;
   ctx.stroke();
 
   // DX endpoint — filled circle with white outer ring
-  const dxRadius = Math.max(2, Math.round((6 * spotDotScale) / zoomDamp));
+  const dxRadius = (6 * spotDotScale) / zoomDamp;
   ctx.beginPath();
   ctx.arc(end.x, end.y, dxRadius, 0, Math.PI * 2);
   ctx.fillStyle = highlightColor;
   ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 8 / zoomDamp;
   ctx.fill();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.beginPath();
-  ctx.arc(end.x, end.y, dxRadius + 2, 0, Math.PI * 2);
+  ctx.arc(end.x, end.y, dxRadius + 2 / zoomDamp, 0, Math.PI * 2);
   ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-  ctx.lineWidth = Math.max(1, Math.round((1.5 * spotDotScale) / zoomDamp));
+  ctx.lineWidth = (1.5 * spotDotScale) / zoomDamp;
   ctx.stroke();
 
   // --- Callsign label at DX endpoint ---
-  const fontSize = Math.max(8, Math.round((12 * labelScale) / zoomDamp));
+  const fontSize = Math.max(1, Math.round((12 * labelScale) / zoomDamp));
   ctx.font = `bold ${fontSize}px monospace`;
   ctx.textBaseline = "bottom";
   const labelText = spot.callsign;
   const textMetrics = ctx.measureText(labelText);
-  const textW = textMetrics.width + 8;
-  const textH = fontSize + 6;
+  const textW = textMetrics.width + 8 / zoomDamp;
+  const textH = fontSize + 6 / zoomDamp;
   const labelX = end.x - textW / 2;
-  const labelY = end.y - dxRadius - 6;
+  const labelY = end.y - dxRadius - 6 / zoomDamp;
 
   // Background pill
   ctx.fillStyle = "rgba(10, 10, 26, 0.85)";
   ctx.beginPath();
-  const pillR = 3;
+  const pillR = 3 / zoomDamp;
   ctx.roundRect(labelX, labelY - textH, textW, textH, pillR);
   ctx.fill();
   ctx.strokeStyle = "rgba(255, 107, 53, 0.6)";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1 / zoomDamp;
   ctx.stroke();
 
   // Label text
@@ -2083,13 +2111,13 @@ function drawCallsignLabels(
 ) {
   const placed: PlacedLabel[] = [];
   const placedBoxes: LabelBBox[] = [];
-  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+  const zoomDamp = Math.max(1, zoomScale);
   const fontSize = Math.max(
-    6,
+    1,
     Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
   );
   const gap = Math.max(
-    6,
+    1,
     Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
   );
   const pillRadius = 3;
@@ -2181,7 +2209,7 @@ function drawCallsignLabels(
       ctx.save();
       ctx.globalAlpha = opacity * 0.4;
       ctx.strokeStyle = modeColor;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / zoomDamp;
       ctx.beginPath();
       ctx.moveTo(anchor.x, anchor.y);
       ctx.lineTo(label.spotX, label.spotY);
@@ -2205,18 +2233,22 @@ function drawCallsignLabels(
     drawPillPath(ctx, bbox.x, bbox.y, bbox.w, bbox.h, pillRadius);
     ctx.fill();
 
-    // DO NOT CHANGE — band-color underline must be solid, bright, edge-to-edge.
-    // Matches SpotLabel.tsx styling exactly (3px solid, full opacity, no inset).
+    // Band-color underline — solid, bright, edge-to-edge.
     const bandColor = spot.frequency ? getBandColor(spot.frequency) : modeColor;
+    const underlineH = Math.max(1, 3 / zoomDamp);
     ctx.fillStyle = bandColor;
-    ctx.fillRect(bbox.x, bbox.y + bbox.h - 3, bbox.w, 3);
+    ctx.fillRect(bbox.x, bbox.y + bbox.h - underlineH, bbox.w, underlineH);
 
     // Callsign text with shadow
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-    ctx.shadowBlur = 2;
+    ctx.shadowBlur = 2 / zoomDamp;
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
     ctx.textAlign = "center";
-    ctx.fillText(spot.callsign, bbox.x + bbox.w / 2, bbox.y + bbox.h - 5);
+    ctx.fillText(
+      spot.callsign,
+      bbox.x + bbox.w / 2,
+      bbox.y + bbox.h - Math.max(2, 5 / zoomDamp),
+    );
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
   }
@@ -2243,9 +2275,9 @@ function drawSpotterLabels(
   labelScale = 1.0,
   zoomScale = 1.0,
 ) {
-  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+  const zoomDamp = Math.max(1, zoomScale);
   const fontSize = Math.max(
-    6,
+    1,
     Math.round(((highViz ? 10 : 9) * labelScale) / zoomDamp),
   );
   const pillRadius = 3;
@@ -2285,18 +2317,22 @@ function drawSpotterLabels(
     drawPillPath(ctx, bx, by, textW, textH, pillRadius);
     ctx.fill();
 
-    // DO NOT CHANGE — band-color underline must be solid, bright, edge-to-edge.
-    // Matches SpotLabel.tsx styling exactly (3px solid, full opacity, no inset).
+    // Band-color underline — solid, bright, edge-to-edge.
     const bandColor = spot.frequency ? getBandColor(spot.frequency) : modeColor;
+    const ulH = Math.max(1, 3 / zoomDamp);
     ctx.fillStyle = bandColor;
-    ctx.fillRect(bx, by + textH - 3, textW, 3);
+    ctx.fillRect(bx, by + textH - ulH, textW, ulH);
 
     // Spotter callsign text
     ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-    ctx.shadowBlur = 2;
+    ctx.shadowBlur = 2 / zoomDamp;
     ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
     ctx.textAlign = "center";
-    ctx.fillText(spotter, bx + textW / 2, by + textH - 5);
+    ctx.fillText(
+      spotter,
+      bx + textW / 2,
+      by + textH - Math.max(2, 5 / zoomDamp),
+    );
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
   }
@@ -2930,18 +2966,20 @@ function drawPin(
   width: number,
   height: number,
   pinScale = 1.0,
+  zoomScale = 1.0,
 ) {
   const { x, y } = latLonToCanvas(lat, lon, width, height);
+  const zoomDamp = Math.max(1, zoomScale);
 
   // Outer glow (larger when hovered)
-  const glowRadius = Math.round((isHovered ? 10 : 7) * pinScale);
+  const glowRadius = Math.round(((isHovered ? 10 : 7) * pinScale) / zoomDamp);
   ctx.fillStyle = color + "30";
   ctx.beginPath();
   ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
   ctx.fill();
 
   // Inner filled circle
-  const innerRadius = Math.round((isHovered ? 5 : 4) * pinScale);
+  const innerRadius = Math.round(((isHovered ? 5 : 4) * pinScale) / zoomDamp);
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
@@ -2949,36 +2987,41 @@ function drawPin(
 
   // Border ring
   ctx.strokeStyle = isHovered ? "#fff" : color;
-  ctx.lineWidth = isHovered ? 2 : 1;
+  ctx.lineWidth = (isHovered ? 2 : 1) / zoomDamp;
   ctx.beginPath();
   ctx.arc(x, y, innerRadius + 1, 0, Math.PI * 2);
   ctx.stroke();
 
   // Icon above
-  ctx.font = isHovered ? "14px sans-serif" : "12px sans-serif";
+  const iconSize = Math.max(1, Math.round((isHovered ? 14 : 12) / zoomDamp));
+  ctx.font = `${iconSize}px sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText(icon, x, y - 12);
+  ctx.fillText(icon, x, y - Math.round(12 / zoomDamp));
 
   // Name label below (if present)
   if (name) {
     ctx.save();
-    ctx.font = "bold 9px -apple-system, sans-serif";
+    const s = 1 / zoomDamp;
+    const fontSize = Math.max(1, Math.round(9 * s));
+    ctx.font = `bold ${fontSize}px -apple-system, sans-serif`;
     ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     const metrics = ctx.measureText(name);
-    const labelY = y + glowRadius + 10;
+    const pad = 3 * s;
+    const lw = metrics.width + pad * 2;
+    const lh = 12 * s;
+    const labelTop = y + glowRadius + 4 * s;
 
     // Background pill
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    const pad = 3;
-    const lw = metrics.width + pad * 2;
-    const lh = 12;
     ctx.beginPath();
-    ctx.roundRect(x - lw / 2, labelY - lh + 2, lw, lh, 3);
+    ctx.roundRect(x - lw / 2, labelTop, lw, lh, 3 * s);
     ctx.fill();
 
-    // Text
+    // Text (centered in pill)
     ctx.fillStyle = isHovered ? "#fff" : "rgba(255, 255, 255, 0.8)";
-    ctx.fillText(name, x, labelY);
+    ctx.fillText(name, x, labelTop + lh / 2);
+    ctx.textBaseline = "alphabetic";
     ctx.restore();
   }
 }
@@ -3008,9 +3051,11 @@ function drawSatellites(
   height: number,
   satellites: SatelliteInfo[],
   selectedSat: SatelliteInfo | null,
+  zoomScale = 1.0,
 ) {
-  const HALF_SIZE = 4; // normal diamond half-size in px
-  const HALF_SIZE_SEL = 6; // selected diamond half-size
+  const zoomDamp = Math.max(1, zoomScale);
+  const HALF_SIZE = 4 / zoomDamp; // normal diamond half-size in px
+  const HALF_SIZE_SEL = 6 / zoomDamp; // selected diamond half-size
   const DIM_COLOR = "#555";
 
   ctx.save();
@@ -3044,7 +3089,7 @@ function drawSatellites(
 
     ctx.save();
     ctx.shadowColor = color;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 10 / zoomDamp;
     ctx.globalAlpha = 1;
 
     ctx.beginPath();
@@ -3057,18 +3102,19 @@ function drawSatellites(
     ctx.fillStyle = color;
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 / zoomDamp;
     ctx.stroke();
     ctx.restore();
 
     // Name label
+    const fontSize = Math.max(1, Math.round(8 / zoomDamp));
     ctx.globalAlpha = 1;
-    ctx.font = "bold 8px monospace";
+    ctx.font = `bold ${fontSize}px monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    const labelY = y + HALF_SIZE_SEL + 3;
+    const labelY = y + HALF_SIZE_SEL + 3 / zoomDamp;
     ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.5 / zoomDamp;
     ctx.lineJoin = "round";
     ctx.strokeText(selectedSat.name, x, labelY);
     ctx.fillStyle = "#ffffff";
@@ -3918,7 +3964,7 @@ export function FlatMapView({
         baseOffsetY = z.offsetY;
       }
 
-      const targetScale = Math.max(0.5, Math.min(10, baseScale * delta));
+      const targetScale = Math.max(1, Math.min(10, baseScale * delta));
 
       // Calculate new offset to zoom toward mouse position
       const scaleFactor = targetScale / baseScale;
@@ -4069,7 +4115,7 @@ export function FlatMapView({
     const mapY = ((90 - preset.center.lat) / 180) * displaySize.height;
 
     // Calculate offset to center the preset point in the viewport at the target scale
-    const targetScale = Math.max(0.5, Math.min(10, preset.zoom));
+    const targetScale = Math.max(1, Math.min(10, preset.zoom));
     const targetOffsetX = displaySize.width / 2 - mapX * targetScale;
     const targetOffsetY = displaySize.height / 2 - mapY * targetScale;
 
@@ -4361,7 +4407,7 @@ export function FlatMapView({
   const handleGesturePinchZoom = useCallback(
     (scaleDelta: number, centerX: number, centerY: number) => {
       setZoom((prev) => {
-        const newScale = Math.max(0.5, Math.min(10.0, prev.scale * scaleDelta));
+        const newScale = Math.max(1, Math.min(10.0, prev.scale * scaleDelta));
         // Zoom toward the pinch center point
         const factor = newScale / prev.scale;
         const newOffsetX = centerX - factor * (centerX - prev.offsetX);
@@ -4480,37 +4526,61 @@ export function FlatMapView({
 
     // Draw earthquake markers
     if (layers.earthquakes && earthquakeData.length > 0) {
-      drawEarthquakes(ctx, earthquakeData, renderWidth, renderHeight);
+      drawEarthquakes(
+        ctx,
+        earthquakeData,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
     }
 
     // Draw weather alert markers
     if (layers.weather && weatherAlerts.length > 0) {
-      drawWeatherAlerts(ctx, weatherAlerts, renderWidth, renderHeight);
+      drawWeatherAlerts(
+        ctx,
+        weatherAlerts,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
     }
 
     // Draw lightning strikes
     if (layers.lightning && lightningStrikes.length > 0) {
-      drawLightning(ctx, lightningStrikes, renderWidth, renderHeight);
+      drawLightning(
+        ctx,
+        lightningStrikes,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
     }
 
     // Draw fire hotspots
     if (layers.fires && fireHotspots.length > 0) {
-      drawFires(ctx, fireHotspots, renderWidth, renderHeight);
+      drawFires(ctx, fireHotspots, renderWidth, renderHeight, zoom.scale);
     }
 
     // Draw WSPR propagation paths
     if (layers.wspr && wsprSpots.length > 0) {
-      drawWsprPaths(ctx, wsprSpots, renderWidth, renderHeight);
+      drawWsprPaths(ctx, wsprSpots, renderWidth, renderHeight, zoom.scale);
     }
 
     // Draw logged QSO arcs (behind contest QSOs — more transparent)
     if (layers.loggedQsos && loggedQsoData) {
-      drawLoggedQsos(ctx, loggedQsoData, renderWidth, renderHeight);
+      drawLoggedQsos(ctx, loggedQsoData, renderWidth, renderHeight, zoom.scale);
     }
 
     // Draw contest QSO arcs (on top — more opaque, multiplier rings)
     if (layers.contestQsos && contestQsoData) {
-      drawContestQsos(ctx, contestQsoData, renderWidth, renderHeight);
+      drawContestQsos(
+        ctx,
+        contestQsoData,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
     }
 
     // Draw night lights (city lights on dark side)
@@ -4662,7 +4732,14 @@ export function FlatMapView({
 
     // Draw satellite positions (2D canvas markers)
     if (layers.satellites && satPositions.length > 0) {
-      drawSatellites(ctx, renderWidth, renderHeight, satPositions, selectedSat);
+      drawSatellites(
+        ctx,
+        renderWidth,
+        renderHeight,
+        satPositions,
+        selectedSat,
+        zoom.scale,
+      );
     }
 
     // Draw highlight for hovered spot arc
@@ -4717,6 +4794,7 @@ export function FlatMapView({
         targetMarkerColor,
         renderWidth,
         renderHeight,
+        zoom.scale,
       );
     }
 
@@ -4777,6 +4855,7 @@ export function FlatMapView({
           renderWidth,
           renderHeight,
           mapPinScale,
+          zoom.scale,
         );
       }
     }

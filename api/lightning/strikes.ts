@@ -5,6 +5,8 @@
  * Returns recent global lightning strikes as a clean JSON array
  */
 
+import { applyRateLimit } from "../_lib/rateLimit";
+
 export const config = {
   runtime: "edge",
 };
@@ -40,6 +42,9 @@ export default async function handler(req: Request) {
       },
     });
   }
+
+  const limited = applyRateLimit(req, "lightning/strikes", 20, 60);
+  if (limited) return limited;
 
   try {
     const apiUrl = "https://map.blitzortung.org/GEOjson/GEOjson_strikes_4.json";
@@ -118,7 +123,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ strikes }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": "s-maxage=30, stale-while-revalidate=15",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
       },
     });

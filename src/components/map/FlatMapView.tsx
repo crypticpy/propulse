@@ -98,6 +98,14 @@ import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
 import type { WsprSpot } from "@/lib/api/wspr";
+import {
+  useContestQsoLocations,
+  type ContestQsoOverlayData,
+} from "@/hooks/useContestQsoLocations";
+import {
+  useLoggedQsoLocations,
+  type LogQsoOverlayData,
+} from "@/hooks/useLoggedQsoLocations";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -1083,7 +1091,7 @@ function drawWsprPaths(
     const rx = latLonToCanvas(spot.rxLat, spot.rxLon, width, height);
 
     // Skip if the path wraps around the map edge (long horizontal lines)
-    if (Math.abs(tx.x - rx.x) > width * 0.6) continue;
+    if (Math.abs(tx.x - rx.x) > width * 0.8) continue;
 
     // Color by band
     let color: string;
@@ -1118,6 +1126,120 @@ function drawWsprPaths(
 
   ctx.globalAlpha = 1;
   ctx.restore();
+}
+
+/**
+ * Draw contest QSO arcs on the 2D map
+ * Renders arcs from home station to each worked DX station, colored by band
+ */
+function drawContestQsos(
+  ctx: CanvasRenderingContext2D,
+  data: ContestQsoOverlayData,
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  const home = latLonToCanvas(data.homeLat, data.homeLon, width, height);
+
+  for (const qso of data.qsos) {
+    const dx = latLonToCanvas(qso.lat, qso.lon, width, height);
+
+    // Skip antimeridian wraps
+    if (Math.abs(home.x - dx.x) > width * 0.8) continue;
+
+    // Color by band
+    const color = getQsoBandColor(qso.band);
+
+    // Arc line
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(home.x, home.y);
+    ctx.lineTo(dx.x, dx.y);
+    ctx.stroke();
+
+    // DX endpoint dot
+    ctx.globalAlpha = qso.isMultiplier ? 0.9 : 0.7;
+    ctx.beginPath();
+    ctx.arc(dx.x, dx.y, qso.isMultiplier ? 3 : 2, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Multiplier ring
+    if (qso.isMultiplier) {
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(dx.x, dx.y, 4.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * Draw logged QSO arcs on the 2D map
+ * Renders arcs from home station to each logged contact, colored by band
+ */
+function drawLoggedQsos(
+  ctx: CanvasRenderingContext2D,
+  data: LogQsoOverlayData,
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  const home = latLonToCanvas(data.homeLat, data.homeLon, width, height);
+
+  for (const qso of data.qsos) {
+    const dx = latLonToCanvas(qso.lat, qso.lon, width, height);
+
+    // Skip antimeridian wraps
+    if (Math.abs(home.x - dx.x) > width * 0.8) continue;
+
+    // Color by band (same palette as contest)
+    const color = getQsoBandColor(qso.band);
+
+    // Thinner, more transparent arcs for logged QSOs (can be many)
+    ctx.globalAlpha = 0.25;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(home.x, home.y);
+    ctx.lineTo(dx.x, dx.y);
+    ctx.stroke();
+
+    // Small DX dot
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(dx.x, dx.y, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/** Band-to-color mapping for QSO overlays */
+function getQsoBandColor(band: string): string {
+  const b = band.toLowerCase();
+  if (b.includes("160")) return "#ff6688";
+  if (b.includes("80")) return "#ff8844";
+  if (b.includes("60")) return "#ff9933";
+  if (b.includes("40")) return "#ffaa22";
+  if (b.includes("30")) return "#ffcc00";
+  if (b.includes("20")) return "#ffdd00";
+  if (b.includes("17")) return "#ccee22";
+  if (b.includes("15")) return "#88ee44";
+  if (b.includes("12")) return "#44dd88";
+  if (b.includes("10")) return "#44ccff";
+  if (b.includes("6")) return "#6688ff";
+  if (b.includes("2")) return "#aa66ff";
+  return "#aa88ff"; // VHF/UHF+
 }
 
 /**
@@ -2802,6 +2924,10 @@ export function FlatMapView({
   const { strikes: lightningStrikes } = useLightning(layers.lightning);
   const { spots: wsprSpots } = useWsprSpots(layers.wspr);
 
+  // QSO overlay data — hooks only compute when layer is enabled
+  const contestQsoData = useContestQsoLocations(layers.contestQsos);
+  const loggedQsoData = useLoggedQsoLocations(layers.loggedQsos);
+
   // Watch store v2
   const watchEnabled = useWatchStore((state) => state.enabled);
   const matchedSpotIds = useWatchStore((state) => state.matchedSpotIds);
@@ -4062,6 +4188,16 @@ export function FlatMapView({
       drawWsprPaths(ctx, wsprSpots, renderWidth, renderHeight);
     }
 
+    // Draw logged QSO arcs (behind contest QSOs — more transparent)
+    if (layers.loggedQsos && loggedQsoData) {
+      drawLoggedQsos(ctx, loggedQsoData, renderWidth, renderHeight);
+    }
+
+    // Draw contest QSO arcs (on top — more opaque, multiplier rings)
+    if (layers.contestQsos && contestQsoData) {
+      drawContestQsos(ctx, contestQsoData, renderWidth, renderHeight);
+    }
+
     // Draw night lights (city lights on dark side)
     if (!isStandard && layers.nightLights) {
       drawNightLights(ctx, displayTime, renderWidth, renderHeight);
@@ -4356,6 +4492,8 @@ export function FlatMapView({
     weatherAlerts,
     lightningStrikes,
     wsprSpots,
+    contestQsoData,
+    loggedQsoData,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point

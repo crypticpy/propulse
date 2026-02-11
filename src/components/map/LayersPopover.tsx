@@ -191,6 +191,26 @@ export function LayersPopover() {
       ],
     },
     {
+      name: "QSO Log",
+      items: [
+        {
+          key: "contestQsos",
+          label: "Contest QSOs",
+          title:
+            "Arcs from home station to each contest contact, multipliers highlighted",
+          getValue: () => layers.contestQsos,
+          onToggle: () => toggleLayer("contestQsos"),
+        },
+        {
+          key: "loggedQsos",
+          label: "Logged QSOs",
+          title: "Arcs from home station to logged contacts from your logbook",
+          getValue: () => layers.loggedQsos,
+          onToggle: () => toggleLayer("loggedQsos"),
+        },
+      ],
+    },
+    {
       name: "Hazards",
       items: [
         {

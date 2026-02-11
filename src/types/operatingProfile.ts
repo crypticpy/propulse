@@ -41,6 +41,8 @@ export interface OperatingProfile {
     weather: boolean;
     lightning: boolean;
     wspr: boolean;
+    contestQsos: boolean;
+    loggedQsos: boolean;
   };
 
   // Display preferences

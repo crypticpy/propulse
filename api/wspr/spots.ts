@@ -67,7 +67,7 @@ export default async function handler(req: Request) {
           status: response.status,
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=120",
+            "Cache-Control": "no-store",
             "Access-Control-Allow-Origin": getAllowedOrigin(),
           },
         },
@@ -77,24 +77,31 @@ export default async function handler(req: Request) {
     const text = await response.text();
 
     // JSONEachRow format: one JSON object per line
+    // Use flatMap with per-line try/catch so one malformed line doesn't nuke all spots
     const spots = text
       .split("\n")
       .filter((line) => line.trim().length > 0)
-      .map((line) => {
-        const row: WsprRawRow = JSON.parse(line);
-        return {
-          txCallsign: row.tx_sign,
-          txLat: row.tx_lat,
-          txLon: row.tx_lon,
-          rxCallsign: row.rx_sign,
-          rxLat: row.rx_lat,
-          rxLon: row.rx_lon,
-          band: row.band,
-          frequency: row.frequency,
-          snr: row.snr,
-          power: row.power,
-          time: row.time,
-        };
+      .flatMap((line) => {
+        try {
+          const row: WsprRawRow = JSON.parse(line);
+          return [
+            {
+              txCallsign: row.tx_sign,
+              txLat: row.tx_lat,
+              txLon: row.tx_lon,
+              rxCallsign: row.rx_sign,
+              rxLat: row.rx_lat,
+              rxLon: row.rx_lon,
+              band: row.band,
+              frequency: row.frequency,
+              snr: row.snr,
+              power: row.power,
+              time: row.time,
+            },
+          ];
+        } catch {
+          return [];
+        }
       });
 
     return new Response(JSON.stringify({ spots }), {

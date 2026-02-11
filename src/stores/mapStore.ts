@@ -26,6 +26,8 @@ export const LAYER_PRESETS = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
   contest: {
     terminator: true,
@@ -41,6 +43,8 @@ export const LAYER_PRESETS = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: true,
+    loggedQsos: false,
   },
   vhf: {
     terminator: true,
@@ -56,6 +60,8 @@ export const LAYER_PRESETS = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
   emergency: {
     terminator: true,
@@ -69,8 +75,10 @@ export const LAYER_PRESETS = {
     satellites: false,
     earthquakes: true,
     weather: true,
-    lightning: false,
+    lightning: true,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
 } as const;
 
@@ -202,6 +210,8 @@ interface MapState {
     weather: boolean;
     lightning: boolean;
     wspr: boolean;
+    contestQsos: boolean;
+    loggedQsos: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -664,6 +674,8 @@ const initialState = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,
@@ -868,7 +880,12 @@ export const useMapStore = create<MapState>((set, get) => ({
 
     // 6. Apply all state at once
     set({
-      layers: { ...profile.layers },
+      layers: {
+        ...get().layers,
+        ...profile.layers,
+        contestQsos: get().layers.contestQsos,
+        loggedQsos: get().layers.loggedQsos,
+      },
       spotFilters,
       // profile.autoFollow now handled by watchStore.autoPan
       mapStyle: profile.mapStyle,

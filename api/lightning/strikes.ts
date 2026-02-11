@@ -58,7 +58,7 @@ export default async function handler(req: Request) {
           status: response.status,
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=60",
+            "Cache-Control": "no-store",
             "Access-Control-Allow-Origin": getAllowedOrigin(),
           },
         },
@@ -108,6 +108,11 @@ export default async function handler(req: Request) {
               : s.time * 1000, // seconds to milliseconds
         current_kA: s.sig ?? 0,
       }));
+    }
+
+    // Cap strikes to prevent canvas performance issues during active storm seasons
+    if (strikes.length > 5000) {
+      strikes = strikes.slice(0, 5000);
     }
 
     return new Response(JSON.stringify({ strikes }), {

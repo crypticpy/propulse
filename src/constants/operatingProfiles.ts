@@ -35,6 +35,8 @@ const dxHunter: OperatingProfile = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
 
   spotColorMode: "band",
@@ -77,6 +79,8 @@ const contest: OperatingProfile = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: true,
+    loggedQsos: false,
   },
 
   spotColorMode: "mode",
@@ -120,6 +124,8 @@ const vhf: OperatingProfile = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
 
   spotColorMode: "band",
@@ -161,8 +167,10 @@ const emergency: OperatingProfile = {
     satellites: false,
     earthquakes: true,
     weather: true,
-    lightning: false,
+    lightning: true,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
 
   spotColorMode: "mode",
@@ -206,6 +214,8 @@ const listener: OperatingProfile = {
     weather: false,
     lightning: false,
     wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
   },
 
   spotColorMode: "band",
@@ -271,6 +281,8 @@ export function getProfileConfig(id: BuiltinProfileId): {
     weather: "Weather",
     lightning: "Lightning",
     wspr: "WSPR",
+    contestQsos: "Contest QSOs",
+    loggedQsos: "Logged QSOs",
   };
 
   const enabledLayers = (

@@ -40,6 +40,8 @@ import {
   type DifficultyLevel,
 } from "./LocationMarker";
 import type { AuroraData } from "@/lib/api/aurora";
+import { useSatellites } from "@/hooks/useSatellites";
+import type { SatelliteInfo, SatelliteCategory } from "@/types/satellite";
 import { useFlatMapClickHandler } from "./FlatMapClickHandler";
 import { useFlatMapGestures } from "@/hooks/useFlatMapGestures";
 import { MapTooltip } from "./MapTooltip";
@@ -2372,6 +2374,100 @@ function drawPin(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Satellite markers (2D canvas)
+// ---------------------------------------------------------------------------
+
+/** Category colors matching the 3D SatelliteOverlay */
+const SAT_CATEGORY_COLORS: Record<SatelliteCategory, string> = {
+  iss: "#ffffff",
+  fm: "#00ff88",
+  linear: "#00ccff",
+  digital: "#ff9933",
+  weather: "#cc88ff",
+  other: "#888888",
+};
+
+/**
+ * Draw satellite diamond markers on the 2D flat map.
+ * Visible satellites use their category color; below-horizon satellites are dim gray.
+ * The selected satellite gets a larger marker, white outline, glow, and name label.
+ */
+function drawSatellites(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  satellites: SatelliteInfo[],
+  selectedSat: SatelliteInfo | null,
+) {
+  const HALF_SIZE = 4; // normal diamond half-size in px
+  const HALF_SIZE_SEL = 6; // selected diamond half-size
+  const DIM_COLOR = "#555";
+
+  ctx.save();
+
+  for (const sat of satellites) {
+    const { lat, lon } = sat.position;
+    const { x, y } = latLonToCanvas(lat, lon, width, height);
+    const isSelected =
+      selectedSat !== null && sat.noradId === selectedSat.noradId;
+    const color = sat.isVisible ? SAT_CATEGORY_COLORS[sat.category] : DIM_COLOR;
+    const half = isSelected ? HALF_SIZE_SEL : HALF_SIZE;
+
+    // Glow for selected satellite
+    if (isSelected) {
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+    }
+
+    // Diamond shape (rotated 45-degree square)
+    ctx.beginPath();
+    ctx.moveTo(x, y - half); // top
+    ctx.lineTo(x + half, y); // right
+    ctx.lineTo(x, y + half); // bottom
+    ctx.lineTo(x - half, y); // left
+    ctx.closePath();
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = sat.isVisible ? 0.9 : 0.4;
+    ctx.fill();
+
+    // White outline for selected
+    if (isSelected) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 1;
+      ctx.stroke();
+      ctx.restore(); // restore shadow state
+    }
+
+    // Name label for selected satellite
+    if (isSelected) {
+      ctx.globalAlpha = 1;
+      ctx.font = "bold 8px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+
+      const labelText = sat.name;
+      const labelY = y + half + 3;
+
+      // Black outline for readability
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = "round";
+      ctx.strokeText(labelText, x, labelY);
+
+      // White fill
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(labelText, x, labelY);
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 // Re-use shared zoom state type
 import type { FlatMapZoomState } from "@/types/map";
 
@@ -2473,6 +2569,10 @@ export function FlatMapView({
   // DX stores
   const { updateFilter } = useDXStore();
   const { allSpots } = useDXCluster();
+
+  // Satellite positions for 2D overlay
+  const { satellites: satPositions, selectedSatellite: selectedSat } =
+    useSatellites();
 
   // Watch store v2
   const watchEnabled = useWatchStore((state) => state.enabled);
@@ -3850,6 +3950,11 @@ export function FlatMapView({
       );
     }
 
+    // Draw satellite positions (2D canvas markers)
+    if (layers.satellites && satPositions.length > 0) {
+      drawSatellites(ctx, renderWidth, renderHeight, satPositions, selectedSat);
+    }
+
     // Draw highlight for hovered spot arc
     if (hoveredSpotData && layers.spots) {
       const hoveredSpot = resolvedSpots.find(
@@ -3997,6 +4102,8 @@ export function FlatMapView({
     watchEnabled,
     matchedSpotIds,
     glowTick,
+    satPositions,
+    selectedSat,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point

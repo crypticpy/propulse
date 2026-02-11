@@ -1,26 +1,21 @@
 /**
- * HamClockView — Full-screen map with glass overlay panels
- *
- * Redesigned from fixed sidebars (260px left + 260px right + 48px header)
- * to a full-viewport map with floating glass panels overlaid on the surface.
+ * HamClockView — Full-screen map with configurable sidebars
  *
  * Layout:
- *   header   (36px slim bar)
- *   map      (full remaining viewport)
+ *   header          (36px slim bar spanning full width)
+ *   left | map | right   (sidebars + fill-container map)
  *
- * Glass overlays on the map surface:
- *   - DE Station  (top-left, collapsible to callsign pill)
- *   - DX Target   (top-right, collapsible to target pill)
- *   - DX Spot Feed (bottom strip, collapsible to count bar)
- *   - Band Conditions (above DX feed on right, collapsible)
- *   - Space Weather (hidden by default, toggle from header)
+ * Sidebars (user-configurable which side):
+ *   - DX Spots sidebar (slim, scrollable spot list)
+ *   - Info sidebar (stacked collapsible panels: DE, DX Target, Space Wx, Bands)
  *
  * Escape key or X button returns to normal layout mode.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
+import { useHamClockStore } from "@/stores/hamclockStore";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import {
   useKIndex,
@@ -28,18 +23,15 @@ import {
   useSunspots,
   useMagnetometer,
 } from "@/hooks/useSolarData";
-import { useDXCluster } from "@/hooks/useDXCluster";
 import { getGreylineStatus } from "@/lib/utils/greyline";
-import { getPathMetrics, getPathIllumination } from "@/lib/utils/path";
-import {
-  getBandConditionsForPath,
-  type PathBandCondition,
-} from "@/lib/utils/bands";
+import { getPathMetrics } from "@/lib/utils/path";
 import { FlatMapView } from "./FlatMapView";
-import { DXSpotList } from "@/components/dx/DXSpotList";
 import { BandConditionsPanel } from "./BandConditionsPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
+import { HamClockSidebar } from "./hamclock/HamClockSidebar";
+import { HamClockInfoPanel } from "./hamclock/HamClockInfoPanel";
+import { HamClockSpotsSidebar } from "./hamclock/HamClockSpotsSidebar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,69 +50,58 @@ interface HamClockViewProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Pad a number to two digits */
 function pad2(n: number): string {
   return n.toString().padStart(2, "0");
 }
 
-/** Format a Date as HH:MM:SS */
 function fmtHMS(d: Date): string {
   return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`;
 }
 
-/** Format a Date as HH:MM in local time */
 function fmtLocalHM(d: Date): string {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-/** Format a Date as HH:MM in UTC */
 function fmtUTCHM(d: Date): string {
   return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
 }
 
-/** Format latitude/longitude to a compact string */
 function fmtCoord(lat: number, lon: number): string {
   const ns = lat >= 0 ? "N" : "S";
   const ew = lon >= 0 ? "E" : "W";
   return `${Math.abs(lat).toFixed(2)}${ns}  ${Math.abs(lon).toFixed(2)}${ew}`;
 }
 
-/** Format distance with thousands separator */
 function fmtDistance(km: number): string {
   return km.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " km";
 }
 
-/** Format bearing as 3-digit padded string with degree symbol */
 function fmtBearing(deg: number): string {
   return Math.round(deg).toString().padStart(3, "0") + "\u00B0";
 }
 
-/** Kp index color class */
-function kpColor(kp: number): string {
-  if (kp > 5) return "bg-alert-red/80 text-white";
-  if (kp >= 4) return "bg-caution-amber/80 text-void-black";
-  return "bg-signal-green/80 text-void-black";
-}
-
-/** Kp index text color */
 function kpTextColor(kp: number): string {
   if (kp > 5) return "text-alert-red";
   if (kp >= 4) return "text-caution-amber";
   return "text-signal-green";
 }
 
-/** Bz color class for pill */
-function bzColor(bz: number): string {
-  if (bz < -5) return "bg-alert-red/80 text-white";
-  if (bz <= 0) return "bg-caution-amber/80 text-void-black";
-  return "bg-signal-green/80 text-void-black";
-}
-
-/** Bz text color */
 function bzTextColor(bz: number): string {
   if (bz < -5) return "text-alert-red";
   if (bz <= 0) return "text-caution-amber";
   return "text-signal-green";
+}
+
+function kpColor(kp: number): string {
+  if (kp > 5) return "bg-alert-red/80 text-white";
+  if (kp >= 4) return "bg-caution-amber/80 text-void-black";
+  return "bg-signal-green/80 text-void-black";
+}
+
+function bzColor(bz: number): string {
+  if (bz < -5) return "bg-alert-red/80 text-white";
+  if (bz <= 0) return "bg-caution-amber/80 text-void-black";
+  return "bg-signal-green/80 text-void-black";
 }
 
 // ---------------------------------------------------------------------------
@@ -146,42 +127,6 @@ function HamClockTime() {
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Chevron icon (up/down toggle)
-// ---------------------------------------------------------------------------
-
-function ChevronIcon({ direction }: { direction: "up" | "down" }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 16 16"
-      fill="currentColor"
-      className="w-3 h-3"
-    >
-      {direction === "up" ? (
-        <path
-          fillRule="evenodd"
-          d="M11.78 9.78a.75.75 0 0 1-1.06 0L8 7.06 5.28 9.78a.75.75 0 0 1-1.06-1.06l3.25-3.25a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06Z"
-          clipRule="evenodd"
-        />
-      ) : (
-        <path
-          fillRule="evenodd"
-          d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
-          clipRule="evenodd"
-        />
-      )}
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Glass panel wrapper
-// ---------------------------------------------------------------------------
-
-const GLASS =
-  "bg-black/60 backdrop-blur-md border border-white/20 rounded-lg shadow-xl";
 
 // ---------------------------------------------------------------------------
 // Solar condition pills (header bar)
@@ -233,16 +178,30 @@ function SolarPills() {
 }
 
 // ---------------------------------------------------------------------------
-// DE Station overlay panel (top-left)
+// Swap sides icon
 // ---------------------------------------------------------------------------
 
-function DEOverlay({
-  collapsed,
-  onToggle,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
+function SwapIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-3.5 h-3.5"
+    >
+      <path d="M7 16l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 8l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 12h18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DE Station content (for info sidebar)
+// ---------------------------------------------------------------------------
+
+function DEContent() {
   const station = useUserStore((s) => s.station);
   const location = useActiveLocation();
 
@@ -254,92 +213,44 @@ function DEOverlay({
   const callsign = station?.callsign || "NO CALL";
   const grid = station?.grid || "";
 
-  if (collapsed) {
-    return (
-      <button
-        onClick={onToggle}
-        aria-expanded={false}
-        aria-label="Expand DE station panel"
-        className={`${GLASS} px-3 py-1.5 text-xs text-white/80 hover:bg-black/70 transition-colors flex items-center gap-1.5 animate-in fade-in duration-150`}
-      >
-        <span className="text-signal-green font-mono font-bold">
-          {callsign}
-        </span>
-        {grid && <span className="text-white/40 font-mono">{grid}</span>}
-        <ChevronIcon direction="down" />
-      </button>
-    );
-  }
-
   return (
-    <div
-      className={`${GLASS} p-3 w-56 animate-in fade-in slide-in-from-top-1 duration-200`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] uppercase tracking-wider text-white/40">
-          DE Station
-        </span>
-        <button
-          onClick={onToggle}
-          aria-expanded={true}
-          aria-label="Collapse DE station panel"
-          className="text-white/40 hover:text-white transition-colors p-0.5"
-        >
-          <ChevronIcon direction="up" />
-        </button>
+    <div className="flex flex-col gap-1.5">
+      <div className="font-mono text-lg font-bold text-signal-green leading-tight">
+        {callsign}
       </div>
-
-      <div className="flex flex-col gap-1.5">
-        {/* Callsign */}
-        <div className="font-mono text-lg font-bold text-signal-green leading-tight">
-          {callsign}
+      {grid && <div className="font-mono text-sm text-gray-300">{grid}</div>}
+      {location && (
+        <div className="font-mono text-xs text-gray-400">
+          {fmtCoord(location.lat, location.lon)}
         </div>
-
-        {/* Grid */}
-        {grid && <div className="font-mono text-sm text-gray-300">{grid}</div>}
-
-        {/* Coordinates */}
-        {location && (
-          <div className="font-mono text-xs text-gray-400">
-            {fmtCoord(location.lat, location.lon)}
-          </div>
-        )}
-
-        {/* Sunrise / Sunset */}
-        {greyline && greyline.nextEventType && greyline.nextEventTime && (
-          <div className="flex flex-col mt-1">
-            <span className="text-[10px] text-gray-500 uppercase tracking-wide">
-              {greyline.nextEventType === "sunrise" ? "Sunrise" : "Sunset"}
+      )}
+      {greyline && greyline.nextEventType && greyline.nextEventTime && (
+        <div className="flex flex-col mt-1">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+            {greyline.nextEventType === "sunrise" ? "Sunrise" : "Sunset"}
+          </span>
+          <span className="font-mono text-sm text-gray-200">
+            {fmtUTCHM(greyline.nextEventTime)} z
+          </span>
+          {greyline.minutesToNextEvent != null && (
+            <span className="font-mono text-[10px] text-gray-500">
+              in{" "}
+              {greyline.minutesToNextEvent < 60
+                ? `${greyline.minutesToNextEvent}m`
+                : `${Math.floor(greyline.minutesToNextEvent / 60)}h ${greyline.minutesToNextEvent % 60}m`}
             </span>
-            <span className="font-mono text-sm text-gray-200">
-              {fmtUTCHM(greyline.nextEventTime)} z
-            </span>
-            {greyline.minutesToNextEvent != null && (
-              <span className="font-mono text-[10px] text-gray-500">
-                in{" "}
-                {greyline.minutesToNextEvent < 60
-                  ? `${greyline.minutesToNextEvent}m`
-                  : `${Math.floor(greyline.minutesToNextEvent / 60)}h ${greyline.minutesToNextEvent % 60}m`}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// DX Target overlay panel (top-right)
+// DX Target content (for info sidebar)
 // ---------------------------------------------------------------------------
 
-function DXOverlay({
-  collapsed,
-  onToggle,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
+function DXContent() {
   const target = useMapStore((s) => s.target);
   const location = useActiveLocation();
 
@@ -353,128 +264,76 @@ function DXOverlay({
     return getGreylineStatus(target.lat, target.lon, new Date());
   }, [target]);
 
-  const targetLabel = target
-    ? target.name || fmtCoord(target.lat, target.lon)
-    : "No DX";
-
-  if (collapsed) {
+  if (!target) {
     return (
-      <button
-        onClick={onToggle}
-        aria-expanded={false}
-        aria-label="Expand DX target panel"
-        className={`${GLASS} px-3 py-1.5 text-xs text-white/80 hover:bg-black/70 transition-colors flex items-center gap-1.5 animate-in fade-in duration-150`}
-      >
-        <span className="text-plasma-orange font-mono font-bold truncate max-w-[140px]">
-          {targetLabel}
-        </span>
-        {metrics && (
-          <span className="ml-0.5 text-white/40 text-[10px] font-mono">
-            {fmtDistance(metrics.shortPath.distance)}
-          </span>
-        )}
-        <ChevronIcon direction="down" />
-      </button>
+      <div className="text-sm text-gray-500 italic">Click map to select DX</div>
     );
   }
 
   return (
-    <div
-      className={`${GLASS} p-3 w-56 animate-in fade-in slide-in-from-top-1 duration-200`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] uppercase tracking-wider text-white/40">
-          DX Target
-        </span>
-        <button
-          onClick={onToggle}
-          aria-expanded={true}
-          aria-label="Collapse DX target panel"
-          className="text-white/40 hover:text-white transition-colors p-0.5"
-        >
-          <ChevronIcon direction="up" />
-        </button>
+    <div className="flex flex-col gap-1.5">
+      <div className="font-mono text-lg font-bold text-plasma-orange leading-tight truncate">
+        {target.name || fmtCoord(target.lat, target.lon)}
       </div>
-
-      {target ? (
-        <div className="flex flex-col gap-1.5">
-          {/* Name / Callsign */}
-          <div className="font-mono text-lg font-bold text-plasma-orange leading-tight truncate">
-            {target.name || fmtCoord(target.lat, target.lon)}
+      {target.grid && (
+        <div className="font-mono text-sm text-gray-300">{target.grid}</div>
+      )}
+      <div className="font-mono text-xs text-gray-400">
+        {fmtCoord(target.lat, target.lon)}
+      </div>
+      {metrics && (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+              Bearing
+            </span>
+            <span className="font-mono text-sm text-gray-200">
+              {fmtBearing(metrics.shortPath.bearing)}
+            </span>
           </div>
-
-          {/* Grid */}
-          {target.grid && (
-            <div className="font-mono text-sm text-gray-300">{target.grid}</div>
-          )}
-
-          {/* Coordinates */}
-          <div className="font-mono text-xs text-gray-400">
-            {fmtCoord(target.lat, target.lon)}
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+              Distance
+            </span>
+            <span className="font-mono text-sm text-gray-200">
+              {fmtDistance(metrics.shortPath.distance)}
+            </span>
           </div>
-
-          {/* Bearing + Distance */}
-          {metrics && (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1">
-              <div className="flex flex-col">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wide">
-                  Bearing
-                </span>
-                <span className="font-mono text-sm text-gray-200">
-                  {fmtBearing(metrics.shortPath.bearing)}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wide">
-                  Distance
-                </span>
-                <span className="font-mono text-sm text-gray-200">
-                  {fmtDistance(metrics.shortPath.distance)}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wide">
-                  Long Path
-                </span>
-                <span className="font-mono text-xs text-gray-400">
-                  {fmtBearing(metrics.longPath.bearing)} /{" "}
-                  {fmtDistance(metrics.longPath.distance)}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wide">
-                  Hops
-                </span>
-                <span className="font-mono text-sm text-gray-200">
-                  ~{metrics.hops}F
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* DX Sunrise / Sunset */}
-          {greyline && greyline.nextEventType && greyline.nextEventTime && (
-            <div className="flex flex-col mt-1">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wide">
-                DX {greyline.nextEventType === "sunrise" ? "Sunrise" : "Sunset"}
-              </span>
-              <span className="font-mono text-sm text-gray-200">
-                {fmtUTCHM(greyline.nextEventTime)} z
-              </span>
-              {greyline.minutesToNextEvent != null && (
-                <span className="font-mono text-[10px] text-gray-500">
-                  in{" "}
-                  {greyline.minutesToNextEvent < 60
-                    ? `${greyline.minutesToNextEvent}m`
-                    : `${Math.floor(greyline.minutesToNextEvent / 60)}h ${greyline.minutesToNextEvent % 60}m`}
-                </span>
-              )}
-            </div>
-          )}
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+              Long Path
+            </span>
+            <span className="font-mono text-xs text-gray-400">
+              {fmtBearing(metrics.longPath.bearing)} /{" "}
+              {fmtDistance(metrics.longPath.distance)}
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+              Hops
+            </span>
+            <span className="font-mono text-sm text-gray-200">
+              ~{metrics.hops}F
+            </span>
+          </div>
         </div>
-      ) : (
-        <div className="text-sm text-gray-500 italic">
-          Click map to select DX
+      )}
+      {greyline && greyline.nextEventType && greyline.nextEventTime && (
+        <div className="flex flex-col mt-1">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+            DX {greyline.nextEventType === "sunrise" ? "Sunrise" : "Sunset"}
+          </span>
+          <span className="font-mono text-sm text-gray-200">
+            {fmtUTCHM(greyline.nextEventTime)} z
+          </span>
+          {greyline.minutesToNextEvent != null && (
+            <span className="font-mono text-[10px] text-gray-500">
+              in{" "}
+              {greyline.minutesToNextEvent < 60
+                ? `${greyline.minutesToNextEvent}m`
+                : `${Math.floor(greyline.minutesToNextEvent / 60)}h ${greyline.minutesToNextEvent % 60}m`}
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -482,16 +341,10 @@ function DXOverlay({
 }
 
 // ---------------------------------------------------------------------------
-// Space Weather overlay panel (toggled from header)
+// Space Weather content (for info sidebar)
 // ---------------------------------------------------------------------------
 
-function SpaceWeatherOverlay({
-  collapsed,
-  onToggle,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
+function SpaceWeatherContent() {
   const solarFluxQuery = useSolarFlux();
   const sunspotsQuery = useSunspots();
   const kIndexQuery = useKIndex();
@@ -558,62 +411,82 @@ function SpaceWeatherOverlay({
     kIndexQuery.isLoading ||
     magnetometerQuery.isLoading;
 
-  if (collapsed) {
-    return (
-      <button
-        onClick={onToggle}
-        aria-expanded={false}
-        aria-label="Expand space weather panel"
-        className={`${GLASS} px-3 py-1.5 text-xs text-white/80 hover:bg-black/70 transition-colors flex items-center gap-1.5 animate-in fade-in duration-150`}
-      >
-        <span className="text-white/60">Space Wx</span>
-        {sfi != null && (
-          <span className="font-mono text-white/50">{Math.round(sfi)}</span>
-        )}
-        <ChevronIcon direction="down" />
-      </button>
-    );
-  }
+  if (isLoading)
+    return <div className="text-xs text-gray-500 font-mono">Loading...</div>;
+  if (rows.length === 0)
+    return <div className="text-xs text-gray-500 font-mono">No data</div>;
 
   return (
-    <div
-      className={`${GLASS} p-3 w-56 animate-in fade-in slide-in-from-top-1 duration-200`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] uppercase tracking-wider text-white/40">
-          Space Weather
-        </span>
-        <button
-          onClick={onToggle}
-          aria-expanded={true}
-          aria-label="Collapse space weather panel"
-          className="text-white/40 hover:text-white transition-colors p-0.5"
+    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+      {rows.map((row) => (
+        <div
+          key={row.label}
+          className="flex items-baseline justify-between gap-2"
         >
-          <ChevronIcon direction="up" />
-        </button>
-      </div>
-
-      {isLoading ? (
-        <div className="text-xs text-gray-500 font-mono">Loading...</div>
-      ) : rows.length === 0 ? (
-        <div className="text-xs text-gray-500 font-mono">No data</div>
-      ) : (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-          {rows.map((row) => (
-            <div
-              key={row.label}
-              className="flex items-baseline justify-between gap-2"
-            >
-              <span className="text-[10px] text-gray-500 uppercase tracking-wide font-mono">
-                {row.label}
-              </span>
-              <span className={`font-mono text-sm font-bold ${row.colorClass}`}>
-                {row.value}
-              </span>
-            </div>
-          ))}
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide font-mono">
+            {row.label}
+          </span>
+          <span className={`font-mono text-sm font-bold ${row.colorClass}`}>
+            {row.value}
+          </span>
         </div>
-      )}
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Info Sidebar (stacked panels: DE, DX, Space Wx, Bands)
+// ---------------------------------------------------------------------------
+
+function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
+  const panelCollapsed = useHamClockStore((s) => s.panelCollapsed);
+  const togglePanel = useHamClockStore((s) => s.togglePanel);
+
+  return (
+    <div className="flex flex-col h-full">
+      <HamClockInfoPanel
+        id="de"
+        title="DE Station"
+        collapsed={panelCollapsed.de ?? false}
+        onToggle={() => togglePanel("de")}
+      >
+        <DEContent />
+      </HamClockInfoPanel>
+
+      <HamClockInfoPanel
+        id="dx"
+        title="DX Target"
+        collapsed={panelCollapsed.dx ?? false}
+        onToggle={() => togglePanel("dx")}
+      >
+        <DXContent />
+      </HamClockInfoPanel>
+
+      <HamClockInfoPanel
+        id="spacewx"
+        title="Space Weather"
+        collapsed={panelCollapsed.spacewx ?? false}
+        onToggle={() => togglePanel("spacewx")}
+      >
+        <SpaceWeatherContent />
+      </HamClockInfoPanel>
+
+      <HamClockInfoPanel
+        id="bands"
+        title="Band Conditions"
+        collapsed={panelCollapsed.bands ?? false}
+        onToggle={() => togglePanel("bands")}
+      >
+        <div className="max-h-64 overflow-y-auto">
+          <BandConditionsPanel
+            displayTime={displayTime}
+            compact
+            collapsed={false}
+            className="!bg-transparent !border-0 !rounded-none !shadow-none"
+          />
+        </div>
+      </HamClockInfoPanel>
     </div>
   );
 }
@@ -626,61 +499,35 @@ export function HamClockView({
   displayTime,
   onLocationClick,
 }: HamClockViewProps) {
-  // ---------- Store data ----------
   const station = useUserStore((s) => s.station);
 
-  // ---------- DX spot count for collapsed pill ----------
-  const { allSpots } = useDXCluster();
-  const spotCount = allSpots?.length ?? 0;
+  // HamClock layout preferences
+  const spotsSide = useHamClockStore((s) => s.spotsSide);
+  const setSpotsSide = useHamClockStore((s) => s.setSpotsSide);
+  const spotsSidebarCollapsed = useHamClockStore(
+    (s) => s.spotsSidebarCollapsed,
+  );
+  const infoSidebarCollapsed = useHamClockStore((s) => s.infoSidebarCollapsed);
+  const toggleSpotsSidebar = useHamClockStore((s) => s.toggleSpotsSidebar);
+  const toggleInfoSidebar = useHamClockStore((s) => s.toggleInfoSidebar);
 
-  // ---------- Band condition summary for collapsed pill dots ----------
-  const target = useMapStore((s) => s.target);
-  const location = useActiveLocation();
-  const kIndexData = useKIndex().data;
-  const solarFluxData = useSolarFlux().data;
+  // Derived: which sidebar is which
+  const leftIsSpots = spotsSide === "left";
+  const leftCollapsed = leftIsSpots
+    ? spotsSidebarCollapsed
+    : infoSidebarCollapsed;
+  const rightCollapsed = leftIsSpots
+    ? infoSidebarCollapsed
+    : spotsSidebarCollapsed;
+  const toggleLeft = leftIsSpots ? toggleSpotsSidebar : toggleInfoSidebar;
+  const toggleRight = leftIsSpots ? toggleInfoSidebar : toggleSpotsSidebar;
 
-  const bandStatusDots = useMemo((): { band: string; color: string }[] => {
-    if (!station || !target || !location) return [];
-    const kp = kIndexData?.[kIndexData.length - 1]?.kp_index ?? 3;
-    const sfi = solarFluxData?.[solarFluxData.length - 1]?.flux ?? 100;
-    const illum = getPathIllumination(
-      location.lat,
-      location.lon,
-      target.lat,
-      target.lon,
-      new Date(),
-    );
-    const conditions = getBandConditionsForPath(
-      location.lat,
-      location.lon,
-      target.lat,
-      target.lon,
-      kp,
-      sfi,
-      illum,
-    );
-    // Pick up to 5 representative bands with colored dots
-    const statusColorMap: Record<PathBandCondition["status"], string> = {
-      excellent: "bg-signal-green",
-      good: "bg-signal-green",
-      fair: "bg-caution-amber",
-      poor: "bg-alert-red",
-      closed: "bg-gray-600",
-    };
-    return conditions.slice(0, 5).map((c) => ({
-      band: c.band,
-      color: statusColorMap[c.status],
-    }));
-  }, [station, target, location, kIndexData, solarFluxData]);
+  const SPOTS_WIDTH = 280;
+  const INFO_WIDTH = 240;
+  const leftWidth = leftIsSpots ? SPOTS_WIDTH : INFO_WIDTH;
+  const rightWidth = leftIsSpots ? INFO_WIDTH : SPOTS_WIDTH;
 
-  // ---------- Panel collapse states ----------
-  const [deCollapsed, setDeCollapsed] = useState(false);
-  const [dxCollapsed, setDxCollapsed] = useState(false);
-  const [spotsCollapsed, setSpotsCollapsed] = useState(false);
-  const [bandsCollapsed, setBandsCollapsed] = useState(false);
-  const [spaceWxVisible, setSpaceWxVisible] = useState(false);
-
-  // ---------- Escape key ----------
+  // Escape key to exit
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -691,7 +538,7 @@ export function HamClockView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // ---------- FlatMapView click adapter ----------
+  // FlatMapView click adapter
   const handleMapClick = useMemo(() => {
     if (!onLocationClick) return undefined;
     return (lat: number, lon: number) => {
@@ -699,15 +546,25 @@ export function HamClockView({
     };
   }, [onLocationClick]);
 
-  // ---------- Render ----------
+  // Swap sides handler
+  const handleSwapSides = useCallback(() => {
+    setSpotsSide(spotsSide === "left" ? "right" : "left");
+  }, [spotsSide, setSpotsSide]);
+
+  // Sidebar content renderers
+  const spotsSidebar = <HamClockSpotsSidebar />;
+
+  const infoSidebar = <InfoSidebarContent displayTime={displayTime} />;
+
   return (
     <div
       className="fixed inset-0 z-[200] bg-void-black text-white select-none"
       style={{
         display: "grid",
-        gridTemplateAreas: `"header" "map"`,
+        gridTemplateAreas: `"header header header" "left map right"`,
         gridTemplateRows: "36px 1fr",
-        gridTemplateColumns: "1fr",
+        gridTemplateColumns: `${leftCollapsed ? "0px" : `${leftWidth}px`} 1fr ${rightCollapsed ? "0px" : `${rightWidth}px`}`,
+        transition: "grid-template-columns 200ms ease-out",
       }}
     >
       {/* ================================================================= */}
@@ -717,8 +574,38 @@ export function HamClockView({
         className="flex items-center justify-between px-3 border-b border-white/10"
         style={{ gridArea: "header" }}
       >
-        {/* Left: Station callsign + grid */}
+        {/* Left: sidebar toggle + station callsign */}
         <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={toggleLeft}
+            className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+            aria-label={
+              leftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"
+            }
+            title={leftCollapsed ? "Show left panel" : "Hide left panel"}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="w-3.5 h-3.5"
+            >
+              {leftCollapsed ? (
+                <path
+                  d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : (
+                <path
+                  d="M11 19l-7-7 7-7M19 19l-7-7 7-7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </svg>
+          </button>
           <span className="font-mono text-sm font-bold text-signal-green truncate">
             {station?.callsign || "NO CALL"}
           </span>
@@ -729,39 +616,56 @@ export function HamClockView({
           )}
         </div>
 
-        {/* Center: UTC clock + local (isolated to prevent full-tree 1s re-renders) */}
+        {/* Center: UTC clock */}
         <div className="flex items-center gap-2 leading-tight">
           <HamClockTime />
         </div>
 
-        {/* Right: Solar pills + Space Wx toggle + Layers + exit */}
+        {/* Right: Swap + Solar + Layers + Watch + sidebar toggle + exit */}
         <div className="flex items-center gap-2">
-          <SolarPills />
-
-          {/* Space Weather toggle */}
           <button
-            onClick={() => setSpaceWxVisible((v) => !v)}
-            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-              spaceWxVisible
-                ? "bg-white/15 text-white"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
-            }`}
-            title="Toggle Space Weather panel"
+            onClick={handleSwapSides}
+            className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Swap sidebar sides"
+            title="Swap sidebar sides"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              className="w-3.5 h-3.5 inline-block mr-0.5"
-            >
-              <path d="M8 1a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5A.75.75 0 0 1 8 1ZM10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0ZM12.95 4.11a.75.75 0 1 0-1.06-1.06l-.354.354a.75.75 0 1 0 1.06 1.06l.354-.354ZM14 8a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1 0-1.5h.5A.75.75 0 0 1 14 8ZM12.596 11.89a.75.75 0 0 0-1.06-1.06l-.354.353a.75.75 0 1 0 1.06 1.061l.354-.354ZM8 14a.75.75 0 0 1-.75-.75v-.5a.75.75 0 0 1 1.5 0v.5A.75.75 0 0 1 8 14ZM4.11 12.95a.75.75 0 0 0 1.06-1.06l-.354-.354a.75.75 0 1 0-1.06 1.06l.354.354ZM2 8a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 2 8ZM4.464 4.11a.75.75 0 0 0 1.06-1.06l-.354-.354a.75.75 0 1 0-1.06 1.06l.354.354Z" />
-            </svg>
-            Wx
+            <SwapIcon />
           </button>
 
+          <SolarPills />
           <LayersPopover />
-
           <WatchStatusPill className="hidden sm:flex" />
+
+          <button
+            onClick={toggleRight}
+            className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+            aria-label={
+              rightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"
+            }
+            title={rightCollapsed ? "Show right panel" : "Hide right panel"}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="w-3.5 h-3.5"
+            >
+              {rightCollapsed ? (
+                <path
+                  d="M11 19l-7-7 7-7M19 19l-7-7 7-7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : (
+                <path
+                  d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </svg>
+          </button>
 
           <button
             onClick={() => useMapStore.getState().setLayoutMode("normal")}
@@ -782,153 +686,47 @@ export function HamClockView({
       </header>
 
       {/* ================================================================= */}
-      {/* FULL-SCREEN MAP                                                   */}
+      {/* LEFT SIDEBAR                                                       */}
+      {/* ================================================================= */}
+      <HamClockSidebar
+        side="left"
+        collapsed={leftCollapsed}
+        onToggle={toggleLeft}
+        width={leftWidth}
+      >
+        {leftIsSpots ? spotsSidebar : infoSidebar}
+      </HamClockSidebar>
+
+      {/* ================================================================= */}
+      {/* MAP (fills all remaining space)                                    */}
       {/* ================================================================= */}
       <main
         className="overflow-hidden relative bg-void-black"
         style={{ gridArea: "map" }}
       >
-        {/* Map fills full area */}
         <FlatMapView
           displayTime={displayTime}
           onLocationClick={handleMapClick}
+          fillContainer
         />
 
-        {/* Glass overlay container — pointer-events-none so clicks pass to map */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          {/* ── DE Station (top-left) ── */}
-          <div className="absolute top-3 left-3 pointer-events-auto">
-            <DEOverlay
-              collapsed={deCollapsed}
-              onToggle={() => setDeCollapsed((v) => !v)}
-            />
-          </div>
-
-          {/* ── DX Target (top-right) ── */}
-          <div className="absolute top-3 right-3 pointer-events-auto">
-            <DXOverlay
-              collapsed={dxCollapsed}
-              onToggle={() => setDxCollapsed((v) => !v)}
-            />
-          </div>
-
-          {/* ── Space Weather (below DX Target, hidden by default) ── */}
-          {spaceWxVisible && (
-            <div className="absolute top-3 right-[15.5rem] pointer-events-auto">
-              <SpaceWeatherOverlay
-                collapsed={false}
-                onToggle={() => setSpaceWxVisible(false)}
-              />
-            </div>
-          )}
-
-          {/* ── Band Conditions (above DX feed, right side) ── */}
-          <div
-            className="absolute right-3 pointer-events-auto"
-            style={{ bottom: spotsCollapsed ? "2.75rem" : "11.5rem" }}
-          >
-            {bandsCollapsed ? (
-              <button
-                onClick={() => setBandsCollapsed(false)}
-                aria-expanded={false}
-                aria-label="Expand band conditions panel"
-                className={`${GLASS} px-3 py-1.5 text-xs text-white/80 hover:bg-black/70 transition-colors flex items-center gap-1.5 animate-in fade-in duration-150`}
-              >
-                <span className="text-white/60 text-[10px]">Bands</span>
-                {bandStatusDots.length > 0 && (
-                  <div className="flex items-center gap-0.5 ml-0.5">
-                    {bandStatusDots.map((dot) => (
-                      <span
-                        key={dot.band}
-                        className={`w-1.5 h-1.5 rounded-full ${dot.color}`}
-                        title={dot.band}
-                      />
-                    ))}
-                  </div>
-                )}
-                <ChevronIcon direction="down" />
-              </button>
-            ) : (
-              <div
-                className={`${GLASS} w-56 max-h-64 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-1 duration-200`}
-              >
-                <div className="flex items-center justify-between px-3 pt-2 pb-1">
-                  <span className="text-[10px] uppercase tracking-wider text-white/40">
-                    Band Conditions
-                  </span>
-                  <button
-                    onClick={() => setBandsCollapsed(true)}
-                    aria-expanded={true}
-                    aria-label="Collapse band conditions panel"
-                    className="text-white/40 hover:text-white transition-colors p-0.5"
-                  >
-                    <ChevronIcon direction="up" />
-                  </button>
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  <BandConditionsPanel
-                    displayTime={displayTime}
-                    compact
-                    collapsed={false}
-                    className="!bg-transparent !border-0 !rounded-none !shadow-none"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── DX Spot Feed (bottom strip) ── */}
-          <div className="absolute bottom-3 left-3 right-3 pointer-events-auto">
-            {spotsCollapsed ? (
-              <button
-                onClick={() => setSpotsCollapsed(false)}
-                aria-expanded={false}
-                aria-label="Expand DX spots feed"
-                className={`${GLASS} px-3 py-1.5 text-xs text-white/80 hover:bg-black/70 transition-colors flex items-center gap-1.5 w-full justify-between animate-in fade-in duration-150`}
-              >
-                <span className="flex items-center gap-1.5">
-                  {spotCount > 0 && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-                  )}
-                  <span className="text-white/60">DX Spots</span>
-                  <span className="font-mono text-white/40">({spotCount})</span>
-                </span>
-                <ChevronIcon direction="up" />
-              </button>
-            ) : (
-              <div
-                className={`${GLASS} overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-1 duration-200`}
-                style={{ height: 160 }}
-              >
-                <div className="flex items-center justify-between px-3 pt-2 pb-1 shrink-0">
-                  <span className="text-[10px] uppercase tracking-wider text-white/40">
-                    DX Spots
-                    <span className="ml-1.5 font-mono text-white/30">
-                      ({spotCount})
-                    </span>
-                  </span>
-                  <button
-                    onClick={() => setSpotsCollapsed(true)}
-                    aria-expanded={true}
-                    aria-label="Collapse DX spots feed"
-                    className="text-white/40 hover:text-white transition-colors p-0.5"
-                  >
-                    <ChevronIcon direction="down" />
-                  </button>
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  <DXSpotList
-                    showFilters={false}
-                    showHeader={false}
-                    maxHeight="100%"
-                    className="!bg-transparent !border-0 !rounded-none"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Watch status pill floating at bottom-center of map */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+          <WatchStatusPill className="sm:hidden" />
         </div>
       </main>
+
+      {/* ================================================================= */}
+      {/* RIGHT SIDEBAR                                                      */}
+      {/* ================================================================= */}
+      <HamClockSidebar
+        side="right"
+        collapsed={rightCollapsed}
+        onToggle={toggleRight}
+        width={rightWidth}
+      >
+        {leftIsSpots ? infoSidebar : spotsSidebar}
+      </HamClockSidebar>
     </div>
   );
 }

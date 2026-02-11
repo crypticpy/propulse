@@ -78,6 +78,13 @@ import {
   getMaidenheadFields,
   MAIDENHEAD_LON_LINES,
   MAIDENHEAD_LAT_LINES,
+  getGridLevelForZoom,
+  getMaidenheadSquaresInViewport,
+  getMaidenheadSubsquaresInViewport,
+  getSquareLonLines,
+  getSquareLatLines,
+  getSubsquareLonLines,
+  getSubsquareLatLines,
 } from "@/lib/utils/maidenheadGrid";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
@@ -87,6 +94,8 @@ interface FlatMapViewProps {
   displayTime: Date;
   /** Callback when a location is clicked */
   onLocationClick?: (lat: number, lon: number) => void;
+  /** When true, canvas fills the entire container instead of maintaining 2:1 letterbox */
+  fillContainer?: boolean;
 }
 
 // Map dimensions
@@ -413,7 +422,13 @@ function drawNightSide(
       const idx = (rowOffset + x) * 4;
 
       if (angle <= TWILIGHT_START) {
-        // Full daylight - no overlay needed (alpha = 0)
+        // Subtle day-side softening to reduce eye strain on bright satellite imagery
+        if (variant === "satellite") {
+          darkPixels[idx] = Math.floor(255 * 0.92); // slight red reduction
+          darkPixels[idx + 1] = Math.floor(255 * 0.92); // slight green reduction
+          darkPixels[idx + 2] = Math.floor(255 * 0.96); // preserve blue more (sky feel)
+          darkPixels[idx + 3] = Math.floor(255 * 0.12); // very subtle overlay
+        }
         continue;
       }
 
@@ -531,9 +546,9 @@ function drawTerminator(
 
   ctx.save();
   ctx.strokeStyle = COLORS.terminator;
-  ctx.lineWidth = highViz ? 3 : 2;
+  ctx.lineWidth = highViz ? 2.5 : 1.5;
   ctx.shadowColor = COLORS.terminator;
-  ctx.shadowBlur = highViz ? 8 : 4;
+  ctx.shadowBlur = highViz ? 5 : 3;
   if (dashed) ctx.setLineDash([8, 4]);
 
   ctx.beginPath();
@@ -613,8 +628,8 @@ function drawGreyline(
   const { data } = imageData;
 
   // High-viz mode increases golden tint intensity and alpha
-  const tintMultiplier = highViz ? 1.5 : 1;
-  const alphaMultiplier = highViz ? 255 : 200;
+  const tintMultiplier = highViz ? 1.0 : 0.7;
+  const alphaMultiplier = highViz ? 180 : 120;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -775,10 +790,11 @@ function drawPath(
 
   // Draw path with crisp lines (no shadow blur for sharpness)
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 1.8;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.setLineDash([10, 6]);
+  ctx.setLineDash([6, 5]);
+  ctx.globalAlpha = 0.55;
 
   ctx.beginPath();
   let lastX = -1;
@@ -800,6 +816,7 @@ function drawPath(
   }
 
   ctx.stroke();
+  ctx.globalAlpha = 1.0;
   ctx.setLineDash([]);
 }
 
@@ -1880,6 +1897,11 @@ function drawLabels(
   height: number,
   opts: LabelOptions,
   standardMode = false,
+  zoomScale = 1,
+  zoomOffsetX = 0,
+  zoomOffsetY = 0,
+  viewportWidth = 0,
+  viewportHeight = 0,
 ) {
   // Draw country border polygons
   if (opts.borders) {
@@ -1936,9 +1958,12 @@ function drawLabels(
     }
   }
 
-  // Draw Maidenhead grid
+  // Draw Maidenhead grid — zoom-adaptive with 2-char, 4-char, and 6-char levels
   if (opts.maidenheadGrid) {
     ctx.save();
+    const gridLevel = getGridLevelForZoom(zoomScale);
+
+    // --- Always draw 2-char field grid lines ---
     ctx.strokeStyle = "rgba(0, 204, 204, 0.25)";
     ctx.lineWidth = 0.5;
     ctx.setLineDash([4, 4]);
@@ -1957,6 +1982,8 @@ function drawLabels(
       ctx.stroke();
     }
     ctx.setLineDash([]);
+
+    // --- 2-char field labels (always shown) ---
     ctx.font = "bold 7px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -1974,6 +2001,128 @@ function drawLabels(
       ctx.fillStyle = "rgba(0, 204, 204, 0.5)";
       ctx.fillText(field.label, x, y);
     }
+
+    // --- Viewport culling for sub-grids ---
+    // Compute the visible lat/lon extent from zoom parameters.
+    // Inside the zoom transform, map-space coords run 0..width / 0..height.
+    // Visible map-space rect: top-left = (-offsetX/scale, -offsetY/scale),
+    // bottom-right = ((-offsetX + vpW) / scale, (-offsetY + vpH) / scale)
+    // Then convert map-space → lat/lon via inverse equirectangular.
+    const vpW = viewportWidth || width;
+    const vpH = viewportHeight || height;
+    const visLeft = zoomScale > 1 ? -zoomOffsetX / zoomScale : 0;
+    const visTop = zoomScale > 1 ? -zoomOffsetY / zoomScale : 0;
+    const visRight = zoomScale > 1 ? (-zoomOffsetX + vpW) / zoomScale : width;
+    const visBottom = zoomScale > 1 ? (-zoomOffsetY + vpH) / zoomScale : height;
+    // Inverse equirectangular: lon = (x / width) * 360 - 180, lat = 90 - (y / height) * 180
+    const vLonMin = Math.max(-180, (visLeft / width) * 360 - 180 - 2);
+    const vLonMax = Math.min(180, (visRight / width) * 360 - 180 + 2);
+    const vLatMax = Math.min(90, 90 - (visTop / height) * 180 + 1);
+    const vLatMin = Math.max(-90, 90 - (visBottom / height) * 180 - 1);
+
+    // --- 4-char square grid (zoom >= 1.5) ---
+    if (gridLevel === "square" || gridLevel === "subsquare") {
+      // Draw 4-char grid lines (thinner, more transparent) — viewport culled
+      ctx.strokeStyle = "rgba(0, 204, 204, 0.12)";
+      ctx.lineWidth = 0.3;
+      ctx.setLineDash([2, 3]);
+      const sqLonLines = getSquareLonLines(vLonMin, vLonMax);
+      for (const lon of sqLonLines) {
+        const { x } = latLonToCanvas(0, lon, width, height);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      const sqLatLines = getSquareLatLines(vLatMin, vLatMax);
+      for (const lat of sqLatLines) {
+        const { y } = latLonToCanvas(lat, 0, width, height);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // 4-char labels (shown at zoom >= 3) — viewport culled
+      if (zoomScale >= 3) {
+        const viewport = {
+          lonMin: vLonMin,
+          lonMax: vLonMax,
+          latMin: vLatMin,
+          latMax: vLatMax,
+        };
+        const squares = getMaidenheadSquaresInViewport(viewport);
+        ctx.font = "5px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        for (const sq of squares) {
+          const { x, y } = latLonToCanvas(
+            sq.latCenter,
+            sq.lonCenter,
+            width,
+            height,
+          );
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+          ctx.lineWidth = 1;
+          ctx.strokeText(sq.label, x, y);
+          ctx.fillStyle = "rgba(0, 204, 204, 0.35)";
+          ctx.fillText(sq.label, x, y);
+        }
+      }
+    }
+
+    // --- 6-char subsquare grid (zoom >= 5) — viewport culled ---
+    if (gridLevel === "subsquare") {
+      ctx.strokeStyle = "rgba(0, 204, 204, 0.06)";
+      ctx.lineWidth = 0.2;
+      ctx.setLineDash([1, 2]);
+      const subLonLines = getSubsquareLonLines(vLonMin, vLonMax);
+      for (const lon of subLonLines) {
+        const { x } = latLonToCanvas(0, lon, width, height);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      const subLatLines = getSubsquareLatLines(vLatMin, vLatMax);
+      for (const lat of subLatLines) {
+        const { y } = latLonToCanvas(lat, 0, width, height);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // 6-char labels (shown at zoom >= 8) — viewport culled
+      if (zoomScale >= 8) {
+        const viewport = {
+          lonMin: vLonMin,
+          lonMax: vLonMax,
+          latMin: vLatMin,
+          latMax: vLatMax,
+        };
+        const subsquares = getMaidenheadSubsquaresInViewport(viewport);
+        ctx.font = "3px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        for (const sub of subsquares) {
+          const { x, y } = latLonToCanvas(
+            sub.latCenter,
+            sub.lonCenter,
+            width,
+            height,
+          );
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+          ctx.lineWidth = 0.8;
+          ctx.strokeText(sub.label, x, y);
+          ctx.fillStyle = "rgba(0, 204, 204, 0.25)";
+          ctx.fillText(sub.label, x, y);
+        }
+      }
+    }
+
     ctx.restore();
   }
 }
@@ -2230,6 +2379,7 @@ import type { FlatMapZoomState } from "@/types/map";
 export function FlatMapView({
   displayTime,
   onLocationClick,
+  fillContainer = false,
 }: FlatMapViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -3009,7 +3159,7 @@ export function FlatMapView({
         baseOffsetY = z.offsetY;
       }
 
-      const targetScale = Math.max(0.5, Math.min(4, baseScale * delta));
+      const targetScale = Math.max(0.5, Math.min(10, baseScale * delta));
 
       // Calculate new offset to zoom toward mouse position
       const scaleFactor = targetScale / baseScale;
@@ -3069,27 +3219,60 @@ export function FlatMapView({
     }
 
     let rafId = 0;
+
+    const computeSize = (rect: DOMRect) => {
+      const containerWidth = Math.max(300, Math.floor(rect.width));
+      const containerHeight = Math.max(150, Math.floor(rect.height));
+      if (fillContainer) {
+        // Fill the entire container — map draws at container size,
+        // internally auto-adjusting zoom to fill vertically
+        return { width: containerWidth, height: containerHeight };
+      }
+      // Standard 2:1 letterbox — fit within both width AND height constraints
+      const width = Math.min(containerWidth, Math.floor(containerHeight * 2));
+      const height = Math.floor(width / 2);
+      return { width, height };
+    };
+
+    // Track last known display size for viewport center preservation on resize
+    const initialRect = container.getBoundingClientRect();
+    let lastSize = computeSize(initialRect);
+
     const updateSize = () => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const rect = container.getBoundingClientRect();
-        const containerWidth = Math.max(300, Math.floor(rect.width));
-        const containerHeight = Math.max(150, Math.floor(rect.height));
-        // Fit the 2:1 map within both width AND height constraints
-        const width = Math.min(containerWidth, Math.floor(containerHeight * 2));
-        const height = Math.floor(width / 2);
-        setDisplaySize({ width, height });
+        const newSize = computeSize(rect);
+
+        // Preserve viewport center when zoomed in during resize
+        const z = zoomRef.current;
+        if (z.scale > 1) {
+          const oldW = lastSize.width;
+          const oldH = lastSize.height;
+          // Current viewport center in map-space coordinates
+          const centerMapX = (-z.offsetX + oldW / 2) / z.scale;
+          const centerMapY = (-z.offsetY + oldH / 2) / z.scale;
+          // Recompute offsets to center the same map point in new viewport
+          const newOffsetX = newSize.width / 2 - centerMapX * z.scale;
+          const newOffsetY = newSize.height / 2 - centerMapY * z.scale;
+          // Clamp offsets to valid range
+          const maxOffsetX = newSize.width * (z.scale - 1);
+          const maxOffsetY = newSize.height * (z.scale - 1);
+          setZoom({
+            scale: z.scale,
+            offsetX: Math.max(-maxOffsetX, Math.min(0, newOffsetX)),
+            offsetY: Math.max(-maxOffsetY, Math.min(0, newOffsetY)),
+          });
+        }
+
+        lastSize = newSize;
+        setDisplaySize(newSize);
       });
     };
 
     // Initial synchronous size read
     const rect = container.getBoundingClientRect();
-    const containerWidth = Math.max(300, Math.floor(rect.width));
-    const containerHeight = Math.max(150, Math.floor(rect.height));
-    // Fit the 2:1 map within both width AND height constraints
-    const initWidth = Math.min(containerWidth, Math.floor(containerHeight * 2));
-    const initHeight = Math.floor(initWidth / 2);
-    setDisplaySize({ width: initWidth, height: initHeight });
+    setDisplaySize(computeSize(rect));
 
     const observer = new ResizeObserver(updateSize);
     observer.observe(container);
@@ -3098,7 +3281,8 @@ export function FlatMapView({
       cancelAnimationFrame(rafId);
       observer.disconnect();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fillContainer]);
 
   // Smooth pan-to-preset animation (500ms ease-out)
   // When activePresetId changes, animate from current zoom to the preset view
@@ -3122,7 +3306,7 @@ export function FlatMapView({
     const mapY = ((90 - preset.center.lat) / 180) * displaySize.height;
 
     // Calculate offset to center the preset point in the viewport at the target scale
-    const targetScale = Math.max(0.5, Math.min(4, preset.zoom));
+    const targetScale = Math.max(0.5, Math.min(10, preset.zoom));
     const targetOffsetX = displaySize.width / 2 - mapX * targetScale;
     const targetOffsetY = displaySize.height / 2 - mapY * targetScale;
 
@@ -3414,7 +3598,7 @@ export function FlatMapView({
   const handleGesturePinchZoom = useCallback(
     (scaleDelta: number, centerX: number, centerY: number) => {
       setZoom((prev) => {
-        const newScale = Math.max(0.5, Math.min(4.0, prev.scale * scaleDelta));
+        const newScale = Math.max(0.5, Math.min(10.0, prev.scale * scaleDelta));
         // Zoom toward the pinch center point
         const factor = newScale / prev.scale;
         const newOffsetX = centerX - factor * (centerX - prev.offsetX);
@@ -3430,7 +3614,7 @@ export function FlatMapView({
     [clampOffsets],
   );
 
-  const { isGesturing } = useFlatMapGestures({
+  const { isGesturing, isDragging } = useFlatMapGestures({
     canvasRef,
     onPan: handleGesturePan,
     onPinchZoom: handleGesturePinchZoom,
@@ -3598,6 +3782,11 @@ export function FlatMapView({
           wasOverlay: false,
         },
         isStandard,
+        zoom.scale,
+        zoom.offsetX,
+        zoom.offsetY,
+        displaySize.width,
+        displaySize.height,
       );
     }
 
@@ -3836,7 +4025,9 @@ export function FlatMapView({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center"
+      className={`w-full h-full min-h-[400px] bg-deep-space overflow-hidden relative ${
+        fillContainer ? "" : "rounded-xl flex items-center justify-center"
+      }`}
     >
       {!mapImage && mapStyle === "satellite" && (
         <div className="absolute inset-0 flex items-center justify-center bg-deep-space">
@@ -3852,7 +4043,13 @@ export function FlatMapView({
       >
         <canvas
           ref={canvasRef}
-          className={hoveredPinData ? "cursor-pointer" : "cursor-crosshair"}
+          className={
+            hoveredPinData
+              ? "cursor-pointer"
+              : isDragging.current
+                ? "cursor-grabbing"
+                : "cursor-crosshair"
+          }
           aria-label="Interactive propagation map - click to select target location"
           role="img"
           style={{

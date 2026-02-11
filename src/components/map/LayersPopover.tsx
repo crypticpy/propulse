@@ -77,6 +77,11 @@ export function LayersPopover() {
   const setAutoRotate = useMapStore((s) => s.setAutoRotate);
   const displayDensity = useMapStore((s) => s.displayDensity);
   const setDisplayDensity = useMapStore((s) => s.setDisplayDensity);
+  const viewMode = useMapStore((s) => s.viewMode);
+  const layoutMode = useMapStore((s) => s.layoutMode);
+
+  // Auto-Rotate only applies to the 3D globe — hide in flat/azimuthal/hamclock
+  const isGlobeView = viewMode === "globe" && layoutMode !== "hamclock";
 
   // ── Settings store selectors ──
   const uiPrefs = useUIInteractionPrefs();
@@ -215,13 +220,17 @@ export function LayersPopover() {
           getValue: () => layers.labels,
           onToggle: () => toggleLayer("labels"),
         },
-        {
-          key: "autoRotate",
-          label: "Auto-Rotate",
-          title: "Slowly spin the globe for a continuous overview",
-          getValue: () => autoRotate,
-          onToggle: () => setAutoRotate(!autoRotate),
-        },
+        ...(isGlobeView
+          ? [
+              {
+                key: "autoRotate",
+                label: "Auto-Rotate",
+                title: "Slowly spin the globe for a continuous overview",
+                getValue: () => autoRotate,
+                onToggle: () => setAutoRotate(!autoRotate),
+              },
+            ]
+          : []),
       ],
     },
   ];

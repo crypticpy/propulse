@@ -1,24 +1,25 @@
 /**
  * useFlatMapGestures Hook
  *
- * Handles multi-touch gestures (pinch-zoom + single-finger drag-to-pan)
- * on the 2D flat map canvas using PointerEvents directly (no external
- * gesture library).
+ * Handles multi-touch gestures (pinch-zoom + drag-to-pan) on the 2D flat
+ * map canvas using PointerEvents directly (no external gesture library).
  *
  * Gesture modes:
- * - **Single pointer drag**: Calls onPan(deltaX, deltaY) while one finger
- *   is moving on the canvas.
- * - **Pinch zoom**: When two pointers are active, computes the distance
- *   ratio between moves and calls onPinchZoom(scaleDelta, centerX, centerY).
+ * - **Single pointer drag**: Calls onPan(deltaX, deltaY) while one pointer
+ *   (finger or mouse) is moving on the canvas.
+ * - **Pinch zoom**: When two touch/pen pointers are active, computes the
+ *   distance ratio between moves and calls
+ *   onPinchZoom(scaleDelta, centerX, centerY).
  *
  * Transitions:
- * - When a second pointer arrives during a single-pointer drag, the drag
- *   is cancelled and the hook switches to pinch mode.
+ * - When a second touch/pen pointer arrives during a drag, the drag is
+ *   cancelled and the hook switches to pinch mode.
  * - When one of two pointers lifts, the remaining pointer re-anchors for
  *   single-pointer drag (no jump).
  *
  * Exposes an `isGesturing` ref that external code (e.g. FlatMapClickHandler)
- * can check to suppress conflicting interactions during multi-touch gestures.
+ * can check to suppress conflicting interactions during gestures, and an
+ * `isDragging` ref for cursor styling feedback.
  */
 
 import { useRef, useEffect } from "react";
@@ -47,6 +48,11 @@ export interface UseFlatMapGesturesReturn {
    * pointer processing.
    */
   isGesturing: React.RefObject<boolean>;
+  /**
+   * Ref that is `true` while the user is actively dragging (mouse or
+   * touch). Useful for setting a "grabbing" cursor on the canvas.
+   */
+  isDragging: React.RefObject<boolean>;
 }
 
 /**
@@ -81,8 +87,9 @@ export function useFlatMapGestures(
   const onPinchZoomRef = useRef(options.onPinchZoom);
   const enabledRef = useRef(enabled);
 
-  // Exposed flag for external coordination
+  // Exposed flags for external coordination
   const isGesturing = useRef(false);
+  const isDragging = useRef(false);
 
   // Sync refs every render
   useEffect(() => {
@@ -148,12 +155,6 @@ export function useFlatMapGestures(
         return;
       }
 
-      // Only track touch and pen pointers for gestures (mouse has its own
-      // scroll-wheel zoom and is handled by FlatMapClickHandler)
-      if (e.pointerType === "mouse") {
-        return;
-      }
-
       const pos = toCanvasCoords(e);
       pointers.set(e.pointerId, pos);
 
@@ -165,16 +166,18 @@ export function useFlatMapGestures(
       }
 
       if (pointers.size === 1) {
-        // First finger down: enter pending mode (waiting for drag threshold)
+        // First pointer down: enter pending mode (waiting for drag threshold)
         mode = "pending";
         dragStartPos = pos;
         lastDragPos = pos;
         prevPinchDist = null;
         isGesturing.current = false;
-      } else if (pointers.size === 2) {
-        // Second finger arrived: switch to pinch mode
+      } else if (pointers.size === 2 && e.pointerType !== "mouse") {
+        // Second touch/pen pointer arrived: switch to pinch mode
+        // (mice don't produce multi-pointer events, but guard anyway)
         mode = "pinching";
         isGesturing.current = true;
+        isDragging.current = false;
         dragStartPos = null;
         lastDragPos = null;
 
@@ -189,9 +192,6 @@ export function useFlatMapGestures(
 
     function handlePointerMove(e: PointerEvent): void {
       if (!enabledRef.current) {
-        return;
-      }
-      if (e.pointerType === "mouse") {
         return;
       }
 
@@ -209,6 +209,7 @@ export function useFlatMapGestures(
         if (d >= DRAG_THRESHOLD_PX) {
           mode = "dragging";
           isGesturing.current = true;
+          isDragging.current = true;
           // Start drag from current position (no jump)
           lastDragPos = pos;
         }
@@ -254,10 +255,6 @@ export function useFlatMapGestures(
     }
 
     function handlePointerUp(e: PointerEvent): void {
-      if (e.pointerType === "mouse") {
-        return;
-      }
-
       // Release capture
       try {
         canvas!.releasePointerCapture(e.pointerId);
@@ -268,9 +265,10 @@ export function useFlatMapGestures(
       pointers.delete(e.pointerId);
 
       if (pointers.size === 0) {
-        // All fingers lifted: reset
+        // All pointers lifted: reset
         mode = "none";
         isGesturing.current = false;
+        isDragging.current = false;
         dragStartPos = null;
         lastDragPos = null;
         prevPinchDist = null;
@@ -278,6 +276,7 @@ export function useFlatMapGestures(
         // One finger lifted from a pinch: re-anchor for single-pointer drag
         // (start from current position so there's no jump)
         mode = "dragging";
+        isDragging.current = true;
         const remaining = pointers.values().next().value;
         if (remaining) {
           lastDragPos = remaining;
@@ -308,10 +307,11 @@ export function useFlatMapGestures(
       pointers.clear();
       mode = "none";
       isGesturing.current = false;
+      isDragging.current = false;
     };
     // Only re-attach when the canvas ref identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef]);
 
-  return { isGesturing };
+  return { isGesturing, isDragging };
 }

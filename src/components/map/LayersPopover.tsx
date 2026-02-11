@@ -172,26 +172,6 @@ export function LayersPopover() {
       ],
     },
     {
-      name: "Propagation",
-      items: [
-        {
-          key: "muf",
-          label: "MUF",
-          title:
-            "Maximum Usable Frequency \u2014 highest frequency the ionosphere reflects",
-          getValue: () => layers.muf,
-          onToggle: () => toggleLayer("muf"),
-        },
-        {
-          key: "aurora",
-          label: "Aurora",
-          title: "Northern/Southern Lights \u2014 affects VHF propagation",
-          getValue: () => layers.aurora,
-          onToggle: () => toggleLayer("aurora"),
-        },
-      ],
-    },
-    {
       name: "Activity",
       items: [
         {
@@ -226,6 +206,41 @@ export function LayersPopover() {
           title: "Active NOAA weather warnings and advisories",
           getValue: () => layers.weather,
           onToggle: () => toggleLayer("weather"),
+        },
+        {
+          key: "lightning",
+          label: "Lightning",
+          title: "Real-time lightning strikes worldwide (Blitzortung)",
+          getValue: () => layers.lightning,
+          onToggle: () => toggleLayer("lightning"),
+        },
+      ],
+    },
+    {
+      name: "Propagation",
+      items: [
+        {
+          key: "muf",
+          label: "MUF",
+          title:
+            "Maximum Usable Frequency \u2014 highest frequency the ionosphere reflects",
+          getValue: () => layers.muf,
+          onToggle: () => toggleLayer("muf"),
+        },
+        {
+          key: "aurora",
+          label: "Aurora",
+          title: "Northern/Southern Lights \u2014 affects VHF propagation",
+          getValue: () => layers.aurora,
+          onToggle: () => toggleLayer("aurora"),
+        },
+        {
+          key: "wspr",
+          label: "WSPR Paths",
+          title:
+            "Weak Signal Propagation Reporter \u2014 TX/RX paths showing real-time propagation",
+          getValue: () => layers.wspr,
+          onToggle: () => toggleLayer("wspr"),
         },
       ],
     },

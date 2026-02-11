@@ -24,6 +24,8 @@ export const LAYER_PRESETS = {
     satellites: false,
     earthquakes: false,
     weather: false,
+    lightning: false,
+    wspr: false,
   },
   contest: {
     terminator: true,
@@ -37,6 +39,8 @@ export const LAYER_PRESETS = {
     satellites: false,
     earthquakes: false,
     weather: false,
+    lightning: false,
+    wspr: false,
   },
   vhf: {
     terminator: true,
@@ -50,6 +54,8 @@ export const LAYER_PRESETS = {
     satellites: true,
     earthquakes: false,
     weather: false,
+    lightning: false,
+    wspr: false,
   },
   emergency: {
     terminator: true,
@@ -63,6 +69,8 @@ export const LAYER_PRESETS = {
     satellites: false,
     earthquakes: true,
     weather: true,
+    lightning: false,
+    wspr: false,
   },
 } as const;
 
@@ -192,6 +200,8 @@ interface MapState {
     satellites: boolean;
     earthquakes: boolean;
     weather: boolean;
+    lightning: boolean;
+    wspr: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -652,6 +662,8 @@ const initialState = {
     satellites: false,
     earthquakes: false,
     weather: false,
+    lightning: false,
+    wspr: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

@@ -39,6 +39,8 @@ export interface OperatingProfile {
     satellites: boolean;
     earthquakes: boolean;
     weather: boolean;
+    lightning: boolean;
+    wspr: boolean;
   };
 
   // Display preferences

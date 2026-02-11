@@ -91,9 +91,13 @@ import {
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
 import { useEarthquakes } from "@/hooks/useEarthquakes";
-import { useWeatherAlerts } from "@/hooks/useWeatherRadar";
+import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
+import { useLightning } from "@/hooks/useLightning";
+import { useWsprSpots } from "@/hooks/useWspr";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
+import type { LightningStrike } from "@/lib/api/lightning";
+import type { WsprSpot } from "@/lib/api/wspr";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -1020,6 +1024,98 @@ function drawWeatherAlerts(
     ctx.textBaseline = "middle";
     ctx.fillText("!", x, y);
   }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * Draw lightning strike markers on the 2D map
+ * Renders recent strikes as small bright dots with fade based on age
+ */
+function drawLightning(
+  ctx: CanvasRenderingContext2D,
+  strikes: LightningStrike[],
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  const now = Date.now();
+  for (const strike of strikes) {
+    const { x, y } = latLonToCanvas(strike.lat, strike.lon, width, height);
+
+    // Fade based on age (full opacity for recent, fade over 10 minutes)
+    const age = now - strike.time;
+    const alpha = Math.max(0.1, 1 - age / (10 * 60 * 1000));
+
+    // Bright bolt dot
+    ctx.globalAlpha = alpha * 0.3;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffe566";
+    ctx.fill();
+
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * Draw WSPR propagation paths on the 2D map
+ * Renders TX→RX great-circle arcs with band-based coloring
+ */
+function drawWsprPaths(
+  ctx: CanvasRenderingContext2D,
+  spots: WsprSpot[],
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 0.8;
+
+  for (const spot of spots) {
+    const tx = latLonToCanvas(spot.txLat, spot.txLon, width, height);
+    const rx = latLonToCanvas(spot.rxLat, spot.rxLon, width, height);
+
+    // Skip if the path wraps around the map edge (long horizontal lines)
+    if (Math.abs(tx.x - rx.x) > width * 0.6) continue;
+
+    // Color by band
+    let color: string;
+    if (spot.band <= 1.8)
+      color = "#ff6688"; // 160m
+    else if (spot.band <= 3.5)
+      color = "#ff8844"; // 80m
+    else if (spot.band <= 7)
+      color = "#ffaa22"; // 40m
+    else if (spot.band <= 14)
+      color = "#ffdd00"; // 20m
+    else if (spot.band <= 21)
+      color = "#88ee44"; // 15m
+    else if (spot.band <= 28)
+      color = "#44ccff"; // 10m
+    else color = "#aa88ff"; // 6m+
+
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(tx.x, tx.y);
+    ctx.lineTo(rx.x, rx.y);
+    ctx.stroke();
+
+    // Small TX dot
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(tx.x, tx.y, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.globalAlpha = 0.35;
+  }
+
   ctx.globalAlpha = 1;
   ctx.restore();
 }
@@ -2700,9 +2796,11 @@ export function FlatMapView({
   const { satellites: satPositions, selectedSatellite: selectedSat } =
     useSatellites();
 
-  // Earthquake and weather data for hazard overlays
-  const { earthquakes: earthquakeData } = useEarthquakes();
-  const { alerts: weatherAlerts } = useWeatherAlerts();
+  // Hazard overlay data — hooks only fetch when layer is enabled
+  const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
+  const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
+  const { strikes: lightningStrikes } = useLightning(layers.lightning);
+  const { spots: wsprSpots } = useWsprSpots(layers.wspr);
 
   // Watch store v2
   const watchEnabled = useWatchStore((state) => state.enabled);
@@ -3954,6 +4052,16 @@ export function FlatMapView({
       drawWeatherAlerts(ctx, weatherAlerts, renderWidth, renderHeight);
     }
 
+    // Draw lightning strikes
+    if (layers.lightning && lightningStrikes.length > 0) {
+      drawLightning(ctx, lightningStrikes, renderWidth, renderHeight);
+    }
+
+    // Draw WSPR propagation paths
+    if (layers.wspr && wsprSpots.length > 0) {
+      drawWsprPaths(ctx, wsprSpots, renderWidth, renderHeight);
+    }
+
     // Draw night lights (city lights on dark side)
     if (!isStandard && layers.nightLights) {
       drawNightLights(ctx, displayTime, renderWidth, renderHeight);
@@ -4246,6 +4354,8 @@ export function FlatMapView({
     selectedSat,
     earthquakeData,
     weatherAlerts,
+    lightningStrikes,
+    wsprSpots,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point

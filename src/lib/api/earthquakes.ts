@@ -55,45 +55,39 @@ const USGS_EARTHQUAKE_URL =
  *
  * @returns Promise<EarthquakeEvent[]> - Array of earthquake events
  */
-export async function fetchEarthquakes(): Promise<EarthquakeEvent[]> {
-  try {
-    const response = await fetch(USGS_EARTHQUAKE_URL);
+export async function fetchEarthquakes(
+  signal?: AbortSignal,
+): Promise<EarthquakeEvent[]> {
+  const response = await fetch(USGS_EARTHQUAKE_URL, { signal });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
-    }
+  if (!response.ok) {
+    throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+  }
 
-    const data: USGSGeoJSONResponse = await response.json();
+  const data: USGSGeoJSONResponse = await response.json();
 
-    if (!Array.isArray(data.features)) {
-      return [];
-    }
-
-    return data.features
-      .filter(
-        (
-          feature,
-        ): feature is USGSFeature & {
-          geometry: NonNullable<USGSFeature["geometry"]>;
-        } =>
-          feature.geometry !== null &&
-          feature.properties.mag !== null &&
-          feature.properties.time !== null,
-      )
-      .map((feature) => ({
-        id: feature.id,
-        lon: feature.geometry.coordinates[0],
-        lat: feature.geometry.coordinates[1],
-        depth: feature.geometry.coordinates[2],
-        magnitude: feature.properties.mag!,
-        place: feature.properties.place ?? "Unknown location",
-        time: feature.properties.time!,
-      }));
-  } catch (error) {
-    console.warn(
-      "[earthquakes] Failed to fetch:",
-      error instanceof Error ? error.message : error,
-    );
+  if (!Array.isArray(data.features)) {
     return [];
   }
+
+  return data.features
+    .filter(
+      (
+        feature,
+      ): feature is USGSFeature & {
+        geometry: NonNullable<USGSFeature["geometry"]>;
+      } =>
+        feature.geometry !== null &&
+        feature.properties.mag !== null &&
+        feature.properties.time !== null,
+    )
+    .map((feature) => ({
+      id: feature.id,
+      lon: feature.geometry.coordinates[0],
+      lat: feature.geometry.coordinates[1],
+      depth: feature.geometry.coordinates[2],
+      magnitude: feature.properties.mag!,
+      place: feature.properties.place ?? "Unknown location",
+      time: feature.properties.time!,
+    }));
 }

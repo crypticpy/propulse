@@ -135,50 +135,45 @@ function computeCentroid(
  *
  * @returns Promise<WeatherAlert[]> - Array of weather alerts with locations
  */
-export async function fetchWeatherAlerts(): Promise<WeatherAlert[]> {
-  try {
-    const response = await fetch(NWS_ALERTS_URL, {
-      headers: {
-        Accept: "application/geo+json",
-        "User-Agent": "(Propulse, propulse-app)",
-      },
-    });
+export async function fetchWeatherAlerts(
+  signal?: AbortSignal,
+): Promise<WeatherAlert[]> {
+  const response = await fetch(NWS_ALERTS_URL, {
+    signal,
+    headers: {
+      Accept: "application/geo+json",
+      "User-Agent": "(Propulse, contact@propulse.app)",
+    },
+  });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
-    }
+  if (!response.ok) {
+    throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+  }
 
-    const data: NWSAlertsResponse = await response.json();
+  const data: NWSAlertsResponse = await response.json();
 
-    if (!Array.isArray(data.features)) {
-      return [];
-    }
-
-    const alerts: WeatherAlert[] = [];
-
-    for (const feature of data.features) {
-      const centroid = computeCentroid(feature.geometry);
-      if (!centroid) continue; // Skip alerts without valid geometry
-
-      const [lat, lon] = centroid;
-
-      alerts.push({
-        id: feature.id,
-        event: feature.properties.event,
-        headline: feature.properties.headline ?? feature.properties.event,
-        severity: normalizeSeverity(feature.properties.severity),
-        lat,
-        lon,
-        areaDesc: feature.properties.areaDesc,
-      });
-    }
-
-    return alerts;
-  } catch (error) {
-    console.warn(
-      "[weather] Failed to fetch alerts:",
-      error instanceof Error ? error.message : error,
-    );
+  if (!Array.isArray(data.features)) {
     return [];
   }
+
+  const alerts: WeatherAlert[] = [];
+
+  for (const feature of data.features) {
+    const centroid = computeCentroid(feature.geometry);
+    if (!centroid) continue; // Skip alerts without valid geometry
+
+    const [lat, lon] = centroid;
+
+    alerts.push({
+      id: feature.id,
+      event: feature.properties.event,
+      headline: feature.properties.headline ?? feature.properties.event,
+      severity: normalizeSeverity(feature.properties.severity),
+      lat,
+      lon,
+      areaDesc: feature.properties.areaDesc,
+    });
+  }
+
+  return alerts;
 }

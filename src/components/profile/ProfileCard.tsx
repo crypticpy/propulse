@@ -13,7 +13,10 @@ import { RankBadge } from "@/components/rank/RankBadge";
 import {
   getProfileFrameStyle,
   getProfileGlowStyle,
+  getRankCardClasses,
 } from "@/components/rank/RankBorderStyles";
+import { isRankAtLeast } from "@/lib/data/rankConstants";
+import { LivingSymbols } from "@/components/rank/EtherealEffects";
 import { ProfileCompletenessRing } from "./ProfileCompletenessRing";
 import { StationIdentityForm } from "./StationIdentityForm";
 import type { StationIdentityFormProps } from "./StationIdentityForm";
@@ -48,28 +51,46 @@ export function ProfileCardDesktop({
   const { url: uploadedImageUrl } = useImageUrl(profileImageId);
   const avatarSrc = uploadedImageUrl || profileImageUrl || null;
 
-  const { rank } = useOperatorRank();
+  const { rank, color: rankColor } = useOperatorRank();
   const frameStyle = getProfileFrameStyle(rank);
   const glowStyle = getProfileGlowStyle(rank);
 
   return (
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
       <div
-        className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6"
+        className={[
+          "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6",
+          getRankCardClasses(rank),
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={glowStyle}
       >
         {/* Callsign */}
         <div className="text-center mb-4">
           {avatarSrc && (
-            <img
-              src={avatarSrc}
-              alt=""
-              className="w-16 h-16 rounded-full object-cover mx-auto mb-3"
-              style={frameStyle}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
+            <LivingSymbols enabled={rank === "ethereal"} accentHex={rankColor}>
+              <img
+                src={avatarSrc}
+                alt=""
+                className={[
+                  "w-16 h-16 rounded-full object-cover mx-auto mb-3",
+                  rank === "ethereal"
+                    ? "animate-rank-chromatic-ring"
+                    : isRankAtLeast(rank, "master")
+                      ? "animate-rank-golden-ring"
+                      : isRankAtLeast(rank, "expert")
+                        ? "animate-rank-pulse-glow"
+                        : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={frameStyle}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </LivingSymbols>
           )}
           <h2 className="font-mono text-2xl font-bold text-plasma-orange">
             {displayCallsign}
@@ -203,27 +224,45 @@ export function ProfileCardMobile({
   const { url: uploadedImageUrl } = useImageUrl(profileImageId);
   const avatarSrc = uploadedImageUrl || profileImageUrl || null;
 
-  const { rank } = useOperatorRank();
+  const { rank, color: rankColor } = useOperatorRank();
   const frameStyle = getProfileFrameStyle(rank);
   const glowStyle = getProfileGlowStyle(rank);
 
   return (
     <div
-      className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4"
+      className={[
+        "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4",
+        getRankCardClasses(rank),
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={glowStyle}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {avatarSrc && (
-            <img
-              src={avatarSrc}
-              alt=""
-              className="w-12 h-12 rounded-full object-cover"
-              style={frameStyle}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
+            <LivingSymbols enabled={rank === "ethereal"} accentHex={rankColor}>
+              <img
+                src={avatarSrc}
+                alt=""
+                className={[
+                  "w-12 h-12 rounded-full object-cover",
+                  rank === "ethereal"
+                    ? "animate-rank-chromatic-ring"
+                    : isRankAtLeast(rank, "master")
+                      ? "animate-rank-golden-ring"
+                      : isRankAtLeast(rank, "expert")
+                        ? "animate-rank-pulse-glow"
+                        : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={frameStyle}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </LivingSymbols>
           )}
           <div>
             <h2 className="font-mono text-lg font-bold text-plasma-orange">

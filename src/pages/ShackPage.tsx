@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { EquipmentSection } from "@/components/shack/EquipmentSection";
 import { DiagramSection } from "@/components/shack/DiagramSection";
 import { PerformanceSection } from "@/components/shack/PerformanceSection";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 
 // ---- View types -------------------------------------------------------------
 
@@ -52,11 +53,17 @@ function ShackHeader({
       className={`flex flex-wrap items-start gap-3 ${isMobile ? "mb-4" : "mb-6"}`}
     >
       <div className="flex-1 min-w-0">
-        <h1
-          className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
-        >
-          My Shack
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1
+            className={`font-bold text-white ${isMobile ? "text-xl" : "text-2xl"}`}
+          >
+            My Shack
+          </h1>
+          <HelpTooltip
+            section="radio-shack"
+            tooltip="Learn more about My Shack"
+          />
+        </div>
         <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>
       </div>
 

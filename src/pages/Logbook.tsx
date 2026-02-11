@@ -22,6 +22,7 @@ import { useGuestStore } from "@/stores/guestStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileLogbook } from "@/components/mobile/MobileLogbook";
 import type { LogEntry } from "@/lib/db/types";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 
 export function Logbook() {
   const {
@@ -281,9 +282,15 @@ export function Logbook() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
-              Logbook
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
+                Logbook
+              </h1>
+              <HelpTooltip
+                section="logbook"
+                tooltip="Learn more about the Logbook"
+              />
+            </div>
             <p className="text-gray-400 text-sm">
               {count} {count === 1 ? "QSO" : "QSOs"} logged
               {isGuestMode && guestContext && (

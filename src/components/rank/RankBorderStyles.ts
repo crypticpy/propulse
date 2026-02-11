@@ -136,7 +136,7 @@ const SHEEN_OPACITIES: Record<RankTier, number> = {
   expert: 0.22,
   master: 0.25,
   legendary: 0.3,
-  ethereal: 0.35,
+  ethereal: 0.22,
 };
 
 /**
@@ -372,4 +372,52 @@ export function getProfileGlowStyle(rank: RankTier): CSSProperties {
         ].join(", "),
       };
   }
+}
+
+// ---------------------------------------------------------------------------
+// 8. getRankPageVars
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns CSS custom properties for page-level rank theming.
+ * Apply to a wrapper div so all sub-components inherit rank tinting
+ * via CSS variable references without each importing useOperatorRank.
+ */
+export function getRankPageVars(rank: RankTier): CSSProperties {
+  const color = RANK_COLORS[rank];
+
+  // Base variables for all tiers
+  const vars: Record<string, string> = {
+    "--rank-accent": color,
+    "--rank-accent-dim": withAlpha(color, 0.15),
+    "--rank-border": withAlpha(color, 0.1),
+    "--rank-glow": "transparent",
+    "--rank-text-accent": "#9ca3af", // gray-400 default
+  };
+
+  // Journeyman+: activate text accent + subtle glow
+  if (isRankAtLeast(rank, "journeyman")) {
+    vars["--rank-text-accent"] = color;
+    vars["--rank-glow"] = withAlpha(color, 0.04);
+  }
+
+  // Expert+: stronger border + glow
+  if (isRankAtLeast(rank, "expert")) {
+    vars["--rank-border"] = withAlpha(color, 0.15);
+    vars["--rank-glow"] = withAlpha(color, 0.06);
+  }
+
+  // Master+: gold-tinted
+  if (isRankAtLeast(rank, "master")) {
+    vars["--rank-border"] = withAlpha("#FFD700", 0.12);
+    vars["--rank-glow"] = withAlpha("#FFD700", 0.06);
+  }
+
+  // Ethereal: aurora tint
+  if (rank === "ethereal") {
+    vars["--rank-border"] = withAlpha(color, 0.18);
+    vars["--rank-glow"] = withAlpha(color, 0.08);
+  }
+
+  return vars as unknown as CSSProperties;
 }

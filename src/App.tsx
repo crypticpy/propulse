@@ -75,6 +75,8 @@ const SetupGuidePage = lazy(() =>
   })),
 );
 const FeaturesPage = lazy(() => import("@/pages/FeaturesPage"));
+const HelpPage = lazy(() => import("@/pages/HelpPage"));
+const HelpArticlePage = lazy(() => import("@/pages/HelpArticlePage"));
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -206,6 +208,8 @@ function App() {
           <Route path="/bridge" element={<BridgeInfoPage />} />
           <Route path="/setup" element={<SetupGuidePage />} />
           <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/help/:sectionId" element={<HelpArticlePage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

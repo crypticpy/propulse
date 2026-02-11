@@ -11,10 +11,12 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { useAwardProgress } from "@/hooks/useAwardProgress";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
 import {
   renderProfileCard,
   renderProfileCardPreview,
   CARD_TEMPLATES,
+  getUnlockedTemplates,
   type CardData,
   type CardTemplate,
 } from "@/lib/profile/cardRenderer";
@@ -26,10 +28,12 @@ export function ShareCard() {
   const { totalQSOs } = useLogbookStats();
   const { dxccWorkedCount } = useAwardProgress();
 
+  const { rank } = useOperatorRank();
   const [template, setTemplate] = useState<CardTemplate>("minimalist");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [showQR, setShowQR] = useState(true);
 
   // Track the previous object URL so we can revoke it
   const prevUrlRef = useRef<string | null>(null);
@@ -42,14 +46,19 @@ export function ShareCard() {
     country: undefined,
     totalQSOs,
     dxccCount: dxccWorkedCount,
+    rank,
   };
+
+  const unlockedTemplates = getUnlockedTemplates(rank);
+  const isTemplateUnlocked = (id: CardTemplate) =>
+    unlockedTemplates.some((t) => t.id === id);
 
   // Re-render preview whenever card data or template changes
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    renderProfileCardPreview(cardData, template)
+    renderProfileCardPreview(cardData, template, { showQR })
       .then((url) => {
         if (!cancelled) {
           // Revoke previous URL to prevent memory leaks
@@ -75,6 +84,7 @@ export function ShareCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     template,
+    showQR,
     cardData.callsign,
     cardData.operatorName,
     cardData.grid,
@@ -94,7 +104,7 @@ export function ShareCard() {
 
   const handleDownload = useCallback(async () => {
     try {
-      const blob = await renderProfileCard(cardData, template);
+      const blob = await renderProfileCard(cardData, template, { showQR });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -111,7 +121,7 @@ export function ShareCard() {
 
   const handleShare = useCallback(async () => {
     try {
-      const blob = await renderProfileCard(cardData, template);
+      const blob = await renderProfileCard(cardData, template, { showQR });
       const file = new File([blob], `${cardData.callsign}-profile-card.png`, {
         type: "image/png",
       });
@@ -153,22 +163,57 @@ export function ShareCard() {
         Generate a profile card image for sharing
       </p>
 
-      {/* Template selector */}
-      <div className="flex gap-2 mb-4">
-        {CARD_TEMPLATES.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTemplate(t.id)}
-            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
-              template === t.id
-                ? "border-plasma-orange bg-plasma-orange/10 text-plasma-orange"
-                : "border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20"
-            }`}
-            title={t.description}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Template gallery */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+        {CARD_TEMPLATES.map((t) => {
+          const unlocked = isTemplateUnlocked(t.id);
+          const isSelected = template === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => unlocked && setTemplate(t.id)}
+              disabled={!unlocked}
+              className={[
+                "relative px-3 py-2.5 text-left rounded-lg border transition-all",
+                "focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none",
+                isSelected
+                  ? "border-plasma-orange bg-plasma-orange/10"
+                  : unlocked
+                    ? "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8"
+                    : "border-white/5 bg-white/[0.02] cursor-not-allowed opacity-50",
+              ].join(" ")}
+              title={t.description}
+            >
+              <span
+                className={`block text-xs font-medium truncate ${isSelected ? "text-plasma-orange" : unlocked ? "text-gray-300" : "text-gray-500"}`}
+              >
+                {t.label}
+              </span>
+              <span className="block text-[10px] text-gray-500 truncate mt-0.5">
+                {t.description}
+              </span>
+              {!unlocked && (
+                <span className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="text-gray-500"
+                  >
+                    <rect x="3" y="8" width="10" height="7" rx="1.5" />
+                    <path d="M5 8V5a3 3 0 016 0v3" />
+                  </svg>
+                  <span className="text-[9px] text-gray-500 capitalize">
+                    {t.minRank}
+                  </span>
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Live preview */}
@@ -188,6 +233,17 @@ export function ShareCard() {
           />
         )}
       </div>
+
+      {/* QR code toggle */}
+      <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={showQR}
+          onChange={(e) => setShowQR(e.target.checked)}
+          className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50 focus:ring-offset-0"
+        />
+        <span className="text-xs text-gray-400">Include QR code link</span>
+      </label>
 
       {/* Actions */}
       <div className="flex gap-3">

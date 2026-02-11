@@ -41,6 +41,9 @@ import { VisibilitySettings } from "@/components/profile/VisibilitySettings";
 import { ShareCard } from "@/components/profile/ShareCard";
 import type { ProfileTab } from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { getRankPageVars } from "@/components/rank/RankBorderStyles";
+import { isRankAtLeast } from "@/lib/data/rankConstants";
 
 // ---- Callsign validation ----------------------------------------------------
 
@@ -353,6 +356,8 @@ export default function ProfilePage() {
   const activeLocation = useActiveLocation();
   const isMobile = useIsMobile();
   const completeness = useProfileCompleteness();
+  const { rank, color: rankColor } = useOperatorRank();
+  const rankPageVars = getRankPageVars(rank);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
 
@@ -518,8 +523,13 @@ export default function ProfilePage() {
 
   // Shared panel class
   const panelClass = isMobile
-    ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
-    : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
+    ? "bg-panel/30 backdrop-blur-sm border rounded-2xl p-4"
+    : "bg-panel/30 backdrop-blur-sm border rounded-2xl p-6";
+
+  const panelStyle: React.CSSProperties = {
+    borderColor: "var(--rank-border, rgba(255,255,255,0.05))",
+    boxShadow: `0 0 30px var(--rank-glow, transparent)`,
+  };
 
   // ---- Tab Content (shared between desktop and mobile) ----------------------
 
@@ -529,16 +539,22 @@ export default function ProfilePage() {
         <div className={isMobile ? "space-y-4" : "space-y-8"}>
           {/* Station Identity — only show form on mobile where sidebar doesn't exist */}
           {isMobile ? (
-            <div className={panelClass}>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+            <div className={panelClass} style={panelStyle}>
+              <h3
+                className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4"
+                style={{ color: "var(--rank-text-accent, #9ca3af)" }}
+              >
                 Station Identity
               </h3>
               <StationIdentityForm {...formProps} idPrefix="mobile" />
             </div>
           ) : (
-            <div className={panelClass}>
+            <div className={panelClass} style={panelStyle}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                <h3
+                  className="text-sm font-semibold text-gray-400 uppercase tracking-wider"
+                  style={{ color: "var(--rank-text-accent, #9ca3af)" }}
+                >
                   Station Identity
                 </h3>
                 <button
@@ -570,22 +586,22 @@ export default function ProfilePage() {
           )}
 
           {/* License Card */}
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <LicenseCard />
           </div>
 
           {/* Bio */}
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <BioSection />
           </div>
 
           {/* Social Links */}
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <SocialLinksSection />
           </div>
 
           {/* Equipment Summary */}
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <EquipmentSummary />
             <div className="mt-3 text-right">
               <Link
@@ -598,26 +614,26 @@ export default function ProfilePage() {
           </div>
 
           {/* QSL Services */}
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <QSLSummary />
           </div>
         </div>
       )}
 
       {activeTab === "locations" && (
-        <div className={panelClass}>
+        <div className={panelClass} style={panelStyle}>
           <LocationManager />
         </div>
       )}
 
       {activeTab === "awards" && (
-        <div className={panelClass}>
+        <div className={panelClass} style={panelStyle}>
           <AwardsTab />
         </div>
       )}
 
       {activeTab === "stats" && (
-        <div className={panelClass}>
+        <div className={panelClass} style={panelStyle}>
           <StatsTab />
           <div className="mt-3 text-right">
             <Link
@@ -632,13 +648,13 @@ export default function ProfilePage() {
 
       {activeTab === "social" && (
         <div className={isMobile ? "space-y-4" : "space-y-8"}>
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <FriendList />
           </div>
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <ActivityFeed />
           </div>
-          <div className={panelClass}>
+          <div className={panelClass} style={panelStyle}>
             <VisibilitySettings />
           </div>
           <ShareCard />
@@ -651,7 +667,17 @@ export default function ProfilePage() {
 
   if (!isMobile) {
     return (
-      <div className="flex gap-8 max-w-[1080px] mx-auto px-6 py-6">
+      <div
+        className="flex gap-8 max-w-[1080px] mx-auto px-6 py-6"
+        style={{
+          ...rankPageVars,
+          ...(isRankAtLeast(rank, "expert")
+            ? {
+                backgroundImage: `radial-gradient(ellipse at 50% 0%, ${rankColor}08, transparent 70%)`,
+              }
+            : {}),
+        }}
+      >
         <ProfileCardDesktop
           displayCallsign={displayCallsign}
           displayName={displayName}
@@ -671,6 +697,9 @@ export default function ProfilePage() {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             isMobile={false}
+            rankColor={
+              isRankAtLeast(rank, "journeyman") ? rankColor : undefined
+            }
           />
           <div
             role="tabpanel"
@@ -695,7 +724,17 @@ export default function ProfilePage() {
   // ---- Mobile Layout --------------------------------------------------------
 
   return (
-    <div className="px-4 py-4">
+    <div
+      className="px-4 py-4"
+      style={{
+        ...rankPageVars,
+        ...(isRankAtLeast(rank, "expert")
+          ? {
+              backgroundImage: `radial-gradient(ellipse at 50% 0%, ${rankColor}08, transparent 70%)`,
+            }
+          : {}),
+      }}
+    >
       <ProfileCardMobile
         displayCallsign={displayCallsign}
         displayName={displayName}
@@ -709,6 +748,7 @@ export default function ProfilePage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isMobile
+        rankColor={isRankAtLeast(rank, "journeyman") ? rankColor : undefined}
       />
 
       <div

@@ -13,7 +13,10 @@ import { StatIconSvg, ArtZonePattern } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankBadge } from "@/components/rank/RankBadge";
-import { getRankBorderStyle } from "@/components/rank/RankBorderStyles";
+import {
+  getRankBorderStyle,
+  getRankCardClasses,
+} from "@/components/rank/RankBorderStyles";
 
 import {
   type EquipmentCardData,
@@ -140,6 +143,7 @@ export function EquipmentCardMd({
         isActive
           ? "ring-1 ring-signal-green/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
           : "",
+        getRankCardClasses(rank),
         className ?? "",
       ]
         .filter(Boolean)

@@ -34,6 +34,7 @@ import { useRadioStore } from "@/stores/radioStore";
 import { useSdrStore } from "@/stores/sdrStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { WaterfallView } from "@/components/sdr/waterfallPalette";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
@@ -133,7 +134,8 @@ export function SdrConsole() {
         return;
       }
       if (isDaemonResponseMessage(msg)) {
-        const err = typeof msg.error === "string" ? msg.error : "Command failed";
+        const err =
+          typeof msg.error === "string" ? msg.error : "Command failed";
         setLastResponseError(msg.success ? null : err);
         return;
       }
@@ -196,7 +198,7 @@ export function SdrConsole() {
     [devices, selectedDeviceId],
   );
   const connectedState = connectedDeviceId
-    ? radioStateById[connectedDeviceId] ?? null
+    ? (radioStateById[connectedDeviceId] ?? null)
     : null;
   const effectiveState = draftState ?? connectedState;
 
@@ -325,7 +327,10 @@ export function SdrConsole() {
   useAudioStreamPlayer(
     audioEnabled,
     lastAudioFrame
-      ? { sampleRate: lastAudioFrame.sampleRate, samples: lastAudioFrame.samples }
+      ? {
+          sampleRate: lastAudioFrame.sampleRate,
+          samples: lastAudioFrame.samples,
+        }
       : null,
   );
 
@@ -402,7 +407,8 @@ export function SdrConsole() {
       s ? { ...s, filter: { low: Math.round(lo), high: Math.round(hi) } } : s,
     );
     if (!connectedDeviceId) return;
-    if (filterDebounceRef.current) window.clearTimeout(filterDebounceRef.current);
+    if (filterDebounceRef.current)
+      window.clearTimeout(filterDebounceRef.current);
     filterDebounceRef.current = window.setTimeout(() => {
       daemonSendCommand("radio:filter", {
         device_id: connectedDeviceId,
@@ -531,7 +537,10 @@ export function SdrConsole() {
   const handlePickFrequencyHz = useCallback(
     (hz: number) => {
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
+      daemonSendCommand("radio:tune", {
+        device_id: connectedDeviceId,
+        freq: hz,
+      });
       setDraftState((s) => (s ? { ...s, freq: hz } : s));
       const base =
         freqUnit === "MHz"
@@ -574,11 +583,15 @@ export function SdrConsole() {
           <div className="text-xs text-gray-500">
             <div className="flex justify-between">
               <span>Driver</span>
-              <span className="text-gray-300 font-mono">{selectedDevice.driver}</span>
+              <span className="text-gray-300 font-mono">
+                {selectedDevice.driver}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Type</span>
-              <span className="text-gray-300 font-mono">{selectedDevice.type}</span>
+              <span className="text-gray-300 font-mono">
+                {selectedDevice.type}
+              </span>
             </div>
           </div>
         )}
@@ -604,11 +617,15 @@ export function SdrConsole() {
       </Card>
 
       <Card className="p-4 space-y-3">
-        <div className="text-sm font-semibold text-gray-200">Radio Controls</div>
+        <div className="text-sm font-semibold text-gray-200">
+          Radio Controls
+        </div>
 
         <div className="grid grid-cols-3 gap-2 items-end">
           <div className="col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">Frequency</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              Frequency
+            </label>
             <input
               type="text"
               value={freqInput}
@@ -710,7 +727,9 @@ export function SdrConsole() {
             {/* Antenna */}
             {selectedDevice.capabilities.antennas.length > 1 ? (
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Antenna</label>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Antenna
+                </label>
                 <select
                   value={effectiveState.antenna ?? ""}
                   onChange={(e) => handleAntennaChange(e.target.value)}
@@ -746,7 +765,9 @@ export function SdrConsole() {
                         max={st.max}
                         step={st.step}
                         value={value}
-                        onChange={(e) => handleGainChange(st.name, Number(e.target.value))}
+                        onChange={(e) =>
+                          handleGainChange(st.name, Number(e.target.value))
+                        }
                         disabled={!canControlConnected}
                         className="w-full"
                       />
@@ -834,9 +855,16 @@ export function SdrConsole() {
                     min={0}
                     max={5}
                     step={1}
-                    value={effectiveState.nr?.enabled ? effectiveState.nr?.level ?? 3 : 0}
+                    value={
+                      effectiveState.nr?.enabled
+                        ? (effectiveState.nr?.level ?? 3)
+                        : 0
+                    }
                     onChange={(e) =>
-                      handleNrChange(Number(e.target.value) > 0, Number(e.target.value))
+                      handleNrChange(
+                        Number(e.target.value) > 0,
+                        Number(e.target.value),
+                      )
                     }
                     disabled={!canControlConnected}
                     className="w-full"
@@ -872,9 +900,16 @@ export function SdrConsole() {
                     min={0}
                     max={100}
                     step={1}
-                    value={effectiveState.nb?.enabled ? effectiveState.nb?.threshold ?? 50 : 0}
+                    value={
+                      effectiveState.nb?.enabled
+                        ? (effectiveState.nb?.threshold ?? 50)
+                        : 0
+                    }
                     onChange={(e) =>
-                      handleNbChange(Number(e.target.value) > 0, Number(e.target.value))
+                      handleNbChange(
+                        Number(e.target.value) > 0,
+                        Number(e.target.value),
+                      )
                     }
                     disabled={!canControlConnected}
                     className="w-full"
@@ -918,7 +953,11 @@ export function SdrConsole() {
                 : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
             }`}
           >
-            {canStreamAudio ? (audioEnabled ? "Stop Audio" : "Start Audio") : "Audio N/A"}
+            {canStreamAudio
+              ? audioEnabled
+                ? "Stop Audio"
+                : "Start Audio"
+              : "Audio N/A"}
           </button>
         </div>
       </Card>
@@ -928,15 +967,21 @@ export function SdrConsole() {
           <div className="text-sm font-semibold text-gray-200">Status</div>
           <div className="text-xs text-gray-500 flex justify-between">
             <span>Frequency</span>
-            <span className="text-gray-300 font-mono">{formatHz(effectiveState.freq)}</span>
+            <span className="text-gray-300 font-mono">
+              {formatHz(effectiveState.freq)}
+            </span>
           </div>
           <div className="text-xs text-gray-500 flex justify-between">
             <span>Mode</span>
-            <span className="text-gray-300 font-mono">{effectiveState.mode}</span>
+            <span className="text-gray-300 font-mono">
+              {effectiveState.mode}
+            </span>
           </div>
           <div className="text-xs text-gray-500 flex justify-between">
             <span>AGC</span>
-            <span className="text-gray-300 font-mono">{effectiveState.agc ? "on" : "off"}</span>
+            <span className="text-gray-300 font-mono">
+              {effectiveState.agc ? "on" : "off"}
+            </span>
           </div>
         </Card>
       )}
@@ -980,7 +1025,10 @@ export function SdrConsole() {
                   onSelectRangeHz={({ startHz, endHz }) => {
                     const mid = Math.round((startHz + endHz) / 2);
                     handlePickFrequencyHz(mid);
-                    const bw = Math.max(50, Math.round(Math.abs(endHz - startHz)));
+                    const bw = Math.max(
+                      50,
+                      Math.round(Math.abs(endHz - startHz)),
+                    );
                     const mode = (effectiveState?.mode ?? "USB").toUpperCase();
                     if (mode === "CW") {
                       const center = 700;
@@ -1016,9 +1064,12 @@ export function SdrConsole() {
 
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-semibold text-gray-200">Decodes & Spots</div>
+          <div className="text-sm font-semibold text-gray-200">
+            Decodes & Spots
+          </div>
           <div className="text-xs text-gray-500">
-            {wsjtxStatus ? "WSJT-X live" : "WSJT-X idle"} • {clusterSpots.length} spots
+            {wsjtxStatus ? "WSJT-X live" : "WSJT-X idle"} •{" "}
+            {clusterSpots.length} spots
           </div>
         </div>
 
@@ -1026,32 +1077,45 @@ export function SdrConsole() {
           <div className="text-xs text-gray-500 grid grid-cols-2 gap-x-4 gap-y-1 mb-3">
             <div className="flex justify-between">
               <span>Dial</span>
-              <span className="text-gray-200 font-mono">{formatHz(wsjtxStatus.frequency)}</span>
+              <span className="text-gray-200 font-mono">
+                {formatHz(wsjtxStatus.frequency)}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Mode</span>
-              <span className="text-gray-200 font-mono">{wsjtxStatus.mode}</span>
+              <span className="text-gray-200 font-mono">
+                {wsjtxStatus.mode}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>RX DF</span>
-              <span className="text-gray-200 font-mono">{wsjtxStatus.rxDF} Hz</span>
+              <span className="text-gray-200 font-mono">
+                {wsjtxStatus.rxDF} Hz
+              </span>
             </div>
             <div className="flex justify-between">
               <span>TX DF</span>
-              <span className="text-gray-200 font-mono">{wsjtxStatus.txDF} Hz</span>
+              <span className="text-gray-200 font-mono">
+                {wsjtxStatus.txDF} Hz
+              </span>
             </div>
           </div>
         ) : (
           <div className="text-sm text-gray-400 mb-3">
-            Start WSJT-X on this machine (UDP port 2237 by default) to see decodes here.
+            Start WSJT-X on this machine (UDP port 2237 by default) to see
+            decodes here.
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-gray-200">WSJT-X Decodes</div>
+            <div className="text-xs font-semibold text-gray-200">
+              WSJT-X Decodes
+            </div>
             {wsjtxDecodes.length === 0 ? (
-              <div className="text-xs text-gray-500">No decodes received yet.</div>
+              <div className="text-xs text-gray-500">
+                No decodes received yet.
+              </div>
             ) : (
               <div className="space-y-1 max-h-[260px] overflow-auto pr-1">
                 {wsjtxDecodes.slice(0, 10).map((d, idx) => (
@@ -1068,7 +1132,9 @@ export function SdrConsole() {
                     <span className="font-mono text-gray-400 w-14 text-right">
                       {d.deltaFrequency}Hz
                     </span>
-                    <span className="text-gray-200 truncate min-w-0">{d.message}</span>
+                    <span className="text-gray-200 truncate min-w-0">
+                      {d.message}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1076,10 +1142,13 @@ export function SdrConsole() {
           </div>
 
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-gray-200">DX Cluster Spots</div>
+            <div className="text-xs font-semibold text-gray-200">
+              DX Cluster Spots
+            </div>
             {clusterSpots.length === 0 ? (
               <div className="text-xs text-gray-500">
-                No spots received yet. Connect to a cluster in the daemon config or via the CLI/API.
+                No spots received yet. Connect to a cluster in the daemon config
+                or via the CLI/API.
               </div>
             ) : (
               <div className="space-y-1 max-h-[260px] overflow-auto pr-1">
@@ -1088,11 +1157,15 @@ export function SdrConsole() {
                     key={`${s.id ?? "spot"}-${idx}`}
                     className="flex items-center gap-2 text-xs px-2 py-1 rounded-md border border-white/10 bg-white/[0.03]"
                   >
-                    <span className="font-mono text-gray-400 w-16 truncate">{s.dx}</span>
+                    <span className="font-mono text-gray-400 w-16 truncate">
+                      {s.dx}
+                    </span>
                     <span className="font-mono text-gray-500 w-20 text-right">
                       {s.freq.toFixed(1)} kHz
                     </span>
-                    <span className="text-gray-200 truncate min-w-0">{s.comment}</span>
+                    <span className="text-gray-200 truncate min-w-0">
+                      {s.comment}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1124,7 +1197,13 @@ export function SdrConsole() {
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-white">SDR Console</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-white">SDR Console</h2>
+            <HelpTooltip
+              section="sdr-console"
+              tooltip="Learn more about SDR Console"
+            />
+          </div>
           <p className="text-sm text-gray-500">
             Connect to the local Propulse Radio Daemon for SDR/radio control and
             waterfall streaming.
@@ -1152,12 +1231,16 @@ export function SdrConsole() {
         <div className="text-right">
           <div className="text-xs text-gray-500">Daemon</div>
           <div className="text-sm text-gray-200 font-medium">
-            {daemonConnected ? "Connected" : daemonConnecting ? "Connecting…" : "Offline"}
+            {daemonConnected
+              ? "Connected"
+              : daemonConnecting
+                ? "Connecting…"
+                : "Offline"}
           </div>
           {lastStatus && (
             <div className="text-[11px] text-gray-500 font-mono">
-              {lastStatus.platform} • {lastStatus.cpu_percent.toFixed(1)}% CPU
-              • {lastStatus.memory_mb} MB
+              {lastStatus.platform} • {lastStatus.cpu_percent.toFixed(1)}% CPU •{" "}
+              {lastStatus.memory_mb} MB
             </div>
           )}
         </div>
@@ -1171,13 +1254,18 @@ export function SdrConsole() {
 
       {!daemonConnected && (
         <div className="p-4 rounded-lg border border-white/10 bg-white/[0.03] text-sm text-gray-300">
-          <div className="font-semibold text-gray-200 mb-1">No Daemon Connected</div>
+          <div className="font-semibold text-gray-200 mb-1">
+            No Daemon Connected
+          </div>
           <div className="text-gray-400">
             Start the daemon on the machine connected to your radio, then use{" "}
             <span className="text-gray-200">Change Daemon</span> to connect.
           </div>
           <div className="mt-2 text-[11px] text-gray-500 font-mono">
-            Local dev: <span className="text-gray-400">cd daemon &amp;&amp; cargo run -p propulse-daemon</span>
+            Local dev:{" "}
+            <span className="text-gray-400">
+              cd daemon &amp;&amp; cargo run -p propulse-daemon
+            </span>
           </div>
         </div>
       )}
@@ -1214,7 +1302,9 @@ export function SdrConsole() {
               <div className="relative w-full max-h-[75dvh] bg-deep-space/95 backdrop-blur-md border-t border-white/10 rounded-t-2xl overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">Radio Controls</div>
+                    <div className="text-sm font-semibold text-white truncate">
+                      Radio Controls
+                    </div>
                     <div className="text-[11px] text-gray-400 font-mono truncate">
                       {effectiveState ? formatHz(effectiveState.freq) : "—"}
                     </div>

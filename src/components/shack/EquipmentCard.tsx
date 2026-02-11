@@ -578,7 +578,7 @@ export function EquipmentCard({
 
           {/* ── Holographic Foil Sheen (hover only) ── */}
           <div
-            className="absolute inset-0 pointer-events-none z-10 transition-opacity duration-500"
+            className="absolute inset-0 pointer-events-none z-[1] transition-opacity duration-500"
             style={{
               backgroundImage: sheenGradient,
               backgroundSize: "200% 100%",
@@ -588,7 +588,7 @@ export function EquipmentCard({
           />
 
           {/* ── Header Zone ── */}
-          <div className="relative px-4 pt-3 pb-2 min-w-0">
+          <div className="relative z-[2] px-4 pt-3 pb-2 min-w-0">
             {/* Type label + tier */}
             <div className="flex items-center gap-1">
               <span
@@ -753,7 +753,7 @@ export function EquipmentCard({
 
           {/* ── Stats Zone ── */}
           {displayStats && displayStats.length > 0 && (
-            <div className="flex items-center justify-around px-3 sm:px-4 py-2.5 sm:py-3">
+            <div className="relative z-[2] flex items-center justify-around px-3 sm:px-4 py-2.5 sm:py-3">
               {displayStats.map((stat) => (
                 <div
                   key={`${stat.icon}-${stat.label}`}
@@ -778,7 +778,7 @@ export function EquipmentCard({
 
           {/* ── Capabilities Row ── */}
           {effectiveCapabilities && effectiveCapabilities.length > 0 && (
-            <div className="px-4 pb-2 flex flex-wrap gap-1">
+            <div className="relative z-[2] px-4 pb-2 flex flex-wrap gap-1">
               {effectiveCapabilities.map((cap) => {
                 let pillStyle: string;
                 if (cap.category === "band") {
@@ -799,7 +799,7 @@ export function EquipmentCard({
           )}
 
           {/* ── Footer Zone ── */}
-          <div className="px-4 pb-3 flex items-end justify-between min-h-[28px]">
+          <div className="relative z-[2] px-4 pb-3 flex items-end justify-between min-h-[28px]">
             {/* Left: badges */}
             <div className="flex flex-wrap gap-1 min-w-0 flex-1">
               <RankBadge rank={rankState.rank} size="sm" className="mr-1" />

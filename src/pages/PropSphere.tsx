@@ -88,6 +88,7 @@ import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 import { WatchPopover } from "@/components/map/WatchPopover";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { ReplayIndicator } from "@/components/map/ReplayIndicator";
 import { ContestRatePanel } from "@/components/map/ContestRatePanel";
@@ -737,6 +738,12 @@ export function PropSphere() {
               className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-void-black/50 border-b border-white/5"
               data-tour="layer-controls"
             >
+              {/* Help tooltip */}
+              <HelpTooltip
+                section="propsphere"
+                tooltip="Learn more about PropSphere"
+              />
+
               {/* Map style toggle — the only standalone toggle */}
               <MapStyleToggle className="flex-shrink-0" />
 

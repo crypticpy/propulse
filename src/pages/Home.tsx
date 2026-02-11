@@ -23,6 +23,7 @@ import { LogStatsDetailModal } from "@/components/dx/modals/LogStatsDetailModal"
 import { HistoryDetailModal } from "@/components/dx/modals/HistoryDetailModal";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileHome } from "@/components/mobile/MobileHome";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 
 type ActiveModal =
   | "propagation"
@@ -131,7 +132,13 @@ export function Home() {
     <div className="min-h-screen px-4">
       <main className="max-w-7xl mx-auto py-4 space-y-6">
         {/* Section 1: Dashboard Header */}
-        <DashboardHeader dataUpdatedAt={combinedUpdatedAt} />
+        <div className="flex items-center gap-2">
+          <DashboardHeader dataUpdatedAt={combinedUpdatedAt} />
+          <HelpTooltip
+            section="dashboard"
+            tooltip="Learn more about the Dashboard"
+          />
+        </div>
 
         <div className="flex justify-end -mt-3">
           <DataFreshnessIndicator

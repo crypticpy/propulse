@@ -473,7 +473,7 @@ export function DimensionalRift({
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 40%, transparent 60%)",
+            "radial-gradient(ellipse at center, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.08) 40%, transparent 60%)",
         }}
       />
 

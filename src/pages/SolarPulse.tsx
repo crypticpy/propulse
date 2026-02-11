@@ -37,6 +37,7 @@ import { MobileSolarPulse } from "@/components/mobile/MobileSolarPulse";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -612,7 +613,14 @@ export function SolarPulse() {
     <div className="min-h-screen px-4">
       {/* Main content */}
       <main className="max-w-7xl mx-auto py-4 space-y-6">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-white">Solar Pulse</h1>
+            <HelpTooltip
+              section="solar-pulse"
+              tooltip="Learn more about Solar Pulse"
+            />
+          </div>
           <DataFreshnessIndicator
             dataUpdatedAt={solarDataUpdatedAt}
             onRefresh={refetchAllSolar}

@@ -33,6 +33,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRigStore } from "@/stores/rigStore";
 import { useWSJTXAutoLog } from "@/hooks/useWSJTXAutoLog";
 import { useContestUIStore } from "@/stores/contestUIStore";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 
 const EMPTY_QSOS: ContestQSO[] = [];
 
@@ -271,9 +272,15 @@ export function Contest() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
-                Contest
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
+                  Contest
+                </h1>
+                <HelpTooltip
+                  section="contest"
+                  tooltip="Learn more about Contest mode"
+                />
+              </div>
               <p className="text-gray-400 text-sm">No active contest session</p>
             </div>
           </div>
@@ -339,9 +346,15 @@ export function Contest() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
-              Contest
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
+                Contest
+              </h1>
+              <HelpTooltip
+                section="contest"
+                tooltip="Learn more about Contest mode"
+              />
+            </div>
             <p className="text-gray-400 text-sm">{contestName}</p>
           </div>
 

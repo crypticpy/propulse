@@ -529,9 +529,9 @@ export function EquipmentHeroCard({
                 <img
                   src={imageUrl}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover z-[5]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 pointer-events-none z-[5]" />
                 {/* Spacer to maintain art zone height */}
                 <div className="py-6 sm:py-8 min-h-[160px] sm:min-h-[200px]" />
               </>
@@ -611,7 +611,7 @@ export function EquipmentHeroCard({
               rank={rankState.rank}
               accentHex={accentHex}
             />
-            {rankState.hasChromaticEffects && (
+            {rankState.hasChromaticEffects && !imageUrl && (
               <DimensionalRift enabled={true} accentHex={accentHex} />
             )}
 

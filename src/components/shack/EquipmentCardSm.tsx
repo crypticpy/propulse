@@ -13,6 +13,7 @@ import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { isRankAtLeast } from "@/lib/data/rankConstants";
 import {
   type EquipmentCardData,
   ACCENT_HEX,
@@ -101,6 +102,12 @@ export function EquipmentCardSm({
         .join(" ")}
       style={{
         borderColor: hovered && !inUse ? `${accentHex}50` : undefined,
+        backgroundImage: isRankAtLeast(rank, "expert")
+          ? `linear-gradient(90deg, ${rankColor}06, transparent 50%)`
+          : undefined,
+        borderBottom: isRankAtLeast(rank, "legendary")
+          ? `1px solid ${rankColor}20`
+          : undefined,
       }}
     >
       {/* ── Left accent bar ── */}

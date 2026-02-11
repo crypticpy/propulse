@@ -31,12 +31,14 @@ interface ProfileTabBarProps {
   activeTab: ProfileTab;
   onTabChange: (tab: ProfileTab) => void;
   isMobile: boolean;
+  rankColor?: string;
 }
 
 export function ProfileTabBar({
   activeTab,
   onTabChange,
   isMobile,
+  rankColor,
 }: ProfileTabBarProps) {
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
@@ -88,6 +90,11 @@ export function ProfileTabBar({
                   ? "bg-plasma-orange text-white"
                   : "bg-white/5 text-gray-400 hover:text-gray-200 hover:bg-white/10"
               }`}
+              style={
+                activeTab === tab.id && rankColor
+                  ? { backgroundColor: rankColor }
+                  : undefined
+              }
             >
               {tab.label}
             </button>
@@ -119,9 +126,20 @@ export function ProfileTabBar({
           onClick={() => onTabChange(tab.id)}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
             activeTab === tab.id
-              ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
+              ? rankColor
+                ? "border text-white"
+                : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
               : "text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent"
           }`}
+          style={
+            activeTab === tab.id && rankColor
+              ? {
+                  backgroundColor: `${rankColor}20`,
+                  color: rankColor,
+                  borderColor: `${rankColor}40`,
+                }
+              : undefined
+          }
         >
           {tab.label}
         </button>

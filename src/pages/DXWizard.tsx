@@ -26,6 +26,7 @@ import { InfoTip } from "@/components/ui/Tooltip";
 import { SIGNAL_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { HelpTooltip } from "@/components/help/HelpTooltip";
 
 type WizardMode = "SSB" | "CW" | "FT8";
 
@@ -602,9 +603,15 @@ export function DXWizard() {
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <h2 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
-              DX Wizard
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-orbitron text-2xl font-black text-gradient-orange tracking-wider">
+                DX Wizard
+              </h2>
+              <HelpTooltip
+                section="dx-wizard"
+                tooltip="Learn more about DX Wizard"
+              />
+            </div>
             <p className="text-gray-400 text-sm">
               Enter a target, pick your mode and constraints, and get actionable
               transmit guidance.

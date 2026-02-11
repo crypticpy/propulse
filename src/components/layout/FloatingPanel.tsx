@@ -527,11 +527,12 @@ export function FloatingPanel({
           {/* Collapse/expand chevron */}
           {onCollapse && (
             <button
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
                 onCollapse();
               }}
-              className="p-0.5 text-white/40 hover:text-white transition-colors rounded"
+              className="p-1 text-white/40 hover:text-white transition-colors rounded hover:bg-white/10"
               aria-label="Collapse panel"
             >
               <svg

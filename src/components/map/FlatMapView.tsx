@@ -93,10 +93,12 @@ import type { GridGlowSpot } from "./GridGlowCanvas";
 import { useEarthquakes } from "@/hooks/useEarthquakes";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import { useLightning } from "@/hooks/useLightning";
+import { useFires } from "@/hooks/useFires";
 import { useWsprSpots } from "@/hooks/useWspr";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
+import type { FireHotspot } from "@/lib/api/fires";
 import type { WsprSpot } from "@/lib/api/wspr";
 import {
   useContestQsoLocations,
@@ -1087,6 +1089,41 @@ function drawLightning(
 }
 
 /**
+ * Draw fire hotspot markers on the 2D map
+ * Renders NASA FIRMS fire detections as orange/red dots scaled by FRP
+ */
+function drawFires(
+  ctx: CanvasRenderingContext2D,
+  hotspots: FireHotspot[],
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  for (const hp of hotspots) {
+    if (hp.confidence === "low") continue;
+
+    const { x, y } = latLonToCanvas(hp.lat, hp.lon, width, height);
+    const radius = Math.max(1.5, Math.min(6, hp.frp / 80));
+
+    // Outer glow
+    ctx.globalAlpha = 0.2;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+    ctx.fillStyle = "#ff6600";
+    ctx.fill();
+
+    // Inner core
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#ff2200";
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
  * Draw WSPR propagation paths on the 2D map
  * Renders TX→RX great-circle arcs with band-based coloring
  */
@@ -1496,6 +1533,145 @@ function drawSpotArcs(
       zoomScale,
     );
   }
+}
+
+/**
+ * Draw a highlighted arc for the selected DX cluster spot.
+ * Persistent while the spot is selected — plasma orange with glow.
+ * Also draws a callsign label at the DX endpoint.
+ */
+function drawSelectedSpotArc(
+  ctx: CanvasRenderingContext2D,
+  spot: ResolvedSpot,
+  width: number,
+  height: number,
+  spotDotScale: number,
+  zoomScale: number,
+  labelScale: number,
+) {
+  const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
+  const end = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
+
+  const highlightColor = "rgba(255, 107, 53, 1)";
+  const glowColor = "rgba(255, 107, 53, 0.3)";
+  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const wrapAround = Math.abs(dx) > width / 2;
+
+  ctx.save();
+
+  // --- Helper to stroke the arc path (reused for glow + main line) ---
+  const strokeArcPath = () => {
+    if (wrapAround) {
+      const points = getGreatCirclePoints(
+        spot.spotterLat,
+        spot.spotterLon,
+        spot.dxLat,
+        spot.dxLon,
+        50,
+      );
+      ctx.beginPath();
+      let lastX = -1;
+      for (const pt of points) {
+        const { x, y } = latLonToCanvas(pt.lat, pt.lon, width, height);
+        if (lastX >= 0 && Math.abs(x - lastX) > width / 2) {
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+        } else if (lastX < 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        lastX = x;
+      }
+      ctx.stroke();
+    } else {
+      const midX = (start.x + end.x) / 2;
+      const midY = (start.y + end.y) / 2;
+      const arcHeight = Math.min(distance * 0.3, 80);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.quadraticCurveTo(midX, midY - arcHeight, end.x, end.y);
+      ctx.stroke();
+    }
+  };
+
+  // Glow arc (wider, blurred)
+  ctx.strokeStyle = glowColor;
+  ctx.lineWidth = Math.max(2, Math.round((6 * spotDotScale) / zoomDamp));
+  ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
+  ctx.shadowBlur = 12;
+  ctx.lineCap = "round";
+  strokeArcPath();
+
+  // Main arc (thinner, solid)
+  ctx.strokeStyle = highlightColor;
+  ctx.lineWidth = Math.max(1, Math.round((3 * spotDotScale) / zoomDamp));
+  ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
+  ctx.shadowBlur = 8;
+  strokeArcPath();
+
+  // Reset shadow for endpoints
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+
+  // Spotter endpoint — hollow ring (larger than normal arcs)
+  const spotterRadius = Math.max(2, Math.round((5 * spotDotScale) / zoomDamp));
+  ctx.beginPath();
+  ctx.arc(start.x, start.y, spotterRadius, 0, Math.PI * 2);
+  ctx.strokeStyle = highlightColor;
+  ctx.lineWidth = Math.max(1, Math.round((2 * spotDotScale) / zoomDamp));
+  ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
+  ctx.shadowBlur = 6;
+  ctx.stroke();
+
+  // DX endpoint — filled circle with white outer ring
+  const dxRadius = Math.max(2, Math.round((6 * spotDotScale) / zoomDamp));
+  ctx.beginPath();
+  ctx.arc(end.x, end.y, dxRadius, 0, Math.PI * 2);
+  ctx.fillStyle = highlightColor;
+  ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
+  ctx.shadowBlur = 8;
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(end.x, end.y, dxRadius + 2, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+  ctx.lineWidth = Math.max(1, Math.round((1.5 * spotDotScale) / zoomDamp));
+  ctx.stroke();
+
+  // --- Callsign label at DX endpoint ---
+  const fontSize = Math.max(8, Math.round((12 * labelScale) / zoomDamp));
+  ctx.font = `bold ${fontSize}px monospace`;
+  ctx.textBaseline = "bottom";
+  const labelText = spot.callsign;
+  const textMetrics = ctx.measureText(labelText);
+  const textW = textMetrics.width + 8;
+  const textH = fontSize + 6;
+  const labelX = end.x - textW / 2;
+  const labelY = end.y - dxRadius - 6;
+
+  // Background pill
+  ctx.fillStyle = "rgba(10, 10, 26, 0.85)";
+  ctx.beginPath();
+  const pillR = 3;
+  ctx.roundRect(labelX, labelY - textH, textW, textH, pillR);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 107, 53, 0.6)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Label text
+  ctx.fillStyle = highlightColor;
+  ctx.textAlign = "center";
+  ctx.fillText(labelText, end.x, labelY - 2);
+
+  ctx.restore();
 }
 
 /**
@@ -3005,6 +3181,7 @@ export function FlatMapView({
 
   // DX stores
   const { updateFilter } = useDXStore();
+  const selectedSpot = useDXStore((s) => s.selectedSpot);
   const { allSpots } = useDXCluster();
 
   // Satellite positions for 2D overlay
@@ -3015,6 +3192,7 @@ export function FlatMapView({
   const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
   const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
   const { strikes: lightningStrikes } = useLightning(layers.lightning);
+  const { hotspots: fireHotspots } = useFires(layers.fires);
   const { spots: wsprSpots } = useWsprSpots(layers.wspr);
 
   // QSO overlay data — hooks only compute when layer is enabled
@@ -3101,6 +3279,39 @@ export function FlatMapView({
     }
     return resolveSpotLocations(spots).slice(0, displayDensity);
   }, [spots, layers.spots, displayDensity]);
+
+  // Resolve the selected DX cluster spot into a ResolvedSpot for arc highlighting
+  const resolvedSelectedSpot = useMemo((): ResolvedSpot | null => {
+    if (!selectedSpot) return null;
+    // DXSpot may have lat/lon directly, or we resolve via grid/callsign
+    const spotterLat = selectedSpot.spotterLat;
+    const spotterLon = selectedSpot.spotterLon;
+    const dxLat = selectedSpot.dxLat;
+    const dxLon = selectedSpot.dxLon;
+    if (
+      spotterLat === undefined ||
+      spotterLon === undefined ||
+      dxLat === undefined ||
+      dxLon === undefined
+    ) {
+      // Try resolving via resolveSpotLocations (cast to LiveSpot-like)
+      const resolved = resolveSpotLocations([selectedSpot as any]);
+      return resolved.length > 0 ? resolved[0] : null;
+    }
+    return {
+      id: selectedSpot.id,
+      spotterLat,
+      spotterLon,
+      dxLat,
+      dxLon,
+      mode: selectedSpot.mode || "UNKNOWN",
+      frequency: selectedSpot.frequency,
+      time: selectedSpot.time,
+      callsign: selectedSpot.dx,
+      spotter: selectedSpot.spotter,
+      source: (selectedSpot as any).source ?? "Cluster",
+    };
+  }, [selectedSpot]);
 
   // Feed new spots into the grid glow renderer when spots arrive
   useEffect(() => {
@@ -4282,6 +4493,11 @@ export function FlatMapView({
       drawLightning(ctx, lightningStrikes, renderWidth, renderHeight);
     }
 
+    // Draw fire hotspots
+    if (layers.fires && fireHotspots.length > 0) {
+      drawFires(ctx, fireHotspots, renderWidth, renderHeight);
+    }
+
     // Draw WSPR propagation paths
     if (layers.wspr && wsprSpots.length > 0) {
       drawWsprPaths(ctx, wsprSpots, renderWidth, renderHeight);
@@ -4474,6 +4690,19 @@ export function FlatMapView({
       }
     }
 
+    // Draw highlighted arc for selected DX cluster spot (persistent while selected)
+    if (resolvedSelectedSpot && layers.spots) {
+      drawSelectedSpotArc(
+        ctx,
+        resolvedSelectedSpot,
+        renderWidth,
+        renderHeight,
+        spotDotScale,
+        zoom.scale,
+        labelScale,
+      );
+    }
+
     // Spot highlight pulsing rings are drawn on a separate overlay canvas
     // (see highlightCanvasRef) to avoid forcing full canvas re-renders at 60fps
 
@@ -4580,6 +4809,7 @@ export function FlatMapView({
     auroraData,
     currentSFI,
     resolvedSpots,
+    resolvedSelectedSpot,
     targetMarkerColor,
     pathDifficulty,
     pathMetrics,
@@ -4606,6 +4836,7 @@ export function FlatMapView({
     earthquakeData,
     weatherAlerts,
     lightningStrikes,
+    fireHotspots,
     wsprSpots,
     contestQsoData,
     loggedQsoData,

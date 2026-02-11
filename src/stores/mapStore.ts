@@ -19,6 +19,7 @@ export const LAYER_PRESETS = {
     muf: true,
     nvis: false,
     spots: true,
+    spotTraces: false,
     nightLights: true,
     labels: false,
     satellites: false,
@@ -28,6 +29,8 @@ export const LAYER_PRESETS = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
   contest: {
     terminator: true,
@@ -36,6 +39,7 @@ export const LAYER_PRESETS = {
     muf: false,
     nvis: false,
     spots: true,
+    spotTraces: false,
     nightLights: false,
     labels: false,
     satellites: false,
@@ -45,6 +49,8 @@ export const LAYER_PRESETS = {
     wspr: false,
     contestQsos: true,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
   vhf: {
     terminator: true,
@@ -53,6 +59,7 @@ export const LAYER_PRESETS = {
     muf: false,
     nvis: false,
     spots: false,
+    spotTraces: false,
     nightLights: false,
     labels: false,
     satellites: true,
@@ -62,6 +69,8 @@ export const LAYER_PRESETS = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
   emergency: {
     terminator: true,
@@ -70,6 +79,7 @@ export const LAYER_PRESETS = {
     muf: false,
     nvis: true,
     spots: false,
+    spotTraces: false,
     nightLights: true,
     labels: true,
     satellites: false,
@@ -79,6 +89,8 @@ export const LAYER_PRESETS = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: true,
+    radar: true,
   },
 } as const;
 
@@ -228,6 +240,7 @@ interface MapState {
     muf: boolean;
     nvis: boolean;
     spots: boolean;
+    spotTraces: boolean;
     nightLights: boolean;
     labels: boolean;
     satellites: boolean;
@@ -237,6 +250,8 @@ interface MapState {
     wspr: boolean;
     contestQsos: boolean;
     loggedQsos: boolean;
+    fires: boolean;
+    radar: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -659,18 +674,47 @@ function saveActivePresetId(id: string | null): void {
 
 const PRO_PANEL_LAYOUT_KEY = "propulse-pro-panel-layout";
 
-const DEFAULT_PRO_PANEL_LAYOUT: Record<string, ProPanelLayoutEntry> = {
-  "band-conditions": { x: 1, y: 8, width: 256, height: 400, collapsed: false },
-  "path-analysis": { x: 75, y: 8, width: 288, height: 400, collapsed: false },
-  "dx-spots": { x: 25, y: 70, width: 600, height: 200, collapsed: false },
-  recommendations: { x: 1, y: 60, width: 320, height: 180, collapsed: false },
-};
+// Compute pixel positions from viewport percentages at load time
+function pctToPx(xPct: number, yPct: number): { x: number; y: number } {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
+  return { x: Math.round((xPct / 100) * vw), y: Math.round((yPct / 100) * vh) };
+}
+
+function buildDefaultProPanelLayout(): Record<string, ProPanelLayoutEntry> {
+  const bc = pctToPx(1, 8);
+  const pa = pctToPx(80, 8);
+  const dx = pctToPx(20, 72);
+  const rec = pctToPx(1, 62);
+  const sat = pctToPx(80, 50);
+  return {
+    "band-conditions": { ...bc, width: 256, height: 400, collapsed: false },
+    "path-analysis": { ...pa, width: 288, height: 400, collapsed: false },
+    "dx-spots": { ...dx, width: 600, height: 200, collapsed: false },
+    recommendations: { ...rec, width: 320, height: 180, collapsed: false },
+    satellites: { ...sat, width: 260, height: 360, collapsed: true },
+  };
+}
+
+const DEFAULT_PRO_PANEL_LAYOUT = buildDefaultProPanelLayout();
 
 function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
   try {
     const saved = localStorage.getItem(PRO_PANEL_LAYOUT_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      // Check if saved data has stale tiny-pixel positions from old defaults
+      // (old defaults used percentage-like values 1-80 as raw pixels)
+      const hasStalePositions = Object.values(parsed).some((entry: unknown) => {
+        const e = entry as ProPanelLayoutEntry;
+        return e && !e.collapsed && e.x < 100 && e.y < 100 && e.width > 100;
+      });
+      if (hasStalePositions) {
+        // Reset to fresh computed defaults
+        const fresh = buildDefaultProPanelLayout();
+        saveProPanelLayout(fresh);
+        return fresh;
+      }
       // Merge with defaults so new panels get default positions
       return { ...DEFAULT_PRO_PANEL_LAYOUT, ...parsed };
     }
@@ -787,6 +831,7 @@ const initialState = {
     muf: false,
     nvis: false,
     spots: true,
+    spotTraces: false,
     nightLights: true,
     labels: false,
     satellites: false,
@@ -796,6 +841,8 @@ const initialState = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

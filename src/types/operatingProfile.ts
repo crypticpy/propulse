@@ -34,6 +34,7 @@ export interface OperatingProfile {
     muf: boolean;
     nvis: boolean;
     spots: boolean;
+    spotTraces: boolean;
     nightLights: boolean;
     labels: boolean;
     satellites: boolean;
@@ -43,6 +44,8 @@ export interface OperatingProfile {
     wspr: boolean;
     contestQsos: boolean;
     loggedQsos: boolean;
+    fires: boolean;
+    radar: boolean;
   };
 
   // Display preferences

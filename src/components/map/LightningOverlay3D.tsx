@@ -1,0 +1,169 @@
+/**
+ * LightningOverlay3D
+ *
+ * Renders lightning strike markers on the 3D globe using two InstancedMesh
+ * layers: an outer warm-yellow glow and an inner white-hot core. Designed
+ * for high-count scenarios (1000+ simultaneous strikes) without creating
+ * individual mesh objects per strike.
+ *
+ * Visual behaviour:
+ * - Strikes fade from full brightness to 10% over a 10-minute window
+ * - Strikes less than 5 seconds old get a brief flash-scale pulse
+ * - Old strikes (>10 min) are filtered out entirely
+ *
+ * The component is memoised on the `strikes` array reference to avoid
+ * unnecessary React reconciliation; all per-frame work happens in useFrame.
+ */
+
+import React, { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+import type { LightningStrike } from "@/lib/api/lightning";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Hard cap on rendered instances to prevent GPU overload */
+const MAX_INSTANCES = 2000;
+
+/** Strikes older than this are not rendered */
+const FADE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
+/** Duration of the initial bright-flash effect for new strikes */
+const FLASH_DURATION_MS = 5000; // 5 seconds
+
+/** Globe-surface radius for strike placement (matches other overlays) */
+const GLOBE_RADIUS = 1.003;
+
+// ---------------------------------------------------------------------------
+// Module-level dummy — reused every frame, never recreated
+// ---------------------------------------------------------------------------
+
+const dummy = new THREE.Object3D();
+
+// ---------------------------------------------------------------------------
+// Coordinate conversion (same convention as every other globe component)
+// ---------------------------------------------------------------------------
+
+function latLonTo3D(
+  lat: number,
+  lon: number,
+  radius: number = GLOBE_RADIUS,
+): [number, number, number] {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  return [
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+interface LightningOverlay3DProps {
+  strikes: LightningStrike[];
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export const LightningOverlay3D = React.memo(
+  function LightningOverlay3D({ strikes }: LightningOverlay3DProps) {
+    const glowRef = useRef<THREE.InstancedMesh>(null);
+    const coreRef = useRef<THREE.InstancedMesh>(null);
+
+    // Per-frame update — positions, scales, and counts
+    useFrame(() => {
+      const glowMesh = glowRef.current;
+      const coreMesh = coreRef.current;
+      if (!glowMesh || !coreMesh) return;
+
+      const now = Date.now();
+      let count = 0;
+
+      for (let i = 0; i < strikes.length && count < MAX_INSTANCES; i++) {
+        const strike = strikes[i];
+        const age = now - strike.time;
+
+        // Skip strikes that have fully faded
+        if (age > FADE_DURATION_MS) continue;
+
+        const [x, y, z] = latLonTo3D(strike.lat, strike.lon);
+        const alpha = Math.max(0.1, 1 - age / FADE_DURATION_MS);
+
+        // Flash multiplier: new strikes pulse larger then ease back
+        const flash =
+          age < FLASH_DURATION_MS ? 1 + (1 - age / FLASH_DURATION_MS) * 1.5 : 1;
+
+        // --- Outer glow instance ---
+        dummy.position.set(x, y, z);
+        dummy.scale.setScalar(0.005 * alpha * flash);
+        dummy.updateMatrix();
+        glowMesh.setMatrixAt(count, dummy.matrix);
+
+        // --- Inner core instance (constant small size, no flash) ---
+        dummy.scale.setScalar(0.002);
+        dummy.updateMatrix();
+        coreMesh.setMatrixAt(count, dummy.matrix);
+
+        count++;
+      }
+
+      // Update instance counts and flag the buffers dirty
+      glowMesh.count = count;
+      coreMesh.count = count;
+
+      if (count > 0) {
+        glowMesh.instanceMatrix.needsUpdate = true;
+        coreMesh.instanceMatrix.needsUpdate = true;
+      }
+    });
+
+    // Nothing to render — avoid allocating GPU resources
+    if (strikes.length === 0) return null;
+
+    return (
+      <group name="lightning-overlay">
+        {/* Outer glow — warm yellow, additive blending, low opacity */}
+        <instancedMesh
+          ref={glowRef}
+          args={[undefined, undefined, MAX_INSTANCES]}
+          frustumCulled={false}
+        >
+          <sphereGeometry args={[1, 6, 6]} />
+          <meshBasicMaterial
+            color="#ffe566"
+            transparent
+            opacity={0.35}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </instancedMesh>
+
+        {/* Inner core — bright white, slightly higher opacity */}
+        <instancedMesh
+          ref={coreRef}
+          args={[undefined, undefined, MAX_INSTANCES]}
+          frustumCulled={false}
+        >
+          <sphereGeometry args={[1, 6, 6]} />
+          <meshBasicMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.9}
+            depthWrite={false}
+          />
+        </instancedMesh>
+      </group>
+    );
+  },
+  // Custom comparator: only re-render when the strikes array reference changes
+  (prev, next) => prev.strikes === next.strikes,
+);
+
+export default LightningOverlay3D;

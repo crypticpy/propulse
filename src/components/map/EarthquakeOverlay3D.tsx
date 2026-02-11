@@ -1,0 +1,172 @@
+/**
+ * EarthquakeOverlay3D Component
+ *
+ * Renders earthquake markers on the 3D globe using React Three Fiber.
+ * Each earthquake is displayed as a magnitude-scaled colored circle with
+ * an animated glow ring. M5+ earthquakes show a floating magnitude label.
+ *
+ * Visual style matches the 2D FlatMapView drawEarthquakes() function:
+ * - Size scaled by magnitude
+ * - Color: green-yellow (< M4), yellow (M4+), orange (M5+), red (M7+)
+ * - Outer glow ring with additive blending + pulse animation
+ * - Magnitude labels for significant quakes (M5+)
+ */
+
+import React, { useRef, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Billboard, Text } from "@react-three/drei";
+import * as THREE from "three";
+import type { EarthquakeEvent } from "@/lib/api/earthquakes";
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface EarthquakeOverlay3DProps {
+  /** Array of earthquake events to render */
+  earthquakes: EarthquakeEvent[];
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+/**
+ * Convert lat/lon to 3D position on the globe surface.
+ * Uses the same coordinate convention as the rest of the codebase.
+ */
+function latLonTo3D(
+  lat: number,
+  lon: number,
+  radius: number = 1.003,
+): [number, number, number] {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  return [
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta),
+  ];
+}
+
+/**
+ * Get marker color based on earthquake magnitude.
+ * Matches the 2D FlatMapView color scheme exactly.
+ */
+function getEqColor(magnitude: number): string {
+  if (magnitude >= 7) return "#ff2020"; // Major: red
+  if (magnitude >= 5) return "#ff8800"; // Strong: orange
+  if (magnitude >= 4) return "#ffcc00"; // Moderate: yellow
+  return "#88cc44"; // Light: green-yellow
+}
+
+/**
+ * Get 3D marker radius based on earthquake magnitude.
+ * Scaled version of the 2D formula: Math.max(3, Math.min(20, (mag - 1) * 3))
+ * mapped to globe-appropriate units.
+ */
+function getEqSize(magnitude: number): number {
+  return Math.max(0.004, Math.min(0.025, (magnitude - 1) * 0.004));
+}
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
+export const EarthquakeOverlay3D = React.memo(
+  function EarthquakeOverlay3D({ earthquakes }: EarthquakeOverlay3DProps) {
+    // Early return for empty data
+    if (earthquakes.length === 0) {
+      return null;
+    }
+
+    // Shared geometries — created once, reused across all earthquake meshes
+    const circleGeo = useMemo(() => new THREE.CircleGeometry(1, 32), []);
+    const ringGeo = useMemo(() => new THREE.RingGeometry(0.7, 1, 32), []);
+
+    // Mutable refs array for glow ring meshes (for pulse animation)
+    const glowRefs = useRef<(THREE.Mesh | null)[]>([]);
+
+    // Single useFrame loop for all glow ring pulse animations
+    useFrame(({ clock }) => {
+      const t = clock.getElapsedTime();
+      for (let i = 0; i < glowRefs.current.length; i++) {
+        const mesh = glowRefs.current[i];
+        if (mesh) {
+          const scale = 1 + 0.15 * Math.sin(t * 2 + i * 0.5);
+          mesh.scale.setScalar(scale);
+        }
+      }
+    });
+
+    return (
+      <group>
+        {earthquakes.map((eq, i) => {
+          const position = latLonTo3D(eq.lat, eq.lon);
+          const size = getEqSize(eq.magnitude);
+          const color = getEqColor(eq.magnitude);
+
+          // Compute outward-facing quaternion from surface normal
+          const normal = new THREE.Vector3(...position).normalize();
+          const quaternion = new THREE.Quaternion().setFromUnitVectors(
+            new THREE.Vector3(0, 0, 1),
+            normal,
+          );
+
+          return (
+            <group key={eq.id} position={position} quaternion={quaternion}>
+              {/* Solid base marker (filled circle) */}
+              <mesh geometry={circleGeo} scale={[size, size, size]}>
+                <meshBasicMaterial
+                  color={color}
+                  transparent
+                  opacity={0.7}
+                  depthWrite={false}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+
+              {/* Glow ring with additive blending + pulse animation */}
+              <mesh
+                ref={(el: THREE.Mesh | null) => {
+                  glowRefs.current[i] = el;
+                }}
+                geometry={ringGeo}
+                scale={[size * 2, size * 2, size * 2]}
+              >
+                <meshBasicMaterial
+                  color={color}
+                  transparent
+                  opacity={0.15}
+                  depthWrite={false}
+                  blending={THREE.AdditiveBlending}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+
+              {/* Magnitude label for M5+ earthquakes */}
+              {eq.magnitude >= 5 && (
+                <Billboard position={[0, size * 3, 0]}>
+                  <Text
+                    fontSize={0.012}
+                    color="#ffffff"
+                    anchorX="center"
+                    anchorY="bottom"
+                    outlineWidth={0.002}
+                    outlineColor="#000000"
+                    font={undefined}
+                  >
+                    {`M${eq.magnitude.toFixed(1)}`}
+                  </Text>
+                </Billboard>
+              )}
+            </group>
+          );
+        })}
+      </group>
+    );
+  },
+  (prevProps, nextProps) => prevProps.earthquakes === nextProps.earthquakes,
+);
+
+export default EarthquakeOverlay3D;

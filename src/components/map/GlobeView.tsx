@@ -33,6 +33,11 @@ import { AuroraOverlay } from "./AuroraOverlay";
 import { MUFOverlay } from "./MUFOverlay";
 import { GrayLineZone } from "./GrayLineZone";
 import { SatelliteOverlay } from "./SatelliteOverlay";
+import { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
+import { WeatherAlerts3D } from "./WeatherAlerts3D";
+import { LightningOverlay3D } from "./LightningOverlay3D";
+import { FireOverlay3D } from "./FireOverlay3D";
+import { WeatherRadarOverlay } from "./WeatherRadarOverlay";
 import { PathArc } from "./PathArc";
 import {
   LocationMarker,
@@ -40,8 +45,10 @@ import {
   type DifficultyLevel,
 } from "./LocationMarker";
 import { LiveSpotArcs } from "./LiveSpotArcs";
+import { AnimatedSpotTraces } from "./AnimatedSpotTraces";
 import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
 import { SpotHighlight } from "./SpotHighlight";
+import { SelectedSpotArc } from "./SelectedSpotArc";
 import { OverlayLayers3D } from "./OverlayLayers3D";
 import { PinMarker } from "./PinMarker";
 import { PinFlyout } from "./PinFlyout";
@@ -70,6 +77,11 @@ import { useUndoStore } from "@/stores/undoStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
+import { useEarthquakes } from "@/hooks/useEarthquakes";
+import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
+import { useLightning } from "@/hooks/useLightning";
+import { useFires } from "@/hooks/useFires";
+import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
@@ -672,12 +684,17 @@ function GlobeScene({
     screenPos: { x: number; y: number },
   ) => void;
 }) {
-  const { layers, target, pathMode, mapStyle } = useMapStore();
+  const { layers, target, pathMode, mapStyle, rotation } = useMapStore();
   const isStandard = mapStyle === "standard";
   const { station } = useUserStore();
   const { pins } = usePinStore();
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
+  const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
+  const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
+  const { strikes: lightningStrikes } = useLightning(layers.lightning);
+  const { hotspots: fireHotspots } = useFires(layers.fires);
+  const { manifest: radarManifest } = useWeatherRadar(layers.radar);
   const compassRosePrefs = useCompassRosePrefs();
   const holdDurationMs = useSettingsStore(
     (s) => s.uiInteraction?.holdDurationMs ?? 500,
@@ -804,194 +821,225 @@ function GlobeScene({
         speed={0.5}
       />
 
-      {/* Globe click/hover handler wrapping the Earth */}
-      <GlobeClickHandler
-        onLocationClick={handleGlobeClick}
-        onDoubleClick={onDoubleClick}
-        onLocationHover={handleGlobeHover}
-        onHoverEnd={onHoverEnd}
-        holdDurationMs={holdDurationMs}
-      >
-        {/* Earth sphere */}
-        <EarthSphere grayscale={isStandard} />
-      </GlobeClickHandler>
+      {/* Earth tilt group — rotates the globe and all surface overlays */}
+      <group rotation={[0, 0, (rotation.x * Math.PI) / 180]}>
+        {/* Globe click/hover handler wrapping the Earth */}
+        <GlobeClickHandler
+          onLocationClick={handleGlobeClick}
+          onDoubleClick={onDoubleClick}
+          onLocationHover={handleGlobeHover}
+          onHoverEnd={onHoverEnd}
+          holdDurationMs={holdDurationMs}
+        >
+          {/* Earth sphere */}
+          <EarthSphere grayscale={isStandard} />
+        </GlobeClickHandler>
 
-      {/* Night side darkening overlay */}
-      {layers.terminator && (
-        <NightOverlay date={displayTime} opacity={isStandard ? 0.75 : 0.6} />
-      )}
+        {/* Night side darkening overlay */}
+        {layers.terminator && (
+          <NightOverlay date={displayTime} opacity={isStandard ? 0.75 : 0.6} />
+        )}
 
-      {/* Day/night terminator line */}
-      {layers.terminator && (
-        <Terminator date={displayTime} standardMode={isStandard} />
-      )}
+        {/* Day/night terminator line */}
+        {layers.terminator && (
+          <Terminator date={displayTime} standardMode={isStandard} />
+        )}
 
-      {/* Greyline band with intensity-based visualization */}
-      {layers.greyline && (
-        <Greyline date={displayTime} intensity={greylineIntensity} />
-      )}
+        {/* Greyline band with intensity-based visualization */}
+        {layers.greyline && (
+          <Greyline date={displayTime} intensity={greylineIntensity} />
+        )}
 
-      {/* Gray line propagation zone (±5° from terminator) */}
-      {layers.greyline && <GrayLineZone date={displayTime} />}
+        {/* Gray line propagation zone (±5° from terminator) */}
+        {layers.greyline && <GrayLineZone date={displayTime} />}
 
-      {/* Aurora overlay */}
-      {layers.aurora && auroraData && (
-        <AuroraOverlay auroraData={auroraData} minProbability={10} />
-      )}
+        {/* Aurora overlay */}
+        {layers.aurora && auroraData && (
+          <AuroraOverlay auroraData={auroraData} minProbability={10} />
+        )}
 
-      {/* Night lights overlay - city lights on dark side */}
-      {!isStandard && layers.nightLights && (
-        <NightLightsOverlay date={displayTime} />
-      )}
+        {/* Night lights overlay - city lights on dark side */}
+        {!isStandard && layers.nightLights && (
+          <NightLightsOverlay date={displayTime} />
+        )}
 
-      {/* Country borders + labels overlay */}
-      <LabelsOverlay
-        showLabels={layers.labels || isStandard}
-        subsolarLat={subsolar.lat}
-        subsolarLon={subsolar.lon}
-      />
-
-      {/* MUF overlay */}
-      {layers.muf && currentSFI && (
-        <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
-      )}
-
-      {/* Satellite overlay */}
-      {layers.satellites && <SatelliteOverlay />}
-
-      {/* Live spot arcs */}
-      {layers.spots && (
-        <LiveSpotArcs
-          grid={station?.grid}
-          maxArcs={50}
-          onSpotHover={onSpotHover}
-          onSpotHoverEnd={onSpotHoverEnd}
-          onClusterClick={onClusterClick}
+        {/* Country borders + labels overlay */}
+        <LabelsOverlay
+          showLabels={layers.labels || isStandard}
+          subsolarLat={subsolar.lat}
+          subsolarLon={subsolar.lon}
         />
-      )}
 
-      {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
-      {layers.spots && <GridGlowOverlay spots={glowSpots} />}
+        {/* MUF overlay */}
+        {layers.muf && currentSFI && (
+          <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
+        )}
 
-      {/* Pin markers from saved locations - distinctive pushpin style */}
-      {pins.map((pin) => {
-        const catMeta = getCategoryMeta(pin.category);
-        return (
-          <PinMarker
-            key={pin.id}
-            pinId={pin.id}
-            lat={pin.lat}
-            lon={pin.lon}
-            color={pin.color || catMeta.color}
-            label={pin.name || pin.grid}
-            emoji={catMeta.icon}
-            size={0.02}
-            sizeScale={mapPinScale}
-            onHover={(isHovered, screenPos) => {
-              if (isHovered && onPinHover) {
-                onPinHover(pin, screenPos);
-              } else if (!isHovered && onPinLeave) {
-                onPinLeave();
-              }
-            }}
+        {/* Satellite overlay */}
+        {layers.satellites && <SatelliteOverlay />}
+
+        {/* Hazard overlays */}
+        {layers.earthquakes && earthquakeData.length > 0 && (
+          <EarthquakeOverlay3D earthquakes={earthquakeData} />
+        )}
+        {layers.weather && weatherAlerts.length > 0 && (
+          <WeatherAlerts3D alerts={weatherAlerts} />
+        )}
+        {layers.lightning && lightningStrikes.length > 0 && (
+          <LightningOverlay3D strikes={lightningStrikes} />
+        )}
+        {layers.fires && fireHotspots.length > 0 && (
+          <FireOverlay3D hotspots={fireHotspots} />
+        )}
+        {layers.radar && radarManifest && (
+          <WeatherRadarOverlay manifest={radarManifest} />
+        )}
+
+        {/* Live spot arcs */}
+        {layers.spots && (
+          <LiveSpotArcs
+            grid={station?.grid}
+            maxArcs={50}
+            onSpotHover={onSpotHover}
+            onSpotHoverEnd={onSpotHoverEnd}
+            onClusterClick={onClusterClick}
           />
-        );
-      })}
+        )}
 
-      {/* Home station marker - Blue color */}
-      {station && (
-        <LocationMarker
-          lat={station.lat}
-          lon={station.lon}
-          color="#4488FF"
-          label={station.callsign}
-          type="home"
-          sizeScale={mapPinScale}
-        />
-      )}
+        {/* Animated spot trace lines — "missile command" style */}
+        {layers.spotTraces && (
+          <AnimatedSpotTraces grid={station?.grid} maxTraces={40} />
+        )}
 
-      {/* Target location marker - Color based on difficulty */}
-      {target && (
-        <>
-          {/* Hover hit area for the selected target marker */}
-          {targetHoverPosition && (
-            <mesh
-              position={targetHoverPosition}
-              onPointerEnter={(event) => {
-                event.stopPropagation();
-                onTargetHover?.({
-                  x: event.nativeEvent.clientX,
-                  y: event.nativeEvent.clientY,
-                });
+        {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
+        {layers.spots && <GridGlowOverlay spots={glowSpots} />}
+
+        {/* Pin markers from saved locations - distinctive pushpin style */}
+        {pins.map((pin) => {
+          const catMeta = getCategoryMeta(pin.category);
+          return (
+            <PinMarker
+              key={pin.id}
+              pinId={pin.id}
+              lat={pin.lat}
+              lon={pin.lon}
+              color={pin.color || catMeta.color}
+              label={pin.name || pin.grid}
+              emoji={catMeta.icon}
+              size={0.02}
+              sizeScale={mapPinScale}
+              onHover={(isHovered, screenPos) => {
+                if (isHovered && onPinHover) {
+                  onPinHover(pin, screenPos);
+                } else if (!isHovered && onPinLeave) {
+                  onPinLeave();
+                }
               }}
-              onPointerMove={(event) => {
-                event.stopPropagation();
-                onTargetHover?.({
-                  x: event.nativeEvent.clientX,
-                  y: event.nativeEvent.clientY,
-                });
-              }}
-              onPointerLeave={() => {
-                onTargetHoverEnd?.();
-              }}
-            >
-              <sphereGeometry args={[0.055, 8, 8]} />
-              <meshBasicMaterial
-                transparent
-                opacity={0}
-                depthTest={false}
-                depthWrite={false}
-              />
-            </mesh>
-          )}
-
-          <LocationMarker
-            lat={target.lat}
-            lon={target.lon}
-            label={target.name || target.grid}
-            type="target"
-            difficulty={pathDifficulty}
-            showDifficultyTag={true}
-            sizeScale={mapPinScale}
-          />
-
-          {/* Path arc between home and target - Color based on difficulty */}
-          {station && (
-            <PathArc
-              startLat={station.lat}
-              startLon={station.lon}
-              endLat={target.lat}
-              endLon={target.lon}
-              color={
-                pathDifficulty ? getDifficultyColor(pathDifficulty) : "#ff6b35"
-              }
-              pathMode={pathMode}
             />
-          )}
-        </>
-      )}
+          );
+        })}
 
-      {/* Spot highlight effect */}
-      <SpotHighlight />
+        {/* Home station marker - Blue color */}
+        {station && (
+          <LocationMarker
+            lat={station.lat}
+            lon={station.lon}
+            color="#4488FF"
+            label={station.callsign}
+            type="home"
+            sizeScale={mapPinScale}
+          />
+        )}
 
-      {/* Renderer-agnostic overlay layers (contest overlays, etc.) */}
-      <OverlayLayers3D />
+        {/* Target location marker - Color based on difficulty */}
+        {target && (
+          <>
+            {/* Hover hit area for the selected target marker */}
+            {targetHoverPosition && (
+              <mesh
+                position={targetHoverPosition}
+                onPointerEnter={(event) => {
+                  event.stopPropagation();
+                  onTargetHover?.({
+                    x: event.nativeEvent.clientX,
+                    y: event.nativeEvent.clientY,
+                  });
+                }}
+                onPointerMove={(event) => {
+                  event.stopPropagation();
+                  onTargetHover?.({
+                    x: event.nativeEvent.clientX,
+                    y: event.nativeEvent.clientY,
+                  });
+                }}
+                onPointerLeave={() => {
+                  onTargetHoverEnd?.();
+                }}
+              >
+                <sphereGeometry args={[0.055, 8, 8]} />
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  depthTest={false}
+                  depthWrite={false}
+                />
+              </mesh>
+            )}
 
-      {/* Compass rose overlay at operator's QTH */}
-      {station && compassRosePrefs.enabled && (
-        <CompassRose
-          qthLat={station.lat}
-          qthLon={station.lon}
-          targetBearing={targetBearing}
-          beamWidth={
-            compassRosePrefs.showBeamWidth
-              ? compassRosePrefs.beamWidth
-              : undefined
-          }
-          visible={true}
-          radius={1.01}
-        />
-      )}
+            <LocationMarker
+              lat={target.lat}
+              lon={target.lon}
+              label={target.name || target.grid}
+              type="target"
+              difficulty={pathDifficulty}
+              showDifficultyTag={true}
+              sizeScale={mapPinScale}
+            />
+
+            {/* Path arc between home and target - Color based on difficulty */}
+            {station && (
+              <PathArc
+                startLat={station.lat}
+                startLon={station.lon}
+                endLat={target.lat}
+                endLon={target.lon}
+                color={
+                  pathDifficulty
+                    ? getDifficultyColor(pathDifficulty)
+                    : "#ff6b35"
+                }
+                pathMode={pathMode}
+              />
+            )}
+          </>
+        )}
+
+        {/* Highlighted arc for DX cluster selected spot */}
+        <SelectedSpotArc />
+
+        {/* Spot highlight effect */}
+        <SpotHighlight />
+
+        {/* Renderer-agnostic overlay layers (contest overlays, etc.) */}
+        <OverlayLayers3D />
+
+        {/* Compass rose overlay at operator's QTH */}
+        {station && compassRosePrefs.enabled && (
+          <CompassRose
+            qthLat={station.lat}
+            qthLon={station.lon}
+            targetBearing={targetBearing}
+            beamWidth={
+              compassRosePrefs.showBeamWidth
+                ? compassRosePrefs.beamWidth
+                : undefined
+            }
+            visible={true}
+            radius={1.01}
+          />
+        )}
+      </group>
+      {/* end Earth tilt group */}
 
       {/* Camera controls with spot focus */}
       <CameraController />

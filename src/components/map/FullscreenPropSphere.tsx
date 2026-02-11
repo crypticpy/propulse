@@ -18,12 +18,14 @@ import {
   BandConditionsPanel,
   RecommendationsPanel,
   RegionPresetManager,
+  SatellitePanel,
 } from "@/components/map";
 import { FloatingPanel } from "@/components/layout/FloatingPanel";
 import { ProToolbarRibbon } from "@/components/map/ProToolbarRibbon";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { ContestRatePanel } from "@/components/map/ContestRatePanel";
 import { ObservatoryOverlay } from "@/components/map/ObservatoryOverlay";
+import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
 
@@ -33,6 +35,7 @@ const PANEL_LABELS: Record<string, string> = {
   "path-analysis": "Paths",
   "dx-spots": "DX Spots",
   recommendations: "Recs",
+  satellites: "Sats",
 };
 
 const PANEL_ICONS: Record<string, React.ReactNode> = {
@@ -96,6 +99,21 @@ const PANEL_ICONS: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
+  satellites: (
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m7.5 3.5 8 8m-2-6 4 4m-8 0 4 4M4.5 19.5l4-4m-2 2 2-2"
+      />
+    </svg>
+  ),
 };
 
 interface FullscreenPropSphereProps {
@@ -117,6 +135,7 @@ export function FullscreenPropSphere({
   const autoRotate = useMapStore((s) => s.autoRotate);
   const observatoryMode = useMapStore((s) => s.observatoryMode);
   const exitObservatory = useMapStore((s) => s.exitObservatory);
+  const layers = useMapStore((s) => s.layers);
   const { station } = useUserStore();
   const watchCriteria = useWatchStore((s) => s.criteria);
 
@@ -560,6 +579,43 @@ export function FullscreenPropSphere({
             />
           </FloatingPanel>
         )}
+
+        {/* Satellite tracking — right side (only when satellite layer active) */}
+        {layers.satellites && !proPanelLayout["satellites"]?.collapsed && (
+          <FloatingPanel
+            id="satellites"
+            title="Satellites"
+            defaultPosition={{ x: 80, y: 50 }}
+            defaultSize={{ width: 260, height: 360 }}
+            minSize={{ width: 220, height: 200 }}
+            maxSize={{ width: 400, height: 600 }}
+            collapsed={false}
+            onCollapse={() => toggleProPanelCollapse("satellites")}
+            persistedLayout={
+              proPanelLayout["satellites"]
+                ? {
+                    x: proPanelLayout["satellites"].x,
+                    y: proPanelLayout["satellites"].y,
+                    width: proPanelLayout["satellites"].width,
+                    height: proPanelLayout["satellites"].height,
+                  }
+                : null
+            }
+            onLayoutChange={(layout) =>
+              updateProPanelLayout("satellites", layout)
+            }
+            zIndex={panelZOrder["satellites"] ?? 100}
+            onFocus={() => bringToFront("satellites")}
+            onDragMove={handleDockDragMove}
+            onDragEnd={handleDockDragEnd}
+            snapTarget={activeSnapTarget}
+            dockGroupWidth={getDockGroupWidth("satellites") ?? undefined}
+            onResizeWidth={onGroupWidthResize}
+            icon={PANEL_ICONS["satellites"]}
+          >
+            <SatellitePanel className="!bg-transparent !border-0 h-full" />
+          </FloatingPanel>
+        )}
       </div>
       {/* end ambient-mode floating panels wrapper */}
 
@@ -567,24 +623,28 @@ export function FullscreenPropSphere({
       {!ambientMode &&
         (["left", "right"] as const).map((edge) =>
           edgeTabGroups[edge].map((panelId, index) => {
-            // 60px clears ribbon; 76px per tab (56px tab + 20px gap)
-            const topOffset = 60 + index * 76;
+            // 60px clears ribbon; 72px per tab
+            const topOffset = 60 + index * 72;
             return (
               <button
                 key={panelId}
                 onClick={() => toggleProPanelCollapse(panelId)}
                 aria-label={`Expand ${PANEL_LABELS[panelId] ?? panelId} panel`}
-                className={`fixed z-[215] w-7 bg-black/70 backdrop-blur-md border border-white/20 shadow-lg
-                  hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-400/50 transition-all duration-200 pointer-events-auto flex flex-col items-center gap-1.5 py-3
+                className={`fixed z-[215] w-8 bg-black/80 backdrop-blur-md border border-white/25 shadow-lg shadow-black/40
+                  hover:bg-white/15 hover:border-cyan-400/40 hover:shadow-cyan-400/20
+                  focus-visible:ring-2 focus-visible:ring-cyan-400/50
+                  transition-all duration-200 pointer-events-auto
+                  flex flex-col items-center gap-2 py-3
+                  animate-in slide-in-from-left
                   ${edge === "left" ? "rounded-r-lg border-l-0" : "rounded-l-lg border-r-0"}`}
                 style={{ [edge]: 0, top: topOffset }}
-                title={PANEL_LABELS[panelId] ?? panelId}
+                title={`Click to expand ${PANEL_LABELS[panelId] ?? panelId}`}
               >
-                <span className="text-white/60 flex-shrink-0">
+                <span className="text-cyan-300/70 flex-shrink-0">
                   {PANEL_ICONS[panelId] ?? null}
                 </span>
                 <span
-                  className="text-[9px] font-medium text-white/60 whitespace-nowrap"
+                  className="text-[9px] font-semibold text-white/70 whitespace-nowrap tracking-wide"
                   style={{
                     writingMode: "vertical-rl",
                     textOrientation: "mixed",
@@ -599,6 +659,9 @@ export function FullscreenPropSphere({
 
       {/* ── Observatory overlay (replaces ambient overlay when in observatory) */}
       {observatoryMode && ambientMode && !showTopBar && <ObservatoryOverlay />}
+
+      {/* ── Observatory tilt slider — visible on mouse move in observatory mode */}
+      {observatoryMode && <ObservatoryTiltSlider visible={showTopBar} />}
 
       {/* ── Ambient overlay (UTC clock + watch pill) — non-observatory only */}
       {showAmbientOverlay && !observatoryMode && (

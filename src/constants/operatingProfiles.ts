@@ -28,6 +28,7 @@ const dxHunter: OperatingProfile = {
     muf: true,
     nvis: false,
     spots: true,
+    spotTraces: false,
     nightLights: true,
     labels: false,
     satellites: false,
@@ -37,6 +38,8 @@ const dxHunter: OperatingProfile = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
 
   spotColorMode: "band",
@@ -72,6 +75,7 @@ const contest: OperatingProfile = {
     muf: false,
     nvis: false,
     spots: true,
+    spotTraces: false,
     nightLights: false,
     labels: false,
     satellites: false,
@@ -81,6 +85,8 @@ const contest: OperatingProfile = {
     wspr: false,
     contestQsos: true,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
 
   spotColorMode: "mode",
@@ -117,6 +123,7 @@ const vhf: OperatingProfile = {
     muf: false,
     nvis: false,
     spots: false,
+    spotTraces: false,
     nightLights: false,
     labels: false,
     satellites: true,
@@ -126,6 +133,8 @@ const vhf: OperatingProfile = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
 
   spotColorMode: "band",
@@ -162,6 +171,7 @@ const emergency: OperatingProfile = {
     muf: false,
     nvis: true,
     spots: false,
+    spotTraces: false,
     nightLights: true,
     labels: true,
     satellites: false,
@@ -171,6 +181,8 @@ const emergency: OperatingProfile = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: true,
+    radar: true,
   },
 
   spotColorMode: "mode",
@@ -207,6 +219,7 @@ const listener: OperatingProfile = {
     muf: false,
     nvis: false,
     spots: true,
+    spotTraces: false,
     nightLights: true,
     labels: false,
     satellites: false,
@@ -216,6 +229,8 @@ const listener: OperatingProfile = {
     wspr: false,
     contestQsos: false,
     loggedQsos: false,
+    fires: false,
+    radar: false,
   },
 
   spotColorMode: "band",
@@ -274,6 +289,7 @@ export function getProfileConfig(id: BuiltinProfileId): {
     muf: "MUF",
     nvis: "NVIS",
     spots: "Spots",
+    spotTraces: "Spot Traces",
     nightLights: "Lights",
     labels: "Labels",
     satellites: "Satellites",
@@ -283,6 +299,8 @@ export function getProfileConfig(id: BuiltinProfileId): {
     wspr: "WSPR",
     contestQsos: "Contest QSOs",
     loggedQsos: "Logged QSOs",
+    fires: "Fires",
+    radar: "Radar",
   };
 
   const enabledLayers = (

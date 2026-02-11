@@ -238,6 +238,9 @@ export function PropSphere() {
   // Region Preset Manager modal state
   const [showPresetManager, setShowPresetManager] = useState(false);
 
+  // Satellite panel collapse state (normal mode)
+  const [satPanelCollapsed, setSatPanelCollapsed] = useState(false);
+
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
 
@@ -887,10 +890,20 @@ export function PropSphere() {
               )}
 
               {/* Satellite Panel (inside map container, top-left when sat layer active) */}
-              {layers.satellites && (
-                <div className="absolute top-2 left-2 z-10 w-[260px] max-h-[50%] overflow-y-auto">
-                  <SatellitePanel />
+              {layers.satellites && !satPanelCollapsed && (
+                <div className="absolute top-2 left-2 z-10 w-[260px] max-h-[70vh] overflow-y-auto">
+                  <SatellitePanel
+                    onToggleCollapse={() => setSatPanelCollapsed(true)}
+                  />
                 </div>
+              )}
+              {layers.satellites && satPanelCollapsed && (
+                <button
+                  onClick={() => setSatPanelCollapsed(false)}
+                  className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-md border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  Satellites
+                </button>
               )}
 
               {/* Labels Panel — appears when labels layer is active */}

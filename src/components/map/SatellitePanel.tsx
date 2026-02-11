@@ -679,7 +679,7 @@ export function SatellitePanel({
       </div>
 
       {/* Content area */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Loading state */}
         {isLoading && satellites.length === 0 && (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">

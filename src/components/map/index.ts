@@ -144,3 +144,17 @@ export { SatellitePanel } from "./SatellitePanel";
 
 // Labels panel (sub-toggles for label layers)
 export { LabelsPanel } from "./LabelsPanel";
+
+// Observatory mode components
+export { ObservatoryTiltSlider } from "./ObservatoryTiltSlider";
+export { AnimatedSpotTraces } from "./AnimatedSpotTraces";
+
+// Selected spot highlight (persistent arc for DX cluster selection)
+export { SelectedSpotArc } from "./SelectedSpotArc";
+
+// Hazard overlays
+export { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
+export { WeatherAlerts3D } from "./WeatherAlerts3D";
+export { LightningOverlay3D } from "./LightningOverlay3D";
+export { FireOverlay3D } from "./FireOverlay3D";
+export { WeatherRadarOverlay } from "./WeatherRadarOverlay";

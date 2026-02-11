@@ -201,6 +201,14 @@ export function LayersPopover() {
           onToggle: () => toggleLayer("spots"),
         },
         {
+          key: "spotTraces",
+          label: "Spot Traces",
+          title:
+            "Animated trace lines from transmitter to receiver — missile command style",
+          getValue: () => layers.spotTraces,
+          onToggle: () => toggleLayer("spotTraces"),
+        },
+        {
           key: "satellites",
           label: "Satellites",
           title: "Track amateur radio satellites with pass predictions",
@@ -252,6 +260,20 @@ export function LayersPopover() {
           title: "Real-time lightning strikes worldwide (Blitzortung)",
           getValue: () => layers.lightning,
           onToggle: () => toggleLayer("lightning"),
+        },
+        {
+          key: "fires",
+          label: "Active Fires",
+          title: "NASA FIRMS fire hotspots worldwide (requires API key)",
+          getValue: () => layers.fires,
+          onToggle: () => toggleLayer("fires"),
+        },
+        {
+          key: "radar",
+          label: "Weather Radar",
+          title: "Global precipitation radar overlay (RainViewer)",
+          getValue: () => layers.radar,
+          onToggle: () => toggleLayer("radar"),
         },
       ],
     },

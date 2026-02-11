@@ -38,10 +38,18 @@ export function useContestQsoLocations(
   enabled = true,
 ): ContestQsoOverlayData | null {
   const qsos = useContestStore((s) => s.activeSession?.qsos);
-  const station = useProfileStore((s) => s.station);
+  const homeLat = useProfileStore((s) => s.station?.lat);
+  const homeLon = useProfileStore((s) => s.station?.lon);
 
   return useMemo(() => {
-    if (!enabled || !qsos || qsos.length === 0 || !station) return null;
+    if (
+      !enabled ||
+      !qsos ||
+      qsos.length === 0 ||
+      homeLat == null ||
+      homeLon == null
+    )
+      return null;
 
     const located: LocatedContestQso[] = [];
     for (const qso of qsos) {
@@ -63,9 +71,9 @@ export function useContestQsoLocations(
     if (located.length === 0) return null;
 
     return {
-      homeLat: station.lat,
-      homeLon: station.lon,
+      homeLat,
+      homeLon,
       qsos: located,
     };
-  }, [enabled, qsos, station]);
+  }, [enabled, qsos, homeLat, homeLon]);
 }

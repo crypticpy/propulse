@@ -883,8 +883,6 @@ export const useMapStore = create<MapState>((set, get) => ({
       layers: {
         ...get().layers,
         ...profile.layers,
-        contestQsos: get().layers.contestQsos,
-        loggedQsos: get().layers.loggedQsos,
       },
       spotFilters,
       // profile.autoFollow now handled by watchStore.autoPan

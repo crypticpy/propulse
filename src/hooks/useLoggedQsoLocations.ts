@@ -32,7 +32,7 @@ export interface LogQsoOverlayData {
   qsos: LocatedLogQso[];
 }
 
-const LOG_QSOS_QUERY_KEY = ["loggedQsoLocations"] as const;
+export const LOG_QSOS_QUERY_KEY = ["loggedQsoLocations"] as const;
 
 /** Max QSOs to display on the map to avoid canvas overload */
 const MAX_DISPLAY_QSOS = 500;
@@ -95,22 +95,24 @@ async function fetchAndGeocodeLogEntries(): Promise<LocatedLogQso[]> {
 export function useLoggedQsoLocations(
   enabled = true,
 ): LogQsoOverlayData | null {
-  const station = useProfileStore((s) => s.station);
+  const homeLat = useProfileStore((s) => s.station?.lat);
+  const homeLon = useProfileStore((s) => s.station?.lon);
 
   const { data: qsos } = useQuery({
     queryKey: LOG_QSOS_QUERY_KEY,
     queryFn: fetchAndGeocodeLogEntries,
-    enabled: enabled && !!station,
+    enabled: enabled && homeLat != null && homeLon != null,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
 
-  if (!qsos || qsos.length === 0 || !station) return null;
+  if (!qsos || qsos.length === 0 || homeLat == null || homeLon == null)
+    return null;
 
   return {
-    homeLat: station.lat,
-    homeLon: station.lon,
+    homeLat,
+    homeLon,
     qsos,
   };
 }

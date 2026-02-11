@@ -86,8 +86,8 @@ interface GridBounds {
 function gridSquareToBounds(square: string): GridBounds {
   const lonField = square.charCodeAt(0) - 65; // A=0 … R=17
   const latField = square.charCodeAt(1) - 65;
-  const lonSquare = parseInt(square[2], 10); // 0-9
-  const latSquare = parseInt(square[3], 10); // 0-9
+  const lonSquare = square.charCodeAt(2) - 48; // 0-9
+  const latSquare = square.charCodeAt(3) - 48; // 0-9
   const baseLon = lonField * 20 - 180 + lonSquare * 2;
   const baseLat = latField * 10 - 90 + latSquare * 1;
   return {

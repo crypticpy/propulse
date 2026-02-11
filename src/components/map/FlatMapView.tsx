@@ -1690,11 +1690,11 @@ function drawSpotGridHighlights(
     } else {
       // 4-char square: 2° lon × 1° lat
       const dxLonIdx = Math.floor((spot.dxLon + 180) / 2);
-      const dxLatIdx = Math.floor((spot.dxLat + 90) / 1);
+      const dxLatIdx = Math.floor(spot.dxLat + 90);
       gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
 
       const spLonIdx = Math.floor((spot.spotterLon + 180) / 2);
-      const spLatIdx = Math.floor((spot.spotterLat + 90) / 1);
+      const spLatIdx = Math.floor(spot.spotterLat + 90);
       gridKeys.add(`${spLonIdx},${spLatIdx}`);
     }
   }
@@ -1704,6 +1704,15 @@ function drawSpotGridHighlights(
   const cellLatDeg = useSubsquare ? 1 / 24 : 1;
 
   ctx.save();
+  // Set canvas state once outside the loop (Canvas 2D best practice)
+  ctx.fillStyle = useSubsquare
+    ? "rgba(0, 204, 204, 0.10)" // slightly brighter for tiny subsquares
+    : "rgba(0, 204, 204, 0.06)";
+  ctx.strokeStyle = useSubsquare
+    ? "rgba(0, 204, 204, 0.20)"
+    : "rgba(0, 204, 204, 0.15)";
+  ctx.lineWidth = 0.5;
+
   for (const key of gridKeys) {
     const [lonIdx, latIdx] = key.split(",").map(Number);
     const lonStart = lonIdx * cellLonDeg - 180;
@@ -1727,17 +1736,7 @@ function drawSpotGridHighlights(
     // Skip degenerate or off-screen rectangles
     if (w <= 0 || h <= 0) continue;
 
-    // Subtle teal fill matching Maidenhead grid color scheme
-    ctx.fillStyle = useSubsquare
-      ? "rgba(0, 204, 204, 0.10)" // slightly brighter for tiny subsquares
-      : "rgba(0, 204, 204, 0.06)";
     ctx.fillRect(topLeft.x, topLeft.y, w, h);
-
-    // Slightly brighter border
-    ctx.strokeStyle = useSubsquare
-      ? "rgba(0, 204, 204, 0.20)"
-      : "rgba(0, 204, 204, 0.15)";
-    ctx.lineWidth = 0.5;
     ctx.strokeRect(topLeft.x, topLeft.y, w, h);
   }
   ctx.restore();
@@ -3117,21 +3116,23 @@ export function FlatMapView({
 
       const color = getSpotColor(spot, spotColorMode);
 
-      // Fire glow for DX grid square (first 4 chars)
+      // Fire glow for DX grid square (4 chars; center-pad 2-char fields with "44")
       const dxGrid = spot.dxGrid;
-      if (dxGrid && dxGrid.length >= 4) {
+      if (dxGrid && dxGrid.length >= 2) {
         glowRendererRef.current.addGlow({
-          gridSquare: dxGrid.slice(0, 4),
+          gridSquare:
+            dxGrid.length >= 4 ? dxGrid.slice(0, 4) : dxGrid.slice(0, 2) + "44",
           color,
           timestamp: now,
         } satisfies GridGlowSpot);
       }
 
-      // Fire glow for spotter grid square (first 4 chars)
+      // Fire glow for spotter grid square (4 chars; center-pad 2-char fields with "44")
       const sGrid = spot.spotterGrid;
-      if (sGrid && sGrid.length >= 4) {
+      if (sGrid && sGrid.length >= 2) {
         glowRendererRef.current.addGlow({
-          gridSquare: sGrid.slice(0, 4),
+          gridSquare:
+            sGrid.length >= 4 ? sGrid.slice(0, 4) : sGrid.slice(0, 2) + "44",
           color,
           timestamp: now,
         } satisfies GridGlowSpot);

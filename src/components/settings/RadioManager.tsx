@@ -636,6 +636,9 @@ export function RadioManager({
   );
   const [customBaseQuery, setCustomBaseQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [removeRadioTarget, setRemoveRadioTarget] = useState<string | null>(
+    null,
+  );
 
   const [instanceModalOpen, setInstanceModalOpen] = useState(false);
   const [editingInstanceId, setEditingInstanceId] = useState<string | null>(
@@ -760,7 +763,14 @@ export function RadioManager({
   };
 
   const handleRemoveRadio = (radioInstanceId: string) => {
-    removeRadio(radioInstanceId);
+    setRemoveRadioTarget(radioInstanceId);
+  };
+
+  const confirmRemoveRadio = () => {
+    if (removeRadioTarget) {
+      removeRadio(removeRadioTarget);
+    }
+    setRemoveRadioTarget(null);
   };
 
   const handleSetActiveEquipment = (equipmentId: string) => {
@@ -2285,6 +2295,16 @@ export function RadioManager({
         message="Are you sure you want to delete this custom radio? This action cannot be undone."
         confirmLabel="Delete"
         variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={removeRadioTarget !== null}
+        title="Remove Radio"
+        message="Are you sure you want to remove this radio from your shack? This cannot be undone."
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={confirmRemoveRadio}
+        onCancel={() => setRemoveRadioTarget(null)}
       />
     </div>
   );

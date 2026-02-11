@@ -11,6 +11,7 @@ import { useSocialStore } from "@/stores/socialStore";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthRequiredPlaceholder } from "@/components/auth";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ function FriendListInner() {
 
   const [search, setSearch] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [unfollowTarget, setUnfollowTarget] = useState<string | null>(null);
 
   // Fetch on mount
   useEffect(() => {
@@ -93,17 +95,20 @@ function FriendListInner() {
     [followUser],
   );
 
-  const handleUnfollow = useCallback(
-    async (userId: string) => {
-      try {
-        setActionError(null);
-        await unfollowUser(userId);
-      } catch {
-        setActionError("Failed to unfollow user. Please try again.");
-      }
-    },
-    [unfollowUser],
-  );
+  const handleUnfollow = useCallback((userId: string) => {
+    setUnfollowTarget(userId);
+  }, []);
+
+  const confirmUnfollow = useCallback(async () => {
+    if (!unfollowTarget) return;
+    try {
+      setActionError(null);
+      await unfollowUser(unfollowTarget);
+    } catch {
+      setActionError("Failed to unfollow user. Please try again.");
+    }
+    setUnfollowTarget(null);
+  }, [unfollowTarget, unfollowUser]);
 
   const isEmpty = following.length === 0 && followers.length === 0;
 
@@ -179,6 +184,16 @@ function FriendListInner() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={unfollowTarget !== null}
+        title="Unfollow Operator"
+        message="Are you sure you want to unfollow this operator?"
+        confirmLabel="Unfollow"
+        variant="warning"
+        onConfirm={confirmUnfollow}
+        onCancel={() => setUnfollowTarget(null)}
+      />
     </div>
   );
 }

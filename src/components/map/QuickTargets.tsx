@@ -10,6 +10,7 @@ import { useCallback, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, type SavedTarget } from "@/stores/userStore";
 import { Card } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PinList } from "./PinList";
 import type { MapPin } from "@/types/pin";
 
@@ -26,6 +27,10 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
   // Active tab: "targets" or "pins"
   const [activeTab, setActiveTab] = useState<"targets" | "pins">("targets");
 
+  // Delete confirmation state
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [showClearAll, setShowClearAll] = useState(false);
+
   // Handle click on a saved target
   const handleTargetClick = useCallback(
     (target: SavedTarget) => {
@@ -39,14 +44,11 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
     [setTarget],
   );
 
-  // Handle remove target
-  const handleRemoveTarget = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      removeTarget(id);
-    },
-    [removeTarget],
-  );
+  // Handle remove target — opens confirmation dialog
+  const handleRemoveTarget = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setDeleteTargetId(id);
+  }, []);
 
   // Handle pin selection - set as target
   const handlePinSelect = useCallback(
@@ -112,7 +114,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
           {savedTargets.length > 0 && (
             <div className="flex justify-end mb-2">
               <button
-                onClick={clearTargets}
+                onClick={() => setShowClearAll(true)}
                 className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                 title="Clear all saved targets"
               >
@@ -185,6 +187,32 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
       {activeTab === "pins" && (
         <PinList onPinSelect={handlePinSelect} onPinEdit={handlePinEdit} />
       )}
+
+      {/* Delete confirmation dialogs */}
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        title="Remove Target"
+        message="Remove this saved target?"
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={() => {
+          if (deleteTargetId) removeTarget(deleteTargetId);
+          setDeleteTargetId(null);
+        }}
+        onCancel={() => setDeleteTargetId(null)}
+      />
+      <ConfirmDialog
+        open={showClearAll}
+        title="Clear All Targets"
+        message="Remove all saved targets? This cannot be undone."
+        confirmLabel="Clear All"
+        variant="destructive"
+        onConfirm={() => {
+          clearTargets();
+          setShowClearAll(false);
+        }}
+        onCancel={() => setShowClearAll(false)}
+      />
     </Card>
   );
 }

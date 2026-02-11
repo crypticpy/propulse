@@ -8,6 +8,7 @@
 
 import { useState, useCallback } from "react";
 import { useSettingsStore, useBandPresets } from "@/stores/settingsStore";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ALL_BANDS, type BandId } from "@/types/user";
 
 const MAX_PRESETS = 5;
@@ -23,6 +24,9 @@ export function BandPresetManager() {
   const [name, setName] = useState("");
   const [selectedBands, setSelectedBands] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Delete confirmation state
+  const [deletePresetId, setDeletePresetId] = useState<string | null>(null);
 
   const resetForm = useCallback(() => {
     setName("");
@@ -129,7 +133,7 @@ export function BandPresetManager() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => removeBandPreset(preset.id)}
+                  onClick={() => setDeletePresetId(preset.id)}
                   className="text-xs text-gray-400 hover:text-alert-red transition-colors"
                 >
                   Delete
@@ -189,6 +193,19 @@ export function BandPresetManager() {
           </div>
         </div>
       )}
+      {/* Delete preset confirmation dialog */}
+      <ConfirmDialog
+        open={deletePresetId !== null}
+        title="Delete Band Preset"
+        message="Delete this band preset? This cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          if (deletePresetId) removeBandPreset(deletePresetId);
+          setDeletePresetId(null);
+        }}
+        onCancel={() => setDeletePresetId(null)}
+      />
     </div>
   );
 }

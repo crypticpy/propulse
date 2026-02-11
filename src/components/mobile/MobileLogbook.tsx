@@ -10,6 +10,7 @@
 
 import { useState, useMemo } from "react";
 import type { LogEntry } from "@/lib/db/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface MobileLogbookProps {
   entries: LogEntry[];
@@ -40,6 +41,14 @@ function formatDate(dateStr: string): string {
 export function MobileLogbook(props: MobileLogbookProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteQsoId, setDeleteQsoId] = useState<string | null>(null);
+
+  const confirmDeleteQso = () => {
+    if (deleteQsoId) {
+      props.onDelete(deleteQsoId);
+    }
+    setDeleteQsoId(null);
+  };
 
   const filteredEntries = useMemo(() => {
     if (!searchQuery.trim()) return props.entries;
@@ -287,7 +296,7 @@ export function MobileLogbook(props: MobileLogbookProps) {
                     )}
                     <button
                       type="button"
-                      onClick={() => props.onDelete(qso.id)}
+                      onClick={() => setDeleteQsoId(qso.id)}
                       disabled={props.isDeleting}
                       className="text-xs text-alert-red/70 hover:text-alert-red
                                  disabled:opacity-50 mt-1"
@@ -301,6 +310,16 @@ export function MobileLogbook(props: MobileLogbookProps) {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteQsoId !== null}
+        title="Delete QSO"
+        message="Are you sure you want to delete this log entry? This cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDeleteQso}
+        onCancel={() => setDeleteQsoId(null)}
+      />
     </div>
   );
 }

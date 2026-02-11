@@ -10,6 +10,7 @@ import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { BAND_COLORS } from "@/lib/utils/spotColors";
 import { AVAILABLE_SOURCES } from "@/stores/dxStore";
 import { SPOT_SOURCE_COLORS, type SpotSource } from "@/types/livespot";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { FilterControlsProps } from "./types";
 import {
   TIME_RANGE_OPTIONS,
@@ -77,6 +78,9 @@ export const FilterControls = memo(function FilterControls({
   // State for "Save Preset" input
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [presetName, setPresetName] = useState("");
+
+  // Delete confirmation state
+  const [deletePresetId, setDeletePresetId] = useState<string | null>(null);
   const saveInputRef = useRef<HTMLInputElement>(null);
 
   // Collapsible state - collapsed by default for space efficiency
@@ -524,7 +528,7 @@ export const FilterControls = memo(function FilterControls({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDeletePreset(preset.id);
+                setDeletePresetId(preset.id);
               }}
               className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500/80 text-white text-[7px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
               title="Delete preset"
@@ -658,6 +662,20 @@ export const FilterControls = memo(function FilterControls({
           );
         })}
       </div>
+
+      {/* Delete preset confirmation dialog */}
+      <ConfirmDialog
+        open={deletePresetId !== null}
+        title="Delete Band Preset"
+        message="Delete this band preset? This cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={() => {
+          if (deletePresetId) onDeletePreset(deletePresetId);
+          setDeletePresetId(null);
+        }}
+        onCancel={() => setDeletePresetId(null)}
+      />
     </div>
   );
 });

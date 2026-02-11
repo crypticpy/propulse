@@ -8,6 +8,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { ImageCropDialog } from "@/components/ui/ImageCropDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { deleteImage } from "@/lib/db/imageStore";
 import { useImageUrl } from "@/hooks/useImageUrl";
 
@@ -82,6 +83,7 @@ export function ImageUploadButton({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   const { url: imageUrl } = useImageUrl(imageId);
 
@@ -167,7 +169,7 @@ export function ImageUploadButton({
             {/* Remove overlay */}
             <button
               type="button"
-              onClick={handleRemove}
+              onClick={() => setShowRemoveConfirm(true)}
               className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
                          bg-void-black border border-white/20
                          flex items-center justify-center
@@ -225,6 +227,19 @@ export function ImageUploadButton({
           onComplete={handleCropComplete}
         />
       )}
+
+      <ConfirmDialog
+        open={showRemoveConfirm}
+        title="Remove Image"
+        message="Remove this image? This cannot be undone."
+        confirmLabel="Remove"
+        variant="destructive"
+        onConfirm={() => {
+          handleRemove();
+          setShowRemoveConfirm(false);
+        }}
+        onCancel={() => setShowRemoveConfirm(false)}
+      />
     </>
   );
 }

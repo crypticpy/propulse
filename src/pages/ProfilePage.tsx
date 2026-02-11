@@ -41,6 +41,7 @@ import { VisibilitySettings } from "@/components/profile/VisibilitySettings";
 import { ShareCard } from "@/components/profile/ShareCard";
 import type { ProfileTab } from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankPageVars } from "@/components/rank/RankBorderStyles";
 import { isRankAtLeast } from "@/lib/data/rankConstants";
@@ -79,6 +80,7 @@ function OtherProfileView({
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
 
   // Fetch following list for follow button state
   useEffect(() => {
@@ -245,7 +247,7 @@ function OtherProfileView({
                     <button
                       onClick={() => {
                         if (isFollowing) {
-                          unfollowUser(profile.id);
+                          setShowUnfollowConfirm(true);
                         } else {
                           requireAuth(
                             () => followUser(profile.id),
@@ -342,6 +344,19 @@ function OtherProfileView({
           Last active: {new Date(profile.lastActiveAt).toLocaleDateString()}
         </p>
       )}
+
+      <ConfirmDialog
+        open={showUnfollowConfirm}
+        title="Unfollow Operator"
+        message="Are you sure you want to unfollow this operator?"
+        confirmLabel="Unfollow"
+        variant="warning"
+        onConfirm={() => {
+          unfollowUser(profile.id);
+          setShowUnfollowConfirm(false);
+        }}
+        onCancel={() => setShowUnfollowConfirm(false)}
+      />
     </div>
   );
 }

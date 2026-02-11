@@ -1664,44 +1664,79 @@ function drawSpotHighlight(
 
 /**
  * Highlight Maidenhead grid squares containing active spots.
- * Draws subtle teal fills at the 4-char square level (2° lon × 1° lat).
+ * Zoom-adaptive: 4-char squares (2° × 1°) at low zoom, 6-char subsquares (5' × 2.5') at zoom >= 3.
  */
 function drawSpotGridHighlights(
   ctx: CanvasRenderingContext2D,
   spots: ResolvedSpot[],
   width: number,
   height: number,
+  zoomScale = 1.0,
 ) {
-  // Collect unique grid squares from spot lat/lons
+  // Use subsquare precision (6-char, 5'×2.5') at zoom >= 3, otherwise square (4-char, 2°×1°)
+  const useSubsquare = zoomScale >= 3;
+
   const gridKeys = new Set<string>();
   for (const spot of spots) {
-    // Compute 2° × 1° grid square bounds from lat/lon
-    const dxLonIdx = Math.floor((spot.dxLon + 180) / 2);
-    const dxLatIdx = Math.floor((spot.dxLat + 90) / 1);
-    gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
+    if (useSubsquare) {
+      // 6-char subsquare: 5 minutes lon (1/12°) × 2.5 minutes lat (1/24°)
+      const dxLonIdx = Math.floor((spot.dxLon + 180) * 12);
+      const dxLatIdx = Math.floor((spot.dxLat + 90) * 24);
+      gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
 
-    const spLonIdx = Math.floor((spot.spotterLon + 180) / 2);
-    const spLatIdx = Math.floor((spot.spotterLat + 90) / 1);
-    gridKeys.add(`${spLonIdx},${spLatIdx}`);
+      const spLonIdx = Math.floor((spot.spotterLon + 180) * 12);
+      const spLatIdx = Math.floor((spot.spotterLat + 90) * 24);
+      gridKeys.add(`${spLonIdx},${spLatIdx}`);
+    } else {
+      // 4-char square: 2° lon × 1° lat
+      const dxLonIdx = Math.floor((spot.dxLon + 180) / 2);
+      const dxLatIdx = Math.floor((spot.dxLat + 90) / 1);
+      gridKeys.add(`${dxLonIdx},${dxLatIdx}`);
+
+      const spLonIdx = Math.floor((spot.spotterLon + 180) / 2);
+      const spLatIdx = Math.floor((spot.spotterLat + 90) / 1);
+      gridKeys.add(`${spLonIdx},${spLatIdx}`);
+    }
   }
+
+  // Cell dimensions in degrees
+  const cellLonDeg = useSubsquare ? 1 / 12 : 2;
+  const cellLatDeg = useSubsquare ? 1 / 24 : 1;
 
   ctx.save();
   for (const key of gridKeys) {
     const [lonIdx, latIdx] = key.split(",").map(Number);
-    const lonStart = lonIdx * 2 - 180;
-    const latStart = latIdx * 1 - 90;
+    const lonStart = lonIdx * cellLonDeg - 180;
+    const latStart = latIdx * cellLatDeg - 90;
 
-    const topLeft = latLonToCanvas(latStart + 1, lonStart, width, height);
-    const bottomRight = latLonToCanvas(latStart, lonStart + 2, width, height);
+    const topLeft = latLonToCanvas(
+      latStart + cellLatDeg,
+      lonStart,
+      width,
+      height,
+    );
+    const bottomRight = latLonToCanvas(
+      latStart,
+      lonStart + cellLonDeg,
+      width,
+      height,
+    );
     const w = bottomRight.x - topLeft.x;
     const h = bottomRight.y - topLeft.y;
 
+    // Skip degenerate or off-screen rectangles
+    if (w <= 0 || h <= 0) continue;
+
     // Subtle teal fill matching Maidenhead grid color scheme
-    ctx.fillStyle = "rgba(0, 204, 204, 0.06)";
+    ctx.fillStyle = useSubsquare
+      ? "rgba(0, 204, 204, 0.10)" // slightly brighter for tiny subsquares
+      : "rgba(0, 204, 204, 0.06)";
     ctx.fillRect(topLeft.x, topLeft.y, w, h);
 
     // Slightly brighter border
-    ctx.strokeStyle = "rgba(0, 204, 204, 0.15)";
+    ctx.strokeStyle = useSubsquare
+      ? "rgba(0, 204, 204, 0.20)"
+      : "rgba(0, 204, 204, 0.15)";
     ctx.lineWidth = 0.5;
     ctx.strokeRect(topLeft.x, topLeft.y, w, h);
   }
@@ -3082,21 +3117,21 @@ export function FlatMapView({
 
       const color = getSpotColor(spot, spotColorMode);
 
-      // Fire glow for DX grid field (first 2 chars)
+      // Fire glow for DX grid square (first 4 chars)
       const dxGrid = spot.dxGrid;
-      if (dxGrid && dxGrid.length >= 2) {
+      if (dxGrid && dxGrid.length >= 4) {
         glowRendererRef.current.addGlow({
-          gridField: dxGrid.slice(0, 2),
+          gridSquare: dxGrid.slice(0, 4),
           color,
           timestamp: now,
         } satisfies GridGlowSpot);
       }
 
-      // Fire glow for spotter grid field (first 2 chars)
+      // Fire glow for spotter grid square (first 4 chars)
       const sGrid = spot.spotterGrid;
-      if (sGrid && sGrid.length >= 2) {
+      if (sGrid && sGrid.length >= 4) {
         glowRendererRef.current.addGlow({
-          gridField: sGrid.slice(0, 2),
+          gridSquare: sGrid.slice(0, 4),
           color,
           timestamp: now,
         } satisfies GridGlowSpot);
@@ -4350,7 +4385,13 @@ export function FlatMapView({
       layers.spots &&
       resolvedSpots.length > 0
     ) {
-      drawSpotGridHighlights(ctx, resolvedSpots, renderWidth, renderHeight);
+      drawSpotGridHighlights(
+        ctx,
+        resolvedSpots,
+        renderWidth,
+        renderHeight,
+        zoom.scale,
+      );
     }
 
     // Draw live spot arcs (dimmed for non-matched when watch is active)

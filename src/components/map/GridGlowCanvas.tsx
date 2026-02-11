@@ -1,7 +1,7 @@
 /**
  * GridGlowCanvas — Canvas 2D grid glow renderer for FlatMapView
  *
- * Renders brief glow pulses on Maidenhead grid fields (2-char prefix)
+ * Renders brief glow pulses on Maidenhead grid squares (4-char)
  * when live spots arrive. Exports a draw function to be called from
  * FlatMapView's canvas render loop — not a React component.
  */
@@ -11,8 +11,8 @@
 // ---------------------------------------------------------------------------
 
 export interface GridGlowSpot {
-  /** 2-char Maidenhead grid field prefix (e.g. "EM", "FN", "JO") */
-  gridField: string;
+  /** 4-char Maidenhead grid square (e.g. "EM10", "FN31", "JO22") */
+  gridSquare: string;
   /** CSS color string */
   color: string;
   /** Timestamp when the spot arrived (Date.now() or performance.now()) */
@@ -20,8 +20,8 @@ export interface GridGlowSpot {
 }
 
 interface ActiveGlow {
-  /** Upper-case 2-char grid field */
-  gridField: string;
+  /** Upper-case 4-char grid square */
+  gridSquare: string;
   /** CSS color string */
   color: string;
   /** Timestamp the glow was first triggered */
@@ -40,7 +40,7 @@ interface ActiveGlow {
 // ---------------------------------------------------------------------------
 
 /** Maximum simultaneous active glows */
-const MAX_ACTIVE_GLOWS = 20;
+const MAX_ACTIVE_GLOWS = 40;
 
 /** Rise phase duration (ms) — intensity climbs from 0 → peak */
 const RISE_DURATION_MS = 800;
@@ -73,7 +73,7 @@ function easeInQuad(t: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// Maidenhead grid field → geographic bounds
+// Maidenhead grid square → geographic bounds
 // ---------------------------------------------------------------------------
 
 interface GridBounds {
@@ -83,14 +83,18 @@ interface GridBounds {
   maxLon: number;
 }
 
-function gridFieldToBounds(field: string): GridBounds {
-  const lonField = field.charCodeAt(0) - 65; // A=0 … R=17
-  const latField = field.charCodeAt(1) - 65;
+function gridSquareToBounds(square: string): GridBounds {
+  const lonField = square.charCodeAt(0) - 65; // A=0 … R=17
+  const latField = square.charCodeAt(1) - 65;
+  const lonSquare = parseInt(square[2], 10); // 0-9
+  const latSquare = parseInt(square[3], 10); // 0-9
+  const baseLon = lonField * 20 - 180 + lonSquare * 2;
+  const baseLat = latField * 10 - 90 + latSquare * 1;
   return {
-    minLon: lonField * 20 - 180,
-    maxLon: (lonField + 1) * 20 - 180,
-    minLat: latField * 10 - 90,
-    maxLat: (latField + 1) * 10 - 90,
+    minLon: baseLon,
+    maxLon: baseLon + 2,
+    minLat: baseLat,
+    maxLat: baseLat + 1,
   };
 }
 
@@ -98,12 +102,23 @@ function gridFieldToBounds(field: string): GridBounds {
 // Validation
 // ---------------------------------------------------------------------------
 
-function isValidGridField(field: string): boolean {
-  if (field.length !== 2) return false;
-  const a = field.charCodeAt(0);
-  const b = field.charCodeAt(1);
-  // A(65) through R(82) inclusive
-  return a >= 65 && a <= 82 && b >= 65 && b <= 82;
+function isValidGridSquare(square: string): boolean {
+  if (square.length !== 4) return false;
+  const a = square.charCodeAt(0);
+  const b = square.charCodeAt(1);
+  const c = square.charCodeAt(2);
+  const d = square.charCodeAt(3);
+  // Field: A-R, Square digits: 0-9
+  return (
+    a >= 65 &&
+    a <= 82 &&
+    b >= 65 &&
+    b <= 82 &&
+    c >= 48 &&
+    c <= 57 &&
+    d >= 48 &&
+    d <= 57
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -119,16 +134,16 @@ export class GridGlowRenderer {
   // -----------------------------------------------------------------------
 
   /**
-   * Add a new glow pulse for a grid field.
-   * If the same grid field already has an active glow, its peak intensity
+   * Add a new glow pulse for a grid square.
+   * If the same grid square already has an active glow, its peak intensity
    * is boosted instead of spawning a duplicate.
    */
   addGlow(spot: GridGlowSpot): void {
-    const field = spot.gridField.toUpperCase();
-    if (!isValidGridField(field)) return;
+    const square = spot.gridSquare.toUpperCase();
+    if (!isValidGridSquare(square)) return;
 
-    // Check for an existing active glow on the same field
-    const existing = this.glows.find((g) => g.gridField === field);
+    // Check for an existing active glow on the same square
+    const existing = this.glows.find((g) => g.gridSquare === square);
     if (existing) {
       // Boost intensity and reset start time so the glow re-rises
       existing.peakIntensity = Math.min(
@@ -145,9 +160,9 @@ export class GridGlowRenderer {
       this.evictWeakest(spot.timestamp);
     }
 
-    const bounds = gridFieldToBounds(field);
+    const bounds = gridSquareToBounds(square);
     this.glows.push({
-      gridField: field,
+      gridSquare: square,
       color: spot.color,
       startTime: spot.timestamp,
       peakIntensity: DEFAULT_PEAK_ALPHA,

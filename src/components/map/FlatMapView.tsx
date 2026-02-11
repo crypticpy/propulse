@@ -90,6 +90,10 @@ import {
 } from "@/lib/utils/maidenheadGrid";
 import { GridGlowRenderer } from "./GridGlowCanvas";
 import type { GridGlowSpot } from "./GridGlowCanvas";
+import { useEarthquakes } from "@/hooks/useEarthquakes";
+import { useWeatherAlerts } from "@/hooks/useWeatherRadar";
+import type { EarthquakeEvent } from "@/lib/api/earthquakes";
+import type { WeatherAlert } from "@/lib/api/weather";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -897,6 +901,126 @@ function drawAurora(
   }
 
   // Restore context state
+  ctx.restore();
+}
+
+/**
+ * Draw earthquake markers on the 2D map
+ * Renders recent earthquakes as magnitude-scaled colored circles with glow
+ */
+function drawEarthquakes(
+  ctx: CanvasRenderingContext2D,
+  earthquakes: EarthquakeEvent[],
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  for (const eq of earthquakes) {
+    const { x, y } = latLonToCanvas(eq.lat, eq.lon, width, height);
+
+    // Size based on magnitude (M2.5-M9 mapped to 3-20px radius)
+    const radius = Math.max(3, Math.min(20, (eq.magnitude - 1) * 3));
+
+    // Color based on magnitude
+    let color: string;
+    if (eq.magnitude >= 7)
+      color = "#ff2020"; // Major: red
+    else if (eq.magnitude >= 5)
+      color = "#ff8800"; // Strong: orange
+    else if (eq.magnitude >= 4)
+      color = "#ffcc00"; // Moderate: yellow
+    else color = "#88cc44"; // Light: green-yellow
+
+    // Outer glow ring
+    ctx.globalAlpha = 0.15;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Inner filled circle
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Outline
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Magnitude label for M5+
+    if (eq.magnitude >= 5) {
+      ctx.globalAlpha = 1;
+      ctx.font = "bold 7px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.lineWidth = 2;
+      ctx.strokeText(`M${eq.magnitude.toFixed(1)}`, x, y - radius - 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(`M${eq.magnitude.toFixed(1)}`, x, y - radius - 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * Draw weather alert markers on the 2D map
+ * Renders active weather warnings as severity-colored triangles
+ */
+function drawWeatherAlerts(
+  ctx: CanvasRenderingContext2D,
+  alerts: WeatherAlert[],
+  width: number,
+  height: number,
+) {
+  ctx.save();
+  for (const alert of alerts) {
+    const { x, y } = latLonToCanvas(alert.lat, alert.lon, width, height);
+
+    // Color by severity
+    let color: string;
+    switch (alert.severity) {
+      case "Extreme":
+        color = "#ff0040";
+        break;
+      case "Severe":
+        color = "#ff6600";
+        break;
+      case "Moderate":
+        color = "#ffaa00";
+        break;
+      default:
+        color = "#ffdd44";
+        break;
+    }
+
+    // Warning triangle
+    const size = 6;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(x, y - size); // top
+    ctx.lineTo(x + size, y + size * 0.6); // bottom right
+    ctx.lineTo(x - size, y + size * 0.6); // bottom left
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Exclamation mark inside triangle
+    ctx.fillStyle = "#000000";
+    ctx.font = "bold 7px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("!", x, y);
+  }
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -2576,6 +2700,10 @@ export function FlatMapView({
   const { satellites: satPositions, selectedSatellite: selectedSat } =
     useSatellites();
 
+  // Earthquake and weather data for hazard overlays
+  const { earthquakes: earthquakeData } = useEarthquakes();
+  const { alerts: weatherAlerts } = useWeatherAlerts();
+
   // Watch store v2
   const watchEnabled = useWatchStore((state) => state.enabled);
   const matchedSpotIds = useWatchStore((state) => state.matchedSpotIds);
@@ -3816,6 +3944,16 @@ export function FlatMapView({
       drawAurora(ctx, auroraData, 10, renderWidth, renderHeight);
     }
 
+    // Draw earthquake markers
+    if (layers.earthquakes && earthquakeData.length > 0) {
+      drawEarthquakes(ctx, earthquakeData, renderWidth, renderHeight);
+    }
+
+    // Draw weather alert markers
+    if (layers.weather && weatherAlerts.length > 0) {
+      drawWeatherAlerts(ctx, weatherAlerts, renderWidth, renderHeight);
+    }
+
     // Draw night lights (city lights on dark side)
     if (!isStandard && layers.nightLights) {
       drawNightLights(ctx, displayTime, renderWidth, renderHeight);
@@ -4106,6 +4244,8 @@ export function FlatMapView({
     glowTick,
     satPositions,
     selectedSat,
+    earthquakeData,
+    weatherAlerts,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point

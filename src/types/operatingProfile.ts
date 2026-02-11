@@ -37,6 +37,8 @@ export interface OperatingProfile {
     nightLights: boolean;
     labels: boolean;
     satellites: boolean;
+    earthquakes: boolean;
+    weather: boolean;
   };
 
   // Display preferences

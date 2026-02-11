@@ -211,6 +211,25 @@ export function LayersPopover() {
       ],
     },
     {
+      name: "Hazards",
+      items: [
+        {
+          key: "earthquakes",
+          label: "Earthquakes",
+          title: "Recent M2.5+ earthquakes worldwide (USGS)",
+          getValue: () => layers.earthquakes,
+          onToggle: () => toggleLayer("earthquakes"),
+        },
+        {
+          key: "weather",
+          label: "Weather Alerts",
+          title: "Active NOAA weather warnings and advisories",
+          getValue: () => layers.weather,
+          onToggle: () => toggleLayer("weather"),
+        },
+      ],
+    },
+    {
       name: "Reference",
       items: [
         {

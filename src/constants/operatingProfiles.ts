@@ -31,6 +31,8 @@ const dxHunter: OperatingProfile = {
     nightLights: true,
     labels: false,
     satellites: false,
+    earthquakes: false,
+    weather: false,
   },
 
   spotColorMode: "band",
@@ -69,6 +71,8 @@ const contest: OperatingProfile = {
     nightLights: false,
     labels: false,
     satellites: false,
+    earthquakes: false,
+    weather: false,
   },
 
   spotColorMode: "mode",
@@ -108,6 +112,8 @@ const vhf: OperatingProfile = {
     nightLights: false,
     labels: false,
     satellites: true,
+    earthquakes: false,
+    weather: false,
   },
 
   spotColorMode: "band",
@@ -147,6 +153,8 @@ const emergency: OperatingProfile = {
     nightLights: true,
     labels: true,
     satellites: false,
+    earthquakes: true,
+    weather: true,
   },
 
   spotColorMode: "mode",
@@ -186,6 +194,8 @@ const listener: OperatingProfile = {
     nightLights: true,
     labels: false,
     satellites: false,
+    earthquakes: false,
+    weather: false,
   },
 
   spotColorMode: "band",
@@ -247,6 +257,8 @@ export function getProfileConfig(id: BuiltinProfileId): {
     nightLights: "Lights",
     labels: "Labels",
     satellites: "Satellites",
+    earthquakes: "Earthquakes",
+    weather: "Weather",
   };
 
   const enabledLayers = (

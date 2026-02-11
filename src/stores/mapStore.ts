@@ -138,6 +138,8 @@ export interface ProPanelLayoutEntry {
   width: number;
   height: number;
   collapsed: boolean;
+  dockedEdge?: "left" | "right"; // which screen edge when minimized
+  dockedOrder?: number; // vertical sort position (panel's y-center at minimize time)
 }
 
 export type PanelId = keyof PanelStates;
@@ -360,6 +362,11 @@ interface MapState {
   showCorrelation: boolean;
   setShowCorrelation: (show: boolean) => void;
   toggleCorrelation: () => void;
+
+  // Pro toolbar ribbon (persisted)
+  proRibbonExpanded: boolean;
+  setProRibbonExpanded: (expanded: boolean) => void;
+  toggleProRibbon: () => void;
 
   // Pro mode floating panel layout (persisted)
   proPanelLayout: Record<string, ProPanelLayoutEntry>;
@@ -654,9 +661,9 @@ const PRO_PANEL_LAYOUT_KEY = "propulse-pro-panel-layout";
 
 const DEFAULT_PRO_PANEL_LAYOUT: Record<string, ProPanelLayoutEntry> = {
   "band-conditions": { x: 1, y: 8, width: 256, height: 400, collapsed: false },
-  "path-analysis": { x: 80, y: 8, width: 288, height: 400, collapsed: false },
-  "dx-spots": { x: 20, y: 78, width: 600, height: 200, collapsed: false },
-  recommendations: { x: 1, y: 75, width: 320, height: 180, collapsed: false },
+  "path-analysis": { x: 75, y: 8, width: 288, height: 400, collapsed: false },
+  "dx-spots": { x: 25, y: 70, width: 600, height: 200, collapsed: false },
+  recommendations: { x: 1, y: 60, width: 320, height: 180, collapsed: false },
 };
 
 function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
@@ -676,6 +683,28 @@ function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
 function saveProPanelLayout(layout: Record<string, ProPanelLayoutEntry>): void {
   try {
     localStorage.setItem(PRO_PANEL_LAYOUT_KEY, JSON.stringify(layout));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// ── Pro ribbon expanded persistence ──────────────────────────────────────────
+
+const PRO_RIBBON_KEY = "propulse-pro-ribbon-expanded";
+
+function loadProRibbonExpanded(): boolean {
+  try {
+    const saved = localStorage.getItem(PRO_RIBBON_KEY);
+    if (saved !== null) return JSON.parse(saved) === true;
+  } catch {
+    // Ignore parse errors
+  }
+  return true; // expanded by default
+}
+
+function saveProRibbonExpanded(expanded: boolean): void {
+  try {
+    localStorage.setItem(PRO_RIBBON_KEY, JSON.stringify(expanded));
   } catch {
     // Ignore storage errors
   }
@@ -800,6 +829,9 @@ const initialState = {
   showObservedMUF: false,
   observedMUFMode: "off" as "observed" | "divergence" | "off",
   showCorrelation: true, // On by default
+
+  // Pro toolbar ribbon
+  proRibbonExpanded: loadProRibbonExpanded(),
 
   // Pro mode floating panel layout (persisted)
   proPanelLayout: loadProPanelLayout(),
@@ -1398,6 +1430,18 @@ export const useMapStore = create<MapState>((set, get) => ({
   toggleCorrelation: () =>
     set((state) => ({ showCorrelation: !state.showCorrelation })),
 
+  // Pro toolbar ribbon
+  setProRibbonExpanded: (expanded) => {
+    saveProRibbonExpanded(expanded);
+    set({ proRibbonExpanded: expanded });
+  },
+  toggleProRibbon: () =>
+    set((state) => {
+      const next = !state.proRibbonExpanded;
+      saveProRibbonExpanded(next);
+      return { proRibbonExpanded: next };
+    }),
+
   // Pro panel layout actions
   updateProPanelLayout: (panelId, layout) =>
     set((state) => {
@@ -1418,9 +1462,26 @@ export const useMapStore = create<MapState>((set, get) => ({
       const existing = state.proPanelLayout[panelId];
       if (!existing) return {};
       const nowCollapsed = !existing.collapsed;
+
+      // Compute docked edge and order when collapsing
+      let dockedEdge: "left" | "right" | undefined;
+      let dockedOrder: number | undefined;
+      if (nowCollapsed) {
+        const panelCenterX = existing.x + existing.width / 2;
+        const viewportCenterX =
+          typeof window !== "undefined" ? window.innerWidth / 2 : 960;
+        dockedEdge = panelCenterX < viewportCenterX ? "left" : "right";
+        dockedOrder = existing.y + existing.height / 2;
+      }
+
       const updated = {
         ...state.proPanelLayout,
-        [panelId]: { ...existing, collapsed: nowCollapsed },
+        [panelId]: {
+          ...existing,
+          collapsed: nowCollapsed,
+          dockedEdge,
+          dockedOrder,
+        },
       };
       saveProPanelLayout(updated);
 

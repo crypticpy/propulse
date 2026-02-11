@@ -11,8 +11,10 @@
 import { useState, useCallback } from "react";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useMapStore } from "@/stores/mapStore";
 
 export function MapSizeSliders() {
+  const isFullscreen = useMapStore((s) => s.isFullscreen);
   const [expanded, setExpanded] = useState(false);
 
   const prefs = useUIInteractionPrefs();
@@ -34,6 +36,9 @@ export function MapSizeSliders() {
     },
     [updateUIInteraction],
   );
+
+  // Hidden in fullscreen — size controls are in the ProToolbarRibbon
+  if (isFullscreen) return null;
 
   if (!expanded) {
     return (

@@ -26,7 +26,6 @@ import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankBorderStyle } from "@/components/rank/RankBorderStyles";
 import { ParticleAurora } from "@/components/rank/ParticleAurora";
 import { StatCountUp } from "@/components/rank/StatCountUp";
-import { RankBadge } from "@/components/rank/RankBadge";
 import {
   EnergyBorderOverlay,
   FiligreeCorners,
@@ -753,11 +752,6 @@ export function EquipmentHeroCard({
                 {subtitle}
               </p>
             )}
-
-            {/* Rank badge */}
-            <div className="mt-2">
-              <RankBadge rank={rankState.rank} size="md" />
-            </div>
 
             {/* Badges */}
             {badges && badges.length > 0 && (

@@ -12,7 +12,6 @@ import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg, ArtZonePattern } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
-import { RankBadge } from "@/components/rank/RankBadge";
 import {
   getRankBorderStyle,
   getRankCardClasses,
@@ -299,11 +298,6 @@ export function EquipmentCardMd({
           ))}
         </div>
       )}
-
-      {/* ── Rank Badge ── */}
-      <div className="px-3 pb-2">
-        <RankBadge rank={rank} size="sm" />
-      </div>
     </div>
   );
 }

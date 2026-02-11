@@ -24,7 +24,6 @@ import { CardFlip } from "@/components/rank/CardFlip";
 import { MouseTilt } from "@/components/rank/MouseTilt";
 import { ParticleAurora } from "@/components/rank/ParticleAurora";
 import { StatCountUp } from "@/components/rank/StatCountUp";
-import { RankBadge } from "@/components/rank/RankBadge";
 import { CardSignature } from "@/components/rank/LegendaryEffects";
 import { EnergyBorderOverlay } from "@/components/rank/LegendaryEffects";
 import { FiligreeCorners } from "@/components/rank/LegendaryEffects";
@@ -804,7 +803,6 @@ export function EquipmentCard({
           <div className="relative z-[2] px-4 pb-3 flex items-end justify-between min-h-[28px]">
             {/* Left: badges */}
             <div className="flex flex-wrap gap-1 min-w-0 flex-1">
-              <RankBadge rank={rankState.rank} size="sm" className="mr-1" />
               {badges?.map((badge) => (
                 <span
                   key={badge.label}

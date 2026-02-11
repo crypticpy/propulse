@@ -494,19 +494,27 @@ export function importSettings(backup: SettingsBackup): ImportResult {
       result.imported.dxFilters = true;
     }
 
-    // Import watches
+    // Import watches (v2: import as saved watch presets)
     if (backup.watches && Array.isArray(backup.watches)) {
       const watchStore = useWatchStore.getState();
 
-      // Remove existing watches
-      for (const watch of watchStore.watches) {
-        watchStore.removeWatch(watch.id);
+      // Clear existing saved watches and re-import
+      for (const sw of watchStore.savedWatches) {
+        watchStore.deleteWatch(sw.id);
       }
 
-      // Add imported watches
+      // Convert v1 backup format to v2 criteria and save
       for (const watch of backup.watches) {
-        watchStore.addWatch(watch.type, watch.pattern, watch.name);
+        const criteria = {
+          ...(watch.type === "callsign" ? { callsign: watch.pattern } : {}),
+          ...(watch.type === "grid" ? { gridPrefix: watch.pattern } : {}),
+          ...(watch.type === "entity" ? { callsign: watch.pattern } : {}),
+          txOrRx: "either" as const,
+        };
+        watchStore.setWatch(criteria);
+        watchStore.saveWatch(watch.name || watch.pattern);
       }
+      watchStore.clearWatch();
 
       result.imported.watches = true;
     }

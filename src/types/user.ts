@@ -324,8 +324,8 @@ export interface UIInteractionPreferences {
   showSpotterLabels: boolean;
   /** Hit radius multiplier for spot hover detection (0.5-2.0, default: 1.0) */
   spotHitRadiusMultiplier: number;
-  /** Spot color coding mode: "mode" colors by operating mode (FT8/CW/SSB), "band" colors by frequency band (20m/40m) */
-  spotColorMode: "mode" | "band";
+  /** Spot color coding mode: "mode" colors by operating mode (FT8/CW/SSB), "band" colors by frequency band (20m/40m), "snr" gradient by signal strength, "age" gradient by spot age */
+  spotColorMode: "mode" | "band" | "snr" | "age";
   /** Visual style: "realistic" is the default clean look, "high-viz" uses bolder colors and larger markers inspired by OpenHamClock */
   visualStyle: "realistic" | "high-viz";
   /** Scale multiplier for spot dots on all map views (0.5-2.0, default: 1.0) */

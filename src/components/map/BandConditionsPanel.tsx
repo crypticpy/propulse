@@ -47,6 +47,10 @@ import {
   type BandOpening,
 } from "@/lib/services/bandOpeningDetector";
 import { getBandOpeningDetector } from "@/lib/services/bandOpeningService";
+import {
+  useBandHourlyStats,
+  type BandHourlyStat,
+} from "@/hooks/useBandHourlyStats";
 
 interface BandConditionsPanelProps {
   displayTime: Date;
@@ -160,6 +164,7 @@ interface BandConditionGridCellProps {
   isSynced: boolean;
   isEsActive?: boolean;
   hasBandOpening?: boolean;
+  sparklineData?: number[];
 }
 
 function gridCellPropsAreEqual(
@@ -171,7 +176,8 @@ function gridCellPropsAreEqual(
     prevProps.condition.status === nextProps.condition.status &&
     prevProps.isSynced === nextProps.isSynced &&
     prevProps.isEsActive === nextProps.isEsActive &&
-    prevProps.hasBandOpening === nextProps.hasBandOpening
+    prevProps.hasBandOpening === nextProps.hasBandOpening &&
+    prevProps.sparklineData?.length === nextProps.sparklineData?.length
   );
 }
 
@@ -180,6 +186,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
   isSynced,
   isEsActive,
   hasBandOpening,
+  sparklineData,
 }: BandConditionGridCellProps) {
   const colors = GRID_STATUS_COLORS[condition.status];
   const statusLabel =
@@ -228,9 +235,83 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           statusLabel
         )}
       </div>
+      {sparklineData && sparklineData.length >= 2 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: "2px",
+          }}
+        >
+          <BandSparkline data={sparklineData} />
+        </div>
+      )}
     </div>
   );
 }, gridCellPropsAreEqual);
+
+// =============================================================================
+// BAND ACTIVITY SPARKLINE
+// =============================================================================
+
+/** Extract spot_count values for a specific band from hourly stats */
+function getBandSparklineData(
+  stats: BandHourlyStat[] | undefined,
+  band: string,
+): number[] {
+  if (!stats) return [];
+  return stats.filter((s) => s.band === band).map((s) => s.spot_count);
+}
+
+/** Tiny 24-hour sparkline showing spot count trend for a single band */
+function BandSparkline({ data }: { data: number[] }) {
+  if (data.length < 2) return null;
+
+  const width = 48;
+  const height = 16;
+  const max = Math.max(...data, 1);
+
+  // Build points and calculate approximate path length for draw animation
+  let pathLength = 0;
+  const points = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - (v / max) * height;
+      if (i > 0) {
+        const prevX = ((i - 1) / (data.length - 1)) * width;
+        const prevY = height - (data[i - 1] / max) * height;
+        const dx = x - prevX;
+        const dy = y - prevY;
+        pathLength += Math.sqrt(dx * dx + dy * dy);
+      }
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      className="flex-shrink-0 opacity-60"
+      role="img"
+      aria-label="24h spot activity"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{
+          strokeDasharray: pathLength,
+          strokeDashoffset: pathLength,
+          animation: "sparkline-draw 800ms ease-out forwards",
+        }}
+      />
+    </svg>
+  );
+}
 
 // =============================================================================
 // MAIN COMPONENT
@@ -414,6 +495,9 @@ export function BandConditionsPanel({
     const status = getGreylineStatus(station.lat, station.lon, displayTime);
     return status.intensity;
   }, [station, displayTime]);
+
+  // Fetch 24h band hourly stats for sparklines
+  const { data: hourlyStats } = useBandHourlyStats({ days: 1 });
 
   // Fetch live spots for correlation analysis
   const { spots: liveSpots } = useLiveSpots({
@@ -781,6 +865,10 @@ export function BandConditionsPanel({
                         esDetection.bands.includes(condition.band)
                       }
                       hasBandOpening={openingBands.has(condition.band)}
+                      sparklineData={getBandSparklineData(
+                        hourlyStats,
+                        condition.band,
+                      )}
                     />
                   ))}
                 </div>
@@ -828,6 +916,10 @@ export function BandConditionsPanel({
                             : undefined
                         }
                         hasBandOpening={openingBands.has(condition.band)}
+                        sparklineData={getBandSparklineData(
+                          hourlyStats,
+                          condition.band,
+                        )}
                       />
                     ))}
                   </tbody>
@@ -919,6 +1011,8 @@ interface BandConditionRowProps {
   esDetection?: EsDetection;
   /** Whether this band has an active opening detected */
   hasBandOpening?: boolean;
+  /** 24h spot count data for sparkline */
+  sparklineData?: number[];
 }
 
 /**
@@ -944,7 +1038,8 @@ function bandConditionRowPropsAreEqual(
     prevProps.correlation?.agreement === nextProps.correlation?.agreement &&
     prevProps.correlation?.spotCount === nextProps.correlation?.spotCount &&
     prevProps.esDetection?.active === nextProps.esDetection?.active &&
-    prevProps.hasBandOpening === nextProps.hasBandOpening
+    prevProps.hasBandOpening === nextProps.hasBandOpening &&
+    prevProps.sparklineData?.length === nextProps.sparklineData?.length
   );
 }
 
@@ -961,6 +1056,7 @@ const BandConditionRow = memo(function BandConditionRow({
   correlation,
   esDetection,
   hasBandOpening,
+  sparklineData,
 }: BandConditionRowProps) {
   const statusColor = getPathStatusColor(condition.status);
   const statusBgColor = getPathStatusBgColor(condition.status);
@@ -1032,7 +1128,12 @@ const BandConditionRow = memo(function BandConditionRow({
             </span>
           )}
         </div>
-        <div className="text-gray-400 text-xs">{condition.frequency}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-gray-400 text-xs">{condition.frequency}</span>
+          {sparklineData && sparklineData.length >= 2 && (
+            <BandSparkline data={sparklineData} />
+          )}
+        </div>
       </td>
       <td className="px-1 py-1 text-center">
         <div className="flex flex-col items-center gap-0.5">

@@ -6,16 +6,11 @@
  */
 
 import { useRef, useMemo, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { getStandardMapCanvas } from "@/lib/utils/standardMap";
 
 interface EarthSphereProps {
-  /** Auto-rotate the Earth */
-  autoRotate?: boolean;
-  /** Rotation speed when auto-rotating (radians per frame) */
-  rotationSpeed?: number;
   /** Callback when Earth is clicked with lat/lon */
   onClick?: (lat: number, lon: number) => void;
   /** Render with desaturated (grayscale) texture */
@@ -61,12 +56,7 @@ function vector3ToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
   return { lat, lon };
 }
 
-export function EarthSphere({
-  autoRotate = false,
-  rotationSpeed = 0.001,
-  onClick,
-  grayscale = false,
-}: EarthSphereProps) {
+export function EarthSphere({ onClick, grayscale = false }: EarthSphereProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   // Load Earth textures
@@ -88,13 +78,6 @@ export function EarthSphere({
       standardTexture.dispose();
     };
   }, [standardTexture]);
-
-  // Auto-rotation
-  useFrame(() => {
-    if (autoRotate && meshRef.current) {
-      meshRef.current.rotation.y += rotationSpeed;
-    }
-  });
 
   // Handle click
   const handleClick = (event: THREE.Event & { point?: THREE.Vector3 }) => {
@@ -118,10 +101,7 @@ export function EarthSphere({
       <sphereGeometry args={[1, 64, 64]} />
       {grayscale ? (
         // Standard style: unlit material for a clean, lightweight "map" look
-        <meshBasicMaterial
-          map={standardTexture}
-          color={0xffffff}
-        />
+        <meshBasicMaterial map={standardTexture} color={0xffffff} />
       ) : (
         <meshStandardMaterial
           map={dayTexture}

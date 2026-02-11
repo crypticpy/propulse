@@ -562,6 +562,11 @@
   100% { border-color: #38BDF8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
 }
 
+/* Sparkline draw-on animation for BandConditionsPanel */
+@keyframes sparkline-draw {
+  to { stroke-dashoffset: 0; }
+}
+
 /* Utility classes for rank animations */
 .animate-rank-legendary-glow {
   animation: rankLegendaryGlow 3s ease-in-out infinite;

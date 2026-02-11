@@ -308,6 +308,8 @@ export function TimeControl({ className = "" }: TimeControlProps) {
     addTimeScenario,
     removeTimeScenario,
     applyTimeScenario,
+    replayEnabled,
+    setReplayEnabled,
   } = useMapStore();
 
   const activeLocation = useActiveLocation();
@@ -432,7 +434,8 @@ export function TimeControl({ className = "" }: TimeControlProps) {
     setTimeOffset(0);
     setAbsoluteTime(null);
     setIsPlaying(false);
-  }, [setTimeOffset, setAbsoluteTime]);
+    setReplayEnabled(false);
+  }, [setTimeOffset, setAbsoluteTime, setReplayEnabled]);
 
   const handleDateTimeChange = useCallback(
     (date: Date) => {
@@ -724,6 +727,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             onClick={() => {
               setTimeOffset(preset.value);
               setIsPlaying(false);
+              if (preset.value === 0) setReplayEnabled(false);
             }}
             className={`
               flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all
@@ -789,6 +793,23 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                 className="px-1.5 py-0.5 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10"
               >
                 +
+              </button>
+            </div>
+          )}
+
+          {/* Spot Replay toggle — only when time is in the past */}
+          {!isLive && displayTime < now && (
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => setReplayEnabled(!replayEnabled)}
+                className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
+                  replayEnabled
+                    ? "bg-amber-900/40 text-amber-400 border border-amber-500/30"
+                    : "bg-white/5 text-gray-400 hover:bg-white/10"
+                }`}
+                title="Toggle historical spot replay for past times"
+              >
+                {replayEnabled ? "Replay On" : "Replay Spots"}
               </button>
             </div>
           )}

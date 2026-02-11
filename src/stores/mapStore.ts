@@ -4,6 +4,7 @@ import type {
   OverlayLayerModel,
   MapInteractionMode,
 } from "@/types/mapOverlays";
+import type { OperatingProfile, SpotFilters } from "@/types/operatingProfile";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -103,6 +104,16 @@ export interface PanelStates {
   bandConditions: boolean; // true = collapsed
   pathAnalysis: boolean;
   dxSpotList: boolean;
+  satellites: boolean;
+}
+
+/** Pro mode floating panel layout (persisted separately) */
+export interface ProPanelLayoutEntry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  collapsed: boolean;
 }
 
 export type PanelId = keyof PanelStates;
@@ -183,6 +194,17 @@ interface MapState {
   activePreset: PresetName | null;
   applyPreset: (preset: PresetName) => void;
   clearPreset: () => void;
+
+  // Operating profiles
+  activeProfile: OperatingProfile | null;
+  spotFilters: SpotFilters;
+  customProfiles: OperatingProfile[];
+  applyProfile: (profile: OperatingProfile) => void;
+  clearProfile: () => void;
+  setSpotFilters: (filters: SpotFilters) => void;
+  clearSpotFilters: () => void;
+  saveCustomProfile: (profile: OperatingProfile) => void;
+  deleteCustomProfile: (id: string) => void;
 
   // Fullscreen mode
   isFullscreen: boolean;
@@ -265,9 +287,13 @@ interface MapState {
   exportRegionPresets: () => string;
   importRegionPresets: (json: string) => boolean;
 
-  // Auto-pan to new spots (per-session, not persisted)
-  autoPanToSpots: boolean;
-  setAutoPanToSpots: (enabled: boolean) => void;
+  // Arc display density (persisted)
+  displayDensity: number;
+  setDisplayDensity: (density: number) => void;
+
+  // Spot replay (time machine past-time replay)
+  replayEnabled: boolean;
+  setReplayEnabled: (enabled: boolean) => void;
 
   // Phase 3 feature layer toggles
   showEsLayer: boolean;
@@ -281,6 +307,15 @@ interface MapState {
   showCorrelation: boolean;
   setShowCorrelation: (show: boolean) => void;
   toggleCorrelation: () => void;
+
+  // Pro mode floating panel layout (persisted)
+  proPanelLayout: Record<string, ProPanelLayoutEntry>;
+  updateProPanelLayout: (
+    panelId: string,
+    layout: { x: number; y: number; width: number; height: number },
+  ) => void;
+  toggleProPanelCollapse: (panelId: string) => void;
+  resetProPanelLayout: () => void;
 
   // Reset to defaults
   reset: () => void;
@@ -336,6 +371,7 @@ const DEFAULT_PANEL_STATES: PanelStates = {
   bandConditions: false,
   pathAnalysis: false,
   dxSpotList: false,
+  satellites: false,
 };
 
 // Load saved panel states from localStorage
@@ -384,6 +420,82 @@ function loadLabelOptions(): LabelOptions {
 
 function saveLabelOptions(options: LabelOptions) {
   localStorage.setItem("propulse-label-options", JSON.stringify(options));
+}
+
+// Spot filters persistence
+function loadSpotFilters(): SpotFilters {
+  try {
+    const saved = localStorage.getItem("propulse-spot-filters");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        bands: Array.isArray(parsed.bands)
+          ? parsed.bands.filter((v: unknown) => typeof v === "string")
+          : [],
+        modes: Array.isArray(parsed.modes)
+          ? parsed.modes.filter((v: unknown) => typeof v === "string")
+          : [],
+      };
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return { bands: [], modes: [] };
+}
+
+function saveSpotFilters(filters: SpotFilters): void {
+  try {
+    localStorage.setItem("propulse-spot-filters", JSON.stringify(filters));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// Custom profiles persistence
+function loadCustomProfiles(): OperatingProfile[] {
+  try {
+    const saved = localStorage.getItem("propulse-custom-profiles");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return [];
+}
+
+function saveCustomProfiles(profiles: OperatingProfile[]): void {
+  try {
+    localStorage.setItem("propulse-custom-profiles", JSON.stringify(profiles));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// Active profile persistence
+function loadActiveProfile(): OperatingProfile | null {
+  try {
+    const saved = localStorage.getItem("propulse-active-profile");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+}
+
+function saveActiveProfile(profile: OperatingProfile | null): void {
+  try {
+    if (profile) {
+      localStorage.setItem("propulse-active-profile", JSON.stringify(profile));
+    } else {
+      localStorage.removeItem("propulse-active-profile");
+    }
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 // Map style persistence
@@ -475,6 +587,39 @@ function saveActivePresetId(id: string | null): void {
   }
 }
 
+// ── Pro panel layout persistence ─────────────────────────────────────────────
+
+const PRO_PANEL_LAYOUT_KEY = "propulse-pro-panel-layout";
+
+const DEFAULT_PRO_PANEL_LAYOUT: Record<string, ProPanelLayoutEntry> = {
+  "band-conditions": { x: 1, y: 8, width: 256, height: 400, collapsed: false },
+  "path-analysis": { x: 80, y: 8, width: 288, height: 400, collapsed: false },
+  "dx-spots": { x: 20, y: 78, width: 600, height: 200, collapsed: false },
+  recommendations: { x: 1, y: 75, width: 320, height: 180, collapsed: false },
+};
+
+function loadProPanelLayout(): Record<string, ProPanelLayoutEntry> {
+  try {
+    const saved = localStorage.getItem(PRO_PANEL_LAYOUT_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Merge with defaults so new panels get default positions
+      return { ...DEFAULT_PRO_PANEL_LAYOUT, ...parsed };
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return { ...DEFAULT_PRO_PANEL_LAYOUT };
+}
+
+function saveProPanelLayout(layout: Record<string, ProPanelLayoutEntry>): void {
+  try {
+    localStorage.setItem(PRO_PANEL_LAYOUT_KEY, JSON.stringify(layout));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 const initialState = {
   viewMode: "globe" as ViewMode,
   timeOffset: 0,
@@ -498,6 +643,9 @@ const initialState = {
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,
+  activeProfile: loadActiveProfile(),
+  spotFilters: loadSpotFilters(),
+  customProfiles: loadCustomProfiles(),
   isFullscreen: false,
   isLiteMode: false,
   layoutMode: loadLayoutMode(),
@@ -514,14 +662,20 @@ const initialState = {
   regionPresets: loadRegionPresets(),
   activePresetId: loadActivePresetId(),
 
-  // Auto-pan to new spots (per-session, not persisted)
-  autoPanToSpots: false,
+  // Arc display density
+  displayDensity: 50,
+
+  // Spot replay (time machine)
+  replayEnabled: false,
 
   // Phase 3 feature layer toggles
   showEsLayer: false,
   showObservedMUF: false,
   observedMUFMode: "off" as "observed" | "divergence" | "off",
   showCorrelation: true, // On by default
+
+  // Pro mode floating panel layout (persisted)
+  proPanelLayout: loadProPanelLayout(),
 };
 
 export const useMapStore = create<MapState>((set, get) => ({
@@ -638,22 +792,119 @@ export const useMapStore = create<MapState>((set, get) => ({
     }),
 
   toggleLayer: (layer) =>
-    set((state) => ({
-      layers: {
-        ...state.layers,
-        [layer]: !state.layers[layer],
-      },
-      // Clear active preset when layers are manually changed
-      activePreset: null,
-    })),
-
-  applyPreset: (preset) =>
-    set({
-      layers: { ...LAYER_PRESETS[preset] },
-      activePreset: preset,
+    set((state) => {
+      // Clear active profile when layers are manually changed
+      if (state.activeProfile) {
+        saveActiveProfile(null);
+      }
+      return {
+        layers: {
+          ...state.layers,
+          [layer]: !state.layers[layer],
+        },
+        // Clear active preset and profile when layers are manually changed
+        activePreset: null,
+        activeProfile: null,
+      };
     }),
 
+  applyPreset: (preset) => {
+    saveActiveProfile(null);
+    return set({
+      layers: { ...LAYER_PRESETS[preset] },
+      activePreset: preset,
+      activeProfile: null,
+    });
+  },
+
   clearPreset: () => set({ activePreset: null }),
+
+  // ── Operating profile actions ─────────────────────────────────────────────
+
+  applyProfile: (profile) => {
+    // 1. Set layers
+    // 2. Set spot filters (persisted)
+    const spotFilters = { ...profile.spotFilters };
+    saveSpotFilters(spotFilters);
+
+    // 3. Set map style (persisted)
+    saveMapStyle(profile.mapStyle);
+
+    // 4. Set panel states from profile panel config (persisted)
+    const panelStates: PanelStates = {
+      bandConditions: profile.panelConfig.bandConditions.collapsed,
+      pathAnalysis: profile.panelConfig.pathAnalysis.collapsed,
+      dxSpotList: profile.panelConfig.dxCluster.collapsed,
+      satellites: profile.panelConfig.satellites.collapsed,
+    };
+    savePanelStates(panelStates);
+
+    // 5. Persist active profile
+    saveActiveProfile(profile);
+
+    // 6. Apply all state at once
+    set({
+      layers: { ...profile.layers },
+      spotFilters,
+      // profile.autoFollow now handled by watchStore.autoPan
+      mapStyle: profile.mapStyle,
+      panelStates,
+      activeProfile: profile,
+      activePreset: null,
+    });
+
+    // 7. Set spotColorMode and visualStyle via settingsStore
+    // Lazy import to avoid potential circular dependency
+    import("@/stores/settingsStore").then(({ useSettingsStore }) => {
+      useSettingsStore.getState().updateUIInteraction({
+        spotColorMode: profile.spotColorMode,
+        visualStyle: profile.visualStyle,
+      });
+    });
+  },
+
+  clearProfile: () => {
+    saveActiveProfile(null);
+    set({ activeProfile: null });
+  },
+
+  setSpotFilters: (filters) => {
+    saveSpotFilters(filters);
+    saveActiveProfile(null);
+    set({ spotFilters: filters, activeProfile: null });
+  },
+
+  clearSpotFilters: () => {
+    const empty: SpotFilters = { bands: [], modes: [] };
+    saveSpotFilters(empty);
+    saveActiveProfile(null);
+    set({ spotFilters: empty, activeProfile: null });
+  },
+
+  saveCustomProfile: (profile) =>
+    set((state) => {
+      const updated = [
+        ...state.customProfiles.filter((p) => p.id !== profile.id),
+        profile,
+      ];
+      saveCustomProfiles(updated);
+      return { customProfiles: updated };
+    }),
+
+  deleteCustomProfile: (id) =>
+    set((state) => {
+      const updated = state.customProfiles.filter((p) => p.id !== id);
+      saveCustomProfiles(updated);
+      // If the deleted profile was active, clear it
+      const clearActive = state.activeProfile?.id === id;
+      if (clearActive) {
+        saveActiveProfile(null);
+      }
+      return {
+        customProfiles: updated,
+        ...(clearActive ? { activeProfile: null } : {}),
+      };
+    }),
 
   toggleNVIS: () =>
     set((state) => ({
@@ -955,8 +1206,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     }
   },
 
-  // Auto-pan to new spots
-  setAutoPanToSpots: (enabled) => set({ autoPanToSpots: enabled }),
+  // Arc display density
+  setDisplayDensity: (density) =>
+    set({ displayDensity: Math.max(10, Math.min(200, density)) }),
+
+  // Spot replay
+  setReplayEnabled: (enabled) => set({ replayEnabled: enabled }),
 
   // Phase 3 feature layer toggles
   setShowEsLayer: (show) => set({ showEsLayer: show }),
@@ -971,6 +1226,40 @@ export const useMapStore = create<MapState>((set, get) => ({
   setShowCorrelation: (show) => set({ showCorrelation: show }),
   toggleCorrelation: () =>
     set((state) => ({ showCorrelation: !state.showCorrelation })),
+
+  // Pro panel layout actions
+  updateProPanelLayout: (panelId, layout) =>
+    set((state) => {
+      const existing = state.proPanelLayout[panelId];
+      const updated = {
+        ...state.proPanelLayout,
+        [panelId]: {
+          ...layout,
+          collapsed: existing?.collapsed ?? false,
+        },
+      };
+      saveProPanelLayout(updated);
+      return { proPanelLayout: updated };
+    }),
+
+  toggleProPanelCollapse: (panelId) =>
+    set((state) => {
+      const existing = state.proPanelLayout[panelId];
+      if (!existing) return {};
+      const updated = {
+        ...state.proPanelLayout,
+        [panelId]: { ...existing, collapsed: !existing.collapsed },
+      };
+      saveProPanelLayout(updated);
+      return { proPanelLayout: updated };
+    }),
+
+  resetProPanelLayout: () =>
+    set(() => {
+      const fresh = { ...DEFAULT_PRO_PANEL_LAYOUT };
+      saveProPanelLayout(fresh);
+      return { proPanelLayout: fresh };
+    }),
 
   reset: () => set(initialState),
 }));

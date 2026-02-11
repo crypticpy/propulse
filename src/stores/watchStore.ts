@@ -1,524 +1,855 @@
 /**
- * Zustand store for Watch System management
+ * Zustand store for Watch System v2
  *
- * Provides functionality for watching grids, entities, and callsign patterns.
- * Persists watch items to localStorage with key 'propulse-watches'.
- * Supports max 10 watches per user.
+ * Single active watch with unified filter criteria, match rate tracking,
+ * and saved watch presets. Replaces v1's multi-watch model with a focused
+ * single-watch + saved presets approach.
+ *
+ * Key differences from v1:
+ * - Single active watch (criteria: WatchCriteria | null) instead of watches[]
+ * - Unified filter: callsign + grid + band + mode + continent + CQ zone (AND logic)
+ * - Match rate tracking (rolling 30-second window)
+ * - Rate-limited camera auto-pan integration
+ * - Saved watch presets (max 20) for quick switching
+ *
+ * Persists to localStorage at 'propulse-watches' key, version 2.
  */
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { DXSpot } from "../types/dxcluster";
+import type { LiveSpot } from "../types/livespot";
+import { getContestById } from "@/lib/data/contests";
 
-/** Watch type categories */
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/** Watch type categories (kept for backward compatibility with useWatchAlerts) */
 export type WatchType = "grid" | "entity" | "callsign";
 
 /**
- * A watched item (grid, entity, or callsign pattern)
+ * Direction filter for grid-based watches
+ */
+export type WatchDirection = "tx" | "rx" | "either";
+
+/**
+ * Unified filter criteria for the active watch
+ *
+ * All fields are optional. When multiple are set, they combine with AND logic.
+ * At least one filter field must be set for a valid watch.
+ */
+export interface WatchCriteria {
+  /** Callsign pattern — exact or prefix, supports * wildcard (e.g., "3Y0J", "W7*") */
+  callsign?: string;
+  /** Maidenhead grid prefix — 2, 4, or 6 characters (e.g., "EM", "EM73", "EM73qp") */
+  gridPrefix?: string;
+  /** Which end of the path to match grid against */
+  txOrRx: WatchDirection;
+  /** Band filter (e.g., "20m", "10m") */
+  band?: string;
+  /** Mode filter (e.g., "FT8", "CW", "SSB") */
+  mode?: string;
+  /** Continent filter (e.g., "NA", "EU", "AS", "AF", "SA", "OC", "AN") */
+  continent?: string;
+  /** CQ zone number (1-40) */
+  cqZone?: number;
+  /** Contest ID when this watch was created from a contest preset */
+  contestId?: string;
+}
+
+/**
+ * A saved watch preset
+ */
+export interface SavedWatch {
+  id: string;
+  name: string;
+  criteria: WatchCriteria;
+  createdAt: string;
+}
+
+/**
+ * A matched spot from the watch filter
+ */
+export interface MatchedSpot {
+  /** Unique ID for this match */
+  id: string;
+  /** The matched spot data */
+  spot: DXSpot;
+  /** Which end of the path triggered the match */
+  matchedField: "dx" | "spotter";
+  /** ISO timestamp of when the match was detected */
+  matchedAt: string;
+}
+
+// ─── Backward-compatible types for useWatchAlerts ────────────────────────────
+
+/**
+ * WatchItem — backward-compatible type for useWatchAlerts integration.
+ * In v2, the active watch is represented as a synthetic WatchItem.
  */
 export interface WatchItem {
-  /** Unique identifier for this watch */
   id: string;
-  /** Type of watch */
   type: WatchType;
-  /** Pattern to match (grid prefix, entity prefix, or callsign pattern with wildcards) */
   pattern: string;
-  /** User-friendly label */
   name?: string;
-  /** ISO timestamp when the watch was created */
   createdAt: string;
-  /** ISO timestamp of last detected activity */
   lastActivityAt?: string;
-  /** Count of spots matching this watch */
   activityCount: number;
-  /** Whether this watch currently has matching activity */
   isActive: boolean;
 }
 
 /**
- * A match between a watch and a DX spot
+ * WatchMatch — backward-compatible type for useWatchAlerts integration.
  */
 export interface WatchMatch {
-  /** ID of the watch that matched */
   watchId: string;
-  /** The spot that matched */
   spot: DXSpot;
-  /** Which field triggered the match */
   matchedField: "dx" | "spotter";
 }
 
-/** Maximum number of watches allowed per user */
-export const MAX_WATCHES = 10;
+// =============================================================================
+// CONSTANTS
+// =============================================================================
 
-/** localStorage key for watch persistence */
+/** Maximum number of saved watch presets */
+export const MAX_SAVED_WATCHES = 20;
+
+/** Maximum recent matches to retain */
+const MAX_RECENT_MATCHES = 100;
+
+/** Rolling window size for match rate calculation (ms) */
+const MATCH_RATE_WINDOW_MS = 30_000;
+
+/** Stable ID for the active watch (used in WatchMatch.watchId for compat) */
+const ACTIVE_WATCH_ID = "active-watch";
+
+/** localStorage key */
 const STORAGE_KEY = "propulse-watches";
 
-/**
- * Generate a unique ID for a new watch
- * Uses crypto.randomUUID() with timestamp fallback for older browsers
- */
-function generateWatchId(): string {
+// =============================================================================
+// UTILITIES
+// =============================================================================
+
+function generateId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback for environments without crypto.randomUUID
   return `watch-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**
- * Check if a callsign matches a pattern with wildcard support
- * Supports * as wildcard (e.g., "W7*" matches "W7ABC", "W7XYZ")
+ * Pre-compile a callsign pattern into a RegExp for O(1) matching per spot.
+ * Supports * wildcard (e.g., "W7*" → /^W7.*$/i).
+ * Returns null if no callsign filter is set.
  */
-function matchesCallsignPattern(callsign: string, pattern: string): boolean {
-  const normalizedCallsign = callsign.toUpperCase();
-  const normalizedPattern = pattern.toUpperCase();
+function compileCallsignRegex(callsign?: string): RegExp | null {
+  if (!callsign) return null;
+  const normalized = callsign.toUpperCase().trim();
+  if (!normalized) return null;
 
-  // Handle wildcard pattern
-  if (normalizedPattern.includes("*")) {
-    // Convert pattern to regex: "W7*" becomes "^W7.*$"
-    const regexPattern = normalizedPattern
-      .replace(/[.+?^${}()|[\]\\]/g, "\\$&") // Escape special chars except *
-      .replace(/\*/g, ".*"); // Replace * with .*
-    const regex = new RegExp(`^${regexPattern}$`, "i");
-    return regex.test(normalizedCallsign);
+  if (normalized.includes("*")) {
+    const escaped = normalized
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*");
+    return new RegExp(`^${escaped}$`, "i");
   }
-
-  // Exact prefix match for non-wildcard patterns
-  return normalizedCallsign.startsWith(normalizedPattern);
+  // Prefix match for non-wildcard patterns
+  return new RegExp(
+    `^${normalized.replace(/[.+?^${}()|[\]\\]/g, "\\$&")}`,
+    "i",
+  );
 }
 
 /**
- * Check if a spot matches a watch item
- * Returns the matched field if there's a match, null otherwise
+ * Check if a single spot matches the active watch criteria.
+ * Returns "dx" or "spotter" indicating which end matched, or null.
  */
-function checkSpotMatch(
+function matchSpot(
   spot: DXSpot,
-  watch: WatchItem,
+  criteria: WatchCriteria,
+  callsignRegex: RegExp | null,
 ): "dx" | "spotter" | null {
-  const { type, pattern } = watch;
-
-  switch (type) {
-    case "grid": {
-      // Match if spot's dxGrid or spotterGrid starts with the pattern
-      const normalizedPattern = pattern.toUpperCase();
-      if (spot.dxGrid?.toUpperCase().startsWith(normalizedPattern)) {
-        return "dx";
-      }
-      if (spot.spotterGrid?.toUpperCase().startsWith(normalizedPattern)) {
-        return "spotter";
-      }
-      break;
-    }
-
-    case "entity": {
-      // Match if spot's callsign starts with the entity prefix
-      const normalizedPattern = pattern.toUpperCase();
-      if (spot.dx.toUpperCase().startsWith(normalizedPattern)) {
-        return "dx";
-      }
-      if (spot.spotter.toUpperCase().startsWith(normalizedPattern)) {
-        return "spotter";
-      }
-      break;
-    }
-
-    case "callsign": {
-      // Match with wildcard support
-      if (matchesCallsignPattern(spot.dx, pattern)) {
-        return "dx";
-      }
-      if (matchesCallsignPattern(spot.spotter, pattern)) {
-        return "spotter";
-      }
-      break;
+  // Band filter (AND)
+  if (criteria.band) {
+    const spotBand = spot.band?.toLowerCase();
+    if (!spotBand || spotBand !== criteria.band.toLowerCase()) {
+      return null;
     }
   }
 
+  // Mode filter (AND)
+  if (criteria.mode) {
+    const spotMode = spot.mode?.toLowerCase();
+    if (!spotMode || spotMode !== criteria.mode.toLowerCase()) {
+      return null;
+    }
+  }
+
+  // Continent filter (AND) — check DX station's callsign prefix against continent
+  // We approximate continent from callsign prefix or from comment/source data
+  // For now, check the spot comment for continent hints or skip if not available
+  if (criteria.continent) {
+    // Continent filtering is best-effort: check dxGrid first 2 chars for region mapping
+    // Maidenhead field → continent mapping is approximate
+    const grid = spot.dxGrid?.toUpperCase().substring(0, 2);
+    if (grid) {
+      const spotContinent = gridFieldToContinent(grid);
+      if (spotContinent && spotContinent !== criteria.continent.toUpperCase()) {
+        return null;
+      }
+    }
+  }
+
+  // CQ zone filter (AND) — extract from comment if available
+  if (criteria.cqZone !== undefined) {
+    const spotZone = extractCQZone(spot);
+    if (spotZone !== null && spotZone !== criteria.cqZone) {
+      return null;
+    }
+  }
+
+  // Now check callsign and/or grid (at least one location-based filter must match)
+  let dxMatch = false;
+  let spotterMatch = false;
+
+  // Callsign matching
+  if (callsignRegex) {
+    if (callsignRegex.test(spot.dx)) dxMatch = true;
+    if (callsignRegex.test(spot.spotter)) spotterMatch = true;
+  }
+
+  // Grid matching
+  if (criteria.gridPrefix) {
+    const normalizedGrid = criteria.gridPrefix.toUpperCase();
+    const dir = criteria.txOrRx;
+
+    if (dir === "tx" || dir === "either") {
+      if (spot.dxGrid?.toUpperCase().startsWith(normalizedGrid)) dxMatch = true;
+    }
+    if (dir === "rx" || dir === "either") {
+      if (spot.spotterGrid?.toUpperCase().startsWith(normalizedGrid))
+        spotterMatch = true;
+    }
+  }
+
+  // If we have callsign or grid filters, at least one must match
+  if (callsignRegex || criteria.gridPrefix) {
+    if (dxMatch) return "dx";
+    if (spotterMatch) return "spotter";
+    return null;
+  }
+
+  // If only band/mode/continent/cqZone filters (no callsign/grid),
+  // the spot matched all AND filters — default to "dx"
+  return "dx";
+}
+
+/**
+ * Approximate continent from 2-char Maidenhead grid field.
+ * This is a rough mapping — not all fields map cleanly to one continent.
+ */
+function gridFieldToContinent(field: string): string | null {
+  const lon = field.charCodeAt(0) - 65; // A=0 ... R=17
+  const lat = field.charCodeAt(1) - 65;
+
+  // Very rough continental boundaries based on Maidenhead fields
+  // Longitude: A(0)=-180 ... R(17)=+180, each field is 20°
+  // Latitude:  A(0)=-90 ... R(17)=+90, each field is 10°
+  const lonDeg = lon * 20 - 180;
+  const latDeg = lat * 10 - 90;
+
+  if (latDeg < -60) return "AN"; // Antarctica
+  if (latDeg < -10 && lonDeg > -80 && lonDeg < -30) return "SA";
+  if (latDeg >= 10 && latDeg < 75 && lonDeg >= -130 && lonDeg < -30)
+    return "NA";
+  if (latDeg >= 30 && latDeg < 75 && lonDeg >= -30 && lonDeg < 60) return "EU";
+  if (latDeg < 30 && lonDeg >= -30 && lonDeg < 60) return "AF";
+  if (latDeg >= 10 && lonDeg >= 60 && lonDeg < 180) return "AS";
+  if (latDeg < 10 && lonDeg >= 100) return "OC";
   return null;
 }
 
 /**
- * Persisted state (survives page reload)
+ * Extract CQ zone from spot comment (e.g., "CQ Zone 14" or "Z14")
  */
-interface PersistedWatchState {
-  /** Array of watched items */
-  watches: WatchItem[];
+function extractCQZone(spot: DXSpot): number | null {
+  if (!spot.comment) return null;
+  const match = spot.comment.match(/(?:CQ\s*(?:Zone\s*)?|Z)(\d{1,2})/i);
+  if (match) {
+    const zone = parseInt(match[1], 10);
+    if (zone >= 1 && zone <= 40) return zone;
+  }
+  return null;
 }
 
 /**
- * Runtime state (resets on page reload)
+ * Infer the primary WatchType from criteria (for useWatchAlerts compatibility)
  */
-interface RuntimeWatchState {
-  /** Current matches (transient, not persisted) */
-  matches: WatchMatch[];
-  /** Set of spot IDs already seen (to avoid duplicate match notifications) */
+function inferWatchType(criteria: WatchCriteria): WatchType {
+  if (criteria.callsign) return "callsign";
+  if (criteria.gridPrefix) return "grid";
+  return "entity"; // fallback for band/mode/continent-only watches
+}
+
+/** Stable empty arrays for compat fields when no watch is active */
+const EMPTY_WATCHES: WatchItem[] = [];
+const EMPTY_MATCHES: WatchMatch[] = [];
+
+/**
+ * Recompute backward-compatible `watches` and `matches` arrays from current state.
+ * Called explicitly in mutations to keep them in sync without using getters.
+ */
+function computeCompatFields(state: {
+  criteria: WatchCriteria | null;
+  matchCount: number;
+  lastMatchTime: number | null;
+  recentMatches: MatchedSpot[];
+}): { watches: WatchItem[]; matches: WatchMatch[] } {
+  if (!state.criteria) {
+    return { watches: EMPTY_WATCHES, matches: EMPTY_MATCHES };
+  }
+  const watches: WatchItem[] = [
+    {
+      id: ACTIVE_WATCH_ID,
+      type: inferWatchType(state.criteria),
+      pattern: formatCriteriaSummary(state.criteria),
+      name: formatCriteriaSummary(state.criteria),
+      createdAt: new Date().toISOString(),
+      lastActivityAt: state.lastMatchTime
+        ? new Date(state.lastMatchTime).toISOString()
+        : undefined,
+      activityCount: state.matchCount,
+      isActive: state.matchCount > 0,
+    },
+  ];
+  const matches: WatchMatch[] = state.recentMatches.map((m) => ({
+    watchId: ACTIVE_WATCH_ID,
+    spot: m.spot,
+    matchedField: m.matchedField,
+  }));
+  return { watches, matches };
+}
+
+/**
+ * Build a human-readable summary of watch criteria
+ */
+export function formatCriteriaSummary(criteria: WatchCriteria): string {
+  const parts: string[] = [];
+  if (criteria.callsign) parts.push(criteria.callsign.toUpperCase());
+  if (criteria.gridPrefix) {
+    const dir =
+      criteria.txOrRx === "tx"
+        ? " (TX)"
+        : criteria.txOrRx === "rx"
+          ? " (RX)"
+          : "";
+    parts.push(criteria.gridPrefix.toUpperCase() + dir);
+  }
+  if (criteria.band) parts.push(criteria.band);
+  if (criteria.mode) parts.push(criteria.mode);
+  if (criteria.continent) parts.push(criteria.continent);
+  if (criteria.cqZone !== undefined) parts.push(`Z${criteria.cqZone}`);
+  return parts.join(" · ") || "No filters";
+}
+
+// =============================================================================
+// STORE INTERFACE
+// =============================================================================
+
+interface PersistedState {
+  /** Active watch criteria (null = no watch) */
+  criteria: WatchCriteria | null;
+  /** Whether auto-pan is enabled */
+  autoPan: boolean;
+  /** Saved watch presets */
+  savedWatches: SavedWatch[];
+  /** When true, contest watch only shows spots for needed multipliers */
+  neededOnly: boolean;
+}
+
+interface RuntimeState {
+  /** Whether the watch system is actively filtering */
+  enabled: boolean;
+  /** Set of matched spot IDs (for arc highlighting) */
+  matchedSpotIds: Set<string>;
+  /** Recent matched spots (last MAX_RECENT_MATCHES) */
+  recentMatches: MatchedSpot[];
+  /** Total match count since watch was enabled */
+  matchCount: number;
+  /** Matches per second (rolling 30s window) */
+  matchRate: number;
+  /** Timestamp of last match */
+  lastMatchTime: number | null;
+  /** Set of already-seen spot IDs for dedup */
   seenSpotIds: Set<string>;
+  /** Timestamps of recent matches for rate calculation */
+  matchTimestamps: number[];
+  /** Pre-compiled callsign regex (updated when criteria changes) */
+  _callsignRegex: RegExp | null;
 }
 
-/**
- * Watch store state and actions
- */
-interface WatchStore extends PersistedWatchState, RuntimeWatchState {
-  /**
-   * Add a new watch
-   * @param type - Type of watch (grid, entity, or callsign)
-   * @param pattern - Pattern to match
-   * @param name - Optional user-friendly label
-   * @returns The newly created watch, or null if max limit reached
-   */
-  addWatch: (
-    type: WatchType,
-    pattern: string,
-    name?: string,
-  ) => WatchItem | null;
+interface WatchActions {
+  /** Set the active watch criteria */
+  setWatch: (criteria: WatchCriteria) => void;
+  /** Clear the active watch */
+  clearWatch: () => void;
+  /** Toggle auto-pan */
+  toggleAutoPan: () => void;
+  /** Set auto-pan */
+  setAutoPan: (enabled: boolean) => void;
 
-  /**
-   * Remove a watch by its ID
-   * @param id - The watch ID to remove
-   */
-  removeWatch: (id: string) => void;
+  /** Save the current watch as a preset */
+  saveWatch: (name: string) => SavedWatch | null;
+  /** Load a saved watch preset */
+  loadWatch: (id: string) => void;
+  /** Delete a saved watch preset */
+  deleteWatch: (id: string) => void;
 
-  /**
-   * Update a watch's properties
-   * @param id - The watch ID to update
-   * @param updates - Partial watch data to merge
-   * @returns true if watch was found and updated, false otherwise
-   */
-  updateWatch: (id: string, updates: Partial<WatchItem>) => boolean;
+  /** Quick preset: watch my grid from profileStore */
+  setMyGridWatch: (grid: string) => void;
 
-  /**
-   * Clear all current matches
-   */
-  clearMatches: () => void;
+  /** Set up a contest-aware watch from a contest definition */
+  setContestWatch: (contestId: string) => void;
 
-  /**
-   * Check spots for matches against all watches
-   * @param spots - Array of DX spots to check
-   * @returns Array of new matches found
-   */
-  checkForActivity: (spots: DXSpot[]) => WatchMatch[];
+  /** Toggle "needed only" mode for contest watches */
+  setNeededOnly: (enabled: boolean) => void;
 
-  /**
-   * Get all watches that currently have activity
-   * @returns Array of active watches
-   */
-  getActiveWatches: () => WatchItem[];
+  /** Check DX Cluster spots for matches. Returns new matched spots. */
+  checkSpots: (spots: DXSpot[]) => MatchedSpot[];
+  /** Check Live Spots for matches. Returns new matched spots. */
+  checkLiveSpots: (spots: LiveSpot[]) => MatchedSpot[];
 
-  /**
-   * Get all matches for a specific watch
-   * @param watchId - The watch ID to get matches for
-   * @returns Array of matches for the watch
-   */
-  getMatchesForWatch: (watchId: string) => WatchMatch[];
-
-  /**
-   * Find a watch by its ID
-   * @param id - Watch ID to search for
-   * @returns The matching watch or undefined
-   */
-  getWatchById: (id: string) => WatchItem | undefined;
-
-  /**
-   * Check if a pattern already exists as a watch
-   * @param type - Watch type
-   * @param pattern - Pattern to check
-   * @returns true if watch already exists
-   */
-  hasWatch: (type: WatchType, pattern: string) => boolean;
-
-  /**
-   * Reset seen spots (call when clearing/refreshing spot data)
-   */
-  resetSeenSpots: () => void;
+  /** Reset runtime state (call when changing criteria or on page load) */
+  resetSession: () => void;
 }
 
-/**
- * Default runtime state values
- */
-const defaultRuntimeState: RuntimeWatchState = {
-  matches: [],
+// Backward-compatible computed fields
+interface CompatFields {
+  /**
+   * @deprecated v1 compat — returns active watch as synthetic WatchItem[]
+   * Used by useWatchAlerts to find watches by ID
+   */
+  watches: WatchItem[];
+  /**
+   * @deprecated v1 compat — returns recent matches as WatchMatch[]
+   * Used by useWatchAlerts to detect new matches
+   */
+  matches: WatchMatch[];
+}
+
+export interface WatchStore
+  extends PersistedState, RuntimeState, WatchActions, CompatFields {}
+
+// =============================================================================
+// DEFAULTS
+// =============================================================================
+
+const defaultPersisted: PersistedState = {
+  criteria: null,
+  autoPan: true,
+  savedWatches: [],
+  neededOnly: false,
+};
+
+const defaultRuntime: RuntimeState = {
+  enabled: false,
+  matchedSpotIds: new Set(),
+  recentMatches: [],
+  matchCount: 0,
+  matchRate: 0,
+  lastMatchTime: null,
   seenSpotIds: new Set(),
+  matchTimestamps: [],
+  _callsignRegex: null,
 };
 
-/**
- * Default persisted state values
- */
-const defaultPersistedState: PersistedWatchState = {
-  watches: [],
-};
+// =============================================================================
+// SELECTORS
+// =============================================================================
 
-// ============================================================================
-// Selectors (computed values for use with useWatchStore)
-// ============================================================================
+/** Whether a watch is currently active */
+export const selectWatchActive = (state: WatchStore): boolean =>
+  state.criteria !== null && state.enabled;
 
-/**
- * Selector: Count of watches with active matches
- * @example
- * const count = useWatchStore(selectActiveWatchCount);
- */
+/** Current match count */
+export const selectMatchCount = (state: WatchStore): number => state.matchCount;
+
+/** Current match rate (matches/sec) */
+export const selectMatchRate = (state: WatchStore): number => state.matchRate;
+
+/** Recent matches */
+export const selectRecentMatches = (state: WatchStore): MatchedSpot[] =>
+  state.recentMatches;
+
+/** Whether auto-pan is enabled */
+export const selectAutoPan = (state: WatchStore): boolean => state.autoPan;
+
+/** Active criteria */
+export const selectCriteria = (state: WatchStore): WatchCriteria | null =>
+  state.criteria;
+
+/** Matched spot IDs set (for arc rendering) */
+export const selectMatchedSpotIds = (state: WatchStore): Set<string> =>
+  state.matchedSpotIds;
+
+/** Saved watches */
+export const selectSavedWatches = (state: WatchStore): SavedWatch[] =>
+  state.savedWatches;
+
+/** Whether "needed only" mode is active for contest watches */
+export const selectNeededOnly = (state: WatchStore): boolean =>
+  state.neededOnly;
+
+// ─── v1 compat selectors ────────────────────────────────────────────────────
+
+/** @deprecated v1 compat — count of active watches (always 0 or 1 in v2) */
 export const selectActiveWatchCount = (state: WatchStore): number =>
-  state.watches.filter((w) => w.isActive).length;
+  state.criteria !== null ? 1 : 0;
 
-/**
- * Selector: Total count of current matches
- * @example
- * const matchCount = useWatchStore(selectTotalMatchCount);
- */
+/** @deprecated v1 compat — total match count */
 export const selectTotalMatchCount = (state: WatchStore): number =>
-  state.matches.length;
+  state.recentMatches.length;
 
-/**
- * Selector: Whether there are any active watches
- * @example
- * const hasActive = useWatchStore(selectHasActiveWatches);
- */
+/** @deprecated v1 compat — whether there are active watches */
 export const selectHasActiveWatches = (state: WatchStore): boolean =>
-  state.watches.some((w) => w.isActive);
+  state.criteria !== null;
 
-/**
- * Selector: Get all watches
- * @example
- * const watches = useWatchStore(selectAllWatches);
- */
+/** @deprecated v1 compat — all watches */
 export const selectAllWatches = (state: WatchStore): WatchItem[] =>
   state.watches;
 
-/**
- * Selector: Get all matches
- * @example
- * const matches = useWatchStore(selectAllMatches);
- */
+/** @deprecated v1 compat — all matches */
 export const selectAllMatches = (state: WatchStore): WatchMatch[] =>
   state.matches;
 
-// ============================================================================
-// Store Implementation
-// ============================================================================
+// =============================================================================
+// STORE IMPLEMENTATION
+// =============================================================================
 
-/**
- * Watch store with localStorage persistence for watch items
- *
- * @example
- * ```tsx
- * const { watches, addWatch, removeWatch, checkForActivity } = useWatchStore();
- *
- * // Add a new grid watch
- * const watch = addWatch('grid', 'CN87', 'Portland Area');
- *
- * // Add a callsign watch with wildcard
- * addWatch('callsign', 'W7*', 'W7 Stations');
- *
- * // Check for activity when new spots arrive
- * const newMatches = checkForActivity(spots);
- *
- * // Remove a watch
- * if (watch) removeWatch(watch.id);
- * ```
- */
 export const useWatchStore = create<WatchStore>()(
   persist(
     (set, get) => ({
-      // Persisted state
-      watches: defaultPersistedState.watches,
+      // ─── Persisted state ─────────────────────────────────────────────────
+      ...defaultPersisted,
 
-      // Runtime state (not persisted)
-      matches: defaultRuntimeState.matches,
-      seenSpotIds: defaultRuntimeState.seenSpotIds,
+      // ─── Runtime state ───────────────────────────────────────────────────
+      ...defaultRuntime,
 
-      // ========================================================================
-      // Actions
-      // ========================================================================
+      // ─── Backward-compatible stored fields ──────────────────────────────
+      // NOTE: These are regular properties, NOT getters. Getters break with
+      // Zustand's Object.assign in set() and cause infinite re-render loops
+      // with useSyncExternalStore. Updated explicitly in mutations below.
+      watches: [] as WatchItem[],
+      matches: [] as WatchMatch[],
 
-      addWatch: (type, pattern, name) => {
+      // ─── Actions ─────────────────────────────────────────────────────────
+
+      setWatch: (criteria: WatchCriteria) => {
+        const regex = compileCallsignRegex(criteria.callsign);
+        const compat = computeCompatFields({
+          criteria,
+          matchCount: 0,
+          lastMatchTime: null,
+          recentMatches: [],
+        });
+        set({
+          criteria,
+          enabled: true,
+          _callsignRegex: regex,
+          // Reset match state when criteria changes
+          matchedSpotIds: new Set(),
+          recentMatches: [],
+          matchCount: 0,
+          matchRate: 0,
+          lastMatchTime: null,
+          seenSpotIds: new Set(),
+          matchTimestamps: [],
+          ...compat,
+        });
+      },
+
+      clearWatch: () => {
+        set({
+          criteria: null,
+          enabled: false,
+          _callsignRegex: null,
+          matchedSpotIds: new Set(),
+          recentMatches: [],
+          matchCount: 0,
+          matchRate: 0,
+          lastMatchTime: null,
+          seenSpotIds: new Set(),
+          matchTimestamps: [],
+          watches: EMPTY_WATCHES,
+          matches: EMPTY_MATCHES,
+        });
+      },
+
+      toggleAutoPan: () => {
+        set((state) => ({ autoPan: !state.autoPan }));
+      },
+
+      setAutoPan: (enabled: boolean) => {
+        set({ autoPan: enabled });
+      },
+
+      saveWatch: (name: string) => {
         const state = get();
+        if (!state.criteria) return null;
+        if (state.savedWatches.length >= MAX_SAVED_WATCHES) return null;
 
-        // Enforce max watch limit
-        if (state.watches.length >= MAX_WATCHES) {
-          return null;
-        }
-
-        // Normalize pattern
-        const normalizedPattern = pattern.toUpperCase().trim();
-
-        // Check for duplicate
-        if (state.hasWatch(type, normalizedPattern)) {
-          return null;
-        }
-
-        const newWatch: WatchItem = {
-          id: generateWatchId(),
-          type,
-          pattern: normalizedPattern,
-          name: name?.trim() || undefined,
+        const saved: SavedWatch = {
+          id: generateId(),
+          name: name.trim(),
+          criteria: { ...state.criteria },
           createdAt: new Date().toISOString(),
-          activityCount: 0,
-          isActive: false,
         };
 
-        set((state) => ({
-          watches: [...state.watches, newWatch],
+        set((s) => ({
+          savedWatches: [...s.savedWatches, saved],
         }));
-
-        return newWatch;
+        return saved;
       },
 
-      removeWatch: (id) => {
-        set((state) => ({
-          watches: state.watches.filter((watch) => watch.id !== id),
-          matches: state.matches.filter((match) => match.watchId !== id),
-        }));
-      },
-
-      updateWatch: (id, updates) => {
+      loadWatch: (id: string) => {
         const state = get();
-        const watchIndex = state.watches.findIndex((watch) => watch.id === id);
-
-        if (watchIndex === -1) {
-          return false;
-        }
-
-        set((state) => ({
-          watches: state.watches.map((watch) =>
-            watch.id === id
-              ? {
-                  ...watch,
-                  ...updates,
-                  // Normalize pattern if updated
-                  pattern: updates.pattern
-                    ? updates.pattern.toUpperCase().trim()
-                    : watch.pattern,
-                }
-              : watch,
-          ),
-        }));
-
-        return true;
+        const saved = state.savedWatches.find((w) => w.id === id);
+        if (!saved) return;
+        // Delegate to setWatch which handles the full reset
+        get().setWatch(saved.criteria);
       },
 
-      clearMatches: () => {
+      deleteWatch: (id: string) => {
         set((state) => ({
-          matches: [],
-          watches: state.watches.map((watch) => ({
-            ...watch,
-            isActive: false,
-          })),
+          savedWatches: state.savedWatches.filter((w) => w.id !== id),
         }));
       },
 
-      checkForActivity: (spots) => {
+      setMyGridWatch: (grid: string) => {
+        if (!grid) return;
+        const prefix = grid
+          .substring(0, Math.min(grid.length, 4))
+          .toUpperCase();
+        get().setWatch({
+          gridPrefix: prefix,
+          txOrRx: "either",
+        });
+      },
+
+      setContestWatch: (contestId: string) => {
+        const contestDef = getContestById(contestId);
+        if (!contestDef) return;
+
+        // Infer mode from contest name/id
+        let mode: string | undefined;
+        const idLower = contestId.toLowerCase();
+        if (idLower.includes("-cw")) mode = "CW";
+        else if (idLower.includes("-ssb")) mode = "SSB";
+        else if (idLower.includes("-rtty") || idLower.includes("-digital"))
+          mode = "RTTY";
+
+        // Build watch criteria tuned for this contest
+        get().setWatch({
+          txOrRx: "either",
+          mode,
+          contestId,
+        });
+      },
+
+      setNeededOnly: (enabled: boolean) => {
+        set({ neededOnly: enabled });
+      },
+
+      checkSpots: (spots: DXSpot[]) => {
+        return processSpotBatch(get, set, spots);
+      },
+
+      checkLiveSpots: (spots: LiveSpot[]) => {
+        // LiveSpot extends DXSpot, so we can use the same matching logic
+        return processSpotBatch(get, set, spots);
+      },
+
+      resetSession: () => {
         const state = get();
-        const { watches, seenSpotIds } = state;
-        const newMatches: WatchMatch[] = [];
-        const updatedWatches = [...watches];
-        const watchMatchCounts: Record<string, number> = {};
-
-        // Initialize match counts
-        for (const watch of watches) {
-          watchMatchCounts[watch.id] = 0;
-        }
-
-        // Check each spot against all watches
-        for (const spot of spots) {
-          // Skip already-seen spots
-          if (seenSpotIds.has(spot.id)) {
-            continue;
-          }
-
-          for (const watch of watches) {
-            const matchedField = checkSpotMatch(spot, watch);
-            if (matchedField) {
-              newMatches.push({
-                watchId: watch.id,
-                spot,
-                matchedField,
-              });
-              watchMatchCounts[watch.id]++;
-            }
-          }
-        }
-
-        // Update seen spots
-        const newSeenSpotIds = new Set(seenSpotIds);
-        for (const spot of spots) {
-          newSeenSpotIds.add(spot.id);
-        }
-
-        // Update watch activity status and counts
-        const now = new Date().toISOString();
-        for (let i = 0; i < updatedWatches.length; i++) {
-          const watch = updatedWatches[i];
-          const matchCount = watchMatchCounts[watch.id];
-          if (matchCount > 0) {
-            updatedWatches[i] = {
-              ...watch,
-              isActive: true,
-              activityCount: watch.activityCount + matchCount,
-              lastActivityAt: now,
-            };
-          }
-        }
-
-        // Only update state if there are new matches
-        if (newMatches.length > 0) {
-          set({
-            watches: updatedWatches,
-            matches: [...state.matches, ...newMatches],
-            seenSpotIds: newSeenSpotIds,
-          });
-        } else if (newSeenSpotIds.size !== seenSpotIds.size) {
-          // Update seen spots even if no matches
-          set({ seenSpotIds: newSeenSpotIds });
-        }
-
-        return newMatches;
-      },
-
-      getActiveWatches: () => {
-        return get().watches.filter((watch) => watch.isActive);
-      },
-
-      getMatchesForWatch: (watchId) => {
-        return get().matches.filter((match) => match.watchId === watchId);
-      },
-
-      getWatchById: (id) => {
-        return get().watches.find((watch) => watch.id === id);
-      },
-
-      hasWatch: (type, pattern) => {
-        const normalizedPattern = pattern.toUpperCase().trim();
-        return get().watches.some(
-          (watch) => watch.type === type && watch.pattern === normalizedPattern,
-        );
-      },
-
-      resetSeenSpots: () => {
+        const compat = computeCompatFields({
+          criteria: state.criteria,
+          matchCount: 0,
+          lastMatchTime: null,
+          recentMatches: [],
+        });
         set({
+          matchedSpotIds: new Set(),
+          recentMatches: [],
+          matchCount: 0,
+          matchRate: 0,
+          lastMatchTime: null,
           seenSpotIds: new Set(),
-          matches: [],
-          watches: get().watches.map((watch) => ({
-            ...watch,
-            isActive: false,
-          })),
+          matchTimestamps: [],
+          ...compat,
         });
       },
     }),
     {
       name: STORAGE_KEY,
-      version: 1,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
-      // Only persist watches, not transient matches
       partialize: (state) => ({
-        watches: state.watches,
+        criteria: state.criteria,
+        autoPan: state.autoPan,
+        savedWatches: state.savedWatches,
+        neededOnly: state.neededOnly,
       }),
-      // Merge persisted state with runtime defaults on rehydration
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...(persistedState as Partial<PersistedWatchState>),
-        // Ensure runtime state uses defaults, not persisted values
-        matches: defaultRuntimeState.matches,
-        seenSpotIds: defaultRuntimeState.seenSpotIds,
-      }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<PersistedState>;
+        const merged = {
+          ...currentState,
+          ...persisted,
+          // Runtime state always resets on hydration
+          ...defaultRuntime,
+        };
+        // Re-compile callsign regex if criteria exists
+        if (merged.criteria?.callsign) {
+          merged._callsignRegex = compileCallsignRegex(
+            merged.criteria.callsign,
+          );
+          merged.enabled = true;
+        }
+        // Recompute compat fields from rehydrated criteria
+        const compat = computeCompatFields({
+          criteria: merged.criteria ?? null,
+          matchCount: 0,
+          lastMatchTime: null,
+          recentMatches: [],
+        });
+        return { ...merged, ...compat };
+      },
+      migrate: (persistedState: unknown, version: number) => {
+        if (version <= 2) {
+          // v2 → v3: add neededOnly
+          const state = persistedState as Record<string, unknown>;
+          if (!("neededOnly" in state)) state.neededOnly = false;
+        }
+        if (version === 1) {
+          // v1 had watches[] array → v2 has single criteria + savedWatches[]
+          const v1 = persistedState as {
+            watches?: Array<{
+              id: string;
+              type: string;
+              pattern: string;
+              name?: string;
+              createdAt: string;
+            }>;
+          };
+          const savedWatches: SavedWatch[] = (v1.watches ?? []).map((w) => ({
+            id: w.id,
+            name: w.name || w.pattern,
+            criteria: {
+              ...(w.type === "callsign" ? { callsign: w.pattern } : {}),
+              ...(w.type === "grid" ? { gridPrefix: w.pattern } : {}),
+              ...(w.type === "entity" ? { callsign: w.pattern } : {}),
+              txOrRx: "either" as WatchDirection,
+            },
+            createdAt: w.createdAt,
+          }));
+          return {
+            criteria: null,
+            autoPan: true,
+            savedWatches,
+          };
+        }
+        return persistedState as PersistedState;
+      },
     },
   ),
 );
+
+// =============================================================================
+// INTERNAL: Spot batch processing
+// =============================================================================
+
+/**
+ * Process a batch of spots against the active watch criteria.
+ * Updates match state and returns newly matched spots.
+ */
+function processSpotBatch(
+  get: () => WatchStore,
+  set: (
+    partial: Partial<WatchStore> | ((state: WatchStore) => Partial<WatchStore>),
+  ) => void,
+  spots: DXSpot[],
+): MatchedSpot[] {
+  const state = get();
+  const { criteria, seenSpotIds, _callsignRegex } = state;
+
+  // No active watch → no matches
+  if (!criteria || !state.enabled) return [];
+
+  const now = Date.now();
+  const nowISO = new Date(now).toISOString();
+  const newMatches: MatchedSpot[] = [];
+  const newMatchedIds = new Set(state.matchedSpotIds);
+  const newSeenIds = new Set(seenSpotIds);
+  const newTimestamps = [...state.matchTimestamps];
+
+  for (const spot of spots) {
+    // Skip already-seen spots
+    if (newSeenIds.has(spot.id)) continue;
+    newSeenIds.add(spot.id);
+
+    const matchedField = matchSpot(spot, criteria, _callsignRegex);
+    if (matchedField) {
+      const matched: MatchedSpot = {
+        id: `${ACTIVE_WATCH_ID}:${spot.id}`,
+        spot,
+        matchedField,
+        matchedAt: nowISO,
+      };
+      newMatches.push(matched);
+      newMatchedIds.add(spot.id);
+      newTimestamps.push(now);
+    }
+  }
+
+  // Prune match timestamps outside the rolling window
+  const windowStart = now - MATCH_RATE_WINDOW_MS;
+  const prunedTimestamps = newTimestamps.filter((t) => t >= windowStart);
+
+  // Calculate match rate (matches per second over rolling window)
+  const matchRate =
+    prunedTimestamps.length > 0
+      ? prunedTimestamps.length / (MATCH_RATE_WINDOW_MS / 1000)
+      : 0;
+
+  // Update state if anything changed
+  if (newMatches.length > 0 || newSeenIds.size !== seenSpotIds.size) {
+    const updatedRecentMatches = [...state.recentMatches, ...newMatches].slice(
+      -MAX_RECENT_MATCHES,
+    );
+    const newMatchCount = state.matchCount + newMatches.length;
+    const newLastMatchTime = newMatches.length > 0 ? now : state.lastMatchTime;
+
+    const compat = computeCompatFields({
+      criteria,
+      matchCount: newMatchCount,
+      lastMatchTime: newLastMatchTime,
+      recentMatches: updatedRecentMatches,
+    });
+
+    set({
+      matchedSpotIds: newMatchedIds,
+      recentMatches: updatedRecentMatches,
+      matchCount: newMatchCount,
+      matchRate,
+      lastMatchTime: newLastMatchTime,
+      seenSpotIds: newSeenIds,
+      matchTimestamps: prunedTimestamps,
+      ...compat,
+    });
+  } else if (matchRate !== state.matchRate) {
+    // Rate might decay even without new matches
+    set({ matchRate, matchTimestamps: prunedTimestamps });
+  }
+
+  return newMatches;
+}

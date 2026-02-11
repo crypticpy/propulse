@@ -1,0 +1,420 @@
+/**
+ * FloatingPanel Component
+ *
+ * Draggable + resizable panel for Pro mode full-screen map view.
+ * Uses native PointerEvent API for smooth drag and resize interactions.
+ * Designed for glass-morphism overlay panels (BandConditions, PathAnalysis, DXSpotList, etc.).
+ */
+
+import { useState, useRef, useCallback, useEffect } from "react";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface FloatingPanelProps {
+  id: string;
+  title: string;
+
+  // Position & size (percentage of viewport for responsiveness)
+  defaultPosition: { x: number; y: number }; // 0-100 percentage
+  defaultSize: { width: number; height: number }; // pixels
+  minSize?: { width: number; height: number }; // default 200x100
+  maxSize?: { width: number; height: number }; // default 800x600
+
+  // State
+  collapsed?: boolean;
+  onCollapse?: () => void;
+
+  // Persistence callback
+  onLayoutChange?: (layout: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => void;
+
+  // Restore from persisted layout
+  persistedLayout?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
+
+  // Styling
+  className?: string;
+  headerClassName?: string;
+
+  // Z-index management
+  zIndex?: number;
+  onFocus?: () => void; // called when panel is clicked, parent brings to front
+
+  children: React.ReactNode;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const DEFAULT_MIN_SIZE = { width: 200, height: 100 };
+const DEFAULT_MAX_SIZE = { width: 800, height: 600 };
+const TITLE_BAR_HEIGHT = 32;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Clamp a value between min and max */
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/** Clamp panel position so at least the title bar remains visible */
+function clampPosition(
+  x: number,
+  y: number,
+  width: number,
+): { x: number; y: number } {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  return {
+    // Keep at least 40px of title bar horizontally visible
+    x: clamp(x, -(width - 40), vw - 40),
+    // Keep title bar vertically within viewport
+    y: clamp(y, 0, vh - TITLE_BAR_HEIGHT),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function FloatingPanel({
+  id,
+  title,
+  defaultPosition,
+  defaultSize,
+  minSize = DEFAULT_MIN_SIZE,
+  maxSize = DEFAULT_MAX_SIZE,
+  collapsed = false,
+  onCollapse,
+  onLayoutChange,
+  persistedLayout,
+  className = "",
+  headerClassName = "",
+  zIndex,
+  onFocus,
+  children,
+}: FloatingPanelProps): React.ReactElement {
+  // ---- Resolve initial layout ----
+  const initialLayout = persistedLayout ?? {
+    x: (defaultPosition.x / 100) * window.innerWidth,
+    y: (defaultPosition.y / 100) * window.innerHeight,
+    width: defaultSize.width,
+    height: defaultSize.height,
+  };
+
+  // ---- Layout state (only updated on interaction END for perf) ----
+  const [layout, setLayout] = useState(initialLayout);
+
+  // ---- Refs for interaction-in-progress (avoid re-renders during drag/resize) ----
+  const panelRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const isResizing = useRef(false);
+  const dragStart = useRef({ pointerX: 0, pointerY: 0, panelX: 0, panelY: 0 });
+  const resizeStart = useRef({
+    pointerX: 0,
+    pointerY: 0,
+    width: 0,
+    height: 0,
+  });
+
+  // Keep a mutable ref of the latest layout for clamping during window resize
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+
+  // ---- Drag handlers ----
+  const handleDragPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Only primary button
+      if (e.button !== 0) return;
+
+      isDragging.current = true;
+      dragStart.current = {
+        pointerX: e.clientX,
+        pointerY: e.clientY,
+        panelX: layoutRef.current.x,
+        panelY: layoutRef.current.y,
+      };
+
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      document.body.classList.add("select-none");
+
+      // Drag visual feedback — via direct DOM for zero re-renders
+      const el = panelRef.current;
+      if (el) {
+        el.style.opacity = "0.92";
+        el.style.boxShadow = "0 25px 60px rgba(0,0,0,0.5)";
+        el.style.transform = "scale(1.01)";
+      }
+
+      onFocus?.();
+    },
+    [onFocus],
+  );
+
+  const handleDragPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging.current) return;
+
+      const dx = e.clientX - dragStart.current.pointerX;
+      const dy = e.clientY - dragStart.current.pointerY;
+      const newX = dragStart.current.panelX + dx;
+      const newY = dragStart.current.panelY + dy;
+      const clamped = clampPosition(newX, newY, layoutRef.current.width);
+
+      // Direct DOM update for smoothness (no React re-render)
+      const el = panelRef.current;
+      if (el) {
+        el.style.left = `${clamped.x}px`;
+        el.style.top = `${clamped.y}px`;
+      }
+
+      // Store in ref for commit on pointer up
+      layoutRef.current = { ...layoutRef.current, x: clamped.x, y: clamped.y };
+    },
+    [],
+  );
+
+  const handleDragPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging.current) return;
+
+      isDragging.current = false;
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      document.body.classList.remove("select-none");
+
+      // Reset drag visual feedback
+      const el = panelRef.current;
+      if (el) {
+        el.style.opacity = "";
+        el.style.boxShadow = "";
+        el.style.transform = "";
+      }
+
+      // Commit to React state
+      const committed = { ...layoutRef.current };
+      setLayout(committed);
+      onLayoutChange?.(committed);
+    },
+    [onLayoutChange],
+  );
+
+  // ---- Resize handlers ----
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.stopPropagation(); // prevent drag from firing
+
+      isResizing.current = true;
+      resizeStart.current = {
+        pointerX: e.clientX,
+        pointerY: e.clientY,
+        width: layoutRef.current.width,
+        height: layoutRef.current.height,
+      };
+
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      document.body.classList.add("select-none");
+      onFocus?.();
+    },
+    [onFocus],
+  );
+
+  const handleResizePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isResizing.current) return;
+
+      const dx = e.clientX - resizeStart.current.pointerX;
+      const dy = e.clientY - resizeStart.current.pointerY;
+      const newWidth = clamp(
+        resizeStart.current.width + dx,
+        minSize.width,
+        maxSize.width,
+      );
+      const newHeight = clamp(
+        resizeStart.current.height + dy,
+        minSize.height,
+        maxSize.height,
+      );
+
+      // Direct DOM update
+      const el = panelRef.current;
+      if (el) {
+        el.style.width = `${newWidth}px`;
+        el.style.height = `${newHeight}px`;
+      }
+
+      layoutRef.current = {
+        ...layoutRef.current,
+        width: newWidth,
+        height: newHeight,
+      };
+    },
+    [minSize, maxSize],
+  );
+
+  const handleResizePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isResizing.current) return;
+
+      isResizing.current = false;
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      document.body.classList.remove("select-none");
+
+      const committed = { ...layoutRef.current };
+      setLayout(committed);
+      onLayoutChange?.(committed);
+    },
+    [onLayoutChange],
+  );
+
+  // ---- Window resize: re-clamp position ----
+  useEffect(() => {
+    const handleWindowResize = () => {
+      const cur = layoutRef.current;
+      const clamped = clampPosition(cur.x, cur.y, cur.width);
+      if (clamped.x !== cur.x || clamped.y !== cur.y) {
+        layoutRef.current = { ...cur, ...clamped };
+        setLayout(layoutRef.current);
+
+        const el = panelRef.current;
+        if (el) {
+          el.style.left = `${clamped.x}px`;
+          el.style.top = `${clamped.y}px`;
+        }
+      }
+    };
+
+    window.addEventListener("resize", handleWindowResize);
+    return () => window.removeEventListener("resize", handleWindowResize);
+  }, []);
+
+  // ---- Focus on pointer down anywhere ----
+  const handlePanelPointerDown = useCallback(() => {
+    onFocus?.();
+  }, [onFocus]);
+
+  // ---- Render ----
+  return (
+    <div
+      ref={panelRef}
+      id={`floating-panel-${id}`}
+      className={`group fixed bg-black/60 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl ${
+        collapsed ? "" : "overflow-hidden"
+      } ${className}`}
+      style={{
+        left: layout.x,
+        top: layout.y,
+        width: layout.width,
+        height: collapsed ? TITLE_BAR_HEIGHT : layout.height,
+        zIndex: zIndex ?? "auto",
+        transition:
+          "opacity 150ms ease, box-shadow 150ms ease, transform 150ms ease" +
+          (collapsed ? ", height 200ms ease" : ""),
+      }}
+      onPointerDown={handlePanelPointerDown}
+    >
+      {/* Title bar (drag handle) */}
+      <div
+        className={`flex items-center gap-1.5 bg-white/5 border-b border-white/10 px-3 py-1.5 cursor-grab active:cursor-grabbing ${headerClassName}`}
+        style={{ touchAction: "none", height: TITLE_BAR_HEIGHT }}
+        onPointerDown={handleDragPointerDown}
+        onPointerMove={handleDragPointerMove}
+        onPointerUp={handleDragPointerUp}
+      >
+        {/* 6-dot drag grip icon */}
+        <svg
+          className="w-3 h-4 text-white/30 flex-shrink-0"
+          viewBox="0 0 6 10"
+          fill="currentColor"
+        >
+          <circle cx="1.5" cy="1.5" r="1" />
+          <circle cx="4.5" cy="1.5" r="1" />
+          <circle cx="1.5" cy="5" r="1" />
+          <circle cx="4.5" cy="5" r="1" />
+          <circle cx="1.5" cy="8.5" r="1" />
+          <circle cx="4.5" cy="8.5" r="1" />
+        </svg>
+
+        {/* Title */}
+        <span className="flex-1 text-xs font-medium text-white/80 truncate select-none">
+          {title}
+        </span>
+
+        {/* Collapse/expand chevron */}
+        {onCollapse && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCollapse();
+            }}
+            className="p-0.5 text-white/40 hover:text-white transition-colors rounded"
+            aria-label={collapsed ? "Expand panel" : "Collapse panel"}
+          >
+            <svg
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                collapsed ? "-rotate-90" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Content area */}
+      {!collapsed && (
+        <div
+          className="overflow-auto"
+          style={{ height: `calc(100% - ${TITLE_BAR_HEIGHT}px)` }}
+        >
+          {children}
+        </div>
+      )}
+
+      {/* Resize handle (bottom-right corner) — 20px touch target, visual grip stays small */}
+      {!collapsed && (
+        <div
+          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end pr-0.5 pb-0.5"
+          style={{ touchAction: "none" }}
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={handleResizePointerUp}
+        >
+          {/* Diagonal grip lines */}
+          <svg
+            className="w-3 h-3 text-white/40"
+            viewBox="0 0 8 8"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1}
+          >
+            <line x1="6" y1="1" x2="1" y2="6" />
+            <line x1="6" y1="4" x2="4" y2="6" />
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+}

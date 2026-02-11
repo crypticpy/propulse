@@ -17,6 +17,7 @@ import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXStore } from "@/stores/dxStore";
+import { useMapStore } from "@/stores/mapStore";
 import {
   useSpotClusteringPrefs,
   useSpotAgePrefs,
@@ -36,6 +37,7 @@ import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import { useReplayStore } from "@/stores/replayStore";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -407,6 +409,7 @@ function SpotArc({
   ageVisualizationEnabled = true,
   colorMode = "mode",
   sizeScale = 1.0,
+  filterOpacityMultiplier = 1.0,
 }: {
   spot: ResolvedSpot;
   segments?: number;
@@ -416,6 +419,8 @@ function SpotArc({
   colorMode?: SpotColorMode;
   /** Scale multiplier for line width (from spotDotScale) */
   sizeScale?: number;
+  /** Opacity multiplier for profile-based spot filtering (0.2 for dimmed, 1.0 for normal) */
+  filterOpacityMultiplier?: number;
 }) {
   // Validate coordinates to prevent NaN errors in THREE.js
   const hasValidCoords =
@@ -459,7 +464,8 @@ function SpotArc({
 
   // Calculate age-based opacity using new getSpotAgeInfo
   const ageInfo = useMemo(() => getSpotAgeInfo(spot.time), [spot.time]);
-  const opacity = ageVisualizationEnabled ? ageInfo.opacity : 1.0;
+  const baseOpacity = ageVisualizationEnabled ? ageInfo.opacity : 1.0;
+  const opacity = Math.max(0.08, baseOpacity * filterOpacityMultiplier);
   const lineWidth =
     (ageVisualizationEnabled ? 1.5 * ageInfo.scale : 1.5) * sizeScale;
 
@@ -534,14 +540,36 @@ function SpotEndpoint({
  */
 export function LiveSpotArcs({
   grid,
-  maxArcs = 50,
+  maxArcs: maxArcsProp,
   onSpotHover,
   onSpotHoverEnd,
   onClusterClick,
 }: LiveSpotArcsProps) {
+  // Use displayDensity from mapStore, falling back to prop, then default 50
+  const displayDensity = useMapStore((s) => s.displayDensity);
+  const maxArcs = maxArcsProp ?? displayDensity ?? 50;
   // Get source filter from dxStore - shared with DXSpotList
   const filters = useDXStore((state) => state.filters);
   const sourcesFilter = filters.sources as SpotSource[] | undefined;
+
+  // Get profile-based spot filters from mapStore
+  const spotFilters = useMapStore((s) => s.spotFilters);
+
+  // Pre-compute filter sets for case-insensitive matching
+  const profileBandSet = useMemo(
+    () =>
+      spotFilters.bands.length > 0
+        ? new Set(spotFilters.bands.map((b) => b.toLowerCase()))
+        : null,
+    [spotFilters.bands],
+  );
+  const profileModeSet = useMemo(
+    () =>
+      spotFilters.modes.length > 0
+        ? new Set(spotFilters.modes.map((m) => m.toLowerCase()))
+        : null,
+    [spotFilters.modes],
+  );
 
   // Get clustering preferences from user store
   const clusteringPrefs = useSpotClusteringPrefs();
@@ -582,7 +610,19 @@ export function LiveSpotArcs({
     return map;
   }, [singles]);
 
-  if (isLoading || (resolvedSingles.length === 0 && clusters.length === 0)) {
+  // ── Replay spots (sepia-toned historical arcs) ──────────────────────────
+  const replaySpots = useReplayStore((s) => s.replaySpots);
+  const resolvedReplay = useMemo(
+    () => resolveSpotLocations(replaySpots),
+    [replaySpots],
+  );
+
+  if (
+    isLoading ||
+    (resolvedSingles.length === 0 &&
+      clusters.length === 0 &&
+      resolvedReplay.length === 0)
+  ) {
     return null;
   }
 
@@ -612,10 +652,26 @@ export function LiveSpotArcs({
           const color = getSpotColor(spot, colorMode);
           // Calculate age info for endpoint styling
           const ageInfo = getSpotAgeInfo(spot.time);
+
+          // Determine if spot passes profile filter
+          const orig = singlesMap.get(spot.id);
+          const spotBand = orig?.band?.toLowerCase() ?? "";
+          const spotMode = spot.mode?.toLowerCase() ?? "";
+          // Treat missing metadata as "show anyway" — don't dim spots with unknown band/mode
+          const passesBandFilter =
+            !profileBandSet || !spotBand || profileBandSet.has(spotBand);
+          const passesModeFilter =
+            !profileModeSet || !spotMode || profileModeSet.has(spotMode);
+          const passesFilter = passesBandFilter && passesModeFilter;
+          const filterOpacity = passesFilter ? 1.0 : 0.3;
+
           // Apply age-based styling only if preference is enabled
-          const endpointOpacity = spotAgePrefs.enabled
-            ? ageInfo.opacity * 0.8
-            : 0.8;
+          // Floor ensures filtered spots remain barely visible rather than invisible
+          const endpointOpacity = Math.max(
+            0.08,
+            (spotAgePrefs.enabled ? ageInfo.opacity * 0.8 : 0.8) *
+              filterOpacity,
+          );
           const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
 
           // Compute stack index for this label position (proximity-based)
@@ -641,6 +697,7 @@ export function LiveSpotArcs({
                 ageVisualizationEnabled={spotAgePrefs.enabled}
                 colorMode={colorMode}
                 sizeScale={spotDotScale}
+                filterOpacityMultiplier={filterOpacity}
               />
               {/* Endpoint markers with age-based styling */}
               <SpotEndpoint
@@ -664,7 +721,6 @@ export function LiveSpotArcs({
                 !labeledCallsigns.has(spot.callsign) &&
                 (() => {
                   labeledCallsigns.add(spot.callsign);
-                  const orig = singlesMap.get(spot.id);
                   return (
                     <SpotLabel
                       lat={spot.dxLat}
@@ -743,6 +799,33 @@ export function LiveSpotArcs({
           );
         });
       })()}
+
+      {/* ── Replay arcs — sepia-toned historical spots ─────────────────── */}
+      {resolvedReplay.map((spot) => (
+        <group key={`replay-${spot.id}`}>
+          <SpotArc
+            spot={spot}
+            ageVisualizationEnabled={false}
+            colorMode="mode"
+            sizeScale={uiPrefs.spotDotScale ?? 1.0}
+            filterOpacityMultiplier={0.6}
+          />
+          <SpotEndpoint
+            lat={spot.spotterLat}
+            lon={spot.spotterLon}
+            color="#8B7355"
+            size={0.005}
+            opacity={0.4}
+          />
+          <SpotEndpoint
+            lat={spot.dxLat}
+            lon={spot.dxLon}
+            color="#8B7355"
+            size={0.006}
+            opacity={0.5}
+          />
+        </group>
+      ))}
     </group>
   );
 }

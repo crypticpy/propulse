@@ -121,6 +121,10 @@ interface ProfileStore {
   addLicenseHistoryEntry: (entry: LicenseHistoryEntry) => void;
   removeLicenseHistoryEntry: (id: string) => void;
 
+  // Subscription tier (no billing yet — just a client-side flag)
+  subscriptionTier: "free" | "pro";
+  setSubscriptionTier: (tier: "free" | "pro") => void;
+
   // Rank system
   operatorRank: OperatorRank;
   lastLoginDate: string | null; // ISO date "YYYY-MM-DD"
@@ -151,6 +155,8 @@ export const useProfileStore = create<ProfileStore>()(
       lastIngestedCallsign: "",
       socialLinks: [],
       visibilitySettings: { ...DEFAULT_VISIBILITY },
+      subscriptionTier: "free" as const,
+      setSubscriptionTier: (tier) => set({ subscriptionTier: tier }),
       operatorRank: DEFAULT_OPERATOR_RANK,
       lastLoginDate: null,
       loginStreakDays: 0,
@@ -499,7 +505,7 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: "propulse-profile",
-      version: 7,
+      version: 8,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -517,6 +523,7 @@ export const useProfileStore = create<ProfileStore>()(
         lastLoginDate: state.lastLoginDate,
         loginStreakDays: state.loginStreakDays,
         rankCelebrationSeen: state.rankCelebrationSeen,
+        subscriptionTier: state.subscriptionTier,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -557,6 +564,9 @@ export const useProfileStore = create<ProfileStore>()(
           if (!("loginStreakDays" in state)) state.loginStreakDays = 0;
           if (!("rankCelebrationSeen" in state))
             state.rankCelebrationSeen = null;
+        }
+        if (version < 8) {
+          if (!("subscriptionTier" in state)) state.subscriptionTier = "free";
         }
         return state as unknown as ProfileStore;
       },

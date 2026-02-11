@@ -11,22 +11,15 @@ import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, type SavedTarget } from "@/stores/userStore";
 import { Card } from "@/components/ui/Card";
 import { PinList } from "./PinList";
-import { WatchIndicator } from "./WatchIndicator";
 import type { MapPin } from "@/types/pin";
 
 interface QuickTargetsProps {
   className?: string;
-  /** Callback when watch indicator is clicked */
-  onOpenWatchList?: () => void;
   /** Callback when edit pin is requested */
   onEditPin?: (pin: MapPin) => void;
 }
 
-export function QuickTargets({
-  className = "",
-  onOpenWatchList,
-  onEditPin,
-}: QuickTargetsProps) {
+export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
   const { setTarget } = useMapStore();
   const { savedTargets, removeTarget, clearTargets } = useUserStore();
 
@@ -81,9 +74,6 @@ export function QuickTargets({
       {/* Header with title and watch indicator */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-white">Quick Access</h3>
-        <div className="flex items-center gap-2">
-          <WatchIndicator onClick={onOpenWatchList} />
-        </div>
       </div>
 
       {/* Tab switcher */}

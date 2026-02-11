@@ -40,6 +40,7 @@ import {
   type DifficultyLevel,
 } from "./LocationMarker";
 import { LiveSpotArcs } from "./LiveSpotArcs";
+import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
 import { SpotHighlight } from "./SpotHighlight";
 import { OverlayLayers3D } from "./OverlayLayers3D";
 import { PinMarker } from "./PinMarker";
@@ -54,8 +55,6 @@ import {
   GridResearchPanel,
   type GridResearchAction,
 } from "./GridResearchPanel";
-import { WatchListPanel } from "./WatchListPanel";
-import { WatchIndicator } from "./WatchIndicator";
 import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { gridToLatLon } from "@/lib/utils/grid";
@@ -71,8 +70,10 @@ import { useDXStore } from "@/stores/dxStore";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
+import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { getGreylineIntensity } from "@/lib/utils/greyline";
+import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getEnhancedBandConditions } from "@/lib/utils/bands";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
@@ -196,6 +197,11 @@ function latLonToCameraPosition(
  * - A spot is selected (targetPosition from useSpotFocus)
  * - Q2: Double-click centers the view (centerLocation from mapStore)
  */
+// Earth completes one rotation in 86 400 seconds.
+// OrbitControls autoRotateSpeed 2.0 = 30 seconds per orbit at 60 fps.
+// Real-time: 2.0 × (30 / 86400) ≈ 0.000694
+const EARTH_REALTIME_ROTATE_SPEED = 2.0 * (30 / 86_400);
+
 function CameraController() {
   const controlsRef = useRef<OrbitControlsType>(null);
   const { camera } = useThree();
@@ -204,7 +210,162 @@ function CameraController() {
   const clearCenterLocation = useMapStore((state) => state.clearCenterLocation);
   const activePresetId = useMapStore((state) => state.activePresetId);
   const regionPresets = useMapStore((state) => state.regionPresets);
+  const autoRotate = useMapStore((state) => state.autoRotate);
   const prevPresetIdRef = useRef<string | null>(null);
+
+  // ─── Watch-based camera auto-pan ───────────────────────────────────────────
+  const recentMatches = useWatchStore((s) => s.recentMatches);
+  const matchRate = useWatchStore((s) => s.matchRate);
+  const autoPan = useWatchStore((s) => s.autoPan);
+  const watchEnabled = useWatchStore((s) => s.enabled);
+
+  /** Track how many matches we've already panned to */
+  const lastPanMatchCountRef = useRef(0);
+  /** Timestamp of the last pan animation start */
+  const lastPanTimeRef = useRef(0);
+  /** Timestamp of when user last interacted (drag) with the globe */
+  const lastUserDragRef = useRef(0);
+  /** Whether we paused auto-rotate for a pan animation */
+  const pausedAutoRotateRef = useRef(false);
+  /** Animation frame ID for cleanup */
+  const watchPanRafRef = useRef<number>(0);
+
+  // Detect user drag interactions to suppress auto-pan for 10 seconds
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const onStart = () => {
+      lastUserDragRef.current = Date.now();
+    };
+    controls.addEventListener("start", onStart);
+    return () => {
+      controls.removeEventListener("start", onStart);
+    };
+  }, []);
+
+  // Watch-based auto-pan effect
+  useEffect(() => {
+    if (!autoPan || !watchEnabled || recentMatches.length === 0) {
+      // Reset counter when watch is disabled or cleared
+      lastPanMatchCountRef.current = recentMatches.length;
+      return;
+    }
+
+    // Only act on NEW matches since our last pan
+    if (recentMatches.length <= lastPanMatchCountRef.current) {
+      return;
+    }
+
+    // Rate-based panning strategy
+    // > 2/sec → too busy, skip panning entirely
+    if (matchRate > 2) {
+      lastPanMatchCountRef.current = recentMatches.length;
+      return;
+    }
+
+    const now = Date.now();
+
+    // Suppress panning for 10 seconds after user drag
+    if (now - lastUserDragRef.current < 10_000) {
+      lastPanMatchCountRef.current = recentMatches.length;
+      return;
+    }
+
+    // 0.2–2/sec → debounce: only pan if 5 seconds since last pan
+    if (matchRate >= 0.2 && matchRate <= 2) {
+      if (now - lastPanTimeRef.current < 5_000) {
+        lastPanMatchCountRef.current = recentMatches.length;
+        return;
+      }
+    }
+
+    // < 0.2/sec → pan to each match with 800ms ease-out
+    // (For 0.2–2/sec, we already debounced above, so we pan to the latest)
+
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    // Get the latest match
+    const latestMatch = recentMatches[recentMatches.length - 1];
+    const spot = latestMatch.spot;
+
+    // Determine lat/lon based on which end matched
+    let lat: number | undefined;
+    let lon: number | undefined;
+    if (latestMatch.matchedField === "dx") {
+      lat = spot.dxLat;
+      lon = spot.dxLon;
+    } else {
+      lat = spot.spotterLat;
+      lon = spot.spotterLon;
+    }
+
+    if (lat === undefined || lon === undefined) {
+      lastPanMatchCountRef.current = recentMatches.length;
+      return;
+    }
+
+    // Mark that we're panning
+    lastPanMatchCountRef.current = recentMatches.length;
+    lastPanTimeRef.current = now;
+
+    // Temporarily pause auto-rotate during animation
+    const wasAutoRotating = controls.autoRotate;
+    if (wasAutoRotating) {
+      controls.autoRotate = false;
+      pausedAutoRotateRef.current = true;
+    }
+
+    // Cancel any in-flight watch pan animation
+    if (watchPanRafRef.current) {
+      cancelAnimationFrame(watchPanRafRef.current);
+    }
+
+    const startPosition = camera.position.clone();
+    const currentDistance = startPosition.length();
+    const endPosition = latLonToCameraPosition(lat, lon, currentDistance);
+
+    // Duration depends on rate: < 0.2 → 800ms, 0.2–2 → 800ms
+    const duration = 800;
+    const startTime = Date.now();
+
+    function animateWatchPan() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      camera.position.lerpVectors(startPosition, endPosition, eased);
+      camera.lookAt(0, 0, 0);
+      controls!.update();
+
+      if (progress < 1) {
+        watchPanRafRef.current = requestAnimationFrame(animateWatchPan);
+      } else {
+        // Restore auto-rotate if we paused it
+        if (pausedAutoRotateRef.current && wasAutoRotating) {
+          controls!.autoRotate = true;
+          pausedAutoRotateRef.current = false;
+        }
+        watchPanRafRef.current = 0;
+      }
+    }
+
+    animateWatchPan();
+
+    return () => {
+      if (watchPanRafRef.current) {
+        cancelAnimationFrame(watchPanRafRef.current);
+        watchPanRafRef.current = 0;
+      }
+      // Restore auto-rotate on cleanup
+      if (pausedAutoRotateRef.current && controls) {
+        controls.autoRotate = autoRotate;
+        pausedAutoRotateRef.current = false;
+      }
+    };
+  }, [recentMatches, matchRate, autoPan, watchEnabled, camera, autoRotate]);
 
   // Animate camera to focus on selected spot
   useEffect(() => {
@@ -353,6 +514,8 @@ function CameraController() {
       rotateSpeed={0.5}
       dampingFactor={0.1}
       enableDamping
+      autoRotate={autoRotate}
+      autoRotateSpeed={EARTH_REALTIME_ROTATE_SPEED}
     />
   );
 }
@@ -413,7 +576,7 @@ function GlobeScene({
     screenPos: { x: number; y: number },
   ) => void;
 }) {
-  const { layers, target, autoRotate, pathMode, mapStyle } = useMapStore();
+  const { layers, target, pathMode, mapStyle } = useMapStore();
   const isStandard = mapStyle === "standard";
   const { station } = useUserStore();
   const { pins } = usePinStore();
@@ -423,7 +586,49 @@ function GlobeScene({
   const holdDurationMs = useSettingsStore(
     (s) => s.uiInteraction?.holdDurationMs ?? 500,
   );
-  const mapPinScale = useUIInteractionPrefs().mapPinScale ?? 1.0;
+  const uiPrefs = useUIInteractionPrefs();
+  const mapPinScale = uiPrefs.mapPinScale ?? 1.0;
+
+  // Fetch live spots for the grid glow overlay
+  const { spots: liveSpots } = useLiveSpots({
+    grid: station?.grid,
+    enabled: layers.spots,
+  });
+
+  // Transform recent live spots into GridGlowSpot[] for the glow overlay.
+  // Only include spots from the last 5 seconds to avoid flooding on initial load.
+  const glowSpots = useMemo((): GridGlowSpot[] => {
+    const cutoff = Date.now() - 5_000;
+    const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
+    const result: GridGlowSpot[] = [];
+
+    for (const spot of liveSpots) {
+      // Only include spots arriving within the last 5 seconds
+      const spotTime =
+        spot.time instanceof Date ? spot.time.getTime() : Number(spot.time);
+      if (spotTime < cutoff) continue;
+
+      // Extract 2-char Maidenhead prefix from DX grid or spotter grid
+      const grids: string[] = [];
+      if (spot.dxGrid && spot.dxGrid.length >= 2) {
+        grids.push(spot.dxGrid.slice(0, 2).toUpperCase());
+      }
+      if (spot.spotterGrid && spot.spotterGrid.length >= 2) {
+        const prefix = spot.spotterGrid.slice(0, 2).toUpperCase();
+        if (!grids.includes(prefix)) {
+          grids.push(prefix);
+        }
+      }
+
+      const color = getSpotColor(spot, colorMode);
+
+      for (const gridField of grids) {
+        result.push({ gridField, color, timestamp: spotTime });
+      }
+    }
+
+    return result;
+  }, [liveSpots, uiPrefs.spotColorMode]);
 
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
@@ -512,11 +717,7 @@ function GlobeScene({
         holdDurationMs={holdDurationMs}
       >
         {/* Earth sphere */}
-        <EarthSphere
-          autoRotate={autoRotate}
-          rotationSpeed={0.0005}
-          grayscale={isStandard}
-        />
+        <EarthSphere grayscale={isStandard} />
       </GlobeClickHandler>
 
       {/* Night side darkening overlay */}
@@ -572,6 +773,9 @@ function GlobeScene({
           onClusterClick={onClusterClick}
         />
       )}
+
+      {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
+      {layers.spots && <GridGlowOverlay spots={glowSpots} />}
 
       {/* Pin markers from saved locations - distinctive pushpin style */}
       {pins.map((pin) => {
@@ -719,9 +923,8 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster();
 
-  // Watch store for activity checking
-  const addWatch = useWatchStore((state) => state.addWatch);
-  const checkForActivity = useWatchStore((state) => state.checkForActivity);
+  // Watch store v2 — grid watch action for flyout
+  const setWatch = useWatchStore((s) => s.setWatch);
 
   // State for AddPinDialog
   const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
@@ -734,9 +937,6 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // State for GridResearchPanel
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchGrid, setResearchGrid] = useState<string | null>(null);
-
-  // State for WatchListPanel
-  const [watchListOpen, setWatchListOpen] = useState(false);
 
   // State for pin-specific hover flyout
   const [hoveredPinData, setHoveredPinData] = useState<{
@@ -768,13 +968,6 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     x: number;
     y: number;
   } | null>(null);
-
-  // Check watch activity when spots change
-  useEffect(() => {
-    if (allSpots.length > 0) {
-      checkForActivity(allSpots);
-    }
-  }, [allSpots, checkForActivity]);
 
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
@@ -1039,15 +1232,15 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     [setFlyoutPosition],
   );
 
-  // Handle adding a grid to watch list
+  // Handle adding a grid to watch list (v2: setWatch with WatchCriteria)
   const handleWatchGrid = useCallback(
     (grid: string) => {
       // Watch the 4-char grid prefix for broader matching
       const gridPrefix = grid.slice(0, 4).toUpperCase();
-      addWatch("grid", gridPrefix);
+      setWatch({ gridPrefix, txOrRx: "either" });
       setFlyoutPosition(null);
     },
-    [addWatch, setFlyoutPosition],
+    [setWatch, setFlyoutPosition],
   );
 
   // Handle GridResearchPanel actions
@@ -1237,11 +1430,6 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       {/* Spot & pin size sliders - bottom left corner */}
       <MapSizeSliders />
 
-      {/* Watch activity indicator - top right corner */}
-      <div className="absolute top-3 right-3 z-10">
-        <WatchIndicator onClick={() => setWatchListOpen(true)} />
-      </div>
-
       {/* AddPinDialog modal */}
       <AddPinDialog
         visible={addPinDialogOpen}
@@ -1266,12 +1454,6 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
         grid={researchGrid || ""}
         onAction={handleResearchAction}
         onClose={() => setResearchPanelOpen(false)}
-      />
-
-      {/* WatchListPanel slide-out */}
-      <WatchListPanel
-        visible={watchListOpen}
-        onClose={() => setWatchListOpen(false)}
       />
     </div>
   );

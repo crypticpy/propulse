@@ -50,8 +50,6 @@ import {
   GridResearchPanel,
   type GridResearchAction,
 } from "./GridResearchPanel";
-import { WatchListPanel } from "./WatchListPanel";
-import { WatchIndicator } from "./WatchIndicator";
 import { latLonToGrid, gridToLatLon } from "@/lib/utils/grid";
 import { usePinStore } from "@/stores/pinStore";
 import { useUndoStore } from "@/stores/undoStore";
@@ -81,6 +79,8 @@ import {
   MAIDENHEAD_LON_LINES,
   MAIDENHEAD_LAT_LINES,
 } from "@/lib/utils/maidenheadGrid";
+import { GridGlowRenderer } from "./GridGlowCanvas";
+import type { GridGlowSpot } from "./GridGlowCanvas";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -948,9 +948,9 @@ function drawSpotArc(
   colorMode: SpotColorMode = "mode",
   highViz = false,
   spotDotScale = 1.0,
+  opacity = 1,
 ) {
   const color = getSpotColor(spot, colorMode);
-  const opacity = 1;
 
   // Get start and end points
   const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
@@ -1060,7 +1060,9 @@ function drawSpotArc(
 }
 
 /**
- * Draw all spot arcs on the 2D map
+ * Draw all spot arcs on the 2D map.
+ * When watchEnabled is true, matched spots render at full opacity
+ * and non-matched spots are dimmed to 0.3.
  */
 function drawSpotArcs(
   ctx: CanvasRenderingContext2D,
@@ -1070,9 +1072,26 @@ function drawSpotArcs(
   colorMode: SpotColorMode = "mode",
   highViz = false,
   spotDotScale = 1.0,
+  watchActive = false,
+  watchMatchedIds?: Set<string>,
 ) {
   for (const spot of spots) {
-    drawSpotArc(ctx, spot, width, height, colorMode, highViz, spotDotScale);
+    const opacity =
+      watchActive && watchMatchedIds
+        ? watchMatchedIds.has(spot.id)
+          ? 1
+          : 0.3
+        : 1;
+    drawSpotArc(
+      ctx,
+      spot,
+      width,
+      height,
+      colorMode,
+      highViz,
+      spotDotScale,
+      opacity,
+    );
   }
 }
 
@@ -2244,6 +2263,14 @@ export function FlatMapView({
   // Track previous preset ID for detecting changes
   const prevPresetIdRef = useRef<string | null>(null);
 
+  // Grid glow renderer (single instance, persists across renders)
+  const glowRendererRef = useRef<GridGlowRenderer>(new GridGlowRenderer());
+  // Track which spot IDs have already triggered glows (avoid re-firing on every render)
+  const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
+  // Tick counter to force canvas re-renders while glows are animating
+  const [glowTick, setGlowTick] = useState(0);
+  const glowRafRef = useRef<number>(0);
+
   const {
     layers,
     labelOptions,
@@ -2261,6 +2288,7 @@ export function FlatMapView({
   const clearCenterLocation = useMapStore((s) => s.clearCenterLocation);
   const activePresetId = useMapStore((s) => s.activePresetId);
   const regionPresets = useMapStore((s) => s.regionPresets);
+  const displayDensity = useMapStore((s) => s.displayDensity);
   const { station, preferences } = useUserStore();
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
@@ -2297,9 +2325,10 @@ export function FlatMapView({
   const { updateFilter } = useDXStore();
   const { allSpots } = useDXCluster();
 
-  // Watch store
-  const addWatch = useWatchStore((state) => state.addWatch);
-  const checkForActivity = useWatchStore((state) => state.checkForActivity);
+  // Watch store v2
+  const watchEnabled = useWatchStore((state) => state.enabled);
+  const matchedSpotIds = useWatchStore((state) => state.matchedSpotIds);
+  const checkSpots = useWatchStore((state) => state.checkSpots);
 
   // State for AddPinDialog
   const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
@@ -2356,9 +2385,6 @@ export function FlatMapView({
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchGrid, setResearchGrid] = useState<string | null>(null);
 
-  // State for WatchListPanel
-  const [watchListOpen, setWatchListOpen] = useState(false);
-
   // State for continuous bearing/distance on hover
   const [hoverCoords, setHoverCoords] = useState<{
     lat: number;
@@ -2372,13 +2398,74 @@ export function FlatMapView({
     refetchInterval: 60000,
   });
 
-  // Resolve spot locations and limit to 50 for performance
+  // Resolve spot locations and limit by display density setting
   const resolvedSpots = useMemo(() => {
     if (!layers.spots) {
       return [];
     }
-    return resolveSpotLocations(spots).slice(0, 50);
-  }, [spots, layers.spots]);
+    return resolveSpotLocations(spots).slice(0, displayDensity);
+  }, [spots, layers.spots, displayDensity]);
+
+  // Feed new spots into the grid glow renderer when spots arrive
+  useEffect(() => {
+    if (!layers.spots) return;
+    const now = Date.now();
+    const currentIds = new Set<string>();
+    const prevIds = prevGlowSpotIdsRef.current;
+
+    for (const spot of spots) {
+      currentIds.add(spot.id);
+      // Only fire a glow for spots we haven't seen before
+      if (prevIds.has(spot.id)) continue;
+
+      const color = getSpotColor(spot, spotColorMode);
+
+      // Fire glow for DX grid field (first 2 chars)
+      const dxGrid = spot.dxGrid;
+      if (dxGrid && dxGrid.length >= 2) {
+        glowRendererRef.current.addGlow({
+          gridField: dxGrid.slice(0, 2),
+          color,
+          timestamp: now,
+        } satisfies GridGlowSpot);
+      }
+
+      // Fire glow for spotter grid field (first 2 chars)
+      const sGrid = spot.spotterGrid;
+      if (sGrid && sGrid.length >= 2) {
+        glowRendererRef.current.addGlow({
+          gridField: sGrid.slice(0, 2),
+          color,
+          timestamp: now,
+        } satisfies GridGlowSpot);
+      }
+    }
+
+    prevGlowSpotIdsRef.current = currentIds;
+
+    // Start the glow animation loop if there are active glows
+    if (glowRendererRef.current.hasActiveGlows() && !glowRafRef.current) {
+      const tick = () => {
+        if (glowRendererRef.current.hasActiveGlows()) {
+          setGlowTick((t) => t + 1);
+          glowRafRef.current = requestAnimationFrame(tick);
+        } else {
+          glowRafRef.current = 0;
+        }
+      };
+      glowRafRef.current = requestAnimationFrame(tick);
+    }
+  }, [spots, layers.spots, spotColorMode]);
+
+  // Clean up glow RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (glowRafRef.current) {
+        cancelAnimationFrame(glowRafRef.current);
+        glowRafRef.current = 0;
+      }
+    };
+  }, []);
 
   // Calculate path metrics for target marker display
   const pathMetrics = useMemo(() => {
@@ -2467,9 +2554,9 @@ export function FlatMapView({
   // Check watch activity when spots change
   useEffect(() => {
     if (allSpots.length > 0) {
-      checkForActivity(allSpots);
+      checkSpots(allSpots);
     }
-  }, [allSpots, checkForActivity]);
+  }, [allSpots, checkSpots]);
 
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
@@ -2737,10 +2824,10 @@ export function FlatMapView({
     (grid: string) => {
       // Watch the 4-char grid prefix for broader matching
       const gridPrefix = grid.slice(0, 4).toUpperCase();
-      addWatch("grid", gridPrefix);
+      useWatchStore.getState().setWatch({ gridPrefix, txOrRx: "either" });
       setFlyoutPosition(null);
     },
-    [addWatch, setFlyoutPosition],
+    [setFlyoutPosition],
   );
 
   // Handle GridResearchPanel actions
@@ -3514,6 +3601,13 @@ export function FlatMapView({
       );
     }
 
+    // Draw grid glow pulses (after base map / terminator / labels, before spot arcs)
+    if (layers.spots && glowRendererRef.current.hasActiveGlows()) {
+      const glowProject = (lat: number, lon: number) =>
+        latLonToCanvas(lat, lon, renderWidth, renderHeight);
+      glowRendererRef.current.draw(ctx, glowProject, Date.now());
+    }
+
     // Highlight Maidenhead grid squares containing active spots
     if (
       layers.labels &&
@@ -3524,7 +3618,7 @@ export function FlatMapView({
       drawSpotGridHighlights(ctx, resolvedSpots, renderWidth, renderHeight);
     }
 
-    // Draw live spot arcs
+    // Draw live spot arcs (dimmed for non-matched when watch is active)
     if (layers.spots && resolvedSpots.length > 0) {
       drawSpotArcs(
         ctx,
@@ -3534,6 +3628,8 @@ export function FlatMapView({
         spotColorMode,
         highViz,
         spotDotScale,
+        watchEnabled && matchedSpotIds.size > 0,
+        matchedSpotIds,
       );
     }
 
@@ -3710,6 +3806,9 @@ export function FlatMapView({
     mapPinScale,
     mapStyle,
     wasStates,
+    watchEnabled,
+    matchedSpotIds,
+    glowTick,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point
@@ -3822,11 +3921,6 @@ export function FlatMapView({
         onWatchGrid={handleWatchGrid}
       />
 
-      {/* Watch activity indicator */}
-      <div className="absolute top-3 right-3 z-10">
-        <WatchIndicator onClick={() => setWatchListOpen(true)} />
-      </div>
-
       {/* Spot & pin size sliders - bottom left corner */}
       <MapSizeSliders />
 
@@ -3898,12 +3992,6 @@ export function FlatMapView({
         grid={researchGrid || ""}
         onAction={handleResearchAction}
         onClose={() => setResearchPanelOpen(false)}
-      />
-
-      {/* WatchListPanel slide-out */}
-      <WatchListPanel
-        visible={watchListOpen}
-        onClose={() => setWatchListOpen(false)}
       />
     </div>
   );

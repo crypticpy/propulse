@@ -7,21 +7,22 @@
 
 ## Summary
 
-| Source Document                     | Delivered | Partial | Not Started | Deferred | Total   |
-| ----------------------------------- | --------- | ------- | ----------- | -------- | ------- |
-| Implementation Plan (37 features)   | 35        | 0       | 2           | 0        | 37      |
-| 2D Map Feature Parity PRD           | 39        | 1       | 2           | 1        | 43      |
-| Contest PropSphere Integration PRD  | 34        | 2       | 1           | 0        | 37      |
-| Mobile Design Plan                  | 18        | 0       | 1           | 0        | 19      |
-| UI Review Recommendations           | 9         | 0       | 1           | 0        | 10      |
-| QoL PRD (20 items)                  | 19        | 1       | 0           | 0        | 20      |
-| PWA Package                         | 6         | 0       | 1           | 0        | 7       |
-| Profile/Shack/Settings Plan         | 10        | 0       | 0           | 0        | 10      |
-| v0.13.x New Features (2026-02-08)   | 22        | 0       | 0           | 0        | 22      |
-| v0.14.0 Polish & Infra (2026-02-10) | 12        | 1       | 0           | 0        | 13      |
-| **Grand Total**                     | **204**   | **5**   | **8**       | **1**    | **218** |
+| Source Document                        | Delivered | Partial | Not Started | Deferred | Total   |
+| -------------------------------------- | --------- | ------- | ----------- | -------- | ------- |
+| Implementation Plan (37 features)      | 35        | 0       | 2           | 0        | 37      |
+| 2D Map Feature Parity PRD              | 39        | 1       | 2           | 1        | 43      |
+| Contest PropSphere Integration PRD     | 34        | 2       | 1           | 0        | 37      |
+| Mobile Design Plan                     | 18        | 0       | 1           | 0        | 19      |
+| UI Review Recommendations              | 9         | 0       | 1           | 0        | 10      |
+| QoL PRD (20 items)                     | 19        | 1       | 0           | 0        | 20      |
+| PWA Package                            | 6         | 0       | 1           | 0        | 7       |
+| Profile/Shack/Settings Plan            | 10        | 0       | 0           | 0        | 10      |
+| v0.13.x New Features (2026-02-08)      | 22        | 0       | 0           | 0        | 22      |
+| v0.14.0 Polish & Infra (2026-02-10)    | 12        | 1       | 0           | 0        | 13      |
+| v0.15.0 Spot Watch System (2026-02-10) | 22        | 2       | 0           | 0        | 24      |
+| **Grand Total**                        | **226**   | **7**   | **8**       | **1**    | **242** |
 
-**Delivery rate: 94% delivered, 2% partial, 4% not started**
+**Delivery rate: 93% delivered, 3% partial, 3% not started**
 
 ---
 
@@ -483,6 +484,76 @@ _Delivered in v0.14.0 release. Focus on UX consistency, map interaction quality,
 
 ---
 
+## 11. v0.15.0 Spot Watch System (2026-02-10)
+
+_Source: `docs/plans/SPOT-WATCH-PRD.md`. Full 4-phase implementation of the Spot Watch system — unified filter engine, grid glow effects, spot replay, and contest integration. All premium features gated behind subscription tier feature flags._
+
+### Phase 1 — Watch Filter Engine + UI (10)
+
+| Feature                       | Notes                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| watchStore v2→v3              | Single active watch model replacing multi-watch v1, unified WatchCriteria (AND)  |
+| WatchPopover                  | Toolbar popover with quick presets, filter inputs, saved watches (max 20)        |
+| WatchStatusPill               | Floating status pill: criteria summary, match count, rate, contest info          |
+| Camera auto-pan               | Rate-limited panning in GlobeView (<0.2/s: pan, 0.2-2/s: debounced, >2/s: none)  |
+| Arc highlighting              | Matched spots full opacity + 1.2x scale; non-matched dimmed to 30% on Globe+Flat |
+| DXSpotList integration        | Matched spots pinned to top with green accent bar + filter banner                |
+| Arc density slider            | Range 10-200 in LayersPopover, replacing hardcoded maxArcs=50                    |
+| LayersPopover cleanup         | Auto-Follow toggle removed; density slider added; wired to mapStore              |
+| Deprecated component removal  | Deleted WatchListPanel, WatchIndicator, LiteModeToggle, ViewModeToggle           |
+| Operating profiles + popovers | Toolbar popover system (Layers, Colors, Profile, Views) with click-outside       |
+
+### Phase 2 — Grid Glow + Visual Polish (4)
+
+| Feature           | Notes                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| GridGlowOverlay   | Three.js shader overlay at r=1.003, pulse animation (800ms rise, 1200ms fade)      |
+| GridGlowCanvas    | Canvas 2D grid glow for FlatMapView with additive blending                         |
+| Grid glow pooling | Max 20 simultaneous glows, oldest recycled, additive intensity for same-grid spots |
+| Ambient mode      | Pro fullscreen: auto-hide toolbar (3s), cursor (5s), minimal overlay when idle     |
+
+### Phase 3 — Spot Replay (4, Premium)
+
+| Feature         | Notes                                                                                |
+| --------------- | ------------------------------------------------------------------------------------ |
+| Feature flags   | `SubscriptionTier`, `FeatureFlags`, `useFeatureFlags()` hook, profileStore v8        |
+| useSpotReplay   | TanStack Query hook querying Supabase `spot_history` with time window + filters      |
+| ReplayIndicator | Timeline scrubber overlay with playback controls, Pro badge gate for non-subscribers |
+| replayStore     | Ephemeral store converting ReplaySpot[] to LiveSpot[] for globe/flat-map consumption |
+
+### Phase 4 — Contest Integration (4)
+
+| Feature            | Notes                                                                        |
+| ------------------ | ---------------------------------------------------------------------------- |
+| useContestWatch    | Bridge hook: watchStore ↔ contest multiplier engine, DXCC/CQ zone detection  |
+| ContestRatePanel   | Floating panel: live QSO rate, band chart, trend arrows, band-switch advice  |
+| Contest presets    | WatchPopover: CQWW CW/SSB, ARRL DX, Field Day presets + "Needed Only" toggle |
+| DXSpotList contest | NEW MULT badges on needed multiplier spots, tri-sort (mult → match → rest)   |
+
+### Partial (2)
+
+| Feature                       | Status                 | Gap                                                             |
+| ----------------------------- | ---------------------- | --------------------------------------------------------------- |
+| ContestRatePanel band advisor | Renders with stub data | bandAdvisor receives placeholder args; advice limited to "stay" |
+| ITU zone multiplier detection | Reuses CQ zone regex   | Won't match "ITU Zone X" patterns in spot comments              |
+
+### Bug Fixes (3 — not counted in feature total)
+
+| Fix                                | Notes                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| SpotHistoryRow schema mismatch     | Fixed column names to match spot_history table (rx_callsign, etc.)      |
+| Infinite re-render loop            | Replaced ES5 getters in watchStore with explicit computed compat fields |
+| PropSphere full-store subscription | Replaced `useWatchStore()` with targeted selectors to reduce re-renders |
+
+### Documentation
+
+| Document                       | Notes                                              |
+| ------------------------------ | -------------------------------------------------- |
+| Spot Watch PRD                 | Full product requirements for 4-phase watch system |
+| Globe Toolbar & Modes Redesign | Architecture plan for toolbar popover system       |
+
+---
+
 ## Source Documents Index
 
 | Category     | File                                                           | Description                                |
@@ -500,3 +571,5 @@ _Delivered in v0.14.0 release. Focus on UX consistency, map interaction quality,
 | Internal     | `.claude/plans/prd-qol-and-pwa-features.md`                    | QoL (20 items) + PWA (7 items) PRD         |
 | Internal     | `.claude/plans/deferred-bugs.md`                               | 13 deferred bugs from audit                |
 | Plans        | `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md`               | Location-aware propagation model (3-level) |
+| Plans        | `docs/plans/SPOT-WATCH-PRD.md`                                 | Spot Watch system PRD (4 phases)           |
+| Plans        | `docs/plans/GLOBE-TOOLBAR-MODES-REDESIGN.md`                   | Globe toolbar & modes redesign plan        |

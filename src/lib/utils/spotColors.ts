@@ -8,8 +8,8 @@
 // Types
 // --------------------------------------------------------------------------
 
-/** Determines whether spots are colored by operating mode or by band. */
-export type SpotColorMode = "mode" | "band";
+/** Determines whether spots are colored by operating mode, by band, by SNR gradient, or by age gradient. */
+export type SpotColorMode = "mode" | "band" | "snr" | "age";
 
 // --------------------------------------------------------------------------
 // Mode Colors

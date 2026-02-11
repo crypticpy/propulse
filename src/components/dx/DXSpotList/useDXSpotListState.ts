@@ -559,15 +559,21 @@ export function useDXSpotListState(
           break;
         }
         case "watchCallsign": {
-          // Add a watch for this callsign
-          watchStore.addWatch("callsign", spot.dx, `Callsign: ${spot.dx}`);
+          // Set a watch for this callsign
+          watchStore.setWatch({
+            callsign: spot.dx,
+            txOrRx: "either",
+          });
           break;
         }
         case "watchGrid": {
-          // Add a watch for the grid prefix (e.g., "EM73" from "EM73vk")
+          // Set a watch for the grid prefix (e.g., "EM73" from "EM73vk")
           if (spot.dxGrid) {
             const gridPrefix = spot.dxGrid.slice(0, GRID_PREFIX_LENGTH);
-            watchStore.addWatch("grid", gridPrefix, `Grid: ${gridPrefix}`);
+            watchStore.setWatch({
+              gridPrefix,
+              txOrRx: "either",
+            });
           }
           break;
         }

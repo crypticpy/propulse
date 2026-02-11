@@ -8,7 +8,7 @@
  * This is the main orchestrator component that composes the modular pieces.
  */
 
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useMemo, useState, useRef } from "react";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
 import { SpotDetailPanel } from "../SpotDetailPanel";
@@ -20,6 +20,9 @@ import type { DXSpotListProps } from "./types";
 import type { DXSpot } from "@/types/dxcluster";
 import { useDXStore } from "@/stores/dxStore";
 import type { DXSpotSource } from "@/stores/dxStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useWatchStore, formatCriteriaSummary } from "@/stores/watchStore";
+import { useContestWatch } from "@/hooks/useContestWatch";
 
 /** Source badge styling map */
 const SOURCE_BADGE_STYLES: Record<
@@ -57,6 +60,15 @@ export function DXSpotList({
   onResearchGrid,
 }: DXSpotListProps) {
   const spotSource = useDXStore((s) => s.spotSource);
+  const spotFilters = useMapStore((s) => s.spotFilters);
+  const activeProfile = useMapStore((s) => s.activeProfile);
+  const watchCriteria = useWatchStore((s) => s.criteria);
+  const matchedSpotIds = useWatchStore((s) => s.matchedSpotIds);
+  const watchMatchCount = useWatchStore((s) => s.matchCount);
+  const clearWatch = useWatchStore((s) => s.clearWatch);
+  // ── Contest watch integration ──
+  const contestWatch = useContestWatch();
+
   const state = useDXSpotListState(onResearchGrid);
 
   const {
@@ -106,6 +118,63 @@ export function DXSpotList({
     refetch,
   } = state;
 
+  // ── Profile-based spot filtering ───────────────────────────────────────────
+  const profileFilteredSpots = useMemo(() => {
+    const hasBandFilter = spotFilters.bands.length > 0;
+    const hasModeFilter = spotFilters.modes.length > 0;
+
+    // No profile filters active — pass through all spots
+    if (!hasBandFilter && !hasModeFilter) {
+      return displaySpots;
+    }
+
+    const bandSet = new Set(spotFilters.bands.map((b) => b.toLowerCase()));
+    const modeSet = new Set(spotFilters.modes.map((m) => m.toLowerCase()));
+
+    return displaySpots.filter((spot) => {
+      if (hasBandFilter && spot.band) {
+        if (!bandSet.has(spot.band.toLowerCase())) return false;
+      }
+      if (hasModeFilter && spot.mode) {
+        if (!modeSet.has(spot.mode.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [displaySpots, spotFilters]);
+
+  // ── New multiplier spot IDs for contest mode ──────────────────────────────
+  const newMultSpotIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const ms of contestWatch.newMultiplierSpots) {
+      ids.add(ms.spotId);
+    }
+    return ids;
+  }, [contestWatch.newMultiplierSpots]);
+
+  // ── Watch-aware spot ordering: pin matched spots to top ──────────────────
+  const watchSortedSpots = useMemo(() => {
+    if (!watchCriteria || matchedSpotIds.size === 0) {
+      return profileFilteredSpots;
+    }
+    const newMult: DXSpot[] = [];
+    const matched: DXSpot[] = [];
+    const rest: DXSpot[] = [];
+    for (const spot of profileFilteredSpots) {
+      if (newMultSpotIds.has(spot.id)) {
+        newMult.push(spot);
+      } else if (matchedSpotIds.has(spot.id)) {
+        matched.push(spot);
+      } else {
+        rest.push(spot);
+      }
+    }
+    // New multipliers first, then other watch matches, then the rest
+    return [...newMult, ...matched, ...rest];
+  }, [profileFilteredSpots, watchCriteria, matchedSpotIds, newMultSpotIds]);
+
+  const profileFilterActive =
+    spotFilters.bands.length > 0 || spotFilters.modes.length > 0;
+
   // Quick action: set map target from row button
   const handleSetTarget = useCallback(
     (spot: DXSpot) => {
@@ -136,7 +205,7 @@ export function DXSpotList({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const len = displaySpots.length;
+      const len = watchSortedSpots.length;
       if (len === 0) return;
 
       switch (e.key) {
@@ -173,7 +242,7 @@ export function DXSpotList({
         case "Enter": {
           e.preventDefault();
           if (focusedIndex >= 0 && focusedIndex < len) {
-            const spot = displaySpots[focusedIndex];
+            const spot = watchSortedSpots[focusedIndex];
             handleSelectSpot(spot);
             handleSetTarget(spot);
           }
@@ -183,7 +252,7 @@ export function DXSpotList({
         case "W": {
           if (focusedIndex >= 0 && focusedIndex < len) {
             e.preventDefault();
-            handleWatchCallsign(displaySpots[focusedIndex]);
+            handleWatchCallsign(watchSortedSpots[focusedIndex]);
           }
           break;
         }
@@ -191,7 +260,7 @@ export function DXSpotList({
         case "B": {
           if (focusedIndex >= 0 && focusedIndex < len) {
             e.preventDefault();
-            handleSetTarget(displaySpots[focusedIndex]);
+            handleSetTarget(watchSortedSpots[focusedIndex]);
           }
           break;
         }
@@ -204,7 +273,7 @@ export function DXSpotList({
       }
     },
     [
-      displaySpots,
+      watchSortedSpots,
       focusedIndex,
       handleSelectSpot,
       handleSetTarget,
@@ -242,8 +311,10 @@ export function DXSpotList({
               DX CLUSTER
             </h2>
             <span className="text-xs text-gray-400">
-              {displaySpots.length}
-              {filters.neededOnly && displaySpots.length !== totalSpots
+              {profileFilteredSpots.length}
+              {(filters.neededOnly &&
+                profileFilteredSpots.length !== totalSpots) ||
+              profileFilterActive
                 ? ` / ${totalSpots}`
                 : ""}{" "}
               spots
@@ -343,6 +414,54 @@ export function DXSpotList({
         </div>
       )}
 
+      {/* Profile filter indicator */}
+      {profileFilterActive && (
+        <div className="mb-1.5 px-2 py-1 rounded bg-white/5 border border-white/10 text-[11px] text-gray-300 flex items-center gap-1.5">
+          <svg
+            className="w-3 h-3 text-cyan-400 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+            />
+          </svg>
+          <span>
+            {activeProfile ? (
+              <>
+                Profile{" "}
+                <span className="text-cyan-400 font-medium">
+                  {activeProfile.name}
+                </span>
+              </>
+            ) : (
+              <span className="text-cyan-400 font-medium">Custom filter</span>
+            )}
+            {spotFilters.bands.length > 0 && (
+              <> — {spotFilters.bands.join(", ")}</>
+            )}
+            {spotFilters.modes.length > 0 && (
+              <> — {spotFilters.modes.join(", ")}</>
+            )}
+            <span className="text-gray-400 ml-1">
+              — Showing {profileFilteredSpots.length} of {displaySpots.length}{" "}
+              spots
+            </span>
+          </span>
+          <button
+            onClick={() => useMapStore.getState().clearSpotFilters()}
+            className="ml-auto text-white/40 hover:text-white text-[10px]"
+            title="Clear filter"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Filter Controls */}
       {showFilters && (
         <FilterControls
@@ -394,7 +513,7 @@ export function DXSpotList({
         onKeyDown={handleKeyDown}
         aria-activedescendant={
           focusedIndex >= 0
-            ? `spot-row-${displaySpots[focusedIndex]?.id}`
+            ? `spot-row-${watchSortedSpots[focusedIndex]?.id}`
             : undefined
         }
       >
@@ -414,48 +533,124 @@ export function DXSpotList({
           <div>Info</div>
           <div></div>
         </div>
-        {isLoading && displaySpots.length === 0 ? (
+        {/* Watch filter banner — sticky below column headers */}
+        {watchCriteria !== null && (
+          <div className="sticky top-[29px] z-10 bg-signal-green/10 border-b border-signal-green/20 px-2 py-1.5 flex items-center justify-between text-[11px]">
+            <div className="flex items-center gap-1.5 text-signal-green min-w-0">
+              <svg
+                className="w-3.5 h-3.5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+              <span className="truncate">
+                <span className="font-medium">Watching:</span>{" "}
+                {formatCriteriaSummary(watchCriteria)}
+                <span className="text-signal-green/70 ml-1">
+                  &middot; {watchMatchCount} match
+                  {watchMatchCount !== 1 ? "es" : ""}
+                </span>
+              </span>
+            </div>
+            <button
+              onClick={clearWatch}
+              className="ml-2 shrink-0 text-signal-green/60 hover:text-signal-green transition-colors p-0.5 rounded hover:bg-signal-green/10"
+              title="Clear watch"
+              aria-label="Clear watch"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+        {isLoading && watchSortedSpots.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <LoadingSpinner size="lg" />
           </div>
-        ) : displaySpots.length === 0 ? (
+        ) : watchSortedSpots.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-gray-400">
-            No spots match your filters
+            {profileFilterActive
+              ? "No spots match profile filters"
+              : "No spots match your filters"}
           </div>
         ) : (
-          displaySpots.map((spot, index) => (
-            <SpotRow
-              key={spot.id}
-              spot={spot}
-              index={index}
-              isSelected={selectedSpot?.id === spot.id}
-              isHovered={hoveredSpot?.id === spot.id}
-              isFocused={focusedIndex === index}
-              workedStatus={
-                workedStatusMap.get(spot.id) || {
-                  isWorked: false,
-                  workedOnBand: false,
-                  workedBands: [],
-                  isATNO: false,
-                }
-              }
-              isAlertMatch={alertMatchSet.has(spot.id)}
-              isNeeded={neededStatusMap.get(spot.id) ?? true}
-              distanceKm={distanceMap.get(spot.id) ?? null}
-              onSelect={handleSelectSpot}
-              onHover={setHoveredSpot}
-              onContextMenu={handleContextMenu}
-              onGridClick={handleGridFilterChange}
-              onBandClick={handleBandBadgeClick}
-              onSetTarget={handleSetTarget}
-              onWatchCallsign={handleWatchCallsign}
-              onHideSpot={handleHideSpot}
-              showAgeColumn={spotAgePrefs.showAgeColumn}
-              ageVisualizationEnabled={spotAgePrefs.enabled}
-              activeBandFilter={activeBandFilter}
-              isHighlighted={highlightedSpotId === spot.id}
-            />
-          ))
+          watchSortedSpots.map((spot, index) => {
+            const isWatchMatch =
+              watchCriteria !== null && matchedSpotIds.has(spot.id);
+            const isNewMult = newMultSpotIds.has(spot.id);
+            return (
+              <div
+                key={spot.id}
+                className={`relative ${
+                  isNewMult
+                    ? "bg-caution-amber/10 border-l-2 border-caution-amber"
+                    : isWatchMatch
+                      ? "bg-signal-green/10 border-l-2 border-signal-green"
+                      : ""
+                }`}
+              >
+                {isNewMult && (
+                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none uppercase tracking-wider">
+                    NEW MULT
+                  </span>
+                )}
+                <SpotRow
+                  spot={spot}
+                  index={index}
+                  isSelected={selectedSpot?.id === spot.id}
+                  isHovered={hoveredSpot?.id === spot.id}
+                  isFocused={focusedIndex === index}
+                  workedStatus={
+                    workedStatusMap.get(spot.id) || {
+                      isWorked: false,
+                      workedOnBand: false,
+                      workedBands: [],
+                      isATNO: false,
+                    }
+                  }
+                  isAlertMatch={alertMatchSet.has(spot.id)}
+                  isNeeded={neededStatusMap.get(spot.id) ?? true}
+                  distanceKm={distanceMap.get(spot.id) ?? null}
+                  onSelect={handleSelectSpot}
+                  onHover={setHoveredSpot}
+                  onContextMenu={handleContextMenu}
+                  onGridClick={handleGridFilterChange}
+                  onBandClick={handleBandBadgeClick}
+                  onSetTarget={handleSetTarget}
+                  onWatchCallsign={handleWatchCallsign}
+                  onHideSpot={handleHideSpot}
+                  showAgeColumn={spotAgePrefs.showAgeColumn}
+                  ageVisualizationEnabled={spotAgePrefs.enabled}
+                  activeBandFilter={activeBandFilter}
+                  isHighlighted={highlightedSpotId === spot.id}
+                />
+              </div>
+            );
+          })
         )}
       </div>
 

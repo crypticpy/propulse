@@ -75,8 +75,14 @@ export {
   type DifficultyLevel,
 } from "./LocationMarker";
 
-// Layout mode dropdown (replaces LiteModeToggle)
+// Layout mode dropdown
 export { LayoutModeDropdown } from "./LayoutModeDropdown";
+
+// Toolbar popovers
+export { LayersPopover } from "./LayersPopover";
+export { ColorsPopover } from "./ColorsPopover";
+export { ProfilePopover } from "./ProfilePopover";
+export { ViewsPopover } from "./ViewsPopover";
 
 // Visual style selector (Realistic / High-Viz, Mode / Band coloring)
 export { StyleSelector } from "./StyleSelector";
@@ -101,8 +107,15 @@ export {
 } from "./GridResearchPanel";
 
 // Watch system components
-export { WatchIndicator } from "./WatchIndicator";
-export { WatchListPanel } from "./WatchListPanel";
+export { WatchPopover } from "./WatchPopover";
+export { WatchStatusPill } from "./WatchStatusPill";
+
+// Replay system components
+export { ReplayIndicator } from "./ReplayIndicator";
+export { GridGlowOverlay } from "./GridGlowOverlay";
+
+// Contest integration
+export { ContestRatePanel } from "./ContestRatePanel";
 
 // Feasibility indicator
 export { FeasibilityBadge } from "./FeasibilityBadge";

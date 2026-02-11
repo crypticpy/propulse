@@ -31,7 +31,6 @@ import {
   OperatorProfile,
   SolarSnapshot,
   LayoutModeDropdown,
-  StyleSelector,
   MapStyleToggle,
   DXNewsTicker,
   SatellitePanel,
@@ -40,9 +39,12 @@ import {
   QuickGridInput,
   GridResearchPanel,
   AddPinDialog,
-  RegionPresetSelector,
   RegionPresetManager,
 } from "@/components/map";
+import { LayersPopover } from "@/components/map/LayersPopover";
+import { ColorsPopover } from "@/components/map/ColorsPopover";
+import { ProfilePopover } from "@/components/map/ProfilePopover";
+import { ViewsPopover } from "@/components/map/ViewsPopover";
 
 // Lazy load heavy components that aren't always visible
 const FullscreenPropSphere = lazy(() =>
@@ -66,10 +68,11 @@ import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
-import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
+import { useMapStore } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
-import { PRESET_CONFIG } from "@/constants/mapPresets";
 import { useUserStore } from "@/stores/userStore";
+import { BUILTIN_PROFILES } from "@/constants/operatingProfiles";
+import type { BuiltinProfileId } from "@/types/operatingProfile";
 import { useWatchStore } from "@/stores/watchStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useOnboardingTour } from "@/hooks/useOnboardingTour";
@@ -84,8 +87,14 @@ import { useUndoStore } from "@/stores/undoStore";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
-import { useAutoPanToSpots } from "@/hooks/useAutoPanToSpots";
+import { WatchPopover } from "@/components/map/WatchPopover";
+import { WatchStatusPill } from "@/components/map/WatchStatusPill";
+import { ReplayIndicator } from "@/components/map/ReplayIndicator";
+import { ContestRatePanel } from "@/components/map/ContestRatePanel";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
+import { useSpotReplay } from "@/hooks/useSpotReplay";
+import { useReplayStore } from "@/stores/replayStore";
+import type { LiveSpot } from "@/types/livespot";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -111,6 +120,9 @@ function latLonToGrid(lat: number, lon: number): string {
 // Tab options for mobile/tablet bottom panel
 type PanelTab = "path" | "bands" | "recs" | "spots";
 
+// ─── Toolbar visual separator ────────────────────────────────────────────────
+const ToolbarDivider = () => <div className="w-px h-5 bg-white/10" />;
+
 export function PropSphere() {
   const {
     viewMode,
@@ -119,14 +131,14 @@ export function PropSphere() {
     target,
     setTarget,
     layers,
-    toggleLayer,
     activePreset,
-    applyPreset,
     layoutMode,
     isLiteMode,
     isDXConsoleExpanded,
     setDXConsoleExpanded,
     pathMode,
+    replayEnabled,
+    setReplayEnabled,
   } = useMapStore();
   const station = useUserStore((state) => state.station);
   const spotCount = useDXStore((state) => state.spots.length);
@@ -142,13 +154,6 @@ export function PropSphere() {
   const requestContestEntryFocus = useContestUIEphemeralStore(
     (s) => s.requestEntryFocus,
   );
-
-  // Auto-pan to new spots state
-  const autoPanToSpots = useMapStore((s) => s.autoPanToSpots);
-  const setAutoPanToSpots = useMapStore((s) => s.setAutoPanToSpots);
-
-  // Auto-pan to new spots when enabled (works for all view modes)
-  useAutoPanToSpots();
 
   // Contest-aware map overlays (needed mult markers, etc.)
   useContestOverlayEngine({ enabled: Boolean(contestSessionId) });
@@ -188,6 +193,31 @@ export function PropSphere() {
   // Active tab for mobile bottom panel
   const [activeTab, setActiveTab] = useState<PanelTab>("path");
 
+  // Track active profile locally (extends activePreset to include "listener")
+  const [localActiveProfile, setLocalActiveProfile] =
+    useState<BuiltinProfileId | null>(null);
+
+  // Sync localActiveProfile with mapStore's activePreset.
+  // When activePreset is set by applyPreset(), mirror it here.
+  // When it becomes null (layer toggled manually), clear local too — including listener.
+  useEffect(() => {
+    if (activePreset !== null) {
+      setLocalActiveProfile(activePreset as BuiltinProfileId);
+    } else {
+      // If listener is active, check if layers still match the listener profile
+      if (localActiveProfile === "listener") {
+        const currentLayers = useMapStore.getState().layers;
+        const listenerLayers = BUILTIN_PROFILES.listener.layers;
+        const match = (
+          Object.keys(listenerLayers) as (keyof typeof listenerLayers)[]
+        ).every((k) => currentLayers[k] === listenerLayers[k]);
+        if (!match) setLocalActiveProfile(null);
+      } else {
+        setLocalActiveProfile(null);
+      }
+    }
+  }, [activePreset, layers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // DX Cluster drawer state
   const [dxClusterExpanded, setDxClusterExpanded] = useState(true);
   const [showOptimalBandHelp, setShowOptimalBandHelp] = useState(false);
@@ -211,8 +241,10 @@ export function PropSphere() {
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
 
-  // Get watch store for toggle watch action
-  const watchStore = useWatchStore();
+  // Watch store actions (read on-demand to avoid full-store subscription)
+  const watchClearWatch = useWatchStore((s) => s.clearWatch);
+  const watchSetMyGrid = useWatchStore((s) => s.setMyGridWatch);
+  const watchCriteria = useWatchStore((s) => s.criteria);
 
   // Get undo store for tracking undoable actions
   const { pushAction } = useUndoStore();
@@ -326,13 +358,10 @@ export function PropSphere() {
         case "toggleWatch": {
           // Toggle watch on current target grid
           if (target?.grid) {
-            const existingWatch = watchStore.watches.find(
-              (w) => w.type === "grid" && w.pattern === target.grid,
-            );
-            if (existingWatch) {
-              watchStore.removeWatch(existingWatch.id);
+            if (watchCriteria?.gridPrefix === target.grid) {
+              watchClearWatch();
             } else {
-              watchStore.addWatch("grid", target.grid, `Grid ${target.grid}`);
+              watchSetMyGrid(target.grid);
             }
           }
           break;
@@ -376,7 +405,9 @@ export function PropSphere() {
       setTimeOffset,
       target,
       setTarget,
-      watchStore,
+      watchCriteria,
+      watchClearWatch,
+      watchSetMyGrid,
       startTour,
       pushAction,
     ],
@@ -450,6 +481,41 @@ export function PropSphere() {
   const displayTime = useMemo(() => {
     return addHours(new Date(), timeOffset);
   }, [timeOffset]);
+
+  // ── Spot Replay ────────────────────────────────────────────────────────
+  const { spots: replaySpots } = useSpotReplay({
+    centerTime: displayTime,
+    enabled: replayEnabled,
+    windowMinutes: 15,
+  });
+
+  // Convert ReplaySpot[] → LiveSpot[] so the globe renderer can consume them
+  const replayAsLiveSpots: LiveSpot[] = useMemo(() => {
+    if (!replaySpots.length) return [];
+    return replaySpots.map((s) => ({
+      id: `replay-${s.id}`,
+      spotter: s.spotter,
+      spotterGrid: s.spotterGrid,
+      dx: s.dx,
+      dxGrid: s.dxGrid,
+      frequency: s.frequency,
+      band: s.band,
+      mode: s.mode,
+      snr: s.snr,
+      time: s.spottedAt,
+      comment: "",
+      source: s.source as LiveSpot["source"],
+      spotterLat: s.spotterLat,
+      spotterLon: s.spotterLon,
+      dxLat: s.dxLat,
+      dxLon: s.dxLon,
+    }));
+  }, [replaySpots]);
+
+  // Sync converted replay spots into the ephemeral store so globe/flat views can read them
+  useEffect(() => {
+    useReplayStore.getState().setReplaySpots(replayAsLiveSpots);
+  }, [replayAsLiveSpots]);
 
   // Create share state for ShareModal
   const shareState = useMemo(
@@ -661,150 +727,62 @@ export function PropSphere() {
               ))}
             </div>
 
-            {/* Layer controls bar */}
+            {/* Quick-access toolbar */}
             <div
-              className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10"
+              role="toolbar"
+              aria-label="Map controls"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-void-black/50 border-b border-white/5"
               data-tour="layer-controls"
             >
-              {/* ── Group 1: Layer toggles ── */}
-              <div className="flex flex-wrap items-center gap-1">
-                {(
-                  [
-                    "terminator",
-                    "greyline",
-                    "aurora",
-                    "muf",
-                    "spots",
-                    "nightLights",
-                    "labels",
-                    "satellites",
-                  ] as const
-                ).map((layer) => {
-                  const displayNames: Record<string, string> = {
-                    terminator: "Day/Night",
-                    greyline: "Greyline",
-                    aurora: "Aurora",
-                    muf: "MUF",
-                    spots: "Spots",
-                    nightLights: "Lights",
-                    labels: "Labels",
-                    satellites: "Sats",
-                  };
-                  return (
-                    <button
-                      key={layer}
-                      onClick={() => toggleLayer(layer)}
-                      className={`px-2 py-0.5 text-[10px] rounded transition-all ${
-                        layers[layer]
-                          ? "bg-white/20 text-white"
-                          : "text-gray-400 hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      {displayNames[layer] || layer}
-                    </button>
-                  );
-                })}
+              {/* Map style toggle — the only standalone toggle */}
+              <MapStyleToggle className="flex-shrink-0" />
 
-                {/* Follow toggle (grouped with layers) */}
-                <button
-                  onClick={() => setAutoPanToSpots(!autoPanToSpots)}
-                  aria-pressed={autoPanToSpots}
-                  title={
-                    autoPanToSpots
-                      ? "Stop following new spots"
-                      : "Auto-pan to new spots as they arrive"
-                  }
-                  className={`px-2 py-0.5 text-[10px] rounded transition-all flex items-center gap-1 ${
-                    autoPanToSpots
-                      ? "bg-signal-green/20 text-signal-green"
-                      : "text-gray-400 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <circle cx="12" cy="12" r="3" />
-                    <path
-                      strokeLinecap="round"
-                      d="M12 2v4m0 12v4m10-10h-4M6 12H2"
-                    />
-                  </svg>
-                  Follow
-                </button>
-              </div>
+              <ToolbarDivider />
 
-              {/* ── Divider ── */}
-              <div className="hidden sm:block w-px h-4 bg-white/20 flex-shrink-0" />
+              {/* Layers popover */}
+              <LayersPopover />
 
-              {/* ── Group 2: Map style + Region ── */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <MapStyleToggle className="flex-shrink-0" />
-                {viewMode !== "azimuthal" && (
-                  <RegionPresetSelector
-                    onOpenManager={() => setShowPresetManager(true)}
-                    className="flex-shrink-0"
-                  />
-                )}
-              </div>
+              {/* Colors popover */}
+              <ColorsPopover />
 
-              {/* ── Divider ── */}
-              <div className="hidden sm:block w-px h-4 bg-white/20 flex-shrink-0" />
+              {/* Profile popover */}
+              <ProfilePopover
+                activeProfile={localActiveProfile}
+                onSelectProfile={setLocalActiveProfile}
+              />
 
-              {/* ── Group 3: Visual style ── */}
-              <StyleSelector compact className="flex-shrink-0" />
+              {/* Watch popover */}
+              <WatchPopover />
 
-              {/* ── Divider ── */}
-              <div className="hidden sm:block w-px h-4 bg-white/20 flex-shrink-0" />
+              {/* Spacer pushes Views to right */}
+              <div className="flex-1" />
 
-              {/* ── Group 4: Operating mode presets ── */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <span className="hidden lg:inline text-[9px] uppercase tracking-wider text-gray-500 mr-0.5">
-                  Mode
-                </span>
-                {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => {
-                  const cfg = PRESET_CONFIG[preset];
-                  const isActive = activePreset === preset;
-                  const activeStyles: Record<PresetName, string> = {
-                    "dx-hunter":
-                      "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
-                    contest:
-                      "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
-                    vhf: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40",
-                    emergency:
-                      "bg-alert-red/20 text-alert-red border-alert-red/40",
-                  };
-                  return (
-                    <button
-                      key={preset}
-                      onClick={() => applyPreset(preset)}
-                      title={`${cfg.description}\n${cfg.layerSummary}`}
-                      className={`px-2 py-0.5 text-[10px] rounded border transition-all flex items-center gap-1 ${
-                        isActive
-                          ? activeStyles[preset]
-                          : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
-                      }`}
-                    >
-                      <svg
-                        className="w-3 h-3 flex-shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d={cfg.iconPath} />
-                      </svg>
-                      <span className="hidden md:inline">{cfg.label}</span>
-                      <span className="md:hidden">{cfg.shortLabel}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Views popover — far right */}
+              {viewMode !== "azimuthal" && (
+                <ViewsPopover
+                  onOpenManager={() => setShowPresetManager(true)}
+                />
+              )}
+            </div>
+
+            {/* Watch status pill (floating below toolbar) */}
+            <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
+              <WatchStatusPill />
+            </div>
+
+            {/* Replay indicator (floating below watch pill) */}
+            <div className="absolute top-[4.5rem] left-1/2 -translate-x-1/2 z-20">
+              <ReplayIndicator
+                displayTime={displayTime}
+                playSpeed={1}
+                isReplaying={replayEnabled}
+                onToggle={() => setReplayEnabled(!replayEnabled)}
+              />
+            </div>
+
+            {/* Contest rate panel (floating, right side) */}
+            <div className="absolute top-14 right-3 z-20">
+              <ContestRatePanel />
             </div>
 
             {/* MUF Legend (bottom of map when MUF layer active) */}

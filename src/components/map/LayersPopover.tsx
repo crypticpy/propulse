@@ -30,6 +30,15 @@ interface LayerCategory {
   items: LayerToggle[];
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatRotateSpeed(seconds: number): string {
+  if (seconds >= 82800) return "Real-time";
+  if (seconds >= 3600) return `${Math.round(seconds / 3600)}h/rev`;
+  if (seconds >= 60) return `${Math.round(seconds / 60)}m/rev`;
+  return `${seconds}s/rev`;
+}
+
 // ─── Pill toggle component ────────────────────────────────────────────────────
 
 function PillToggle({
@@ -75,6 +84,8 @@ export function LayersPopover() {
   const toggleLayer = useMapStore((s) => s.toggleLayer);
   const autoRotate = useMapStore((s) => s.autoRotate);
   const setAutoRotate = useMapStore((s) => s.setAutoRotate);
+  const autoRotateSpeed = useMapStore((s) => s.autoRotateSpeed);
+  const setAutoRotateSpeed = useMapStore((s) => s.setAutoRotateSpeed);
   const displayDensity = useMapStore((s) => s.displayDensity);
   const setDisplayDensity = useMapStore((s) => s.setDisplayDensity);
   const viewMode = useMapStore((s) => s.viewMode);
@@ -386,6 +397,34 @@ export function LayersPopover() {
             })}
           </div>
         ))}
+
+        {/* Auto-rotate speed control */}
+        {isGlobeView && autoRotate && (
+          <div className="flex items-center h-8 px-2">
+            <span className="text-xs text-white/60 w-[52px] shrink-0">
+              Speed
+            </span>
+            <input
+              type="range"
+              min={Math.log(60)}
+              max={Math.log(86400)}
+              step={0.01}
+              value={Math.log(autoRotateSpeed)}
+              onChange={(e) => {
+                const seconds = Math.round(
+                  Math.exp(parseFloat(e.target.value)),
+                );
+                setAutoRotateSpeed(seconds);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="layers-popover-slider flex-1 mx-2"
+              aria-label="Auto-rotate speed"
+            />
+            <span className="text-[10px] font-mono text-white/50 w-14 text-right shrink-0 tabular-nums">
+              {formatRotateSpeed(autoRotateSpeed)}
+            </span>
+          </div>
+        )}
 
         {/* ── Display section ── */}
         <div className="border-t border-white/5 my-2" />

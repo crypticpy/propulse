@@ -754,6 +754,34 @@ export function PropSphere() {
               {/* Watch popover */}
               <WatchPopover />
 
+              {/* Observatory mode */}
+              <ToolbarDivider />
+              <button
+                type="button"
+                onClick={() => useMapStore.getState().enterObservatory()}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                title="Observatory Mode — fullscreen auto-rotating globe, zoom only"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="3" />
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="6" y2="12" />
+                  <line x1="18" y1="12" x2="22" y2="12" />
+                </svg>
+                Observatory
+              </button>
+
               {/* Spacer pushes Views to right */}
               <div className="flex-1" />
 

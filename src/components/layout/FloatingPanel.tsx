@@ -50,6 +50,35 @@ interface FloatingPanelProps {
   zIndex?: number;
   onFocus?: () => void; // called when panel is clicked, parent brings to front
 
+  /** Called during drag with current panel position + dimensions.
+   *  May return a snapped {x, y} to override position. */
+  onDragMove?: (
+    panelId: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => { x: number; y: number } | void;
+  /** Called when drag ends with final position + dimensions */
+  onDragEnd?: (
+    panelId: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => void;
+  /** External snap target indicator to render */
+  snapTarget?: {
+    edge: "top" | "bottom" | "left" | "right";
+    position: number;
+  } | null;
+  /** When set, overrides panel width (controlled by dock group) */
+  dockGroupWidth?: number;
+  /** Called when panel width changes via resize (for dock group propagation) */
+  onResizeWidth?: (panelId: string, newWidth: number) => void;
+  /** Icon for collapsed pill display */
+  icon?: React.ReactNode;
+
   children: React.ReactNode;
 }
 
@@ -70,7 +99,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-/** Clamp panel position so at least the title bar remains visible */
+/** Clamp panel position so at least 50% of panel width remains visible */
 function clampPosition(
   x: number,
   y: number,
@@ -80,11 +109,34 @@ function clampPosition(
   const vh = window.innerHeight;
 
   return {
-    // Keep at least 40px of title bar horizontally visible
-    x: clamp(x, -(width - 40), vw - 40),
+    // Keep at least 50% of panel width visible horizontally
+    x: clamp(x, -(width * 0.5), vw - width * 0.5),
     // Keep title bar vertically within viewport
     y: clamp(y, 0, vh - TITLE_BAR_HEIGHT),
   };
+}
+
+/** Get CSS styles for a snap indicator line */
+function getSnapIndicatorStyle(target: {
+  edge: string;
+  position: number;
+}): React.CSSProperties {
+  const base: React.CSSProperties = {
+    background: "rgba(0, 220, 220, 0.6)",
+    boxShadow: "0 0 8px rgba(0, 220, 220, 0.4)",
+  };
+  switch (target.edge) {
+    case "top":
+      return { ...base, left: 0, right: 0, top: target.position, height: 2 };
+    case "bottom":
+      return { ...base, left: 0, right: 0, top: target.position, height: 2 };
+    case "left":
+      return { ...base, top: 0, bottom: 0, left: target.position, width: 2 };
+    case "right":
+      return { ...base, top: 0, bottom: 0, left: target.position, width: 2 };
+    default:
+      return base;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -106,6 +158,12 @@ export function FloatingPanel({
   headerClassName = "",
   zIndex,
   onFocus,
+  onDragMove,
+  onDragEnd,
+  snapTarget,
+  dockGroupWidth,
+  onResizeWidth,
+  icon,
   children,
 }: FloatingPanelProps): React.ReactElement {
   // ---- Resolve initial layout ----
@@ -182,10 +240,28 @@ export function FloatingPanel({
         el.style.top = `${clamped.y}px`;
       }
 
+      // Notify docking hook — may return snapped position
+      const snapped = onDragMove?.(
+        id,
+        clamped.x,
+        clamped.y,
+        layoutRef.current.width,
+        layoutRef.current.height,
+      );
+
+      const finalX = snapped?.x ?? clamped.x;
+      const finalY = snapped?.y ?? clamped.y;
+
+      // Apply snapped position to DOM if it differs
+      if (snapped && el) {
+        el.style.left = `${finalX}px`;
+        el.style.top = `${finalY}px`;
+      }
+
       // Store in ref for commit on pointer up
-      layoutRef.current = { ...layoutRef.current, x: clamped.x, y: clamped.y };
+      layoutRef.current = { ...layoutRef.current, x: finalX, y: finalY };
     },
-    [],
+    [id, onDragMove],
   );
 
   const handleDragPointerUp = useCallback(
@@ -205,11 +281,19 @@ export function FloatingPanel({
       }
 
       // Commit to React state
-      const committed = { ...layoutRef.current };
-      setLayout(committed);
-      onLayoutChange?.(committed);
+      const newLayout = { ...layoutRef.current };
+      setLayout(newLayout);
+      onLayoutChange?.(newLayout);
+
+      onDragEnd?.(
+        id,
+        newLayout.x,
+        newLayout.y,
+        newLayout.width,
+        newLayout.height,
+      );
     },
-    [onLayoutChange],
+    [id, onLayoutChange, onDragEnd],
   );
 
   // ---- Resize handlers ----
@@ -277,8 +361,10 @@ export function FloatingPanel({
       const committed = { ...layoutRef.current };
       setLayout(committed);
       onLayoutChange?.(committed);
+
+      onResizeWidth?.(id, committed.width);
     },
-    [onLayoutChange],
+    [id, onLayoutChange, onResizeWidth],
   );
 
   // ---- Window resize: re-clamp position ----
@@ -307,94 +393,173 @@ export function FloatingPanel({
     onFocus?.();
   }, [onFocus]);
 
-  // ---- Render ----
-  return (
-    <div
-      ref={panelRef}
-      id={`floating-panel-${id}`}
-      className={`group fixed bg-black/60 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl ${
-        collapsed ? "" : "overflow-hidden"
-      } ${className}`}
-      style={{
-        left: layout.x,
-        top: layout.y,
-        width: layout.width,
-        height: collapsed ? TITLE_BAR_HEIGHT : layout.height,
-        zIndex: zIndex ?? "auto",
-        transition:
-          "opacity 150ms ease, box-shadow 150ms ease, transform 150ms ease" +
-          (collapsed ? ", height 200ms ease" : ""),
-      }}
-      onPointerDown={handlePanelPointerDown}
-    >
-      {/* Title bar (drag handle) */}
-      <div
-        className={`flex items-center gap-1.5 bg-white/5 border-b border-white/10 px-3 py-1.5 cursor-grab active:cursor-grabbing ${headerClassName}`}
-        style={{ touchAction: "none", height: TITLE_BAR_HEIGHT }}
-        onPointerDown={handleDragPointerDown}
-        onPointerMove={handleDragPointerMove}
-        onPointerUp={handleDragPointerUp}
-      >
-        {/* 6-dot drag grip icon */}
-        <svg
-          className="w-3 h-4 text-white/30 flex-shrink-0"
-          viewBox="0 0 6 10"
-          fill="currentColor"
+  // ---- Effective width (dock group may override) ----
+  const effectiveWidth = dockGroupWidth ?? layout.width;
+
+  // ---- Render: Collapsed pill mode ----
+  if (collapsed) {
+    return (
+      <>
+        <div
+          ref={panelRef}
+          className="fixed bg-black/70 backdrop-blur-md border border-white/20 rounded-full shadow-lg
+                     hover:bg-white/10 transition-all duration-150 px-3 py-1.5 flex items-center gap-2 select-none"
+          style={{
+            left: layout.x,
+            top: layout.y,
+            zIndex: zIndex ?? "auto",
+            cursor: "grab",
+          }}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            onFocus?.();
+            // Start drag
+            isDragging.current = true;
+            dragStart.current = {
+              pointerX: e.clientX,
+              pointerY: e.clientY,
+              panelX: layoutRef.current.x,
+              panelY: layoutRef.current.y,
+            };
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            if (!isDragging.current) return;
+            const dx = e.clientX - dragStart.current.pointerX;
+            const dy = e.clientY - dragStart.current.pointerY;
+            const newX = dragStart.current.panelX + dx;
+            const newY = dragStart.current.panelY + dy;
+            const clamped = clampPosition(newX, newY, 120);
+            const el = panelRef.current;
+            if (el) {
+              el.style.left = `${clamped.x}px`;
+              el.style.top = `${clamped.y}px`;
+            }
+            layoutRef.current = {
+              ...layoutRef.current,
+              x: clamped.x,
+              y: clamped.y,
+            };
+          }}
+          onPointerUp={(e) => {
+            if (!isDragging.current) return;
+            isDragging.current = false;
+            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+            const newLayout = { ...layoutRef.current };
+            setLayout(newLayout);
+            onLayoutChange?.({
+              x: newLayout.x,
+              y: newLayout.y,
+              width: newLayout.width,
+              height: newLayout.height,
+            });
+          }}
+          onClick={(e) => {
+            // Only toggle if we didn't drag (detect minimal movement)
+            if (
+              Math.abs(e.clientX - dragStart.current.pointerX) < 5 &&
+              Math.abs(e.clientY - dragStart.current.pointerY) < 5
+            ) {
+              onCollapse?.();
+            }
+          }}
         >
-          <circle cx="1.5" cy="1.5" r="1" />
-          <circle cx="4.5" cy="1.5" r="1" />
-          <circle cx="1.5" cy="5" r="1" />
-          <circle cx="4.5" cy="5" r="1" />
-          <circle cx="1.5" cy="8.5" r="1" />
-          <circle cx="4.5" cy="8.5" r="1" />
-        </svg>
-
-        {/* Title */}
-        <span className="flex-1 text-xs font-medium text-white/80 truncate select-none">
-          {title}
-        </span>
-
-        {/* Collapse/expand chevron */}
-        {onCollapse && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCollapse();
-            }}
-            className="p-0.5 text-white/40 hover:text-white transition-colors rounded"
-            aria-label={collapsed ? "Expand panel" : "Collapse panel"}
-          >
-            <svg
-              className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                collapsed ? "-rotate-90" : ""
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
+          {icon && <span className="text-white/60 flex-shrink-0">{icon}</span>}
+          <span className="text-[11px] font-medium text-white/80 whitespace-nowrap">
+            {title.length > 12 ? title.slice(0, 12) + "\u2026" : title}
+          </span>
+        </div>
+        {snapTarget && (
+          <div
+            className="fixed pointer-events-none z-[9999]"
+            style={getSnapIndicatorStyle(snapTarget)}
+          />
         )}
-      </div>
+      </>
+    );
+  }
 
-      {/* Content area */}
-      {!collapsed && (
+  // ---- Render: Expanded panel ----
+  return (
+    <>
+      <div
+        ref={panelRef}
+        id={`floating-panel-${id}`}
+        className={`group fixed bg-black/60 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl overflow-hidden ${className}`}
+        style={{
+          left: layout.x,
+          top: layout.y,
+          width: effectiveWidth,
+          height: layout.height,
+          zIndex: zIndex ?? "auto",
+          transition:
+            "opacity 150ms ease, box-shadow 150ms ease, transform 150ms ease",
+        }}
+        onPointerDown={handlePanelPointerDown}
+      >
+        {/* Title bar (drag handle) */}
+        <div
+          className={`flex items-center gap-1.5 bg-white/5 border-b border-white/10 px-3 py-1.5 cursor-grab active:cursor-grabbing ${headerClassName}`}
+          style={{ touchAction: "none", height: TITLE_BAR_HEIGHT }}
+          onPointerDown={handleDragPointerDown}
+          onPointerMove={handleDragPointerMove}
+          onPointerUp={handleDragPointerUp}
+        >
+          {/* 6-dot drag grip icon */}
+          <svg
+            className="w-3 h-4 text-white/30 flex-shrink-0"
+            viewBox="0 0 6 10"
+            fill="currentColor"
+          >
+            <circle cx="1.5" cy="1.5" r="1" />
+            <circle cx="4.5" cy="1.5" r="1" />
+            <circle cx="1.5" cy="5" r="1" />
+            <circle cx="4.5" cy="5" r="1" />
+            <circle cx="1.5" cy="8.5" r="1" />
+            <circle cx="4.5" cy="8.5" r="1" />
+          </svg>
+
+          {/* Title */}
+          <span className="flex-1 text-xs font-medium text-white/80 truncate select-none">
+            {title}
+          </span>
+
+          {/* Collapse/expand chevron */}
+          {onCollapse && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCollapse();
+              }}
+              className="p-0.5 text-white/40 hover:text-white transition-colors rounded"
+              aria-label="Collapse panel"
+            >
+              <svg
+                className="w-3.5 h-3.5 transition-transform duration-200"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Content area */}
         <div
           className="overflow-auto"
           style={{ height: `calc(100% - ${TITLE_BAR_HEIGHT}px)` }}
         >
           {children}
         </div>
-      )}
 
-      {/* Resize handle (bottom-right corner) — 20px touch target, visual grip stays small */}
-      {!collapsed && (
+        {/* Resize handle (bottom-right corner) — 20px touch target, visual grip stays small */}
         <div
           className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end pr-0.5 pb-0.5"
           style={{ touchAction: "none" }}
@@ -414,7 +579,15 @@ export function FloatingPanel({
             <line x1="6" y1="4" x2="4" y2="6" />
           </svg>
         </div>
+      </div>
+
+      {/* Snap indicator overlay */}
+      {snapTarget && (
+        <div
+          className="fixed pointer-events-none z-[9999]"
+          style={getSnapIndicatorStyle(snapTarget)}
+        />
       )}
-    </div>
+    </>
   );
 }

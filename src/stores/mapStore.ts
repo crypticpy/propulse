@@ -142,6 +142,15 @@ export interface ProPanelLayoutEntry {
 
 export type PanelId = keyof PanelStates;
 
+/** Dock group for magnetically-linked floating panels */
+export interface DockGroup {
+  id: string;
+  orientation: "vertical";
+  panelIds: string[]; // ordered top→bottom
+  sharedX: number;
+  sharedWidth: number;
+}
+
 /** Label layer sub-options */
 export interface LabelOptions {
   borders: boolean;
@@ -194,6 +203,20 @@ interface MapState {
   // Auto-rotate globe
   autoRotate: boolean;
   setAutoRotate: (autoRotate: boolean) => void;
+
+  // Auto-rotate speed (seconds per full revolution, 60–86400)
+  autoRotateSpeed: number;
+  setAutoRotateSpeed: (speed: number) => void;
+
+  // Observatory mode (lean-back fullscreen auto-rotate, zoom only)
+  observatoryMode: boolean;
+  observatoryPreviousState: {
+    layoutMode: LayoutMode;
+    autoRotate: boolean;
+    viewMode: ViewMode;
+  } | null;
+  enterObservatory: () => void;
+  exitObservatory: () => void;
 
   // Layer visibility
   layers: {
@@ -346,6 +369,14 @@ interface MapState {
   ) => void;
   toggleProPanelCollapse: (panelId: string) => void;
   resetProPanelLayout: () => void;
+
+  // Panel docking (persisted)
+  dockGroups: DockGroup[];
+  setDockGroups: (groups: DockGroup[]) => void;
+  addDockGroup: (group: DockGroup) => void;
+  removeDockGroup: (groupId: string) => void;
+  updateDockGroup: (groupId: string, updates: Partial<DockGroup>) => void;
+  removePanelFromDockGroup: (panelId: string) => void;
 
   // Reset to defaults
   reset: () => void;
@@ -650,6 +681,59 @@ function saveProPanelLayout(layout: Record<string, ProPanelLayoutEntry>): void {
   }
 }
 
+// ── Auto-rotate speed persistence ─────────────────────────────────────────────
+
+const AUTO_ROTATE_SPEED_KEY = "propulse-auto-rotate-speed";
+const DEFAULT_AUTO_ROTATE_SPEED = 86_400; // real-time (1 rev per 24 hours)
+
+function loadAutoRotateSpeed(): number {
+  try {
+    const saved = localStorage.getItem(AUTO_ROTATE_SPEED_KEY);
+    if (saved) {
+      const parsed = Number(saved);
+      if (Number.isFinite(parsed) && parsed >= 60 && parsed <= 86_400) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return DEFAULT_AUTO_ROTATE_SPEED;
+}
+
+function saveAutoRotateSpeed(speed: number): void {
+  try {
+    localStorage.setItem(AUTO_ROTATE_SPEED_KEY, String(speed));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// ── Dock groups persistence ───────────────────────────────────────────────────
+
+const DOCK_GROUPS_KEY = "propulse-dock-groups";
+
+function loadDockGroups(): DockGroup[] {
+  try {
+    const saved = localStorage.getItem(DOCK_GROUPS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return [];
+}
+
+function saveDockGroups(groups: DockGroup[]): void {
+  try {
+    localStorage.setItem(DOCK_GROUPS_KEY, JSON.stringify(groups));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 const initialState = {
   viewMode: "globe" as ViewMode,
   timeOffset: 0,
@@ -660,6 +744,13 @@ const initialState = {
   rotation: { x: 23.5, y: 0 }, // Earth's axial tilt
   zoom: 1,
   autoRotate: false,
+  autoRotateSpeed: loadAutoRotateSpeed(),
+  observatoryMode: false,
+  observatoryPreviousState: null as {
+    layoutMode: LayoutMode;
+    autoRotate: boolean;
+    viewMode: ViewMode;
+  } | null,
   layers: {
     terminator: true,
     greyline: true,
@@ -712,6 +803,9 @@ const initialState = {
 
   // Pro mode floating panel layout (persisted)
   proPanelLayout: loadProPanelLayout(),
+
+  // Panel docking
+  dockGroups: loadDockGroups(),
 };
 
 export const useMapStore = create<MapState>((set, get) => ({
@@ -820,6 +914,44 @@ export const useMapStore = create<MapState>((set, get) => ({
     }),
 
   setAutoRotate: (autoRotate) => set({ autoRotate }),
+
+  setAutoRotateSpeed: (speed) => {
+    const clamped = Math.max(60, Math.min(86_400, Math.round(speed)));
+    saveAutoRotateSpeed(clamped);
+    set({ autoRotateSpeed: clamped });
+  },
+
+  enterObservatory: () =>
+    set((state) => {
+      // Guard against double-entry — don't overwrite saved state
+      if (state.observatoryMode) return {};
+      return {
+        observatoryPreviousState: {
+          layoutMode: state.layoutMode,
+          autoRotate: state.autoRotate,
+          viewMode: state.viewMode,
+        },
+        observatoryMode: true,
+        layoutMode: "pro" as LayoutMode,
+        isFullscreen: true,
+        autoRotate: true,
+        viewMode: "globe" as ViewMode,
+      };
+    }),
+
+  exitObservatory: () =>
+    set((state) => {
+      const prev = state.observatoryPreviousState;
+      return {
+        observatoryMode: false,
+        observatoryPreviousState: null,
+        layoutMode: prev?.layoutMode ?? ("normal" as LayoutMode),
+        isFullscreen: prev?.layoutMode === "pro",
+        isLiteMode: prev?.layoutMode === "lite",
+        autoRotate: prev?.autoRotate ?? false,
+        viewMode: prev?.viewMode ?? ("globe" as ViewMode),
+      };
+    }),
 
   setMapStyle: (mapStyle) =>
     set(() => {
@@ -1285,11 +1417,26 @@ export const useMapStore = create<MapState>((set, get) => ({
     set((state) => {
       const existing = state.proPanelLayout[panelId];
       if (!existing) return {};
+      const nowCollapsed = !existing.collapsed;
       const updated = {
         ...state.proPanelLayout,
-        [panelId]: { ...existing, collapsed: !existing.collapsed },
+        [panelId]: { ...existing, collapsed: nowCollapsed },
       };
       saveProPanelLayout(updated);
+
+      // Collapsing a docked panel removes it from its dock group
+      if (nowCollapsed) {
+        const dockGroups = state.dockGroups
+          .map((g) => {
+            if (!g.panelIds.includes(panelId)) return g;
+            const remaining = g.panelIds.filter((id) => id !== panelId);
+            return { ...g, panelIds: remaining };
+          })
+          .filter((g) => g.panelIds.length >= 2);
+        saveDockGroups(dockGroups);
+        return { proPanelLayout: updated, dockGroups };
+      }
+
       return { proPanelLayout: updated };
     }),
 
@@ -1297,7 +1444,51 @@ export const useMapStore = create<MapState>((set, get) => ({
     set(() => {
       const fresh = { ...DEFAULT_PRO_PANEL_LAYOUT };
       saveProPanelLayout(fresh);
-      return { proPanelLayout: fresh };
+      return { proPanelLayout: fresh, dockGroups: [] };
+    }),
+
+  // ── Dock group actions ──────────────────────────────────────────────────
+
+  setDockGroups: (groups) => {
+    saveDockGroups(groups);
+    set({ dockGroups: groups });
+  },
+
+  addDockGroup: (group) =>
+    set((state) => {
+      const updated = [...state.dockGroups, group];
+      saveDockGroups(updated);
+      return { dockGroups: updated };
+    }),
+
+  removeDockGroup: (groupId) =>
+    set((state) => {
+      const updated = state.dockGroups.filter((g) => g.id !== groupId);
+      saveDockGroups(updated);
+      return { dockGroups: updated };
+    }),
+
+  updateDockGroup: (groupId, updates) =>
+    set((state) => {
+      const updated = state.dockGroups.map((g) =>
+        g.id === groupId ? { ...g, ...updates } : g,
+      );
+      saveDockGroups(updated);
+      return { dockGroups: updated };
+    }),
+
+  removePanelFromDockGroup: (panelId) =>
+    set((state) => {
+      const updated: DockGroup[] = [];
+      for (const group of state.dockGroups) {
+        const filtered = group.panelIds.filter((id) => id !== panelId);
+        // Dissolve groups with fewer than 2 panels
+        if (filtered.length >= 2) {
+          updated.push({ ...group, panelIds: filtered });
+        }
+      }
+      saveDockGroups(updated);
+      return { dockGroups: updated };
     }),
 
   reset: () => set(initialState),

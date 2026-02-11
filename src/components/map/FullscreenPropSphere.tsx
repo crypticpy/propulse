@@ -6,7 +6,7 @@
  * Top bar stays fixed; map renders behind everything.
  */
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
 import { useUserStore } from "@/stores/userStore";
@@ -27,8 +27,81 @@ import { LayersPopover } from "@/components/map/LayersPopover";
 import { WatchPopover } from "@/components/map/WatchPopover";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { ContestRatePanel } from "@/components/map/ContestRatePanel";
+import { ObservatoryOverlay } from "@/components/map/ObservatoryOverlay";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
+import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
+
+// ── Panel metadata for dock strip pills ────────────────────────
+const PANEL_LABELS: Record<string, string> = {
+  "band-conditions": "Bands",
+  "path-analysis": "Paths",
+  "dx-spots": "DX Spots",
+  recommendations: "Recs",
+};
+
+const PANEL_ICONS: Record<string, React.ReactNode> = {
+  "band-conditions": (
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 13h2v8H3zM7 9h2v12H7zM11 5h2v16h-2zM15 9h2v12h-2zM19 13h2v8h-2z"
+      />
+    </svg>
+  ),
+  "path-analysis": (
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+      />
+    </svg>
+  ),
+  "dx-spots": (
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"
+      />
+    </svg>
+  ),
+  recommendations: (
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+      />
+    </svg>
+  ),
+};
 
 interface FullscreenPropSphereProps {
   displayTime: Date;
@@ -54,13 +127,23 @@ export function FullscreenPropSphere({
   const { station } = useUserStore();
 
   const autoRotate = useMapStore((s) => s.autoRotate);
+  const observatoryMode = useMapStore((s) => s.observatoryMode);
+  const exitObservatory = useMapStore((s) => s.exitObservatory);
   const watchCriteria = useWatchStore((s) => s.criteria);
 
   const [showPresetManager, setShowPresetManager] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
 
   // ── Ambient mode ──────────────────────────────────────────
+  // Observatory forces ambient mode on; exiting observatory restores it
   const [ambientMode, setAmbientMode] = useState(false);
+
+  // When observatory mode activates, force ambient mode
+  useEffect(() => {
+    if (observatoryMode) {
+      setAmbientMode(true);
+    }
+  }, [observatoryMode]);
   const [showTopBar, setShowTopBar] = useState(true);
   const [showCursor, setShowCursor] = useState(true);
   const lastMouseMoveRef = useRef(Date.now());
@@ -139,17 +222,53 @@ export function FullscreenPropSphere({
     enabled: true,
   });
 
-  // Handle escape key to exit fullscreen
+  // ── Panel docking ────────────────────────────────────────────
+  const panelRects = useMemo<Record<string, PanelRect>>(() => {
+    const rects: Record<string, PanelRect> = {};
+    for (const [id, entry] of Object.entries(proPanelLayout)) {
+      if (!entry.collapsed) {
+        rects[id] = {
+          x: entry.x,
+          y: entry.y,
+          width: entry.width,
+          height: entry.height,
+        };
+      }
+    }
+    return rects;
+  }, [proPanelLayout]);
+
+  const {
+    onDragMove: handleDockDragMove,
+    onDragEnd: handleDockDragEnd,
+    activeSnapTarget,
+    onGroupWidthResize,
+    getDockGroupWidth,
+  } = usePanelDocking(panelRects);
+
+  // List of collapsed panel IDs for the dock strip
+  const collapsedPanelIds = useMemo(() => {
+    return Object.entries(proPanelLayout)
+      .filter(([, entry]) => entry.collapsed)
+      .map(([id]) => id);
+  }, [proPanelLayout]);
+
+  // Handle escape key — observatory mode exits observatory, else exits fullscreen
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setFullscreen(false);
+        if (observatoryMode) {
+          exitObservatory();
+          setAmbientMode(false);
+        } else {
+          setFullscreen(false);
+        }
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [setFullscreen]);
+  }, [observatoryMode, exitObservatory, setFullscreen]);
 
   // Animate in on mount
   useEffect(() => {
@@ -348,42 +467,44 @@ export function FullscreenPropSphere({
             Reset
           </button>
 
-          {/* Ambient mode toggle */}
-          <button
-            onClick={() => setAmbientMode((v) => !v)}
-            title={ambientMode ? "Show panels" : "Ambient mode"}
-            className={`${glassPanel} rounded-lg p-2 pointer-events-auto transition-colors ${
-              ambientMode
-                ? "bg-white/15 text-white"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          {/* Ambient mode toggle — hidden during observatory (observatory forces ambient) */}
+          {!observatoryMode && (
+            <button
+              onClick={() => setAmbientMode((v) => !v)}
+              title={ambientMode ? "Show panels" : "Ambient mode"}
+              className={`${glassPanel} rounded-lg p-2 pointer-events-auto transition-colors ${
+                ambientMode
+                  ? "bg-white/15 text-white"
+                  : "text-gray-400 hover:text-white hover:bg-white/10"
+              }`}
             >
-              {ambientMode ? (
-                <>
-                  {/* Eye open — show panels */}
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </>
-              ) : (
-                <>
-                  {/* Eye with slash — ambient / hide panels */}
-                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
-                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
-                  <path d="M14.12 14.12a3 3 0 11-4.24-4.24" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </>
-              )}
-            </svg>
-          </button>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {ambientMode ? (
+                  <>
+                    {/* Eye open — show panels */}
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </>
+                ) : (
+                  <>
+                    {/* Eye with slash — ambient / hide panels */}
+                    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                    <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                    <path d="M14.12 14.12a3 3 0 11-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </>
+                )}
+              </svg>
+            </button>
+          )}
 
           {/* ESC hint */}
           <div className="text-[10px] text-gray-600 pointer-events-none select-none whitespace-nowrap">
@@ -422,104 +543,172 @@ export function FullscreenPropSphere({
         }`}
       >
         {/* Band Conditions — top-left */}
-        <FloatingPanel
-          id="band-conditions"
-          title="Band Conditions"
-          defaultPosition={{ x: 1, y: 8 }}
-          defaultSize={{ width: 256, height: 400 }}
-          minSize={{ width: 200, height: 150 }}
-          maxSize={{ width: 400, height: 600 }}
-          collapsed={proPanelLayout["band-conditions"]?.collapsed ?? false}
-          onCollapse={() => toggleProPanelCollapse("band-conditions")}
-          persistedLayout={
-            proPanelLayout["band-conditions"]
-              ? {
-                  x: proPanelLayout["band-conditions"].x,
-                  y: proPanelLayout["band-conditions"].y,
-                  width: proPanelLayout["band-conditions"].width,
-                  height: proPanelLayout["band-conditions"].height,
-                }
-              : null
-          }
-          onLayoutChange={(layout) =>
-            updateProPanelLayout("band-conditions", layout)
-          }
-          zIndex={panelZOrder["band-conditions"] ?? 100}
-          onFocus={() => bringToFront("band-conditions")}
-        >
-          <BandConditionsPanel
-            displayTime={displayTime}
-            compact
-            className="!bg-transparent !border-0 h-full"
-          />
-        </FloatingPanel>
+        {!proPanelLayout["band-conditions"]?.collapsed && (
+          <FloatingPanel
+            id="band-conditions"
+            title="Band Conditions"
+            defaultPosition={{ x: 1, y: 8 }}
+            defaultSize={{ width: 256, height: 400 }}
+            minSize={{ width: 200, height: 150 }}
+            maxSize={{ width: 400, height: 600 }}
+            collapsed={false}
+            onCollapse={() => toggleProPanelCollapse("band-conditions")}
+            persistedLayout={
+              proPanelLayout["band-conditions"]
+                ? {
+                    x: proPanelLayout["band-conditions"].x,
+                    y: proPanelLayout["band-conditions"].y,
+                    width: proPanelLayout["band-conditions"].width,
+                    height: proPanelLayout["band-conditions"].height,
+                  }
+                : null
+            }
+            onLayoutChange={(layout) =>
+              updateProPanelLayout("band-conditions", layout)
+            }
+            zIndex={panelZOrder["band-conditions"] ?? 100}
+            onFocus={() => bringToFront("band-conditions")}
+            onDragMove={handleDockDragMove}
+            onDragEnd={handleDockDragEnd}
+            snapTarget={activeSnapTarget}
+            dockGroupWidth={getDockGroupWidth("band-conditions") ?? undefined}
+            onResizeWidth={onGroupWidthResize}
+            icon={
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 13h2v8H3zM7 9h2v12H7zM11 5h2v16h-2zM15 9h2v12h-2zM19 13h2v8h-2z"
+                />
+              </svg>
+            }
+          >
+            <BandConditionsPanel
+              displayTime={displayTime}
+              compact
+              className="!bg-transparent !border-0 h-full"
+            />
+          </FloatingPanel>
+        )}
 
         {/* Path Analysis — top-right */}
-        <FloatingPanel
-          id="path-analysis"
-          title="Path Analysis"
-          defaultPosition={{ x: 80, y: 8 }}
-          defaultSize={{ width: 288, height: 400 }}
-          minSize={{ width: 220, height: 150 }}
-          maxSize={{ width: 450, height: 600 }}
-          collapsed={proPanelLayout["path-analysis"]?.collapsed ?? false}
-          onCollapse={() => toggleProPanelCollapse("path-analysis")}
-          persistedLayout={
-            proPanelLayout["path-analysis"]
-              ? {
-                  x: proPanelLayout["path-analysis"].x,
-                  y: proPanelLayout["path-analysis"].y,
-                  width: proPanelLayout["path-analysis"].width,
-                  height: proPanelLayout["path-analysis"].height,
-                }
-              : null
-          }
-          onLayoutChange={(layout) =>
-            updateProPanelLayout("path-analysis", layout)
-          }
-          zIndex={panelZOrder["path-analysis"] ?? 100}
-          onFocus={() => bringToFront("path-analysis")}
-        >
-          <PathAnalysis
-            displayTime={displayTime}
-            className="!bg-transparent !border-0 h-full"
-          />
-        </FloatingPanel>
+        {!proPanelLayout["path-analysis"]?.collapsed && (
+          <FloatingPanel
+            id="path-analysis"
+            title="Path Analysis"
+            defaultPosition={{ x: 80, y: 8 }}
+            defaultSize={{ width: 288, height: 400 }}
+            minSize={{ width: 220, height: 150 }}
+            maxSize={{ width: 450, height: 600 }}
+            collapsed={false}
+            onCollapse={() => toggleProPanelCollapse("path-analysis")}
+            persistedLayout={
+              proPanelLayout["path-analysis"]
+                ? {
+                    x: proPanelLayout["path-analysis"].x,
+                    y: proPanelLayout["path-analysis"].y,
+                    width: proPanelLayout["path-analysis"].width,
+                    height: proPanelLayout["path-analysis"].height,
+                  }
+                : null
+            }
+            onLayoutChange={(layout) =>
+              updateProPanelLayout("path-analysis", layout)
+            }
+            zIndex={panelZOrder["path-analysis"] ?? 100}
+            onFocus={() => bringToFront("path-analysis")}
+            onDragMove={handleDockDragMove}
+            onDragEnd={handleDockDragEnd}
+            snapTarget={activeSnapTarget}
+            dockGroupWidth={getDockGroupWidth("path-analysis") ?? undefined}
+            onResizeWidth={onGroupWidthResize}
+            icon={
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                />
+              </svg>
+            }
+          >
+            <PathAnalysis
+              displayTime={displayTime}
+              className="!bg-transparent !border-0 h-full"
+            />
+          </FloatingPanel>
+        )}
 
         {/* DX Spots — bottom-center */}
-        <FloatingPanel
-          id="dx-spots"
-          title="DX Spots"
-          defaultPosition={{ x: 20, y: 78 }}
-          defaultSize={{ width: 720, height: 200 }}
-          minSize={{ width: 300, height: 120 }}
-          maxSize={{ width: 1100, height: 500 }}
-          collapsed={proPanelLayout["dx-spots"]?.collapsed ?? false}
-          onCollapse={() => toggleProPanelCollapse("dx-spots")}
-          persistedLayout={
-            proPanelLayout["dx-spots"]
-              ? {
-                  x: proPanelLayout["dx-spots"].x,
-                  y: proPanelLayout["dx-spots"].y,
-                  width: proPanelLayout["dx-spots"].width,
-                  height: proPanelLayout["dx-spots"].height,
-                }
-              : null
-          }
-          onLayoutChange={(layout) => updateProPanelLayout("dx-spots", layout)}
-          zIndex={panelZOrder["dx-spots"] ?? 100}
-          onFocus={() => bringToFront("dx-spots")}
-        >
-          <DXSpotList
-            maxHeight="100%"
-            showFilters={true}
-            showHeader={true}
-            className="!bg-transparent !border-0 h-full"
-          />
-        </FloatingPanel>
+        {!proPanelLayout["dx-spots"]?.collapsed && (
+          <FloatingPanel
+            id="dx-spots"
+            title="DX Spots"
+            defaultPosition={{ x: 20, y: 78 }}
+            defaultSize={{ width: 720, height: 200 }}
+            minSize={{ width: 300, height: 120 }}
+            maxSize={{ width: 1100, height: 500 }}
+            collapsed={false}
+            onCollapse={() => toggleProPanelCollapse("dx-spots")}
+            persistedLayout={
+              proPanelLayout["dx-spots"]
+                ? {
+                    x: proPanelLayout["dx-spots"].x,
+                    y: proPanelLayout["dx-spots"].y,
+                    width: proPanelLayout["dx-spots"].width,
+                    height: proPanelLayout["dx-spots"].height,
+                  }
+                : null
+            }
+            onLayoutChange={(layout) =>
+              updateProPanelLayout("dx-spots", layout)
+            }
+            zIndex={panelZOrder["dx-spots"] ?? 100}
+            onFocus={() => bringToFront("dx-spots")}
+            onDragMove={handleDockDragMove}
+            onDragEnd={handleDockDragEnd}
+            snapTarget={activeSnapTarget}
+            dockGroupWidth={getDockGroupWidth("dx-spots") ?? undefined}
+            onResizeWidth={onGroupWidthResize}
+            icon={
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"
+                />
+              </svg>
+            }
+          >
+            <DXSpotList
+              maxHeight="100%"
+              showFilters={true}
+              showHeader={true}
+              className="!bg-transparent !border-0 h-full"
+            />
+          </FloatingPanel>
+        )}
 
         {/* Recommendations — bottom-left (only when station + target exist) */}
-        {station && target && (
+        {station && target && !proPanelLayout["recommendations"]?.collapsed && (
           <FloatingPanel
             id="recommendations"
             title="Recommendations"
@@ -527,7 +716,7 @@ export function FullscreenPropSphere({
             defaultSize={{ width: 320, height: 180 }}
             minSize={{ width: 240, height: 120 }}
             maxSize={{ width: 500, height: 400 }}
-            collapsed={proPanelLayout["recommendations"]?.collapsed ?? false}
+            collapsed={false}
             onCollapse={() => toggleProPanelCollapse("recommendations")}
             persistedLayout={
               proPanelLayout["recommendations"]
@@ -544,6 +733,26 @@ export function FullscreenPropSphere({
             }
             zIndex={panelZOrder["recommendations"] ?? 100}
             onFocus={() => bringToFront("recommendations")}
+            onDragMove={handleDockDragMove}
+            onDragEnd={handleDockDragEnd}
+            snapTarget={activeSnapTarget}
+            dockGroupWidth={getDockGroupWidth("recommendations") ?? undefined}
+            onResizeWidth={onGroupWidthResize}
+            icon={
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                />
+              </svg>
+            }
           >
             <RecommendationsPanel
               homeLat={station.lat}
@@ -558,8 +767,32 @@ export function FullscreenPropSphere({
       </div>
       {/* end ambient-mode floating panels wrapper */}
 
-      {/* ── Ambient overlay (UTC clock + watch pill) ─────────── */}
-      {showAmbientOverlay && (
+      {/* ── Collapsed panel dock strip (bottom-center) ────────── */}
+      {!ambientMode && collapsedPanelIds.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[215] flex items-center gap-2 pointer-events-auto">
+          {collapsedPanelIds.map((panelId) => (
+            <button
+              key={panelId}
+              onClick={() => toggleProPanelCollapse(panelId)}
+              className="bg-black/70 backdrop-blur-md border border-white/20 rounded-full shadow-lg
+                         hover:bg-white/10 transition-all duration-150 px-3 py-1.5 flex items-center gap-2"
+            >
+              <span className="text-white/60 flex-shrink-0">
+                {PANEL_ICONS[panelId] ?? null}
+              </span>
+              <span className="text-[11px] font-medium text-white/80 whitespace-nowrap">
+                {PANEL_LABELS[panelId] ?? panelId}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Observatory overlay (replaces ambient overlay when in observatory) */}
+      {observatoryMode && ambientMode && !showTopBar && <ObservatoryOverlay />}
+
+      {/* ── Ambient overlay (UTC clock + watch pill) — non-observatory only */}
+      {showAmbientOverlay && !observatoryMode && (
         <div
           className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[215]
             transition-opacity duration-300

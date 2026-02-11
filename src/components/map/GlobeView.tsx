@@ -56,6 +56,7 @@ import {
   type GridResearchAction,
 } from "./GridResearchPanel";
 import { useMapStore } from "@/stores/mapStore";
+import { useProfileStore } from "@/stores/profileStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { gridToLatLon } from "@/lib/utils/grid";
 import {
@@ -197,10 +198,9 @@ function latLonToCameraPosition(
  * - A spot is selected (targetPosition from useSpotFocus)
  * - Q2: Double-click centers the view (centerLocation from mapStore)
  */
-// Earth completes one rotation in 86 400 seconds.
+// Auto-rotate speed is now dynamic, driven by mapStore.autoRotateSpeed (seconds per revolution).
 // OrbitControls autoRotateSpeed 2.0 = 30 seconds per orbit at 60 fps.
-// Real-time: 2.0 × (30 / 86400) ≈ 0.000694
-const EARTH_REALTIME_ROTATE_SPEED = 2.0 * (30 / 86_400);
+// Conversion: 2.0 × (30 / secondsPerRevolution)
 
 function CameraController() {
   const controlsRef = useRef<OrbitControlsType>(null);
@@ -211,7 +211,23 @@ function CameraController() {
   const activePresetId = useMapStore((state) => state.activePresetId);
   const regionPresets = useMapStore((state) => state.regionPresets);
   const autoRotate = useMapStore((state) => state.autoRotate);
+  const observatoryMode = useMapStore((state) => state.observatoryMode);
+  const autoRotateSpeed = useMapStore((state) => state.autoRotateSpeed);
   const prevPresetIdRef = useRef<string | null>(null);
+
+  // Dynamic OrbitControls auto-rotate speed from store
+  // OrbitControls autoRotateSpeed 2.0 = 30 seconds per orbit at 60 fps
+  // Conversion: 2.0 × (30 / secondsPerRevolution)
+  const computedRotateSpeed = useMemo(
+    () => 2.0 * (30 / Math.max(60, autoRotateSpeed)),
+    [autoRotateSpeed],
+  );
+
+  // Observatory mode — read station for camera-to-home animation
+  const station = useProfileStore((s) => s.station);
+  const prevObservatoryModeRef = useRef(false);
+  /** Animation frame ID for observatory pan cleanup */
+  const observatoryPanRafRef = useRef<number>(0);
 
   // ─── Watch-based camera auto-pan ───────────────────────────────────────────
   const recentMatches = useWatchStore((s) => s.recentMatches);
@@ -245,8 +261,13 @@ function CameraController() {
 
   // Watch-based auto-pan effect
   useEffect(() => {
-    if (!autoPan || !watchEnabled || recentMatches.length === 0) {
-      // Reset counter when watch is disabled or cleared
+    if (
+      !autoPan ||
+      !watchEnabled ||
+      recentMatches.length === 0 ||
+      observatoryMode
+    ) {
+      // Reset counter when watch is disabled, cleared, or observatory mode is active
       lastPanMatchCountRef.current = recentMatches.length;
       return;
     }
@@ -365,7 +386,15 @@ function CameraController() {
         pausedAutoRotateRef.current = false;
       }
     };
-  }, [recentMatches, matchRate, autoPan, watchEnabled, camera, autoRotate]);
+  }, [
+    recentMatches,
+    matchRate,
+    autoPan,
+    watchEnabled,
+    camera,
+    autoRotate,
+    observatoryMode,
+  ]);
 
   // Animate camera to focus on selected spot
   useEffect(() => {
@@ -503,11 +532,78 @@ function CameraController() {
     animate();
   }, [activePresetId, regionPresets, camera]);
 
+  // ─── Observatory mode: animate camera to home station on enter ─────────────
+  useEffect(() => {
+    const wasObservatory = prevObservatoryModeRef.current;
+    prevObservatoryModeRef.current = observatoryMode;
+
+    // Only fire on rising edge (false → true)
+    if (!observatoryMode || wasObservatory) {
+      return;
+    }
+
+    // Need a station with coordinates to animate to
+    if (!station || station.lat == null || station.lon == null) {
+      return;
+    }
+
+    const controls = controlsRef.current;
+    if (!controls) {
+      return;
+    }
+
+    // Cancel any in-flight observatory pan animation
+    if (observatoryPanRafRef.current) {
+      cancelAnimationFrame(observatoryPanRafRef.current);
+    }
+
+    const startPosition = camera.position.clone();
+    const currentDistance = startPosition.length();
+    const endPosition = latLonToCameraPosition(
+      station.lat,
+      station.lon,
+      currentDistance,
+    );
+
+    const duration = 1500;
+    const startTime = Date.now();
+
+    function animateObservatoryPan() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      camera.position.lerpVectors(startPosition, endPosition, eased);
+      camera.lookAt(0, 0, 0);
+      controls!.update();
+
+      if (progress < 1) {
+        observatoryPanRafRef.current = requestAnimationFrame(
+          animateObservatoryPan,
+        );
+      } else {
+        observatoryPanRafRef.current = 0;
+      }
+    }
+
+    animateObservatoryPan();
+
+    return () => {
+      if (observatoryPanRafRef.current) {
+        cancelAnimationFrame(observatoryPanRafRef.current);
+        observatoryPanRafRef.current = 0;
+      }
+    };
+  }, [observatoryMode, station, camera]);
+
   return (
     <OrbitControls
       ref={controlsRef}
       enablePan={false}
       enableZoom={true}
+      enableRotate={!observatoryMode}
       zoomSpeed={0.5}
       minDistance={1.5}
       maxDistance={4}
@@ -515,7 +611,7 @@ function CameraController() {
       dampingFactor={0.1}
       enableDamping
       autoRotate={autoRotate}
-      autoRotateSpeed={EARTH_REALTIME_ROTATE_SPEED}
+      autoRotateSpeed={computedRotateSpeed}
     />
   );
 }

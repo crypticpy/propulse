@@ -1,5 +1,6 @@
 import { HelpAccordion } from "@/components/help/HelpAccordion";
 import { HelpCallout } from "@/components/help/HelpCallout";
+import { HelpDataTable } from "@/components/help/HelpDataTable";
 import { HelpFAQ } from "@/components/help/HelpFAQ";
 
 export function SdrConsoleSection() {
@@ -474,6 +475,62 @@ export function SdrConsoleSection() {
             Daemon releases page on GitHub for the latest device compatibility
             list. If your device is not currently supported, file an issue on
             the project repository.
+          </HelpCallout>
+        </div>
+      </HelpAccordion>
+
+      {/* Data Sources */}
+      <HelpAccordion
+        id="data-sources-sdr"
+        title="Data Sources"
+        summary="Communication protocols and data feeds used by the SDR Console"
+      >
+        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+          <p>
+            The SDR Console uses two primary data channels for communication
+            with external applications and hardware. All connections are local
+            (loopback or LAN) and do not traverse the internet.
+          </p>
+
+          <HelpDataTable
+            sources={[
+              {
+                name: "Radio Daemon",
+                source: "WebSocket",
+                endpoint: "ws://127.0.0.1:9867",
+                refresh: "Real-time",
+              },
+              {
+                name: "WSJT-X Decodes",
+                source: "UDP",
+                endpoint: "UDP port 2237",
+                refresh: "Real-time",
+              },
+              {
+                name: "DX Cluster Spots",
+                source: "WebSocket (via Bridge)",
+                endpoint: "ws://127.0.0.1:9867",
+                refresh: "Real-time",
+              },
+              {
+                name: "FFT / Spectrum",
+                source: "WebSocket binary frames",
+                endpoint: "ws://127.0.0.1:9867",
+                refresh: "20 fps",
+              },
+              {
+                name: "Audio Stream",
+                source: "WebSocket PCM",
+                endpoint: "ws://127.0.0.1:9867",
+                refresh: "48 kHz",
+              },
+            ]}
+          />
+
+          <HelpCallout type="note">
+            All data flows through the Propulse Radio Daemon running on your
+            local machine. The daemon URL and WSJT-X port are configurable in
+            Settings under Connections.
           </HelpCallout>
         </div>
       </HelpAccordion>

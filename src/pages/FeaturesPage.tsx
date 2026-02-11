@@ -565,7 +565,7 @@ function MainViewsSection() {
 
 function HeroSection() {
   return (
-    <div className="text-center pt-8 pb-6 sm:pt-12 sm:pb-10 px-4">
+    <header className="text-center pt-8 pb-6 sm:pt-12 sm:pb-10 px-4">
       {/* Glow effect */}
       <div className="relative inline-block mb-4">
         <div className="absolute inset-0 rounded-full bg-plasma-orange/15 blur-3xl scale-150" />
@@ -584,6 +584,7 @@ function HeroSection() {
       <div className="flex flex-wrap items-center justify-center gap-3">
         <TierBadge tier="none" size="lg" />
         <svg
+          aria-hidden="true"
           className="w-4 h-4 text-gray-600"
           viewBox="0 0 24 24"
           fill="none"
@@ -598,6 +599,7 @@ function HeroSection() {
         </svg>
         <TierBadge tier="free" size="lg" />
         <svg
+          aria-hidden="true"
           className="w-4 h-4 text-gray-600"
           viewBox="0 0 24 24"
           fill="none"
@@ -612,7 +614,7 @@ function HeroSection() {
         </svg>
         <TierBadge tier="pro" size="lg" />
       </div>
-    </div>
+    </header>
   );
 }
 
@@ -739,22 +741,22 @@ export default function FeaturesPage() {
   const isMobile = useIsMobile();
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-12">
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-12">
       {/* Hero */}
       <HeroSection />
 
       {/* Value Proposition Callouts */}
-      <div className="mb-8 sm:mb-12">
+      <section className="mb-8 sm:mb-12" aria-label="Tier comparison">
         <ValueCallouts />
-      </div>
+      </section>
 
       {/* Main Views (all tiers) */}
-      <div className="mb-6 sm:mb-8">
+      <section className="mb-6 sm:mb-8" aria-label="Main views">
         <MainViewsSection />
-      </div>
+      </section>
 
       {/* Category Comparison Tables */}
-      <div className="space-y-6 sm:space-y-8">
+      <section className="space-y-6 sm:space-y-8" aria-label="Feature details">
         {CATEGORIES.map((cat) =>
           isMobile ? (
             <MobileFeatureCard key={cat.title} category={cat} />
@@ -762,10 +764,10 @@ export default function FeaturesPage() {
             <DesktopFeatureTable key={cat.title} category={cat} />
           ),
         )}
-      </div>
+      </section>
 
       {/* Bottom CTA */}
       <BottomCTA />
-    </div>
+    </main>
   );
 }

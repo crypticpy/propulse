@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { HelpAccordion } from "@/components/help/HelpAccordion";
 import { HelpCallout } from "@/components/help/HelpCallout";
 import { HelpDataTable } from "@/components/help/HelpDataTable";
@@ -12,7 +13,15 @@ export function DashboardSection() {
         conditions. It combines real-time solar data, band status, and DX
         activity into a single view. Everything on this page updates
         automatically so you can keep it open during an operating session and
-        always know the state of the ionosphere.
+        always know the state of the ionosphere. For a deeper dive into the
+        underlying space weather data, see{" "}
+        <Link
+          to="/help/solar-pulse"
+          className="text-plasma-orange hover:underline"
+        >
+          Solar Pulse
+        </Link>
+        .
       </p>
 
       {/* Band Conditions */}

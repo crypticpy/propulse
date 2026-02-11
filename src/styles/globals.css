@@ -152,6 +152,35 @@
 .slide-in-from-top-1 {
   animation-name: animateIn, slideInFromTop1;
 }
+@keyframes slideInFromTop2 {
+  from { transform: translateY(-0.5rem); }
+  to { transform: translateY(0); }
+}
+.slide-in-from-top-2 {
+  animation-name: animateIn, slideInFromTop2;
+}
+
+/* Stagger delay utilities for entrance animations */
+.delay-75 { animation-delay: 75ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-225 { animation-delay: 225ms; }
+
+/* Mobile table scroll fade hint (right edge) */
+.table-scroll-fade {
+  position: relative;
+}
+.table-scroll-fade::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2rem;
+  background: linear-gradient(to right, transparent, rgba(10, 10, 26, 0.85));
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
 
 /* Glass morphism card effect */
 @layer components {
@@ -603,7 +632,96 @@
   color: #9ca3af !important; /* gray-400 */
 }
 
+.contrast-more .text-gray-300 {
+  color: #e5e7eb !important; /* gray-200 — body text boost */
+}
+
+.contrast-more .text-gray-600 {
+  color: #9ca3af !important; /* gray-400 — subtle text boost */
+}
+
 .contrast-more :focus-visible {
   outline: 2px solid var(--theme-accent-primary) !important;
   outline-offset: 2px;
+}
+
+/* Help system high-contrast overrides */
+.contrast-more .border-white\/5,
+.contrast-more .border-white\/\[0\.08\] {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.contrast-more .border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.contrast-more [aria-expanded="true"] {
+  border-left: 2px solid var(--theme-accent-primary) !important;
+}
+
+.contrast-more .text-purple-300 {
+  color: #d8b4fe !important; /* purple-300 brighter for Pro badge */
+}
+
+.contrast-more .text-purple-400 {
+  color: #c084fc !important; /* purple-400 brighter */
+}
+
+/* ─── Print Styles ──────────────────────────────────────────────────────── */
+@media print {
+  /* White background, black text */
+  body,
+  main,
+  .print-content {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Hide navigation, sidebar, search, TOC */
+  nav[aria-label="Main"],
+  nav[aria-label="Breadcrumb"],
+  [data-print-hide],
+  .help-search-wrapper,
+  .help-toc-sidebar {
+    display: none !important;
+  }
+
+  /* Style details elements for print — CSS cannot force details open,
+     but we style summary markers for consistency */
+  details > summary {
+    list-style: none;
+  }
+  details[open] > summary::marker,
+  details > summary::marker {
+    display: none;
+  }
+
+  /* Force all accordion content visible for print */
+  [data-accordion-content],
+  [data-accordion-content][hidden] {
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+  }
+
+  /* Remove decorative borders and backgrounds */
+  .glass-card,
+  .glass-panel {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Links: show URL */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+  a[href^="#"]::after,
+  a[href^="javascript"]::after {
+    content: "";
+  }
 }

@@ -111,15 +111,23 @@ function CalloutIcon({ type }: { type: CalloutType }) {
   }
 }
 
+const ARIA_ROLE_MAP: Record<CalloutType, string> = {
+  tip: "note",
+  note: "note",
+  warning: "alert",
+  pro: "note",
+};
+
 export function HelpCallout({ type, children }: HelpCalloutProps) {
   const styles = CALLOUT_STYLES[type];
 
   return (
     <div
+      role={ARIA_ROLE_MAP[type]}
       className={`${styles.bg} ${styles.border} border-l-4 rounded-r-lg px-4 py-3 my-3`}
     >
       <div className="flex items-start gap-2.5">
-        <span className={`${styles.iconColor} mt-0.5`}>
+        <span className={`${styles.iconColor} mt-0.5`} aria-hidden="true">
           <CalloutIcon type={type} />
         </span>
         <div className="flex-1 min-w-0">
@@ -130,12 +138,12 @@ export function HelpCallout({ type, children }: HelpCalloutProps) {
               {styles.label}
             </span>
             {type === "pro" && (
-              <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-purple-400/20 text-purple-300 rounded">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-purple-500/25 text-purple-200 rounded">
                 PRO
               </span>
             )}
           </div>
-          <div className="text-sm text-gray-300 leading-relaxed">
+          <div className="text-sm text-gray-200 leading-relaxed">
             {children}
           </div>
         </div>

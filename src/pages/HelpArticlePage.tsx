@@ -6,7 +6,7 @@
  * Renders the appropriate section component based on URL param.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { HelpBreadcrumbs } from "@/components/help/HelpBreadcrumbs";
@@ -33,7 +33,9 @@ const SECTION_TOC: Record<string, TOCItem[]> = {
     { id: "quick-start", title: "Quick Start" },
     { id: "navigation-overview", title: "Navigation Overview" },
     { id: "account-tiers", title: "Account Tiers" },
+    { id: "command-palette", title: "Command Palette" },
     { id: "keyboard-shortcuts", title: "Keyboard Shortcuts" },
+    { id: "utility-pages", title: "Utility Pages" },
     { id: "getting-help", title: "Getting Help" },
     { id: "faq", title: "FAQ" },
   ],
@@ -82,6 +84,7 @@ const SECTION_TOC: Record<string, TOCItem[]> = {
     { id: "storm-confidence", title: "Storm & Confidence" },
     { id: "operating-recommendations", title: "Operating Recommendations" },
     { id: "favorites-filter", title: "Favorites Filter" },
+    { id: "data-sources-planner", title: "Data Sources" },
   ],
   "sdr-console": [
     { id: "connecting", title: "Connecting to a Radio" },
@@ -92,6 +95,7 @@ const SECTION_TOC: Record<string, TOCItem[]> = {
     { id: "cluster-overlay", title: "DX Cluster Overlay" },
     { id: "daemon-setup", title: "Bridge & Daemon Setup" },
     { id: "hardware", title: "Supported Hardware" },
+    { id: "data-sources-sdr", title: "Data Sources" },
   ],
   logbook: [
     { id: "logging-qso", title: "Logging a QSO" },
@@ -162,6 +166,16 @@ const SECTION_COMPONENTS: Record<string, React.FC> = {
 export default function HelpArticlePage() {
   const { sectionId } = useParams<{ sectionId: string }>();
   const isMobile = useIsMobile();
+  const [allExpanded, setAllExpanded] = useState(false);
+
+  const toggleAll = useCallback(() => {
+    if (allExpanded) {
+      window.dispatchEvent(new CustomEvent("help-collapse-all"));
+    } else {
+      window.dispatchEvent(new CustomEvent("help-expand-all"));
+    }
+    setAllExpanded((prev) => !prev);
+  }, [allExpanded]);
 
   const section = useMemo(
     () => HELP_SECTIONS.find((s) => s.id === sectionId),
@@ -170,17 +184,20 @@ export default function HelpArticlePage() {
 
   if (!section) {
     return (
-      <div className="max-w-[960px] mx-auto px-4 sm:px-6 py-8 text-center">
+      <main className="max-w-[960px] mx-auto px-4 sm:px-6 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-100 mb-2">
           Section Not Found
         </h1>
         <p className="text-sm text-gray-400 mb-4">
           The help section you are looking for does not exist.
         </p>
-        <Link to="/help" className="text-sm text-plasma-orange hover:underline">
+        <Link
+          to="/help"
+          className="text-sm text-plasma-orange hover:underline focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:outline-none rounded"
+        >
           Back to Help Center
         </Link>
-      </div>
+      </main>
     );
   }
 
@@ -188,19 +205,44 @@ export default function HelpArticlePage() {
   const tocItems = SECTION_TOC[section.id] ?? [];
 
   return (
-    <div className="max-w-[1040px] mx-auto px-4 sm:px-6 py-6">
-      {/* Breadcrumbs */}
+    <main className="max-w-[1040px] mx-auto px-4 sm:px-6 py-6">
+      {/* Skip to content link */}
+      <a
+        href="#help-article-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-gray-900 focus:text-plasma-orange focus:rounded-lg focus:ring-2 focus:ring-plasma-orange/60"
+      >
+        Skip to content
+      </a>
+
+      {/* Breadcrumbs — component renders its own <nav aria-label="Breadcrumb"> */}
       <HelpBreadcrumbs
         items={[{ label: "Help", href: "/help" }, { label: section.title }]}
       />
 
       {/* Section header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-100 mb-1">
-          {section.title}
-        </h1>
-        <p className="text-sm text-gray-400">{section.description}</p>
-      </div>
+      <header className="mb-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1
+              id="help-article-heading"
+              className="text-2xl font-bold text-gray-100 mb-1"
+            >
+              {section.title}
+            </h1>
+            <p className="text-sm text-gray-400">{section.description}</p>
+          </div>
+          {tocItems.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="shrink-0 text-xs text-gray-500 hover:text-gray-300 transition-colors px-2.5 py-1.5 rounded-lg border border-white/5 hover:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
+              data-print-hide
+            >
+              {allExpanded ? "Collapse All" : "Expand All"}
+            </button>
+          )}
+        </div>
+      </header>
 
       {/* Mobile TOC */}
       {isMobile && tocItems.length > 0 && <HelpArticleTOC items={tocItems} />}
@@ -213,7 +255,11 @@ export default function HelpArticlePage() {
         )}
 
         {/* Content */}
-        <div className="flex-1 min-w-0 max-w-[800px]">
+        <article
+          id="help-article-content"
+          className="flex-1 min-w-0 max-w-[800px]"
+          aria-labelledby="help-article-heading"
+        >
           {SectionComponent ? (
             <SectionComponent />
           ) : (
@@ -223,14 +269,14 @@ export default function HelpArticlePage() {
               </h2>
               <Link
                 to="/help"
-                className="text-sm text-plasma-orange hover:underline"
+                className="text-sm text-plasma-orange hover:underline focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:outline-none rounded"
               >
                 Back to Help Center
               </Link>
             </div>
           )}
-        </div>
+        </article>
       </div>
-    </div>
+    </main>
   );
 }

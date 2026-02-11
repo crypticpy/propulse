@@ -1,5 +1,8 @@
 /**
  * HelpSearch — Search bar with results dropdown for the Help Center.
+ *
+ * Mobile: full-width dropdown, min 44px touch targets per result.
+ * Visual: subtle focus glow ring, entrance animation for dropdown.
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -85,10 +88,21 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
     setSelectedIdx(-1);
   }, []);
 
+  const listboxId = "help-search-listbox";
+  const hasResults = isOpen && results.length > 0;
+  const activeDescendant =
+    selectedIdx >= 0 ? `help-search-option-${selectedIdx}` : undefined;
+
   return (
-    <div className={`relative ${className}`}>
+    <div
+      className={`relative help-search-wrapper ${className}`}
+      data-print-hide
+    >
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+        <span
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+          aria-hidden="true"
+        >
           {HelpIcons.search("w-4 h-4")}
         </span>
         <input
@@ -99,29 +113,53 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search help articles..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-plasma-orange/40 focus:border-plasma-orange/30 transition-colors"
+          role="combobox"
+          aria-label="Search help articles"
+          aria-expanded={hasResults}
+          aria-controls={listboxId}
+          aria-activedescendant={activeDescendant}
+          aria-autocomplete="list"
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 transition-all duration-200"
         />
       </div>
 
-      {isOpen && results.length > 0 && (
+      {/* Screen reader live region for result count */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {isOpen &&
+          query.trim().length >= 2 &&
+          (results.length > 0
+            ? `${results.length} result${results.length === 1 ? "" : "s"} found`
+            : `No results found for ${query}`)}
+      </div>
+
+      {hasResults && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden z-50"
+          id={listboxId}
+          role="listbox"
+          aria-label="Search results"
+          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 max-h-[70vh] overflow-y-auto"
         >
           {results.map((entry, i) => {
             const section = HELP_SECTIONS.find((s) => s.id === entry.sectionId);
             return (
               <button
+                id={`help-search-option-${i}`}
                 key={`${entry.sectionId}-${entry.anchor}-${i}`}
                 type="button"
+                role="option"
+                aria-selected={selectedIdx === i}
                 onClick={() => navigateToResult(entry)}
-                className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
+                className={`w-full text-left px-4 py-3 min-h-[44px] flex items-center gap-3 transition-colors ${
                   selectedIdx === i
                     ? "bg-plasma-orange/10 text-gray-100"
-                    : "text-gray-300 hover:bg-white/[0.04]"
+                    : "text-gray-300 hover:bg-white/[0.04] active:bg-white/[0.06]"
                 }`}
               >
-                <span className="text-gray-500 flex-shrink-0">
+                <span
+                  className="text-gray-500 flex-shrink-0"
+                  aria-hidden="true"
+                >
                   {section?.icon("w-4 h-4")}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -141,7 +179,9 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
       {isOpen && query.trim().length >= 2 && results.length === 0 && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden z-50 px-4 py-3"
+          id={listboxId}
+          role="status"
+          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden z-50 px-4 py-3 animate-in fade-in slide-in-from-top-2"
         >
           <p className="text-sm text-gray-500">
             No results found for &quot;{query}&quot;

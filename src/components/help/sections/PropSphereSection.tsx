@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { HelpAccordion } from "@/components/help/HelpAccordion";
 import { HelpCallout } from "@/components/help/HelpCallout";
 import { HelpDataTable } from "@/components/help/HelpDataTable";
@@ -12,7 +13,15 @@ export function PropSphereSection() {
         PropSphere is your interactive propagation intelligence globe. It
         visualizes live DX spots, propagation paths, and environmental data on a
         3D globe, flat map, or azimuthal projection — giving you a real-time
-        picture of worldwide radio activity.
+        picture of worldwide radio activity. For targeted transmit guidance to a
+        specific station, see the{" "}
+        <Link
+          to="/help/dx-wizard"
+          className="text-plasma-orange hover:underline"
+        >
+          DX Wizard
+        </Link>
+        .
       </p>
 
       {/* ─── 4.1 Map Views ─────────────────────────────────────────────────── */}

@@ -320,6 +320,20 @@ export const SEARCH_INDEX: SearchEntry[] = [
   },
   {
     sectionId: "getting-started",
+    heading: "Command Palette",
+    keywords: [
+      "command palette",
+      "ctrl+k",
+      "cmd+k",
+      "quick navigation",
+      "search",
+      "jump to",
+      "navigate",
+    ],
+    anchor: "command-palette",
+  },
+  {
+    sectionId: "getting-started",
     heading: "Keyboard Shortcuts",
     keywords: [
       "keyboard",
@@ -335,6 +349,23 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "escape",
     ],
     anchor: "keyboard-shortcuts",
+  },
+  {
+    sectionId: "getting-started",
+    heading: "Utility Pages",
+    keywords: [
+      "health",
+      "system health",
+      "bridge",
+      "setup",
+      "setup guide",
+      "features",
+      "feature comparison",
+      "sdr setup",
+      "daemon setup",
+      "utility",
+    ],
+    anchor: "utility-pages",
   },
   {
     sectionId: "getting-started",
@@ -381,6 +412,19 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "analytics",
       "supabase",
       "tracking",
+    ],
+    anchor: "faq",
+  },
+  {
+    sectionId: "getting-started",
+    heading: "FAQ: What is the Command Palette?",
+    keywords: [
+      "command palette",
+      "ctrl+k",
+      "cmd+k",
+      "navigation",
+      "search",
+      "quick jump",
     ],
     anchor: "faq",
   },
@@ -2385,6 +2429,20 @@ export const SEARCH_INDEX: SearchEntry[] = [
   },
   {
     sectionId: "band-planner",
+    heading: "Data Sources",
+    keywords: [
+      "data source",
+      "solar flux",
+      "k-index",
+      "bz",
+      "noaa",
+      "swpc",
+      "forecast data",
+    ],
+    anchor: "data-sources-planner",
+  },
+  {
+    sectionId: "band-planner",
     heading: "FAQ: Why are all bands closed?",
     keywords: [
       "bands closed",
@@ -2741,6 +2799,22 @@ export const SEARCH_INDEX: SearchEntry[] = [
       "flexradio",
     ],
     anchor: "hardware",
+  },
+  {
+    sectionId: "sdr-console",
+    heading: "Data Sources",
+    keywords: [
+      "data source",
+      "websocket",
+      "udp",
+      "wsjt-x",
+      "daemon",
+      "fft",
+      "audio stream",
+      "port 9867",
+      "port 2237",
+    ],
+    anchor: "data-sources-sdr",
   },
   {
     sectionId: "sdr-console",

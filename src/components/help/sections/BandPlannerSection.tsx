@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { HelpAccordion } from "@/components/help/HelpAccordion";
 import { HelpCallout } from "@/components/help/HelpCallout";
 import { HelpFAQ } from "@/components/help/HelpFAQ";
@@ -320,6 +321,64 @@ export function BandPlannerSection() {
               evaluates all bands.
             </li>
           </ul>
+        </div>
+      </HelpAccordion>
+
+      {/* Data Sources */}
+      <HelpAccordion
+        id="data-sources-planner"
+        title="Data Sources"
+        summary="Where the forecast data comes from"
+      >
+        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+          <p>
+            The Band Planner derives its forecasts from the same real-time solar
+            and geomagnetic data used throughout Propulse. Specifically:
+          </p>
+          <ul className="list-disc list-inside space-y-1.5 pl-1">
+            <li>
+              <strong className="text-white">Solar Flux Index (SFI)</strong>{" "}
+              &mdash; Used to estimate ionization levels and MUF for each band.
+              Sourced from NOAA SWPC via the proxied{" "}
+              <code className="text-xs bg-white/10 px-1 py-0.5 rounded font-mono">
+                /api/solar/flux
+              </code>{" "}
+              endpoint.
+            </li>
+            <li>
+              <strong className="text-white">K-Index (Kp)</strong> &mdash;
+              Measures geomagnetic disturbance, which degrades propagation.
+              Sourced from NOAA SWPC via{" "}
+              <code className="text-xs bg-white/10 px-1 py-0.5 rounded font-mono">
+                /api/solar/k-index
+              </code>
+              .
+            </li>
+            <li>
+              <strong className="text-white">Bz (IMF Z-Component)</strong>{" "}
+              &mdash; The north-south interplanetary magnetic field component,
+              used for storm confidence assessment. Sourced from SWPC solar wind
+              data.
+            </li>
+          </ul>
+          <p>
+            For full details on these data sources and their refresh intervals,
+            see the{" "}
+            <Link
+              to="/help/dashboard"
+              className="text-plasma-orange hover:underline"
+            >
+              Dashboard
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/help/solar-pulse"
+              className="text-plasma-orange hover:underline"
+            >
+              Solar Pulse
+            </Link>{" "}
+            help sections.
+          </p>
         </div>
       </HelpAccordion>
 

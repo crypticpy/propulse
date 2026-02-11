@@ -1363,7 +1363,10 @@ function drawSpotArc(
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.round(((highViz ? 3 : 1.5) * spotDotScale) / zoomDamp);
+  ctx.lineWidth = Math.max(
+    1,
+    Math.round(((highViz ? 3 : 1.5) * spotDotScale) / zoomDamp),
+  );
   ctx.lineCap = "round";
 
   if (wrapAround) {
@@ -1422,7 +1425,10 @@ function drawSpotArc(
     Math.PI * 2,
   );
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.round(((highViz ? 2 : 1.5) * spotDotScale) / zoomDamp);
+  ctx.lineWidth = Math.max(
+    1,
+    Math.round(((highViz ? 2 : 1.5) * spotDotScale) / zoomDamp),
+  );
   ctx.stroke();
 
   // DX (target): filled circle with white outer ring — reads as destination
@@ -1430,7 +1436,7 @@ function drawSpotArc(
   ctx.arc(
     end.x,
     end.y,
-    Math.round(((highViz ? 5 : 4) * spotDotScale) / zoomDamp),
+    Math.max(1, Math.round(((highViz ? 5 : 4) * spotDotScale) / zoomDamp)),
     0,
     Math.PI * 2,
   );
@@ -1440,12 +1446,15 @@ function drawSpotArc(
   ctx.arc(
     end.x,
     end.y,
-    Math.round(((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp),
+    Math.max(1, Math.round(((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp)),
     0,
     Math.PI * 2,
   );
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.lineWidth = Math.round(((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp);
+  ctx.lineWidth = Math.max(
+    1,
+    Math.round(((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp),
+  );
   ctx.stroke();
 
   ctx.restore();
@@ -3732,11 +3741,12 @@ export function FlatMapView({
         return { width: containerWidth, height: containerHeight };
       }
       // Configurable aspect ratio letterbox — fit within both width AND height constraints
+      const ratio = Math.max(1.0, Math.min(3.0, mapAspectRatio));
       const width = Math.min(
         containerWidth,
-        Math.floor(containerHeight * mapAspectRatio),
+        Math.floor(containerHeight * ratio),
       );
-      const height = Math.floor(width / mapAspectRatio);
+      const height = Math.floor(width / ratio);
       return { width, height };
     };
 
@@ -4543,6 +4553,7 @@ export function FlatMapView({
     highViz,
     spotDotScale,
     mapPinScale,
+    labelScale,
     mapStyle,
     wasStates,
     watchEnabled,

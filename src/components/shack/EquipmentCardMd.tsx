@@ -12,6 +12,7 @@ import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg, ArtZonePattern } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { useRankAssets } from "@/hooks/useRankAssets";
 import {
   getRankBorderStyle,
   getRankCardClasses,
@@ -99,6 +100,7 @@ export function EquipmentCardMd({
   const [isHovered, setIsHovered] = useState(false);
   const { url: imageUrl } = useImageUrl(imageId);
   const { rank } = useOperatorRank();
+  const assets = useRankAssets(rank);
   const accentHex = ACCENT_HEX[equipmentType];
   const rankBorderStyle = getRankBorderStyle(rank, accentHex);
   const glowClass = GLOW_SHADOW[equipmentType];
@@ -221,6 +223,16 @@ export function EquipmentCardMd({
           />
         ) : (
           <>
+            {/* Rank tier background asset */}
+            {!visualization && !imageUrl && assets.equipmentCardMdBg && (
+              <img
+                src={assets.equipmentCardMdBg}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
+
             {/* Type-specific background pattern */}
             <div
               className={`absolute inset-0 pointer-events-none opacity-[0.04] ${ACCENT_TEXT[equipmentType]}`}

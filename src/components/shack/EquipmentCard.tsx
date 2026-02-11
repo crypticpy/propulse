@@ -13,22 +13,19 @@ import { useState, useEffect, type ReactNode } from "react";
 import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { useRankAssets } from "@/hooks/useRankAssets";
 import {
   getRankBorderStyle,
-  getCornerBracketFilter,
   getSheenOpacity,
   getSheenGradient,
   getRankCardClasses,
 } from "@/components/rank/RankBorderStyles";
-import { CardFlip } from "@/components/rank/CardFlip";
 import { MouseTilt } from "@/components/rank/MouseTilt";
 import { ParticleAurora } from "@/components/rank/ParticleAurora";
 import { StatCountUp } from "@/components/rank/StatCountUp";
 import { CardSignature } from "@/components/rank/LegendaryEffects";
 import { EnergyBorderOverlay } from "@/components/rank/LegendaryEffects";
-import { FiligreeCorners } from "@/components/rank/LegendaryEffects";
 import { ChromaticBorderOverlay } from "@/components/rank/EtherealEffects";
-import { RuneCorners } from "@/components/rank/EtherealEffects";
 
 // Inject card-level keyframe once
 const CARD_STYLE_ID = "equipment-card-styles";
@@ -399,8 +396,8 @@ export function EquipmentCard({
 
   // Operator rank integration
   const rankState = useOperatorRank();
+  const assets = useRankAssets(rankState.rank);
   const rankBorderStyle = getRankBorderStyle(rankState.rank, accentHex);
-  const bracketFilter = getCornerBracketFilter(rankState.rank, accentHex);
   const sheenOpacity = getSheenOpacity(rankState.rank);
   const sheenGradient = getSheenGradient(rankState.rank, accentHex);
   const rankClasses = getRankCardClasses(rankState.rank);
@@ -419,454 +416,368 @@ export function EquipmentCard({
   // Resolved type label
   const resolvedTypeLabel = typeLabel || equipmentType.toUpperCase();
 
-  // Back content for card flip
-  const flipBackContent = (
-    <div
-      className="bg-[#0f1420] rounded-xl p-4 h-full border-2"
-      style={{ borderColor: `${accentHex}40` }}
-    >
-      <div
-        className="text-[10px] uppercase tracking-widest font-semibold mb-3"
-        style={{ color: accentHex }}
-      >
-        {resolvedTypeLabel} — Full Specs
-      </div>
-      <div className="space-y-2">
-        {stats?.map((stat) => (
-          <div
-            key={`${stat.icon}-${stat.label}`}
-            className="flex items-center justify-between text-sm"
-          >
-            <span className="text-gray-400">{stat.label}</span>
-            <span className="font-mono font-bold text-gray-200">
-              {stat.value}
-            </span>
-          </div>
-        ))}
-      </div>
-      {effectiveCapabilities && effectiveCapabilities.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {effectiveCapabilities.map((cap) => (
-            <span
-              key={`${cap.category}-${cap.label}`}
-              className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-white/5 text-gray-400"
-            >
-              {cap.label}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <MouseTilt
       enabled={rankState.hasMouseTilt && rankState.preferences.enableMouseTilt}
     >
-      <CardFlip enabled={rankState.hasCardFlip} backContent={flipBackContent}>
-        <div
-          role="article"
-          aria-label={title}
-          tabIndex={onClick ? 0 : undefined}
-          onClick={onClick}
-          onKeyDown={
-            onClick
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onClick();
-                  }
+      <div
+        role="article"
+        aria-label={title}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={
+          onClick
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClick();
                 }
-              : undefined
-          }
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          className={[
-            // Layout
-            "group relative flex flex-col w-full min-w-0",
-            // Background & shape
-            "bg-[#0f1420] rounded-xl overflow-hidden",
-            // Border (dynamic color set via style)
-            "border-2",
-            // Cursor
-            onClick ? "cursor-pointer" : "",
-            // Transitions
-            "transition-all duration-200",
-            // Hover lift + glow
-            isHovered ? `-translate-y-0.5 ${glowClass}` : "",
-            // Press feedback
-            "active:scale-[0.98]",
-            // Active card ring + glow
-            isActive
-              ? "ring-1 ring-signal-green/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
-              : "",
-            // Operator rank classes
-            rankClasses,
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          style={{
-            ...rankBorderStyle,
-            backgroundImage: `linear-gradient(160deg, rgba(255,255,255,0.02) 0%, transparent 40%, rgba(0,0,0,0.15) 100%)`,
-          }}
-        >
-          {/* ── Top Accent Bar ── */}
-          <div
-            className={`relative z-[2] h-1 w-full ${ACCENT_BG[equipmentType]}`}
-          />
+              }
+            : undefined
+        }
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={[
+          // Layout
+          "group relative flex flex-col w-full min-w-0",
+          // Background & shape
+          "bg-[#0f1420] rounded-xl overflow-hidden",
+          // Border (dynamic color set via style)
+          "border-2",
+          // Cursor
+          onClick ? "cursor-pointer" : "",
+          // Transitions
+          "transition-all duration-200",
+          // Hover lift + glow
+          isHovered ? `-translate-y-0.5 ${glowClass}` : "",
+          // Press feedback
+          "active:scale-[0.98]",
+          // Active card ring + glow
+          isActive
+            ? "ring-1 ring-signal-green/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]"
+            : "",
+          // Operator rank classes
+          rankClasses,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{
+          ...rankBorderStyle,
+          backgroundImage: `linear-gradient(160deg, rgba(255,255,255,0.02) 0%, transparent 40%, rgba(0,0,0,0.15) 100%)`,
+        }}
+      >
+        {/* ── Top Accent Bar ── */}
+        <div
+          className={`relative z-[2] h-1 w-full ${ACCENT_BG[equipmentType]}`}
+        />
 
-          {/* ── Corner Decorations ── */}
-          {rankState.hasChromaticEffects ? (
-            <RuneCorners enabled={true} />
-          ) : rankState.hasFiligreeCorners ? (
-            <FiligreeCorners enabled={true} accentHex={accentHex} />
+        {/* ── Energy / Chromatic Border Overlays ── */}
+        {rankState.hasEnergyBorders && !rankState.hasChromaticEffects && (
+          <EnergyBorderOverlay enabled={true} accentHex={accentHex} />
+        )}
+        {rankState.hasChromaticEffects && (
+          <ChromaticBorderOverlay enabled={true} />
+        )}
+
+        {/* ── Holographic Foil Sheen (hover only) ── */}
+        <div
+          className="absolute inset-0 pointer-events-none z-[1] transition-opacity duration-500"
+          style={{
+            backgroundImage: sheenGradient,
+            backgroundSize: "200% 100%",
+            animation: isHovered ? "cardSheen 1.5s ease-in-out" : "none",
+            opacity: isHovered ? sheenOpacity : 0,
+          }}
+        />
+
+        {/* ── Header Zone ── */}
+        <div className="relative z-[2] px-4 pt-3 pb-2 min-w-0">
+          {/* Type label + tier */}
+          <div className="flex items-center gap-1">
+            <span
+              className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]}`}
+            >
+              {resolvedTypeLabel}
+            </span>
+            {tier && (
+              <span
+                className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-60`}
+              >
+                {" "}
+                &middot; {TIER_LABELS[tier]}
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className="text-base font-bold text-white leading-tight truncate mt-0.5">
+            {title}
+          </h3>
+
+          {/* Subtitle */}
+          {subtitle && (
+            <p className="text-xs text-gray-400 truncate leading-tight mt-0.5">
+              {subtitle}
+            </p>
+          )}
+
+          {/* Action buttons — hover only */}
+          {hasActions && (
+            <div
+              className={[
+                "absolute top-2 right-2 flex items-center gap-1",
+                "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
+              ].join(" ")}
+            >
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                  aria-label={`Edit ${title}`}
+                  title="Edit"
+                >
+                  <EditIcon />
+                </button>
+              )}
+              {onDuplicate && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDuplicate();
+                  }}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                  aria-label={`Duplicate ${title}`}
+                  title="Duplicate"
+                >
+                  <DuplicateIcon />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-alert-red transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                  aria-label={`Delete ${title}`}
+                  title="Delete"
+                >
+                  <TrashIcon />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Symbol Art Zone ── */}
+        <div className="relative z-[2] min-h-[100px] sm:min-h-[120px] py-3 sm:py-4 flex items-center justify-center overflow-hidden mx-3">
+          {visualization ? (
+            visualization
+          ) : imageUrl ? (
+            <>
+              <img
+                src={imageUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
+            </>
           ) : (
             <>
-              <svg
-                className="absolute top-1.5 left-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke={accentHex}
-                strokeWidth={1.2}
-                aria-hidden="true"
-                style={{ filter: bracketFilter }}
+              {/* Rank tier background asset */}
+              {!visualization && !imageUrl && assets.equipmentCardBg && (
+                <img
+                  src={assets.equipmentCardBg}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none"
+                  aria-hidden="true"
+                />
+              )}
+
+              {/* Type-specific background pattern */}
+              <div
+                className={`absolute inset-0 pointer-events-none opacity-[0.05] ${ACCENT_TEXT[equipmentType]}`}
               >
-                <path d="M1 5V2a1 1 0 011-1h3" />
-              </svg>
-              <svg
-                className="absolute top-1.5 right-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke={accentHex}
-                strokeWidth={1.2}
-                aria-hidden="true"
-                style={{ filter: bracketFilter }}
+                <ArtZonePattern type={equipmentType} />
+              </div>
+
+              {/* Radial glow behind symbol */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: `radial-gradient(circle, ${accentHex}18 0%, transparent 65%)`,
+                }}
+              />
+
+              {/* Symbol — responsive */}
+              <div
+                className={ACCENT_TEXT[equipmentType]}
+                style={{ filter: `drop-shadow(0 0 10px ${accentHex}25)` }}
               >
-                <path d="M13 5V2a1 1 0 00-1-1h-3" />
-              </svg>
-              <svg
-                className="absolute bottom-1.5 left-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke={accentHex}
-                strokeWidth={1.2}
-                aria-hidden="true"
-                style={{ filter: bracketFilter }}
-              >
-                <path d="M1 9v3a1 1 0 001 1h3" />
-              </svg>
-              <svg
-                className="absolute bottom-1.5 right-1.5 w-3.5 h-3.5 pointer-events-none transition-opacity duration-200 opacity-30 group-hover:opacity-60"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke={accentHex}
-                strokeWidth={1.2}
-                aria-hidden="true"
-                style={{ filter: bracketFilter }}
-              >
-                <path d="M13 9v3a1 1 0 01-1 1h-3" />
-              </svg>
+                <SymbolComponent className="w-16 h-16 sm:w-20 sm:h-20" />
+              </div>
             </>
           )}
-
-          {/* ── Energy / Chromatic Border Overlays ── */}
-          {rankState.hasEnergyBorders && !rankState.hasChromaticEffects && (
-            <EnergyBorderOverlay enabled={true} accentHex={accentHex} />
-          )}
-          {rankState.hasChromaticEffects && (
-            <ChromaticBorderOverlay enabled={true} />
-          )}
-
-          {/* ── Holographic Foil Sheen (hover only) ── */}
-          <div
-            className="absolute inset-0 pointer-events-none z-[1] transition-opacity duration-500"
-            style={{
-              backgroundImage: sheenGradient,
-              backgroundSize: "200% 100%",
-              animation: isHovered ? "cardSheen 1.5s ease-in-out" : "none",
-              opacity: isHovered ? sheenOpacity : 0,
-            }}
-          />
-
-          {/* ── Header Zone ── */}
-          <div className="relative z-[2] px-4 pt-3 pb-2 min-w-0">
-            {/* Type label + tier */}
-            <div className="flex items-center gap-1">
-              <span
-                className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]}`}
+          {/* Photo count badge */}
+          {galleryImageIds && galleryImageIds.length > 0 && (
+            <div className="absolute bottom-1.5 right-1.5 z-[3] bg-black/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                className="w-2.5 h-2.5 text-white/70"
+                aria-hidden="true"
               >
-                {resolvedTypeLabel}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5.5 2L4 4H2.5A1 1 0 001.5 5v7a1 1 0 001 1h11a1 1 0 001-1V5a1 1 0 00-1-1H12l-1.5-2h-5z"
+                />
+                <circle cx={8} cy={8.5} r={2.5} />
+              </svg>
+              <span className="text-[10px] font-mono text-white/70">
+                {1 + galleryImageIds.length}
               </span>
-              {tier && (
-                <span
-                  className={`text-[10px] uppercase tracking-widest font-semibold ${ACCENT_TEXT[equipmentType]} opacity-60`}
-                >
-                  {" "}
-                  &middot; {TIER_LABELS[tier]}
-                </span>
-              )}
-            </div>
-
-            {/* Title */}
-            <h3 className="text-base font-bold text-white leading-tight truncate mt-0.5">
-              {title}
-            </h3>
-
-            {/* Subtitle */}
-            {subtitle && (
-              <p className="text-xs text-gray-400 truncate leading-tight mt-0.5">
-                {subtitle}
-              </p>
-            )}
-
-            {/* Action buttons — hover only */}
-            {hasActions && (
-              <div
-                className={[
-                  "absolute top-2 right-2 flex items-center gap-1",
-                  "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
-                ].join(" ")}
-              >
-                {onEdit && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit();
-                    }}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
-                    aria-label={`Edit ${title}`}
-                    title="Edit"
-                  >
-                    <EditIcon />
-                  </button>
-                )}
-                {onDuplicate && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDuplicate();
-                    }}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
-                    aria-label={`Duplicate ${title}`}
-                    title="Duplicate"
-                  >
-                    <DuplicateIcon />
-                  </button>
-                )}
-                {onDelete && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete();
-                    }}
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-alert-red transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
-                    aria-label={`Delete ${title}`}
-                    title="Delete"
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Symbol Art Zone ── */}
-          <div className="relative z-[2] min-h-[100px] sm:min-h-[120px] py-3 sm:py-4 flex items-center justify-center overflow-hidden mx-3">
-            {visualization ? (
-              visualization
-            ) : imageUrl ? (
-              <>
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30 pointer-events-none" />
-              </>
-            ) : (
-              <>
-                {/* Type-specific background pattern */}
-                <div
-                  className={`absolute inset-0 pointer-events-none opacity-[0.05] ${ACCENT_TEXT[equipmentType]}`}
-                >
-                  <ArtZonePattern type={equipmentType} />
-                </div>
-
-                {/* Radial glow behind symbol */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    background: `radial-gradient(circle, ${accentHex}18 0%, transparent 65%)`,
-                  }}
-                />
-
-                {/* Symbol — responsive */}
-                <div
-                  className={ACCENT_TEXT[equipmentType]}
-                  style={{ filter: `drop-shadow(0 0 10px ${accentHex}25)` }}
-                >
-                  <SymbolComponent className="w-16 h-16 sm:w-20 sm:h-20" />
-                </div>
-              </>
-            )}
-            {/* Photo count badge */}
-            {galleryImageIds && galleryImageIds.length > 0 && (
-              <div className="absolute bottom-1.5 right-1.5 z-[3] bg-black/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  className="w-2.5 h-2.5 text-white/70"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5.5 2L4 4H2.5A1 1 0 001.5 5v7a1 1 0 001 1h11a1 1 0 001-1V5a1 1 0 00-1-1H12l-1.5-2h-5z"
-                  />
-                  <circle cx={8} cy={8.5} r={2.5} />
-                </svg>
-                <span className="text-[10px] font-mono text-white/70">
-                  {1 + galleryImageIds.length}
-                </span>
-              </div>
-            )}
-            <ParticleAurora
-              enabled={
-                rankState.hasParticles && rankState.preferences.enableParticles
-              }
-              rank={rankState.rank}
-              accentHex={accentHex}
-            />
-          </div>
-
-          {/* ── Divider ── */}
-          {displayStats && displayStats.length > 0 && (
-            <div
-              className="mx-4 h-px"
-              style={{ backgroundColor: `${accentHex}33` }}
-            />
-          )}
-
-          {/* ── Stats Zone ── */}
-          {displayStats && displayStats.length > 0 && (
-            <div className="relative z-[2] flex items-center justify-around px-3 sm:px-4 py-2.5 sm:py-3">
-              {displayStats.map((stat) => (
-                <div
-                  key={`${stat.icon}-${stat.label}`}
-                  className="flex flex-col items-center gap-0.5 min-w-0 px-0.5"
-                >
-                  <span className="text-gray-500">
-                    <StatIconSvg icon={stat.icon} />
-                  </span>
-                  <span className="text-xs sm:text-sm font-mono font-bold text-gray-100">
-                    <StatCountUp
-                      value={stat.value}
-                      enabled={rankState.hasStatCountUp}
-                    />
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] text-gray-500 truncate max-w-[60px] text-center">
-                    {stat.label}
-                  </span>
-                </div>
-              ))}
             </div>
           )}
-
-          {/* ── Capabilities Row ── */}
-          {effectiveCapabilities && effectiveCapabilities.length > 0 && (
-            <div className="relative z-[2] px-4 pb-2 flex flex-wrap gap-1">
-              {effectiveCapabilities.map((cap) => {
-                let pillStyle: string;
-                if (cap.category === "band") {
-                  pillStyle = BAND_PILL_COLORS[cap.label] ?? DEFAULT_BAND_PILL;
-                } else {
-                  pillStyle = CAPABILITY_STYLES[cap.category];
-                }
-                return (
-                  <span
-                    key={`${cap.category}-${cap.label}`}
-                    className={`px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
-                  >
-                    {cap.label}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-
-          {/* ── Footer Zone ── */}
-          <div className="relative z-[2] px-4 pb-3 flex items-end justify-between min-h-[28px]">
-            {/* Left: badges */}
-            <div className="flex flex-wrap gap-1 min-w-0 flex-1">
-              {badges?.map((badge) => (
-                <span
-                  key={badge.label}
-                  className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
-                >
-                  {badge.label}
-                </span>
-              ))}
-            </div>
-
-            {/* Right: toggle + expand hint */}
-            <div className="flex items-end gap-2 flex-shrink-0">
-              {/* Active Toggle (radios only) */}
-              {equipmentType === "radio" && onToggleActive && (
-                <div className="flex flex-col items-center gap-0.5">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isActive}
-                    aria-label="Toggle active radio"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleActive();
-                    }}
-                    className={[
-                      "relative w-9 h-5 rounded-full transition-colors",
-                      isActive ? "bg-signal-green" : "bg-gray-700",
-                      isActive ? "shadow-[0_0_10px_rgba(34,197,94,0.4)]" : "",
-                    ].join(" ")}
-                  >
-                    <span
-                      className={[
-                        "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
-                        isActive ? "translate-x-4" : "translate-x-0",
-                      ].join(" ")}
-                    />
-                  </button>
-                  <span
-                    className={[
-                      "text-[10px] font-semibold uppercase tracking-wider",
-                      isActive ? "text-signal-green" : "text-gray-500",
-                    ].join(" ")}
-                  >
-                    {isActive ? "Active" : "Standby"}
-                  </span>
-                </div>
-              )}
-
-              {/* Expand hint */}
-              {onClick && (
-                <span className="text-gray-500 opacity-0 group-hover:opacity-30 transition-opacity mb-1">
-                  <ExpandHintIcon />
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* ── Card Signature ── */}
-          <CardSignature
-            signature={rankState.cardSignature}
-            enabled={rankState.hasCardSignature}
+          <ParticleAurora
+            enabled={
+              rankState.hasParticles && rankState.preferences.enableParticles
+            }
+            rank={rankState.rank}
+            accentHex={accentHex}
           />
         </div>
-      </CardFlip>
+
+        {/* ── Divider ── */}
+        {displayStats && displayStats.length > 0 && (
+          <div
+            className="mx-4 h-px"
+            style={{ backgroundColor: `${accentHex}33` }}
+          />
+        )}
+
+        {/* ── Stats Zone ── */}
+        {displayStats && displayStats.length > 0 && (
+          <div className="relative z-[2] flex items-center justify-around px-3 sm:px-4 py-2.5 sm:py-3">
+            {displayStats.map((stat) => (
+              <div
+                key={`${stat.icon}-${stat.label}`}
+                className="flex flex-col items-center gap-0.5 min-w-0 px-0.5"
+              >
+                <span className="text-gray-500">
+                  <StatIconSvg icon={stat.icon} />
+                </span>
+                <span className="text-xs sm:text-sm font-mono font-bold text-gray-100">
+                  <StatCountUp
+                    value={stat.value}
+                    enabled={rankState.hasStatCountUp}
+                  />
+                </span>
+                <span className="text-[9px] sm:text-[10px] text-gray-500 truncate max-w-[60px] text-center">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Capabilities Row ── */}
+        {effectiveCapabilities && effectiveCapabilities.length > 0 && (
+          <div className="relative z-[2] px-4 pb-2 flex flex-wrap gap-1">
+            {effectiveCapabilities.map((cap) => {
+              let pillStyle: string;
+              if (cap.category === "band") {
+                pillStyle = BAND_PILL_COLORS[cap.label] ?? DEFAULT_BAND_PILL;
+              } else {
+                pillStyle = CAPABILITY_STYLES[cap.category];
+              }
+              return (
+                <span
+                  key={`${cap.category}-${cap.label}`}
+                  className={`px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
+                >
+                  {cap.label}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Footer Zone ── */}
+        <div className="relative z-[2] px-4 pb-3 flex items-end justify-between min-h-[28px]">
+          {/* Left: badges */}
+          <div className="flex flex-wrap gap-1 min-w-0 flex-1">
+            {badges?.map((badge) => (
+              <span
+                key={badge.label}
+                className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
+              >
+                {badge.label}
+              </span>
+            ))}
+          </div>
+
+          {/* Right: toggle + expand hint */}
+          <div className="flex items-end gap-2 flex-shrink-0">
+            {/* Active Toggle (radios only) */}
+            {equipmentType === "radio" && onToggleActive && (
+              <div className="flex flex-col items-center gap-0.5">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isActive}
+                  aria-label="Toggle active radio"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleActive();
+                  }}
+                  className={[
+                    "relative w-9 h-5 rounded-full transition-colors",
+                    isActive ? "bg-signal-green" : "bg-gray-700",
+                    isActive ? "shadow-[0_0_10px_rgba(34,197,94,0.4)]" : "",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                      isActive ? "translate-x-4" : "translate-x-0",
+                    ].join(" ")}
+                  />
+                </button>
+                <span
+                  className={[
+                    "text-[10px] font-semibold uppercase tracking-wider",
+                    isActive ? "text-signal-green" : "text-gray-500",
+                  ].join(" ")}
+                >
+                  {isActive ? "Active" : "Standby"}
+                </span>
+              </div>
+            )}
+
+            {/* Expand hint */}
+            {onClick && (
+              <span className="text-gray-500 opacity-0 group-hover:opacity-30 transition-opacity mb-1">
+                <ExpandHintIcon />
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Card Signature ── */}
+        <CardSignature
+          signature={rankState.cardSignature}
+          enabled={rankState.hasCardSignature}
+        />
+      </div>
     </MouseTilt>
   );
 }

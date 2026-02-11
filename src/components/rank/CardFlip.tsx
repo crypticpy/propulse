@@ -140,13 +140,13 @@ export function CardFlip({
         <div className="card-flip-face" style={{ position: "relative" }}>
           {children}
 
-          {/* Flip icon button (top-right corner) */}
+          {/* Flip icon button (bottom-right corner) */}
           <button
             type="button"
             onClick={handleFlipClick}
-            className="absolute top-2 right-2 z-20 p-1 rounded-md bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white transition-colors min-h-[24px] min-w-[24px] flex items-center justify-center"
-            aria-label="Flip card"
-            title="Flip card"
+            className="absolute bottom-2 right-2 z-20 p-1 rounded-md bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white transition-colors min-h-[24px] min-w-[24px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label="Flip card to see specs"
+            title="Flip to see specs"
           >
             <FlipIcon />
           </button>
@@ -159,11 +159,11 @@ export function CardFlip({
         >
           {backContent}
 
-          {/* Flip-back button (top-right corner) */}
+          {/* Flip-back button (bottom-right corner) */}
           <button
             type="button"
             onClick={handleFlipClick}
-            className="absolute top-2 right-2 z-20 p-1 rounded-md bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white transition-colors min-h-[24px] min-w-[24px] flex items-center justify-center"
+            className="absolute bottom-2 right-2 z-20 p-1 rounded-md bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white transition-colors min-h-[24px] min-w-[24px] flex items-center justify-center"
             aria-label="Flip back"
             title="Flip back"
           >

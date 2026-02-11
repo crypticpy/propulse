@@ -9,6 +9,8 @@
 import { useState } from "react";
 import { useShackStore } from "@/stores/shackStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useRankAssets } from "@/hooks/useRankAssets";
+import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { EquipmentSection } from "@/components/shack/EquipmentSection";
 import { DiagramSection } from "@/components/shack/DiagramSection";
 import { PerformanceSection } from "@/components/shack/PerformanceSection";
@@ -111,17 +113,80 @@ function ViewSwitcher({
 export default function ShackPage() {
   const isMobile = useIsMobile();
   const [activeView, setActiveView] = useState<ShackView>("equipment");
+  const { rank } = useOperatorRank();
+  const assets = useRankAssets(rank);
 
   const currentViewDef = VIEWS.find((v) => v.id === activeView) ?? VIEWS[0];
 
   // ---- Desktop layout ----
   if (!isMobile) {
     return (
-      <div className="max-w-[1200px] mx-auto px-6 py-6">
-        <ShackHeader isMobile={false} subtitle={currentViewDef.subtitle} />
+      <div className="relative">
+        {/* Rank-themed shack background */}
+        {assets.shackPageBg && (
+          <div
+            className="absolute inset-0 pointer-events-none overflow-hidden"
+            style={{
+              backgroundImage: `url(${assets.shackPageBg})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center top",
+              opacity: 0.1,
+              maskImage:
+                "linear-gradient(to bottom, black 40%, transparent 90%)",
+              WebkitMaskImage:
+                "linear-gradient(to bottom, black 40%, transparent 90%)",
+            }}
+          />
+        )}
+
+        <div className="relative z-10 max-w-[1200px] mx-auto px-6 py-6">
+          <ShackHeader isMobile={false} subtitle={currentViewDef.subtitle} />
+
+          {/* View switcher */}
+          <div className="mb-6">
+            <ViewSwitcher
+              activeView={activeView}
+              onChangeView={setActiveView}
+            />
+          </div>
+
+          {/* View content */}
+          {activeView === "equipment" && <EquipmentSection />}
+          {activeView === "diagram" && (
+            <DiagramSection
+              onNavigateToEquipment={() => setActiveView("equipment")}
+            />
+          )}
+          {activeView === "performance" && <PerformanceSection />}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Mobile layout ----
+  return (
+    <div className="relative">
+      {/* Rank-themed shack background */}
+      {assets.shackPageBg && (
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden"
+          style={{
+            backgroundImage: `url(${assets.shackPageBg})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center top",
+            opacity: 0.1,
+            maskImage: "linear-gradient(to bottom, black 40%, transparent 90%)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, black 40%, transparent 90%)",
+          }}
+        />
+      )}
+
+      <div className="relative z-10 px-4 py-4">
+        <ShackHeader isMobile={true} subtitle={currentViewDef.subtitle} />
 
         {/* View switcher */}
-        <div className="mb-6">
+        <div className="mb-4 overflow-x-auto scrollbar-none -mx-4 px-4">
           <ViewSwitcher activeView={activeView} onChangeView={setActiveView} />
         </div>
 
@@ -134,27 +199,6 @@ export default function ShackPage() {
         )}
         {activeView === "performance" && <PerformanceSection />}
       </div>
-    );
-  }
-
-  // ---- Mobile layout ----
-  return (
-    <div className="px-4 py-4">
-      <ShackHeader isMobile={true} subtitle={currentViewDef.subtitle} />
-
-      {/* View switcher */}
-      <div className="mb-4 overflow-x-auto scrollbar-none -mx-4 px-4">
-        <ViewSwitcher activeView={activeView} onChangeView={setActiveView} />
-      </div>
-
-      {/* View content */}
-      {activeView === "equipment" && <EquipmentSection />}
-      {activeView === "diagram" && (
-        <DiagramSection
-          onNavigateToEquipment={() => setActiveView("equipment")}
-        />
-      )}
-      {activeView === "performance" && <PerformanceSection />}
     </div>
   );
 }

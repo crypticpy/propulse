@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "import:sherwood": "node scripts/import-sherwood.mjs",
     "bridge": "cd bridge && npm run dev",
-    "bridge:build": "cd bridge && npm run build"
+    "bridge:build": "cd bridge && npm run build",
+    "rank:manifest": "node scripts/generate-rank-manifest.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -9,6 +9,7 @@
 import { useProfileStore } from "@/stores/profileStore";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
+import { useRankAssets } from "@/hooks/useRankAssets";
 import { RankBadge } from "@/components/rank/RankBadge";
 import {
   getProfileFrameStyle,
@@ -52,6 +53,7 @@ export function ProfileCardDesktop({
   const avatarSrc = uploadedImageUrl || profileImageUrl || null;
 
   const { rank, color: rankColor } = useOperatorRank();
+  const assets = useRankAssets(rank);
   const frameStyle = getProfileFrameStyle(rank);
   const glowStyle = getProfileGlowStyle(rank);
 
@@ -59,37 +61,58 @@ export function ProfileCardDesktop({
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
       <div
         className={[
-          "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6",
+          "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6",
           getRankCardClasses(rank),
         ]
           .filter(Boolean)
           .join(" ")}
         style={glowStyle}
       >
+        {assets.profileCardBg && (
+          <div
+            className="absolute inset-0 rounded-[inherit] overflow-hidden pointer-events-none"
+            style={{
+              backgroundImage: `url(${assets.profileCardBg})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              opacity: 0.15,
+            }}
+          />
+        )}
         {/* Callsign */}
         <div className="text-center mb-4">
           {avatarSrc && (
             <LivingSymbols enabled={rank === "ethereal"} accentHex={rankColor}>
-              <img
-                src={avatarSrc}
-                alt=""
-                className={[
-                  "w-16 h-16 rounded-full object-cover mx-auto mb-3",
-                  rank === "ethereal"
-                    ? "animate-rank-chromatic-ring"
-                    : isRankAtLeast(rank, "master")
-                      ? "animate-rank-golden-ring"
-                      : isRankAtLeast(rank, "expert")
-                        ? "animate-rank-pulse-glow"
-                        : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={frameStyle}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
+              <div className="relative inline-block">
+                <img
+                  src={avatarSrc}
+                  alt=""
+                  className={[
+                    "w-16 h-16 rounded-full object-cover mx-auto mb-3",
+                    rank === "ethereal"
+                      ? "animate-rank-chromatic-ring"
+                      : isRankAtLeast(rank, "master")
+                        ? "animate-rank-golden-ring"
+                        : isRankAtLeast(rank, "expert")
+                          ? "animate-rank-pulse-glow"
+                          : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  style={frameStyle}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                {assets.avatarFrame && (
+                  <img
+                    src={assets.avatarFrame}
+                    alt=""
+                    className="absolute inset-0 w-16 h-16 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                )}
+              </div>
             </LivingSymbols>
           )}
           <h2 className="font-mono text-2xl font-bold text-plasma-orange">
@@ -225,43 +248,65 @@ export function ProfileCardMobile({
   const avatarSrc = uploadedImageUrl || profileImageUrl || null;
 
   const { rank, color: rankColor } = useOperatorRank();
+  const assets = useRankAssets(rank);
   const frameStyle = getProfileFrameStyle(rank);
   const glowStyle = getProfileGlowStyle(rank);
 
   return (
     <div
       className={[
-        "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4",
+        "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4",
         getRankCardClasses(rank),
       ]
         .filter(Boolean)
         .join(" ")}
       style={glowStyle}
     >
+      {assets.profileCardBg && (
+        <div
+          className="absolute inset-0 rounded-[inherit] overflow-hidden pointer-events-none"
+          style={{
+            backgroundImage: `url(${assets.profileCardBg})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: 0.15,
+          }}
+        />
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {avatarSrc && (
             <LivingSymbols enabled={rank === "ethereal"} accentHex={rankColor}>
-              <img
-                src={avatarSrc}
-                alt=""
-                className={[
-                  "w-12 h-12 rounded-full object-cover",
-                  rank === "ethereal"
-                    ? "animate-rank-chromatic-ring"
-                    : isRankAtLeast(rank, "master")
-                      ? "animate-rank-golden-ring"
-                      : isRankAtLeast(rank, "expert")
-                        ? "animate-rank-pulse-glow"
-                        : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={frameStyle}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
+              <div className="relative inline-block">
+                <img
+                  src={avatarSrc}
+                  alt=""
+                  className={[
+                    "w-12 h-12 rounded-full object-cover",
+                    rank === "ethereal"
+                      ? "animate-rank-chromatic-ring"
+                      : isRankAtLeast(rank, "master")
+                        ? "animate-rank-golden-ring"
+                        : isRankAtLeast(rank, "expert")
+                          ? "animate-rank-pulse-glow"
+                          : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  style={frameStyle}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                {assets.avatarFrame && (
+                  <img
+                    src={assets.avatarFrame}
+                    alt=""
+                    className="absolute inset-0 w-12 h-12 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                )}
+              </div>
             </LivingSymbols>
           )}
           <div>

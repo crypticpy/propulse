@@ -44,6 +44,7 @@ import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankPageVars } from "@/components/rank/RankBorderStyles";
 import { isRankAtLeast } from "@/lib/data/rankConstants";
+import { useRankAssets } from "@/hooks/useRankAssets";
 
 // ---- Callsign validation ----------------------------------------------------
 
@@ -358,6 +359,7 @@ export default function ProfilePage() {
   const completeness = useProfileCompleteness();
   const { rank, color: rankColor } = useOperatorRank();
   const rankPageVars = getRankPageVars(rank);
+  const assets = useRankAssets(rank);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
 
@@ -668,7 +670,7 @@ export default function ProfilePage() {
   if (!isMobile) {
     return (
       <div
-        className="flex gap-8 max-w-[1080px] mx-auto px-6 py-6"
+        className="relative flex gap-8 max-w-[1080px] mx-auto px-6 py-6"
         style={{
           ...rankPageVars,
           ...(isRankAtLeast(rank, "expert")
@@ -678,6 +680,20 @@ export default function ProfilePage() {
             : {}),
         }}
       >
+        {assets.profileBackground && (
+          <div
+            className="absolute inset-0 pointer-events-none opacity-20"
+            style={{
+              backgroundImage: `url(${assets.profileBackground})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center top",
+              maskImage:
+                "linear-gradient(to bottom, black 30%, transparent 100%)",
+              WebkitMaskImage:
+                "linear-gradient(to bottom, black 30%, transparent 100%)",
+            }}
+          />
+        )}
         <ProfileCardDesktop
           displayCallsign={displayCallsign}
           displayName={displayName}
@@ -725,7 +741,7 @@ export default function ProfilePage() {
 
   return (
     <div
-      className="px-4 py-4"
+      className="relative px-4 py-4"
       style={{
         ...rankPageVars,
         ...(isRankAtLeast(rank, "expert")
@@ -735,6 +751,20 @@ export default function ProfilePage() {
           : {}),
       }}
     >
+      {assets.profileBackground && (
+        <div
+          className="absolute inset-0 pointer-events-none opacity-20"
+          style={{
+            backgroundImage: `url(${assets.profileBackground})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center top",
+            maskImage:
+              "linear-gradient(to bottom, black 30%, transparent 100%)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, black 30%, transparent 100%)",
+          }}
+        />
+      )}
       <ProfileCardMobile
         displayCallsign={displayCallsign}
         displayName={displayName}

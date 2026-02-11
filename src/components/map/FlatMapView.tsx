@@ -2406,62 +2406,64 @@ function drawSatellites(
 
   ctx.save();
 
+  // Draw non-selected satellites first, selected last (on top)
   for (const sat of satellites) {
+    if (selectedSat !== null && sat.noradId === selectedSat.noradId) continue;
     const { lat, lon } = sat.position;
     const { x, y } = latLonToCanvas(lat, lon, width, height);
-    const isSelected =
-      selectedSat !== null && sat.noradId === selectedSat.noradId;
     const color = sat.isVisible ? SAT_CATEGORY_COLORS[sat.category] : DIM_COLOR;
-    const half = isSelected ? HALF_SIZE_SEL : HALF_SIZE;
 
-    // Glow for selected satellite
-    if (isSelected) {
-      ctx.save();
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
-    }
-
-    // Diamond shape (rotated 45-degree square)
     ctx.beginPath();
-    ctx.moveTo(x, y - half); // top
-    ctx.lineTo(x + half, y); // right
-    ctx.lineTo(x, y + half); // bottom
-    ctx.lineTo(x - half, y); // left
+    ctx.moveTo(x, y - HALF_SIZE);
+    ctx.lineTo(x + HALF_SIZE, y);
+    ctx.lineTo(x, y + HALF_SIZE);
+    ctx.lineTo(x - HALF_SIZE, y);
     ctx.closePath();
 
     ctx.fillStyle = color;
     ctx.globalAlpha = sat.isVisible ? 0.9 : 0.4;
     ctx.fill();
+  }
 
-    // White outline for selected
-    if (isSelected) {
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 1.5;
-      ctx.globalAlpha = 1;
-      ctx.stroke();
-      ctx.restore(); // restore shadow state
-    }
+  // Draw selected satellite on top with glow + label
+  if (selectedSat) {
+    const { lat, lon } = selectedSat.position;
+    const { x, y } = latLonToCanvas(lat, lon, width, height);
+    const color = selectedSat.isVisible
+      ? SAT_CATEGORY_COLORS[selectedSat.category]
+      : DIM_COLOR;
 
-    // Name label for selected satellite
-    if (isSelected) {
-      ctx.globalAlpha = 1;
-      ctx.font = "bold 8px monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.globalAlpha = 1;
 
-      const labelText = sat.name;
-      const labelY = y + half + 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y - HALF_SIZE_SEL);
+    ctx.lineTo(x + HALF_SIZE_SEL, y);
+    ctx.lineTo(x, y + HALF_SIZE_SEL);
+    ctx.lineTo(x - HALF_SIZE_SEL, y);
+    ctx.closePath();
 
-      // Black outline for readability
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 2.5;
-      ctx.lineJoin = "round";
-      ctx.strokeText(labelText, x, labelY);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
 
-      // White fill
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(labelText, x, labelY);
-    }
+    // Name label
+    ctx.globalAlpha = 1;
+    ctx.font = "bold 8px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const labelY = y + HALF_SIZE_SEL + 3;
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.strokeText(selectedSat.name, x, labelY);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(selectedSat.name, x, labelY);
   }
 
   ctx.globalAlpha = 1;

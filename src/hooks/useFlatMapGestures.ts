@@ -210,6 +210,7 @@ export function useFlatMapGestures(
           mode = "dragging";
           isGesturing.current = true;
           isDragging.current = true;
+          canvas!.style.cursor = "grabbing";
           // Start drag from current position (no jump)
           lastDragPos = pos;
         }
@@ -269,6 +270,7 @@ export function useFlatMapGestures(
         mode = "none";
         isGesturing.current = false;
         isDragging.current = false;
+        canvas!.style.cursor = "";
         dragStartPos = null;
         lastDragPos = null;
         prevPinchDist = null;
@@ -310,7 +312,6 @@ export function useFlatMapGestures(
       isDragging.current = false;
     };
     // Only re-attach when the canvas ref identity changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef]);
 
   return { isGesturing, isDragging };

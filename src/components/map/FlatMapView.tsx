@@ -2022,26 +2022,24 @@ function drawLabels(
 
     // --- 4-char square grid (zoom >= 1.5) ---
     if (gridLevel === "square" || gridLevel === "subsquare") {
-      // Draw 4-char grid lines (thinner, more transparent) — viewport culled
+      // Draw 4-char grid lines (thinner, more transparent) — viewport culled, batched
       ctx.strokeStyle = "rgba(0, 204, 204, 0.12)";
       ctx.lineWidth = 0.3;
       ctx.setLineDash([2, 3]);
+      ctx.beginPath();
       const sqLonLines = getSquareLonLines(vLonMin, vLonMax);
       for (const lon of sqLonLines) {
         const { x } = latLonToCanvas(0, lon, width, height);
-        ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
-        ctx.stroke();
       }
       const sqLatLines = getSquareLatLines(vLatMin, vLatMax);
       for (const lat of sqLatLines) {
         const { y } = latLonToCanvas(lat, 0, width, height);
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
-        ctx.stroke();
       }
+      ctx.stroke();
       ctx.setLineDash([]);
 
       // 4-char labels (shown at zoom >= 3) — viewport culled
@@ -2074,51 +2072,52 @@ function drawLabels(
 
     // --- 6-char subsquare grid (zoom >= 5) — viewport culled ---
     if (gridLevel === "subsquare") {
+      // Batched subsquare grid lines
       ctx.strokeStyle = "rgba(0, 204, 204, 0.06)";
       ctx.lineWidth = 0.2;
       ctx.setLineDash([1, 2]);
+      ctx.beginPath();
       const subLonLines = getSubsquareLonLines(vLonMin, vLonMax);
       for (const lon of subLonLines) {
         const { x } = latLonToCanvas(0, lon, width, height);
-        ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
-        ctx.stroke();
       }
       const subLatLines = getSubsquareLatLines(vLatMin, vLatMax);
       for (const lat of subLatLines) {
         const { y } = latLonToCanvas(lat, 0, width, height);
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
-        ctx.stroke();
       }
+      ctx.stroke();
       ctx.setLineDash([]);
 
-      // 6-char labels (shown at zoom >= 8) — viewport culled
+      // 6-char labels (shown at zoom >= 8) — viewport culled with density cap
       if (zoomScale >= 8) {
-        const viewport = {
-          lonMin: vLonMin,
-          lonMax: vLonMax,
-          latMin: vLatMin,
-          latMax: vLatMax,
-        };
-        const subsquares = getMaidenheadSubsquaresInViewport(viewport);
-        ctx.font = "3px monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        for (const sub of subsquares) {
-          const { x, y } = latLonToCanvas(
-            sub.latCenter,
-            sub.lonCenter,
-            width,
-            height,
-          );
-          ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-          ctx.lineWidth = 0.8;
-          ctx.strokeText(sub.label, x, y);
+        const lonSpan = vLonMax - vLonMin;
+        const latSpan = vLatMax - vLatMin;
+        // Only render labels if viewport area < 200 sq degrees (~5,760 subsquares max)
+        if (lonSpan * latSpan < 200) {
+          const viewport = {
+            lonMin: vLonMin,
+            lonMax: vLonMax,
+            latMin: vLatMin,
+            latMax: vLatMax,
+          };
+          const subsquares = getMaidenheadSubsquaresInViewport(viewport);
+          ctx.font = "3px monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
           ctx.fillStyle = "rgba(0, 204, 204, 0.25)";
-          ctx.fillText(sub.label, x, y);
+          for (const sub of subsquares) {
+            const { x, y } = latLonToCanvas(
+              sub.latCenter,
+              sub.lonCenter,
+              width,
+              height,
+            );
+            ctx.fillText(sub.label, x, y);
+          }
         }
       }
     }
@@ -3614,7 +3613,7 @@ export function FlatMapView({
     [clampOffsets],
   );
 
-  const { isGesturing, isDragging } = useFlatMapGestures({
+  const { isGesturing } = useFlatMapGestures({
     canvasRef,
     onPan: handleGesturePan,
     onPinchZoom: handleGesturePinchZoom,
@@ -4043,13 +4042,7 @@ export function FlatMapView({
       >
         <canvas
           ref={canvasRef}
-          className={
-            hoveredPinData
-              ? "cursor-pointer"
-              : isDragging.current
-                ? "cursor-grabbing"
-                : "cursor-crosshair"
-          }
+          className={hoveredPinData ? "cursor-pointer" : "cursor-crosshair"}
           aria-label="Interactive propagation map - click to select target location"
           role="img"
           style={{

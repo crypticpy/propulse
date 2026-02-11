@@ -24,7 +24,10 @@ export interface MaidenheadField {
  * First character encodes longitude: A = 180°W to R = 160°E (20° steps)
  * Second character encodes latitude: A = 90°S to R = 80°N (10° steps)
  */
+let _fieldsCache: MaidenheadField[] | null = null;
+
 export function getMaidenheadFields(): MaidenheadField[] {
+  if (_fieldsCache) return _fieldsCache;
   const fields: MaidenheadField[] = [];
   for (let lonIdx = 0; lonIdx < 18; lonIdx++) {
     for (let latIdx = 0; latIdx < 18; latIdx++) {
@@ -41,6 +44,7 @@ export function getMaidenheadFields(): MaidenheadField[] {
       });
     }
   }
+  _fieldsCache = fields;
   return fields;
 }
 

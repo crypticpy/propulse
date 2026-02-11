@@ -201,14 +201,14 @@ function SwapIcon() {
 // DE Station content (for info sidebar)
 // ---------------------------------------------------------------------------
 
-function DEContent() {
+function DEContent({ displayTime }: { displayTime: Date }) {
   const station = useUserStore((s) => s.station);
   const location = useActiveLocation();
 
   const greyline = useMemo(() => {
     if (!location?.lat || !location?.lon) return null;
-    return getGreylineStatus(location.lat, location.lon, new Date());
-  }, [location?.lat, location?.lon]);
+    return getGreylineStatus(location.lat, location.lon, displayTime);
+  }, [location?.lat, location?.lon, displayTime]);
 
   const callsign = station?.callsign || "NO CALL";
   const grid = station?.grid || "";
@@ -250,7 +250,7 @@ function DEContent() {
 // DX Target content (for info sidebar)
 // ---------------------------------------------------------------------------
 
-function DXContent() {
+function DXContent({ displayTime }: { displayTime: Date }) {
   const target = useMapStore((s) => s.target);
   const location = useActiveLocation();
 
@@ -261,8 +261,8 @@ function DXContent() {
 
   const greyline = useMemo(() => {
     if (!target) return null;
-    return getGreylineStatus(target.lat, target.lon, new Date());
-  }, [target]);
+    return getGreylineStatus(target.lat, target.lon, displayTime);
+  }, [target, displayTime]);
 
   if (!target) {
     return (
@@ -451,7 +451,7 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
         collapsed={panelCollapsed.de ?? false}
         onToggle={() => togglePanel("de")}
       >
-        <DEContent />
+        <DEContent displayTime={displayTime} />
       </HamClockInfoPanel>
 
       <HamClockInfoPanel
@@ -460,7 +460,7 @@ function InfoSidebarContent({ displayTime }: { displayTime: Date }) {
         collapsed={panelCollapsed.dx ?? false}
         onToggle={() => togglePanel("dx")}
       >
-        <DXContent />
+        <DXContent displayTime={displayTime} />
       </HamClockInfoPanel>
 
       <HamClockInfoPanel
@@ -539,12 +539,12 @@ export function HamClockView({
   }, []);
 
   // FlatMapView click adapter
-  const handleMapClick = useMemo(() => {
-    if (!onLocationClick) return undefined;
-    return (lat: number, lon: number) => {
-      onLocationClick(lat, lon, { x: 0, y: 0 });
-    };
-  }, [onLocationClick]);
+  const handleMapClick = useCallback(
+    (lat: number, lon: number) => {
+      onLocationClick?.(lat, lon, { x: 0, y: 0 });
+    },
+    [onLocationClick],
+  );
 
   // Swap sides handler
   const handleSwapSides = useCallback(() => {

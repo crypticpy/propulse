@@ -23,14 +23,13 @@ export interface HamClockState {
   togglePanel: (panelId: string) => void;
   toggleSpotsSidebar: () => void;
   toggleInfoSidebar: () => void;
-  isPanelCollapsed: (panelId: string) => boolean;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 export const useHamClockStore = create<HamClockState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       spotsSide: "right",
       panelCollapsed: {},
       spotsSidebarCollapsed: false,
@@ -55,8 +54,6 @@ export const useHamClockStore = create<HamClockState>()(
         set((state) => ({
           infoSidebarCollapsed: !state.infoSidebarCollapsed,
         })),
-
-      isPanelCollapsed: (panelId) => !!get().panelCollapsed[panelId],
     }),
     {
       name: "propulse-hamclock-layout",

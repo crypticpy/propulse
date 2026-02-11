@@ -188,7 +188,7 @@ export function PropSphere() {
 
   // Panel widths for resizing (in pixels)
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
-  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+  const [rightPanelWidth, setRightPanelWidth] = useState(320);
 
   // Active tab for mobile bottom panel
   const [activeTab, setActiveTab] = useState<PanelTab>("path");

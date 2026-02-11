@@ -106,6 +106,7 @@ import {
   useLoggedQsoLocations,
   type LogQsoOverlayData,
 } from "@/hooks/useLoggedQsoLocations";
+import { AspectRatioSlider } from "./AspectRatioSlider";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -445,7 +446,7 @@ function drawNightSide(
           darkPixels[idx] = Math.floor(255 * 0.92); // slight red reduction
           darkPixels[idx + 1] = Math.floor(255 * 0.92); // slight green reduction
           darkPixels[idx + 2] = Math.floor(255 * 0.96); // preserve blue more (sky feel)
-          darkPixels[idx + 3] = Math.floor(255 * 0.12); // very subtle overlay
+          darkPixels[idx + 3] = Math.floor(255 * 0.18); // very subtle overlay
         }
         continue;
       }
@@ -566,7 +567,7 @@ function drawTerminator(
   ctx.strokeStyle = COLORS.terminator;
   ctx.lineWidth = highViz ? 2.5 : 1.5;
   ctx.shadowColor = COLORS.terminator;
-  ctx.shadowBlur = highViz ? 5 : 3;
+  ctx.shadowBlur = highViz ? 2 : 1;
   if (dashed) ctx.setLineDash([8, 4]);
 
   ctx.beginPath();
@@ -706,8 +707,10 @@ function drawMarker(
   height: number = MAP_HEIGHT,
   highViz = false,
   pinScale = 1.0,
+  zoomScale = 1.0,
 ) {
   const { x, y } = latLonToCanvas(lat, lon, width, height);
+  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
 
   // Outer glow
   ctx.fillStyle = color + "40";
@@ -715,7 +718,10 @@ function drawMarker(
   ctx.arc(
     x,
     y,
-    Math.round((isHome ? (highViz ? 14 : 10) : highViz ? 18 : 14) * pinScale),
+    Math.round(
+      ((isHome ? (highViz ? 14 : 10) : highViz ? 18 : 14) * pinScale) /
+        zoomDamp,
+    ),
     0,
     Math.PI * 2,
   );
@@ -727,7 +733,9 @@ function drawMarker(
   ctx.arc(
     x,
     y,
-    Math.round((isHome ? (highViz ? 7 : 5) : highViz ? 10 : 7) * pinScale),
+    Math.round(
+      ((isHome ? (highViz ? 7 : 5) : highViz ? 10 : 7) * pinScale) / zoomDamp,
+    ),
     0,
     Math.PI * 2,
   );
@@ -738,7 +746,13 @@ function drawMarker(
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, Math.round((highViz ? 16 : 12) * pinScale), 0, Math.PI * 2);
+    ctx.arc(
+      x,
+      y,
+      Math.round(((highViz ? 16 : 12) * pinScale) / zoomDamp),
+      0,
+      Math.PI * 2,
+    );
     ctx.stroke();
   }
 
@@ -1325,8 +1339,10 @@ function drawSpotArc(
   highViz = false,
   spotDotScale = 1.0,
   opacity = 1,
+  zoomScale = 1.0,
 ) {
   const color = getSpotColor(spot, colorMode);
+  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
 
   // Get start and end points
   const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
@@ -1347,7 +1363,7 @@ function drawSpotArc(
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.round((highViz ? 3 : 1.5) * spotDotScale);
+  ctx.lineWidth = Math.round(((highViz ? 3 : 1.5) * spotDotScale) / zoomDamp);
   ctx.lineCap = "round";
 
   if (wrapAround) {
@@ -1401,12 +1417,12 @@ function drawSpotArc(
   ctx.arc(
     start.x,
     start.y,
-    Math.round((highViz ? 5 : 3.5) * spotDotScale),
+    Math.round(((highViz ? 5 : 3.5) * spotDotScale) / zoomDamp),
     0,
     Math.PI * 2,
   );
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.round((highViz ? 2 : 1.5) * spotDotScale);
+  ctx.lineWidth = Math.round(((highViz ? 2 : 1.5) * spotDotScale) / zoomDamp);
   ctx.stroke();
 
   // DX (target): filled circle with white outer ring — reads as destination
@@ -1414,7 +1430,7 @@ function drawSpotArc(
   ctx.arc(
     end.x,
     end.y,
-    Math.round((highViz ? 5 : 4) * spotDotScale),
+    Math.round(((highViz ? 5 : 4) * spotDotScale) / zoomDamp),
     0,
     Math.PI * 2,
   );
@@ -1424,12 +1440,12 @@ function drawSpotArc(
   ctx.arc(
     end.x,
     end.y,
-    Math.round((highViz ? 7 : 5.5) * spotDotScale),
+    Math.round(((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp),
     0,
     Math.PI * 2,
   );
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.lineWidth = Math.round((highViz ? 1.5 : 1) * spotDotScale);
+  ctx.lineWidth = Math.round(((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp);
   ctx.stroke();
 
   ctx.restore();
@@ -1450,6 +1466,7 @@ function drawSpotArcs(
   spotDotScale = 1.0,
   watchActive = false,
   watchMatchedIds?: Set<string>,
+  zoomScale = 1.0,
 ) {
   for (const spot of spots) {
     const opacity =
@@ -1467,6 +1484,7 @@ function drawSpotArcs(
       highViz,
       spotDotScale,
       opacity,
+      zoomScale,
     );
   }
 }
@@ -1841,11 +1859,20 @@ function drawCallsignLabels(
   height: number,
   colorMode: SpotColorMode = "mode",
   highViz = false,
+  labelScale = 1.0,
+  zoomScale = 1.0,
 ) {
   const placed: PlacedLabel[] = [];
   const placedBoxes: LabelBBox[] = [];
-  const fontSize = highViz ? 12 : 10;
-  const gap = highViz ? 12 : 10;
+  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+  const fontSize = Math.max(
+    6,
+    Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
+  );
+  const gap = Math.max(
+    6,
+    Math.round(((highViz ? 12 : 10) * labelScale) / zoomDamp),
+  );
   const pillRadius = 3;
 
   // Build exclusion zones for ALL spot endpoint dots (prevents labels covering dots)
@@ -1853,7 +1880,7 @@ function drawCallsignLabels(
   for (const spot of spots) {
     const dx = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
     const sp = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
-    const r = highViz ? 8 : 6;
+    const r = Math.round((highViz ? 8 : 6) / zoomDamp);
     endpointZones.push({ x: dx.x - r, y: dx.y - r, w: r * 2, h: r * 2 });
     endpointZones.push({ x: sp.x - r, y: sp.y - r, w: r * 2, h: r * 2 });
   }
@@ -1994,8 +2021,14 @@ function drawSpotterLabels(
   height: number,
   colorMode: SpotColorMode = "mode",
   highViz = false,
+  labelScale = 1.0,
+  zoomScale = 1.0,
 ) {
-  const fontSize = highViz ? 10 : 9;
+  const zoomDamp = Math.sqrt(Math.max(1, zoomScale));
+  const fontSize = Math.max(
+    6,
+    Math.round(((highViz ? 10 : 9) * labelScale) / zoomDamp),
+  );
   const pillRadius = 3;
   const spotterOpacity = 0.6;
 
@@ -2916,6 +2949,8 @@ export function FlatMapView({
   const holdDurationMs = preferences?.uiInteraction?.holdDurationMs ?? 500;
   const spotDotScale = preferences?.uiInteraction?.spotDotScale ?? 1.0;
   const mapPinScale = preferences?.uiInteraction?.mapPinScale ?? 1.0;
+  const labelScale = preferences?.uiInteraction?.labelScale ?? 1.0;
+  const mapAspectRatio = preferences?.uiInteraction?.mapAspectRatio ?? 2.0;
 
   // Award progress for WAS overlay (only compute when enabled)
   const { wasStates } = useAwardProgress(labelOptions.wasOverlay);
@@ -3696,9 +3731,12 @@ export function FlatMapView({
         // internally auto-adjusting zoom to fill vertically
         return { width: containerWidth, height: containerHeight };
       }
-      // Standard 2:1 letterbox — fit within both width AND height constraints
-      const width = Math.min(containerWidth, Math.floor(containerHeight * 2));
-      const height = Math.floor(width / 2);
+      // Configurable aspect ratio letterbox — fit within both width AND height constraints
+      const width = Math.min(
+        containerWidth,
+        Math.floor(containerHeight * mapAspectRatio),
+      );
+      const height = Math.floor(width / mapAspectRatio);
       return { width, height };
     };
 
@@ -3750,7 +3788,7 @@ export function FlatMapView({
       observer.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fillContainer]);
+  }, [fillContainer, mapAspectRatio]);
 
   // Smooth pan-to-preset animation (500ms ease-out)
   // When activePresetId changes, animate from current zoom to the preset view
@@ -4317,6 +4355,7 @@ export function FlatMapView({
         spotDotScale,
         watchEnabled && matchedSpotIds.size > 0,
         matchedSpotIds,
+        zoom.scale,
       );
     }
 
@@ -4329,6 +4368,8 @@ export function FlatMapView({
         renderHeight,
         spotColorMode,
         highViz,
+        labelScale,
+        zoom.scale,
       );
     }
 
@@ -4346,6 +4387,8 @@ export function FlatMapView({
         renderHeight,
         spotColorMode,
         highViz,
+        labelScale,
+        zoom.scale,
       );
     }
 
@@ -4372,6 +4415,8 @@ export function FlatMapView({
           spotColorMode,
           true, // force high-viz style for highlight
           spotDotScale,
+          1, // full opacity for highlight
+          zoom.scale,
         );
         ctx.restore();
       }
@@ -4409,6 +4454,7 @@ export function FlatMapView({
         renderHeight,
         highViz,
         mapPinScale,
+        zoom.scale,
       );
     }
 
@@ -4431,6 +4477,7 @@ export function FlatMapView({
         renderHeight,
         highViz,
         mapPinScale,
+        zoom.scale,
       );
     }
 
@@ -4583,6 +4630,9 @@ export function FlatMapView({
           }}
         />
       </div>
+
+      {/* Aspect ratio slider — only in letterbox mode */}
+      {!fillContainer && <AspectRatioSlider />}
 
       {/* Tooltip overlay */}
       <MapTooltip

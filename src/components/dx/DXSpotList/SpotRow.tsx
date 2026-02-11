@@ -260,8 +260,8 @@ export const SpotRow = memo(function SpotRow({
   const rowClasses = useMemo(() => {
     // Grid columns: Time, Age (optional), Band, Freq, DX, Dist, Spotter, Info, Actions
     const gridCols = showAgeColumn
-      ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_56px]"
-      : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_56px]";
+      ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]"
+      : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]";
     const base = `group grid ${gridCols} gap-1.5 px-2 py-1 cursor-pointer transition-all duration-150`;
 
     // Q6: Zebra striping for alternating rows (only applies when no other highlight)

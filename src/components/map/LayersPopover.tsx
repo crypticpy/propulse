@@ -87,6 +87,7 @@ export function LayersPopover() {
   const uiPrefs = useUIInteractionPrefs();
   const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
   const mapPinScale = uiPrefs.mapPinScale ?? 1.0;
+  const labelScale = uiPrefs.labelScale ?? 1.0;
   const updateUIInteraction = useSettingsStore((s) => s.updateUIInteraction);
 
   // ── Active layer count (for badge) ──
@@ -132,6 +133,13 @@ export function LayersPopover() {
   const handlePinChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       updateUIInteraction({ mapPinScale: parseFloat(e.target.value) });
+    },
+    [updateUIInteraction],
+  );
+
+  const handleLabelChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateUIInteraction({ labelScale: parseFloat(e.target.value) });
     },
     [updateUIInteraction],
   );
@@ -424,6 +432,27 @@ export function LayersPopover() {
           />
           <span className="text-[10px] font-mono text-white/50 w-7 text-right shrink-0">
             {mapPinScale.toFixed(1)}&times;
+          </span>
+        </div>
+
+        {/* Label Size slider */}
+        <div className="flex items-center h-8 px-0.5">
+          <span className="text-xs text-white/60 w-[72px] shrink-0">
+            Label Size
+          </span>
+          <input
+            type="range"
+            min="0.5"
+            max="2.0"
+            step="0.1"
+            value={labelScale}
+            onChange={handleLabelChange}
+            onClick={(e) => e.stopPropagation()}
+            className="layers-popover-slider flex-1 mx-2 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0"
+            aria-label="Spot label size scale"
+          />
+          <span className="text-[10px] font-mono text-white/50 w-7 text-right shrink-0">
+            {labelScale.toFixed(1)}&times;
           </span>
         </div>
 

@@ -519,7 +519,7 @@ export function DXSpotList({
       >
         {/* Column Headers - sticky at top of scroll container */}
         <div
-          className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_56px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_56px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
+          className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
           role="row"
           style={{ borderLeft: "3px solid transparent" }}
         >

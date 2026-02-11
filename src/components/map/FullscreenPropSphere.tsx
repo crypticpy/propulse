@@ -491,9 +491,9 @@ export function FullscreenPropSphere({
           id="dx-spots"
           title="DX Spots"
           defaultPosition={{ x: 20, y: 78 }}
-          defaultSize={{ width: 600, height: 200 }}
+          defaultSize={{ width: 720, height: 200 }}
           minSize={{ width: 300, height: 120 }}
-          maxSize={{ width: 900, height: 500 }}
+          maxSize={{ width: 1100, height: 500 }}
           collapsed={proPanelLayout["dx-spots"]?.collapsed ?? false}
           onCollapse={() => toggleProPanelCollapse("dx-spots")}
           persistedLayout={

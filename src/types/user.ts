@@ -334,6 +334,10 @@ export interface UIInteractionPreferences {
   mapPinScale: number;
   /** Show hover info tips on info icons (default: true) */
   showHoverTooltips: boolean;
+  /** Scale multiplier for spot labels on flat map (0.5-2.0, default: 1.0). Controls label size independently of zoom. */
+  labelScale: number;
+  /** Display aspect ratio for flat map (1.5-2.5, default: 2.0). Lower = taller map, higher = wider map. */
+  mapAspectRatio: number;
 }
 
 // =============================================================================
@@ -623,6 +627,8 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
   spotDotScale: 1.0,
   mapPinScale: 1.0,
   showHoverTooltips: true,
+  labelScale: 1.0,
+  mapAspectRatio: 2.0,
 };
 
 // =============================================================================

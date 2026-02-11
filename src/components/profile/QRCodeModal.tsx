@@ -1,5 +1,9 @@
 /**
- * QRCodeModal - Displays a QR code linking to the operator's QRZ.com profile.
+ * QRCodeModal - Displays a QR code linking to the operator's profile.
+ *
+ * Two modes:
+ *   - ProPulse profile (default): links to propulse.app/profile/{callsign}
+ *   - QRZ.com lookup: links to qrz.com/db/{callsign}
  *
  * Generates a QR code data URL on mount / prop change via the `qrcode` package.
  * Handles loading, error, and success states gracefully.
@@ -34,8 +38,11 @@ export function QRCodeModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [brightMode, setBrightMode] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [qrTarget, setQrTarget] = useState<"propulse" | "qrz">("propulse");
 
+  const propulseUrl = `https://propulse.app/profile/${encodeURIComponent(callsign)}`;
   const qrzUrl = `https://www.qrz.com/db/${encodeURIComponent(callsign)}`;
+  const activeUrl = qrTarget === "propulse" ? propulseUrl : qrzUrl;
 
   useEffect(() => {
     if (!isOpen || !callsign) {
@@ -49,14 +56,14 @@ export function QRCodeModal({
     setBrightDataUrl(null);
 
     // Generate both dark and bright variants in parallel
-    const darkPromise = QRCode.toDataURL(qrzUrl, {
+    const darkPromise = QRCode.toDataURL(activeUrl, {
       errorCorrectionLevel: "H",
       color: { dark: "#f97316", light: "#0a0a0f" },
       width: 256,
       margin: 2,
     });
 
-    const brightPromise = QRCode.toDataURL(qrzUrl, {
+    const brightPromise = QRCode.toDataURL(activeUrl, {
       errorCorrectionLevel: "H",
       color: { dark: "#111111", light: "#ffffff" },
       width: 256,
@@ -83,7 +90,7 @@ export function QRCodeModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, callsign]);
+  }, [isOpen, callsign, activeUrl]);
 
   // Listen for fullscreen exit via Esc or browser controls
   useEffect(() => {
@@ -112,24 +119,24 @@ export function QRCodeModal({
   }, []);
 
   const handleShare = useCallback(async () => {
+    const title =
+      qrTarget === "propulse"
+        ? `${callsign} - ProPulse Profile`
+        : `${callsign} - QRZ.com Profile`;
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: `${callsign} - QRZ.com Profile`,
-          url: qrzUrl,
-        });
+        await navigator.share({ title, url: activeUrl });
         return;
       }
 
       // Fallback: copy to clipboard
-      await navigator.clipboard.writeText(qrzUrl);
+      await navigator.clipboard.writeText(activeUrl);
       setShareStatus("Link copied!");
       setTimeout(() => setShareStatus(null), 2000);
     } catch (err) {
       if (err instanceof Error && err.name !== "AbortError") {
-        // Try clipboard as final fallback
         try {
-          await navigator.clipboard.writeText(qrzUrl);
+          await navigator.clipboard.writeText(activeUrl);
           setShareStatus("Link copied!");
           setTimeout(() => setShareStatus(null), 2000);
         } catch {
@@ -138,7 +145,7 @@ export function QRCodeModal({
         }
       }
     }
-  }, [callsign, qrzUrl]);
+  }, [callsign, activeUrl, qrTarget]);
 
   const activeDataUrl = brightMode ? brightDataUrl : dataUrl;
 
@@ -218,7 +225,7 @@ export function QRCodeModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Station QR Code"
-      subtitle="Share your QRZ.com profile"
+      subtitle="Share your operator profile"
       size="md"
     >
       <div className="flex flex-col items-center gap-4 py-4">
@@ -261,8 +268,34 @@ export function QRCodeModal({
 
         {/* Description */}
         <p className="text-sm text-gray-400 text-center">
-          Scan to look up on QRZ.com
+          {qrTarget === "propulse"
+            ? "Scan to view ProPulse profile"
+            : "Scan to look up on QRZ.com"}
         </p>
+
+        {/* Target toggle: ProPulse vs QRZ */}
+        <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5">
+          <button
+            onClick={() => setQrTarget("propulse")}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
+              qrTarget === "propulse"
+                ? "bg-plasma-orange/15 text-plasma-orange font-medium"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            ProPulse
+          </button>
+          <button
+            onClick={() => setQrTarget("qrz")}
+            className={`px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
+              qrTarget === "qrz"
+                ? "bg-plasma-orange/15 text-plasma-orange font-medium"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            QRZ.com
+          </button>
+        </div>
 
         {/* Toggle row: Brightness + Fullscreen */}
         <div className="flex gap-2">

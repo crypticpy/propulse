@@ -512,7 +512,9 @@ export function EquipmentCard({
           }}
         >
           {/* ── Top Accent Bar ── */}
-          <div className={`h-1 w-full ${ACCENT_BG[equipmentType]}`} />
+          <div
+            className={`relative z-[2] h-1 w-full ${ACCENT_BG[equipmentType]}`}
+          />
 
           {/* ── Corner Decorations ── */}
           {rankState.hasChromaticEffects ? (
@@ -673,7 +675,7 @@ export function EquipmentCard({
           </div>
 
           {/* ── Symbol Art Zone ── */}
-          <div className="min-h-[100px] sm:min-h-[120px] py-3 sm:py-4 flex items-center justify-center relative overflow-hidden mx-3">
+          <div className="relative z-[2] min-h-[100px] sm:min-h-[120px] py-3 sm:py-4 flex items-center justify-center overflow-hidden mx-3">
             {visualization ? (
               visualization
             ) : imageUrl ? (

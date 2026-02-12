@@ -189,7 +189,7 @@ export function CallsignInput({
   };
 
   return (
-    <div className="relative flex items-center gap-2">
+    <div className="relative flex items-center gap-2" data-callsign-input>
       <div className="relative flex-1">
         <input
           ref={inputRef}

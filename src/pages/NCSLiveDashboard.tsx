@@ -1,9 +1,13 @@
 /**
  * NCSLiveDashboard -- Full NCS (Net Control Station) live session management.
  *
- * Fetches net details and session state on mount. Provides a split-panel layout
- * with callsign input + check-in list on the left, and queue + turn timer on
- * the right. Session controls at the bottom. Responsive (stacked on mobile).
+ * Phase-based workflow: preamble -> checkin -> rounds -> closeout.
+ * Each phase renders a dedicated component in the body while a sticky header
+ * shows the net name, LIVE indicator, elapsed time, check-in count, NCS
+ * callsign, TuneToNetButton, and a PhaseIndicator progress bar.
+ *
+ * SessionControls appear at the bottom (pre-session: start button; active
+ * session: simplified controls). Keyboard shortcuts are phase-aware.
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -13,15 +17,18 @@ import { useNetStore } from "@/stores/netStore";
 import { useNetRealtimeCheckins } from "@/hooks/useNetRealtimeCheckins";
 import { useNetSession } from "@/hooks/useNetSession";
 import { useElapsedTime } from "@/hooks/useElapsedTime";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { CallsignInput } from "@/components/nets/CallsignInput";
-import { CheckinList } from "@/components/nets/CheckinList";
-import { QueuePanel } from "@/components/nets/QueuePanel";
-import { TurnTimer } from "@/components/nets/TurnTimer";
 import { SessionControls } from "@/components/nets/SessionControls";
 import { NCSKeyboardHints } from "@/components/nets/NCSKeyboardHints";
+import { PreambleEditor } from "@/components/nets/PreambleEditor";
 import TuneToNetButton from "@/components/nets/TuneToNetButton";
+import { PhaseIndicator } from "@/components/nets/PhaseIndicator";
+import { PreamblePhase } from "@/components/nets/PreamblePhase";
+import { CheckinPhase } from "@/components/nets/CheckinPhase";
+import { RoundsPhase } from "@/components/nets/RoundsPhase";
+import { CloseoutPhase } from "@/components/nets/CloseoutPhase";
+import type { SessionPhase } from "@/components/nets/PhaseIndicator";
+import type { TurnTimerHandle } from "@/components/nets/TurnTimer";
 import type { CheckinStatus } from "@/types/net";
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -29,7 +36,7 @@ import type { CheckinStatus } from "@/types/net";
 export function NCSLiveDashboard() {
   const { netId } = useParams<{ netId: string }>();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
   // Store selectors
@@ -51,6 +58,8 @@ export function NCSLiveDashboard() {
   const updateCheckin = useNetStore((s) => s.updateCheckin);
   const removeCheckin = useNetStore((s) => s.removeCheckin);
   const reorderQueue = useNetStore((s) => s.reorderQueue);
+  const updateNet = useNetStore((s) => s.updateNet);
+  const updateSession = useNetStore((s) => s.updateSession);
   const isManagerCheck = useNetStore((s) => s.isManager);
 
   // Real-time updates for check-ins and session state
@@ -59,7 +68,14 @@ export function NCSLiveDashboard() {
 
   const [initialized, setInitialized] = useState(false);
   const [showKeyboardHints, setShowKeyboardHints] = useState(false);
-  const callsignWrapperRef = useRef<HTMLDivElement>(null);
+  const [showPreambleEditor, setShowPreambleEditor] = useState(false);
+
+  // ── Phase state ──────────────────────────────────────────────────────
+  const [phase, setPhase] = useState<SessionPhase>("preamble");
+  const [completedPhases, setCompletedPhases] = useState<SessionPhase[]>([]);
+
+  // Timer ref for RoundsPhase -> SpeakerStage -> TurnTimer
+  const timerRef = useRef<TurnTimerHandle>(null);
 
   // ── Initialization ─────────────────────────────────────────────────────
 
@@ -85,6 +101,43 @@ export function NCSLiveDashboard() {
     }
   }, [currentSession?.id, fetchCheckins]);
 
+  // ── Determine initial phase when session appears/changes ──────────────
+
+  useEffect(() => {
+    if (!currentSession) {
+      // Reset phase state when no session is active
+      setPhase("preamble");
+      setCompletedPhases([]);
+      return;
+    }
+
+    // Determine starting phase based on context
+    const sessionCheckins = checkins.filter(
+      (c) => c.sessionId === currentSession.id,
+    );
+    const hasCheckins = sessionCheckins.length > 0;
+    const hasPreamble = !!currentNet?.preambleTemplate?.trim();
+
+    if (hasCheckins) {
+      // Resuming mid-session with existing checkins
+      const hasCompletedOrHadTurn = sessionCheckins.some(
+        (c) => c.status === "completed" || c.status === "had_turn",
+      );
+
+      if (hasCompletedOrHadTurn) {
+        // Some stations have already had turns -> rounds phase
+        setPhase("rounds");
+        setCompletedPhases(hasPreamble ? ["preamble", "checkin"] : ["checkin"]);
+      } else {
+        // Checkins exist but no turns taken yet -> still in checkin phase
+        setPhase("checkin");
+        setCompletedPhases(hasPreamble ? ["preamble"] : []);
+      }
+    }
+    // No checkins: stay at preamble (default). PreamblePhase handles empty state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSession?.id]);
+
   // ── Derived state ──────────────────────────────────────────────────────
 
   const isManager = useMemo(
@@ -101,6 +154,29 @@ export function NCSLiveDashboard() {
         ? checkins.filter((c) => c.sessionId === currentSession.id)
         : [],
     [checkins, currentSession],
+  );
+
+  // ── Phase transition logic ──────────────────────────────────────────
+
+  const advancePhase = useCallback(() => {
+    setCompletedPhases((prev) =>
+      prev.includes(phase) ? prev : [...prev, phase],
+    );
+    const order: SessionPhase[] = ["preamble", "checkin", "rounds", "closeout"];
+    const idx = order.indexOf(phase);
+    if (idx < order.length - 1) {
+      setPhase(order[idx + 1]);
+    }
+  }, [phase]);
+
+  const selectPhase = useCallback(
+    (target: SessionPhase) => {
+      // Can go to any completed phase or the current phase
+      if (completedPhases.includes(target) || target === phase) {
+        setPhase(target);
+      }
+    },
+    [completedPhases, phase],
   );
 
   // ── Handlers ───────────────────────────────────────────────────────────
@@ -149,32 +225,6 @@ export function NCSLiveDashboard() {
     [updateCheckin],
   );
 
-  const handleAdvance = useCallback(() => {
-    // Find the first station in the active queue
-    const queue = [...activeCheckins]
-      .filter((c) => c.status === "checked_in" || c.status === "had_turn")
-      .sort((a, b) => a.queuePosition - b.queuePosition);
-
-    if (queue.length === 0) return;
-
-    const current = queue[0];
-    // If current had_turn, mark completed. If checked_in, mark had_turn.
-    if (current.status === "had_turn") {
-      updateCheckin(current.id, { status: "completed" });
-    } else {
-      updateCheckin(current.id, { status: "had_turn" });
-    }
-  }, [activeCheckins, updateCheckin]);
-
-  const handleSkip = useCallback(() => {
-    const queue = [...activeCheckins]
-      .filter((c) => c.status === "checked_in" || c.status === "had_turn")
-      .sort((a, b) => a.queuePosition - b.queuePosition);
-
-    if (queue.length === 0) return;
-    updateCheckin(queue[0].id, { status: "skipped" });
-  }, [activeCheckins, updateCheckin]);
-
   const handleStartSession = useCallback(async () => {
     if (!netId) return;
     await startSession(netId);
@@ -187,6 +237,18 @@ export function NCSLiveDashboard() {
       navigate(`/nets/${netId}`);
     },
     [currentSession?.id, endSession, navigate, netId],
+  );
+
+  const handleEditPreamble = useCallback(() => {
+    setShowPreambleEditor(true);
+  }, []);
+
+  const handleSavePreamble = useCallback(
+    (template: string) => {
+      if (!currentNet?.id) return;
+      updateNet(currentNet.id, { preambleTemplate: template });
+    },
+    [currentNet?.id, updateNet],
   );
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────
@@ -206,49 +268,85 @@ export function NCSLiveDashboard() {
       // No shortcuts without a live session
       if (!currentSession) return;
 
+      const phaseOrder: SessionPhase[] = [
+        "preamble",
+        "checkin",
+        "rounds",
+        "closeout",
+      ];
+
       switch (e.key) {
+        // Phase navigation: 1-4
+        case "1":
+        case "2":
+        case "3":
+        case "4": {
+          const targetIdx = parseInt(e.key, 10) - 1;
+          const targetPhase = phaseOrder[targetIdx];
+          if (completedPhases.includes(targetPhase) || targetPhase === phase) {
+            e.preventDefault();
+            setPhase(targetPhase);
+          }
+          break;
+        }
+
+        // Focus callsign input (only during checkin or rounds)
         case "n":
         case "/":
-          e.preventDefault();
-          callsignWrapperRef.current?.querySelector("input")?.focus();
+          if (phase === "checkin" || phase === "rounds") {
+            e.preventDefault();
+            // Find the callsign input in the DOM
+            const input = document.querySelector(
+              '[data-callsign-input] input, input[placeholder*="callsign" i]',
+            ) as HTMLInputElement | null;
+            input?.focus();
+          }
           break;
+
+        // Advance queue (only during rounds)
         case " ":
         case "ArrowRight":
-          e.preventDefault();
-          handleAdvance();
+          if (phase === "rounds") {
+            e.preventDefault();
+            const advanceBtn = document.querySelector(
+              "[data-advance-queue]",
+            ) as HTMLElement | null;
+            advanceBtn?.click();
+          }
           break;
+
+        // Skip current (only during rounds)
         case "s":
-          e.preventDefault();
-          handleSkip();
+          if (phase === "rounds") {
+            e.preventDefault();
+            const skipBtn = document.querySelector(
+              "[data-skip-station]",
+            ) as HTMLElement | null;
+            skipBtn?.click();
+          }
           break;
-        case "t": {
-          e.preventDefault();
-          // Toggle turn timer start/pause — first button inside the timer region
-          const timerRegion = document.querySelector(
-            '[role="region"][aria-label="Turn timer"]',
-          );
-          const timerBtn = timerRegion?.querySelector("button") as HTMLElement;
-          timerBtn?.click();
+
+        // Toggle timer (only during rounds)
+        case "t":
+          if (phase === "rounds") {
+            e.preventDefault();
+            const timerRegion = document.querySelector(
+              '[role="region"][aria-label="Turn timer"]',
+            );
+            const timerBtn = timerRegion?.querySelector(
+              "button",
+            ) as HTMLElement;
+            timerBtn?.click();
+          }
           break;
-        }
-        case "p": {
-          e.preventDefault();
-          // Toggle preamble panel — best-effort via data attribute, falls back to
-          // searching session controls for the Preamble button by text.
-          // NOTE: For full reliability, add data-preamble-toggle to the
-          // preamble button in SessionControls.tsx.
-          const preambleBtn =
-            (document.querySelector("[data-preamble-toggle]") as HTMLElement) ??
-            (Array.from(document.querySelectorAll("button")).find(
-              (b) => b.textContent?.trim() === "Preamble",
-            ) as HTMLElement | undefined);
-          preambleBtn?.click();
-          break;
-        }
+
+        // Toggle keyboard hints
         case "?":
           e.preventDefault();
           setShowKeyboardHints((prev) => !prev);
           break;
+
+        // Escape: close overlays
         case "Escape":
           if (showKeyboardHints) {
             setShowKeyboardHints(false);
@@ -260,7 +358,7 @@ export function NCSLiveDashboard() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [currentSession, handleAdvance, handleSkip, showKeyboardHints]);
+  }, [currentSession, phase, completedPhases, showKeyboardHints]);
 
   // ── Loading state ──────────────────────────────────────────────────────
 
@@ -382,65 +480,91 @@ export function NCSLiveDashboard() {
             </button>
           )}
         </div>
+
+        {/* Phase indicator -- only show during active session */}
+        {currentSession && (
+          <div className="mt-2">
+            <PhaseIndicator
+              currentPhase={phase}
+              onPhaseSelect={selectPhase}
+              hasCheckins={activeCheckins.length > 0}
+              completedPhases={completedPhases}
+            />
+          </div>
+        )}
       </div>
 
-      {/* ── Split Panels ───────────────────────────────────────────────── */}
-      <div
-        className={`flex-1 min-h-0 flex ${isMobile ? "flex-col" : "flex-row"} gap-4 p-4`}
-      >
-        {/* Left Panel: CallsignInput + CheckinList */}
-        <div
-          className={`flex flex-col gap-3 min-h-0 ${isMobile ? "" : "flex-1"}`}
-        >
-          <div ref={callsignWrapperRef}>
-            <CallsignInput
-              onSubmit={handleCallsignSubmit}
-              disabled={!currentSession}
-              netId={netId}
+      {/* ── Phase Body ───────────────────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 px-4 py-2 overflow-y-auto flex flex-col">
+        {!currentSession ? (
+          /* Pre-session: centered start button */
+          <div className="flex flex-col items-center justify-center min-h-[300px]">
+            <SessionControls
+              net={currentNet}
+              session={currentSession}
+              onStartSession={handleStartSession}
+              onEndSession={handleEndSession}
+              isManager={isManager}
             />
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto bg-panel/30 border border-white/5 rounded-2xl p-3">
-            <CheckinList
-              checkins={activeCheckins}
-              onUpdateStatus={handleUpdateStatus}
-              onRemove={handleRemove}
-              onReorder={handleReorder}
-              onUpdateNotes={handleUpdateNotes}
-              onToggleRelay={handleToggleRelay}
-            />
-          </div>
-        </div>
-
-        {/* Right Panel: QueuePanel + TurnTimer */}
-        <div
-          className={`flex flex-col gap-4 ${isMobile ? "" : "w-80 shrink-0"}`}
-        >
-          <div className="bg-panel/30 border border-white/5 rounded-2xl p-4">
-            <QueuePanel
-              checkins={activeCheckins}
-              onAdvance={handleAdvance}
-              onSkip={handleSkip}
-            />
-          </div>
-
-          <div className="bg-panel/30 border border-white/5 rounded-2xl p-4">
-            <TurnTimer defaultMinutes={3} />
-          </div>
-        </div>
+        ) : phase === "preamble" ? (
+          <PreamblePhase
+            net={currentNet}
+            session={currentSession}
+            onAdvance={advancePhase}
+            onEditPreamble={handleEditPreamble}
+          />
+        ) : phase === "checkin" ? (
+          <CheckinPhase
+            checkins={activeCheckins}
+            onSubmitCallsign={handleCallsignSubmit}
+            onAdvance={advancePhase}
+            onUpdateStatus={handleUpdateStatus}
+            onRemove={handleRemove}
+            onReorder={handleReorder}
+            onUpdateNotes={handleUpdateNotes}
+            onToggleRelay={handleToggleRelay}
+            netId={netId}
+            disabled={!currentSession}
+          />
+        ) : phase === "rounds" ? (
+          <RoundsPhase
+            checkins={activeCheckins}
+            timerRef={timerRef}
+            onUpdateStatus={handleUpdateStatus}
+            onRemove={handleRemove}
+            onReorder={handleReorder}
+            onUpdateNotes={handleUpdateNotes}
+            onToggleRelay={handleToggleRelay}
+            onSubmitCallsign={handleCallsignSubmit}
+            onAdvance={advancePhase}
+            netId={netId}
+            defaultTimerMinutes={3}
+          />
+        ) : (
+          <CloseoutPhase
+            checkins={activeCheckins}
+            session={currentSession}
+            net={currentNet}
+            onEndSession={handleEndSession}
+            onUpdateSession={updateSession}
+          />
+        )}
       </div>
 
-      {/* ── Bottom Bar: Session Controls ───────────────────────────────── */}
-      <div className="border-t border-white/5 px-4 py-3 bg-deep-space/95 backdrop-blur-sm">
-        <SessionControls
+      {/* Bottom bar removed during active sessions -- elapsed time is in
+          the header and Close Net lives in CloseoutPhase. */}
+
+      {/* ── Preamble Editor Modal ─────────────────────────────────────── */}
+      {showPreambleEditor && (
+        <PreambleEditor
           net={currentNet}
-          session={currentSession}
-          onStartSession={handleStartSession}
-          onEndSession={handleEndSession}
-          isManager={isManager}
+          onClose={() => setShowPreambleEditor(false)}
+          onSave={handleSavePreamble}
         />
-      </div>
+      )}
 
-      {/* ── Keyboard Shortcuts Overlay ──────────────────────────────────── */}
+      {/* ── Keyboard Shortcuts Overlay ────────────────────────────────── */}
       {showKeyboardHints && (
         <NCSKeyboardHints onClose={() => setShowKeyboardHints(false)} />
       )}

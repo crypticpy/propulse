@@ -3,6 +3,8 @@
  *
  * Sorted by queuePosition. Each row shows callsign, status badge, relative time,
  * relay info, traffic notes, and action buttons. Supports HTML5 drag-and-drop reorder.
+ * Supports a `compact` mode for sidebar use during rounds (reduced padding, hidden
+ * drag handles/queue numbers/notes/time, smaller text and icons).
  *
  * ARIA: role="list" container, role="listitem" rows with descriptive labels,
  * aria-labels on all action buttons, aria-pressed on relay toggle.
@@ -20,6 +22,7 @@ interface CheckinListProps {
   onReorder: (id: string, newPosition: number) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onToggleRelay: (id: string, isRelay: boolean, relayVia?: string) => void;
+  compact?: boolean; // Reduced UI for sidebar use during rounds
 }
 
 // ── Status Badge Colors ──────────────────────────────────────────────────────
@@ -79,6 +82,7 @@ export function CheckinList({
   onReorder,
   onUpdateNotes,
   onToggleRelay,
+  compact = false,
 }: CheckinListProps) {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
@@ -90,6 +94,12 @@ export function CheckinList({
     () => [...checkins].sort((a, b) => a.queuePosition - b.queuePosition),
     [checkins],
   );
+
+  // ── Compact mode class helpers ─────────────────────────────────────────
+
+  const rowPadding = compact ? "px-2 py-1" : "px-3 py-2";
+  const callsignSize = compact ? "text-xs" : "text-sm";
+  const iconSize = compact ? "w-3 h-3" : "w-3.5 h-3.5";
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
 
@@ -178,33 +188,41 @@ export function CheckinList({
             key={checkin.id}
             role="listitem"
             aria-label={`${checkin.callsign} - ${spokenStatus}, position ${index + 1}`}
-            draggable
-            onDragStart={(e) => handleDragStart(e, checkin.id)}
+            draggable={!compact}
+            onDragStart={
+              compact ? undefined : (e) => handleDragStart(e, checkin.id)
+            }
             onDragOver={(e) => handleDragOver(e, checkin.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, checkin)}
             className={`
-              group flex items-center gap-3 px-3 py-2 rounded-lg transition-colors select-none
+              group flex items-center gap-3 ${rowPadding} rounded-lg transition-colors select-none
               bg-white/[0.02] hover:bg-white/[0.05] border border-transparent
               ${dragOverId === checkin.id ? "border-plasma-orange/40 bg-plasma-orange/5" : ""}
             `}
           >
-            {/* Drag handle */}
-            <span
-              className="cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-400 text-sm shrink-0"
-              title="Drag to reorder"
-              aria-hidden="true"
-            >
-              &#10495;
-            </span>
+            {/* Drag handle — hidden in compact mode */}
+            {!compact && (
+              <span
+                className="cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-400 text-sm shrink-0"
+                title="Drag to reorder"
+                aria-hidden="true"
+              >
+                &#10495;
+              </span>
+            )}
 
-            {/* Queue position */}
-            <span className="text-[10px] font-mono text-gray-600 w-5 text-center shrink-0">
-              {checkin.queuePosition}
-            </span>
+            {/* Queue position — hidden in compact mode */}
+            {!compact && (
+              <span className="text-[10px] font-mono text-gray-600 w-5 text-center shrink-0">
+                {checkin.queuePosition}
+              </span>
+            )}
 
             {/* Callsign */}
-            <span className="font-mono font-bold text-sm text-white min-w-[80px]">
+            <span
+              className={`font-mono font-bold ${callsignSize} text-white min-w-[80px]`}
+            >
               {checkin.callsign}
             </span>
 
@@ -223,8 +241,8 @@ export function CheckinList({
               </span>
             )}
 
-            {/* Traffic notes */}
-            {checkin.trafficNotes && !isEditing && (
+            {/* Traffic notes — hidden in compact mode (tooltip only) */}
+            {checkin.trafficNotes && !isEditing && !compact && (
               <span
                 className="text-[10px] text-gray-500 truncate max-w-[120px]"
                 title={checkin.trafficNotes}
@@ -259,22 +277,29 @@ export function CheckinList({
               </div>
             )}
 
-            {/* Relative time */}
-            <span className="text-[10px] text-gray-600 shrink-0 ml-auto">
-              {relativeTime(checkin.checkedInAt)}
-            </span>
+            {/* Relative time — hidden in compact mode */}
+            {!compact && (
+              <span className="text-[10px] text-gray-600 shrink-0 ml-auto">
+                {relativeTime(checkin.checkedInAt)}
+              </span>
+            )}
 
-            {/* Action buttons (visible on hover) */}
-            <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Action buttons — always visible */}
+            <div
+              className={`shrink-0 flex items-center gap-1 ${compact ? "ml-auto" : ""}`}
+            >
               {/* Mark had_turn */}
               {checkin.status === "checked_in" && (
                 <button
                   onClick={() => onUpdateStatus(checkin.id, "had_turn")}
                   className="p-1 rounded text-blue-400 hover:bg-blue-400/10 transition-colors"
                   aria-label={`Mark ${checkin.callsign} had turn`}
+                  title={
+                    compact ? `Mark ${checkin.callsign} had turn` : undefined
+                  }
                 >
                   <svg
-                    className="w-3.5 h-3.5"
+                    className={iconSize}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -297,9 +322,12 @@ export function CheckinList({
                   onClick={() => onUpdateStatus(checkin.id, "completed")}
                   className="p-1 rounded text-green-400 hover:bg-green-400/10 transition-colors"
                   aria-label={`Mark ${checkin.callsign} complete`}
+                  title={
+                    compact ? `Mark ${checkin.callsign} complete` : undefined
+                  }
                 >
                   <svg
-                    className="w-3.5 h-3.5"
+                    className={iconSize}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -321,9 +349,10 @@ export function CheckinList({
                   onClick={() => onUpdateStatus(checkin.id, "skipped")}
                   className="p-1 rounded text-amber-400 hover:bg-amber-400/10 transition-colors"
                   aria-label={`Skip ${checkin.callsign}`}
+                  title={compact ? `Skip ${checkin.callsign}` : undefined}
                 >
                   <svg
-                    className="w-3.5 h-3.5"
+                    className={iconSize}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -359,7 +388,7 @@ export function CheckinList({
                 aria-pressed={checkin.isRelay}
               >
                 <svg
-                  className="w-3.5 h-3.5"
+                  className={iconSize}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -399,9 +428,14 @@ export function CheckinList({
                 onClick={() => startEditNotes(checkin)}
                 className="p-1 rounded text-gray-500 hover:bg-white/5 hover:text-gray-300 transition-colors"
                 aria-label={`Edit notes for ${checkin.callsign}`}
+                title={
+                  compact && checkin.trafficNotes
+                    ? checkin.trafficNotes
+                    : undefined
+                }
               >
                 <svg
-                  className="w-3.5 h-3.5"
+                  className={iconSize}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -423,7 +457,7 @@ export function CheckinList({
                 aria-label={`Remove ${checkin.callsign}`}
               >
                 <svg
-                  className="w-3.5 h-3.5"
+                  className={iconSize}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

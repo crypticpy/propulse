@@ -2,6 +2,7 @@
  * NCSKeyboardHints -- Centered modal overlay showing keyboard shortcuts
  * available during an active NCS live session.
  *
+ * Includes phase navigation (1-4) and context-specific shortcuts for rounds.
  * Displayed when the user presses "?" or clicks the keyboard hint button.
  * Escape or clicking outside dismisses the overlay.
  */
@@ -14,11 +15,14 @@ interface NCSKeyboardHintsProps {
 }
 
 const SHORTCUTS = [
+  { keys: ["1"], description: "Go to Preamble" },
+  { keys: ["2"], description: "Go to Check-In" },
+  { keys: ["3"], description: "Go to Rounds" },
+  { keys: ["4"], description: "Go to Closeout" },
   { keys: ["N", "/"], description: "Focus callsign input" },
-  { keys: ["Space", "\u2192"], description: "Advance queue" },
-  { keys: ["S"], description: "Skip current station" },
-  { keys: ["T"], description: "Toggle turn timer" },
-  { keys: ["P"], description: "Toggle preamble" },
+  { keys: ["Space", "\u2192"], description: "Done / advance (Rounds)" },
+  { keys: ["S"], description: "Skip current (Rounds)" },
+  { keys: ["T"], description: "Toggle turn timer (Rounds)" },
   { keys: ["Esc"], description: "Blur / close overlay" },
   { keys: ["?"], description: "Toggle this overlay" },
 ] as const;

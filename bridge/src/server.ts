@@ -7,6 +7,10 @@
  */
 
 import { WebSocketServer, WebSocket } from "ws";
+import http from "http";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   createMessage,
   isMessageEnvelope,
@@ -46,6 +50,101 @@ function loadConfig(): ServerConfig {
   }
 
   return { port, host };
+}
+
+// ============================================================================
+// Static File Server
+// ============================================================================
+
+const STATIC_PORT = parseInt(process.env.BRIDGE_STATIC_PORT ?? "3173", 10);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Resolve frontend dist: monorepo layout (../../dist) or standalone (../frontend-dist)
+const DIST_DIR = fs.existsSync(path.resolve(__dirname, "../../dist"))
+  ? path.resolve(__dirname, "../../dist")
+  : path.resolve(__dirname, "../frontend-dist");
+
+let staticServer: http.Server | null = null;
+
+function startStaticServer(): void {
+  if (!fs.existsSync(DIST_DIR)) {
+    logger.info("No dist/ directory found — static server disabled", {
+      expected: DIST_DIR,
+    });
+    return;
+  }
+
+  const mimeTypes: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".json": "application/json; charset=utf-8",
+    ".webmanifest": "application/manifest+json; charset=utf-8",
+  };
+
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+    let filePath = path.join(
+      DIST_DIR,
+      url.pathname === "/" ? "index.html" : url.pathname,
+    );
+
+    // Prevent path traversal
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(DIST_DIR)) {
+      res.writeHead(403);
+      res.end("Forbidden");
+      return;
+    }
+
+    // SPA fallback: if file doesn't exist and has no extension, serve index.html
+    if (!fs.existsSync(resolved) && !path.extname(resolved)) {
+      filePath = path.join(DIST_DIR, "index.html");
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = mimeTypes[ext] || "application/octet-stream";
+
+    // Cache: HTML gets no-cache (for SPA updates), hashed assets are immutable
+    const cacheControl =
+      ext === ".html" || ext === ".webmanifest"
+        ? "no-cache"
+        : "public, max-age=31536000, immutable";
+
+    try {
+      const content = fs.readFileSync(filePath);
+      res.writeHead(200, {
+        "Content-Type": contentType,
+        "Cache-Control": cacheControl,
+        "X-Content-Type-Options": "nosniff",
+      });
+      res.end(content);
+    } catch {
+      res.writeHead(404);
+      res.end("Not Found");
+    }
+  });
+
+  server.listen(STATIC_PORT, "127.0.0.1", () => {
+    logger.info("Static file server listening", {
+      host: "127.0.0.1",
+      port: STATIC_PORT,
+      distDir: DIST_DIR,
+    });
+  });
+
+  server.on("error", (err) => {
+    logger.error("Static file server error", { error: err.message });
+  });
+
+  staticServer = server;
 }
 
 // ============================================================================
@@ -608,6 +707,8 @@ function startServer(): void {
   });
 
   wss.on("listening", () => {
+    startStaticServer();
+
     logger.info("ProPulse Bridge server listening", {
       host: config.host,
       port: config.port,
@@ -645,8 +746,11 @@ function startServer(): void {
     // Send welcome message with expanded capabilities
     const welcomeMessage = createMessage("bridge.welcome", {
       clientId,
-      serverVersion: "0.2.0",
-      capabilities: ["rig", "contest", "sync", "cluster", "wsjtx"],
+      serverVersion: "0.3.0",
+      capabilities: ["rig", "contest", "sync", "cluster", "wsjtx", "static"],
+      staticServerUrl: fs.existsSync(DIST_DIR)
+        ? `http://127.0.0.1:${STATIC_PORT}`
+        : null,
       rigBackend: rigController?.getBackend() ?? "none",
       clusterConnected: clusterClient?.getStatus().connected ?? false,
       wsjtxListening: wsjtxListener !== null,
@@ -692,6 +796,12 @@ function startServer(): void {
     stopCluster();
     stopWSJTX();
     stopRig();
+
+    // Close static file server
+    if (staticServer) {
+      staticServer.close();
+      logger.info("Static file server closed");
+    }
 
     // Close all client connections
     for (const client of clients.values()) {

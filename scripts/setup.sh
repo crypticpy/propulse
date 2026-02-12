@@ -314,6 +314,15 @@ install_bridge() {
     error "Installation may have failed"
     return 1
   fi
+
+  # Copy app dist for offline serving if available
+  local project_root
+  project_root="$(cd "$BRIDGE_DIR/.." && pwd)"
+  if [ -d "$project_root/dist" ]; then
+    info "Copying app files to bridge for offline serving..."
+    cp -r "$project_root/dist" "$BRIDGE_DIR/dist"
+    success "App files ready for offline serving on localhost:3173"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -579,6 +588,7 @@ main() {
   info "  1. Start the bridge:  ${BOLD}npm run bridge${RESET}  (from propulse root)"
   info "  2. Open Propulse:     ${BOLD}npm run dev${RESET}     (from propulse root)"
   info "  3. Check status:      Look for the green dot in the header"
+  info "  4. Offline access:    ${BOLD}http://localhost:3173${RESET}  (after 'npm run build')"
   echo ""
   info "  Full health dashboard:  ${CYAN}http://localhost:5173/health${RESET}"
   info "  Bridge details:         ${CYAN}http://localhost:5173/bridge${RESET}"

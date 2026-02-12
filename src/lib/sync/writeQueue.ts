@@ -6,13 +6,13 @@
  * keeping only the most recent entry.
  *
  * Storage key: 'propulse-sync-queue'
- * Max entries: 500
+ * Max entries: 2000 (POTA activations can produce 100+ QSOs offline)
  */
 
 import type { SyncableTable, WriteQueueEntry } from "./types";
 
 const STORAGE_KEY = "propulse-sync-queue";
-const MAX_ENTRIES = 500;
+const MAX_ENTRIES = 2000;
 
 export class WriteQueue {
   private entries: WriteQueueEntry[] = [];
@@ -102,6 +102,16 @@ export class WriteQueue {
     const tableSet = new Set<string>(tables);
     return this.entries.filter(
       (e) => e.status === "pending" && tableSet.has(e.table),
+    );
+  }
+
+  /** Check if there's a pending write for a specific (table, id) pair */
+  hasPendingForId(table: SyncableTable, id: string): boolean {
+    return this.entries.some(
+      (e) =>
+        e.table === table &&
+        e.status === "pending" &&
+        (e.data.id as string) === id,
     );
   }
 

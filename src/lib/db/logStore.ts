@@ -272,10 +272,12 @@ export async function isDuplicateQSO(
   excludeId?: string,
 ): Promise<boolean> {
   const entries = await getLogEntriesByCallsign(callsign);
+  const normalizedBand = band.toLowerCase().trim();
+  const normalizedMode = mode.toUpperCase().trim();
   return entries.some(
     (e) =>
-      e.band === band &&
-      e.mode === mode &&
+      e.band?.toLowerCase().trim() === normalizedBand &&
+      e.mode?.toUpperCase().trim() === normalizedMode &&
       e.date === date &&
       e.id !== excludeId,
   );

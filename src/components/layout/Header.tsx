@@ -14,6 +14,7 @@ import { useProfileStore } from "@/stores/profileStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankBadge } from "@/components/rank/RankBadge";
+import { ConflictBadge } from "@/components/qso/ConflictBadge";
 
 interface NavItem {
   path: string;
@@ -63,7 +64,7 @@ export function Header({
     { path: "/dx", label: "DX Wizard", icon: "🧙" },
     { path: "/planner", label: "Band Planner", icon: "📡" },
     { path: "/sdr", label: "SDR Console", icon: "📻" },
-    { path: "/log", label: "LogBook", icon: "📝" },
+    { path: "/log", label: "Logbook", icon: "📝" },
     { path: "/contest", label: "Contest", icon: "🏆" },
     { path: "/nets", label: "Net Registry", icon: "📡" },
   ];
@@ -291,6 +292,7 @@ export function Header({
                     </span>
                   </div>
                 )}
+                <ConflictBadge />
                 <SyncStatusIndicator />
                 <HealthStatusIndicator />
                 {/* Profile / Auth */}

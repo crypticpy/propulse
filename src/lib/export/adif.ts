@@ -5,6 +5,7 @@
  */
 
 import type { ADIFRecord, ADIFOptions, PathExportData } from "./types";
+import type { NetCheckin, Net, NetSession } from "@/types/net";
 
 /**
  * Generate ADIF header
@@ -90,6 +91,53 @@ export function pathToADIF(data: PathExportData): ADIFRecord {
     K_INDEX: data.kIndex?.toString(),
     PROP_MODE: "F2",
   };
+}
+
+/**
+ * Convert a net check-in to an ADIF record.
+ * Creates a QSO record representing the net check-in contact.
+ */
+export function checkinToADIF(
+  checkin: NetCheckin,
+  net: Net,
+  session: NetSession,
+): ADIFRecord {
+  const checkinDate = new Date(checkin.checkedInAt);
+
+  // Parse frequency: "146.520 MHz" -> "146.520"
+  const freqMatch = net.frequency.match(/[\d.]+/);
+  const freqMHz = freqMatch ? freqMatch[0] : undefined;
+
+  // Build comment
+  const parts: string[] = [`Net: ${net.name}`];
+  if (checkin.trafficNotes) parts.push(`Traffic: ${checkin.trafficNotes}`);
+  if (checkin.isRelay && checkin.relayVia)
+    parts.push(`Relay via ${checkin.relayVia}`);
+  parts.push(`NCS: ${session.ncsCallsign}`);
+
+  return {
+    CALL: checkin.callsign,
+    QSO_DATE: checkinDate.toISOString().slice(0, 10).replace(/-/g, ""),
+    TIME_ON: checkinDate.toISOString().slice(11, 16).replace(":", ""),
+    BAND: net.band,
+    MODE: net.mode,
+    FREQ: freqMHz,
+    COMMENT: parts.join(" | "),
+  };
+}
+
+/**
+ * Export all check-ins from a session as ADIF records.
+ * Only includes check-ins with "completed" or "had_turn" status.
+ */
+export function sessionToADIF(
+  checkins: NetCheckin[],
+  net: Net,
+  session: NetSession,
+): ADIFRecord[] {
+  return checkins
+    .filter((c) => c.status === "completed" || c.status === "had_turn")
+    .map((c) => checkinToADIF(c, net, session));
 }
 
 /**

@@ -1,28 +1,29 @@
 # Propulse Feature Tracker
 
 > Master reference of all planned features, their delivery status, and remaining gaps.
-> Updated 2026-02-10 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
+> Updated 2026-02-11 from cross-referencing all PRDs/plans against CHANGELOG and codebase.
 
 ---
 
 ## Summary
 
-| Source Document                        | Delivered | Partial | Not Started | Deferred | Total   |
-| -------------------------------------- | --------- | ------- | ----------- | -------- | ------- |
-| Implementation Plan (37 features)      | 35        | 0       | 2           | 0        | 37      |
-| 2D Map Feature Parity PRD              | 39        | 1       | 2           | 1        | 43      |
-| Contest PropSphere Integration PRD     | 34        | 2       | 1           | 0        | 37      |
-| Mobile Design Plan                     | 18        | 0       | 1           | 0        | 19      |
-| UI Review Recommendations              | 9         | 0       | 1           | 0        | 10      |
-| QoL PRD (20 items)                     | 19        | 1       | 0           | 0        | 20      |
-| PWA Package                            | 6         | 0       | 1           | 0        | 7       |
-| Profile/Shack/Settings Plan            | 10        | 0       | 0           | 0        | 10      |
-| v0.13.x New Features (2026-02-08)      | 22        | 0       | 0           | 0        | 22      |
-| v0.14.0 Polish & Infra (2026-02-10)    | 12        | 1       | 0           | 0        | 13      |
-| v0.15.0 Spot Watch System (2026-02-10) | 22        | 2       | 0           | 0        | 24      |
-| **Grand Total**                        | **226**   | **7**   | **8**       | **1**    | **242** |
+| Source Document                         | Delivered | Partial | Not Started | Deferred | Total   |
+| --------------------------------------- | --------- | ------- | ----------- | -------- | ------- |
+| Implementation Plan (37 features)       | 35        | 0       | 2           | 0        | 37      |
+| 2D Map Feature Parity PRD               | 39        | 1       | 2           | 1        | 43      |
+| Contest PropSphere Integration PRD      | 34        | 2       | 1           | 0        | 37      |
+| Mobile Design Plan                      | 18        | 0       | 1           | 0        | 19      |
+| UI Review Recommendations               | 9         | 0       | 1           | 0        | 10      |
+| QoL PRD (20 items)                      | 19        | 1       | 0           | 0        | 20      |
+| PWA Package                             | 6         | 0       | 1           | 0        | 7       |
+| Profile/Shack/Settings Plan             | 10        | 0       | 0           | 0        | 10      |
+| v0.13.x New Features (2026-02-08)       | 22        | 0       | 0           | 0        | 22      |
+| v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
+| v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
+| v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
+| **Grand Total**                         | **264**   | **7**   | **8**       | **1**    | **280** |
 
-**Delivery rate: 93% delivered, 3% partial, 3% not started**
+**Delivery rate: 94% delivered, 3% partial, 3% not started**
 
 ---
 
@@ -554,6 +555,65 @@ _Source: `docs/plans/SPOT-WATCH-PRD.md`. Full 4-phase implementation of the Spot
 
 ---
 
+## 12. v0.16.0 NCS Workflow + QSO Logging (2026-02-11)
+
+_Two major feature sets: NCS Dashboard phase-based workflow redesign and full QSO logging system with ADIF support._
+
+### NCS Dashboard Phase Workflow (12)
+
+| Feature                        | Notes                                                                         |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| Phase state machine            | Client-side `preamble → checkin → rounds → closeout` with forward/back nav    |
+| PhaseIndicator pill bar        | Segmented pill bar with checkmarks, clickable completed phases, kbd hints     |
+| PreamblePhase                  | Preamble text display with variable substitution, skip option if no template  |
+| CheckinPhase                   | Center-stage CallsignInput + growing CheckinList, always-visible advance      |
+| RoundsPhase                    | Two-column: SpeakerStage (60%) + fixed-width sidebar (320px) with roster      |
+| SpeakerStage                   | Mission control card: hero callsign, inline timer, Done/Skip/No Show, On Deck |
+| CloseoutPhase                  | Session summary stats (color-coded), notes textarea, dignified Close Net      |
+| TurnTimer imperative control   | `forwardRef` + `useImperativeHandle` with `resetAndStart()` for auto-advance  |
+| CheckinList compact mode       | `compact` prop for sidebar: smaller text, hidden drag handles, icon actions   |
+| Always-visible action buttons  | Removed hover-only gate on CheckinList actions in both normal and compact     |
+| SessionControls simplification | Stripped to session lifecycle only (start/close), preamble+notes moved out    |
+| Phase keyboard shortcuts       | `1`-`4` jump phases, `Space`/`→` advance during rounds, `S` skip              |
+
+### QSO Logging System (23)
+
+| Feature                       | Notes                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| qsoStore                      | Zustand + IndexedDB persistence, CRUD, filtering, pagination, bulk operations |
+| QSO types                     | Full QSO record type with 30+ fields, contest exchange, activation fields     |
+| QSOEntryForm                  | Full entry form: callsign, frequency, mode, RST, notes, contest exchange      |
+| QSOEntryCompact               | Inline compact entry for quick logging during operation                       |
+| QSOLogTable                   | Sortable table view with inline editing, status icons, band-color coding      |
+| QSOLogCards                   | Card-based mobile view with swipe actions                                     |
+| QSOLogViewer                  | Unified viewer switching between table and card layouts                       |
+| QSOLogFilters                 | Band, mode, date range, callsign search, DXCC entity filters                  |
+| QSOLogPagination              | Page-based navigation with configurable page size                             |
+| QSOLogStats                   | Real-time stats: QSO count, unique DXCCs, bands worked, modes used            |
+| QSODetailModal                | Full QSO detail view with all fields and edit capability                      |
+| QSOInlineEditor               | Edit QSO fields directly in table row                                         |
+| QSOBulkActions                | Select multiple QSOs for bulk delete, export, or status change                |
+| QSOExportMenu                 | ADIF, Cabrillo, CSV export with filter-aware selection                        |
+| ADIF import/export library    | Full ADIF 3.1.4 parser and generator in `src/lib/adif/`                       |
+| Cabrillo export               | Contest-aware Cabrillo 3.0 format export                                      |
+| Conflict resolution           | Field-level conflict detection and merge UI for multi-device sync             |
+| ConflictResolutionModal       | Side-by-side comparison with per-field accept/reject                          |
+| ConflictBadge                 | Header badge showing unresolved conflict count                                |
+| Dupe check engine             | Real-time duplicate detection with configurable rules                         |
+| Offline write queue           | Queue mutations when offline, auto-sync on reconnect                          |
+| OfflineIndicator enhancements | Reconnect flash, offline duration counter, pending sync count                 |
+| Logbook page rewrite          | Simplified Logbook.tsx wiring QSO components together                         |
+
+### Bridge & Infrastructure (3)
+
+| Feature                   | Notes                                                                   |
+| ------------------------- | ----------------------------------------------------------------------- |
+| Bridge static file server | Serves built frontend on localhost:3173 for offline access without Vite |
+| bridge build:full script  | Single command builds frontend + bridge together                        |
+| Setup script offline info | Setup guide mentions offline serving endpoint after build               |
+
+---
+
 ## Source Documents Index
 
 | Category     | File                                                           | Description                                |
@@ -573,3 +633,4 @@ _Source: `docs/plans/SPOT-WATCH-PRD.md`. Full 4-phase implementation of the Spot
 | Plans        | `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md`               | Location-aware propagation model (3-level) |
 | Plans        | `docs/plans/SPOT-WATCH-PRD.md`                                 | Spot Watch system PRD (4 phases)           |
 | Plans        | `docs/plans/GLOBE-TOOLBAR-MODES-REDESIGN.md`                   | Globe toolbar & modes redesign plan        |
+| Plans        | `docs/plans/OFFLINE-FIRST-QSO-LOGGING.md`                      | Offline-first QSO logging PRD              |

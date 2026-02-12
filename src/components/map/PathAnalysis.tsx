@@ -61,6 +61,10 @@ interface PathAnalysisProps {
   onToggleCollapse?: () => void;
   /** Callback to share the current path analysis */
   onShare?: () => void;
+  /** Switches to mini strip mode */
+  onMinimize?: () => void;
+  /** Hides panel entirely */
+  onClose?: () => void;
 }
 
 const DIFFICULTY_LABELS = [
@@ -257,6 +261,8 @@ export function PathAnalysis({
   collapsed = false,
   onToggleCollapse,
   onShare,
+  onMinimize: _onMinimize,
+  onClose,
 }: PathAnalysisProps) {
   const {
     target,
@@ -744,19 +750,44 @@ export function PathAnalysis({
                   )}
                 </div>
               </div>
-
-              {/* Difficulty badge - inline with title area */}
-              <div
-                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                  DIFFICULTY_COLORS[metrics.difficulty]
-                } ${difficultyBgColors[metrics.difficulty] || "bg-white/5"}`}
-              >
-                {DIFFICULTY_LABELS[metrics.difficulty]}
-              </div>
             </div>
 
             {/* Action icons - top-right */}
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              {onClose && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                  }}
+                  className="p-1 rounded hover:bg-white/10 transition-colors text-white/40 hover:text-red-400"
+                  title="Hide panel"
+                >
+                  <svg
+                    className="w-[18px] h-[18px]"
+                    viewBox="0 0 18 18"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <line
+                      x1="5"
+                      y1="5"
+                      x2="13"
+                      y2="13"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1="13"
+                      y1="5"
+                      x2="5"
+                      y2="13"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              )}
               <HelpButton onClick={() => setShowHelp(true)} />
               {/* Share button */}
               {onShare && (

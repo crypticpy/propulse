@@ -44,7 +44,7 @@ import {
   getDifficultyColor,
   type DifficultyLevel,
 } from "./LocationMarker";
-import { LiveSpotArcs } from "./LiveSpotArcs";
+import { LiveSpotArcs, resolveSpotLocations } from "./LiveSpotArcs";
 import { AnimatedSpotTraces } from "./AnimatedSpotTraces";
 import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
 import { SpotHighlight } from "./SpotHighlight";
@@ -705,43 +705,73 @@ function GlobeScene({
   // Fetch live spots for the grid glow overlay
   const { spots: liveSpots } = useLiveSpots({
     grid: station?.grid,
-    enabled: layers.spots,
+    enabled: layers.spots || layers.spotTraces,
   });
 
-  // Transform recent live spots into GridGlowSpot[] for the glow overlay.
-  // Only include spots from the last 5 seconds to avoid flooding on initial load.
-  const glowSpots = useMemo((): GridGlowSpot[] => {
-    const cutoff = Date.now() - 5_000;
+  // Resolve spot locations so glow positions match where arcs land
+  const resolvedGlowSpots = useMemo(() => {
+    if (!layers.spots && !layers.spotTraces) return [];
+    return resolveSpotLocations(liveSpots);
+  }, [liveSpots, layers.spots, layers.spotTraces]);
+
+  // Track which spot IDs have already triggered glows (avoid re-firing on every render)
+  const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
+
+  // Glow spots state — updated by effect, consumed by GridGlowOverlay
+  const [glowSpots, setGlowSpots] = useState<GridGlowSpot[]>([]);
+
+  // Feed new resolved spots into glowSpots via effect (NOT useMemo — refs must
+  // only be mutated in effects to avoid double-firing in React strict mode).
+  useEffect(() => {
+    if (!layers.spots && !layers.spotTraces) return;
     const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
-    const result: GridGlowSpot[] = [];
+    const prevIds = prevGlowSpotIdsRef.current;
+    const currentIds = new Set<string>();
+    const newSpots: GridGlowSpot[] = [];
+    const isInitialLoad = prevIds.size === 0 && resolvedGlowSpots.length > 0;
 
-    for (const spot of liveSpots) {
-      // Only include spots arriving within the last 5 seconds
-      const spotTime =
-        spot.time instanceof Date ? spot.time.getTime() : Number(spot.time);
-      if (spotTime < cutoff) continue;
-
-      // Extract 2-char Maidenhead prefix from DX grid or spotter grid
-      const grids: string[] = [];
-      if (spot.dxGrid && spot.dxGrid.length >= 2) {
-        grids.push(spot.dxGrid.slice(0, 2).toUpperCase());
-      }
-      if (spot.spotterGrid && spot.spotterGrid.length >= 2) {
-        const prefix = spot.spotterGrid.slice(0, 2).toUpperCase();
-        if (!grids.includes(prefix)) {
-          grids.push(prefix);
-        }
-      }
+    for (const spot of resolvedGlowSpots) {
+      currentIds.add(spot.id);
+      if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, colorMode);
+      const staggerOffset = isInitialLoad ? Math.random() * 6000 : 0;
+      const ts = Date.now() - staggerOffset;
 
-      for (const gridField of grids) {
-        result.push({ gridField, color, timestamp: spotTime });
+      // Derive 2-char grid field from resolved lat/lon so glow matches dot position
+      try {
+        const grid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
+        newSpots.push({
+          gridField: grid4.slice(0, 2),
+          color,
+          timestamp: ts,
+        });
+      } catch {
+        // Skip if coordinates out of range
+      }
+
+      try {
+        const grid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
+        const field = grid4.slice(0, 2);
+        if (!newSpots.some((r) => r.gridField === field && r.color === color)) {
+          newSpots.push({ gridField: field, color, timestamp: ts });
+        }
+      } catch {
+        // Skip if coordinates out of range
       }
     }
 
-    return result;
-  }, [liveSpots, uiPrefs.spotColorMode]);
+    prevGlowSpotIdsRef.current = currentIds;
+
+    if (newSpots.length > 0) {
+      setGlowSpots(newSpots);
+    }
+  }, [
+    resolvedGlowSpots,
+    layers.spots,
+    layers.spotTraces,
+    uiPrefs.spotColorMode,
+  ]);
 
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
@@ -912,7 +942,9 @@ function GlobeScene({
         )}
 
         {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
-        {layers.spots && <GridGlowOverlay spots={glowSpots} />}
+        {(layers.spots || layers.spotTraces) && (
+          <GridGlowOverlay spots={glowSpots} />
+        )}
 
         {/* Pin markers from saved locations - distinctive pushpin style */}
         {pins.map((pin) => {

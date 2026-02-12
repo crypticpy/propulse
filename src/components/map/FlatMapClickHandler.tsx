@@ -128,6 +128,12 @@ function canvasEventToLatLon(
   const lon = (mapX / displayWidth) * 360 - 180;
   const lat = 90 - (mapY / displayHeight) * 180;
 
+  if (process.env.NODE_ENV === "development") {
+    console.debug(
+      `[ClickDebug] client=(${event.clientX.toFixed(0)},${event.clientY.toFixed(0)}) rect=(${rect.left.toFixed(0)},${rect.top.toFixed(0)},${rect.width.toFixed(0)}x${rect.height.toFixed(0)}) display=(${displayX.toFixed(1)},${displayY.toFixed(1)}) map=(${mapX.toFixed(1)},${mapY.toFixed(1)}) zoom=(s${zoom.scale.toFixed(2)},ox${zoom.offsetX.toFixed(1)},oy${zoom.offsetY.toFixed(1)}) size=(${displayWidth}x${displayHeight}) → lat=${lat.toFixed(2)} lon=${lon.toFixed(2)}`,
+    );
+  }
+
   return { lat, lon };
 }
 

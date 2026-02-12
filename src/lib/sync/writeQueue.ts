@@ -26,7 +26,8 @@ export class WriteQueue {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        this.entries = JSON.parse(raw) as WriteQueueEntry[];
+        const parsed = JSON.parse(raw);
+        this.entries = Array.isArray(parsed) ? parsed : [];
       }
     } catch {
       this.entries = [];

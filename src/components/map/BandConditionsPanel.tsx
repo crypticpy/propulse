@@ -60,6 +60,10 @@ interface BandConditionsPanelProps {
   collapsed?: boolean;
   /** Callback to toggle collapsed state */
   onToggleCollapse?: () => void;
+  /** Switches to mini strip mode */
+  onMinimize?: () => void;
+  /** Hides panel entirely */
+  onClose?: () => void;
 }
 
 /**
@@ -323,6 +327,8 @@ export function BandConditionsPanel({
   compact = false,
   collapsed = false,
   onToggleCollapse,
+  onMinimize: _onMinimize,
+  onClose,
 }: BandConditionsPanelProps) {
   const target = useMapStore((s) => s.target);
   const showCorrelation = useMapStore((s) => s.showCorrelation);
@@ -801,31 +807,66 @@ export function BandConditionsPanel({
                   className={`w-2 h-2 rounded-full flex-shrink-0 ${statusColors[overallStatus].dot}`}
                 />
 
-                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide truncate flex items-center gap-1">
+                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide truncate">
                   Band Conditions
-                  <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
                 </h3>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <span
-                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] font-mono px-1 py-0.5 rounded ${
                     currentKp >= 4
                       ? "bg-caution-amber/20 text-caution-amber"
                       : "bg-white/5 text-gray-400"
                   }`}
                 >
-                  Kp {currentKp}
+                  K{currentKp}
                 </span>
                 <span
-                  className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] font-mono px-1 py-0.5 rounded ${
                     currentSfi >= 120
                       ? "bg-signal-green/20 text-signal-green"
                       : "bg-white/5 text-gray-400"
                   }`}
                 >
-                  SFI {currentSfi}
+                  S{currentSfi}
                 </span>
+                {onClose && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClose();
+                    }}
+                    className="p-1 rounded hover:bg-white/10 transition-colors"
+                    title="Hide panel"
+                  >
+                    <svg
+                      className="text-white/40 hover:text-red-400"
+                      width={18}
+                      height={18}
+                      viewBox="0 0 18 18"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <line
+                        x1="5"
+                        y1="5"
+                        x2="13"
+                        y2="13"
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="13"
+                        y1="5"
+                        x2="5"
+                        y2="13"
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                )}
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
             </>

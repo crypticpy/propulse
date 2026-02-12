@@ -94,6 +94,9 @@ import { ReplayIndicator } from "@/components/map/ReplayIndicator";
 import { ContestRatePanel } from "@/components/map/ContestRatePanel";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { AspectRatioSlider } from "@/components/map/AspectRatioSlider";
+import { PanelMiniStrip } from "@/components/map/PanelMiniStrip";
+import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import { getPathMetrics, formatBearing } from "@/lib/utils/path";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 import { useSpotReplay } from "@/hooks/useSpotReplay";
 import { useReplayStore } from "@/stores/replayStore";
@@ -122,6 +125,9 @@ function latLonToGrid(lat: number, lon: number): string {
 
 // Tab options for mobile/tablet bottom panel
 type PanelTab = "path" | "bands" | "recs" | "spots";
+
+// Panel display modes for side panels (normal desktop layout)
+type PanelMode = "full" | "mini" | "hidden";
 
 // ─── Toolbar visual separator ────────────────────────────────────────────────
 const ToolbarDivider = () => <div className="w-px h-5 bg-white/10" />;
@@ -189,9 +195,41 @@ export function PropSphere() {
   const [leftPanelExpanded, setLeftPanelExpanded] = useState(false);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
 
+  // Panel display modes for normal desktop layout (full | mini | hidden)
+  const [leftPanelMode, setLeftPanelMode] = useState<PanelMode>("full");
+  const [rightPanelMode, setRightPanelMode] = useState<PanelMode>("full");
+
   // Panel widths for resizing (in pixels)
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
+
+  // Remember last full-mode widths for restore after mini/hidden
+  const [leftPanelLastWidth, setLeftPanelLastWidth] = useState(280);
+  const [rightPanelLastWidth, setRightPanelLastWidth] = useState(320);
+
+  // Solar data for mini strip display (cached via react-query, no duplicate fetches)
+  const { data: miniKData } = useKIndex();
+  const { data: miniSfiData } = useSolarFlux();
+  const miniKp = miniKData?.length
+    ? miniKData[miniKData.length - 1].kp_index
+    : null;
+  const miniSfi = miniSfiData?.length
+    ? miniSfiData[miniSfiData.length - 1].flux
+    : null;
+  const miniKpColor =
+    miniKp === null
+      ? "bg-white/30"
+      : miniKp <= 3
+        ? "bg-signal-green"
+        : miniKp <= 5
+          ? "bg-yellow-400"
+          : "bg-red-500";
+
+  // Path metrics for mini strip display
+  const miniPathMetrics = useMemo(() => {
+    if (!station || !target) return null;
+    return getPathMetrics(station.lat, station.lon, target.lat, target.lon);
+  }, [station, target]);
 
   // Active tab for mobile bottom panel
   const [activeTab, setActiveTab] = useState<PanelTab>("path");
@@ -428,17 +466,29 @@ export function PropSphere() {
       (layoutMode === "normal" || layoutMode === "lite"),
   });
 
-  // Resize handle dragging
+  // Resize handle dragging — snap to mini mode below 120px
   const handleResizeLeft = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       const startX = e.clientX;
       const startWidth = leftPanelWidth;
+      let snapped = false;
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (snapped) return;
         const delta = moveEvent.clientX - startX;
-        const newWidth = Math.max(200, Math.min(400, startWidth + delta));
-        setLeftPanelWidth(newWidth);
+        const rawWidth = startWidth + delta;
+        if (rawWidth < 120) {
+          snapped = true;
+          setLeftPanelLastWidth(leftPanelWidth);
+          setLeftPanelMode("mini");
+          document.removeEventListener("mousemove", handleMouseMove);
+          document.removeEventListener("mouseup", handleMouseUp);
+          document.body.style.cursor = "";
+          document.body.style.userSelect = "";
+          return;
+        }
+        setLeftPanelWidth(Math.max(200, Math.min(400, rawWidth)));
       };
 
       const handleMouseUp = () => {
@@ -461,11 +511,23 @@ export function PropSphere() {
       e.preventDefault();
       const startX = e.clientX;
       const startWidth = rightPanelWidth;
+      let snapped = false;
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (snapped) return;
         const delta = startX - moveEvent.clientX;
-        const newWidth = Math.max(200, Math.min(400, startWidth + delta));
-        setRightPanelWidth(newWidth);
+        const rawWidth = startWidth + delta;
+        if (rawWidth < 120) {
+          snapped = true;
+          setRightPanelLastWidth(rightPanelWidth);
+          setRightPanelMode("mini");
+          document.removeEventListener("mousemove", handleMouseMove);
+          document.removeEventListener("mouseup", handleMouseUp);
+          document.body.style.cursor = "";
+          document.body.style.userSelect = "";
+          return;
+        }
+        setRightPanelWidth(Math.max(200, Math.min(400, rawWidth)));
       };
 
       const handleMouseUp = () => {
@@ -679,7 +741,7 @@ export function PropSphere() {
         {/* Middle Row: Bands | Map | Path - fills available space */}
         <div className="flex-1 min-h-0 flex gap-0 lg:gap-0">
           {/* Band Conditions Panel (left) - hidden on mobile, HIDDEN in lite mode */}
-          {!isLiteMode && (
+          {!isLiteMode && leftPanelMode === "full" && (
             <>
               <div
                 className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
@@ -689,6 +751,14 @@ export function PropSphere() {
                 <BandConditionsPanel
                   displayTime={displayTime}
                   className="h-full overflow-y-auto"
+                  onMinimize={() => {
+                    setLeftPanelLastWidth(leftPanelWidth);
+                    setLeftPanelMode("mini");
+                  }}
+                  onClose={() => {
+                    setLeftPanelLastWidth(leftPanelWidth);
+                    setLeftPanelMode("hidden");
+                  }}
                 />
               </div>
 
@@ -702,9 +772,46 @@ export function PropSphere() {
               </div>
             </>
           )}
+          {/* Band Conditions Mini Strip (left) */}
+          {!isLiteMode && leftPanelMode === "mini" && (
+            <div className="hidden lg:flex">
+              <PanelMiniStrip
+                side="left"
+                onExpand={() => {
+                  setLeftPanelWidth(leftPanelLastWidth);
+                  setLeftPanelMode("full");
+                }}
+                onHide={() => setLeftPanelMode("hidden")}
+              >
+                {/* Condition indicator */}
+                <div
+                  className={`w-2 h-2 rounded-full ${miniKpColor}`}
+                  title={miniKp !== null ? `K-index: ${miniKp}` : "Loading..."}
+                />
+                {/* K-index */}
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-[8px] text-white/40 leading-none">
+                    K
+                  </span>
+                  <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                    {miniKp ?? "–"}
+                  </span>
+                </div>
+                {/* SFI */}
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-[8px] text-white/40 leading-none">
+                    SFI
+                  </span>
+                  <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                    {miniSfi ?? "–"}
+                  </span>
+                </div>
+              </PanelMiniStrip>
+            </div>
+          )}
 
           {/* Map View (center) - takes remaining space */}
-          <Card className="flex-1 min-w-0 p-0 overflow-hidden relative min-h-[280px] flex flex-col">
+          <Card className="flex-1 min-w-0 !p-0 relative min-h-[280px] flex flex-col">
             {/* View Mode Tabs - edge-to-edge row */}
             <div
               className="flex-shrink-0 flex border-b border-white/10"
@@ -763,9 +870,6 @@ export function PropSphere() {
                 onSelectProfile={setLocalActiveProfile}
               />
 
-              {/* Watch popover */}
-              <WatchPopover />
-
               {/* Observatory mode */}
               <ToolbarDivider />
               <button
@@ -794,6 +898,67 @@ export function PropSphere() {
                 Observatory
               </button>
 
+              {/* Panel layout cycle: Full → Compact → Focus → Full */}
+              <button
+                type="button"
+                className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  leftPanelMode !== "full" || rightPanelMode !== "full"
+                    ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
+                    : "text-gray-300 hover:text-white hover:bg-white/10"
+                }`}
+                title={
+                  leftPanelMode === "full" && rightPanelMode === "full"
+                    ? "Compact panels"
+                    : leftPanelMode === "hidden" && rightPanelMode === "hidden"
+                      ? "Reset panels"
+                      : "Cycle panel layout"
+                }
+                onClick={() => {
+                  const bothFull =
+                    leftPanelMode === "full" && rightPanelMode === "full";
+                  const bothMini =
+                    leftPanelMode === "mini" && rightPanelMode === "mini";
+
+                  if (bothFull) {
+                    // Full → Compact
+                    setLeftPanelLastWidth(leftPanelWidth);
+                    setRightPanelLastWidth(rightPanelWidth);
+                    setLeftPanelMode("mini");
+                    setRightPanelMode("mini");
+                  } else if (bothMini) {
+                    // Compact → Focus
+                    setLeftPanelMode("hidden");
+                    setRightPanelMode("hidden");
+                  } else {
+                    // Any mixed or hidden state → Reset to full
+                    setLeftPanelMode("full");
+                    setRightPanelMode("full");
+                    setLeftPanelWidth(leftPanelLastWidth);
+                    setRightPanelWidth(rightPanelLastWidth);
+                  }
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="1" y="1" width="12" height="12" rx="1.5" />
+                  <line x1="4" y1="1" x2="4" y2="13" />
+                  <line x1="10" y1="1" x2="10" y2="13" />
+                </svg>
+                Panels
+              </button>
+
+              {/* Watch popover + inline status pill */}
+              <WatchPopover />
+              <WatchStatusPill />
+
               {/* Spacer pushes Views to right */}
               <div className="flex-1" />
 
@@ -805,13 +970,8 @@ export function PropSphere() {
               )}
             </div>
 
-            {/* Watch status pill (floating below toolbar) */}
+            {/* Replay indicator (floating below toolbar) */}
             <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
-              <WatchStatusPill />
-            </div>
-
-            {/* Replay indicator (floating below watch pill) */}
-            <div className="absolute top-[4.5rem] left-1/2 -translate-x-1/2 z-20">
               <ReplayIndicator
                 displayTime={displayTime}
                 playSpeed={1}
@@ -834,7 +994,7 @@ export function PropSphere() {
 
             {/* Map View - relative container for floating panels */}
             <div
-              className="flex-1 min-h-0 relative"
+              className="flex-1 min-h-0 relative overflow-hidden"
               data-tour="globe-container"
             >
               {viewMode === "globe" && (
@@ -1065,7 +1225,7 @@ export function PropSphere() {
           </Card>
 
           {/* Right Resize Handle and Path Analysis - HIDDEN in lite mode */}
-          {!isLiteMode && (
+          {!isLiteMode && rightPanelMode === "full" && (
             <>
               {/* Right Resize Handle */}
               <div
@@ -1086,9 +1246,88 @@ export function PropSphere() {
                   displayTime={displayTime}
                   className="h-full overflow-y-auto"
                   onShare={() => setShowShareModal(true)}
+                  onMinimize={() => {
+                    setRightPanelLastWidth(rightPanelWidth);
+                    setRightPanelMode("mini");
+                  }}
+                  onClose={() => {
+                    setRightPanelLastWidth(rightPanelWidth);
+                    setRightPanelMode("hidden");
+                  }}
                 />
               </div>
             </>
+          )}
+          {/* Path Analysis Mini Strip (right) */}
+          {!isLiteMode && rightPanelMode === "mini" && (
+            <div className="hidden lg:flex">
+              <PanelMiniStrip
+                side="right"
+                onExpand={() => {
+                  setRightPanelWidth(rightPanelLastWidth);
+                  setRightPanelMode("full");
+                }}
+                onHide={() => setRightPanelMode("hidden")}
+              >
+                {miniPathMetrics ? (
+                  <>
+                    {/* Bearing arrow */}
+                    <div
+                      className="flex flex-col items-center gap-0.5"
+                      title={`${Math.round(miniPathMetrics.shortPath.bearing)}° ${formatBearing(miniPathMetrics.shortPath.bearing)}`}
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        className="text-white/60"
+                        style={{
+                          transform: `rotate(${miniPathMetrics.shortPath.bearing}deg)`,
+                        }}
+                      >
+                        <path
+                          d="M8 2L8 14M8 2L5 5M8 2L11 5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                      </svg>
+                      <span className="text-[8px] text-white/40 leading-none">
+                        {formatBearing(miniPathMetrics.shortPath.bearing)}
+                      </span>
+                    </div>
+                    {/* Distance */}
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                        {miniPathMetrics.shortPath.distance < 1000
+                          ? `${Math.round(miniPathMetrics.shortPath.distance)}`
+                          : `${(miniPathMetrics.shortPath.distance / 1000).toFixed(1)}k`}
+                      </span>
+                      <span className="text-[8px] text-white/40 leading-none">
+                        km
+                      </span>
+                    </div>
+                    {/* Difficulty dot */}
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        miniPathMetrics.difficulty <= 2
+                          ? "bg-signal-green"
+                          : miniPathMetrics.difficulty <= 3
+                            ? "bg-yellow-400"
+                            : "bg-red-500"
+                      }`}
+                      title={`Difficulty: ${miniPathMetrics.difficulty}/5`}
+                    />
+                  </>
+                ) : (
+                  <span className="text-[9px] text-white/30 [writing-mode:vertical-rl]">
+                    No target
+                  </span>
+                )}
+              </PanelMiniStrip>
+            </div>
           )}
         </div>
 

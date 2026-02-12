@@ -3312,20 +3312,20 @@ export function FlatMapView({
     lon: number;
   } | null>(null);
 
-  // Fetch live spots when spots layer is enabled
+  // Fetch live spots when spots or spot traces layer is enabled
   const { spots } = useLiveSpots({
     grid: station?.grid,
-    enabled: layers.spots,
+    enabled: layers.spots || layers.spotTraces,
     refetchInterval: 60000,
   });
 
   // Resolve spot locations and limit by display density setting
   const resolvedSpots = useMemo(() => {
-    if (!layers.spots) {
+    if (!layers.spots && !layers.spotTraces) {
       return [];
     }
     return resolveSpotLocations(spots).slice(0, displayDensity);
-  }, [spots, layers.spots, displayDensity]);
+  }, [spots, layers.spots, layers.spotTraces, displayDensity]);
 
   // Resolve the selected DX cluster spot into a ResolvedSpot for arc highlighting
   const resolvedSelectedSpot = useMemo((): ResolvedSpot | null => {
@@ -3360,47 +3360,59 @@ export function FlatMapView({
     };
   }, [selectedSpot]);
 
-  // Feed new spots into the grid glow renderer when spots arrive
+  // Feed new spots into the grid glow renderer when spots arrive.
+  // Uses resolvedSpots (not raw spots) so the glow grid matches where the dot lands.
   useEffect(() => {
-    if (!layers.spots) return;
+    if (!layers.spots && !layers.spotTraces) return;
     const now = Date.now();
     const currentIds = new Set<string>();
     const prevIds = prevGlowSpotIdsRef.current;
+    const isInitialLoad = prevIds.size === 0 && resolvedSpots.length > 0;
 
-    for (const spot of spots) {
+    let newCount = 0;
+    for (const spot of resolvedSpots) {
       currentIds.add(spot.id);
-      // Only fire a glow for spots we haven't seen before
       if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, spotColorMode);
 
-      // Fire glow for DX grid square (4 chars; center-pad 2-char fields with "44")
-      const dxGrid = spot.dxGrid;
-      if (dxGrid && dxGrid.length >= 2) {
+      // On initial page load, stagger glows over ~6 seconds so they ripple in
+      // instead of all popping at once. Subsequent refetch batches fire immediately.
+      const staggerOffset = isInitialLoad ? Math.random() * 6000 : 0;
+      const timestamp = now - staggerOffset;
+
+      try {
+        const dxGrid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
         glowRendererRef.current.addGlow({
-          gridSquare:
-            dxGrid.length >= 4 ? dxGrid.slice(0, 4) : dxGrid.slice(0, 2) + "44",
+          gridSquare: dxGrid4,
           color,
-          timestamp: now,
+          timestamp,
         } satisfies GridGlowSpot);
+      } catch {
+        // Skip glow if coordinates are out of range
       }
 
-      // Fire glow for spotter grid square (4 chars; center-pad 2-char fields with "44")
-      const sGrid = spot.spotterGrid;
-      if (sGrid && sGrid.length >= 2) {
+      try {
+        const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
         glowRendererRef.current.addGlow({
-          gridSquare:
-            sGrid.length >= 4 ? sGrid.slice(0, 4) : sGrid.slice(0, 2) + "44",
+          gridSquare: spGrid4,
           color,
-          timestamp: now,
+          timestamp,
         } satisfies GridGlowSpot);
+      } catch {
+        // Skip glow if coordinates are out of range
       }
+      newCount++;
     }
 
     prevGlowSpotIdsRef.current = currentIds;
 
     // Start the glow animation loop if there are active glows
-    if (glowRendererRef.current.hasActiveGlows() && !glowRafRef.current) {
+    if (
+      newCount > 0 &&
+      glowRendererRef.current.hasActiveGlows() &&
+      !glowRafRef.current
+    ) {
       const tick = () => {
         if (glowRendererRef.current.hasActiveGlows()) {
           setGlowTick((t) => t + 1);
@@ -3411,7 +3423,7 @@ export function FlatMapView({
       };
       glowRafRef.current = requestAnimationFrame(tick);
     }
-  }, [spots, layers.spots, spotColorMode]);
+  }, [resolvedSpots, layers.spots, layers.spotTraces, spotColorMode]);
 
   // Clean up glow RAF on unmount
   useEffect(() => {
@@ -3914,11 +3926,10 @@ export function FlatMapView({
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // Scale mouse position to canvas coordinates
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const canvasMouseX = mouseX * scaleX;
-      const canvasMouseY = mouseY * scaleY;
+      // Zoom offsets are in CSS/display coordinate space (applied after
+      // ctx.scale(dpr)), so use CSS mouse coordinates directly — no DPR scaling.
+      const canvasMouseX = mouseX;
+      const canvasMouseY = mouseY;
 
       // Zoom factor
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -4660,7 +4671,10 @@ export function FlatMapView({
     }
 
     // Draw grid glow pulses (after base map / terminator / labels, before spot arcs)
-    if (layers.spots && glowRendererRef.current.hasActiveGlows()) {
+    if (
+      (layers.spots || layers.spotTraces) &&
+      glowRendererRef.current.hasActiveGlows()
+    ) {
       const glowProject = (lat: number, lon: number) =>
         latLonToCanvas(lat, lon, renderWidth, renderHeight);
       glowRendererRef.current.draw(ctx, glowProject, Date.now());

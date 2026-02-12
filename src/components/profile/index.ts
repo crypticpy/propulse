@@ -25,3 +25,7 @@ export { FriendList } from "./FriendList";
 export { ActivityFeed } from "./ActivityFeed";
 export { VisibilitySettings } from "./VisibilitySettings";
 export { ProfileSkeleton, ProfileTabSkeleton } from "./ProfileSkeleton";
+export { HeroStatsBlock } from "./HeroStatsBlock";
+export { PersonalRecords } from "./PersonalRecords";
+export { ArchetypeRadar } from "./ArchetypeRadar";
+export { MyShackTab } from "./MyShackTab";

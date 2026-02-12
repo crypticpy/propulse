@@ -20,7 +20,7 @@ import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useSocialStore } from "@/stores/socialStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { AuthRequiredPlaceholder } from "@/components/auth";
-import { LocationManager } from "@/components/settings/LocationManager";
+// LocationManager moved to Settings — locations managed via /settings route
 import {
   BioSection,
   SocialLinksSection,
@@ -32,6 +32,10 @@ import {
   ProfileTabBar,
   ProfileCardDesktop,
   ProfileCardMobile,
+  HeroStatsBlock,
+  PersonalRecords,
+  ArchetypeRadar,
+  MyShackTab,
 } from "@/components/profile";
 import { EquipmentSummary } from "@/components/profile/EquipmentSummary";
 import { QSLSummary } from "@/components/profile/QSLSummary";
@@ -554,8 +558,17 @@ export default function ProfilePage() {
     <>
       {activeTab === "overview" && (
         <div className={isMobile ? "space-y-4" : "space-y-8"}>
+          {/* Hero Stats — the baseball card front */}
+          <HeroStatsBlock />
+
+          {/* Operating Archetypes — the D&D character sheet */}
+          <ArchetypeRadar />
+
+          {/* Personal Records — scrollable bests */}
+          <PersonalRecords />
+
           {/* Station Identity — only show form on mobile where sidebar doesn't exist */}
-          {isMobile ? (
+          {isMobile && (
             <div className={panelClass} style={panelStyle}>
               <h3
                 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4"
@@ -565,51 +578,16 @@ export default function ProfilePage() {
               </h3>
               <StationIdentityForm {...formProps} idPrefix="mobile" />
             </div>
-          ) : (
-            <div className={panelClass} style={panelStyle}>
-              <div className="flex items-center justify-between mb-3">
-                <h3
-                  className="text-sm font-semibold text-gray-400 uppercase tracking-wider"
-                  style={{ color: "var(--rank-text-accent, #9ca3af)" }}
-                >
-                  Station Identity
-                </h3>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-xs text-plasma-orange hover:text-plasma-orange/80 transition-colors"
-                >
-                  Edit in sidebar
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500 text-xs block">Callsign</span>
-                  <span className="text-gray-200 font-mono">
-                    {displayCallsign}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-500 text-xs block">Name</span>
-                  <span className="text-gray-200">
-                    {displayName || "\u2014"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-500 text-xs block">Grid</span>
-                  <span className="text-gray-200 font-mono">{displayGrid}</span>
-                </div>
-              </div>
-            </div>
           )}
-
-          {/* License Card */}
-          <div className={panelClass} style={panelStyle}>
-            <LicenseCard />
-          </div>
 
           {/* Bio */}
           <div className={panelClass} style={panelStyle}>
             <BioSection />
+          </div>
+
+          {/* License Card */}
+          <div className={panelClass} style={panelStyle}>
+            <LicenseCard />
           </div>
 
           {/* Social Links */}
@@ -617,7 +595,7 @@ export default function ProfilePage() {
             <SocialLinksSection />
           </div>
 
-          {/* Equipment Summary */}
+          {/* Equipment Summary (quick preview — full view in My Shack tab) */}
           <div className={panelClass} style={panelStyle}>
             <EquipmentSummary />
             <div className="mt-3 text-right">
@@ -637,9 +615,9 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {activeTab === "locations" && (
+      {activeTab === "shack" && (
         <div className={panelClass} style={panelStyle}>
-          <LocationManager />
+          <MyShackTab />
         </div>
       )}
 

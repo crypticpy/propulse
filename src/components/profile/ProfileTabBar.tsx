@@ -7,12 +7,7 @@
 
 import { useRef } from "react";
 
-export type ProfileTab =
-  | "overview"
-  | "locations"
-  | "awards"
-  | "stats"
-  | "social";
+export type ProfileTab = "overview" | "shack" | "awards" | "stats" | "social";
 
 interface TabDef {
   id: ProfileTab;
@@ -21,9 +16,9 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: "overview", label: "Overview" },
-  { id: "locations", label: "Locations" },
+  { id: "shack", label: "My Shack" },
+  { id: "stats", label: "Stats & Records" },
   { id: "awards", label: "Awards" },
-  { id: "stats", label: "Stats" },
   { id: "social", label: "Social" },
 ];
 

@@ -10,6 +10,7 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { useRankAssets } from "@/hooks/useRankAssets";
+import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { RankBadge } from "@/components/rank/RankBadge";
 import {
   getProfileFrameStyle,
@@ -56,6 +57,11 @@ export function ProfileCardDesktop({
   const assets = useRankAssets(rank);
   const frameStyle = getProfileFrameStyle(rank);
   const glowStyle = getProfileGlowStyle(rank);
+
+  const { totalQSOs, uniqueCountries } = useLogbookStats();
+
+  // Interest tags -- hardcoded placeholders (will become dynamic from a tag store later)
+  const interestTags = ["HF", "FT8", "DXing"];
 
   return (
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
@@ -115,11 +121,37 @@ export function ProfileCardDesktop({
               </div>
             </LivingSymbols>
           )}
-          <h2 className="font-mono text-2xl font-bold text-plasma-orange">
-            {displayCallsign}
-          </h2>
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-gray-600" title="Offline" />
+            <span className="font-mono text-2xl font-bold text-plasma-orange">
+              {displayCallsign}
+            </span>
+          </div>
           <div className="mt-1">
             <RankBadge rank={rank} size="sm" />
+          </div>
+          {/* Quick Stats Row */}
+          <div className="flex items-center justify-center gap-4 mt-2 text-center">
+            <div>
+              <div className="font-mono text-sm font-bold text-white">
+                {totalQSOs.toLocaleString()}
+              </div>
+              <div className="text-[9px] text-gray-500 uppercase">QSOs</div>
+            </div>
+            <div className="w-px h-6 bg-white/10" />
+            <div>
+              <div className="font-mono text-sm font-bold text-white">
+                {uniqueCountries}
+              </div>
+              <div className="text-[9px] text-gray-500 uppercase">DXCC</div>
+            </div>
+            <div className="w-px h-6 bg-white/10" />
+            <div>
+              <div className="font-mono text-sm font-bold text-white">
+                {displayGrid || "\u2014"}
+              </div>
+              <div className="text-[9px] text-gray-500 uppercase">Grid</div>
+            </div>
           </div>
           {displayName && (
             <p className="text-sm text-gray-400 mt-1">{displayName}</p>
@@ -141,6 +173,20 @@ export function ProfileCardDesktop({
             </div>
           )}
         </div>
+
+        {/* Interest Tag Pills */}
+        {interestTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {interestTags.map((tag) => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-white/[0.06] border border-white/10 text-gray-400"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Completeness ring */}
         <div className="flex justify-center py-4 border-t border-white/5">

@@ -1,13 +1,15 @@
 /**
  * MobileMap Component
  *
- * Standalone mobile map view that renders FlatMapView (2D canvas)
- * instead of GlobeView to avoid loading the 887 KB Three.js vendor chunk.
+ * Mobile map view with globe (default) and flat view toggle.
+ * GlobeView is lazy-loaded so the ~887 KB Three.js vendor chunk
+ * only downloads when the globe is rendered (cached thereafter).
  * Lazy-loaded at the route level for proper code splitting.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { FlatMapView } from "@/components/map/FlatMapView";
+import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -17,6 +19,10 @@ import {
   calculateGreatCircleDistance,
 } from "@/lib/utils/bands";
 import type { BandStatus } from "@/types/solar";
+
+const GlobeView = lazy(() =>
+  import("@/components/map/GlobeView").then((m) => ({ default: m.GlobeView })),
+);
 
 type MobileMapTab = "bands" | "spots" | "path";
 
@@ -36,14 +42,53 @@ function getConditionColor(condition: string): string {
   }
 }
 
+function GlobeLoadingFallback() {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-void-black h-full">
+      <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+    </div>
+  );
+}
+
 export function MobileMap() {
   const [activeTab, setActiveTab] = useState<MobileMapTab>("bands");
   const [showPanel, setShowPanel] = useState(false);
 
   // Map store
+  const viewMode = useMapStore((s) => s.viewMode);
+  const setViewMode = useMapStore((s) => s.setViewMode);
   const target = useMapStore((s) => s.target);
   const timeOffset = useMapStore((s) => s.timeOffset);
   const absoluteTime = useMapStore((s) => s.absoluteTime);
+
+  // Landscape hint state
+  const [hintDismissed, setHintDismissed] = useState(
+    () => localStorage.getItem("propulse:landscape-hint-dismissed") === "1",
+  );
+  const [isPortrait, setIsPortrait] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(orientation: portrait)").matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const handler = (e: MediaQueryListEvent) => setIsPortrait(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  useEffect(() => {
+    if (hintDismissed || !isPortrait) return;
+    const id = setTimeout(() => setHintDismissed(true), 8000);
+    return () => clearTimeout(id);
+  }, [hintDismissed, isPortrait]);
+
+  const isTouch =
+    typeof window !== "undefined" &&
+    window.matchMedia("(pointer: coarse)").matches;
+  const showLandscapeHint =
+    isTouch && isPortrait && !hintDismissed && viewMode === "globe";
 
   // User store
   const station = useUserStore((s) => s.station);
@@ -116,7 +161,84 @@ export function MobileMap() {
     <div className="flex flex-col h-full relative">
       {/* Map fills available space */}
       <div className="flex-1 relative min-h-0">
-        <FlatMapView displayTime={displayTime} />
+        {viewMode === "globe" ? (
+          <Suspense fallback={<GlobeLoadingFallback />}>
+            <GlobeView displayTime={displayTime} />
+          </Suspense>
+        ) : (
+          <FlatMapView displayTime={displayTime} fillContainer />
+        )}
+
+        {/* View toggle (globe / flat) */}
+        <div className="absolute top-3 left-3 z-10 flex gap-1">
+          {(["globe", "flat"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setViewMode(mode)}
+              className={`px-2 py-1 rounded text-xs font-medium backdrop-blur-md transition-all capitalize ${
+                viewMode === mode
+                  ? "bg-plasma-orange text-white"
+                  : "bg-black/40 text-gray-300 hover:text-white"
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
+        {/* Landscape orientation hint */}
+        {showLandscapeHint && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-in fade-in duration-300">
+            <svg
+              className="w-4 h-4 text-cyan-400 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+                transform="rotate(-45 12 12)"
+              />
+            </svg>
+            <span className="text-[11px] text-gray-300 whitespace-nowrap">
+              Rotate for a wider view
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setHintDismissed(true);
+                localStorage.setItem("propulse:landscape-hint-dismissed", "1");
+              }}
+              className="text-gray-500 hover:text-white ml-1"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Tilt slider for globe view */}
+        {viewMode === "globe" && (
+          <ObservatoryTiltSlider
+            visible
+            className="absolute bottom-2 right-2"
+          />
+        )}
       </div>
 
       {/* Toggle panel handle */}

@@ -53,10 +53,12 @@ function PresetsDropdown({
   activePreset,
   applyPreset,
   onOpenPresetManager,
+  isNarrow,
 }: {
   activePreset: PresetName | null;
   applyPreset: (p: PresetName) => void;
   onOpenPresetManager: () => void;
+  isNarrow?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -134,7 +136,7 @@ function PresetsDropdown({
               <rect x="3" y="14" width="7" height="7" />
               <rect x="14" y="14" width="7" height="7" />
             </svg>
-            Presets
+            {isNarrow ? "More" : "Presets"}
           </>
         )}
         <svg
@@ -160,7 +162,18 @@ function PresetsDropdown({
             className="fixed z-[250] animate-in fade-in slide-in-from-top-1 duration-150"
             style={{ top: rect.bottom + 6, left: rect.left }}
           >
-            <div className="bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl p-2 min-w-[180px] shadow-xl">
+            <div
+              className={`bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl p-2 ${isNarrow ? "min-w-[220px]" : "min-w-[180px]"} shadow-xl`}
+            >
+              {/* Time control (shown here when narrow) */}
+              {isNarrow && (
+                <>
+                  <div className="px-1 py-1">
+                    <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden [&>*:last-child]:hidden" />
+                  </div>
+                  <div className="h-px bg-white/10 my-1.5" />
+                </>
+              )}
               {/* Layer presets */}
               <div className="flex flex-col gap-0.5">
                 {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => {
@@ -241,12 +254,15 @@ export function ProToolbarRibbon({
   /* ── Responsive: compact mode via ResizeObserver ──────────── */
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
 
   useEffect(() => {
     const el = toolbarRef.current;
     if (!el) return;
     const observer = new ResizeObserver(([entry]) => {
-      setIsCompact(entry.contentRect.width < 1100);
+      const w = entry.contentRect.width;
+      setIsCompact(w < 1100);
+      setIsNarrow(w < 1000);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -399,12 +415,15 @@ export function ProToolbarRibbon({
 
         <Divider />
 
-        {/* ── 4. Time control ─────────────────────────────────── */}
-        <div className={`${isCompact ? "w-32" : "w-40"} flex-shrink-0`}>
-          <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden [&>*:last-child]:hidden" />
-        </div>
-
-        <Divider />
+        {/* ── 4. Time control (moves to dropdown when narrow) ── */}
+        {!isNarrow && (
+          <>
+            <div className={`${isCompact ? "w-32" : "w-40"} flex-shrink-0`}>
+              <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden [&>*:last-child]:hidden" />
+            </div>
+            <Divider />
+          </>
+        )}
 
         {/* ── 5. Layers + Watch popovers ──────────────────────── */}
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -422,6 +441,7 @@ export function ProToolbarRibbon({
               activePreset={activePreset}
               applyPreset={applyPreset}
               onOpenPresetManager={onOpenPresetManager}
+              isNarrow={isNarrow}
             />
           </div>
         ) : (

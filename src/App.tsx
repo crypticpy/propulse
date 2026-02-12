@@ -16,6 +16,7 @@ import { WelcomeOverlay } from "@/components/onboarding";
 import type { RankTier } from "@/types/rank";
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
+import { NetAlertToasts } from "@/components/nets/NetAlertToasts";
 import { clearExpiredCache } from "@/lib/utils/idbCache";
 
 // Prune stale IDB cache entries on app startup (fire-and-forget)
@@ -77,6 +78,25 @@ const SetupGuidePage = lazy(() =>
 const FeaturesPage = lazy(() => import("@/pages/FeaturesPage"));
 const HelpPage = lazy(() => import("@/pages/HelpPage"));
 const HelpArticlePage = lazy(() => import("@/pages/HelpArticlePage"));
+const NetsPage = lazy(() =>
+  import("@/pages/NetsPage").then((m) => ({ default: m.NetsPage })),
+);
+const NetDetailPage = lazy(() =>
+  import("@/pages/NetDetailPage").then((m) => ({ default: m.NetDetailPage })),
+);
+const NetCreatePage = lazy(() =>
+  import("@/pages/NetCreatePage").then((m) => ({ default: m.NetCreatePage })),
+);
+const NCSLiveDashboard = lazy(() =>
+  import("@/pages/NCSLiveDashboard").then((m) => ({
+    default: m.NCSLiveDashboard,
+  })),
+);
+const NetAnalyticsPage = lazy(() =>
+  import("@/pages/NetAnalyticsPage").then((m) => ({
+    default: m.NetAnalyticsPage,
+  })),
+);
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -210,9 +230,15 @@ function App() {
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/help/:sectionId" element={<HelpArticlePage />} />
+          <Route path="/nets" element={<NetsPage />} />
+          <Route path="/nets/create" element={<NetCreatePage />} />
+          <Route path="/nets/:netId" element={<NetDetailPage />} />
+          <Route path="/nets/:netId/live" element={<NCSLiveDashboard />} />
+          <Route path="/nets/:netId/analytics" element={<NetAnalyticsPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+      <NetAlertToasts />
     </ErrorBoundary>
   );
 }

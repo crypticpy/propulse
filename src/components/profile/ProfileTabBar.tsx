@@ -14,9 +14,17 @@ interface TabDef {
   label: string;
 }
 
-const TABS: TabDef[] = [
+const OWNER_TABS: TabDef[] = [
   { id: "overview", label: "Overview" },
   { id: "shack", label: "My Shack" },
+  { id: "stats", label: "Stats & Records" },
+  { id: "awards", label: "Awards" },
+  { id: "social", label: "Social" },
+];
+
+const VISITOR_TABS: TabDef[] = [
+  { id: "overview", label: "Overview" },
+  { id: "shack", label: "Station" },
   { id: "stats", label: "Stats & Records" },
   { id: "awards", label: "Awards" },
   { id: "social", label: "Social" },
@@ -27,6 +35,7 @@ interface ProfileTabBarProps {
   onTabChange: (tab: ProfileTab) => void;
   isMobile: boolean;
   rankColor?: string;
+  isVisitor?: boolean;
 }
 
 export function ProfileTabBar({
@@ -34,7 +43,9 @@ export function ProfileTabBar({
   onTabChange,
   isMobile,
   rankColor,
+  isVisitor,
 }: ProfileTabBarProps) {
+  const TABS = isVisitor ? VISITOR_TABS : OWNER_TABS;
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {

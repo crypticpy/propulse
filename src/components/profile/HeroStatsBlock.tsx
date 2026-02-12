@@ -290,6 +290,14 @@ export function HeroStatsBlock({ className }: HeroStatsBlockProps) {
     [stats.qsosByBand],
   );
 
+  // Primary mode (first entry of qsosByMode, already sorted desc)
+  const topMode = useMemo(() => {
+    const entries = Object.entries(stats.qsosByMode);
+    if (entries.length === 0) return null;
+    const [mode, count] = entries[0];
+    return { mode, count };
+  }, [stats.qsosByMode]);
+
   // Loading state
   if (stats.isLoading) {
     return (
@@ -309,56 +317,77 @@ export function HeroStatsBlock({ className }: HeroStatsBlockProps) {
     : "\u2014";
 
   return (
-    <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 ${className ?? ""}`}>
-      <HeroCard
-        value={stats.totalQSOs.toLocaleString()}
-        label="Total QSOs"
-        icon={<IconRadio />}
-      />
+    <div>
+      <div
+        className={`grid grid-cols-2 md:grid-cols-3 gap-3 ${className ?? ""}`}
+      >
+        <HeroCard
+          value={stats.totalQSOs.toLocaleString()}
+          label="Total QSOs"
+          icon={<IconRadio />}
+        />
 
-      <HeroCard
-        value={`${stats.uniqueCountries} / ${TOTAL_DXCC_COUNTRIES}`}
-        label="Countries Worked"
-        icon={<IconGlobe />}
-        progress={stats.uniqueCountries / TOTAL_DXCC_COUNTRIES}
-      />
+        <HeroCard
+          value={`${stats.uniqueCountries} / ${TOTAL_DXCC_COUNTRIES}`}
+          label="Countries Worked"
+          icon={<IconGlobe />}
+          progress={stats.uniqueCountries / TOTAL_DXCC_COUNTRIES}
+        />
 
-      <HeroCard
-        value={
-          uniqueGrids > 0
-            ? uniqueGrids.toLocaleString()
-            : stats.uniqueCallsigns.toLocaleString()
-        }
-        label={uniqueGrids > 0 ? "Grids Activated" : "Unique Callsigns"}
-        icon={<IconGrid />}
-      />
+        <HeroCard
+          value={
+            uniqueGrids > 0
+              ? uniqueGrids.toLocaleString()
+              : stats.uniqueCallsigns.toLocaleString()
+          }
+          label={uniqueGrids > 0 ? "Grids Activated" : "Unique Callsigns"}
+          icon={<IconGrid />}
+        />
 
-      <HeroCard
-        value={furthestDisplay}
-        label="Furthest Contact"
-        icon={<IconSignal />}
-      />
+        <HeroCard
+          value={furthestDisplay}
+          label="Furthest Contact"
+          icon={<IconSignal />}
+        />
 
-      <HeroCard
-        value={
-          advancedStats.longestStreak > 0
-            ? `${advancedStats.longestStreak} days`
-            : "\u2014"
-        }
-        label="Longest Streak"
-        icon={<IconCalendar />}
-      />
+        <HeroCard
+          value={
+            advancedStats.longestStreak > 0
+              ? `${advancedStats.longestStreak} days`
+              : "\u2014"
+          }
+          label="Longest Streak"
+          icon={<IconCalendar />}
+        />
 
-      <HeroCard
-        value={topBand.band}
-        label="Favorite Band"
-        subtitle={
-          topBand.count > 0
-            ? `${topBand.count.toLocaleString()} QSOs`
-            : undefined
-        }
-        icon={<IconAntenna />}
-      />
+        <HeroCard
+          value={topBand.band}
+          label="Favorite Band"
+          subtitle={
+            topBand.count > 0
+              ? `${topBand.count.toLocaleString()} QSOs`
+              : undefined
+          }
+          icon={<IconAntenna />}
+        />
+      </div>
+
+      {topMode && (
+        <div className="mt-3 text-center">
+          <span className="text-[11px] text-gray-500 uppercase tracking-wider">
+            Primary Mode
+          </span>
+          <span
+            className="ml-2 text-sm font-mono font-medium"
+            style={{ color: "var(--rank-accent, #e5e7eb)" }}
+          >
+            {topMode.mode}
+          </span>
+          <span className="ml-1 text-xs text-gray-500">
+            ({topMode.count.toLocaleString()} QSOs)
+          </span>
+        </div>
+      )}
     </div>
   );
 }

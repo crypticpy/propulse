@@ -16,6 +16,12 @@ import type {
 } from "@/types/user";
 import type { VisibilitySettings } from "@/types/social";
 import { DEFAULT_VISIBILITY } from "@/types/social";
+import type {
+  InterestTag,
+  OnAirStatus,
+  SkedAvailability,
+  FavoriteFrequency,
+} from "@/types/social";
 import type { OperatorRank, RankPreferences, RankTier } from "@/types/rank";
 import { DEFAULT_OPERATOR_RANK } from "@/types/rank";
 
@@ -77,6 +83,15 @@ interface ProfileStore {
   socialLinks: SocialLink[];
   visibilitySettings: VisibilitySettings;
 
+  /** Interest tags selected by the operator */
+  interests: InterestTag[];
+  /** On Air / Listening / Offline status */
+  onAirStatus: OnAirStatus;
+  /** Schedule availability for QSOs */
+  skedAvailability: SkedAvailability;
+  /** Favorite monitoring frequencies */
+  favoriteFreqs: FavoriteFrequency[];
+
   setStation: (station: UserStation | null) => void;
   setBio: (bio: string) => void;
   setProfileImageUrl: (url: string) => void;
@@ -116,6 +131,14 @@ interface ProfileStore {
 
   // Visibility
   setVisibilitySettings: (updates: Partial<VisibilitySettings>) => void;
+
+  // Social / Profile V2
+  setInterests: (tags: InterestTag[]) => void;
+  setOnAirStatus: (status: OnAirStatus) => void;
+  setSkedAvailability: (avail: SkedAvailability) => void;
+  setFavoriteFreqs: (freqs: FavoriteFrequency[]) => void;
+  addFavoriteFreq: (freq: Omit<FavoriteFrequency, "id">) => void;
+  removeFavoriteFreq: (id: string) => void;
 
   // License history
   addLicenseHistoryEntry: (entry: LicenseHistoryEntry) => void;
@@ -167,6 +190,10 @@ export const useProfileStore = create<ProfileStore>()(
       lastIngestedCallsign: "",
       socialLinks: [],
       visibilitySettings: { ...DEFAULT_VISIBILITY },
+      interests: [],
+      onAirStatus: { status: "offline" as const },
+      skedAvailability: "offline" as SkedAvailability,
+      favoriteFreqs: [],
       subscriptionTier: "free" as const,
       subscriptionStatus: "inactive" as const,
       subscriptionPeriodEnd: null,
@@ -463,6 +490,24 @@ export const useProfileStore = create<ProfileStore>()(
           visibilitySettings: { ...state.visibilitySettings, ...updates },
         })),
 
+      // === Social / Profile V2 ===
+
+      setInterests: (tags) => set({ interests: tags }),
+      setOnAirStatus: (status) => set({ onAirStatus: status }),
+      setSkedAvailability: (avail) => set({ skedAvailability: avail }),
+      setFavoriteFreqs: (freqs) => set({ favoriteFreqs: freqs }),
+      addFavoriteFreq: (freq) =>
+        set((state) => ({
+          favoriteFreqs: [
+            ...state.favoriteFreqs,
+            { ...freq, id: crypto.randomUUID() },
+          ],
+        })),
+      removeFavoriteFreq: (id) =>
+        set((state) => ({
+          favoriteFreqs: state.favoriteFreqs.filter((f) => f.id !== id),
+        })),
+
       // === License History ===
 
       addLicenseHistoryEntry: (entry) =>
@@ -530,7 +575,7 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: "propulse-profile",
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -544,6 +589,10 @@ export const useProfileStore = create<ProfileStore>()(
         socialLinks: state.socialLinks,
         // NOTE: serviceCredentials intentionally excluded — use credentialStore (encrypted IDB) instead
         visibilitySettings: state.visibilitySettings,
+        interests: state.interests,
+        onAirStatus: state.onAirStatus,
+        skedAvailability: state.skedAvailability,
+        favoriteFreqs: state.favoriteFreqs,
         operatorRank: state.operatorRank,
         lastLoginDate: state.lastLoginDate,
         loginStreakDays: state.loginStreakDays,
@@ -600,6 +649,12 @@ export const useProfileStore = create<ProfileStore>()(
             state.subscriptionStatus = "inactive";
           if (!("subscriptionPeriodEnd" in state))
             state.subscriptionPeriodEnd = null;
+        }
+        if (version < 10) {
+          state.interests = state.interests ?? [];
+          state.onAirStatus = state.onAirStatus ?? { status: "offline" };
+          state.skedAvailability = state.skedAvailability ?? "offline";
+          state.favoriteFreqs = state.favoriteFreqs ?? [];
         }
         return state as unknown as ProfileStore;
       },

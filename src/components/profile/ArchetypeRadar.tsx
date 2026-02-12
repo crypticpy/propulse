@@ -11,37 +11,11 @@
 import { useMemo } from "react";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
 import { useLogbook } from "@/hooks/useLogbook";
-
-// ─── Archetype Definitions ───────────────────────────────────────────────────
-
-interface Archetype {
-  key: string;
-  label: string;
-  /** Short label for tight SVG placement */
-  shortLabel: string;
-  icon: string;
-}
-
-const ARCHETYPES: Archetype[] = [
-  { key: "dxer", label: "DXer", shortLabel: "DXer", icon: "🌍" },
-  { key: "contester", label: "Contester", shortLabel: "Contest", icon: "⚡" },
-  {
-    key: "digital",
-    label: "Digital Wizard",
-    shortLabel: "Digital",
-    icon: "💻",
-  },
-  { key: "cw", label: "CW Traditionalist", shortLabel: "CW", icon: "🔑" },
-  {
-    key: "bandExplorer",
-    label: "Band Explorer",
-    shortLabel: "Bands",
-    icon: "🌈",
-  },
-  { key: "ragchewer", label: "Ragchewer", shortLabel: "Ragchew", icon: "🎙️" },
-  { key: "nightOwl", label: "Night Owl", shortLabel: "Night", icon: "🌙" },
-  { key: "qrp", label: "QRP Warrior", shortLabel: "QRP", icon: "🔋" },
-];
+import {
+  ARCHETYPES,
+  computeArchetypeScores,
+  getTopArchetypes,
+} from "@/lib/profile/archetypeScoring";
 
 const NUM_AXES = ARCHETYPES.length;
 
@@ -53,123 +27,6 @@ const CY = VIEW_SIZE / 2;
 const RADIUS = 110;
 const GRID_LEVELS = [0.25, 0.5, 0.75, 1.0];
 const LABEL_OFFSET = 22;
-
-// ─── Digital Mode Keys ───────────────────────────────────────────────────────
-
-const DIGITAL_MODES = new Set([
-  "FT8",
-  "FT4",
-  "RTTY",
-  "PSK31",
-  "PSK63",
-  "JT65",
-  "JT9",
-  "JS8",
-  "OLIVIA",
-  "MFSK",
-  "CONTESTIA",
-  "THOR",
-  "DOMINO",
-  "ROS",
-  "WSPR",
-  "MSK144",
-  "Q65",
-  "FST4",
-  "FST4W",
-]);
-
-// ─── Scoring Logic ───────────────────────────────────────────────────────────
-
-interface ArchetypeScores {
-  dxer: number;
-  contester: number;
-  digital: number;
-  cw: number;
-  bandExplorer: number;
-  ragchewer: number;
-  nightOwl: number;
-  qrp: number;
-}
-
-function computeScores(
-  totalQSOs: number,
-  uniqueCountries: number,
-  qsosByMode: Record<string, number>,
-  qsosByBand: Record<string, number>,
-  qsosByDate: Record<string, number>,
-  hourlyDistribution: number[],
-): ArchetypeScores {
-  if (totalQSOs === 0) {
-    return {
-      dxer: 0,
-      contester: 0,
-      digital: 0,
-      cw: 0,
-      bandExplorer: 0,
-      ragchewer: 0,
-      nightOwl: 0,
-      qrp: 0,
-    };
-  }
-
-  // DXer: uniqueCountries / 100 threshold, capped at 100
-  const dxer = Math.min(100, Math.round((uniqueCountries / 100) * 100));
-
-  // Contester: max QSOs in a single day / 100 threshold
-  const maxDayCount = Math.max(0, ...Object.values(qsosByDate));
-  const contester = Math.min(100, Math.round((maxDayCount / 100) * 100));
-
-  // Digital Wizard: digital mode QSOs / total * 100
-  let digitalCount = 0;
-  for (const [mode, count] of Object.entries(qsosByMode)) {
-    if (DIGITAL_MODES.has(mode.toUpperCase())) {
-      digitalCount += count;
-    }
-  }
-  const digital = Math.min(100, Math.round((digitalCount / totalQSOs) * 100));
-
-  // CW Traditionalist: CW QSOs / total * 100
-  const cwCount = qsosByMode["CW"] || 0;
-  const cw = Math.min(100, Math.round((cwCount / totalQSOs) * 100));
-
-  // Band Explorer: unique bands / 12 * 100
-  const uniqueBands = Object.keys(qsosByBand).length;
-  const bandExplorer = Math.min(100, Math.round((uniqueBands / 12) * 100));
-
-  // Ragchewer: SSB QSOs / total * 100 (proxy for voice)
-  const ssbCount =
-    (qsosByMode["SSB"] || 0) +
-    (qsosByMode["LSB"] || 0) +
-    (qsosByMode["USB"] || 0) +
-    (qsosByMode["AM"] || 0) +
-    (qsosByMode["FM"] || 0);
-  const ragchewer = Math.min(100, Math.round((ssbCount / totalQSOs) * 100));
-
-  // Night Owl: QSOs between 00-06 UTC / total * 300 (amplified), requires hourly data
-  let nightOwl = 0;
-  const totalHourly = hourlyDistribution.reduce((s, v) => s + v, 0);
-  if (totalHourly > 0) {
-    let nightCount = 0;
-    for (let h = 0; h <= 6; h++) {
-      nightCount += hourlyDistribution[h];
-    }
-    nightOwl = Math.min(100, Math.round((nightCount / totalHourly) * 300));
-  }
-
-  // QRP Warrior: placeholder (no power data yet)
-  const qrp = 0;
-
-  return {
-    dxer,
-    contester,
-    digital,
-    cw,
-    bandExplorer,
-    ragchewer,
-    nightOwl,
-    qrp,
-  };
-}
 
 // ─── Coordinate Helpers ──────────────────────────────────────────────────────
 
@@ -227,57 +84,22 @@ export function ArchetypeRadar({ className }: ArchetypeRadarProps) {
   const stats = useLogbookStats();
   const { entries } = useLogbook();
 
-  // Compute hourly distribution from raw entries (for Night Owl score)
-  const hourlyDistribution = useMemo(() => {
-    const hourly = new Array<number>(24).fill(0);
-    for (const entry of entries) {
-      if (entry.timeOn) {
-        const h = parseInt(entry.timeOn.split(":")[0], 10);
-        if (Number.isFinite(h) && h >= 0 && h <= 23) {
-          hourly[h]++;
-        }
-      }
-    }
-    return hourly;
-  }, [entries]);
-
-  // Compute archetype scores
-  const scores = useMemo(
-    () =>
-      computeScores(
-        stats.totalQSOs,
-        stats.uniqueCountries,
-        stats.qsosByMode,
-        stats.qsosByBand,
-        stats.qsosByDate,
-        hourlyDistribution,
-      ),
-    [
-      stats.totalQSOs,
-      stats.uniqueCountries,
-      stats.qsosByMode,
-      stats.qsosByBand,
-      stats.qsosByDate,
-      hourlyDistribution,
-    ],
+  // Compute archetype scores via shared module
+  const archetypeScores = useMemo(
+    () => computeArchetypeScores(stats, entries),
+    [stats, entries],
   );
 
   const scoreArray = useMemo(
-    () => ARCHETYPES.map((a) => scores[a.key as keyof ArchetypeScores]),
-    [scores],
+    () => archetypeScores.map((a) => a.score),
+    [archetypeScores],
   );
 
   // Top 3 archetypes sorted by score descending
-  const topArchetypes = useMemo(() => {
-    const indexed = ARCHETYPES.map((a, i) => ({
-      ...a,
-      score: scoreArray[i],
-    }));
-    return indexed
-      .slice()
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
-  }, [scoreArray]);
+  const topArchetypes = useMemo(
+    () => getTopArchetypes(archetypeScores, 3),
+    [archetypeScores],
+  );
 
   const isEmpty = stats.totalQSOs === 0;
 

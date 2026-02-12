@@ -16,6 +16,13 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useProfileCompleteness } from "@/hooks/useProfileCompleteness";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { PublicProfile } from "@/types/social";
+import type {
+  InterestTag,
+  OnAirStatus,
+  SkedAvailability,
+  FavoriteFrequency,
+} from "@/types/social";
+import type { RankTier } from "@/types/rank";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useSocialStore } from "@/stores/socialStore";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -43,6 +50,12 @@ import { FriendList } from "@/components/profile/FriendList";
 import { ActivityFeed } from "@/components/profile/ActivityFeed";
 import { VisibilitySettings } from "@/components/profile/VisibilitySettings";
 import { ShareCard } from "@/components/profile/ShareCard";
+import { VisitorProfileCard } from "@/components/profile/VisitorProfileCard";
+import { ContactThisStation } from "@/components/profile/ContactThisStation";
+import { InterestTagDisplay } from "@/components/profile/InterestTagDisplay";
+import { InterestTagPicker } from "@/components/profile/InterestTagPicker";
+import { WhereToFindMe } from "@/components/profile/WhereToFindMe";
+import { OnAirToggle } from "@/components/profile/OnAirToggle";
 import type { ProfileTab } from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -50,6 +63,8 @@ import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankPageVars } from "@/components/rank/RankBorderStyles";
 import { isRankAtLeast } from "@/lib/data/rankConstants";
 import { useRankAssets } from "@/hooks/useRankAssets";
+import { useLogbookStats } from "@/hooks/useLogbookStats";
+import { useLogbook } from "@/hooks/useLogbook";
 
 // ---- Callsign validation ----------------------------------------------------
 
@@ -65,7 +80,9 @@ function isValidCallsign(cs: string): boolean {
 // ---- Other profile view -----------------------------------------------------
 
 /**
- * Renders a read-only view of another user's profile fetched from Supabase.
+ * Renders a rich read-only view of another user's profile fetched from Supabase.
+ * Desktop: two-column layout (VisitorProfileCard sidebar + tabbed content).
+ * Mobile: stacked compact header + horizontal tab pills + tab content.
  */
 function OtherProfileView({
   callsign,
@@ -85,6 +102,25 @@ function OtherProfileView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
+
+  // Viewer's own data for ContactThisStation and shared-interest highlighting
+  const viewerStation = useProfileStore((s) => s.station);
+  const viewerInterests = useProfileStore((s) => s.interests);
+  const viewerStats = useLogbookStats();
+  const { entries: viewerEntries } = useLogbook();
+
+  // Compute viewer operating hours from logbook entries
+  const viewerHours = useMemo(() => {
+    const hourly = new Array<number>(24).fill(0);
+    for (const entry of viewerEntries) {
+      if (entry.timeOn) {
+        const h = parseInt(entry.timeOn.split(":")[0], 10);
+        if (Number.isFinite(h) && h >= 0 && h <= 23) hourly[h]++;
+      }
+    }
+    return hourly;
+  }, [viewerEntries]);
 
   // Fetch following list for follow button state
   useEffect(() => {
@@ -143,6 +179,31 @@ function OtherProfileView({
             ? (data.visibility_settings as unknown as PublicProfile["visibilitySettings"])
             : undefined,
           lastActiveAt: data.last_active_at ?? undefined,
+          country: (data as Record<string, unknown>).country as
+            | string
+            | undefined,
+          interests: (data as Record<string, unknown>).interests as
+            | InterestTag[]
+            | undefined,
+          onAirStatus: (data as Record<string, unknown>).on_air_status as
+            | OnAirStatus
+            | null
+            | undefined,
+          skedAvailability: (data as Record<string, unknown>)
+            .sked_availability as SkedAvailability | undefined,
+          favoriteFreqs: (data as Record<string, unknown>).favorite_freqs as
+            | FavoriteFrequency[]
+            | undefined,
+          operatingHours: (data.stats_cache as Record<string, unknown> | null)
+            ?.qsosByHourUtc as number[] | undefined,
+          operatorRank: (data as Record<string, unknown>).operator_rank as
+            | string
+            | undefined,
+          rankPoints: (data as Record<string, unknown>).rank_points as
+            | number
+            | undefined,
+          lat: (data as Record<string, unknown>).lat as number | undefined,
+          lon: (data as Record<string, unknown>).lon as number | undefined,
         });
         setLoading(false);
       } catch (err) {
@@ -208,15 +269,360 @@ function OtherProfileView({
     );
   }
 
+  // Visibility shorthand
+  const vis = profile.visibilitySettings;
+
+  // Follow state
+  const isFollowing = following.some((f) => f.id === profile.id);
+
+  const handleFollow = () => {
+    requireAuth(() => followUser(profile.id), "Sign in to follow operators");
+  };
+
+  // Rank theming
+  const profileRank = (profile.operatorRank || "novice") as RankTier;
+  const rankVars = getRankPageVars(profileRank);
+
+  // Panel classes
   const panelClass = isMobile
     ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
     : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
 
-  // Visibility settings — no settings means show everything (safe default)
-  const vis = profile.visibilitySettings;
+  // ---- Visitor Tab Content ----
+
+  const visitorTabContent = (
+    <>
+      {activeTab === "overview" && (
+        <div className={isMobile ? "space-y-4" : "space-y-8"}>
+          {/* Contact This Station — path analysis, band conditions, schedule overlap */}
+          <ContactThisStation
+            profile={profile}
+            viewerLat={viewerStation?.lat}
+            viewerLon={viewerStation?.lon}
+            viewerGrid={viewerStation?.grid}
+            viewerStats={viewerStats as unknown as Record<string, unknown>}
+            viewerHours={viewerHours}
+          />
+
+          {/* Hero Stats — visitor version from statsCache */}
+          {(!vis || vis.stats !== "private") && profile.statsCache && (
+            <div className={panelClass}>
+              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                Station Stats
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {typeof profile.statsCache.totalQSOs === "number" && (
+                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-lg font-bold text-white font-mono">
+                      {profile.statsCache.totalQSOs.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">
+                      Total QSOs
+                    </div>
+                  </div>
+                )}
+                {typeof profile.statsCache.uniqueCountries === "number" && (
+                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-lg font-bold text-white font-mono">
+                      {profile.statsCache.uniqueCountries.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">
+                      Countries
+                    </div>
+                  </div>
+                )}
+                {typeof profile.statsCache.uniqueCallsigns === "number" && (
+                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-lg font-bold text-white font-mono">
+                      {profile.statsCache.uniqueCallsigns.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">
+                      Unique Calls
+                    </div>
+                  </div>
+                )}
+                {profile.statsCache.qsosByBand &&
+                typeof profile.statsCache.qsosByBand === "object" ? (
+                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-lg font-bold text-white font-mono">
+                      {
+                        Object.keys(
+                          profile.statsCache.qsosByBand as Record<
+                            string,
+                            unknown
+                          >,
+                        ).length
+                      }
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">
+                      Bands
+                    </div>
+                  </div>
+                ) : null}
+                {profile.statsCache.qsosByMode &&
+                typeof profile.statsCache.qsosByMode === "object" ? (
+                  <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-lg font-bold text-white font-mono">
+                      {
+                        Object.keys(
+                          profile.statsCache.qsosByMode as Record<
+                            string,
+                            unknown
+                          >,
+                        ).length
+                      }
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">
+                      Modes
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {/* Interest Tags — read-only with shared-interest highlighting */}
+          {profile.interests && profile.interests.length > 0 && (
+            <div className={panelClass}>
+              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                Interests
+              </h3>
+              <InterestTagDisplay
+                tags={profile.interests}
+                viewerTags={viewerInterests}
+              />
+            </div>
+          )}
+
+          {/* Where to Find Me — read-only */}
+          {(!vis || vis.location !== "private") && (
+            <div className={panelClass}>
+              <WhereToFindMe
+                hours={profile.operatingHours}
+                qsosByDate={
+                  profile.statsCache?.qsosByDate as
+                    | Record<string, number>
+                    | undefined
+                }
+                favoriteFreqs={profile.favoriteFreqs}
+                skedAvailability={profile.skedAvailability}
+              />
+            </div>
+          )}
+
+          {/* Bio */}
+          {profile.bio && (
+            <div className={panelClass}>
+              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+                About
+              </h3>
+              <p className="text-gray-300 text-sm whitespace-pre-wrap">
+                {profile.bio}
+              </p>
+            </div>
+          )}
+
+          {/* Social Links */}
+          {(!vis || vis.activity !== "private") &&
+            profile.socialLinks &&
+            profile.socialLinks.length > 0 && (
+              <div className={panelClass}>
+                <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+                  Links
+                </h3>
+                <ul className="space-y-1">
+                  {profile.socialLinks.map((link, i) => {
+                    const url = link.url?.trim().toLowerCase() ?? "";
+                    const isSafe =
+                      url.startsWith("http://") ||
+                      url.startsWith("https://") ||
+                      url.startsWith("mailto:");
+                    return (
+                      <li key={i}>
+                        {isSafe ? (
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-nebula-blue hover:underline"
+                          >
+                            {link.type}: {link.url}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400">
+                            {link.type}: {link.url}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+        </div>
+      )}
+
+      {activeTab === "shack" && (
+        <div className={panelClass}>
+          {(!vis || vis.equipment !== "private") && profile.statsCache ? (
+            <div>
+              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                Station Equipment
+              </h3>
+              {profile.statsCache.equipment ? (
+                <pre className="text-sm text-gray-300 whitespace-pre-wrap">
+                  {JSON.stringify(profile.statsCache.equipment, null, 2)}
+                </pre>
+              ) : (
+                <p className="text-gray-500 text-sm italic py-4 text-center">
+                  Equipment info not available
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm italic py-4 text-center">
+              Equipment info is private
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeTab === "stats" && (
+        <div className={panelClass}>
+          {(!vis || vis.stats !== "private") && profile.statsCache ? (
+            <div>
+              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                Stats &amp; Records
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {Object.entries(profile.statsCache)
+                  .filter(
+                    ([key]) =>
+                      typeof profile.statsCache![key] === "number" ||
+                      typeof profile.statsCache![key] === "string",
+                  )
+                  .map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="bg-void/50 rounded-lg px-3 py-2.5 text-center"
+                    >
+                      <div className="text-lg font-bold text-gray-200 font-mono">
+                        {typeof value === "number"
+                          ? value.toLocaleString()
+                          : String(value)}
+                      </div>
+                      <div className="text-[10px] text-gray-500 capitalize">
+                        {key
+                          .replace(/([A-Z])/g, " $1")
+                          .replace(/_/g, " ")
+                          .trim()}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm italic py-4 text-center">
+              Stats are private
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeTab === "awards" && (
+        <div className={panelClass}>
+          {(!vis || vis.awards !== "private") && profile.statsCache?.awards ? (
+            <div>
+              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                Awards
+              </h3>
+              <pre className="text-sm text-gray-300 whitespace-pre-wrap">
+                {JSON.stringify(profile.statsCache.awards, null, 2)}
+              </pre>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm italic py-4 text-center">
+              {vis?.awards === "private"
+                ? "Awards are private"
+                : "No awards data available"}
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeTab === "social" && (
+        <div className={isMobile ? "space-y-4" : "space-y-8"}>
+          <div className={panelClass}>
+            <FriendList />
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  // ---- Desktop Layout ----
+
+  if (!isMobile) {
+    return (
+      <div
+        className="flex gap-8 max-w-[1080px] mx-auto px-6 py-6"
+        style={rankVars}
+      >
+        {/* Sidebar */}
+        <VisitorProfileCard
+          profile={profile}
+          viewerInterests={viewerInterests}
+          isFollowing={isFollowing}
+          onFollow={handleFollow}
+          onUnfollow={() => setShowUnfollowConfirm(true)}
+        />
+
+        {/* Main content area */}
+        <div className="flex-1 min-w-0 max-w-[720px]">
+          <div className="mb-6">
+            <Link
+              to="/profile"
+              className="text-sm text-plasma-orange hover:text-plasma-orange/80 underline"
+            >
+              &larr; Back to My Profile
+            </Link>
+          </div>
+          <ProfileTabBar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            isMobile={false}
+            isVisitor
+          />
+          <div
+            role="tabpanel"
+            id={`profile-tabpanel-${activeTab}`}
+            aria-labelledby={`profile-tab-${activeTab}`}
+            className="mt-4"
+          >
+            {visitorTabContent}
+          </div>
+        </div>
+
+        <ConfirmDialog
+          open={showUnfollowConfirm}
+          title="Unfollow Operator"
+          message="Are you sure you want to unfollow this operator?"
+          confirmLabel="Unfollow"
+          variant="warning"
+          onConfirm={() => {
+            unfollowUser(profile.id);
+            setShowUnfollowConfirm(false);
+          }}
+          onCancel={() => setShowUnfollowConfirm(false)}
+        />
+      </div>
+    );
+  }
+
+  // ---- Mobile Layout ----
 
   return (
-    <div className={isMobile ? "px-4 py-4" : "max-w-[720px] mx-auto px-6 py-6"}>
+    <div className="px-4 py-4" style={rankVars}>
       <div className="mb-4">
         <Link
           to="/profile"
@@ -226,128 +632,58 @@ function OtherProfileView({
         </Link>
       </div>
 
-      <div className={`${panelClass} mb-6`}>
-        <div className="flex items-center gap-4">
+      {/* Compact mobile profile header */}
+      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4">
+        <div className="flex items-center gap-3">
           {profile.avatarUrl && (
             <img
               src={profile.avatarUrl}
               alt={`${profile.callsign} avatar`}
-              className="w-16 h-16 rounded-full object-cover border-2 border-white/10"
+              className="w-12 h-12 rounded-full object-cover border-2 border-white/10"
             />
           )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-plasma-orange tracking-wide font-mono">
-                {profile.callsign || "UNKNOWN"}
-              </h1>
-              {/* Follow/Unfollow button */}
-              {isAuthenticated &&
-                profile.id &&
-                (() => {
-                  const isFollowing = following.some(
-                    (f) => f.id === profile.id,
-                  );
-                  return (
-                    <button
-                      onClick={() => {
-                        if (isFollowing) {
-                          setShowUnfollowConfirm(true);
-                        } else {
-                          requireAuth(
-                            () => followUser(profile.id),
-                            "Sign in to follow operators",
-                          );
-                        }
-                      }}
-                      className={`flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full border transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
-                        isFollowing
-                          ? "bg-signal-green/20 text-signal-green border-signal-green/30 hover:bg-signal-green/30"
-                          : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
-                      }`}
-                    >
-                      {isFollowing ? "Following" : "Follow"}
-                    </button>
-                  );
-                })()}
-            </div>
+            <h2 className="font-mono text-lg font-bold text-plasma-orange">
+              {profile.callsign || "UNKNOWN"}
+            </h2>
             {profile.operatorName && (
-              <p className="text-gray-300">{profile.operatorName}</p>
+              <p className="text-sm text-gray-400">{profile.operatorName}</p>
             )}
             {profile.grid && (!vis || vis.location !== "private") && (
-              <p className="text-gray-500 text-sm font-mono">{profile.grid}</p>
+              <p className="text-xs text-gray-500 font-mono">{profile.grid}</p>
             )}
           </div>
+          <button
+            type="button"
+            onClick={
+              isFollowing ? () => setShowUnfollowConfirm(true) : handleFollow
+            }
+            className={`flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+              isFollowing
+                ? "bg-signal-green/20 text-signal-green border-signal-green/30"
+                : "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
+            }`}
+          >
+            {isFollowing ? "Following" : "Follow"}
+          </button>
         </div>
       </div>
 
-      {profile.bio && (
-        <div className={`${panelClass} mb-6`}>
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            About
-          </h3>
-          <p className="text-gray-300 text-sm whitespace-pre-wrap">
-            {profile.bio}
-          </p>
-        </div>
-      )}
+      <ProfileTabBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        isMobile
+        isVisitor
+      />
 
-      {(!vis || vis.activity !== "private") &&
-        profile.socialLinks &&
-        profile.socialLinks.length > 0 && (
-          <div className={`${panelClass} mb-6`}>
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Links
-            </h3>
-            <ul className="space-y-1">
-              {profile.socialLinks.map((link, i) => (
-                <li key={i}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-nebula-blue hover:underline"
-                  >
-                    {link.type}: {link.url}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-      {(!vis || vis.stats === "public") && profile.statsCache && (
-        <div className={`${panelClass} mb-6`}>
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Stats
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Object.entries(profile.statsCache).map(([key, value]) => (
-              <div
-                key={key}
-                className="bg-void/50 rounded-lg px-3 py-2 text-center"
-              >
-                <div className="text-lg font-bold text-gray-200">
-                  {typeof value === "number"
-                    ? value.toLocaleString()
-                    : String(value)}
-                </div>
-                <div className="text-xs text-gray-500 capitalize">
-                  {key
-                    .replace(/([A-Z])/g, " $1")
-                    .replace(/_/g, " ")
-                    .trim()}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {profile.lastActiveAt && (
-        <p className="text-xs text-gray-600 text-center mt-4">
-          Last active: {new Date(profile.lastActiveAt).toLocaleDateString()}
-        </p>
-      )}
+      <div
+        role="tabpanel"
+        id={`profile-tabpanel-${activeTab}`}
+        aria-labelledby={`profile-tab-${activeTab}`}
+        className="mt-4"
+      >
+        {visitorTabContent}
+      </div>
 
       <ConfirmDialog
         open={showUnfollowConfirm}
@@ -379,6 +715,28 @@ export default function ProfilePage() {
   const { rank, color: rankColor } = useOperatorRank();
   const rankPageVars = getRankPageVars(rank);
   const assets = useRankAssets(rank);
+
+  // Wave 2 profile fields
+  const interests = useProfileStore((s) => s.interests);
+  const onAirStatus = useProfileStore((s) => s.onAirStatus);
+  const skedAvailability = useProfileStore((s) => s.skedAvailability);
+  const favoriteFreqs = useProfileStore((s) => s.favoriteFreqs);
+
+  // Logbook data for operating hours and stats
+  const stats = useLogbookStats();
+  const { entries } = useLogbook();
+
+  // Compute operating hours from logbook entries
+  const operatingHours = useMemo(() => {
+    const hourly = new Array<number>(24).fill(0);
+    for (const entry of entries) {
+      if (entry.timeOn) {
+        const h = parseInt(entry.timeOn.split(":")[0], 10);
+        if (Number.isFinite(h) && h >= 0 && h <= 23) hourly[h]++;
+      }
+    }
+    return hourly;
+  }, [entries]);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
 
@@ -566,6 +924,40 @@ export default function ProfilePage() {
 
           {/* Personal Records — scrollable bests */}
           <PersonalRecords />
+
+          {/* Interest Tags — editable picker */}
+          <div className={panelClass} style={panelStyle}>
+            <InterestTagPicker
+              selected={interests}
+              onChange={(tags) => useProfileStore.getState().setInterests(tags)}
+            />
+          </div>
+
+          {/* Where to Find Me — editable */}
+          <div className={panelClass} style={panelStyle}>
+            <WhereToFindMe
+              hours={operatingHours}
+              qsosByDate={stats.qsosByDate}
+              favoriteFreqs={favoriteFreqs}
+              skedAvailability={skedAvailability}
+              editable
+              onSkedChange={(a) =>
+                useProfileStore.getState().setSkedAvailability(a)
+              }
+              onFreqAdd={(f) => useProfileStore.getState().addFavoriteFreq(f)}
+              onFreqRemove={(id) =>
+                useProfileStore.getState().removeFavoriteFreq(id)
+              }
+            />
+          </div>
+
+          {/* On Air Toggle */}
+          <div className={panelClass} style={panelStyle}>
+            <OnAirToggle
+              status={onAirStatus}
+              onChange={(s) => useProfileStore.getState().setOnAirStatus(s)}
+            />
+          </div>
 
           {/* Station Identity — only show form on mobile where sidebar doesn't exist */}
           {isMobile && (

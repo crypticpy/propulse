@@ -109,28 +109,36 @@ function canvasEventToLatLon(
 ): { lat: number; lon: number } | null {
   const rect = canvas.getBoundingClientRect();
 
-  // Convert screen position to canvas display coordinates
+  // Use the ACTUAL rendered canvas dimensions (from getBoundingClientRect)
+  // instead of the logical displaySize, to account for any CSS layout scaling
+  // (flex shrink, browser zoom edge cases, sub-pixel rounding, etc.).
+  // The zoom offsets and mouse coordinates are all in CSS pixel space,
+  // and rect.width is the true CSS pixel width the canvas occupies.
+  const cssWidth = rect.width;
+  const cssHeight = rect.height;
+
+  // Convert screen position to canvas display coordinates (CSS pixels)
   const displayX = event.clientX - rect.left;
   const displayY = event.clientY - rect.top;
 
-  // Reverse the zoom transform to get logical map coordinates
+  // Reverse the zoom transform to get logical map coordinates (CSS pixels)
   const mapX = (displayX - zoom.offsetX) / zoom.scale;
   const mapY = (displayY - zoom.offsetY) / zoom.scale;
 
   // Check bounds - pointer is outside the logical map area
-  if (mapX < 0 || mapX > displayWidth || mapY < 0 || mapY > displayHeight) {
+  if (mapX < 0 || mapX > cssWidth || mapY < 0 || mapY > cssHeight) {
     return null;
   }
 
   // Convert to lat/lon using equirectangular projection
-  // X axis: 0 -> displayWidth maps to -180 -> +180 longitude
-  // Y axis: 0 -> displayHeight maps to +90 -> -90 latitude (top = north)
-  const lon = (mapX / displayWidth) * 360 - 180;
-  const lat = 90 - (mapY / displayHeight) * 180;
+  // X axis: 0 -> cssWidth maps to -180 -> +180 longitude
+  // Y axis: 0 -> cssHeight maps to +90 -> -90 latitude (top = north)
+  const lon = (mapX / cssWidth) * 360 - 180;
+  const lat = 90 - (mapY / cssHeight) * 180;
 
-  if (process.env.NODE_ENV === "development") {
+  if (import.meta.env.DEV) {
     console.debug(
-      `[ClickDebug] client=(${event.clientX.toFixed(0)},${event.clientY.toFixed(0)}) rect=(${rect.left.toFixed(0)},${rect.top.toFixed(0)},${rect.width.toFixed(0)}x${rect.height.toFixed(0)}) display=(${displayX.toFixed(1)},${displayY.toFixed(1)}) map=(${mapX.toFixed(1)},${mapY.toFixed(1)}) zoom=(s${zoom.scale.toFixed(2)},ox${zoom.offsetX.toFixed(1)},oy${zoom.offsetY.toFixed(1)}) size=(${displayWidth}x${displayHeight}) → lat=${lat.toFixed(2)} lon=${lon.toFixed(2)}`,
+      `[ClickDebug] client=(${event.clientX.toFixed(0)},${event.clientY.toFixed(0)}) rect=(${rect.left.toFixed(0)},${rect.top.toFixed(0)},${rect.width.toFixed(0)}x${rect.height.toFixed(0)}) display=(${displayX.toFixed(1)},${displayY.toFixed(1)}) map=(${mapX.toFixed(1)},${mapY.toFixed(1)}) zoom=(s${zoom.scale.toFixed(2)},ox${zoom.offsetX.toFixed(1)},oy${zoom.offsetY.toFixed(1)}) size=(${displayWidth}x${displayHeight}) cssSize=(${cssWidth.toFixed(0)}x${cssHeight.toFixed(0)}) → lat=${lat.toFixed(2)} lon=${lon.toFixed(2)}`,
     );
   }
 

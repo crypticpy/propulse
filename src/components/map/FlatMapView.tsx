@@ -3576,6 +3576,9 @@ export function FlatMapView({
       }
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
+      // Use actual CSS dimensions for screen-space mapping
+      const cssScaleX = rect.width / displaySize.width;
+      const cssScaleY = rect.height / displaySize.height;
 
       for (const pin of pins) {
         const cp = latLonToCanvas(
@@ -3584,8 +3587,8 @@ export function FlatMapView({
           displaySize.width,
           displaySize.height,
         );
-        const sx = rect.left + cp.x * z.scale + z.offsetX;
-        const sy = rect.top + cp.y * z.scale + z.offsetY;
+        const sx = rect.left + (cp.x * z.scale + z.offsetX) * cssScaleX;
+        const sy = rect.top + (cp.y * z.scale + z.offsetY) * cssScaleY;
         const dx = screenPos.x - sx;
         const dy = screenPos.y - sy;
         if (dx * dx + dy * dy < PIN_HIT_RADIUS_SQ) {
@@ -3606,6 +3609,9 @@ export function FlatMapView({
       }
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
+      // Use actual CSS dimensions for screen-space mapping
+      const cssScaleX = rect.width / displaySize.width;
+      const cssScaleY = rect.height / displaySize.height;
 
       const cp = latLonToCanvas(
         target.lat,
@@ -3613,8 +3619,8 @@ export function FlatMapView({
         displaySize.width,
         displaySize.height,
       );
-      const sx = rect.left + cp.x * z.scale + z.offsetX;
-      const sy = rect.top + cp.y * z.scale + z.offsetY;
+      const sx = rect.left + (cp.x * z.scale + z.offsetX) * cssScaleX;
+      const sy = rect.top + (cp.y * z.scale + z.offsetY) * cssScaleY;
       const dx = screenPos.x - sx;
       const dy = screenPos.y - sy;
       return dx * dx + dy * dy < TARGET_HIT_RADIUS_SQ;
@@ -3631,14 +3637,17 @@ export function FlatMapView({
       }
       const rect = canvas.getBoundingClientRect();
       const z = zoomRef.current;
+      // Use actual CSS dimensions for screen-space mapping
+      const cssScaleX = rect.width / displaySize.width;
+      const cssScaleY = rect.height / displaySize.height;
 
       for (const label of lastPlacedLabels) {
         const { bbox } = label;
         // Convert canvas-space bbox to screen-space
-        const sx = rect.left + bbox.x * z.scale + z.offsetX;
-        const sy = rect.top + bbox.y * z.scale + z.offsetY;
-        const sw = bbox.w * z.scale;
-        const sh = bbox.h * z.scale;
+        const sx = rect.left + (bbox.x * z.scale + z.offsetX) * cssScaleX;
+        const sy = rect.top + (bbox.y * z.scale + z.offsetY) * cssScaleY;
+        const sw = bbox.w * z.scale * cssScaleX;
+        const sh = bbox.h * z.scale * cssScaleY;
 
         if (
           screenPos.x >= sx &&
@@ -4888,6 +4897,40 @@ export function FlatMapView({
       );
     }
 
+    // DEBUG: Draw crosshairs at known US cities to verify projection accuracy
+    // Denver CO (39.74°N, 104.99°W) and center of map (0°, 0°)
+    if (import.meta.env.DEV) {
+      const debugPoints = [
+        { lat: 39.74, lon: -104.99, label: "Denver", color: "#ff0000" },
+        { lat: 0, lon: 0, label: "0,0", color: "#00ff00" },
+      ];
+      for (const dp of debugPoints) {
+        const pos = latLonToCanvas(dp.lat, dp.lon, renderWidth, renderHeight);
+        ctx.strokeStyle = dp.color;
+        ctx.lineWidth = 2 / zoom.scale;
+        ctx.beginPath();
+        ctx.moveTo(pos.x - 10 / zoom.scale, pos.y);
+        ctx.lineTo(pos.x + 10 / zoom.scale, pos.y);
+        ctx.moveTo(pos.x, pos.y - 10 / zoom.scale);
+        ctx.lineTo(pos.x, pos.y + 10 / zoom.scale);
+        ctx.stroke();
+        ctx.fillStyle = dp.color;
+        ctx.font = `bold ${11 / zoom.scale}px sans-serif`;
+        ctx.fillText(dp.label, pos.x + 8 / zoom.scale, pos.y - 5 / zoom.scale);
+      }
+
+      // Log canvas vs displaySize mismatch (once)
+      const rect = canvas.getBoundingClientRect();
+      if (
+        Math.abs(rect.width - renderWidth) > 1 ||
+        Math.abs(rect.height - renderHeight) > 1
+      ) {
+        console.warn(
+          `[MapDebug] SIZE MISMATCH! canvas rect=${rect.width.toFixed(0)}x${rect.height.toFixed(0)} displaySize=${renderWidth}x${renderHeight} buffer=${canvas.width}x${canvas.height}`,
+        );
+      }
+    }
+
     // Restore context after zoom transform
     ctx.restore();
 
@@ -4974,7 +5017,7 @@ export function FlatMapView({
         </div>
       )}
       <div
-        className="relative"
+        className="relative flex-shrink-0"
         style={{ width: displaySize.width, height: displaySize.height }}
       >
         <canvas

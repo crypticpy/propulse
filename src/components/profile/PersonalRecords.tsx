@@ -114,6 +114,48 @@ function IconClock() {
   );
 }
 
+function IconGlobe() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-white/20"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
+function IconRadioWaves() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-white/20"
+    >
+      <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+      <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4" />
+      <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1" />
+    </svg>
+  );
+}
+
 // ─── Record Card ────────────────────────────────────────────────────────────
 
 function RecordCard({
@@ -239,7 +281,7 @@ export function PersonalRecords({ className }: PersonalRecordsProps) {
   if (stats.isLoading) {
     return (
       <div className={`flex gap-3 overflow-x-auto pb-2 ${className ?? ""}`}>
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 7 }).map((_, i) => (
           <SkeletonRecord key={i} />
         ))}
       </div>
@@ -315,6 +357,38 @@ export function PersonalRecords({ className }: PersonalRecordsProps) {
             : "\u2014"
         }
         label="Peak Hour (UTC)"
+      />
+
+      {/* Most Countries in a Day */}
+      <RecordCard
+        icon={<IconGlobe />}
+        value={
+          advancedStats.personalRecords.mostCountriesInDay.count > 0
+            ? String(advancedStats.personalRecords.mostCountriesInDay.count)
+            : "\u2014"
+        }
+        label="Most DXCC in a Day"
+        detail={
+          advancedStats.personalRecords.mostCountriesInDay.date !== "--"
+            ? advancedStats.personalRecords.mostCountriesInDay.date
+            : undefined
+        }
+      />
+
+      {/* Most Bands in a Day */}
+      <RecordCard
+        icon={<IconRadioWaves />}
+        value={
+          advancedStats.personalRecords.mostBandsInDay.count > 0
+            ? String(advancedStats.personalRecords.mostBandsInDay.count)
+            : "\u2014"
+        }
+        label="Most Bands in a Day"
+        detail={
+          advancedStats.personalRecords.mostBandsInDay.date !== "--"
+            ? advancedStats.personalRecords.mostBandsInDay.date
+            : undefined
+        }
       />
     </div>
   );

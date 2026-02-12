@@ -38,6 +38,45 @@ export interface FollowRelation {
   createdAt: string;
 }
 
+// ─── Interest Tags ────────────────────────────────────────────────────────────
+
+export type InterestCategory =
+  | "operating"
+  | "modes"
+  | "technical"
+  | "community";
+
+export interface InterestTag {
+  category: InterestCategory;
+  tag: string;
+}
+
+// ─── On Air Status ────────────────────────────────────────────────────────────
+
+export type OnAirState = "on_air" | "listening" | "offline";
+
+export interface OnAirStatus {
+  status: OnAirState;
+  band?: string;
+  mode?: string;
+  frequency?: string;
+  notes?: string;
+  location?: string;
+  expiresAt?: string; // ISO timestamp
+}
+
+// ─── Schedule / Availability ──────────────────────────────────────────────────
+
+export type SkedAvailability = "open" | "busy" | "offline";
+
+export interface FavoriteFrequency {
+  id: string;
+  band: string;
+  frequency: string;
+  mode?: string;
+  notes?: string;
+}
+
 export interface PublicProfile {
   id: string;
   callsign: string;
@@ -51,6 +90,15 @@ export interface PublicProfile {
   statsCache?: Record<string, unknown>;
   visibilitySettings?: VisibilitySettings;
   lastActiveAt?: string;
+  interests?: InterestTag[];
+  onAirStatus?: OnAirStatus | null;
+  skedAvailability?: SkedAvailability;
+  favoriteFreqs?: FavoriteFrequency[];
+  operatingHours?: number[]; // 24-element UTC hour distribution
+  operatorRank?: string;
+  rankPoints?: number;
+  lat?: number;
+  lon?: number;
 }
 
 export const DEFAULT_VISIBILITY: VisibilitySettings = {

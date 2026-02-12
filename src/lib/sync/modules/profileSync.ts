@@ -10,7 +10,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { useProfileStore } from "@/stores/profileStore";
 import type { SyncModule, SyncableTable } from "../types";
-import type { Tables, TablesInsert } from "@/types/supabase";
+import type { Json, Tables, TablesInsert } from "@/types/supabase";
 import type { OperatingLocation } from "@/types/user";
 import type { RankTier } from "@/types/rank";
 import { RANK_ORDER } from "@/lib/data/rankConstants";
@@ -199,6 +199,22 @@ export const profileSync: SyncModule = {
           rankOverride: validOverride,
         };
       }
+
+      // Social / Profile V2 fields
+      if (row.interests != null) {
+        stateUpdate.interests = row.interests;
+      }
+      if (row.on_air_status != null) {
+        stateUpdate.onAirStatus = row.on_air_status;
+      } else {
+        stateUpdate.onAirStatus = { status: "offline" };
+      }
+      if (row.sked_availability != null) {
+        stateUpdate.skedAvailability = row.sked_availability;
+      }
+      if (row.favorite_freqs != null) {
+        stateUpdate.favoriteFreqs = row.favorite_freqs;
+      }
     }
 
     // Single setState call for the entire pull
@@ -215,8 +231,16 @@ export const profileSync: SyncModule = {
 
   async push(userId: string): Promise<void> {
     const supabase = getSupabase();
-    const { station, bio, socialLinks, operatorRank } =
-      useProfileStore.getState();
+    const {
+      station,
+      bio,
+      socialLinks,
+      operatorRank,
+      interests,
+      onAirStatus,
+      skedAvailability,
+      favoriteFreqs,
+    } = useProfileStore.getState();
 
     if (!station) return;
 
@@ -238,6 +262,14 @@ export const profileSync: SyncModule = {
           socialLinksPayload as TablesInsert<"profiles">["social_links"],
         operator_rank: operatorRank.currentRank,
         rank_points: operatorRank.rankPoints,
+        interests: interests as unknown as Json,
+        on_air_status:
+          onAirStatus.status !== "offline"
+            ? (onAirStatus as unknown as Json)
+            : null,
+        sked_availability: skedAvailability,
+        favorite_freqs:
+          favoriteFreqs.length > 0 ? (favoriteFreqs as unknown as Json) : null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" },

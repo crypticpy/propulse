@@ -6,11 +6,13 @@
  * Mobile: Compact horizontal card with callsign, grid, name, and completeness ring.
  */
 
+import { useMemo } from "react";
 import { useProfileStore } from "@/stores/profileStore";
 import { useImageUrl } from "@/hooks/useImageUrl";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { useRankAssets } from "@/hooks/useRankAssets";
 import { useLogbookStats } from "@/hooks/useLogbookStats";
+import { useLogbook } from "@/hooks/useLogbook";
 import { RankBadge } from "@/components/rank/RankBadge";
 import {
   getProfileFrameStyle,
@@ -19,6 +21,13 @@ import {
 } from "@/components/rank/RankBorderStyles";
 import { isRankAtLeast } from "@/lib/data/rankConstants";
 import { LivingSymbols } from "@/components/rank/EtherealEffects";
+import { INTEREST_CATEGORIES } from "@/lib/data/interestTags";
+import {
+  computeArchetypeScores,
+  getTopArchetypes,
+} from "@/lib/profile/archetypeScoring";
+import { OnAirBadge } from "./OnAirBadge";
+import { OperatingHoursMini } from "./OperatingHoursMini";
 import { ProfileCompletenessRing } from "./ProfileCompletenessRing";
 import { StationIdentityForm } from "./StationIdentityForm";
 import type { StationIdentityFormProps } from "./StationIdentityForm";
@@ -58,10 +67,35 @@ export function ProfileCardDesktop({
   const frameStyle = getProfileFrameStyle(rank);
   const glowStyle = getProfileGlowStyle(rank);
 
-  const { totalQSOs, uniqueCountries } = useLogbookStats();
+  const stats = useLogbookStats();
+  const { totalQSOs, uniqueCountries } = stats;
+  const { entries } = useLogbook();
 
-  // Interest tags -- hardcoded placeholders (will become dynamic from a tag store later)
-  const interestTags = ["HF", "FT8", "DXing"];
+  // Dynamic interest tags from profile store
+  const interests = useProfileStore((s) => s.interests);
+  // On-air status from profile store
+  const onAirStatus = useProfileStore((s) => s.onAirStatus);
+
+  // Archetype scores for top-3 badges
+  const archetypeScores = useMemo(
+    () => computeArchetypeScores(stats, entries),
+    [stats, entries],
+  );
+  const topArchetypes = getTopArchetypes(archetypeScores, 3);
+
+  // Operating hours from logbook entries
+  const operatingHours = useMemo(() => {
+    const hourly = new Array<number>(24).fill(0);
+    for (const entry of entries) {
+      if (entry.timeOn) {
+        const h = parseInt(entry.timeOn.split(":")[0], 10);
+        if (Number.isFinite(h) && h >= 0 && h <= 23) {
+          hourly[h]++;
+        }
+      }
+    }
+    return hourly;
+  }, [entries]);
 
   return (
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
@@ -122,7 +156,7 @@ export function ProfileCardDesktop({
             </LivingSymbols>
           )}
           <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-gray-600" title="Offline" />
+            <OnAirBadge status={onAirStatus} size="sm" />
             <span className="font-mono text-2xl font-bold text-plasma-orange">
               {displayCallsign}
             </span>
@@ -130,6 +164,19 @@ export function ProfileCardDesktop({
           <div className="mt-1">
             <RankBadge rank={rank} size="sm" />
           </div>
+          {/* Top Archetype Badges */}
+          {topArchetypes.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1 mt-1">
+              {topArchetypes.map((a) => (
+                <span
+                  key={a.key}
+                  className="px-1.5 py-0.5 text-[9px] rounded-full bg-white/[0.06] text-gray-400"
+                >
+                  {a.icon} {a.shortLabel}
+                </span>
+              ))}
+            </div>
+          )}
           {/* Quick Stats Row */}
           <div className="flex items-center justify-center gap-4 mt-2 text-center">
             <div>
@@ -175,16 +222,31 @@ export function ProfileCardDesktop({
         </div>
 
         {/* Interest Tag Pills */}
-        {interestTags.length > 0 && (
+        {interests.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
-            {interestTags.map((tag) => (
-              <span
-                key={tag}
-                className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-white/[0.06] border border-white/10 text-gray-400"
-              >
-                {tag}
-              </span>
-            ))}
+            {interests.map((t) => {
+              const color = INTEREST_CATEGORIES[t.category]?.color || "#888";
+              return (
+                <span
+                  key={`${t.category}-${t.tag}`}
+                  className="px-2 py-0.5 text-[10px] font-medium rounded-full border"
+                  style={{
+                    backgroundColor: `${color}15`,
+                    borderColor: `${color}40`,
+                    color: color,
+                  }}
+                >
+                  {t.tag}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Operating Hours Mini Strip */}
+        {operatingHours.some((h) => h > 0) && (
+          <div className="py-2 border-t border-white/5">
+            <OperatingHoursMini hours={operatingHours} />
           </div>
         )}
 

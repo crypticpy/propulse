@@ -79,7 +79,10 @@ export interface GlobeClickHandlerProps {
 }
 
 /**
- * Convert 3D point on unit sphere to lat/lon coordinates
+ * Convert 3D point on unit sphere to lat/lon coordinates.
+ * The point must be in the sphere's LOCAL coordinate space
+ * (i.e., unrotated — call worldToLocal first if the sphere has
+ * parent transforms like Earth axial tilt).
  */
 function pointToLatLon(point: THREE.Vector3): { lat: number; lon: number } {
   const normalized = point.clone().normalize();
@@ -179,6 +182,26 @@ export function GlobeClickHandler({
     return new THREE.SphereGeometry(radius, 64, 64);
   }, [radius]);
 
+  /**
+   * Convert a world-space intersection point to lat/lon by first
+   * transforming it into the hit sphere's LOCAL coordinate space.
+   * This undoes any parent transforms (e.g., Earth axial tilt group)
+   * so that pointToLatLon receives an unrotated sphere point.
+   */
+  const worldPointToLatLon = useCallback(
+    (worldPoint: THREE.Vector3): { lat: number; lon: number } => {
+      if (hitSphereRef.current) {
+        const localPoint = hitSphereRef.current.worldToLocal(
+          worldPoint.clone(),
+        );
+        return pointToLatLon(localPoint);
+      }
+      // Fallback if ref not ready (shouldn't happen in practice)
+      return pointToLatLon(worldPoint);
+    },
+    [],
+  );
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
@@ -274,7 +297,7 @@ export function GlobeClickHandler({
       const screenPos = getScreenPositionFromEvent(event);
       startPosRef.current = screenPos;
 
-      const { lat, lon } = pointToLatLon(event.point);
+      const { lat, lon } = worldPointToLatLon(event.point);
       targetLocationRef.current = { lat, lon, screenPos };
 
       // Start timer to begin hold tracking (after delay)
@@ -285,7 +308,7 @@ export function GlobeClickHandler({
         }
       }, HOLD_START_DELAY_MS);
     },
-    [startHoldTimer],
+    [startHoldTimer, worldPointToLatLon],
   );
 
   /**
@@ -323,14 +346,14 @@ export function GlobeClickHandler({
           return;
         }
 
-        const { lat, lon } = pointToLatLon(event.point);
+        const { lat, lon } = worldPointToLatLon(event.point);
         const screenPos = getScreenPositionFromEvent(event);
         onLocationHover(lat, lon, screenPos);
         lastHoverRef.current = { lat, lon };
         hoverTimerRef.current = null;
       }, HOVER_DEBOUNCE_MS);
     },
-    [onLocationHover, cancelHold],
+    [onLocationHover, cancelHold, worldPointToLatLon],
   );
 
   /**
@@ -354,7 +377,7 @@ export function GlobeClickHandler({
       // Double-click detection (Q2): Only process if it was a quick tap (not a hold or drag)
       if (wasInPotentialState && wasQuickRelease && event.point) {
         const screenPos = getScreenPositionFromEvent(event);
-        const { lat, lon } = pointToLatLon(event.point);
+        const { lat, lon } = worldPointToLatLon(event.point);
         const now = Date.now();
         const lastClick = lastClickRef.current;
 
@@ -401,7 +424,7 @@ export function GlobeClickHandler({
 
       startPosRef.current = null;
     },
-    [cancelHold, onDoubleClick],
+    [cancelHold, onDoubleClick, worldPointToLatLon],
   );
 
   /**

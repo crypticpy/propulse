@@ -14,6 +14,7 @@ import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { useSatellites } from "@/hooks/useSatellites";
+import { useMapStore } from "@/stores/mapStore";
 import { calculateGroundTrack } from "@/lib/api/satellites";
 import type { SatelliteInfo, SatelliteCategory } from "@/types/satellite";
 
@@ -307,6 +308,15 @@ function GroundTrack({ satellite }: GroundTrackProps) {
  */
 export function SatelliteOverlay() {
   const { satellites, selectedSatellite, selectSatellite } = useSatellites();
+  const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+
+  // Filter out ISS (NORAD ID 25544) when the dedicated ISS Tracker layer is active
+  const filteredSatellites = useMemo(() => {
+    if (issTrackerActive) {
+      return satellites.filter((s) => s.noradId !== 25544);
+    }
+    return satellites;
+  }, [satellites, issTrackerActive]);
 
   const handleSelect = useCallback(
     (noradId: number) => {
@@ -320,17 +330,22 @@ export function SatelliteOverlay() {
     [selectedSatellite, selectSatellite],
   );
 
-  if (satellites.length === 0) {
+  if (filteredSatellites.length === 0) {
     return null;
   }
+
+  // Skip ISS ground track if issTracker is active and selected satellite is ISS
+  const showGroundTrack =
+    selectedSatellite &&
+    !(issTrackerActive && selectedSatellite.noradId === 25544);
 
   return (
     <group>
       {/* Ground track for selected satellite */}
-      {selectedSatellite && <GroundTrack satellite={selectedSatellite} />}
+      {showGroundTrack && <GroundTrack satellite={selectedSatellite} />}
 
       {/* Satellite markers */}
-      {satellites.map((sat) => (
+      {filteredSatellites.map((sat) => (
         <SatelliteMarker
           key={sat.noradId}
           satellite={sat}

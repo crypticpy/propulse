@@ -215,6 +215,13 @@ export function LayersPopover() {
           getValue: () => layers.satellites,
           onToggle: () => toggleLayer("satellites"),
         },
+        {
+          key: "issTracker",
+          label: "ISS Tracker",
+          title: "Track the International Space Station with enhanced visuals",
+          getValue: () => layers.issTracker,
+          onToggle: () => toggleLayer("issTracker"),
+        },
       ],
     },
     {

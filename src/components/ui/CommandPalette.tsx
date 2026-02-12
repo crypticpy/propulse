@@ -407,6 +407,14 @@ export function CommandPalette({
         action: nav("/contest"),
       },
       {
+        id: "nav-nets",
+        label: "Go to Net Registry",
+        keywords: ["net", "nets", "control", "registry", "directory", "ncs"],
+        category: "navigation",
+        icon: RadioIcon,
+        action: nav("/nets"),
+      },
+      {
         id: "nav-help",
         label: "Go to Help & Docs",
         keywords: [

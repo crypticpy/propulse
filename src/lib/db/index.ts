@@ -100,6 +100,23 @@ export async function getDB(): Promise<IDBPDatabase<DBSchema>> {
           logStore.createIndex("by-guestSessionId", "guestSessionId");
         }
       }
+
+      // Version 4: Add indexes for QSO logging enhancements
+      if (
+        oldVersion < 4 &&
+        db.objectStoreNames.contains(DB_CONFIG.stores.logEntries)
+      ) {
+        const logStore = transaction.objectStore(DB_CONFIG.stores.logEntries);
+        if (!logStore.indexNames.contains("by-dxcc")) {
+          logStore.createIndex("by-dxcc", "dxcc");
+        }
+        if (!logStore.indexNames.contains("by-mySig")) {
+          logStore.createIndex("by-mySig", "mySig");
+        }
+        if (!logStore.indexNames.contains("by-version")) {
+          logStore.createIndex("by-version", "version");
+        }
+      }
     },
     blocked() {
       console.warn(

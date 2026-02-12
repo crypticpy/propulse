@@ -33,6 +33,7 @@ import { AuroraOverlay } from "./AuroraOverlay";
 import { MUFOverlay } from "./MUFOverlay";
 import { GrayLineZone } from "./GrayLineZone";
 import { SatelliteOverlay } from "./SatelliteOverlay";
+import { ISSTrackerOverlay } from "./ISSTrackerOverlay";
 import { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
 import { WeatherAlerts3D } from "./WeatherAlerts3D";
 import { LightningOverlay3D } from "./LightningOverlay3D";
@@ -907,6 +908,9 @@ function GlobeScene({
 
         {/* Satellite overlay */}
         {layers.satellites && <SatelliteOverlay />}
+
+        {/* ISS Tracker overlay */}
+        {layers.issTracker && <ISSTrackerOverlay />}
 
         {/* Hazard overlays */}
         {layers.earthquakes && earthquakeData.length > 0 && (

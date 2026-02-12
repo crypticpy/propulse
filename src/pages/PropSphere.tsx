@@ -42,6 +42,7 @@ import {
   RegionPresetManager,
 } from "@/components/map";
 import { LayersPopover } from "@/components/map/LayersPopover";
+import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { ColorsPopover } from "@/components/map/ColorsPopover";
 import { ProfilePopover } from "@/components/map/ProfilePopover";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
@@ -1015,6 +1016,9 @@ export function PropSphere() {
                   onLocationClick={handleLocationClick}
                 />
               )}
+
+              {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
+              {layers.issTracker && <ISSSkyTracker />}
 
               {/* Earth tilt slider — globe view only */}
               {viewMode === "globe" && (

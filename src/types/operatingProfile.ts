@@ -46,6 +46,7 @@ export interface OperatingProfile {
     loggedQsos: boolean;
     fires: boolean;
     radar: boolean;
+    issTracker: boolean;
   };
 
   // Display preferences

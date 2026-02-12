@@ -65,6 +65,7 @@ export function Header({
     { path: "/sdr", label: "SDR Console", icon: "📻" },
     { path: "/log", label: "LogBook", icon: "📝" },
     { path: "/contest", label: "Contest", icon: "🏆" },
+    { path: "/nets", label: "Net Registry", icon: "📡" },
   ];
 
   // Check if any tool is active

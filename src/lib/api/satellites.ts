@@ -401,7 +401,7 @@ export function calculateGroundTrack(
  * Uses the geometric relationship between observer and satellite positions
  * in ECEF coordinates.
  */
-function computeElevation(
+export function computeElevation(
   satLat: number,
   satLon: number,
   satAlt: number,
@@ -445,7 +445,7 @@ function computeElevation(
 /**
  * Compute azimuth from observer to satellite.
  */
-function computeAzimuth(
+export function computeAzimuth(
   satLat: number,
   satLon: number,
   obsLat: number,

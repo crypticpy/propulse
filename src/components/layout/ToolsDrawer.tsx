@@ -89,6 +89,12 @@ const tools = [
     description: "Contest logging & scoring",
     icon: "🏆",
   },
+  {
+    path: "/nets",
+    label: "Net Registry",
+    description: "Discover & manage ham radio nets",
+    icon: "📡",
+  },
 ];
 
 /**

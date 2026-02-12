@@ -31,6 +31,7 @@ export const LAYER_PRESETS = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: false,
   },
   contest: {
     terminator: true,
@@ -51,6 +52,7 @@ export const LAYER_PRESETS = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: false,
   },
   vhf: {
     terminator: true,
@@ -71,6 +73,7 @@ export const LAYER_PRESETS = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: true,
   },
   emergency: {
     terminator: true,
@@ -91,6 +94,7 @@ export const LAYER_PRESETS = {
     loggedQsos: false,
     fires: true,
     radar: true,
+    issTracker: false,
   },
 } as const;
 
@@ -252,6 +256,7 @@ interface MapState {
     loggedQsos: boolean;
     fires: boolean;
     radar: boolean;
+    issTracker: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -843,6 +848,7 @@ const initialState = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

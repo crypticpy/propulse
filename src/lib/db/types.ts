@@ -65,6 +65,60 @@ export interface LogEntry {
   isGuestEntry?: boolean;
   /** Guest session ID for grouping entries */
   guestSessionId?: string;
+  /** Row version for conflict detection */
+  version?: number;
+  /** Device that last modified this entry */
+  lastDeviceId?: string;
+  /** DXCC entity number */
+  dxcc?: number;
+  /** Country name */
+  country?: string;
+  /** CQ zone */
+  cqZone?: number;
+  /** ITU zone */
+  ituZone?: number;
+  /** Continent code */
+  continent?: string;
+  /** Transmit power in watts */
+  txPower?: number;
+  /** My grid square at time of QSO */
+  myGrid?: string;
+  /** My rig description */
+  myRig?: string;
+  /** My antenna description */
+  myAntenna?: string;
+  /** Propagation mode */
+  propMode?: string;
+  /** Satellite name */
+  satName?: string;
+  /** Satellite mode */
+  satMode?: string;
+  /** Activation program (POTA, SOTA, etc.) */
+  mySig?: string;
+  /** My activation reference */
+  mySigInfo?: string;
+  /** Their activation program */
+  sig?: string;
+  /** Their activation reference */
+  sigInfo?: string;
+  /** Contest ID */
+  contestId?: string;
+  /** Serial received */
+  srx?: string;
+  /** Serial sent */
+  stx?: string;
+  /** Exchange string received */
+  srxString?: string;
+  /** Exchange string sent */
+  stxString?: string;
+  /** LoTW QSL sent status */
+  lotwQslSent?: string;
+  /** LoTW QSL received status */
+  lotwQslRcvd?: string;
+  /** ClubLog status */
+  clublogStatus?: string;
+  /** QRZ.com status */
+  qrzcomStatus?: string;
 }
 
 /**
@@ -157,6 +211,9 @@ export interface DBSchema {
       "by-band": string;
       "by-operatorCallsign": string;
       "by-guestSessionId": string;
+      "by-dxcc": number;
+      "by-mySig": string;
+      "by-version": number;
     };
   };
   alertRules: {

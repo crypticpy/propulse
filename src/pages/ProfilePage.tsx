@@ -56,6 +56,7 @@ import { InterestTagDisplay } from "@/components/profile/InterestTagDisplay";
 import { InterestTagPicker } from "@/components/profile/InterestTagPicker";
 import { WhereToFindMe } from "@/components/profile/WhereToFindMe";
 import { OnAirToggle } from "@/components/profile/OnAirToggle";
+import { MyNetsSection } from "@/components/nets/MyNetsSection";
 import type { ProfileTab } from "@/components/profile";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -409,6 +410,11 @@ function OtherProfileView({
               />
             </div>
           )}
+
+          {/* Visitor's Nets */}
+          <div className={panelClass}>
+            <MyNetsSection editable={false} />
+          </div>
 
           {/* Bio */}
           {profile.bio && (
@@ -925,14 +931,6 @@ export default function ProfilePage() {
           {/* Personal Records — scrollable bests */}
           <PersonalRecords />
 
-          {/* Interest Tags — editable picker */}
-          <div className={panelClass} style={panelStyle}>
-            <InterestTagPicker
-              selected={interests}
-              onChange={(tags) => useProfileStore.getState().setInterests(tags)}
-            />
-          </div>
-
           {/* Where to Find Me — editable */}
           <div className={panelClass} style={panelStyle}>
             <WhereToFindMe
@@ -951,12 +949,25 @@ export default function ProfilePage() {
             />
           </div>
 
+          {/* Interest Tags — editable picker */}
+          <div className={panelClass} style={panelStyle}>
+            <InterestTagPicker
+              selected={interests}
+              onChange={(tags) => useProfileStore.getState().setInterests(tags)}
+            />
+          </div>
+
           {/* On Air Toggle */}
           <div className={panelClass} style={panelStyle}>
             <OnAirToggle
               status={onAirStatus}
               onChange={(s) => useProfileStore.getState().setOnAirStatus(s)}
             />
+          </div>
+
+          {/* My Nets */}
+          <div className={panelClass} style={panelStyle}>
+            <MyNetsSection editable />
           </div>
 
           {/* Station Identity — only show form on mobile where sidebar doesn't exist */}

@@ -40,6 +40,7 @@ const dxHunter: OperatingProfile = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: false,
   },
 
   spotColorMode: "band",
@@ -87,6 +88,7 @@ const contest: OperatingProfile = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: false,
   },
 
   spotColorMode: "mode",
@@ -135,6 +137,7 @@ const vhf: OperatingProfile = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: false,
   },
 
   spotColorMode: "band",
@@ -183,6 +186,7 @@ const emergency: OperatingProfile = {
     loggedQsos: false,
     fires: true,
     radar: true,
+    issTracker: false,
   },
 
   spotColorMode: "mode",
@@ -231,6 +235,7 @@ const listener: OperatingProfile = {
     loggedQsos: false,
     fires: false,
     radar: false,
+    issTracker: false,
   },
 
   spotColorMode: "band",
@@ -301,6 +306,7 @@ export function getProfileConfig(id: BuiltinProfileId): {
     loggedQsos: "Logged QSOs",
     fires: "Fires",
     radar: "Radar",
+    issTracker: "ISS Tracker",
   };
 
   const enabledLayers = (

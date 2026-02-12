@@ -235,3 +235,48 @@ export async function getWorkedModes(callsign: string): Promise<string[]> {
   const modes = new Set(entries.map((entry) => entry.mode));
   return Array.from(modes);
 }
+
+/**
+ * Get paginated log entries sorted by date (newest first)
+ * @param offset - Number of entries to skip
+ * @param limit - Maximum entries to return
+ * @returns Promise resolving to { entries, total }
+ */
+export async function getLogEntriesPaginated(
+  offset: number = 0,
+  limit: number = 50,
+): Promise<{ entries: LogEntry[]; total: number }> {
+  const db = await getDB();
+  const total = await db.count("logEntries");
+  const allEntries = await db.getAllFromIndex("logEntries", "by-date");
+  // Reverse for newest-first, then slice for pagination
+  const sorted = allEntries.reverse();
+  const entries = sorted.slice(offset, offset + limit);
+  return { entries, total };
+}
+
+/**
+ * Check for duplicate QSO: same callsign + band + mode on same date
+ * @param callsign - Callsign to check
+ * @param band - Band to check
+ * @param mode - Mode to check
+ * @param date - Date to check (YYYY-MM-DD)
+ * @param excludeId - Optional entry ID to exclude (for edits)
+ * @returns Promise resolving to true if a dupe exists
+ */
+export async function isDuplicateQSO(
+  callsign: string,
+  band: string,
+  mode: string,
+  date: string,
+  excludeId?: string,
+): Promise<boolean> {
+  const entries = await getLogEntriesByCallsign(callsign);
+  return entries.some(
+    (e) =>
+      e.band === band &&
+      e.mode === mode &&
+      e.date === date &&
+      e.id !== excludeId,
+  );
+}

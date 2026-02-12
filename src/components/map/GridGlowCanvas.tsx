@@ -40,19 +40,19 @@ interface ActiveGlow {
 // ---------------------------------------------------------------------------
 
 /** Maximum simultaneous active glows */
-const MAX_ACTIVE_GLOWS = 40;
+const MAX_ACTIVE_GLOWS = 80;
 
 /** Rise phase duration (ms) — intensity climbs from 0 → peak */
-const RISE_DURATION_MS = 800;
+const RISE_DURATION_MS = 1200;
 
 /** Fade phase duration (ms) — intensity decays from peak → 0 */
-const FADE_DURATION_MS = 1200;
+const FADE_DURATION_MS = 3000;
 
 /** Total glow lifecycle (ms) */
 const TOTAL_DURATION_MS = RISE_DURATION_MS + FADE_DURATION_MS;
 
 /** Default peak alpha when a single spot triggers a glow */
-const DEFAULT_PEAK_ALPHA = 0.35;
+const DEFAULT_PEAK_ALPHA = 0.55;
 
 /** Absolute ceiling for boosted peak intensity */
 const MAX_PEAK_INTENSITY = 1.0;

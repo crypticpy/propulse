@@ -30,6 +30,9 @@ import {
   type ResolvedSpot,
 } from "./LiveSpotArcs";
 import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import { GridGlowRenderer } from "./GridGlowCanvas";
+import type { GridGlowSpot } from "./GridGlowCanvas";
+import { latLonToGrid } from "@/lib/utils/grid";
 import {
   getDifficultyColor,
   DIFFICULTY_LABELS,
@@ -1204,6 +1207,10 @@ export function AzimuthalView({
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const contestOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
+  const glowRendererRef = useRef<GridGlowRenderer>(new GridGlowRenderer());
+  const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
+  const [glowTick, setGlowTick] = useState(0);
+  const glowRafRef = useRef<number>(0);
   const { layers, target, mapStyle, labelOptions, overlayLayers } =
     useMapStore();
   const { station } = useUserStore();
@@ -1410,17 +1417,17 @@ export function AzimuthalView({
   // Fetch live spots when spots layer is enabled
   const { spots } = useLiveSpots({
     grid: station?.grid,
-    enabled: layers.spots,
+    enabled: layers.spots || layers.spotTraces,
     refetchInterval: 60000,
   });
 
   // Resolve spot locations and limit to 50 for performance
   const resolvedSpots = useMemo(() => {
-    if (!layers.spots) {
+    if (!layers.spots && !layers.spotTraces) {
       return [];
     }
     return resolveSpotLocations(spots).slice(0, 50);
-  }, [spots, layers.spots]);
+  }, [spots, layers.spots, layers.spotTraces]);
 
   // Resolve selected DX cluster spot location for highlight arc
   const resolvedSelectedSpot = useMemo(() => {
@@ -1428,6 +1435,69 @@ export function AzimuthalView({
     const resolved = resolveSpotLocations([selectedSpot as any]);
     return resolved.length > 0 ? resolved[0] : null;
   }, [selectedSpot]);
+
+  // Feed new spots into the grid glow renderer when spots arrive.
+  useEffect(() => {
+    if (!layers.spots && !layers.spotTraces) return;
+    const now = Date.now();
+    const currentIds = new Set<string>();
+    const prevIds = prevGlowSpotIdsRef.current;
+    const isInitialLoad = prevIds.size === 0 && resolvedSpots.length > 0;
+
+    for (const spot of resolvedSpots) {
+      currentIds.add(spot.id);
+      if (prevIds.has(spot.id)) continue;
+
+      const color = getSpotColor(spot, spotColorMode);
+      const staggerOffset = isInitialLoad ? Math.random() * 6000 : 0;
+      const timestamp = now - staggerOffset;
+
+      try {
+        const dxGrid4 = latLonToGrid(spot.dxLat, spot.dxLon, 4);
+        glowRendererRef.current.addGlow({
+          gridSquare: dxGrid4,
+          color,
+          timestamp,
+        } satisfies GridGlowSpot);
+      } catch {
+        // Skip if coordinates out of range
+      }
+
+      try {
+        const spGrid4 = latLonToGrid(spot.spotterLat, spot.spotterLon, 4);
+        glowRendererRef.current.addGlow({
+          gridSquare: spGrid4,
+          color,
+          timestamp,
+        } satisfies GridGlowSpot);
+      } catch {
+        // Skip if coordinates out of range
+      }
+    }
+
+    prevGlowSpotIdsRef.current = currentIds;
+
+    if (glowRendererRef.current.hasActiveGlows() && !glowRafRef.current) {
+      const tick = () => {
+        if (glowRendererRef.current.hasActiveGlows()) {
+          setGlowTick((t) => t + 1);
+          glowRafRef.current = requestAnimationFrame(tick);
+        } else {
+          glowRafRef.current = 0;
+        }
+      };
+      glowRafRef.current = requestAnimationFrame(tick);
+    }
+  }, [resolvedSpots, layers.spots, layers.spotTraces, spotColorMode]);
+
+  // Clean up glow RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (glowRafRef.current) {
+        cancelAnimationFrame(glowRafRef.current);
+      }
+    };
+  }, []);
 
   // Calculate path difficulty for target marker coloring
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
@@ -1742,6 +1812,18 @@ export function AzimuthalView({
     // Draw bearing labels
     drawBearingLabels(ctx);
 
+    // Draw grid glow pulses (before spot arcs, after bearing labels)
+    if (
+      (layers.spots || layers.spotTraces) &&
+      glowRendererRef.current.hasActiveGlows()
+    ) {
+      const glowProject = (lat: number, lon: number) => {
+        const proj = azimuthalProject(lat, lon, center.lat, center.lon);
+        return projToCanvas(proj);
+      };
+      glowRendererRef.current.draw(ctx, glowProject, Date.now());
+    }
+
     // Draw live spot arcs (straight lines in azimuthal projection)
     if (layers.spots && resolvedSpots.length > 0) {
       drawSpotArcs(
@@ -1811,6 +1893,7 @@ export function AzimuthalView({
     weatherAlerts,
     lightningStrikes,
     fireHotspots,
+    glowTick,
   ]);
 
   return (

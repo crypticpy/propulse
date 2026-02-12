@@ -92,6 +92,8 @@ import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { ReplayIndicator } from "@/components/map/ReplayIndicator";
 import { ContestRatePanel } from "@/components/map/ContestRatePanel";
+import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
+import { AspectRatioSlider } from "@/components/map/AspectRatioSlider";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 import { useSpotReplay } from "@/hooks/useSpotReplay";
 import { useReplayStore } from "@/stores/replayStore";
@@ -854,6 +856,14 @@ export function PropSphere() {
                 />
               )}
 
+              {/* Earth tilt slider — globe view only */}
+              {viewMode === "globe" && (
+                <ObservatoryTiltSlider
+                  visible
+                  className="absolute bottom-2 right-2"
+                />
+              )}
+
               {/* Time Offset Warning - bottom right when viewing simulated time */}
               {timeOffset !== 0 && (
                 <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
@@ -1022,8 +1032,13 @@ export function PropSphere() {
                     </div>
                   </div>
 
-                  {/* ─── BOTTOM RIGHT: Path Info Summary ─── */}
-                  <div className="absolute bottom-3 right-3 pointer-events-auto">
+                  {/* ─── BOTTOM RIGHT: Controls + Path Info (docked together) ─── */}
+                  <div className="absolute bottom-3 right-3 pointer-events-auto flex flex-col items-end gap-1.5">
+                    {/* Aspect ratio slider — flat view only, docked above path box */}
+                    {viewMode === "flat" && (
+                      <AspectRatioSlider className="flex flex-col items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-2" />
+                    )}
+
                     <div
                       className={`transition-all duration-300 ease-out ${
                         rightPanelExpanded ? "w-[320px]" : "w-auto"

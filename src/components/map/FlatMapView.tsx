@@ -3191,6 +3191,7 @@ export function FlatMapView({
   const activePresetId = useMapStore((s) => s.activePresetId);
   const regionPresets = useMapStore((s) => s.regionPresets);
   const displayDensity = useMapStore((s) => s.displayDensity);
+  const isLiteMode = useMapStore((s) => s.isLiteMode);
   const { station, preferences } = useUserStore();
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
@@ -4946,7 +4947,7 @@ export function FlatMapView({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full min-h-[400px] bg-deep-space overflow-hidden relative ${
+      className={`w-full h-full min-h-[400px] bg-deep-space overflow-hidden relative select-none ${
         fillContainer ? "" : "rounded-xl flex items-center justify-center"
       }`}
     >
@@ -4994,8 +4995,9 @@ export function FlatMapView({
         />
       </div>
 
-      {/* Aspect ratio slider — only in letterbox mode */}
-      {!fillContainer && <AspectRatioSlider />}
+      {/* Aspect ratio slider — only in letterbox mode, hidden in lite mode
+           (docked to PathAnalysis panel in PropSphere HUD instead) */}
+      {!fillContainer && !isLiteMode && <AspectRatioSlider />}
 
       {/* Tooltip overlay */}
       <MapTooltip

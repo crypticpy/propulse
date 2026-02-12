@@ -661,7 +661,9 @@ export function FullscreenPropSphere({
       {observatoryMode && ambientMode && !showTopBar && <ObservatoryOverlay />}
 
       {/* ── Observatory tilt slider — visible on mouse move in observatory mode */}
-      {observatoryMode && <ObservatoryTiltSlider visible={showTopBar} />}
+      {viewMode === "globe" && (
+        <ObservatoryTiltSlider visible={observatoryMode ? showTopBar : true} />
+      )}
 
       {/* ── Ambient overlay (UTC clock + watch pill) — non-observatory only */}
       {showAmbientOverlay && !observatoryMode && (

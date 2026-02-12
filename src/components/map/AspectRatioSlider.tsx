@@ -9,7 +9,12 @@ import { useCallback } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 
-export function AspectRatioSlider() {
+interface AspectRatioSliderProps {
+  /** Override default positioning. When omitted, uses absolute bottom-3 right-3 z-30. */
+  className?: string;
+}
+
+export function AspectRatioSlider({ className }: AspectRatioSliderProps = {}) {
   const uiPrefs = useUIInteractionPrefs();
   const mapAspectRatio = uiPrefs.mapAspectRatio ?? 2.0;
   const updateUIInteraction = useSettingsStore((s) => s.updateUIInteraction);
@@ -22,7 +27,12 @@ export function AspectRatioSlider() {
   );
 
   return (
-    <div className="absolute bottom-3 right-3 z-30 flex flex-col items-center gap-1 bg-void-black/70 backdrop-blur-sm border border-white/10 rounded-lg px-2 py-2">
+    <div
+      className={
+        className ??
+        "absolute bottom-3 right-3 z-30 flex flex-col items-center gap-1 bg-void-black/70 backdrop-blur-sm border border-white/10 rounded-lg px-2 py-2"
+      }
+    >
       {/* Ratio icon */}
       <svg
         width="14"

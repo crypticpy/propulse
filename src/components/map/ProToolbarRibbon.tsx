@@ -4,15 +4,15 @@
  * Unified collapsible toolbar ribbon for Pro mode fullscreen view.
  * Replaces the separate glass panel "bubbles" in the top bar with a single
  * horizontal ribbon bar that can collapse to a compact pill.
+ *
+ * Responsive: at <1100px width, layer presets + region selector collapse
+ * into a dropdown, Observatory goes icon-only, station info trims.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
-import {
-  useUIInteractionPrefs,
-  useSettingsStore,
-} from "@/stores/settingsStore";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { PRESET_CONFIG } from "@/constants/mapPresets";
 import { TimeControl } from "@/components/map/TimeControl";
@@ -32,10 +32,185 @@ interface ProToolbarRibbonProps {
   onOpenPresetManager: () => void;
 }
 
+/* ─── Shared active-color map for presets ─────────────────────── */
+
+const ACTIVE_STYLES: Record<PresetName, string> = {
+  "dx-hunter": "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
+  contest: "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
+  vhf: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40",
+  emergency: "bg-alert-red/20 text-alert-red border-alert-red/40",
+};
+
 /* ─── Divider helper ─────────────────────────────────────────── */
 
 function Divider() {
   return <div className="w-px h-6 bg-white/15 flex-shrink-0" />;
+}
+
+/* ─── Compact Presets Dropdown ────────────────────────────────── */
+
+function PresetsDropdown({
+  activePreset,
+  applyPreset,
+  onOpenPresetManager,
+}: {
+  activePreset: PresetName | null;
+  applyPreset: (p: PresetName) => void;
+  onOpenPresetManager: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        !btnRef.current?.contains(e.target as Node) &&
+        !panelRef.current?.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [open]);
+
+  const activeCfg = activePreset ? PRESET_CONFIG[activePreset] : null;
+
+  // Position dropdown below button
+  const rect = btnRef.current?.getBoundingClientRect();
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1.5 px-2 py-1 text-[10px] rounded border transition-all ${
+          activePreset
+            ? ACTIVE_STYLES[activePreset]
+            : open
+              ? "bg-white/15 text-white border-white/20"
+              : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
+        }`}
+      >
+        {activeCfg ? (
+          <>
+            <svg
+              className="w-3 h-3 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d={activeCfg.iconPath} />
+            </svg>
+            {activeCfg.label}
+          </>
+        ) : (
+          <>
+            <svg
+              className="w-3 h-3 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+            </svg>
+            Presets
+          </>
+        )}
+        <svg
+          className={`w-2.5 h-2.5 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+
+      {open &&
+        rect &&
+        createPortal(
+          <div
+            ref={panelRef}
+            className="fixed z-[250] animate-in fade-in slide-in-from-top-1 duration-150"
+            style={{ top: rect.bottom + 6, left: rect.left }}
+          >
+            <div className="bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl p-2 min-w-[180px] shadow-xl">
+              {/* Layer presets */}
+              <div className="flex flex-col gap-0.5">
+                {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => {
+                  const cfg = PRESET_CONFIG[preset];
+                  const isActive = activePreset === preset;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        applyPreset(preset);
+                        setOpen(false);
+                      }}
+                      title={cfg.description}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] rounded border transition-all ${
+                        isActive
+                          ? ACTIVE_STYLES[preset]
+                          : "text-gray-300 hover:text-white hover:bg-white/10 border-transparent"
+                      }`}
+                    >
+                      <svg
+                        className="w-3.5 h-3.5 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d={cfg.iconPath} />
+                      </svg>
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-white/10 my-1.5" />
+
+              {/* Region presets */}
+              <div className="px-0.5">
+                <RegionPresetSelector onOpenManager={onOpenPresetManager} />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 /* ─── Component ──────────────────────────────────────────────── */
@@ -60,13 +235,22 @@ export function ProToolbarRibbon({
 
   const { station } = useUserStore();
 
-  const prefs = useUIInteractionPrefs();
-  const spotDotScale = prefs.spotDotScale ?? 1.0;
-  const mapPinScale = prefs.mapPinScale ?? 1.0;
-  const updateUIInteraction = useSettingsStore((s) => s.updateUIInteraction);
-
   /* ── Live spots ──────────────────────────────────────────── */
   const { spots } = useLiveSpots({ grid: station?.grid, enabled: true });
+
+  /* ── Responsive: compact mode via ResizeObserver ──────────── */
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setIsCompact(entry.contentRect.width < 1100);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   /* ── Collapsed UTC clock (only ticks when collapsed) ─────── */
   const [utcString, setUtcString] = useState(() =>
@@ -80,7 +264,7 @@ export function ProToolbarRibbon({
   );
 
   useEffect(() => {
-    if (proRibbonExpanded) return; // only tick when collapsed to show time
+    if (proRibbonExpanded) return;
     const id = setInterval(() => {
       setUtcString(
         new Date().toLocaleTimeString("en-GB", {
@@ -94,21 +278,6 @@ export function ProToolbarRibbon({
     }, 1000);
     return () => clearInterval(id);
   }, [proRibbonExpanded]);
-
-  /* ── Slider handlers ─────────────────────────────────────── */
-  const handleSpotDotScale = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      updateUIInteraction({ spotDotScale: parseFloat(e.target.value) });
-    },
-    [updateUIInteraction],
-  );
-
-  const handleMapPinScale = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      updateUIInteraction({ mapPinScale: parseFloat(e.target.value) });
-    },
-    [updateUIInteraction],
-  );
 
   /* ── Ambient-mode opacity wrapper ────────────────────────── */
   const ambientOpacity =
@@ -129,7 +298,6 @@ export function ProToolbarRibbon({
           onClick={toggleProRibbon}
           className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-3 py-2 pointer-events-auto flex items-center gap-2 text-xs text-gray-300 hover:text-white transition-colors"
         >
-          {/* Hamburger / menu icon */}
           <svg
             className="w-4 h-4 flex-shrink-0"
             fill="none"
@@ -146,7 +314,7 @@ export function ProToolbarRibbon({
           <span className="font-mono text-xs text-gray-400">
             {utcString} UTC
           </span>
-          <span className="text-white/30">·</span>
+          <span className="text-white/30">&middot;</span>
           <span className="text-cyan-400 text-xs">{spots.length} spots</span>
         </button>
       </div>
@@ -157,16 +325,14 @@ export function ProToolbarRibbon({
    *  EXPANDED RIBBON
    * ════════════════════════════════════════════════════════════ */
 
-  const sliderClass =
-    "w-14 h-1 bg-white/10 rounded appearance-none cursor-pointer " +
-    "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 " +
-    "[&::-webkit-slider-thumb]:bg-gray-300 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer";
-
   return (
     <div
       className={`fixed top-0 left-0 right-0 z-[210] pointer-events-none transition-opacity duration-300 ${ambientOpacity}`}
     >
-      <div className="bg-black/60 backdrop-blur-md border-b border-white/20 flex items-center gap-2 px-3 py-2 pointer-events-auto">
+      <div
+        ref={toolbarRef}
+        className="bg-black/60 backdrop-blur-md border-b border-white/20 flex items-center gap-2 px-3 py-2 pointer-events-auto"
+      >
         {/* ── 1. Toggle (collapse) button ─────────────────────── */}
         <button
           type="button"
@@ -197,7 +363,12 @@ export function ProToolbarRibbon({
               <span className="font-mono font-bold text-sm text-white">
                 {station.callsign}
               </span>
-              <span className="text-[10px] text-gray-500">{station.grid}</span>
+              {/* Hide grid in compact mode */}
+              {!isCompact && (
+                <span className="text-[10px] text-gray-500">
+                  {station.grid}
+                </span>
+              )}
               <span className="text-white/20">|</span>
               <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
               <span className="text-xs text-cyan-400">
@@ -229,7 +400,7 @@ export function ProToolbarRibbon({
         <Divider />
 
         {/* ── 4. Time control ─────────────────────────────────── */}
-        <div className="w-40 flex-shrink-0">
+        <div className={`${isCompact ? "w-32" : "w-40"} flex-shrink-0`}>
           <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden [&>*:last-child]:hidden" />
         </div>
 
@@ -243,96 +414,63 @@ export function ProToolbarRibbon({
 
         <Divider />
 
-        {/* ── 6. Layer presets ────────────────────────────────── */}
-        <div className="flex gap-1 flex-shrink-0">
-          {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => {
-            const cfg = PRESET_CONFIG[preset];
-            const isActive = activePreset === preset;
-            const activeStyles: Record<PresetName, string> = {
-              "dx-hunter":
-                "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40",
-              contest:
-                "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
-              vhf: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40",
-              emergency: "bg-alert-red/20 text-alert-red border-alert-red/40",
-            };
-            return (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => applyPreset(preset)}
-                title={`${cfg.description}\n${cfg.layerSummary}`}
-                className={`px-2 py-1 text-[10px] rounded border transition-all flex items-center gap-1 ${
-                  isActive
-                    ? activeStyles[preset]
-                    : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
-                }`}
-              >
-                <svg
-                  className="w-3 h-3 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d={cfg.iconPath} />
-                </svg>
-                {cfg.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <Divider />
-
-        {/* ── 7. Region presets ───────────────────────────────── */}
-        <div className="flex-shrink-0">
-          <RegionPresetSelector onOpenManager={onOpenPresetManager} />
-        </div>
-
-        <Divider />
-
-        {/* ── 8. Spot / Pin size sliders ─────────────────────── */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Spot size */}
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-gray-500 uppercase">Spots</span>
-            <input
-              type="range"
-              min={0.5}
-              max={2.0}
-              step={0.1}
-              value={spotDotScale}
-              onChange={handleSpotDotScale}
-              className={sliderClass}
+        {/* ── 6. Layer presets + Region presets ─────────────────── */}
+        {isCompact ? (
+          /* Compact: single dropdown */
+          <div className="flex-shrink-0 relative">
+            <PresetsDropdown
+              activePreset={activePreset}
+              applyPreset={applyPreset}
+              onOpenPresetManager={onOpenPresetManager}
             />
-            <span className="text-[9px] font-mono text-gray-400">
-              {spotDotScale.toFixed(1)}&times;
-            </span>
           </div>
-          {/* Pin size */}
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-gray-500 uppercase">Pins</span>
-            <input
-              type="range"
-              min={0.5}
-              max={2.0}
-              step={0.1}
-              value={mapPinScale}
-              onChange={handleMapPinScale}
-              className={sliderClass}
-            />
-            <span className="text-[9px] font-mono text-gray-400">
-              {mapPinScale.toFixed(1)}&times;
-            </span>
-          </div>
-        </div>
+        ) : (
+          /* Wide: inline presets + region selector */
+          <>
+            <div className="flex gap-1 flex-shrink-0">
+              {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => {
+                const cfg = PRESET_CONFIG[preset];
+                const isActive = activePreset === preset;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    title={`${cfg.description}\n${cfg.layerSummary}`}
+                    className={`px-2 py-1 text-[10px] rounded border transition-all flex items-center gap-1 ${
+                      isActive
+                        ? ACTIVE_STYLES[preset]
+                        : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
+                    }`}
+                  >
+                    <svg
+                      className="w-3 h-3 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d={cfg.iconPath} />
+                    </svg>
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <Divider />
+
+            <div className="flex-shrink-0">
+              <RegionPresetSelector onOpenManager={onOpenPresetManager} />
+            </div>
+          </>
+        )}
 
         <Divider />
 
-        {/* ── 9. Observatory button ──────────────────────────── */}
+        {/* ── 7. Observatory button ──────────────────────────── */}
         <button
           type="button"
           onClick={enterObservatory}
@@ -356,13 +494,13 @@ export function ProToolbarRibbon({
             <line x1="2" y1="12" x2="6" y2="12" />
             <line x1="18" y1="12" x2="22" y2="12" />
           </svg>
-          Observatory
+          {!isCompact && "Observatory"}
         </button>
 
-        {/* ── 10. Spacer ─────────────────────────────────────── */}
+        {/* ── 8. Spacer ─────────────────────────────────────── */}
         <div className="flex-1" />
 
-        {/* ── 11. Reset layout button ────────────────────────── */}
+        {/* ── 9. Reset layout button ────────────────────────── */}
         <button
           type="button"
           onClick={onResetLayout}
@@ -382,12 +520,12 @@ export function ProToolbarRibbon({
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
-          Reset
+          {!isCompact && "Reset"}
         </button>
 
         <Divider />
 
-        {/* ── 12. Ambient mode toggle ────────────────────────── */}
+        {/* ── 10. Ambient mode toggle ────────────────────────── */}
         {!observatoryMode && (
           <button
             type="button"
@@ -410,13 +548,11 @@ export function ProToolbarRibbon({
             >
               {ambientMode ? (
                 <>
-                  {/* Eye open — show panels */}
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </>
               ) : (
                 <>
-                  {/* Eye with slash — ambient / hide panels */}
                   <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
                   <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
                   <path d="M14.12 14.12a3 3 0 11-4.24-4.24" />
@@ -427,7 +563,7 @@ export function ProToolbarRibbon({
           </button>
         )}
 
-        {/* ── 13. ESC hint + Exit button ─────────────────────── */}
+        {/* ── 11. ESC hint + Exit button ─────────────────────── */}
         <div className="text-[10px] text-gray-600 pointer-events-none select-none whitespace-nowrap">
           <kbd className="px-1 py-0.5 bg-white/10 rounded text-gray-500">
             ESC

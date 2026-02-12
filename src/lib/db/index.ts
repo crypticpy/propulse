@@ -75,24 +75,30 @@ export async function getDB(): Promise<IDBPDatabase<DBSchema>> {
       }
 
       // Version 2: Add compound index for efficient wasRecentlyAlerted queries
-      if (oldVersion < 2 && db.objectStoreNames.contains(DB_CONFIG.stores.alertHistory)) {
-            const historyStore = transaction.objectStore(
-              DB_CONFIG.stores.alertHistory,
-            );
-            if (!historyStore.indexNames.contains("by-ruleId-spotId")) {
-              historyStore.createIndex("by-ruleId-spotId", ["ruleId", "spotId"]);
-            }
+      if (
+        oldVersion < 2 &&
+        db.objectStoreNames.contains(DB_CONFIG.stores.alertHistory)
+      ) {
+        const historyStore = transaction.objectStore(
+          DB_CONFIG.stores.alertHistory,
+        );
+        if (!historyStore.indexNames.contains("by-ruleId-spotId")) {
+          historyStore.createIndex("by-ruleId-spotId", ["ruleId", "spotId"]);
+        }
       }
 
       // Version 3: Add indexes for guest logging feature
-      if (oldVersion < 3 && db.objectStoreNames.contains(DB_CONFIG.stores.logEntries)) {
-            const logStore = transaction.objectStore(DB_CONFIG.stores.logEntries);
-            if (!logStore.indexNames.contains("by-operatorCallsign")) {
-              logStore.createIndex("by-operatorCallsign", "operatorCallsign");
-            }
-            if (!logStore.indexNames.contains("by-guestSessionId")) {
-              logStore.createIndex("by-guestSessionId", "guestSessionId");
-            }
+      if (
+        oldVersion < 3 &&
+        db.objectStoreNames.contains(DB_CONFIG.stores.logEntries)
+      ) {
+        const logStore = transaction.objectStore(DB_CONFIG.stores.logEntries);
+        if (!logStore.indexNames.contains("by-operatorCallsign")) {
+          logStore.createIndex("by-operatorCallsign", "operatorCallsign");
+        }
+        if (!logStore.indexNames.contains("by-guestSessionId")) {
+          logStore.createIndex("by-guestSessionId", "guestSessionId");
+        }
       }
     },
     blocked() {
@@ -217,12 +223,70 @@ export async function initializeDB(): Promise<void> {
  */
 export async function deleteDatabase(): Promise<void> {
   await closeDB();
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_CONFIG.name);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => {
-      console.warn("Database deletion blocked - close all other tabs");
-    };
+  await deleteSingleDatabase(DB_CONFIG.name);
+}
+
+/**
+ * Delete a single IndexedDB database by name with timeout handling.
+ * Safari can block indefinitely if connections are open — this resolves
+ * after a timeout so the caller can proceed (e.g., reload the page to
+ * release connections).
+ */
+function deleteSingleDatabase(name: string, timeoutMs = 3000): Promise<void> {
+  return new Promise<void>((resolve) => {
+    try {
+      const request = indexedDB.deleteDatabase(name);
+      const timer = setTimeout(() => {
+        console.warn(
+          `Database "${name}" deletion timed out (blocked) — will be cleaned up on reload`,
+        );
+        resolve();
+      }, timeoutMs);
+
+      request.onsuccess = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      request.onerror = () => {
+        clearTimeout(timer);
+        console.warn(`Failed to delete database "${name}":`, request.error);
+        resolve(); // Don't reject — let the caller continue
+      };
+      request.onblocked = () => {
+        // Safari often fires onblocked when any connection is open.
+        // The timeout above will resolve the promise if onsuccess
+        // never fires. Don't resolve here — onsuccess may still come.
+        console.warn(
+          `Database "${name}" deletion blocked — waiting for connections to close`,
+        );
+      };
+    } catch {
+      resolve(); // IDB not available — nothing to delete
+    }
   });
+}
+
+/**
+ * All IndexedDB database names used by the application.
+ * Keep this in sync when adding new databases.
+ */
+const ALL_DB_NAMES = [
+  "propulse-db",
+  "propulse-api-cache",
+  "propulse-images",
+  "propulse-credentials",
+  "propulse-scp",
+];
+
+/**
+ * Delete ALL IndexedDB databases used by the application.
+ * Each deletion has a timeout so blocked databases don't hang forever.
+ * A page reload after calling this will release any remaining connections.
+ */
+export async function deleteAllDatabases(): Promise<void> {
+  // Close the main database connection first
+  await closeDB();
+
+  // Delete all databases in parallel (each has its own timeout)
+  await Promise.all(ALL_DB_NAMES.map((name) => deleteSingleDatabase(name)));
 }

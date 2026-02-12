@@ -8,7 +8,7 @@ import {
   type ValidationResult,
 } from "@/lib/utils/settingsBackup";
 import { useLogbook } from "@/hooks/useLogbook";
-import { deleteDatabase } from "@/lib/db/index";
+import { deleteAllDatabases } from "@/lib/db/index";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
@@ -167,23 +167,22 @@ export function DataAccountSection() {
 
     setIsClearing(true);
     try {
-      // Clear localStorage
+      // Delete all IndexedDB databases first (each has a timeout so this
+      // won't hang on Safari even if connections are blocked).
+      await deleteAllDatabases();
+      // Clear localStorage (synchronous — always succeeds)
       localStorage.clear();
-      // Delete IndexedDB
-      await deleteDatabase();
       setBackupStatus({
         type: "success",
         message: "All local data cleared. The page will reload.",
       });
       // Reload after a short delay so the user sees the message
       setTimeout(() => window.location.reload(), 1500);
-    } catch (e) {
-      setBackupStatus({
-        type: "error",
-        message: `Failed to clear data: ${e instanceof Error ? e.message : "Unknown error"}`,
-      });
-      setIsClearing(false);
-      setClearConfirm(false);
+    } catch {
+      // Even if something unexpected happens, clear localStorage and reload
+      // to avoid leaving the app in a half-cleared state.
+      localStorage.clear();
+      window.location.reload();
     }
   }, [clearConfirm]);
 

@@ -1455,7 +1455,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   );
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate">
+    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none">
       <GlobeErrorBoundary
         fallback={
           <div className="w-full h-full flex items-center justify-center bg-deep-space text-gray-500">

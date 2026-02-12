@@ -166,13 +166,15 @@ export function FloatingPanel({
   icon,
   children,
 }: FloatingPanelProps): React.ReactElement {
-  // ---- Resolve initial layout ----
-  const initialLayout = persistedLayout ?? {
+  // ---- Resolve initial layout (clamped to viewport) ----
+  const rawLayout = persistedLayout ?? {
     x: (defaultPosition.x / 100) * window.innerWidth,
     y: (defaultPosition.y / 100) * window.innerHeight,
     width: defaultSize.width,
     height: defaultSize.height,
   };
+  const clampedInit = clampPosition(rawLayout.x, rawLayout.y, rawLayout.width);
+  const initialLayout = { ...rawLayout, ...clampedInit };
 
   // ---- Layout state (only updated on interaction END for perf) ----
   const [layout, setLayout] = useState(initialLayout);

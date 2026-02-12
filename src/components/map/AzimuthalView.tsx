@@ -1816,7 +1816,7 @@ export function AzimuthalView({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center"
+      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center select-none"
     >
       {/* WebGL canvas for map background */}
       <canvas

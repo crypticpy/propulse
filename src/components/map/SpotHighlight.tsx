@@ -3,6 +3,9 @@
  *
  * Renders a pulsing ring/glow effect at the focused DX spot's position
  * on the 3D globe. Only visible when actively focusing on a spot.
+ *
+ * Performance: All 5 sub-elements animate from a single useFrame callback
+ * in the parent, avoiding 5 separate R3F scheduler entries.
  */
 
 import { useRef, useMemo } from "react";
@@ -34,167 +37,10 @@ interface SpotHighlightProps {
 }
 
 /**
- * Inner ring component with pulsing animation
- */
-function PulsingRing({
-  position,
-  color,
-  baseSize,
-  delay,
-  opacity,
-}: {
-  position: THREE.Vector3;
-  color: string;
-  baseSize: number;
-  delay: number;
-  opacity: number;
-}) {
-  const ringRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
-
-  useFrame(({ clock }) => {
-    if (!ringRef.current || !materialRef.current) {
-      return;
-    }
-
-    // Create pulsing effect with delay offset
-    const time = clock.elapsedTime * PULSE_SPEED + delay;
-    const pulse = (Math.sin(time) + 1) / 2; // Normalize to 0-1
-
-    // Scale from 1 to PULSE_MAX_SCALE
-    const scale = 1 + pulse * (PULSE_MAX_SCALE - 1);
-    ringRef.current.scale.set(scale, scale, scale);
-
-    // Fade out as it expands
-    const fadeOpacity = opacity * (1 - pulse * 0.7);
-    materialRef.current.opacity = fadeOpacity;
-  });
-
-  return (
-    <mesh ref={ringRef} position={position}>
-      <ringGeometry args={[baseSize * 0.8, baseSize, 32]} />
-      <meshBasicMaterial
-        ref={materialRef}
-        color={color}
-        transparent
-        opacity={opacity}
-        side={THREE.DoubleSide}
-        depthWrite={false}
-        depthTest={false}
-      />
-    </mesh>
-  );
-}
-
-/**
- * Glowing center point
- */
-function GlowPoint({
-  position,
-  color,
-  size,
-}: {
-  position: THREE.Vector3;
-  color: string;
-  size: number;
-}) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
-
-  useFrame(({ clock }) => {
-    if (!meshRef.current || !materialRef.current) {
-      return;
-    }
-
-    // Subtle breathing effect
-    const time = clock.elapsedTime * 2;
-    const scale = 1 + Math.sin(time) * 0.2;
-    meshRef.current.scale.set(scale, scale, scale);
-
-    // Brightness pulse
-    const brightness = 0.8 + Math.sin(time * 1.5) * 0.2;
-    materialRef.current.opacity = brightness;
-  });
-
-  return (
-    <mesh ref={meshRef} position={position}>
-      <sphereGeometry args={[size, 16, 16]} />
-      <meshBasicMaterial
-        ref={materialRef}
-        color={color}
-        transparent
-        opacity={0.9}
-        depthTest={false}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-}
-
-/**
- * Outer glow halo effect
- */
-function GlowHalo({
-  position,
-  color,
-  size,
-}: {
-  position: THREE.Vector3;
-  color: string;
-  size: number;
-}) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
-
-  useFrame(({ clock }) => {
-    if (!meshRef.current || !materialRef.current) {
-      return;
-    }
-
-    // Slow rotation for visual interest
-    meshRef.current.rotation.z = clock.elapsedTime * 0.5;
-
-    // Subtle opacity pulse
-    const time = clock.elapsedTime * 1.5;
-    const opacity = 0.15 + Math.sin(time) * 0.05;
-    materialRef.current.opacity = opacity;
-  });
-
-  return (
-    <mesh ref={meshRef} position={position}>
-      <circleGeometry args={[size, 32]} />
-      <meshBasicMaterial
-        ref={materialRef}
-        color={color}
-        transparent
-        opacity={0.15}
-        side={THREE.DoubleSide}
-        depthWrite={false}
-        depthTest={false}
-      />
-    </mesh>
-  );
-}
-
-/**
- * SpotHighlight renders a pulsing highlight effect at the focused spot location
+ * SpotHighlight renders a pulsing highlight effect at the focused spot location.
  *
- * Uses the useSpotFocus hook to get the currently focused spot and its position.
- * The highlight consists of:
- * - Multiple pulsing rings that expand outward
- * - A glowing center point
- * - An outer halo effect
- *
- * All elements use plasma-orange color and animate continuously while visible.
- *
- * @example
- * ```tsx
- * // In your Three.js scene
- * <SpotHighlight />
- *
- * // With custom color
- * <SpotHighlight color="#00FF88" />
- * ```
+ * Uses a single useFrame to drive all child animations via refs,
+ * rather than 5 separate useFrame callbacks.
  */
 export function SpotHighlight({
   color = PLASMA_ORANGE,
@@ -202,7 +48,6 @@ export function SpotHighlight({
 }: SpotHighlightProps) {
   const { isFocusing, focusedSpot } = useSpotFocus();
 
-  // Determine visibility
   const isVisible = visibleOverride ?? isFocusing;
 
   // Calculate 3D position from lat/lon
@@ -210,12 +55,70 @@ export function SpotHighlight({
     if (!focusedSpot?.dxLat || !focusedSpot?.dxLon) {
       return null;
     }
-
     const pos = latLonToPosition3D(focusedSpot.dxLat, focusedSpot.dxLon, 1.025);
     return new THREE.Vector3(pos.x, pos.y, pos.z);
   }, [focusedSpot]);
 
-  // Don't render if not visible or no position
+  // Refs for all animated elements — driven by a single useFrame
+  const ringRefs = useRef<(THREE.Mesh | null)[]>([null, null, null]);
+  const ringMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([
+    null,
+    null,
+    null,
+  ]);
+  const glowPointRef = useRef<THREE.Mesh>(null);
+  const glowPointMatRef = useRef<THREE.MeshBasicMaterial>(null);
+  const haloRef = useRef<THREE.Mesh>(null);
+  const haloMatRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  // Pre-computed delays for ring layers
+  const ringDelays = useMemo(
+    () =>
+      Array.from(
+        { length: RING_LAYERS },
+        (_, i) => (i * Math.PI * 2) / RING_LAYERS,
+      ),
+    [],
+  );
+  const ringOpacities = useMemo(
+    () => Array.from({ length: RING_LAYERS }, (_, i) => 0.6 - i * 0.15),
+    [],
+  );
+
+  // Single consolidated useFrame for all 5 sub-elements
+  useFrame(({ clock }) => {
+    if (!isVisible || !position) return;
+
+    const elapsed = clock.elapsedTime;
+
+    // ── Pulsing rings (3x) ──────────────────────────────────────────
+    for (let i = 0; i < RING_LAYERS; i++) {
+      const mesh = ringRefs.current[i];
+      const mat = ringMatRefs.current[i];
+      if (!mesh || !mat) continue;
+
+      const time = elapsed * PULSE_SPEED + ringDelays[i];
+      const pulse = (Math.sin(time) + 1) / 2;
+      const scale = 1 + pulse * (PULSE_MAX_SCALE - 1);
+      mesh.scale.set(scale, scale, scale);
+      mat.opacity = ringOpacities[i] * (1 - pulse * 0.7);
+    }
+
+    // ── Glow point (1x) ─────────────────────────────────────────────
+    if (glowPointRef.current && glowPointMatRef.current) {
+      const time = elapsed * 2;
+      const scale = 1 + Math.sin(time) * 0.2;
+      glowPointRef.current.scale.set(scale, scale, scale);
+      glowPointMatRef.current.opacity = 0.8 + Math.sin(time * 1.5) * 0.2;
+    }
+
+    // ── Glow halo (1x) ──────────────────────────────────────────────
+    if (haloRef.current && haloMatRef.current) {
+      haloRef.current.rotation.z = elapsed * 0.5;
+      haloMatRef.current.opacity = 0.15 + Math.sin(elapsed * 1.5) * 0.05;
+    }
+  });
+
   if (!isVisible || !position) {
     return null;
   }
@@ -223,26 +126,55 @@ export function SpotHighlight({
   return (
     <group renderOrder={1}>
       {/* Outer glow halo */}
-      <GlowHalo position={position} color={color} size={RING_BASE_SIZE * 4} />
+      <mesh ref={haloRef} position={position}>
+        <circleGeometry args={[RING_BASE_SIZE * 4, 32]} />
+        <meshBasicMaterial
+          ref={haloMatRef}
+          color={color}
+          transparent
+          opacity={0.15}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          depthTest={false}
+        />
+      </mesh>
 
       {/* Multiple pulsing rings with staggered delays */}
-      {Array.from({ length: RING_LAYERS }).map((_, index) => (
-        <PulsingRing
+      {ringDelays.map((_, index) => (
+        <mesh
           key={index}
+          ref={(el) => {
+            ringRefs.current[index] = el;
+          }}
           position={position}
-          color={index === 0 ? PLASMA_ORANGE_BRIGHT : color}
-          baseSize={RING_BASE_SIZE}
-          delay={(index * Math.PI * 2) / RING_LAYERS}
-          opacity={0.6 - index * 0.15}
-        />
+        >
+          <ringGeometry args={[RING_BASE_SIZE * 0.8, RING_BASE_SIZE, 32]} />
+          <meshBasicMaterial
+            ref={(el) => {
+              ringMatRefs.current[index] = el;
+            }}
+            color={index === 0 ? PLASMA_ORANGE_BRIGHT : color}
+            transparent
+            opacity={ringOpacities[index]}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+            depthTest={false}
+          />
+        </mesh>
       ))}
 
       {/* Glowing center point */}
-      <GlowPoint
-        position={position}
-        color={PLASMA_ORANGE_BRIGHT}
-        size={RING_BASE_SIZE * 0.4}
-      />
+      <mesh ref={glowPointRef} position={position}>
+        <sphereGeometry args={[RING_BASE_SIZE * 0.4, 16, 16]} />
+        <meshBasicMaterial
+          ref={glowPointMatRef}
+          color={PLASMA_ORANGE_BRIGHT}
+          transparent
+          opacity={0.9}
+          depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }

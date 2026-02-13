@@ -7,10 +7,10 @@
  * custom shader to visualize day/night density variations.
  *
  * Layer characteristics:
- * - D layer (~85 km): Daytime absorption indicator, disappears at night
- * - E layer (~110 km): Extends into twilight (zenith < 98 deg)
- * - F1 layer (~185 km): Daytime only, SFI-dependent prominence
- * - F2 layer (~300 km): Always present, varies with SFI and diurnal cycle
+ * - D layer (~85 km): Daytime absorption indicator, faint twilight remnant
+ * - E layer (~110 km): Extends into twilight, sporadic E persists at night
+ * - F1 layer (~185 km): Daytime only, merges with F2 at sunset
+ * - F2 layer (~300 km): Always present, dominant nighttime layer
  *
  * Heights are exaggerated 5x for visibility on the globe.
  */
@@ -56,23 +56,23 @@ const D_LAYER_HEIGHT_KM = 85;
 const LAYER_CONFIGS: LayerConfig[] = [
   {
     type: LayerType.D,
-    color: new THREE.Vector3(0.8, 0.3, 0.2),
-    baseOpacity: 0.22,
-  },
-  {
-    type: LayerType.E,
-    color: new THREE.Vector3(0.2, 0.8, 0.4),
+    color: new THREE.Vector3(0.9, 0.35, 0.2),
     baseOpacity: 0.18,
   },
   {
+    type: LayerType.E,
+    color: new THREE.Vector3(0.2, 0.85, 0.4),
+    baseOpacity: 0.15,
+  },
+  {
     type: LayerType.F1,
-    color: new THREE.Vector3(0.3, 0.6, 0.9),
-    baseOpacity: 0.16,
+    color: new THREE.Vector3(0.3, 0.65, 0.95),
+    baseOpacity: 0.13,
   },
   {
     type: LayerType.F2,
-    color: new THREE.Vector3(0.6, 0.3, 0.9),
-    baseOpacity: 0.14,
+    color: new THREE.Vector3(0.65, 0.3, 0.95),
+    baseOpacity: 0.16,
   },
 ];
 
@@ -109,56 +109,61 @@ const fragmentShader = /* glsl */ `
     float zenithDeg = zenithAngle * 57.29578;
 
     float density = 0.0;
+    float sfiFactor = clamp((sfi - 60.0) / 120.0, 0.25, 1.0);
 
     if (layerType == 0) {
-      // D layer: daytime only, cos^1.3 falloff
+      // D layer: daytime absorption, warm glow — faint twilight remnant
       if (zenithDeg < 90.0) {
         density = pow(max(cos(zenithAngle), 0.0), 1.3);
+      } else if (zenithDeg < 100.0) {
+        density = 0.08 * (1.0 - (zenithDeg - 90.0) / 10.0);
       }
     } else if (layerType == 1) {
-      // E layer: extends into twilight
+      // E layer: extends into twilight, sporadic E persists at night
       if (zenithDeg < 98.0) {
         density = pow(max(cos(zenithAngle), 0.0), 0.6);
-        // Twilight decay 90-98
         if (zenithDeg > 90.0) {
           density *= 1.0 - (zenithDeg - 90.0) / 8.0;
         }
       }
+      // Sporadic E: faint at night
+      density = max(density, 0.06 * sfiFactor);
     } else if (layerType == 2) {
-      // F1: daytime only, SFI-dependent
+      // F1: merges with F2 at night, visible in sunset/sunrise transition
       if (zenithDeg < 80.0) {
-        float sfiFactor = clamp((sfi - 70.0) / 100.0, 0.2, 1.0);
         density = pow(max(cos(zenithAngle), 0.0), 0.5) * sfiFactor;
-      } else if (zenithDeg < 90.0) {
-        float sfiFactor = clamp((sfi - 70.0) / 100.0, 0.2, 1.0);
-        density = pow(max(cos(zenithAngle), 0.0), 0.5) * sfiFactor * (1.0 - (zenithDeg - 80.0) / 10.0);
+      } else if (zenithDeg < 100.0) {
+        float fade = 1.0 - (zenithDeg - 80.0) / 20.0;
+        density = pow(max(cos(zenithAngle * 0.9), 0.0), 0.5) * sfiFactor * max(fade, 0.0);
       }
+      // Faint residual at night (F1 merges into F2)
+      density = max(density, 0.04 * sfiFactor);
     } else {
-      // F2: always present, diurnal + equatorial anomaly
-      float baseDensity = 0.3;
-      float sfiFactor = clamp((sfi - 60.0) / 120.0, 0.2, 1.0);
+      // F2: always present — dominant nighttime layer
+      float baseDensity = 0.35;
 
-      // Diurnal: peaks around local noon (14:00 equivalent)
-      float diurnal = 0.5 + 0.5 * max(sunDot, -0.2);
+      // Diurnal: peaks around local noon
+      float diurnal = 0.55 + 0.45 * max(sunDot, -0.15);
       density = baseDensity + (1.0 - baseDensity) * diurnal * sfiFactor;
 
-      // Equatorial anomaly: boost near magnetic equator (roughly geographic +/-20 deg)
+      // Equatorial anomaly: boost near magnetic equator
       float lat = asin(vPosition.y) * 57.29578;
-      float anomaly = 1.0 + 0.2 * exp(-pow(abs(lat) - 15.0, 2.0) / 200.0);
+      float anomaly = 1.0 + 0.25 * exp(-pow(abs(lat) - 15.0, 2.0) / 200.0);
       density *= anomaly;
 
-      // Night side: reduced but never zero
-      density = max(density, 0.15 * sfiFactor);
+      // Night side: visible floor — F2 persists as the key nighttime layer
+      float nightFloor = 0.20 + 0.10 * sfiFactor;
+      density = max(density, nightFloor);
     }
 
     // Subtle shimmer
-    float shimmer = 1.0 + 0.03 * sin(time * 0.5 + vPosition.x * 10.0 + vPosition.z * 10.0);
+    float shimmer = 1.0 + 0.04 * sin(time * 0.5 + vPosition.x * 10.0 + vPosition.z * 10.0);
     density *= shimmer;
 
     // Fresnel-like edge glow (limb brightening for translucent shells)
     float viewDot = abs(dot(vNormal, normalize(cameraPosition - vPosition)));
     float limb = 1.0 - pow(viewDot, 0.5);
-    density = mix(density, density * 1.5, limb * 0.3);
+    density = mix(density, density * 1.4, limb * 0.3);
 
     gl_FragColor = vec4(layerColor, density * opacity);
   }

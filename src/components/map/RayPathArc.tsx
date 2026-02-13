@@ -141,6 +141,10 @@ function computeGroundPoints(
 /**
  * Generate parabolic arc points for a single hop.
  * The arc starts and ends at BASE_RADIUS and peaks at peakRadius.
+ *
+ * The reflection height is boosted 15% so the arc visually reaches into
+ * the ionospheric shell layer (the shell radii use calculateLayerHeights
+ * which produces slightly higher values than estimateHmF2 in rayTrace).
  */
 function generateHopPoints(
   startLat: number,
@@ -150,7 +154,9 @@ function generateHopPoints(
   reflectionHeightKm: number,
   segmentsPerHop: number = SEGMENTS_PER_HOP,
 ): Array<[number, number, number]> {
-  const peakRadius = 1.0 + (reflectionHeightKm / EARTH_RADIUS_KM) * HEIGHT_EXAG;
+  // Boost height so arcs visually intersect the ionospheric shells
+  const boostedHeight = reflectionHeightKm * 1.15;
+  const peakRadius = 1.0 + (boostedHeight / EARTH_RADIUS_KM) * HEIGHT_EXAG;
 
   const pathPts = getPathPoints(
     startLat,
@@ -361,8 +367,8 @@ export function RayPathArc({
 
       // Reflection marker at the apex (midpoint of hop, at peak height)
       const rp = hop.reflectionPoint;
-      const peakRadius =
-        1.0 + (reflectionHeightKm / EARTH_RADIUS_KM) * HEIGHT_EXAG;
+      const boostedHeight = reflectionHeightKm * 1.15;
+      const peakRadius = 1.0 + (boostedHeight / EARTH_RADIUS_KM) * HEIGHT_EXAG;
 
       reflections.push({
         lat: rp.lat,

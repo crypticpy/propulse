@@ -152,6 +152,13 @@
 .slide-in-from-top-1 {
   animation-name: animateIn, slideInFromTop1;
 }
+@keyframes slideInFromLeft1 {
+  from { transform: translateX(-0.25rem); }
+  to { transform: translateX(0); }
+}
+.slide-in-from-left-1 {
+  animation-name: animateIn, slideInFromLeft1;
+}
 @keyframes slideInFromTop2 {
   from { transform: translateY(-0.5rem); }
   to { transform: translateY(0); }

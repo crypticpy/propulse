@@ -2549,6 +2549,7 @@ function drawLabels(
   zoomOffsetY = 0,
   viewportWidth = 0,
   viewportHeight = 0,
+  gridLabelDetail = 2,
 ) {
   // Draw country border polygons
   if (opts.borders) {
@@ -2606,62 +2607,65 @@ function drawLabels(
   }
 
   // Draw Maidenhead grid — zoom-adaptive with 2-char, 4-char, and 6-char levels
-  if (opts.maidenheadGrid) {
+  // Grid LINES are controlled by opts.maidenheadGrid
+  // Grid TEXT LABELS are controlled by opts.gridLabels + gridLabelDetail
+  const showGridLines = opts.maidenheadGrid;
+  const showGridLabels = opts.gridLabels;
+
+  if (showGridLines || showGridLabels) {
     ctx.save();
     const gridLevel = getGridLevelForZoom(zoomScale);
 
     // --- Always draw 2-char field grid lines ---
-    ctx.strokeStyle = "rgba(0, 204, 204, 0.25)";
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([4, 4]);
-    for (const lon of MAIDENHEAD_LON_LINES) {
-      const { x } = latLonToCanvas(0, lon, width, height);
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
+    if (showGridLines) {
+      ctx.strokeStyle = "rgba(0, 204, 204, 0.25)";
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([4, 4]);
+      for (const lon of MAIDENHEAD_LON_LINES) {
+        const { x } = latLonToCanvas(0, lon, width, height);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (const lat of MAIDENHEAD_LAT_LINES) {
+        const { y } = latLonToCanvas(lat, 0, width, height);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
     }
-    for (const lat of MAIDENHEAD_LAT_LINES) {
-      const { y } = latLonToCanvas(lat, 0, width, height);
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
 
-    // --- 2-char field labels (always shown) ---
-    ctx.font = "bold 7px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const fields = getMaidenheadFields();
-    for (const field of fields) {
-      const { x, y } = latLonToCanvas(
-        field.latCenter,
-        field.lonCenter,
-        width,
-        height,
-      );
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-      ctx.lineWidth = 1.5;
-      ctx.strokeText(field.label, x, y);
-      ctx.fillStyle = "rgba(0, 204, 204, 0.5)";
-      ctx.fillText(field.label, x, y);
+    // --- 2-char field labels ---
+    if (showGridLabels && gridLabelDetail >= 1) {
+      ctx.font = "bold 7px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const fields = getMaidenheadFields();
+      for (const field of fields) {
+        const { x, y } = latLonToCanvas(
+          field.latCenter,
+          field.lonCenter,
+          width,
+          height,
+        );
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.strokeText(field.label, x, y);
+        ctx.fillStyle = "rgba(0, 204, 204, 0.5)";
+        ctx.fillText(field.label, x, y);
+      }
     }
 
     // --- Viewport culling for sub-grids ---
-    // Compute the visible lat/lon extent from zoom parameters.
-    // Inside the zoom transform, map-space coords run 0..width / 0..height.
-    // Visible map-space rect: top-left = (-offsetX/scale, -offsetY/scale),
-    // bottom-right = ((-offsetX + vpW) / scale, (-offsetY + vpH) / scale)
-    // Then convert map-space → lat/lon via inverse equirectangular.
     const vpW = viewportWidth || width;
     const vpH = viewportHeight || height;
     const visLeft = zoomScale > 1 ? -zoomOffsetX / zoomScale : 0;
     const visTop = zoomScale > 1 ? -zoomOffsetY / zoomScale : 0;
     const visRight = zoomScale > 1 ? (-zoomOffsetX + vpW) / zoomScale : width;
     const visBottom = zoomScale > 1 ? (-zoomOffsetY + vpH) / zoomScale : height;
-    // Inverse equirectangular: lon = (x / width) * 360 - 180, lat = 90 - (y / height) * 180
     const vLonMin = Math.max(-180, (visLeft / width) * 360 - 180 - 2);
     const vLonMax = Math.min(180, (visRight / width) * 360 - 180 + 2);
     const vLatMax = Math.min(90, 90 - (visTop / height) * 180 + 1);
@@ -2669,28 +2673,30 @@ function drawLabels(
 
     // --- 4-char square grid (zoom >= 1.5) ---
     if (gridLevel === "square" || gridLevel === "subsquare") {
-      // Draw 4-char grid lines (thinner, more transparent) — viewport culled, batched
-      ctx.strokeStyle = "rgba(0, 204, 204, 0.12)";
-      ctx.lineWidth = 0.3;
-      ctx.setLineDash([2, 3]);
-      ctx.beginPath();
-      const sqLonLines = getSquareLonLines(vLonMin, vLonMax);
-      for (const lon of sqLonLines) {
-        const { x } = latLonToCanvas(0, lon, width, height);
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+      // Draw 4-char grid lines (thinner, more transparent)
+      if (showGridLines) {
+        ctx.strokeStyle = "rgba(0, 204, 204, 0.12)";
+        ctx.lineWidth = 0.3;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        const sqLonLines = getSquareLonLines(vLonMin, vLonMax);
+        for (const lon of sqLonLines) {
+          const { x } = latLonToCanvas(0, lon, width, height);
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+        }
+        const sqLatLines = getSquareLatLines(vLatMin, vLatMax);
+        for (const lat of sqLatLines) {
+          const { y } = latLonToCanvas(lat, 0, width, height);
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
-      const sqLatLines = getSquareLatLines(vLatMin, vLatMax);
-      for (const lat of sqLatLines) {
-        const { y } = latLonToCanvas(lat, 0, width, height);
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
 
-      // 4-char labels (shown at zoom >= 3) — viewport culled
-      if (zoomScale >= 3) {
+      // 4-char labels (shown at zoom >= 3, detail >= 2)
+      if (showGridLabels && gridLabelDetail >= 2 && zoomScale >= 3) {
         const viewport = {
           lonMin: vLonMin,
           lonMax: vLonMax,
@@ -2717,33 +2723,34 @@ function drawLabels(
       }
     }
 
-    // --- 6-char subsquare grid (zoom >= 5) — viewport culled ---
+    // --- 6-char subsquare grid (zoom >= 5) ---
     if (gridLevel === "subsquare") {
       // Batched subsquare grid lines
-      ctx.strokeStyle = "rgba(0, 204, 204, 0.06)";
-      ctx.lineWidth = 0.2;
-      ctx.setLineDash([1, 2]);
-      ctx.beginPath();
-      const subLonLines = getSubsquareLonLines(vLonMin, vLonMax);
-      for (const lon of subLonLines) {
-        const { x } = latLonToCanvas(0, lon, width, height);
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+      if (showGridLines) {
+        ctx.strokeStyle = "rgba(0, 204, 204, 0.06)";
+        ctx.lineWidth = 0.2;
+        ctx.setLineDash([1, 2]);
+        ctx.beginPath();
+        const subLonLines = getSubsquareLonLines(vLonMin, vLonMax);
+        for (const lon of subLonLines) {
+          const { x } = latLonToCanvas(0, lon, width, height);
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+        }
+        const subLatLines = getSubsquareLatLines(vLatMin, vLatMax);
+        for (const lat of subLatLines) {
+          const { y } = latLonToCanvas(lat, 0, width, height);
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
-      const subLatLines = getSubsquareLatLines(vLatMin, vLatMax);
-      for (const lat of subLatLines) {
-        const { y } = latLonToCanvas(lat, 0, width, height);
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
 
-      // 6-char labels (shown at zoom >= 8) — viewport culled with density cap
-      if (zoomScale >= 8) {
+      // 6-char labels (shown at zoom >= 8, detail >= 3)
+      if (showGridLabels && gridLabelDetail >= 3 && zoomScale >= 8) {
         const lonSpan = vLonMax - vLonMin;
         const latSpan = vLatMax - vLatMin;
-        // Only render labels if viewport area < 200 sq degrees (~5,760 subsquares max)
         if (lonSpan * latSpan < 200) {
           const viewport = {
             lonMin: vLonMin,
@@ -3186,6 +3193,7 @@ export function FlatMapView({
     setTarget,
     setCenterLocation,
   } = useMapStore();
+  const gridLabelDetail = useMapStore((s) => s.gridLabelDetail);
   const centerLocation = useMapStore((s) => s.centerLocation);
   const clearCenterLocation = useMapStore((s) => s.clearCenterLocation);
   const activePresetId = useMapStore((s) => s.activePresetId);
@@ -4624,6 +4632,7 @@ export function FlatMapView({
           countryNames: false,
           cities: false,
           maidenheadGrid: false,
+          gridLabels: false,
           wasOverlay: false,
         },
         isStandard,
@@ -4656,8 +4665,7 @@ export function FlatMapView({
     }
 
     // Draw text labels (country names, cities, maidenhead grid — only when labels layer is on)
-    const shouldDrawTextLabels = layers.labels || isStandard;
-    if (shouldDrawTextLabels) {
+    if (layers.labels) {
       drawLabels(
         ctx,
         renderWidth,
@@ -4665,9 +4673,10 @@ export function FlatMapView({
         {
           borders: false,
           stateBorders: false,
-          countryNames: layers.labels ? labelOptions.countryNames : false,
-          cities: layers.labels ? labelOptions.cities : false,
-          maidenheadGrid: layers.labels ? labelOptions.maidenheadGrid : false,
+          countryNames: labelOptions.countryNames,
+          cities: labelOptions.cities,
+          maidenheadGrid: labelOptions.maidenheadGrid,
+          gridLabels: labelOptions.gridLabels,
           wasOverlay: false,
         },
         isStandard,
@@ -4676,6 +4685,7 @@ export function FlatMapView({
         zoom.offsetY,
         displaySize.width,
         displaySize.height,
+        gridLabelDetail,
       );
     }
 

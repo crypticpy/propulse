@@ -945,7 +945,7 @@ function GlobeScene({
 
         {/* Country borders + labels overlay */}
         <LabelsOverlay
-          showLabels={layers.labels || isStandard}
+          showLabels={layers.labels}
           subsolarLat={subsolar.lat}
           subsolarLon={subsolar.lon}
         />
@@ -1089,9 +1089,10 @@ function GlobeScene({
               sizeScale={mapPinScale}
             />
 
-            {/* Path arc between home and target — ray path or flat arc */}
+            {/* Path arc between home and target — ray path (bounces) or flat arc */}
             {station &&
-              (layers.rayPath && rayTraceResult ? (
+              ((layers.rayPath || (uiPrefs.bandHeightArcs ?? true)) &&
+              rayTraceResult ? (
                 <RayPathArc
                   result={rayTraceResult}
                   startLat={station.lat}

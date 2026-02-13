@@ -188,6 +188,7 @@ export interface LabelOptions {
   countryNames: boolean;
   cities: boolean;
   maidenheadGrid: boolean;
+  gridLabels: boolean;
   wasOverlay: boolean;
 }
 
@@ -381,6 +382,10 @@ interface MapState {
   displayDensity: number;
   setDisplayDensity: (density: number) => void;
 
+  // Grid label detail level (1=field, 2=square, 3=subsquare) — persisted
+  gridLabelDetail: number;
+  setGridLabelDetail: (detail: number) => void;
+
   // Spot replay (time machine past-time replay)
   replayEnabled: boolean;
   setReplayEnabled: (enabled: boolean) => void;
@@ -507,6 +512,7 @@ const DEFAULT_LABEL_OPTIONS: LabelOptions = {
   countryNames: true,
   cities: true,
   maidenheadGrid: false,
+  gridLabels: false,
   wasOverlay: false,
 };
 
@@ -891,6 +897,17 @@ const initialState = {
 
   // Arc display density
   displayDensity: 50,
+
+  // Grid label detail level (1=field, 2=square, 3=subsquare)
+  gridLabelDetail: (() => {
+    try {
+      const saved = localStorage.getItem("propulse-grid-label-detail");
+      if (saved) return Math.max(1, Math.min(3, parseInt(saved, 10)));
+    } catch {
+      /* ignore */
+    }
+    return 2;
+  })(),
 
   // Spot replay (time machine)
   replayEnabled: false,
@@ -1483,6 +1500,17 @@ export const useMapStore = create<MapState>((set, get) => ({
   // Arc display density
   setDisplayDensity: (density) =>
     set({ displayDensity: Math.max(10, Math.min(200, density)) }),
+
+  // Grid label detail level
+  setGridLabelDetail: (detail) => {
+    const clamped = Math.max(1, Math.min(3, detail));
+    try {
+      localStorage.setItem("propulse-grid-label-detail", String(clamped));
+    } catch {
+      /* ignore */
+    }
+    set({ gridLabelDetail: clamped });
+  },
 
   // Spot replay
   setReplayEnabled: (enabled) => set({ replayEnabled: enabled }),

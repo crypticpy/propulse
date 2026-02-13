@@ -125,13 +125,17 @@ export function getPathPoints(
   const lambda1 = lon1 * DEG_TO_RAD;
   const lambda2 = lon2 * DEG_TO_RAD;
 
+  // Hoist invariant distance + denominator outside the loop (was re-computing
+  // getDistance 101 times for the same endpoints — ~808 wasted trig ops per call)
+  const d = getDistance(lat1, lon1, lat2, lon2) / EARTH_RADIUS_KM;
+  const sinD = Math.sin(d);
+
   for (let i = 0; i <= numPoints; i++) {
     const fraction = i / numPoints;
 
     // Spherical linear interpolation (slerp)
-    const d = getDistance(lat1, lon1, lat2, lon2) / EARTH_RADIUS_KM;
-    const a = Math.sin((1 - fraction) * d) / Math.sin(d);
-    const b = Math.sin(fraction * d) / Math.sin(d);
+    const a = Math.sin((1 - fraction) * d) / sinD;
+    const b = Math.sin(fraction * d) / sinD;
 
     const x =
       a * Math.cos(phi1) * Math.cos(lambda1) +

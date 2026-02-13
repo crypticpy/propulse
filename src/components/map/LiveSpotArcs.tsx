@@ -11,7 +11,9 @@
  * are present in the same geographic area.
  */
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
+import * as THREE from "three";
+import { useThree } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
@@ -41,10 +43,7 @@ import {
   getBandFromFrequency,
   type SpotColorMode,
 } from "@/lib/utils/spotColors";
-import {
-  getArcPointsWithHeight,
-  getArcHeightForBand,
-} from "@/lib/utils/arcHeight";
+import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useReplayStore } from "@/stores/replayStore";
 
 // ==========================================================================
@@ -411,7 +410,7 @@ export function getAgeOpacity(
 /**
  * Individual spot arc component for 3D globe
  */
-function SpotArc({
+const SpotArc = React.memo(function SpotArc({
   spot,
   segments = 30,
   ageVisualizationEnabled = true,
@@ -451,16 +450,14 @@ function SpotArc({
       let result: Array<[number, number, number]>;
 
       if (bandHeightArcs && band) {
-        // Band-dependent arc heights: arcs peak at ionospheric layer heights
-        const peakRadius = getArcHeightForBand(band);
-        result = getArcPointsWithHeight(
+        // Multi-hop ionospheric skip arcs — bounce count based on distance + band
+        result = getMultiHopArcPoints(
           spot.spotterLat,
           spot.spotterLon,
           spot.dxLat,
           spot.dxLon,
-          peakRadius,
+          band,
           1.005,
-          segments,
         );
       } else {
         // Standard flat arcs on globe surface
@@ -490,7 +487,16 @@ function SpotArc({
     } catch {
       return [];
     }
-  }, [spot, segments, hasValidCoords, bandHeightArcs, band]);
+  }, [
+    spot.spotterLat,
+    spot.spotterLon,
+    spot.dxLat,
+    spot.dxLon,
+    segments,
+    hasValidCoords,
+    bandHeightArcs,
+    band,
+  ]);
 
   const color = getSpotColor(spot, colorMode);
 
@@ -515,12 +521,12 @@ function SpotArc({
       transparent
     />
   );
-}
+});
 
 /**
  * Endpoint marker for spot arcs (small sphere at each end)
  */
-function SpotEndpoint({
+const SpotEndpoint = React.memo(function SpotEndpoint({
   lat,
   lon,
   color,
@@ -560,7 +566,7 @@ function SpotEndpoint({
       <meshBasicMaterial color={color} transparent opacity={opacity} />
     </mesh>
   );
-}
+});
 
 /**
  * LiveSpotArcs Component for Globe View
@@ -649,6 +655,12 @@ export function LiveSpotArcs({
     [replaySpots],
   );
 
+  // ── Globe-side culling: skip arcs whose endpoints both face away ────────
+  const { camera } = useThree();
+  const tempVec1 = useMemo(() => new THREE.Vector3(), []);
+  const tempVec2 = useMemo(() => new THREE.Vector3(), []);
+  const tempCamDir = useMemo(() => new THREE.Vector3(), []);
+
   if (
     isLoading ||
     (resolvedSingles.length === 0 &&
@@ -680,7 +692,19 @@ export function LiveSpotArcs({
         const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
         const spotDotScale = uiPrefs.spotDotScale ?? 1.0;
 
+        // Compute camera direction once for culling all spots
+        tempCamDir.copy(camera.position).normalize();
+
         return resolvedSingles.map((spot) => {
+          // Globe-side culling: skip if both endpoints face away from camera
+          tempVec1
+            .set(...latLonTo3D(spot.spotterLat, spot.spotterLon))
+            .normalize();
+          tempVec2.set(...latLonTo3D(spot.dxLat, spot.dxLon)).normalize();
+          const spotterDot = tempVec1.dot(tempCamDir);
+          const dxDot = tempVec2.dot(tempCamDir);
+          if (spotterDot < -0.1 && dxDot < -0.1) return null;
+
           const color = getSpotColor(spot, colorMode);
           // Calculate age info for endpoint styling
           const ageInfo = getSpotAgeInfo(spot.time);
@@ -730,7 +754,7 @@ export function LiveSpotArcs({
                 colorMode={colorMode}
                 sizeScale={spotDotScale}
                 filterOpacityMultiplier={filterOpacity}
-                bandHeightArcs={uiPrefs.bandHeightArcs ?? false}
+                bandHeightArcs={uiPrefs.bandHeightArcs ?? true}
                 band={orig?.band || getBandFromFrequency(spot.frequency)}
               />
               {/* Endpoint markers with age-based styling */}
@@ -817,12 +841,12 @@ export function LiveSpotArcs({
                   lon={spot.dxLon}
                   spot={spot}
                   spotData={{
-                    spotter: singlesMap.get(spot.id)?.spotter,
-                    spotterGrid: singlesMap.get(spot.id)?.spotterGrid,
-                    dxGrid: singlesMap.get(spot.id)?.dxGrid,
-                    band: singlesMap.get(spot.id)?.band,
-                    snr: singlesMap.get(spot.id)?.snr,
-                    wpm: singlesMap.get(spot.id)?.wpm,
+                    spotter: orig?.spotter,
+                    spotterGrid: orig?.spotterGrid,
+                    dxGrid: orig?.dxGrid,
+                    band: orig?.band,
+                    snr: orig?.snr,
+                    wpm: orig?.wpm,
                   }}
                   hitRadius={0.025 * uiPrefs.spotHitRadiusMultiplier}
                   onHover={onSpotHover}
@@ -835,7 +859,7 @@ export function LiveSpotArcs({
       })()}
 
       {/* ── Replay arcs — sepia-toned historical spots ─────────────────── */}
-      {resolvedReplay.map((spot) => (
+      {resolvedReplay.slice(0, maxArcs).map((spot) => (
         <group key={`replay-${spot.id}`}>
           <SpotArc
             spot={spot}

@@ -203,7 +203,7 @@ function updateGeometryForField(
   }
 
   posAttr.needsUpdate = true;
-  geometry.computeVertexNormals();
+  // Note: normals are not used by the glow shader — skip computeVertexNormals()
 }
 
 // =============================================================================
@@ -395,9 +395,8 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
     // Update geometry to match the grid field bounds
     updateGeometryForField(geometry, gridField);
 
-    // Set the color uniform
-    const threeColor = new THREE.Color(color);
-    (material.uniforms.uColor.value as THREE.Color).copy(threeColor);
+    // Set the color uniform (reuse the uniform's existing Color to avoid allocation)
+    (material.uniforms.uColor.value as THREE.Color).set(color);
     material.uniforms.uIntensity.value = 0;
 
     // Make the mesh visible

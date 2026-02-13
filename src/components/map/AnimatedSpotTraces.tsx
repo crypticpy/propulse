@@ -25,10 +25,14 @@ import React, {
 import { useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
-import { getPathPoints } from "@/lib/utils/path";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { resolveSpotLocations } from "./LiveSpotArcs";
-import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import {
+  getSpotColor,
+  getBandFromFrequency,
+  type SpotColorMode,
+} from "@/lib/utils/spotColors";
+import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useUIInteractionPrefs } from "@/stores/userStore";
 
 // =============================================================================
@@ -70,9 +74,6 @@ const DEQUEUE_INTERVAL = 2.0;
 /** Globe radius for trace rendering (above LiveSpotArcs at 1.005) */
 const TRACE_RADIUS = 1.008;
 
-/** Number of path segments for the great circle arc */
-const PATH_SEGMENTS = 40;
-
 /** Head sphere radius (inner solid) */
 const HEAD_RADIUS = 0.006;
 
@@ -84,28 +85,6 @@ const LANDING_RING_MIN = 0.005;
 
 /** Landing ring end radius */
 const LANDING_RING_MAX = 0.03;
-
-// =============================================================================
-// COORDINATE HELPERS
-// =============================================================================
-
-/**
- * Convert geographic lat/lon to 3D cartesian position on a sphere.
- * Uses the same coordinate convention as the rest of the globe scene.
- */
-function latLonTo3D(
-  lat: number,
-  lon: number,
-  radius: number = TRACE_RADIUS,
-): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
 
 // =============================================================================
 // EASING
@@ -414,19 +393,17 @@ export function AnimatedSpotTraces({
       }
 
       try {
-        const pathPoints = getPathPoints(
+        // Multi-hop ionospheric skip arcs — bounce count based on distance + band
+        const band = getBandFromFrequency(spot.frequency);
+
+        const points3D = getMultiHopArcPoints(
           spot.spotterLat,
           spot.spotterLon,
           spot.dxLat,
           spot.dxLon,
-          PATH_SEGMENTS,
+          band,
+          TRACE_RADIUS,
         );
-
-        const points3D = pathPoints.map((p) => latLonTo3D(p.lat, p.lon)) as [
-          number,
-          number,
-          number,
-        ][];
 
         // Validate all points are finite and we have enough for a line
         const allFinite = points3D.every(

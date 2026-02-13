@@ -631,7 +631,7 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
   showHoverTooltips: true,
   labelScale: 1.0,
   mapAspectRatio: 2.0,
-  bandHeightArcs: false,
+  bandHeightArcs: true,
 };
 
 // =============================================================================

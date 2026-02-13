@@ -23,8 +23,10 @@ import { US_STATES } from "@/lib/data/usStates.generated";
 import { useMapStore } from "@/stores/mapStore";
 import {
   getMaidenheadFields,
+  getMaidenheadSquaresInViewport,
   MAIDENHEAD_LON_LINES,
   MAIDENHEAD_LAT_LINES,
+  type ViewportBounds,
 } from "@/lib/utils/maidenheadGrid";
 
 // Major world cities
@@ -411,6 +413,7 @@ export function LabelsOverlay({
   subsolarLon,
 }: LabelsOverlayProps = {}) {
   const labelOptions = useMapStore((s) => s.labelOptions);
+  const gridLabelDetail = useMapStore((s) => s.gridLabelDetail);
   const effectiveOptions = useMemo(
     () => ({
       borders: labelOptions.borders,
@@ -418,11 +421,15 @@ export function LabelsOverlay({
       countryNames: showLabels !== false && labelOptions.countryNames,
       cities: showLabels !== false && labelOptions.cities,
       maidenheadGrid: showLabels !== false && labelOptions.maidenheadGrid,
+      gridLabels: showLabels !== false && labelOptions.gridLabels,
     }),
     [labelOptions, showLabels],
   );
   const zoomTierRef = useRef(0);
   const camDirRef = useRef(new THREE.Vector3(0, 0, 1));
+  // Camera center lat/lon for viewport culling of dense grid labels
+  const [camCenter, setCamCenter] = useState({ lat: 0, lon: 0 });
+  const prevCamCenterRef = useRef({ lat: 0, lon: 0 });
 
   // Merged border geometry — ONE draw call for all countries
   const borderGeometry = useMemo(() => buildMergedBorderGeometry(), []);
@@ -521,9 +528,17 @@ export function LabelsOverlay({
     });
   }, [effectiveOptions.cities]);
 
+  // Force re-render callback for zoom tier changes
+  const [zoomTier, setZoomTier] = useState(0);
+
   // Maidenhead field labels (324 total, backface culled)
+  // Show when either maidenheadGrid or gridLabels is on
+  const showFieldLabels =
+    effectiveOptions.maidenheadGrid ||
+    (effectiveOptions.gridLabels && gridLabelDetail >= 1);
+
   const maidenheadLabels: LabelData[] = useMemo(() => {
-    if (!effectiveOptions.maidenheadGrid) return [];
+    if (!showFieldLabels) return [];
     const fields = getMaidenheadFields();
     return fields.map((field) => {
       const [nx, ny, nz] = latLonToXYZ(field.latCenter, field.lonCenter, 1.0);
@@ -540,16 +555,49 @@ export function LabelsOverlay({
         pz,
       };
     });
-  }, [effectiveOptions.maidenheadGrid]);
+  }, [showFieldLabels]);
 
-  // Force re-render callback for zoom tier changes
-  const [zoomTier, setZoomTier] = useState(0);
+  // Maidenhead square labels (4-char) — viewport-culled, shown when zoomed in
+  // Only compute when gridLabels is on, detail >= 2, and zoom tier >= 1
+  const showSquareLabels =
+    effectiveOptions.gridLabels && gridLabelDetail >= 2 && zoomTier >= 1;
+
+  const squareLabels: LabelData[] = useMemo(() => {
+    if (!showSquareLabels) return [];
+
+    // Compute viewport bounds from camera center (~60° angular radius)
+    const angularRadius = zoomTier >= 2 ? 30 : 50;
+    const viewport: ViewportBounds = {
+      lonMin: Math.max(-180, camCenter.lon - angularRadius),
+      lonMax: Math.min(180, camCenter.lon + angularRadius),
+      latMin: Math.max(-90, camCenter.lat - angularRadius),
+      latMax: Math.min(90, camCenter.lat + angularRadius),
+    };
+
+    const squares = getMaidenheadSquaresInViewport(viewport);
+    return squares.map((sq) => {
+      const [nx, ny, nz] = latLonToXYZ(sq.latCenter, sq.lonCenter, 1.0);
+      const [px, py, pz] = latLonToXYZ(sq.latCenter, sq.lonCenter, 1.015);
+      return {
+        key: `sq-${sq.label}`,
+        name: sq.label,
+        area: 0,
+        nx,
+        ny,
+        nz,
+        px,
+        py,
+        pz,
+      };
+    });
+  }, [showSquareLabels, camCenter.lat, camCenter.lon, zoomTier]);
 
   useFrame(({ camera }) => {
     if (
       !effectiveOptions.countryNames &&
       !effectiveOptions.cities &&
-      !effectiveOptions.maidenheadGrid
+      !effectiveOptions.maidenheadGrid &&
+      !effectiveOptions.gridLabels
     ) {
       return;
     }
@@ -562,6 +610,20 @@ export function LabelsOverlay({
     if (newTier !== zoomTierRef.current) {
       zoomTierRef.current = newTier;
       setZoomTier(newTier);
+    }
+
+    // Update camera center lat/lon for grid label viewport culling
+    // Only update when camera has moved >3° to avoid excessive re-renders
+    if (effectiveOptions.gridLabels && gridLabelDetail >= 2) {
+      const pos = camera.position;
+      const len = pos.length();
+      const lat = Math.asin(pos.y / len) * (180 / Math.PI);
+      const lon = Math.atan2(pos.z, -pos.x) * (180 / Math.PI) - 180;
+      const prev = prevCamCenterRef.current;
+      if (Math.abs(lat - prev.lat) > 3 || Math.abs(lon - prev.lon) > 3) {
+        prevCamCenterRef.current = { lat, lon };
+        setCamCenter({ lat, lon });
+      }
     }
   });
 
@@ -613,13 +675,24 @@ export function LabelsOverlay({
         <lineSegments geometry={gridGeometry} material={gridMaterial} />
       )}
 
-      {/* Maidenhead field labels — backface culled */}
-      {effectiveOptions.maidenheadGrid &&
+      {/* Maidenhead field labels (2-char) — backface culled */}
+      {showFieldLabels &&
         maidenheadLabels.map((label) => (
           <BackfaceLabel
             key={label.key}
             label={label}
             fontSize="text-[8px]"
+            camDirRef={camDirRef}
+          />
+        ))}
+
+      {/* Maidenhead square labels (4-char) — viewport-culled + backface culled */}
+      {showSquareLabels &&
+        squareLabels.map((label) => (
+          <BackfaceLabel
+            key={label.key}
+            label={label}
+            fontSize="text-[7px]"
             camDirRef={camDirRef}
           />
         ))}

@@ -171,7 +171,7 @@ const PERSIST_VERTEX_SHADER = /* glsl */ `
        r * sin(phi) * sin(theta)
     );
 
-    gl_Position = projectionMatrix * viewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
 `;
 
@@ -194,10 +194,10 @@ const PERSIST_FRAGMENT_SHADER = /* glsl */ `
     radial = pow(radial, 1.5);
 
     // Final alpha combines radial shape with instance intensity
-    float alpha = radial * vIntensity * 0.5;
+    float alpha = radial * vIntensity * 0.7;
 
-    // Subtle bloom halo at the center
-    float bloom = exp(-dist * 6.0) * vIntensity * 0.2;
+    // Bloom halo at the center
+    float bloom = exp(-dist * 6.0) * vIntensity * 0.35;
     alpha += bloom;
 
     gl_FragColor = vec4(vColor, alpha);
@@ -251,21 +251,26 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
     return { boundsAttr: bounds, intensityAttr: intensity };
   }, [geometry]);
 
-  // Temp color object for setColorAt
-  const tempColor = useMemo(() => new THREE.Color(), []);
+  // Pre-allocate reusable objects (avoid per-frame GC pressure)
+  const identityMatrix = useMemo(() => new THREE.Matrix4().identity(), []);
+  // Cache parsed CSS colors to avoid re-parsing strings every rebuild
+  const colorCacheRef = useRef(new Map<string, THREE.Color>());
+  // Track previous activityMap reference to skip GPU uploads when unchanged
+  const prevMapRef = useRef<Map<string, GridActivity> | null>(null);
 
-  // Update instance data each frame
+  // Update instance data only when activityMap reference changes
   useFrame(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
+
+    // Skip full rebuild if the activity map reference is the same
+    if (activityMap === prevMapRef.current) return;
+    prevMapRef.current = activityMap;
 
     const boundsArray = boundsAttr.array as Float32Array;
     const intensityArray = intensityAttr.array as Float32Array;
 
     let idx = 0;
-    const dummyMatrix = new THREE.Matrix4();
-    // Identity matrix — positioning is handled entirely by the vertex shader
-    dummyMatrix.identity();
 
     for (const [, activity] of activityMap) {
       if (idx >= MAX_INSTANCES) break;
@@ -280,14 +285,23 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
       boundsArray[idx * 4 + 3] = bounds.maxLat;
 
       // Set instance intensity based on spot count
-      intensityArray[idx] = Math.min(0.5, 0.2 + activity.spotCount * 0.01);
+      intensityArray[idx] = Math.min(0.8, 0.35 + activity.spotCount * 0.02);
 
       // Set instance transform (identity — shader handles positioning)
-      mesh.setMatrixAt(idx, dummyMatrix);
+      mesh.setMatrixAt(idx, identityMatrix);
 
-      // Set instance color from the activity's density-derived color
-      tempColor.set(activity.color);
-      mesh.setColorAt(idx, tempColor);
+      // Set instance color — use cache to avoid CSS string parsing per instance
+      let cached = colorCacheRef.current.get(activity.color);
+      if (!cached) {
+        cached = new THREE.Color(activity.color);
+        colorCacheRef.current.set(activity.color, cached);
+        // Cap cache size to prevent unbounded growth
+        if (colorCacheRef.current.size > 100) {
+          const first = colorCacheRef.current.keys().next().value;
+          if (first) colorCacheRef.current.delete(first);
+        }
+      }
+      mesh.setColorAt(idx, cached);
 
       idx++;
     }

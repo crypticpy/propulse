@@ -11,7 +11,7 @@
  * are present in the same geographic area.
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
@@ -36,6 +36,7 @@ import {
 import { SpotCluster } from "./SpotCluster";
 import { SpotLabel } from "./SpotLabel";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
+import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotDetailsData } from "./SpotDetailsFlyout";
 import {
@@ -568,6 +569,95 @@ const SpotEndpoint = React.memo(function SpotEndpoint({
   );
 });
 
+// ==========================================================================
+// Instanced Endpoint Rendering (batches all spot endpoints into 1 draw call)
+// ==========================================================================
+
+interface EndpointData {
+  lat: number;
+  lon: number;
+  color: string;
+  size: number;
+}
+
+const MAX_ENDPOINT_INSTANCES = 200;
+
+/**
+ * Batched endpoint renderer using THREE.InstancedMesh.
+ * Replaces up to 200 individual <mesh> draw calls with a single instanced draw.
+ */
+const SpotEndpointInstances = React.memo(function SpotEndpointInstances({
+  endpoints,
+}: {
+  endpoints: EndpointData[];
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+
+  // Shared geometry and material — allocated once
+  const geometry = useMemo(() => new THREE.SphereGeometry(1, 8, 8), []);
+  const material = useMemo(
+    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.7 }),
+    [],
+  );
+
+  // Pre-allocate reusable objects to avoid GC pressure in the update loop
+  const tmpMatrix = useMemo(() => new THREE.Matrix4(), []);
+  const tmpColor = useMemo(() => new THREE.Color(), []);
+  const tmpPosition = useMemo(() => new THREE.Vector3(), []);
+  const tmpScale = useMemo(() => new THREE.Vector3(), []);
+  const tmpQuaternion = useMemo(() => new THREE.Quaternion(), []);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    const count = Math.min(endpoints.length, MAX_ENDPOINT_INSTANCES);
+    mesh.count = count;
+
+    for (let i = 0; i < count; i++) {
+      const ep = endpoints[i];
+
+      // Validate coordinates
+      if (!Number.isFinite(ep.lat) || !Number.isFinite(ep.lon)) {
+        // Zero-scale to hide invalid entries
+        tmpMatrix.makeScale(0, 0, 0);
+        mesh.setMatrixAt(i, tmpMatrix);
+        tmpColor.set("#000000");
+        mesh.setColorAt(i, tmpColor);
+        continue;
+      }
+
+      // Position on globe surface
+      const [x, y, z] = latLonTo3D(ep.lat, ep.lon, 1.006);
+      tmpPosition.set(x, y, z);
+      tmpScale.set(ep.size, ep.size, ep.size);
+      tmpMatrix.compose(tmpPosition, tmpQuaternion, tmpScale);
+      mesh.setMatrixAt(i, tmpMatrix);
+
+      // Per-instance color
+      tmpColor.set(ep.color);
+      mesh.setColorAt(i, tmpColor);
+    }
+
+    // Flag GPU uploads
+    if (mesh.instanceMatrix) {
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+    if (mesh.instanceColor) {
+      mesh.instanceColor.needsUpdate = true;
+    }
+  }, [endpoints, tmpMatrix, tmpColor, tmpPosition, tmpScale, tmpQuaternion]);
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[geometry, material, MAX_ENDPOINT_INSTANCES]}
+      frustumCulled={false}
+      count={0}
+    />
+  );
+});
+
 /**
  * LiveSpotArcs Component for Globe View
  *
@@ -661,6 +751,24 @@ export function LiveSpotArcs({
   const tempVec2 = useMemo(() => new THREE.Vector3(), []);
   const tempCamDir = useMemo(() => new THREE.Vector3(), []);
 
+  // ── Batch globe occlusion for all label positions ────────────────────────
+  // Collects DX + spotter positions from resolvedSingles so a single useFrame
+  // callback replaces N individual per-label useFrame callbacks.
+  const labelPositionsForOcclusion = useMemo(() => {
+    const out: Array<{ lat: number; lon: number }> = [];
+    for (const spot of resolvedSingles) {
+      out.push({ lat: spot.dxLat, lon: spot.dxLon });
+      if (spot.spotter) {
+        out.push({ lat: spot.spotterLat, lon: spot.spotterLon });
+      }
+    }
+    return out;
+  }, [resolvedSingles]);
+
+  const { getOpacity: getOcclusionOpacity } = useGlobeOcclusionBatch(
+    labelPositionsForOcclusion,
+  );
+
   if (
     isLoading ||
     (resolvedSingles.length === 0 &&
@@ -695,7 +803,10 @@ export function LiveSpotArcs({
         // Compute camera direction once for culling all spots
         tempCamDir.copy(camera.position).normalize();
 
-        return resolvedSingles.map((spot) => {
+        // Collect endpoint data for instanced rendering (replaces individual <SpotEndpoint>)
+        const endpointData: EndpointData[] = [];
+
+        const arcElements = resolvedSingles.map((spot) => {
           // Globe-side culling: skip if both endpoints face away from camera
           tempVec1
             .set(...latLonTo3D(spot.spotterLat, spot.spotterLon))
@@ -721,14 +832,21 @@ export function LiveSpotArcs({
           const passesFilter = passesBandFilter && passesModeFilter;
           const filterOpacity = passesFilter ? 1.0 : 0.3;
 
-          // Apply age-based styling only if preference is enabled
-          // Floor ensures filtered spots remain barely visible rather than invisible
-          const endpointOpacity = Math.max(
-            0.08,
-            (spotAgePrefs.enabled ? ageInfo.opacity * 0.8 : 0.8) *
-              filterOpacity,
-          );
           const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
+
+          // Collect endpoint data for instanced batch rendering
+          endpointData.push({
+            lat: spot.spotterLat,
+            lon: spot.spotterLon,
+            color,
+            size: 0.006 * spotDotScale * endpointScale,
+          });
+          endpointData.push({
+            lat: spot.dxLat,
+            lon: spot.dxLon,
+            color,
+            size: 0.008 * spotDotScale * endpointScale,
+          });
 
           // Compute stack index for this label position (proximity-based)
           let stackIndex = 0;
@@ -757,23 +875,6 @@ export function LiveSpotArcs({
                 bandHeightArcs={uiPrefs.bandHeightArcs ?? true}
                 band={orig?.band || getBandFromFrequency(spot.frequency)}
               />
-              {/* Endpoint markers with age-based styling */}
-              <SpotEndpoint
-                lat={spot.spotterLat}
-                lon={spot.spotterLon}
-                color={color}
-                size={0.006 * spotDotScale}
-                opacity={endpointOpacity}
-                scale={endpointScale}
-              />
-              <SpotEndpoint
-                lat={spot.dxLat}
-                lon={spot.dxLon}
-                color={color}
-                size={0.008 * spotDotScale}
-                opacity={endpointOpacity}
-                scale={endpointScale}
-              />
               {/* Callsign label — deduplicated + stacked when nearby */}
               {uiPrefs.showSpotCallsignLabels &&
                 !labeledCallsigns.has(spot.callsign) &&
@@ -788,6 +889,10 @@ export function LiveSpotArcs({
                       frequency={spot.frequency}
                       stackIndex={stackIndex}
                       color={color}
+                      occlusionOpacity={getOcclusionOpacity(
+                        spot.dxLat,
+                        spot.dxLon,
+                      )}
                       onHover={
                         onSpotHover
                           ? (screenPos) =>
@@ -831,6 +936,10 @@ export function LiveSpotArcs({
                       isSpotter
                       opacity={0.6}
                       color={color}
+                      occlusionOpacity={getOcclusionOpacity(
+                        spot.spotterLat,
+                        spot.spotterLon,
+                      )}
                     />
                   );
                 })()}
@@ -856,6 +965,13 @@ export function LiveSpotArcs({
             </group>
           );
         });
+
+        return (
+          <>
+            {arcElements}
+            <SpotEndpointInstances endpoints={endpointData} />
+          </>
+        );
       })()}
 
       {/* ── Replay arcs — sepia-toned historical spots ─────────────────── */}

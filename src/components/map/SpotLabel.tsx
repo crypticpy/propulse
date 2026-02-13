@@ -18,7 +18,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
-import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.012;
@@ -44,6 +43,13 @@ export interface SpotLabelProps {
   stackIndex?: number;
   /** Pre-computed color (hex). When provided, used instead of getModeColor(mode). */
   color?: string;
+  /**
+   * Pre-computed globe occlusion opacity (0-1).
+   * When provided, the label skips its internal useGlobeOcclusion hook.
+   * Use this when a parent component batches occlusion via useGlobeOcclusionBatch.
+   * Defaults to 1.0 (fully visible).
+   */
+  occlusionOpacity?: number;
   /** Called when mouse enters this label */
   onHover?: (screenPos: { x: number; y: number }) => void;
   /** Called when mouse leaves this label */
@@ -104,6 +110,7 @@ export function SpotLabel({
   frequency,
   stackIndex = 0,
   color: colorProp,
+  occlusionOpacity = 1.0,
   onHover,
   onHoverEnd,
 }: SpotLabelProps) {
@@ -111,9 +118,6 @@ export function SpotLabel({
 
   // Validate coordinates
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
-
-  // Globe occlusion - fade out labels on the far side
-  const { opacity: occlusionOpacity } = useGlobeOcclusion(lat, lon);
 
   // Calculate 3D position
   const position = useMemo(

@@ -36,7 +36,15 @@ import { SpotLabel } from "./SpotLabel";
 import { SpotEndpointHitArea } from "./SpotEndpointHitArea";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotDetailsData } from "./SpotDetailsFlyout";
-import { getSpotColor, type SpotColorMode } from "@/lib/utils/spotColors";
+import {
+  getSpotColor,
+  getBandFromFrequency,
+  type SpotColorMode,
+} from "@/lib/utils/spotColors";
+import {
+  getArcPointsWithHeight,
+  getArcHeightForBand,
+} from "@/lib/utils/arcHeight";
 import { useReplayStore } from "@/stores/replayStore";
 
 // ==========================================================================
@@ -410,6 +418,8 @@ function SpotArc({
   colorMode = "mode",
   sizeScale = 1.0,
   filterOpacityMultiplier = 1.0,
+  bandHeightArcs = false,
+  band,
 }: {
   spot: ResolvedSpot;
   segments?: number;
@@ -421,6 +431,10 @@ function SpotArc({
   sizeScale?: number;
   /** Opacity multiplier for profile-based spot filtering (0.2 for dimmed, 1.0 for normal) */
   filterOpacityMultiplier?: number;
+  /** Whether to use band-dependent arc heights */
+  bandHeightArcs?: boolean;
+  /** Band name for arc height lookup (e.g. "20m", "40m") */
+  band?: string;
 }) {
   // Validate coordinates to prevent NaN errors in THREE.js
   const hasValidCoords =
@@ -434,16 +448,34 @@ function SpotArc({
       return [];
     }
     try {
-      const pathPoints = getPathPoints(
-        spot.spotterLat,
-        spot.spotterLon,
-        spot.dxLat,
-        spot.dxLon,
-        segments,
-      );
-      const result = pathPoints.map((p) => latLonTo3D(p.lat, p.lon)) as Array<
-        [number, number, number]
-      >;
+      let result: Array<[number, number, number]>;
+
+      if (bandHeightArcs && band) {
+        // Band-dependent arc heights: arcs peak at ionospheric layer heights
+        const peakRadius = getArcHeightForBand(band);
+        result = getArcPointsWithHeight(
+          spot.spotterLat,
+          spot.spotterLon,
+          spot.dxLat,
+          spot.dxLon,
+          peakRadius,
+          1.005,
+          segments,
+        );
+      } else {
+        // Standard flat arcs on globe surface
+        const pathPoints = getPathPoints(
+          spot.spotterLat,
+          spot.spotterLon,
+          spot.dxLat,
+          spot.dxLon,
+          segments,
+        );
+        result = pathPoints.map((p) => latLonTo3D(p.lat, p.lon)) as Array<
+          [number, number, number]
+        >;
+      }
+
       // Validate all points are finite numbers
       for (const pt of result) {
         if (
@@ -458,7 +490,7 @@ function SpotArc({
     } catch {
       return [];
     }
-  }, [spot, segments, hasValidCoords]);
+  }, [spot, segments, hasValidCoords, bandHeightArcs, band]);
 
   const color = getSpotColor(spot, colorMode);
 
@@ -698,6 +730,8 @@ export function LiveSpotArcs({
                 colorMode={colorMode}
                 sizeScale={spotDotScale}
                 filterOpacityMultiplier={filterOpacity}
+                bandHeightArcs={uiPrefs.bandHeightArcs ?? false}
+                band={orig?.band || getBandFromFrequency(spot.frequency)}
               />
               {/* Endpoint markers with age-based styling */}
               <SpotEndpoint

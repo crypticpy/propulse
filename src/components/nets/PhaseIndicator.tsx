@@ -60,7 +60,7 @@ export function PhaseIndicator({
 
   return (
     <nav
-      className="flex w-full rounded-lg overflow-hidden border border-white/10 bg-white/[0.02]"
+      className="flex w-full rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-sm"
       aria-label="Session phases"
     >
       {PHASES.map((phase, index) => {
@@ -81,10 +81,12 @@ export function PhaseIndicator({
             className={[
               "flex-1 relative px-3 py-2 text-xs font-medium transition-all select-none",
               // Current phase
-              isCurrent ? "bg-plasma-orange/10 text-plasma-orange" : "",
+              isCurrent
+                ? "bg-plasma-orange/10 text-plasma-orange animate-ncs-phase-glow"
+                : "",
               // Completed phase (not current)
               completed && !isCurrent
-                ? "text-signal-green hover:bg-white/[0.04] cursor-pointer"
+                ? "text-signal-green bg-signal-green/[0.03] hover:bg-white/[0.04] cursor-pointer"
                 : "",
               // Future / not clickable, not current
               !clickable && !isCurrent && !completed ? "text-gray-600" : "",
@@ -103,7 +105,7 @@ export function PhaseIndicator({
             {/* Current phase left accent bar */}
             {isCurrent && (
               <div
-                className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-plasma-orange rounded-r"
+                className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-plasma-orange rounded-r shadow-[0_0_8px_rgba(255,107,53,0.4)]"
                 aria-hidden="true"
               />
             )}
@@ -137,7 +139,7 @@ export function PhaseIndicator({
 
             {/* Keyboard shortcut hint */}
             <span
-              className="absolute top-0.5 right-1 text-[8px] leading-none text-gray-600 font-mono pointer-events-none"
+              className="absolute top-0.5 right-1 text-[8px] leading-none text-gray-600 font-mono pointer-events-none bg-white/[0.03] rounded px-0.5"
               aria-hidden="true"
             >
               {index + 1}

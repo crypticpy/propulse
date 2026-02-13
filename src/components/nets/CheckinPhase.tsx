@@ -47,10 +47,10 @@ export function CheckinPhase({
   const hasCheckins = count >= 1;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 gap-3">
+    <div className="flex flex-col flex-1 min-h-0 gap-4 animate-in fade-in">
       {/* Primary action: callsign input */}
       <div className="shrink-0">
-        <p className="text-xs text-gray-500 mb-2">
+        <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
           Type callsigns as operators check in
         </p>
         <CallsignInput
@@ -61,7 +61,7 @@ export function CheckinPhase({
       </div>
 
       {/* Count badge + advance button bar — always visible */}
-      <div className="shrink-0 flex items-center justify-between">
+      <div className="shrink-0 flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2">
         <div className="flex items-center gap-2">
           <span
             className={`
@@ -84,7 +84,7 @@ export function CheckinPhase({
             group px-5 py-2.5 text-sm font-semibold rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
             ${
               hasCheckins
-                ? "bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 animate-[pulse-glow_3s_ease-in-out_infinite]"
+                ? "bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:-translate-y-0.5 active:scale-[0.98] animate-pulse-glow"
                 : "bg-white/5 text-gray-600 border border-white/10 cursor-not-allowed opacity-40"
             }
           `}
@@ -111,7 +111,7 @@ export function CheckinPhase({
       </div>
 
       {/* Check-in list (scrollable, fills remaining space) */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-panel/30 border border-white/5 rounded-2xl p-3">
+      <div className="flex-1 min-h-0 overflow-y-auto bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-3">
         <CheckinList
           checkins={checkins}
           onUpdateStatus={onUpdateStatus}

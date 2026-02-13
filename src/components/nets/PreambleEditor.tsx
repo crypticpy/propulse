@@ -60,7 +60,6 @@ interface PreambleEditorProps {
 export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
   const [template, setTemplate] = useState(net.preambleTemplate ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const backdropRef = useRef<HTMLDivElement>(null);
 
   // Body scroll lock
   useEffect(() => {
@@ -74,19 +73,20 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
   // Escape key closes
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
     }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [onClose]);
 
-  // Click outside closes
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === backdropRef.current) onClose();
-    },
-    [onClose],
-  );
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
 
   /** Insert a template variable at the current cursor position. */
   const insertVariable = useCallback((token: string) => {
@@ -114,19 +114,33 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
 
   return createPortal(
     <div
-      ref={backdropRef}
-      onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="preamble-editor-title"
     >
-      <div className="bg-deep-space border border-white/10 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-void-black/80 animate-in fade-in"
+        onClick={onClose}
+      />
+
+      {/* Card */}
+      <div
+        className="relative z-10 bg-deep-space border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95"
+        onClick={handleCardClick}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-white">
+          <h3
+            id="preamble-editor-title"
+            className="text-base font-semibold text-white"
+          >
             Edit Preamble Template
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50"
             aria-label="Close"
           >
             <svg
@@ -165,7 +179,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
               <button
                 key={v.token}
                 onClick={() => insertVariable(v.token)}
-                className="px-2.5 py-1 text-[11px] font-mono rounded-full bg-white/5 text-gray-300 border border-white/10 hover:bg-plasma-orange/20 hover:text-plasma-orange hover:border-plasma-orange/30 transition-colors"
+                className="px-2.5 py-1 text-[11px] font-mono rounded-full bg-white/5 text-gray-300 border border-white/10 hover:bg-plasma-orange/20 hover:text-plasma-orange hover:border-plasma-orange/30 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
               >
                 {v.label}
               </button>
@@ -197,7 +211,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-plasma-orange text-white hover:bg-plasma-orange/90 transition-colors"
+            className="px-4 py-2 text-sm font-semibold rounded-lg bg-plasma-orange text-white hover:bg-plasma-orange/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space transition-colors"
           >
             Save
           </button>

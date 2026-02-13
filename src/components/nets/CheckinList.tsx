@@ -100,6 +100,7 @@ export function CheckinList({
   const rowPadding = compact ? "px-2 py-1" : "px-3 py-2";
   const callsignSize = compact ? "text-xs" : "text-sm";
   const iconSize = compact ? "w-3 h-3" : "w-3.5 h-3.5";
+  const btnPadding = compact ? "p-1" : "p-2";
 
   // ── Drag & Drop ──────────────────────────────────────────────────────────
 
@@ -166,8 +167,23 @@ export function CheckinList({
 
   if (sorted.length === 0) {
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-gray-500">
-        No check-ins yet. Type a callsign above to begin.
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <svg
+          className="w-10 h-10 text-gray-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
+          />
+        </svg>
+        <p className="text-sm text-gray-500">No check-ins yet</p>
+        <p className="text-xs text-gray-600">Type a callsign above to begin</p>
       </div>
     );
   }
@@ -198,13 +214,20 @@ export function CheckinList({
             className={`
               group flex items-center gap-3 ${rowPadding} rounded-lg transition-colors select-none
               bg-white/[0.02] hover:bg-white/[0.05] border border-transparent
+              animate-ncs-checkin-entrance
+              ${checkin.status === "completed" ? "opacity-60" : ""}
+              ${checkin.status === "skipped" ? "opacity-50" : ""}
               ${dragOverId === checkin.id ? "border-plasma-orange/40 bg-plasma-orange/5" : ""}
             `}
+            style={{
+              animationDelay: `${Math.min(index * 30, 300)}ms`,
+              animationFillMode: "backwards",
+            }}
           >
             {/* Drag handle — hidden in compact mode */}
             {!compact && (
               <span
-                className="cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-400 text-sm shrink-0"
+                className="cursor-grab active:cursor-grabbing text-gray-600 hover:text-gray-300 text-sm shrink-0 transition-colors"
                 title="Drag to reorder"
                 aria-hidden="true"
               >
@@ -221,7 +244,7 @@ export function CheckinList({
 
             {/* Callsign */}
             <span
-              className={`font-mono font-bold ${callsignSize} text-white min-w-[80px]`}
+              className={`font-mono font-bold ${callsignSize} text-white min-w-[80px] group-hover:text-plasma-orange/90 transition-colors`}
             >
               {checkin.callsign}
             </span>
@@ -292,7 +315,7 @@ export function CheckinList({
               {checkin.status === "checked_in" && (
                 <button
                   onClick={() => onUpdateStatus(checkin.id, "had_turn")}
-                  className="p-1 rounded text-blue-400 hover:bg-blue-400/10 transition-colors"
+                  className={`${btnPadding} rounded text-blue-400 hover:bg-blue-400/10 transition-colors`}
                   aria-label={`Mark ${checkin.callsign} had turn`}
                   title={
                     compact ? `Mark ${checkin.callsign} had turn` : undefined
@@ -320,7 +343,7 @@ export function CheckinList({
                 checkin.status === "had_turn") && (
                 <button
                   onClick={() => onUpdateStatus(checkin.id, "completed")}
-                  className="p-1 rounded text-green-400 hover:bg-green-400/10 transition-colors"
+                  className={`${btnPadding} rounded text-green-400 hover:bg-green-400/10 transition-colors`}
                   aria-label={`Mark ${checkin.callsign} complete`}
                   title={
                     compact ? `Mark ${checkin.callsign} complete` : undefined
@@ -347,7 +370,7 @@ export function CheckinList({
               {checkin.status === "checked_in" && (
                 <button
                   onClick={() => onUpdateStatus(checkin.id, "skipped")}
-                  className="p-1 rounded text-amber-400 hover:bg-amber-400/10 transition-colors"
+                  className={`${btnPadding} rounded text-amber-400 hover:bg-amber-400/10 transition-colors`}
                   aria-label={`Skip ${checkin.callsign}`}
                   title={compact ? `Skip ${checkin.callsign}` : undefined}
                 >
@@ -379,7 +402,7 @@ export function CheckinList({
                     setRelayViaValue("");
                   }
                 }}
-                className={`p-1 rounded transition-colors ${checkin.isRelay ? "text-purple-400 hover:bg-purple-400/10" : "text-gray-500 hover:bg-white/5"}`}
+                className={`${btnPadding} rounded transition-colors ${checkin.isRelay ? "text-purple-400 hover:bg-purple-400/10" : "text-gray-500 hover:bg-white/5"}`}
                 aria-label={
                   checkin.isRelay
                     ? `Remove relay for ${checkin.callsign}`
@@ -426,7 +449,7 @@ export function CheckinList({
               {/* Edit notes */}
               <button
                 onClick={() => startEditNotes(checkin)}
-                className="p-1 rounded text-gray-500 hover:bg-white/5 hover:text-gray-300 transition-colors"
+                className={`${btnPadding} rounded text-gray-500 hover:bg-white/5 hover:text-gray-300 transition-colors`}
                 aria-label={`Edit notes for ${checkin.callsign}`}
                 title={
                   compact && checkin.trafficNotes
@@ -453,7 +476,7 @@ export function CheckinList({
               {/* Remove */}
               <button
                 onClick={() => onRemove(checkin.id)}
-                className="p-1 rounded text-red-400/60 hover:bg-red-400/10 hover:text-red-400 transition-colors"
+                className={`${btnPadding} rounded text-red-400/60 hover:bg-red-400/10 hover:text-red-400 transition-colors`}
                 aria-label={`Remove ${checkin.callsign}`}
               >
                 <svg

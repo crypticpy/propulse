@@ -75,7 +75,7 @@ export function PreamblePhase({
 
   if (!hasPreamble) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto animate-in fade-in">
         {/* Context hint */}
         <p className="text-sm text-gray-400 text-center mb-4">
           Add a preamble to read aloud, or skip straight to check-ins
@@ -151,17 +151,23 @@ export function PreamblePhase({
   // ── Preamble display ────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-2xl mx-auto space-y-5 animate-in fade-in">
       {/* Context hint */}
       <p className="text-sm text-gray-400 text-center">
         Read your preamble aloud, then begin check-ins
       </p>
 
       {/* Preamble card */}
-      <div className="bg-white/[0.03] border border-white/5 border-l-2 border-l-plasma-orange/40 rounded-2xl p-6">
+      <div
+        className="bg-white/[0.03] backdrop-blur-md border border-white/10 border-l-[3px] border-l-plasma-orange rounded-2xl p-8"
+        style={{
+          boxShadow:
+            "0 0 40px rgba(255,107,53,0.05), inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-white uppercase tracking-widest">
+          <h3 className="text-xs font-orbitron font-semibold text-plasma-orange/80 uppercase tracking-[0.2em]">
             Preamble
           </h3>
           <button
@@ -175,7 +181,7 @@ export function PreamblePhase({
         </div>
 
         {/* Rendered preamble text — large and readable at arm's length */}
-        <p className="text-base sm:text-lg text-gray-200 leading-relaxed whitespace-pre-wrap">
+        <p className="text-lg sm:text-xl text-gray-100 leading-loose whitespace-pre-wrap font-light tracking-wide">
           {renderedPreamble}
         </p>
       </div>
@@ -185,7 +191,7 @@ export function PreamblePhase({
         <button
           type="button"
           onClick={onAdvance}
-          className="group px-8 py-3 text-base font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 transition-colors focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
+          className="group px-8 py-3 text-base font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
           aria-label="Finish preamble and begin check-ins"
         >
           <span className="inline-flex items-center gap-2">

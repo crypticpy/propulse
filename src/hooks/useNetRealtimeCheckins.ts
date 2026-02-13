@@ -76,9 +76,12 @@ export function useNetRealtimeCheckins(
 
           if (payload.eventType === "INSERT") {
             const checkin = rowToCheckin(payload.new);
-            useNetStore.setState({
-              checkins: [...store.checkins, checkin],
-            });
+            // Guard against duplicate: fetchCheckins may have already added this entry
+            if (!store.checkins.some((c) => c.id === checkin.id)) {
+              useNetStore.setState({
+                checkins: [...store.checkins, checkin],
+              });
+            }
           }
 
           if (payload.eventType === "UPDATE") {

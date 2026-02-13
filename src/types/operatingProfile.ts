@@ -47,6 +47,9 @@ export interface OperatingProfile {
     fires: boolean;
     radar: boolean;
     issTracker: boolean;
+    gridActivity: boolean;
+    ionosphere: boolean;
+    rayPath: boolean;
   };
 
   // Display preferences

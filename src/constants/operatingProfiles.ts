@@ -41,6 +41,9 @@ const dxHunter: OperatingProfile = {
     fires: false,
     radar: false,
     issTracker: false,
+    gridActivity: true,
+    ionosphere: false,
+    rayPath: false,
   },
 
   spotColorMode: "band",
@@ -89,6 +92,9 @@ const contest: OperatingProfile = {
     fires: false,
     radar: false,
     issTracker: false,
+    gridActivity: false,
+    ionosphere: false,
+    rayPath: false,
   },
 
   spotColorMode: "mode",
@@ -138,6 +144,9 @@ const vhf: OperatingProfile = {
     fires: false,
     radar: false,
     issTracker: false,
+    gridActivity: false,
+    ionosphere: false,
+    rayPath: false,
   },
 
   spotColorMode: "band",
@@ -187,6 +196,9 @@ const emergency: OperatingProfile = {
     fires: true,
     radar: true,
     issTracker: false,
+    gridActivity: false,
+    ionosphere: false,
+    rayPath: false,
   },
 
   spotColorMode: "mode",
@@ -236,6 +248,9 @@ const listener: OperatingProfile = {
     fires: false,
     radar: false,
     issTracker: false,
+    gridActivity: false,
+    ionosphere: false,
+    rayPath: false,
   },
 
   spotColorMode: "band",
@@ -307,6 +322,9 @@ export function getProfileConfig(id: BuiltinProfileId): {
     fires: "Fires",
     radar: "Radar",
     issTracker: "ISS Tracker",
+    gridActivity: "Grid Activity",
+    ionosphere: "Ionosphere",
+    rayPath: "Ray Path",
   };
 
   const enabledLayers = (

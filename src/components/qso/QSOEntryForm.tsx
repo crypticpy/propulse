@@ -1,69 +1,464 @@
 /**
- * QSOEntryForm — Main QSO entry form (desktop layout).
+ * QSOEntryForm — Flat, mode-aware, speed-optimized QSO entry panel.
  *
- * Composes CallsignInput, FrequencyInput, ModeSelector, RSTInput,
- * CallsignInfoCard, DupeWarningBadge, ActivationFields, QSOSuccessToast.
+ * Mission-control aesthetic: everything visible at once, no accordions.
+ * Operating mode pills at top, primary entry row, slim lookup strip,
+ * indicator strip, field grid, mode-specific context fields, notes.
  *
- * Hooks: useQSOEntry, useCallsignLookup, useDupeCheck, useOfflineStatus.
- * Keyboard: Cmd/Ctrl+Enter = Log, Escape = Clear form.
+ * Enter-to-log from callsign input. Escape clears form.
+ * Focus returns to callsign after successful log.
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQSOEntry } from "@/hooks/useQSOEntry";
 import { useCallsignLookup } from "@/hooks/useCallsignLookup";
 import { useDupeCheck } from "@/hooks/useDupeCheck";
-import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { CallsignInput } from "./CallsignInput";
-import { CallsignInfoCard } from "./CallsignInfoCard";
 import { FrequencyInput } from "./FrequencyInput";
 import { ModeSelector } from "./ModeSelector";
 import { RSTInput } from "./RSTInput";
 import { DupeWarningBadge } from "./DupeWarningBadge";
-import { ActivationFields } from "./ActivationFields";
 import { QSOSuccessToast } from "./QSOSuccessToast";
+import type { OperatingMode, QSOLookupResult } from "@/types/qso";
+
+// ── Public Interface ─────────────────────────────────────────────────────────
 
 export interface QSOEntryFormProps {
   /** Callback after a QSO is successfully logged */
   onQSOLogged?: (id: string) => void;
 }
 
-const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+// ── Operating Mode Config ────────────────────────────────────────────────────
+
+interface ModeConfig {
+  key: OperatingMode;
+  label: string;
+}
+
+const OPERATING_MODES: ModeConfig[] = [
+  { key: "general", label: "General" },
+  { key: "pota", label: "POTA" },
+  { key: "sota", label: "SOTA" },
+  { key: "contest", label: "Contest" },
+  { key: "fieldday", label: "Field Day" },
+];
+
+// ── Compact Field Input ──────────────────────────────────────────────────────
+
+function CompactField({
+  label,
+  id,
+  value,
+  onChange,
+  placeholder,
+  mono = false,
+  autoFilled = false,
+  maxLength,
+  type = "text",
+  inputMode,
+}: {
+  label: string;
+  id: string;
+  value: string | number | null;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  mono?: boolean;
+  autoFilled?: boolean;
+  maxLength?: number;
+  type?: string;
+  inputMode?: "text" | "numeric" | "decimal";
+}) {
+  const displayValue = value === null || value === 0 ? "" : String(value);
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <label
+        htmlFor={id}
+        className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        inputMode={inputMode}
+        value={displayValue}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        autoComplete="off"
+        spellCheck={false}
+        className={`
+          h-8 px-2
+          bg-white/5 border rounded-md
+          text-white text-sm
+          placeholder-gray-600
+          focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
+          focus:outline-none
+          transition-colors
+          ${mono ? "font-mono" : ""}
+          ${autoFilled ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
+          ${type === "number" ? "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" : ""}
+        `}
+      />
+    </div>
+  );
+}
+
+// ── Lookup Strip ─────────────────────────────────────────────────────────────
+
+function LookupStrip({
+  lookupResult,
+  lookupLoading,
+  lookupError,
+  callsignLength,
+}: {
+  lookupResult: QSOLookupResult | null;
+  lookupLoading: boolean;
+  lookupError: string | null;
+  callsignLength: number;
+}) {
+  // Only show loading when callsign is long enough to trigger lookup
+  const showLoading = lookupLoading && callsignLength >= 3;
+
+  if (lookupError) {
+    return (
+      <div className="h-8 flex items-center px-3 rounded-md bg-alert-red/5 border border-alert-red/20">
+        <span className="text-xs font-mono text-alert-red truncate">
+          {lookupError}
+        </span>
+      </div>
+    );
+  }
+
+  if (showLoading) {
+    return (
+      <div className="h-8 flex items-center px-3 rounded-md bg-white/[0.02] border border-white/5">
+        <div className="flex items-center gap-2">
+          <svg
+            className="animate-spin h-3 w-3 text-plasma-orange"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <span className="text-xs text-gray-500 font-mono">Looking up...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!lookupResult) return null;
+
+  const parts: string[] = [];
+  if (lookupResult.name) parts.push(lookupResult.name);
+  if (lookupResult.qth) parts.push(lookupResult.qth);
+  if (lookupResult.country) parts.push(lookupResult.country);
+  const locationStr = parts.join(", ");
+
+  return (
+    <div className="h-8 flex items-center px-3 rounded-md bg-white/[0.02] border border-white/5 overflow-hidden">
+      <div className="flex items-center gap-3 text-xs font-mono text-gray-400 truncate min-w-0">
+        <span className="text-white font-semibold shrink-0">
+          {lookupResult.callsign}
+        </span>
+        {locationStr && (
+          <>
+            <span className="text-gray-600">&mdash;</span>
+            <span className="truncate">{locationStr}</span>
+          </>
+        )}
+        {lookupResult.grid && (
+          <span className="text-gray-500 shrink-0">
+            <span className="text-gray-600">Grid:</span>
+            <span className="text-signal-green/70 ml-1">
+              {lookupResult.grid}
+            </span>
+          </span>
+        )}
+        {lookupResult.cqZone != null && (
+          <span className="text-gray-500 shrink-0">
+            <span className="text-gray-600">CQ:</span>
+            {lookupResult.cqZone}
+          </span>
+        )}
+        {lookupResult.ituZone != null && (
+          <span className="text-gray-500 shrink-0">
+            <span className="text-gray-600">ITU:</span>
+            {lookupResult.ituZone}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Indicator Strip ──────────────────────────────────────────────────────────
+
+function IndicatorStrip({
+  dupeInfo,
+  callsign,
+  band,
+  mode,
+}: {
+  dupeInfo: Parameters<typeof DupeWarningBadge>[0]["dupeInfo"];
+  callsign: string;
+  band: string;
+  mode: string;
+}) {
+  if (!dupeInfo?.isDupe) return null;
+
+  return (
+    <div className="flex items-center gap-2">
+      <DupeWarningBadge
+        dupeInfo={dupeInfo}
+        callsign={callsign}
+        band={band}
+        mode={mode}
+      />
+    </div>
+  );
+}
+
+// ── Context Fields (mode-specific) ───────────────────────────────────────────
+
+function ContextFields({
+  operatingMode,
+  form,
+  setField,
+}: {
+  operatingMode: OperatingMode;
+  form: {
+    mySig: string;
+    mySigInfo: string;
+    sig: string;
+    sigInfo: string;
+    contestId: string;
+    stx: string;
+    srx: string;
+    fieldDayClass: string;
+    fieldDaySection: string;
+  };
+  setField: (field: string, value: string) => void;
+}) {
+  if (operatingMode === "general") {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <CompactField
+          label="Their Program"
+          id="qso-sig"
+          value={form.sig}
+          onChange={(v) => setField("sig", v)}
+          placeholder="POTA"
+        />
+        <CompactField
+          label="Their Ref"
+          id="qso-sig-info"
+          value={form.sigInfo}
+          onChange={(v) => setField("sigInfo", v)}
+          placeholder="K-1234"
+          mono
+        />
+      </div>
+    );
+  }
+
+  if (operatingMode === "pota") {
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        <CompactField
+          label="My Park Ref"
+          id="qso-my-sig-info"
+          value={form.mySigInfo}
+          onChange={(v) => setField("mySigInfo", v)}
+          placeholder="K-1234"
+          mono
+        />
+        <CompactField
+          label="Their Program"
+          id="qso-sig"
+          value={form.sig}
+          onChange={(v) => setField("sig", v)}
+          placeholder="POTA"
+        />
+        <CompactField
+          label="Their Ref"
+          id="qso-sig-info"
+          value={form.sigInfo}
+          onChange={(v) => setField("sigInfo", v)}
+          placeholder="K-5678"
+          mono
+        />
+      </div>
+    );
+  }
+
+  if (operatingMode === "sota") {
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        <CompactField
+          label="My Summit Ref"
+          id="qso-my-sig-info"
+          value={form.mySigInfo}
+          onChange={(v) => setField("mySigInfo", v)}
+          placeholder="W1/GM-001"
+          mono
+        />
+        <CompactField
+          label="Their Program"
+          id="qso-sig"
+          value={form.sig}
+          onChange={(v) => setField("sig", v)}
+          placeholder="SOTA"
+        />
+        <CompactField
+          label="Their Ref"
+          id="qso-sig-info"
+          value={form.sigInfo}
+          onChange={(v) => setField("sigInfo", v)}
+          placeholder="W2/NJ-001"
+          mono
+        />
+      </div>
+    );
+  }
+
+  if (operatingMode === "contest") {
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        <CompactField
+          label="Contest ID"
+          id="qso-contest-id"
+          value={form.contestId}
+          onChange={(v) => setField("contestId", v)}
+          placeholder="CQ-WPX"
+          mono
+        />
+        <CompactField
+          label="Serial Sent"
+          id="qso-stx"
+          value={form.stx}
+          onChange={(v) => setField("stx", v)}
+          placeholder="001"
+          mono
+          inputMode="numeric"
+        />
+        <CompactField
+          label="Serial Rcvd"
+          id="qso-srx"
+          value={form.srx}
+          onChange={(v) => setField("srx", v)}
+          placeholder="001"
+          mono
+          inputMode="numeric"
+        />
+      </div>
+    );
+  }
+
+  // fieldday
+  return (
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-3 gap-2">
+        <CompactField
+          label="Contest ID"
+          id="qso-contest-id"
+          value={form.contestId}
+          onChange={(v) => setField("contestId", v)}
+          placeholder="ARRL-FD"
+          mono
+        />
+        <CompactField
+          label="Class"
+          id="qso-fd-class"
+          value={form.fieldDayClass}
+          onChange={(v) => setField("fieldDayClass", v.toUpperCase())}
+          placeholder="2A"
+          mono
+          maxLength={4}
+        />
+        <CompactField
+          label="Section"
+          id="qso-fd-section"
+          value={form.fieldDaySection}
+          onChange={(v) => setField("fieldDaySection", v.toUpperCase())}
+          placeholder="EPA"
+          mono
+          maxLength={4}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <CompactField
+          label="Serial Sent"
+          id="qso-stx"
+          value={form.stx}
+          onChange={(v) => setField("stx", v)}
+          placeholder="001"
+          mono
+          inputMode="numeric"
+        />
+        <CompactField
+          label="Serial Rcvd"
+          id="qso-srx"
+          value={form.srx}
+          onChange={(v) => setField("srx", v)}
+          placeholder="001"
+          mono
+          inputMode="numeric"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ───────────────────────────────────────────────────────────
 
 export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
-  const formRef = useRef<HTMLDivElement>(null);
+  const formContainerRef = useRef<HTMLDivElement>(null);
+  const callsignRowRef = useRef<HTMLDivElement>(null);
+
   const {
     form,
     lookupResult,
     lookupLoading,
     lookupError,
     dupeInfo,
+    operatingMode,
+    rigConnected,
     setField,
     resetForm,
     logQSO,
+    setOperatingMode,
   } = useQSOEntry();
 
   // Activate auto-lookup and dupe check hooks
   useCallsignLookup();
   useDupeCheck();
 
-  const { isOffline } = useOfflineStatus();
+  // Success toast
+  const [toast, setToast] = useState<{ visible: boolean; callsign: string }>({
+    visible: false,
+    callsign: "",
+  });
 
-  // Collapsible sections
-  const [showRST, setShowRST] = useState(false);
-  const [showLocation, setShowLocation] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
-
-  // Success toast state
-  const [toast, setToast] = useState<{
-    visible: boolean;
-    callsign: string;
-  }>({ visible: false, callsign: "" });
-
-  // Logging state for button flash
+  // Logging state
   const [isLogging, setIsLogging] = useState(false);
   const [logSuccess, setLogSuccess] = useState(false);
 
-  // Handle log QSO
+  // ── Handle Log ──────────────────────────────────────────────────────────
+
   const handleLog = useCallback(async () => {
     if (!form.callsign.trim()) return;
     if (isLogging) return;
@@ -80,27 +475,39 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
 
         // Reset success flash after 600ms
         setTimeout(() => setLogSuccess(false), 600);
+
+        // Focus callsign input after logging
+        setTimeout(() => {
+          callsignRowRef.current?.querySelector("input")?.focus();
+        }, 50);
       }
     } finally {
       setIsLogging(false);
     }
   }, [form.callsign, isLogging, logQSO, onQSOLogged]);
 
-  // Keyboard shortcuts: Cmd/Ctrl+Enter = Log, Escape = Clear
+  // ── Keyboard: Enter-to-log, Escape-to-clear ────────────────────────────
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault();
-        handleLog();
+      // Enter (without Cmd/Ctrl) logs QSO if callsign input is focused
+      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+        const activeEl = document.activeElement;
+        const callsignInput = callsignRowRef.current?.querySelector("input");
+        if (activeEl === callsignInput) {
+          e.preventDefault();
+          handleLog();
+        }
       }
+
+      // Escape clears form (only when within form container)
       if (e.key === "Escape") {
-        // Don't clear form if focus is inside a modal/dialog
         if ((e.target as HTMLElement).closest?.('[role="dialog"]')) return;
-        // Only reset if focus is within the form element
-        const formEl = formRef.current;
-        if (formEl && !formEl.contains(document.activeElement)) return;
-        e.preventDefault();
-        resetForm();
+        const container = formContainerRef.current;
+        if (container && container.contains(document.activeElement)) {
+          e.preventDefault();
+          resetForm();
+        }
       }
     };
 
@@ -108,32 +515,64 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleLog, resetForm]);
 
-  // Auto-open RST section if RST values differ from empty
-  const hasRSTValues = form.rstSent || form.rstRcvd;
-  const hasLocationValues = form.grid || form.name || form.qth;
-  const hasNotes = form.notes;
+  // ── Derived State ───────────────────────────────────────────────────────
 
   const canLog = form.callsign.trim().length > 0;
 
+  // Detect which fields were auto-filled from lookup
+  const nameAutoFilled = Boolean(
+    lookupResult?.name && form.name === lookupResult.name,
+  );
+  const gridAutoFilled = Boolean(
+    lookupResult?.grid && form.grid === lookupResult.grid,
+  );
+  const qthAutoFilled = Boolean(
+    lookupResult?.qth && form.qth === lookupResult.qth,
+  );
+
   return (
     <div
-      ref={formRef}
-      className="bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-4 transition-all duration-200"
+      ref={formContainerRef}
+      className="bg-white/[0.03] border border-white/10 rounded-xl p-3 space-y-2"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-gray-300 uppercase tracking-wider">
-          QSO Entry
-        </h2>
-        {isOffline && (
-          <span className="text-xs text-caution-amber bg-caution-amber/10 px-2 py-0.5 rounded-full">
-            Offline
+      {/* ── STATUS BAR: Mode pills + CAT badge ─────────────────────────────── */}
+      <div className="flex items-center justify-between gap-2">
+        <div
+          className="flex items-center gap-1"
+          role="radiogroup"
+          aria-label="Operating mode"
+        >
+          {OPERATING_MODES.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              role="radio"
+              aria-checked={operatingMode === m.key}
+              onClick={() => setOperatingMode(m.key)}
+              className={`
+                px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150
+                ${
+                  operatingMode === m.key
+                    ? "bg-plasma-orange text-white shadow-sm shadow-plasma-orange/20"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                }
+              `}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {rigConnected && (
+          <span className="inline-flex items-center gap-1 text-xs text-signal-green font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
+            CAT
           </span>
         )}
       </div>
 
-      {/* Primary row: Callsign + Frequency + Mode + LOG */}
-      <div className="flex items-center gap-3 mb-3">
+      {/* ── PRIMARY ROW: Callsign + Frequency + Mode + LOG ─────────────────── */}
+      <div ref={callsignRowRef} className="flex items-center gap-2">
         {/* Callsign */}
         <div className="flex-[2] min-w-0">
           <CallsignInput
@@ -166,11 +605,11 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           type="button"
           onClick={handleLog}
           disabled={!canLog || isLogging}
-          aria-label="Log QSO (Ctrl+Enter)"
+          aria-label="Log QSO (Enter)"
           className={`
-            h-12 px-6 rounded-lg font-bold text-sm
+            h-12 rounded-lg font-bold text-sm
             transition-all duration-200 whitespace-nowrap shrink-0
-            min-w-[100px]
+            min-w-[90px]
             ${
               logSuccess
                 ? "bg-signal-green text-white scale-105"
@@ -204,62 +643,49 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           ) : logSuccess ? (
             "Logged!"
           ) : (
-            <>
-              LOG IT
-              <span className="hidden sm:inline text-[10px] ml-1.5 opacity-60">
-                {isMac ? "\u2318" : "Ctrl"}+Enter
-              </span>
-            </>
+            "LOG"
           )}
         </button>
       </div>
 
-      {/* Callsign info card */}
-      <CallsignInfoCard
+      {/* ── LOOKUP STRIP ────────────────────────────────────────────────────── */}
+      <LookupStrip
         lookupResult={lookupResult}
-        lookupLoading={lookupLoading && form.callsign.trim().length >= 3}
+        lookupLoading={lookupLoading}
         lookupError={lookupError}
-        dupeInfo={dupeInfo}
+        callsignLength={form.callsign.trim().length}
       />
 
-      {/* Dupe warning */}
-      {dupeInfo?.isDupe && (
-        <div className="mt-3">
-          <DupeWarningBadge
-            dupeInfo={dupeInfo}
-            callsign={form.callsign}
-            band={form.band}
-            mode={form.mode}
-          />
-        </div>
-      )}
+      {/* ── INDICATOR STRIP ─────────────────────────────────────────────────── */}
+      <IndicatorStrip
+        dupeInfo={dupeInfo}
+        callsign={form.callsign}
+        band={form.band}
+        mode={form.mode}
+      />
 
-      {/* Collapsible sections */}
-      <div className="mt-3 space-y-1">
-        {/* RST & Exchange */}
-        <CollapsibleSection
-          label="RST & Exchange"
-          isOpen={showRST || Boolean(hasRSTValues)}
-          onToggle={() => setShowRST((p) => !p)}
-          hasValues={Boolean(hasRSTValues)}
-        >
-          <RSTInput
-            rstSent={form.rstSent}
-            rstRcvd={form.rstRcvd}
-            mode={form.mode}
-            onRstSentChange={(v) => setField("rstSent", v)}
-            onRstRcvdChange={(v) => setField("rstRcvd", v)}
-          />
-          <div className="mt-3">
+      {/* ── FIELD GRID (always visible) ─────────────────────────────────────── */}
+      <div className="space-y-1.5">
+        {/* Row 1: RST Sent, RST Received, TX Power */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-2">
+            <RSTInput
+              rstSent={form.rstSent}
+              rstRcvd={form.rstRcvd}
+              mode={form.mode}
+              onRstSentChange={(v) => setField("rstSent", v)}
+              onRstRcvdChange={(v) => setField("rstRcvd", v)}
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
             <label
               htmlFor="qso-tx-power"
-              className="block text-xs text-gray-500 mb-1"
+              className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
             >
               TX Power (W)
             </label>
             <input
               id="qso-tx-power"
-              aria-label="Transmit power in watts"
               type="number"
               inputMode="numeric"
               min="0"
@@ -270,208 +696,92 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
               }}
               placeholder="100"
               className="
-                w-32 h-9 px-2
-                bg-white/5 border border-white/10 rounded-lg
+                h-8 px-2
+                bg-white/5 border border-white/10 rounded-md
                 text-white text-sm font-mono
-                placeholder-gray-500
+                placeholder-gray-600
                 focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
                 focus:outline-none
+                transition-colors
                 [appearance:textfield]
                 [&::-webkit-inner-spin-button]:appearance-none
                 [&::-webkit-outer-spin-button]:appearance-none
               "
             />
           </div>
-        </CollapsibleSection>
+        </div>
 
-        {/* Location */}
-        <CollapsibleSection
-          label="Location"
-          isOpen={showLocation || Boolean(hasLocationValues)}
-          onToggle={() => setShowLocation((p) => !p)}
-          hasValues={Boolean(hasLocationValues)}
-        >
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label
-                htmlFor="qso-name"
-                className="block text-xs text-gray-500 mb-1"
-              >
-                Name
-              </label>
-              <input
-                id="qso-name"
-                aria-label="Operator name"
-                type="text"
-                value={form.name}
-                onChange={(e) => setField("name", e.target.value)}
-                placeholder="Name"
-                className={`
-                  w-full h-9 px-2
-                  bg-white/5 border rounded-lg
-                  text-white text-sm
-                  placeholder-gray-500
-                  focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
-                  focus:outline-none
-                  ${lookupResult?.name && form.name === lookupResult.name ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
-                `}
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="qso-qth"
-                className="block text-xs text-gray-500 mb-1"
-              >
-                QTH
-              </label>
-              <input
-                id="qso-qth"
-                aria-label="Location QTH"
-                type="text"
-                value={form.qth}
-                onChange={(e) => setField("qth", e.target.value)}
-                placeholder="City, State"
-                className={`
-                  w-full h-9 px-2
-                  bg-white/5 border rounded-lg
-                  text-white text-sm
-                  placeholder-gray-500
-                  focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
-                  focus:outline-none
-                  ${lookupResult?.qth && form.qth === lookupResult.qth ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
-                `}
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="qso-grid"
-                className="block text-xs text-gray-500 mb-1"
-              >
-                Grid
-              </label>
-              <input
-                id="qso-grid"
-                aria-label="Maidenhead grid locator"
-                type="text"
-                value={form.grid}
-                onChange={(e) => setField("grid", e.target.value.toUpperCase())}
-                placeholder="FN31pr"
-                maxLength={6}
-                className={`
-                  w-full h-9 px-2
-                  bg-white/5 border rounded-lg
-                  text-white text-sm font-mono
-                  placeholder-gray-500
-                  focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
-                  focus:outline-none
-                  ${lookupResult?.grid && form.grid === lookupResult.grid ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
-                `}
-              />
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* Activation */}
-        <ActivationFields
-          mySig={form.mySig}
-          mySigInfo={form.mySigInfo}
-          sig={form.sig}
-          sigInfo={form.sigInfo}
-          contestId={form.contestId}
-          stx={form.stx}
-          srx={form.srx}
-          onFieldChange={(field, value) => setField(field, value)}
-        />
-
-        {/* Notes */}
-        <CollapsibleSection
-          label="Notes"
-          isOpen={showNotes || Boolean(hasNotes)}
-          onToggle={() => setShowNotes((p) => !p)}
-          hasValues={Boolean(hasNotes)}
-        >
-          <textarea
-            id="qso-notes"
-            aria-label="QSO notes"
-            value={form.notes}
-            onChange={(e) => setField("notes", e.target.value)}
-            placeholder="Free-form notes..."
-            rows={2}
-            className="
-              w-full px-3 py-2
-              bg-white/5 border border-white/10 rounded-lg
-              text-white text-sm
-              placeholder-gray-500
-              focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
-              focus:outline-none
-              resize-none
-            "
+        {/* Row 2: Grid, Name, QTH */}
+        <div className="grid grid-cols-3 gap-2">
+          <CompactField
+            label="Grid"
+            id="qso-grid"
+            value={form.grid}
+            onChange={(v) => setField("grid", v.toUpperCase())}
+            placeholder="FN31pr"
+            mono
+            maxLength={6}
+            autoFilled={gridAutoFilled}
           />
-        </CollapsibleSection>
+          <CompactField
+            label="Name"
+            id="qso-name"
+            value={form.name}
+            onChange={(v) => setField("name", v)}
+            placeholder="Name"
+            autoFilled={nameAutoFilled}
+          />
+          <CompactField
+            label="QTH"
+            id="qso-qth"
+            value={form.qth}
+            onChange={(v) => setField("qth", v)}
+            placeholder="City, State"
+            autoFilled={qthAutoFilled}
+          />
+        </div>
       </div>
 
-      {/* Success toast */}
+      {/* ── CONTEXT FIELDS (mode-specific) ──────────────────────────────────── */}
+      <ContextFields
+        operatingMode={operatingMode}
+        form={form}
+        setField={(field, value) => setField(field as keyof typeof form, value)}
+      />
+
+      {/* ── NOTES ───────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-0.5">
+        <label
+          htmlFor="qso-notes"
+          className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
+        >
+          Notes
+        </label>
+        <input
+          id="qso-notes"
+          type="text"
+          value={form.notes}
+          onChange={(e) => setField("notes", e.target.value)}
+          placeholder="Free-form notes..."
+          autoComplete="off"
+          className="
+            h-8 px-2
+            bg-white/5 border border-white/10 rounded-md
+            text-white text-sm
+            placeholder-gray-600
+            focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
+            focus:outline-none
+            transition-colors
+          "
+        />
+      </div>
+
+      {/* ── SUCCESS TOAST ───────────────────────────────────────────────────── */}
       <QSOSuccessToast
         visible={toast.visible}
         callsign={toast.callsign}
         onDismiss={() => setToast((prev) => ({ ...prev, visible: false }))}
       />
-    </div>
-  );
-}
-
-// ── Internal CollapsibleSection helper ─────────────────────────────────────
-
-interface CollapsibleSectionProps {
-  label: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  hasValues: boolean;
-  children: React.ReactNode;
-}
-
-function CollapsibleSection({
-  label,
-  isOpen,
-  onToggle,
-  hasValues,
-  children,
-}: CollapsibleSectionProps) {
-  return (
-    <div className="border border-white/5 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        className="
-          w-full flex items-center gap-2 px-3 py-2.5
-          text-sm text-gray-400 hover:text-gray-200
-          transition-colors
-        "
-      >
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill="none"
-          className={`transition-transform ${isOpen ? "rotate-90" : ""}`}
-          aria-hidden="true"
-        >
-          <path
-            d="M3 1L7 5L3 9"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        {label}
-        {hasValues && (
-          <span className="ml-1 w-1.5 h-1.5 rounded-full bg-plasma-orange" />
-        )}
-      </button>
-
-      {isOpen && <div className="px-3 pb-3">{children}</div>}
     </div>
   );
 }

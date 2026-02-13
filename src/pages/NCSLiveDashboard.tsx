@@ -21,6 +21,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { SessionControls } from "@/components/nets/SessionControls";
 import { NCSKeyboardHints } from "@/components/nets/NCSKeyboardHints";
 import { PreambleEditor } from "@/components/nets/PreambleEditor";
+import { NetLiveIndicator } from "@/components/nets/NetLiveIndicator";
 import TuneToNetButton from "@/components/nets/TuneToNetButton";
 import { PhaseIndicator } from "@/components/nets/PhaseIndicator";
 import { PreamblePhase } from "@/components/nets/PreamblePhase";
@@ -364,7 +365,7 @@ export function NCSLiveDashboard() {
 
   if (!initialized || isLoading || isLoadingSession) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[400px] animate-in fade-in">
         <LoadingSpinner size="lg" text="Loading net session..." />
       </div>
     );
@@ -374,7 +375,7 @@ export function NCSLiveDashboard() {
 
   if (!currentNet) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center animate-in fade-in">
         <p className="text-lg font-medium text-white mb-2">Net not found</p>
         <p className="text-sm text-gray-400">
           The net you are looking for does not exist or has been removed.
@@ -387,7 +388,7 @@ export function NCSLiveDashboard() {
 
   if (!isAuthenticated || !isManager) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4 animate-in fade-in">
         <svg
           className="w-10 h-10 text-gray-600 mb-4"
           fill="none"
@@ -415,44 +416,40 @@ export function NCSLiveDashboard() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* ── Header Bar (sticky) ────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-deep-space/95 backdrop-blur-sm border-b border-white/5 px-4 py-3">
+      <div className="sticky top-0 z-10 bg-white/[0.03] backdrop-blur-md border-b border-white/10 px-4 py-3 shadow-card">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Net name */}
-          <h1 className="text-lg font-bold text-white truncate">
+          <h1 className="text-lg font-bold font-orbitron text-white truncate">
             {currentNet.name}
           </h1>
 
           {/* LIVE indicator */}
-          {currentSession && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-              </span>
-              <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
-                Live
-              </span>
-            </div>
-          )}
+          {currentSession && <NetLiveIndicator />}
 
           {/* Elapsed time */}
           {currentSession && (
-            <span className="text-xs font-mono text-gray-500 shrink-0">
+            <span className="text-xs font-mono text-gray-300 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/5 shrink-0 tabular-nums">
               {elapsed}
             </span>
           )}
 
           {/* Check-in count */}
-          <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-white/10 text-gray-300 border border-white/5 shrink-0">
+          <span
+            className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border shrink-0 tabular-nums ${
+              activeCheckins.length > 0
+                ? "bg-signal-green/10 text-signal-green border-signal-green/20"
+                : "bg-white/10 text-gray-300 border-white/5"
+            }`}
+          >
             {activeCheckins.length} check-in
             {activeCheckins.length !== 1 ? "s" : ""}
           </span>
 
           {/* NCS callsign */}
           {currentSession && (
-            <span className="text-xs text-gray-500 ml-auto shrink-0">
+            <span className="text-xs text-gray-400 ml-auto shrink-0 pl-3 border-l border-white/5">
               NCS:{" "}
-              <span className="font-mono font-medium text-gray-300">
+              <span className="font-mono font-medium text-plasma-orange">
                 {currentSession.ncsCallsign}
               </span>
             </span>
@@ -472,7 +469,7 @@ export function NCSLiveDashboard() {
             <button
               type="button"
               onClick={() => setShowKeyboardHints((prev) => !prev)}
-              className="shrink-0 px-2 py-0.5 text-[10px] font-mono rounded-md bg-white/5 border border-white/10 text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-colors"
+              className="shrink-0 px-2 py-0.5 text-[10px] font-mono rounded-md bg-white/5 border border-white/10 text-gray-400 hover:text-gray-200 hover:bg-white/10 hover:-translate-y-0.5 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
               title="Keyboard shortcuts"
             >
               <span className="hidden sm:inline">Keyboard </span>
@@ -495,7 +492,7 @@ export function NCSLiveDashboard() {
       </div>
 
       {/* ── Phase Body ───────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 px-4 py-2 overflow-y-auto flex flex-col">
+      <div className="flex-1 min-h-0 px-4 py-4 overflow-y-auto flex flex-col">
         {!currentSession ? (
           /* Pre-session: centered start button */
           <div className="flex flex-col items-center justify-center min-h-[300px]">

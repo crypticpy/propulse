@@ -338,6 +338,8 @@ export interface UIInteractionPreferences {
   labelScale: number;
   /** Display aspect ratio for flat map (1.5-2.5, default: 2.0). Lower = taller map, higher = wider map. */
   mapAspectRatio: number;
+  /** When enabled, spot arcs peak at band-dependent heights (160m low, 10m high) instead of flat (default: false) */
+  bandHeightArcs: boolean;
 }
 
 // =============================================================================
@@ -629,6 +631,7 @@ export const DEFAULT_UI_INTERACTION: UIInteractionPreferences = {
   showHoverTooltips: true,
   labelScale: 1.0,
   mapAspectRatio: 2.0,
+  bandHeightArcs: false,
 };
 
 // =============================================================================

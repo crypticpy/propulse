@@ -7,18 +7,21 @@
  * Escape or clicking outside dismisses the overlay.
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 interface NCSKeyboardHintsProps {
   onClose: () => void;
 }
 
-const SHORTCUTS = [
+const PHASE_SHORTCUTS = [
   { keys: ["1"], description: "Go to Preamble" },
   { keys: ["2"], description: "Go to Check-In" },
   { keys: ["3"], description: "Go to Rounds" },
   { keys: ["4"], description: "Go to Closeout" },
+] as const;
+
+const ACTION_SHORTCUTS = [
   { keys: ["N", "/"], description: "Focus callsign input" },
   { keys: ["Space", "\u2192"], description: "Done / advance (Rounds)" },
   { keys: ["S"], description: "Skip current (Rounds)" },
@@ -27,9 +30,36 @@ const SHORTCUTS = [
   { keys: ["?"], description: "Toggle this overlay" },
 ] as const;
 
-export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
-  const backdropRef = useRef<HTMLDivElement>(null);
+const KBD_CLASS =
+  "bg-white/[0.06] border border-white/15 rounded-md px-2 py-0.5 text-xs font-mono text-gray-200 leading-tight min-w-[24px] text-center shadow-[0_1px_0_rgba(255,255,255,0.05)]";
 
+function ShortcutRow({
+  shortcut,
+  isLast,
+}: {
+  shortcut: { keys: readonly string[]; description: string };
+  isLast: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between py-2.5 ${
+        !isLast ? "border-b border-white/5" : ""
+      }`}
+    >
+      <span className="text-sm text-gray-300">{shortcut.description}</span>
+      <div className="flex items-center gap-1.5">
+        {shortcut.keys.map((key, j) => (
+          <span key={j} className="flex items-center gap-1">
+            {j > 0 && <span className="text-[10px] text-gray-500">or</span>}
+            <kbd className={KBD_CLASS}>{key}</kbd>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
   // Body scroll lock
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -53,30 +83,40 @@ export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
       window.removeEventListener("keydown", handler, { capture: true });
   }, [onClose]);
 
-  // Click outside to close
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === backdropRef.current) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
 
   return createPortal(
     <div
-      ref={backdropRef}
-      onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ncs-keyboard-hints-title"
     >
-      <div className="bg-deep-space border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-void-black/80 animate-in fade-in"
+        onClick={onClose}
+      />
+
+      {/* Card */}
+      <div
+        className="relative z-10 w-full max-w-sm bg-deep-space border border-white/10 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95"
+        onClick={handleCardClick}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-white">Keyboard Shortcuts</h2>
+          <h2
+            id="ncs-keyboard-hints-title"
+            className="text-sm font-orbitron font-bold text-white uppercase tracking-wider"
+          >
+            Keyboard Shortcuts
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50"
             aria-label="Close keyboard shortcuts"
           >
             <svg
@@ -97,29 +137,29 @@ export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
 
         {/* Shortcut rows */}
         <div className="space-y-0">
-          {SHORTCUTS.map((shortcut, i) => (
-            <div
+          {/* Phase navigation */}
+          {PHASE_SHORTCUTS.map((shortcut, i) => (
+            <ShortcutRow
               key={i}
-              className={`flex items-center justify-between py-2.5 ${
-                i < SHORTCUTS.length - 1 ? "border-b border-white/5" : ""
-              }`}
-            >
-              <span className="text-sm text-gray-300">
-                {shortcut.description}
-              </span>
-              <div className="flex items-center gap-1.5">
-                {shortcut.keys.map((key, j) => (
-                  <span key={j} className="flex items-center gap-1">
-                    {j > 0 && (
-                      <span className="text-[10px] text-gray-500">or</span>
-                    )}
-                    <kbd className="bg-white/10 border border-white/20 rounded px-2 py-0.5 text-xs font-mono text-gray-200 leading-tight">
-                      {key}
-                    </kbd>
-                  </span>
-                ))}
-              </div>
-            </div>
+              shortcut={shortcut}
+              isLast={i === PHASE_SHORTCUTS.length - 1}
+            />
+          ))}
+
+          {/* Section divider */}
+          <div className="pt-2 pb-1">
+            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-medium">
+              Actions
+            </span>
+          </div>
+
+          {/* Action shortcuts */}
+          {ACTION_SHORTCUTS.map((shortcut, i) => (
+            <ShortcutRow
+              key={i}
+              shortcut={shortcut}
+              isLast={i === ACTION_SHORTCUTS.length - 1}
+            />
           ))}
         </div>
       </div>

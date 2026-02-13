@@ -93,7 +93,7 @@ export function RoundsPhase({
   // ── Sidebar Content ───────────────────────────────────────────────────────
 
   const sidebar = (
-    <div className="bg-panel/30 border border-white/5 rounded-2xl p-3 flex flex-col min-h-0 h-full">
+    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-3 flex flex-col min-h-0 h-full">
       {/* Late check-in input */}
       <div className="mb-3">
         <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
@@ -148,12 +148,29 @@ export function RoundsPhase({
       {/* Closeout CTA when queue is empty */}
       {queueEmpty && (
         <div className="mt-6">
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2 text-center">
+            All stations served
+          </p>
           <button
             onClick={onAdvance}
-            className="px-6 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 transition-colors"
+            className="group px-6 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
             aria-label="Begin closeout phase"
           >
-            Begin Closeout &rarr;
+            Begin Closeout
+            <svg
+              className="w-4 h-4 inline-block ml-1 transition-transform group-hover:translate-x-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+              />
+            </svg>
           </button>
         </div>
       )}
@@ -165,7 +182,7 @@ export function RoundsPhase({
   if (isMobile) {
     return (
       <div
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-4 animate-in fade-in"
         role="region"
         aria-label="Speaking rounds"
       >
@@ -177,7 +194,7 @@ export function RoundsPhase({
 
   return (
     <div
-      className="flex flex-row gap-4 h-full"
+      className="flex flex-row gap-4 h-full animate-in fade-in"
       role="region"
       aria-label="Speaking rounds"
     >

@@ -4,8 +4,13 @@
  * Displays total QSOs, unique callsigns, DXCC, grids, daily rate,
  * and band/mode breakdowns as horizontal bars.
  * Driven by the useQSOStats hook.
+ *
+ * QSOStatsPopover — Portal-based popover wrapper that renders
+ * QSOLogStats anchored below a trigger element.
  */
 
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useQSOStats } from "@/hooks/useQSOStats";
 
 // ── Bar Chart Row ───────────────────────────────────────────────────────────
@@ -152,5 +157,74 @@ export function QSOLogStats() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Stats Popover ──────────────────────────────────────────────────────────
+
+interface QSOStatsPopoverProps {
+  children: React.ReactNode; // Trigger element
+}
+
+export function QSOStatsPopover({ children }: QSOStatsPopoverProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const toggle = useCallback(() => setOpen((v) => !v), []);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        panelRef.current?.contains(e.target as Node)
+      )
+        return;
+      setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  // Position the popover below the trigger
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPosition({
+      top: rect.bottom + 8,
+      left: Math.max(8, rect.left - 200),
+    });
+  }, [open]);
+
+  return (
+    <>
+      <div ref={triggerRef} onClick={toggle} className="cursor-pointer">
+        {children}
+      </div>
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            className="fixed z-[9999] w-[420px] max-h-[70vh] overflow-y-auto rounded-2xl bg-void-black/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/50 animate-in fade-in slide-in-from-top-2 duration-200"
+            style={{ top: position.top, left: position.left }}
+          >
+            <div className="p-1">
+              <QSOLogStats />
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

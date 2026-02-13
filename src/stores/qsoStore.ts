@@ -17,8 +17,11 @@ import type {
   QSOFilters,
   SyncConflict,
   SyncConflictStatus,
+  OperatingMode,
 } from "@/types/qso";
 import { DEFAULT_QSO_FORM, DEFAULT_QSO_FILTERS } from "@/types/qso";
+import { useProfileStore } from "@/stores/profileStore";
+import { useShackStore } from "@/stores/shackStore";
 import type { LogEntry } from "@/lib/db/types";
 import {
   addLogEntry,
@@ -63,6 +66,10 @@ interface QSOStoreState {
   // Undo buffer
   _deletedEntry: LogEntry | null;
 
+  // Operating mode
+  operatingMode: OperatingMode;
+  nextSerialNumber: number;
+
   // ── Form Actions ──
   setField: <K extends keyof QSOFormState>(
     field: K,
@@ -98,6 +105,10 @@ interface QSOStoreState {
   // ── Dupe Actions ──
   checkDupe: (callsign: string) => Promise<void>;
 
+  // ── Operating Mode Actions ──
+  setOperatingMode: (mode: OperatingMode) => void;
+  initializeFromProfile: () => void;
+
   // ── Sync Actions ──
   setPendingSyncCount: (count: number) => void;
   addConflict: (conflict: SyncConflict) => void;
@@ -118,6 +129,10 @@ const STICKY_FIELDS: (keyof QSOFormState)[] = [
   "mySig",
   "mySigInfo",
   "rigSource",
+  "contestId",
+  "stx",
+  "fieldDayClass",
+  "fieldDaySection",
 ];
 
 /** Build a reset form, keeping sticky defaults */
@@ -263,6 +278,9 @@ export const useQSOStore = create<QSOStoreState>()(
 
       _deletedEntry: null,
 
+      operatingMode: "general" as OperatingMode,
+      nextSerialNumber: 1,
+
       // ── Form Actions ──
 
       setField: (field, value) => {
@@ -367,6 +385,11 @@ export const useQSOStore = create<QSOStoreState>()(
           contestId: form.contestId || undefined,
           stx: form.stx || undefined,
           srx: form.srx || undefined,
+          // Field Day: compose class+section into stxString for ADIF compatibility
+          stxString:
+            form.fieldDayClass && form.fieldDaySection
+              ? `${form.fieldDayClass} ${form.fieldDaySection}`
+              : undefined,
           version: 1,
           lastDeviceId: getDeviceId(),
         };
@@ -383,13 +406,27 @@ export const useQSOStore = create<QSOStoreState>()(
         try {
           const id = await addLogEntry(entry);
 
-          // Reset form but keep sticky defaults
-          set((s) => ({
-            form: buildResetForm(s.formDefaults),
-            lookupResult: null,
-            lookupError: null,
-            dupeInfo: null,
-          }));
+          // Auto-increment serial if current stx is numeric
+          const stxNum = parseInt(form.stx, 10);
+          const nextStx = !isNaN(stxNum) ? String(stxNum + 1) : form.stx;
+
+          // Update next serial and reset form with sticky defaults
+          set((s) => {
+            const newDefaults = { ...s.formDefaults };
+            if (!isNaN(stxNum)) {
+              newDefaults.stx = nextStx;
+            }
+            return {
+              form: buildResetForm(newDefaults),
+              formDefaults: newDefaults,
+              lookupResult: null,
+              lookupError: null,
+              dupeInfo: null,
+              nextSerialNumber: !isNaN(stxNum)
+                ? stxNum + 1
+                : s.nextSerialNumber,
+            };
+          });
 
           return id;
         } catch (err) {
@@ -597,11 +634,18 @@ export const useQSOStore = create<QSOStoreState>()(
             source: (data.source as QSOLookupResult["source"]) ?? "callook",
           };
 
-          set({
+          // Apply lookup data to form and store result
+          const formUpdates: Partial<QSOFormState> = {};
+          if (result.name) formUpdates.name = result.name;
+          if (result.grid) formUpdates.grid = result.grid;
+          if (result.qth) formUpdates.qth = result.qth;
+
+          set((s) => ({
             lookupResult: result,
             lookupLoading: false,
             lookupError: null,
-          });
+            form: { ...s.form, ...formUpdates },
+          }));
         } catch (err) {
           set({
             lookupLoading: false,
@@ -674,6 +718,79 @@ export const useQSOStore = create<QSOStoreState>()(
         }
       },
 
+      // ── Operating Mode Actions ──
+
+      setOperatingMode: (mode) => {
+        set({ operatingMode: mode });
+        // Auto-set mySig for activation modes
+        const mySigMap: Record<OperatingMode, string> = {
+          general: "",
+          pota: "POTA",
+          sota: "SOTA",
+          contest: "",
+          fieldday: "",
+        };
+        const mySig = mySigMap[mode];
+        set((s) => {
+          const updates: Partial<QSOFormState> = { mySig };
+          // Field Day: auto-set contestId to ARRL-FD
+          if (mode === "fieldday" && !s.form.contestId) {
+            updates.contestId = "ARRL-FD";
+          }
+          return {
+            form: { ...s.form, ...updates },
+            formDefaults: { ...s.formDefaults, mySig },
+          };
+        });
+      },
+
+      initializeFromProfile: () => {
+        const profileState = useProfileStore.getState();
+        const shackState = useShackStore.getState();
+
+        const defaults: Partial<QSOFormState> = {};
+
+        // Resolve active location from profile
+        const station = profileState.station;
+        if (station) {
+          const activeLocId =
+            station.activeLocationId ?? station.homeLocationId;
+          const activeLocation = station.savedLocations.find(
+            (loc) => loc.id === activeLocId,
+          );
+
+          // Power from shack active radio equipment
+          const activeRadioInstance = shackState.radios.find(
+            (r) => r.id === shackState.activeRadioId,
+          );
+          if (activeRadioInstance?.customPowerLimit) {
+            defaults.txPower = activeRadioInstance.customPowerLimit;
+          }
+
+          // Activation refs from active location
+          if (activeLocation) {
+            if (
+              activeLocation.type === "pota" &&
+              activeLocation.activationRef
+            ) {
+              defaults.mySig = "POTA";
+              defaults.mySigInfo = activeLocation.activationRef;
+            } else if (
+              activeLocation.type === "sota" &&
+              activeLocation.activationRef
+            ) {
+              defaults.mySig = "SOTA";
+              defaults.mySigInfo = activeLocation.activationRef;
+            }
+          }
+        }
+
+        set((s) => ({
+          formDefaults: { ...s.formDefaults, ...defaults },
+          form: { ...s.form, ...defaults },
+        }));
+      },
+
       // ── Sync Actions ──
 
       setPendingSyncCount: (count) => {
@@ -736,14 +853,27 @@ export const useQSOStore = create<QSOStoreState>()(
     }),
     {
       name: "propulse-qso",
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         formDefaults: state.formDefaults,
         filters: state.filters,
         sortField: state.sortField,
         sortDirection: state.sortDirection,
+        operatingMode: state.operatingMode,
+        nextSerialNumber: state.nextSerialNumber,
       }),
+      migrate: (persisted, version) => {
+        if (version < 2) {
+          const state = persisted as Record<string, unknown>;
+          return {
+            ...state,
+            operatingMode: "general",
+            nextSerialNumber: 1,
+          };
+        }
+        return persisted;
+      },
     },
   ),
 );

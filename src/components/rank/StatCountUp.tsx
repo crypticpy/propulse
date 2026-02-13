@@ -29,6 +29,7 @@ const NUMERIC_RE = /^([+-]?\d*\.?\d+)(.*)$/;
 function parseValue(
   value: string,
 ): { num: number; suffix: string; decimals: number } | null {
+  if (!value) return null;
   const match = value.match(NUMERIC_RE);
   if (!match) return null;
   const numStr = match[1];
@@ -60,7 +61,7 @@ export function StatCountUp({
 }: StatCountUpProps) {
   const rafRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
-  const [displayValue, setDisplayValue] = useState<string>(value);
+  const [displayValue, setDisplayValue] = useState<string>(value ?? "");
 
   const cancelAnimation = useCallback(() => {
     if (rafRef.current !== null) {
@@ -71,12 +72,13 @@ export function StatCountUp({
   }, []);
 
   useEffect(() => {
-    const parsed = parseValue(value);
+    const safeValue = value ?? "";
+    const parsed = parseValue(safeValue);
 
     // No numeric prefix or animation disabled or reduced motion: show final value
     if (!parsed || !enabled || getReducedMotion()) {
       cancelAnimation();
-      setDisplayValue(value);
+      setDisplayValue(safeValue);
       return;
     }
 
@@ -110,7 +112,7 @@ export function StatCountUp({
         rafRef.current = requestAnimationFrame(animate);
       } else {
         // Ensure final value is exact
-        setDisplayValue(value);
+        setDisplayValue(safeValue);
         rafRef.current = null;
         startTimeRef.current = null;
       }
@@ -127,7 +129,7 @@ export function StatCountUp({
   }, [cancelAnimation]);
 
   return (
-    <span className={className} aria-label={value}>
+    <span className={className} aria-label={value ?? ""}>
       {displayValue}
     </span>
   );

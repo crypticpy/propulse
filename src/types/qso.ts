@@ -11,6 +11,14 @@
 /** Source of rig/frequency data */
 export type RigSource = "manual" | "bridge" | "wsjtx";
 
+/** Operating mode for QSO entry — determines visible fields */
+export type OperatingMode =
+  | "general"
+  | "pota"
+  | "sota"
+  | "contest"
+  | "fieldday";
+
 /** Form field state for QSO entry */
 export interface QSOFormState {
   /** Contacted station callsign */
@@ -49,6 +57,10 @@ export interface QSOFormState {
   stx: string;
   /** Serial received */
   srx: string;
+  /** Field Day class (e.g., "2A") */
+  fieldDayClass: string;
+  /** Field Day section (e.g., "EPA") */
+  fieldDaySection: string;
   /** Source of rig/frequency data */
   rigSource: RigSource;
 }
@@ -204,6 +216,8 @@ export const DEFAULT_QSO_FORM: QSOFormState = {
   contestId: "",
   stx: "",
   srx: "",
+  fieldDayClass: "",
+  fieldDaySection: "",
   rigSource: "manual",
 };
 

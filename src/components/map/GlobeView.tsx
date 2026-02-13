@@ -48,6 +48,14 @@ import {
 import { LiveSpotArcs, resolveSpotLocations } from "./LiveSpotArcs";
 import { AnimatedSpotTraces } from "./AnimatedSpotTraces";
 import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
+import { GridPersistOverlay } from "./GridPersistOverlay";
+import { IonosphericShells } from "./IonosphericShells";
+import { RayPathArc } from "./RayPathArc";
+import {
+  useGridActivityMap,
+  type ActivitySpot,
+} from "@/hooks/useGridActivityMap";
+import { traceRayPath } from "@/lib/utils/rayTrace";
 import { SpotHighlight } from "./SpotHighlight";
 import { SelectedSpotArc } from "./SelectedSpotArc";
 import { OverlayLayers3D } from "./OverlayLayers3D";
@@ -774,6 +782,47 @@ function GlobeScene({
     uiPrefs.spotColorMode,
   ]);
 
+  // ── Grid activity persistence overlay ────────────────────────────────────
+  // Convert resolved glow spots to ActivitySpot[] for the grid activity hook.
+  // Each spot produces two activity entries (spotter + DX positions).
+  const activitySpots = useMemo((): ActivitySpot[] => {
+    if (!layers.gridActivity) return [];
+    const out: ActivitySpot[] = [];
+    for (const s of resolvedGlowSpots) {
+      const ts = s.time.getTime();
+      out.push({ lat: s.dxLat, lon: s.dxLon, timestamp: ts });
+      out.push({ lat: s.spotterLat, lon: s.spotterLon, timestamp: ts });
+    }
+    return out;
+  }, [resolvedGlowSpots, layers.gridActivity]);
+
+  const gridActivityMap = useGridActivityMap(activitySpots);
+
+  // ── Ionospheric ray path computation ────────────────────────────────────
+  const kIndexData = useKIndex();
+  const currentKp = useMemo(() => {
+    const last = kIndexData.data?.[kIndexData.data.length - 1];
+    return last?.kp_index ?? 2;
+  }, [kIndexData.data]);
+
+  const rayTraceResult = useMemo(() => {
+    if (!layers.rayPath || !station || !target || !currentSFI) return null;
+    try {
+      return traceRayPath({
+        startLat: station.lat,
+        startLon: station.lon,
+        endLat: target.lat,
+        endLon: target.lon,
+        frequencyMHz: 14.074,
+        date: displayTime,
+        sfi: currentSFI,
+        kp: currentKp,
+      });
+    } catch {
+      return null;
+    }
+  }, [layers.rayPath, station, target, currentSFI, currentKp, displayTime]);
+
   // Calculate path difficulty when station and target are set
   const pathDifficulty = useMemo((): DifficultyLevel | undefined => {
     if (!station || !target) {
@@ -929,6 +978,9 @@ function GlobeScene({
           <WeatherRadarOverlay manifest={radarManifest} />
         )}
 
+        {/* Ionospheric shell layers — translucent D/E/F1/F2 spheres */}
+        {layers.ionosphere && <IonosphericShells displayTime={displayTime} />}
+
         {/* Live spot arcs */}
         {layers.spots && (
           <LiveSpotArcs
@@ -943,6 +995,11 @@ function GlobeScene({
         {/* Animated spot trace lines — "missile command" style */}
         {layers.spotTraces && (
           <AnimatedSpotTraces grid={station?.grid} maxTraces={40} />
+        )}
+
+        {/* Persistent grid activity overlay — density-colored steady glow */}
+        {layers.gridActivity && (
+          <GridPersistOverlay activityMap={gridActivityMap} />
         )}
 
         {/* Grid glow overlay — pulsing glow on Maidenhead grid fields for recent spots */}
@@ -1032,21 +1089,31 @@ function GlobeScene({
               sizeScale={mapPinScale}
             />
 
-            {/* Path arc between home and target - Color based on difficulty */}
-            {station && (
-              <PathArc
-                startLat={station.lat}
-                startLon={station.lon}
-                endLat={target.lat}
-                endLon={target.lon}
-                color={
-                  pathDifficulty
-                    ? getDifficultyColor(pathDifficulty)
-                    : "#ff6b35"
-                }
-                pathMode={pathMode}
-              />
-            )}
+            {/* Path arc between home and target — ray path or flat arc */}
+            {station &&
+              (layers.rayPath && rayTraceResult ? (
+                <RayPathArc
+                  result={rayTraceResult}
+                  startLat={station.lat}
+                  startLon={station.lon}
+                  endLat={target.lat}
+                  endLon={target.lon}
+                  pathMode={pathMode}
+                />
+              ) : (
+                <PathArc
+                  startLat={station.lat}
+                  startLon={station.lon}
+                  endLat={target.lat}
+                  endLon={target.lon}
+                  color={
+                    pathDifficulty
+                      ? getDifficultyColor(pathDifficulty)
+                      : "#ff6b35"
+                  }
+                  pathMode={pathMode}
+                />
+              ))}
           </>
         )}
 

@@ -222,6 +222,14 @@ export function LayersPopover() {
           getValue: () => layers.issTracker,
           onToggle: () => toggleLayer("issTracker"),
         },
+        {
+          key: "gridActivity",
+          label: "Grid Activity",
+          title:
+            "Persistent Maidenhead grid highlights showing recent spot activity — heatmap coloring by density",
+          getValue: () => layers.gridActivity,
+          onToggle: () => toggleLayer("gridActivity"),
+        },
       ],
     },
     {
@@ -309,6 +317,22 @@ export function LayersPopover() {
             "Weak Signal Propagation Reporter \u2014 TX/RX paths showing real-time propagation",
           getValue: () => layers.wspr,
           onToggle: () => toggleLayer("wspr"),
+        },
+        {
+          key: "ionosphere",
+          label: "Ionosphere",
+          title:
+            "Translucent D/E/F1/F2 ionospheric shells — dayside brighter, responds to solar conditions",
+          getValue: () => layers.ionosphere,
+          onToggle: () => toggleLayer("ionosphere"),
+        },
+        {
+          key: "rayPath",
+          label: "Ray Path",
+          title:
+            "Multi-hop skip path showing how signals bounce between Earth and ionosphere",
+          getValue: () => layers.rayPath,
+          onToggle: () => toggleLayer("rayPath"),
         },
       ],
     },
@@ -459,6 +483,39 @@ export function LayersPopover() {
         <div className="border-t border-white/5 my-2" />
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
           Display
+        </div>
+
+        {/* Band Height Arcs toggle */}
+        <div
+          title="Spot arcs peak at band-dependent heights — 160m low, 10m high — for a stacked look"
+          className="flex items-center h-8 px-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
+          onClick={() =>
+            updateUIInteraction({
+              bandHeightArcs: !(uiPrefs.bandHeightArcs ?? false),
+            })
+          }
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full mr-2.5 shrink-0 transition-colors ${
+              uiPrefs.bandHeightArcs ? "bg-signal-green" : "bg-white/20"
+            }`}
+          />
+          <span
+            className={`flex-1 text-xs transition-colors ${
+              uiPrefs.bandHeightArcs ? "text-white" : "text-white/60"
+            }`}
+          >
+            Band Height Arcs
+          </span>
+          <PillToggle
+            checked={uiPrefs.bandHeightArcs ?? false}
+            onChange={() =>
+              updateUIInteraction({
+                bandHeightArcs: !(uiPrefs.bandHeightArcs ?? false),
+              })
+            }
+            label="Band Height Arcs"
+          />
         </div>
 
         {/* Spot Size slider */}

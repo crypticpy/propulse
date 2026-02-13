@@ -56,11 +56,44 @@ export function SessionControls({
 
   if (!session) {
     return (
-      <div className="flex items-center justify-center py-4">
+      <div className="flex flex-col items-center justify-center py-8 gap-6 animate-in fade-in">
+        {/* Radio wave icon */}
+        <svg
+          className="w-16 h-16 text-plasma-orange/20"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1}
+            d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4M12 12h.01M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4M19.1 4.9C23 8.8 23 15.2 19.1 19.1"
+          />
+        </svg>
+
+        {/* Context text */}
+        <div className="text-center space-y-1">
+          <p className="text-sm text-gray-400">Ready to begin</p>
+          <p className="text-xs text-gray-500">
+            Start a live net control session
+          </p>
+        </div>
+
+        {/* Launch button */}
         <button
           onClick={onStartSession}
-          className="px-6 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 transition-colors"
+          className="animate-ncs-launch-pulse px-8 py-4 text-base font-bold rounded-2xl bg-plasma-orange text-white hover:bg-plasma-orange/90 hover:scale-[1.02] active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space inline-flex items-center gap-2"
         >
+          <svg
+            className="w-5 h-5"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M8 5v14l11-7z" />
+          </svg>
           Start Net Session
         </button>
       </div>

@@ -33,15 +33,24 @@ function StatCell({
   value,
   label,
   colorClass = "text-white",
+  delay = 0,
 }: {
   value: number | string;
   label: string;
   colorClass?: string;
+  delay?: number;
 }) {
   return (
-    <div className="bg-white/[0.02] rounded-lg p-3 text-center">
-      <p className={`text-2xl font-bold ${colorClass}`}>{value}</p>
-      <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+    <div
+      className="bg-white/[0.03] border border-white/10 rounded-xl p-4 overflow-hidden animate-ncs-stat-shimmer"
+      style={{ animationDelay: `${delay}ms`, opacity: 1 }}
+    >
+      <p className={`text-3xl font-mono font-bold tabular-nums ${colorClass}`}>
+        {value}
+      </p>
+      <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1">
+        {label}
+      </p>
     </div>
   );
 }
@@ -114,55 +123,64 @@ export function CloseoutPhase({
 
   return (
     <div
-      className="max-w-2xl mx-auto space-y-6 py-6"
+      className="max-w-2xl mx-auto space-y-6 py-6 animate-in fade-in"
       role="region"
       aria-label="Session closeout"
     >
       {/* Session Complete Header */}
-      <div className="flex items-center justify-center gap-2.5 mb-2">
-        <svg
-          className="w-5 h-5 text-signal-green"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-signal-green">
+      <div className="flex flex-col items-center gap-3 mb-4">
+        <div className="w-12 h-12 rounded-full bg-signal-green/10 border border-signal-green/20 flex items-center justify-center">
+          <svg
+            className="w-6 h-6 text-signal-green"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <h2 className="text-xs font-orbitron font-semibold uppercase tracking-[0.2em] text-signal-green">
           Session Complete
         </h2>
       </div>
 
       {/* Session Summary Card */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-6">
+      <div className="bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-6">
         <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-4">
           Session Summary
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCell value={totalCheckins} label="Total Check-Ins" />
-          <StatCell value={uniqueCallsigns} label="Unique Callsigns" />
-          <StatCell value={elapsed} label="Duration" />
+          <StatCell value={totalCheckins} label="Total Check-Ins" delay={0} />
+          <StatCell
+            value={uniqueCallsigns}
+            label="Unique Callsigns"
+            delay={75}
+          />
+          <StatCell value={elapsed} label="Duration" delay={150} />
           <StatCell
             value={completedCount}
             label="Completed"
             colorClass="text-signal-green"
+            delay={225}
           />
           <StatCell
             value={skippedCount}
             label="Skipped"
             colorClass="text-caution-amber"
+            delay={300}
           />
           <StatCell
             value={relayCount}
             label="Relays"
             colorClass="text-purple-400"
+            delay={375}
           />
         </div>
       </div>
@@ -178,7 +196,7 @@ export function CloseoutPhase({
           onBlur={handleNotesBlur}
           placeholder="Session notes, highlights, follow-ups..."
           rows={5}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-plasma-orange/50 resize-none"
+          className="w-full bg-void border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 resize-none transition-colors"
           aria-label={`Session notes for ${net.name}`}
         />
       </div>
@@ -187,10 +205,26 @@ export function CloseoutPhase({
       <div className="flex flex-col items-center pt-2">
         <button
           onClick={() => setShowConfirmEnd(true)}
-          className="px-8 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 transition-colors focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
+          className="group px-10 py-4 text-base font-bold rounded-2xl bg-alert-red/10 text-alert-red border-2 border-alert-red/20 hover:bg-alert-red/20 hover:border-alert-red/30 hover:-translate-y-0.5 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-alert-red/50"
           aria-label="Close net session"
         >
-          Close Net Session
+          <span className="inline-flex items-center gap-2">
+            Close Net Session
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </span>
         </button>
         <p className="text-[10px] text-gray-500 mt-2">
           Session data will be saved automatically

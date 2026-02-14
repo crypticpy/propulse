@@ -36,6 +36,8 @@ import { SatelliteOverlay } from "./SatelliteOverlay";
 import { ISSTrackerOverlay } from "./ISSTrackerOverlay";
 import { EarthquakeOverlay3D } from "./EarthquakeOverlay3D";
 import { WeatherAlerts3D } from "./WeatherAlerts3D";
+import { WeatherAlertFlyout } from "./WeatherAlertFlyout";
+import { WeatherAlertModal } from "./WeatherAlertModal";
 import { LightningOverlay3D } from "./LightningOverlay3D";
 import { FireOverlay3D } from "./FireOverlay3D";
 import { WeatherRadarOverlay } from "./WeatherRadarOverlay";
@@ -88,6 +90,7 @@ import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useEarthquakes } from "@/hooks/useEarthquakes";
 import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
+import type { WeatherAlert } from "@/lib/api/weather";
 import { useLightning } from "@/hooks/useLightning";
 import { useFires } from "@/hooks/useFires";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
@@ -653,6 +656,7 @@ function GlobeScene({
   onSpotHover,
   onSpotHoverEnd,
   onClusterClick,
+  onAlertClick,
 }: {
   displayTime: Date;
   onLocationClick?: (
@@ -690,6 +694,11 @@ function GlobeScene({
   /** Called when a cluster is clicked */
   onClusterClick?: (
     cluster: SpotClusterData,
+    screenPos: { x: number; y: number },
+  ) => void;
+  /** Called when a weather alert marker is clicked */
+  onAlertClick?: (
+    alert: WeatherAlert,
     screenPos: { x: number; y: number },
   ) => void;
 }) {
@@ -966,7 +975,7 @@ function GlobeScene({
           <EarthquakeOverlay3D earthquakes={earthquakeData} />
         )}
         {layers.weather && weatherAlerts.length > 0 && (
-          <WeatherAlerts3D alerts={weatherAlerts} />
+          <WeatherAlerts3D alerts={weatherAlerts} onAlertClick={onAlertClick} />
         )}
         {layers.lightning && lightningStrikes.length > 0 && (
           <LightningOverlay3D strikes={lightningStrikes} />
@@ -1217,6 +1226,15 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     y: number;
   } | null>(null);
 
+  // State for weather alert flyout and modal
+  const [clickedAlertData, setClickedAlertData] = useState<{
+    alert: WeatherAlert;
+    screenPos: { x: number; y: number };
+  } | null>(null);
+  const [alertModalData, setAlertModalData] = useState<WeatherAlert | null>(
+    null,
+  );
+
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
   const tooltipSpots = useMemo(() => {
@@ -1323,6 +1341,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       setHoveredTargetPos(null); // Clear target hover
       setSelectedCluster(null); // Close cluster popover
       setClusterScreenPos(null);
+      setClickedAlertData(null); // Clear weather alert flyout
       onLocationClick?.(lat, lon);
     },
     [setFlyoutPosition, setTooltipPosition, onLocationClick],
@@ -1366,6 +1385,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       setFlyoutPosition(null); // Close generic flyout
       setTooltipPosition(null); // Close tooltip
       setHoveredTargetPos(null); // Close target hover
+      setClickedAlertData(null); // Close weather alert flyout
     },
     [setFlyoutPosition, setTooltipPosition],
   );
@@ -1420,6 +1440,36 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   const handleClusterClose = useCallback(() => {
     setSelectedCluster(null);
     setClusterScreenPos(null);
+  }, []);
+
+  // Handle weather alert click - show alert flyout
+  const handleAlertClick = useCallback(
+    (alert: WeatherAlert, screenPos: { x: number; y: number }) => {
+      // Clear all other flyouts (mutual exclusion)
+      setHoveredPinData(null);
+      setHoveredSpotData(null);
+      setHoveredSpotPos(null);
+      setSelectedCluster(null);
+      setClusterScreenPos(null);
+      setFlyoutPosition(null);
+      setTooltipPosition(null);
+      setHoveredTargetPos(null);
+      setClickedAlertData({ alert, screenPos });
+    },
+    [setFlyoutPosition, setTooltipPosition],
+  );
+
+  const handleAlertViewDetails = useCallback((alert: WeatherAlert) => {
+    setClickedAlertData(null);
+    setAlertModalData(alert);
+  }, []);
+
+  const handleAlertModalClose = useCallback(() => {
+    setAlertModalData(null);
+  }, []);
+
+  const handleAlertFlyoutClose = useCallback(() => {
+    setClickedAlertData(null);
   }, []);
 
   // Handle edit pin from PinFlyout
@@ -1594,6 +1644,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
               onSpotHover={handleSpotHover}
               onSpotHoverEnd={handleSpotHoverEnd}
               onClusterClick={handleClusterClick}
+              onAlertClick={handleAlertClick}
             />
           </Suspense>
         </Canvas>
@@ -1607,7 +1658,8 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
           !hoveredPinData &&
           !hoveredTargetPos &&
           !hoveredSpotData &&
-          !selectedCluster
+          !selectedCluster &&
+          !clickedAlertData
         }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
@@ -1632,7 +1684,8 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
           !!hoveredSpotData &&
           !flyoutPosition &&
           !hoveredPinData &&
-          !selectedCluster
+          !selectedCluster &&
+          !clickedAlertData
         }
         position={hoveredSpotPos || { x: 0, y: 0 }}
         spot={hoveredSpotData}
@@ -1674,6 +1727,21 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
           onClose={handlePinFlyoutClose}
         />
       )}
+
+      {/* Weather alert flyout - shown when clicking a weather alert marker */}
+      <WeatherAlertFlyout
+        visible={!!clickedAlertData}
+        position={clickedAlertData?.screenPos ?? { x: 0, y: 0 }}
+        alert={clickedAlertData?.alert ?? null}
+        onClose={handleAlertFlyoutClose}
+        onViewDetails={handleAlertViewDetails}
+      />
+
+      {/* Weather alert modal - shown when clicking "View Full Alert" */}
+      <WeatherAlertModal
+        alert={alertModalData}
+        onClose={handleAlertModalClose}
+      />
 
       {/* Spot & pin size sliders - bottom left corner */}
       <MapSizeSliders />

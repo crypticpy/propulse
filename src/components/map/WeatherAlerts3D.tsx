@@ -1,19 +1,20 @@
 /**
  * WeatherAlerts3D
  *
- * Renders weather alert markers on the 3D globe as severity-colored
- * warning triangles with exclamation marks. Extreme and Severe alerts
- * pulse; Moderate and Minor alerts stay static.
+ * Renders weather alert markers on the 3D globe as pin-style markers with
+ * weather-appropriate emoji. Uses the same visual language as PinMarker
+ * (stem + head + glow + Html emoji overlay) adapted for weather severity.
  *
- * Matches the visual language of the 2D FlatMapView weather overlay
- * (same severity color scale, triangle + "!" motif).
+ * Extreme and Severe alerts pulse; Moderate and Minor alerts stay static.
+ * Uses batch occlusion for performance with many simultaneous alerts.
  */
 
 import React, { useRef, useMemo, useState, useCallback } from "react";
-import { useFrame } from "@react-three/fiber";
-import { Billboard, Text, Html } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { WeatherAlert } from "@/lib/api/weather";
+import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,41 +22,90 @@ import type { WeatherAlert } from "@/lib/api/weather";
 
 interface WeatherAlerts3DProps {
   alerts: WeatherAlert[];
+  onAlertClick?: (
+    alert: WeatherAlert,
+    screenPos: { x: number; y: number },
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Triangle half-extent — matches DEFAULT_MARKER_SIZE used elsewhere */
-const SIZE = 0.006;
+/** Pin head radius */
+const SIZE = 0.008;
+
+/** Stem height above globe surface */
+const STEM_HEIGHT = 0.02;
+
+/** Stem radius */
+const STEM_RADIUS = 0.001;
 
 /** Slightly above globe surface so markers don't z-fight */
 const SURFACE_RADIUS = 1.008;
-
-/** Scale factor for the outer glow triangle */
-const GLOW_SCALE = 1.35;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /**
+ * Get weather-appropriate emoji based on the event type.
+ */
+function getWeatherEmoji(event: string): string {
+  const e = event.toLowerCase();
+  if (e.includes("tornado")) return "\uD83C\uDF2A\uFE0F";
+  if (e.includes("hurricane") || e.includes("tropical")) return "\uD83C\uDF00";
+  if (e.includes("thunderstorm") || e.includes("lightning"))
+    return "\u26C8\uFE0F";
+  if (e.includes("flood") || e.includes("flash")) return "\uD83C\uDF0A";
+  if (
+    e.includes("winter") ||
+    e.includes("blizzard") ||
+    e.includes("ice") ||
+    e.includes("snow") ||
+    e.includes("freeze") ||
+    e.includes("frost")
+  )
+    return "\u2744\uFE0F";
+  if (e.includes("wind") || e.includes("gale")) return "\uD83D\uDCA8";
+  if (e.includes("heat") || e.includes("excessive")) return "\uD83D\uDD25";
+  if (e.includes("fog")) return "\uD83C\uDF2B\uFE0F";
+  if (e.includes("rain") || e.includes("shower")) return "\uD83C\uDF27\uFE0F";
+  if (e.includes("fire")) return "\uD83D\uDD25";
+  return "\u26A0\uFE0F"; // default warning
+}
+
+/**
  * Convert lat/lon to a 3D position on the globe.
  * Uses the same convention as every other globe component in the project.
  */
-function latLonTo3D(
+function latLonToVector3(
   lat: number,
   lon: number,
-  radius: number = SURFACE_RADIUS,
-): [number, number, number] {
+  radius: number,
+): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
-  return [
+
+  return new THREE.Vector3(
     -radius * Math.sin(phi) * Math.cos(theta),
     radius * Math.cos(phi),
     radius * Math.sin(phi) * Math.sin(theta),
-  ];
+  );
+}
+
+/**
+ * Get the "up" direction at a given lat/lon (normal to the sphere surface).
+ */
+function getUpDirection(lat: number, lon: number): THREE.Vector3 {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+
+  return new THREE.Vector3(
+    -Math.sin(phi) * Math.cos(theta),
+    Math.cos(phi),
+    Math.sin(phi) * Math.sin(theta),
+  ).normalize();
 }
 
 /**
@@ -89,115 +139,203 @@ function truncateLabel(text: string, max: number): string {
 }
 
 /**
- * Camera distance threshold — labels only show when zoomed in close enough.
+ * Camera distance threshold - labels only show when zoomed in close enough.
  */
 const LABEL_CAMERA_DISTANCE = 3.2;
 
 // ---------------------------------------------------------------------------
-// Shared geometry builders (called once via useMemo)
-// ---------------------------------------------------------------------------
-
-function createTriangleShape(s: number): THREE.Shape {
-  const shape = new THREE.Shape();
-  shape.moveTo(0, s); // top
-  shape.lineTo(s * 0.87, -s * 0.5); // bottom right
-  shape.lineTo(-s * 0.87, -s * 0.5); // bottom left
-  shape.closePath();
-  return shape;
-}
-
-// ---------------------------------------------------------------------------
-// Sub-component: individual alert marker with label + tooltip
+// Sub-component: individual weather alert marker
 // ---------------------------------------------------------------------------
 
 interface AlertMarkerProps {
   alert: WeatherAlert;
-  position: [number, number, number];
-  quaternion: THREE.Quaternion;
-  baseGeom: THREE.ShapeGeometry;
-  glowGeom: THREE.ShapeGeometry;
-  pulseRefCallback: ((el: THREE.Mesh | null) => void) | undefined;
+  basePosition: THREE.Vector3;
+  rotation: THREE.Euler;
+  occlusionOpacity: number;
+  onAlertClick?: (
+    alert: WeatherAlert,
+    screenPos: { x: number; y: number },
+  ) => void;
+  glowRef?: (el: THREE.Mesh | null) => void;
 }
 
 function AlertMarker({
   alert,
-  position,
-  quaternion,
-  baseGeom,
-  glowGeom,
-  pulseRefCallback,
+  basePosition,
+  rotation,
+  occlusionOpacity,
+  onAlertClick,
+  glowRef,
 }: AlertMarkerProps) {
-  const [hovered, setHovered] = useState(false);
+  const groupRef = useRef<THREE.Group>(null);
+  const stemMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const headMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const glowRingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const [showLabel, setShowLabel] = useState(false);
+
+  const { camera, size: canvasSize } = useThree();
+
   const color = severityColor(alert.severity);
-  const pulses = shouldPulse(alert.severity);
+  const emoji = getWeatherEmoji(alert.event);
 
   // Track camera distance to toggle label visibility
-  useFrame(({ camera }) => {
-    const camDist = camera.position.length();
+  useFrame(({ camera: cam }) => {
+    const camDist = cam.position.length();
     const shouldShow = camDist < LABEL_CAMERA_DISTANCE;
     if (shouldShow !== showLabel) {
       setShowLabel(shouldShow);
     }
+
+    // Apply occlusion to materials
+    if (stemMaterialRef.current) {
+      stemMaterialRef.current.opacity = 0.7 * occlusionOpacity;
+    }
+    if (headMaterialRef.current) {
+      headMaterialRef.current.opacity =
+        (isHovered ? 1 : 0.85) * occlusionOpacity;
+    }
+    if (glowRingMaterialRef.current) {
+      glowRingMaterialRef.current.opacity =
+        (isHovered ? 0.5 : 0.3) * occlusionOpacity;
+    }
   });
 
-  const handlePointerEnter = useCallback(() => setHovered(true), []);
-  const handlePointerLeave = useCallback(() => setHovered(false), []);
+  const handleClick = useCallback(
+    (event: THREE.Event) => {
+      const e = event as unknown as { stopPropagation: () => void };
+      e.stopPropagation();
+      if (!onAlertClick) return;
+
+      // Project 3D position to screen coordinates
+      const worldPos = new THREE.Vector3();
+      groupRef.current?.getWorldPosition(worldPos);
+      const projected = worldPos.project(camera);
+
+      const screenX = ((projected.x + 1) / 2) * canvasSize.width;
+      const screenY = ((-projected.y + 1) / 2) * canvasSize.height;
+
+      // Account for canvas offset in the page
+      const canvas = document.querySelector("canvas");
+      const rect = canvas?.getBoundingClientRect();
+      const offsetX = rect?.left ?? 0;
+      const offsetY = rect?.top ?? 0;
+
+      onAlertClick(alert, {
+        x: screenX + offsetX,
+        y: screenY + offsetY,
+      });
+    },
+    [alert, onAlertClick, camera, canvasSize],
+  );
+
+  const handlePointerEnter = useCallback((event: THREE.Event) => {
+    const e = event as unknown as { stopPropagation: () => void };
+    e.stopPropagation();
+    setIsHovered(true);
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    setIsHovered(false);
+  }, []);
+
+  // Shared geometries (memoized per marker to avoid re-creation)
+  const stemGeometry = useMemo(() => {
+    return new THREE.CylinderGeometry(STEM_RADIUS, STEM_RADIUS, STEM_HEIGHT, 8);
+  }, []);
+
+  const headGeometry = useMemo(() => {
+    return new THREE.SphereGeometry(SIZE, 16, 16);
+  }, []);
 
   return (
-    <group
-      position={position}
-      quaternion={quaternion}
-      onPointerEnter={handlePointerEnter}
-      onPointerLeave={handlePointerLeave}
-    >
-      {/* Glow triangle (behind, slightly larger) */}
-      <mesh ref={pulseRefCallback} geometry={glowGeom} renderOrder={1}>
+    <group ref={groupRef} position={basePosition} rotation={rotation}>
+      {/* Pin stem (vertical line from surface) */}
+      <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
+        <primitive object={stemGeometry} attach="geometry" />
         <meshBasicMaterial
+          ref={stemMaterialRef}
           color={color}
           transparent
-          opacity={pulses ? 0.3 : 0.2}
-          depthWrite={false}
+          opacity={0.7}
+          depthTest={false}
+        />
+      </mesh>
+
+      {/* Pin head (sphere at top of stem) */}
+      <mesh
+        position={[0, STEM_HEIGHT + SIZE, 0]}
+        onClick={handleClick}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        renderOrder={2}
+      >
+        <primitive object={headGeometry} attach="geometry" />
+        <meshBasicMaterial
+          ref={headMaterialRef}
+          color={color}
+          transparent
+          opacity={isHovered ? 1 : 0.85}
+          depthTest={false}
+        />
+      </mesh>
+
+      {/* Glow ring at base */}
+      <mesh
+        ref={glowRef as unknown as React.Ref<THREE.Mesh>}
+        rotation={[Math.PI / 2, 0, 0]}
+        renderOrder={0}
+      >
+        <ringGeometry args={[SIZE * 0.6, SIZE * 1.0, 32]} />
+        <meshBasicMaterial
+          ref={glowRingMaterialRef}
+          color={color}
+          transparent
+          opacity={isHovered ? 0.5 : 0.3}
           side={THREE.DoubleSide}
+          depthTest={false}
+          depthWrite={false}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
 
-      {/* Solid triangle */}
-      <mesh geometry={baseGeom} renderOrder={2}>
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.85}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Exclamation mark */}
-      <Billboard follow lockX={false} lockY={false} lockZ={false}>
-        <Text
-          fontSize={SIZE * 1.1}
-          color="#000000"
-          anchorX="center"
-          anchorY="middle"
-          fontWeight={700}
-          depthOffset={-1}
+      {/* Weather emoji using Html overlay */}
+      <Html
+        position={[0, STEM_HEIGHT + SIZE * 3, 0]}
+        center
+        zIndexRange={[1, 0]}
+        style={{
+          pointerEvents: "none",
+          transition: "all 0.2s ease",
+          transform: isHovered ? "scale(1.3)" : "scale(1)",
+          opacity: occlusionOpacity,
+        }}
+      >
+        <div
+          className="flex items-center justify-center"
+          style={{
+            width: "20px",
+            height: "20px",
+            fontSize: "14px",
+            filter: `drop-shadow(0 0 4px ${color})`,
+          }}
         >
-          !
-        </Text>
-      </Billboard>
+          {emoji}
+        </div>
+      </Html>
 
       {/* Event type label (shown when zoomed in) */}
       {showLabel && (
         <Html
+          position={[0, STEM_HEIGHT + SIZE * 5, 0]}
           center
+          zIndexRange={[1, 0]}
           style={{
             pointerEvents: "none",
             userSelect: "none",
-            transform: "translateY(14px)",
+            transition: "opacity 0.2s ease",
+            opacity: (isHovered ? 1 : 0.7) * occlusionOpacity,
           }}
-          zIndexRange={[1, 0]}
         >
           <div
             style={{
@@ -216,77 +354,6 @@ function AlertMarker({
           </div>
         </Html>
       )}
-
-      {/* Hover tooltip */}
-      {hovered && (
-        <Html
-          center
-          style={{
-            pointerEvents: "none",
-            userSelect: "none",
-            transform: "translateY(-28px)",
-          }}
-          zIndexRange={[9999, 9998]}
-        >
-          <div
-            style={{
-              backgroundColor: "rgba(24, 24, 27, 0.95)",
-              border: "1px solid rgba(63, 63, 70, 0.7)",
-              borderRadius: "8px",
-              padding: "8px 10px",
-              maxWidth: "260px",
-              whiteSpace: "normal",
-              lineHeight: 1.4,
-            }}
-          >
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: "11px",
-                color: "#ffffff",
-                marginBottom: "3px",
-              }}
-            >
-              {alert.event}
-            </div>
-            {alert.headline && (
-              <div
-                style={{
-                  fontSize: "10px",
-                  color: "#d4d4d8",
-                  marginBottom: "4px",
-                }}
-              >
-                {alert.headline}
-              </div>
-            )}
-            {alert.areaDesc && (
-              <div
-                style={{
-                  fontSize: "9px",
-                  color: "#a1a1aa",
-                  marginBottom: "4px",
-                }}
-              >
-                {alert.areaDesc}
-              </div>
-            )}
-            <span
-              style={{
-                display: "inline-block",
-                fontSize: "9px",
-                fontWeight: 600,
-                color: "#000000",
-                backgroundColor: color,
-                padding: "1px 6px",
-                borderRadius: "4px",
-              }}
-            >
-              {alert.severity}
-            </span>
-          </div>
-        </Html>
-      )}
     </group>
   );
 }
@@ -297,29 +364,35 @@ function AlertMarker({
 
 export const WeatherAlerts3D = React.memo(function WeatherAlerts3D({
   alerts,
+  onAlertClick,
 }: WeatherAlerts3DProps) {
-  // Refs for glow meshes that need animated opacity
+  // Refs for glow meshes that need animated opacity (pulse)
   const glowRefs = useRef<(THREE.Mesh | null)[]>([]);
 
-  // Shared triangle geometries — one for the solid fill, one for the glow
-  const { baseGeom, glowGeom } = useMemo(() => {
-    const baseShape = createTriangleShape(SIZE);
-    const glowShape = createTriangleShape(SIZE * GLOW_SCALE);
-    return {
-      baseGeom: new THREE.ShapeGeometry(baseShape),
-      glowGeom: new THREE.ShapeGeometry(glowShape),
-    };
-  }, []);
+  // Batch occlusion for all alert positions
+  const occlusionPositions = useMemo(
+    () => alerts.map((a) => ({ lat: a.lat, lon: a.lon })),
+    [alerts],
+  );
+  const { getOpacity, version: _occlusionVersion } =
+    useGlobeOcclusionBatch(occlusionPositions);
 
-  // Pre-compute positions and quaternions so we don't allocate per frame
+  // Pre-compute positions and rotations
   const alertData = useMemo(() => {
     return alerts.map((alert) => {
-      const position = latLonTo3D(alert.lat, alert.lon);
-      const pos = new THREE.Vector3(...position);
-      const up = pos.clone().normalize();
-      const quat = new THREE.Quaternion();
-      quat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
-      return { alert, position, quaternion: quat };
+      const basePosition = latLonToVector3(
+        alert.lat,
+        alert.lon,
+        SURFACE_RADIUS,
+      );
+      const upDirection = getUpDirection(alert.lat, alert.lon);
+
+      const quaternion = new THREE.Quaternion();
+      const defaultUp = new THREE.Vector3(0, 1, 0);
+      quaternion.setFromUnitVectors(defaultUp, upDirection);
+      const rotation = new THREE.Euler().setFromQuaternion(quaternion);
+
+      return { alert, basePosition, rotation };
     });
   }, [alerts]);
 
@@ -343,7 +416,7 @@ export const WeatherAlerts3D = React.memo(function WeatherAlerts3D({
       const mesh = glowRefs.current[refIndex];
       if (mesh) {
         const mat = mesh.material as THREE.MeshBasicMaterial;
-        mat.opacity = 0.3 + 0.2 * Math.sin(t * 3 + alertIndex * 0.7);
+        mat.opacity = 0.3 + 0.25 * Math.sin(t * 3 + alertIndex * 0.7);
       }
     }
   });
@@ -359,7 +432,7 @@ export const WeatherAlerts3D = React.memo(function WeatherAlerts3D({
 
   return (
     <group>
-      {alertData.map(({ alert, position, quaternion }) => {
+      {alertData.map(({ alert, basePosition, rotation }) => {
         const pulses = shouldPulse(alert.severity);
 
         // Capture a stable ref index for this pulsing alert
@@ -380,11 +453,11 @@ export const WeatherAlerts3D = React.memo(function WeatherAlerts3D({
           <AlertMarker
             key={alert.id}
             alert={alert}
-            position={position}
-            quaternion={quaternion}
-            baseGeom={baseGeom}
-            glowGeom={glowGeom}
-            pulseRefCallback={refCallback}
+            basePosition={basePosition}
+            rotation={rotation}
+            occlusionOpacity={getOpacity(alert.lat, alert.lon)}
+            onAlertClick={onAlertClick}
+            glowRef={refCallback}
           />
         );
       })}

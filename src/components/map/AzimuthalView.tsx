@@ -1094,7 +1094,7 @@ function drawAzWeatherAlerts(
         break;
     }
 
-    const size = 6;
+    const size = 8;
     ctx.globalAlpha = 0.8;
     ctx.beginPath();
     ctx.moveTo(sx, sy - size);
@@ -1108,10 +1108,25 @@ function drawAzWeatherAlerts(
     ctx.stroke();
 
     ctx.fillStyle = "#000000";
-    ctx.font = "bold 7px sans-serif";
+    ctx.font = "bold 8px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("!", sx, sy);
+
+    // Event type label below triangle
+    const label =
+      alert.event.length > 16
+        ? alert.event.slice(0, 16) + "\u2026"
+        : alert.event;
+    ctx.font = "9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = color;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+    ctx.shadowBlur = 2;
+    ctx.fillText(label, sx, sy + size * 0.6 + 2);
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
   }
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -1119,6 +1134,7 @@ function drawAzWeatherAlerts(
 
 /**
  * Draw lightning strike markers on azimuthal projection
+ * Strike size and colour vary by peak current (currentKA)
  */
 function drawAzLightning(
   ctx: CanvasRenderingContext2D,
@@ -1143,16 +1159,21 @@ function drawAzLightning(
     const age = now - strike.time;
     const alpha = Math.max(0.1, 1 - age / (10 * 60 * 1000));
 
+    // Intensity based on peak current (200 kA max, 0.3 floor)
+    const intensity = Math.max(0.3, Math.min(1.0, strike.currentKA / 200));
+
+    // Outer glow — scaled by intensity
     ctx.globalAlpha = alpha * 0.3;
     ctx.beginPath();
-    ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 6 * intensity, 0, Math.PI * 2);
     ctx.fillStyle = "#ffe566";
     ctx.fill();
 
+    // Inner core — scaled by intensity, brighter white for strong strikes
     ctx.globalAlpha = alpha * 0.8;
     ctx.beginPath();
-    ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
+    ctx.arc(sx, sy, 3 * intensity, 0, Math.PI * 2);
+    ctx.fillStyle = strike.currentKA > 100 ? "#ffffff" : "#ffe566";
     ctx.fill();
   }
   ctx.globalAlpha = 1;

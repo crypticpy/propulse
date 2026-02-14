@@ -10,6 +10,8 @@
  * - Strikes fade from full brightness to 10% over a 10-minute window
  * - Strikes less than 5 seconds old get a brief flash-scale pulse
  * - Old strikes (>10 min) are filtered out entirely
+ * - Strike size and altitude vary by peak current (currentKA)
+ * - Very strong strikes (>100 kA) get a stretched bolt appearance during flash
  *
  * The component is memoised on the `strikes` array reference to avoid
  * unnecessary React reconciliation; all per-frame work happens in useFrame.
@@ -33,14 +35,33 @@ const FADE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 /** Duration of the initial bright-flash effect for new strikes */
 const FLASH_DURATION_MS = 5000; // 5 seconds
 
-/** Globe-surface radius for strike placement (matches other overlays) */
-const GLOBE_RADIUS = 1.003;
+/** Base globe-surface radius for strike placement — elevated into troposphere */
+const GLOBE_RADIUS = 1.025;
+
+/** Additional altitude for max-intensity strikes */
+const ALTITUDE_SPREAD = 0.015;
+
+/** Max peak current used for normalisation */
+const MAX_CURRENT_KA = 200;
 
 // ---------------------------------------------------------------------------
-// Module-level dummy — reused every frame, never recreated
+// Module-level reusables — reused every frame, never recreated
 // ---------------------------------------------------------------------------
 
 const dummy = new THREE.Object3D();
+const tempColor = new THREE.Color();
+const weakColor = new THREE.Color("#ffe566");
+const strongColor = new THREE.Color("#ffffff");
+const matrix = new THREE.Matrix4();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Clamp a number between min and max */
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
 
 // ---------------------------------------------------------------------------
 // Coordinate conversion (same convention as every other globe component)
@@ -93,23 +114,48 @@ export const LightningOverlay3D = React.memo(
         // Skip strikes that have fully faded
         if (age > FADE_DURATION_MS) continue;
 
-        const [x, y, z] = latLonTo3D(strike.lat, strike.lon);
+        // Normalise peak current for intensity-based sizing
+        const intensity = clamp(strike.currentKA / MAX_CURRENT_KA, 0.2, 1.0);
+
+        // Altitude varies with intensity — stronger strikes sit higher
+        const normalizedKA = clamp(strike.currentKA / MAX_CURRENT_KA, 0, 1);
+        const strikeRadius = GLOBE_RADIUS + normalizedKA * ALTITUDE_SPREAD;
+
+        const [x, y, z] = latLonTo3D(strike.lat, strike.lon, strikeRadius);
         const alpha = Math.max(0.1, 1 - age / FADE_DURATION_MS);
 
         // Flash multiplier: new strikes pulse larger then ease back
-        const flash =
-          age < FLASH_DURATION_MS ? 1 + (1 - age / FLASH_DURATION_MS) * 1.5 : 1;
+        const isFlashing = age < FLASH_DURATION_MS;
+        const t = isFlashing ? age / FLASH_DURATION_MS : 1;
+        const flash = isFlashing ? 1 + (1 - t) * 2.5 : 1;
 
         // --- Outer glow instance ---
-        dummy.position.set(x, y, z);
-        dummy.scale.setScalar(0.005 * alpha * flash);
-        dummy.updateMatrix();
-        glowMesh.setMatrixAt(count, dummy.matrix);
+        const glowBaseScale = 0.008 * intensity * alpha * flash;
 
-        // --- Inner core instance (constant small size, no flash) ---
-        dummy.scale.setScalar(0.002);
+        if (isFlashing && strike.currentKA > 100) {
+          // Stretched bolt appearance for strong, fresh strikes
+          dummy.position.set(x, y, z);
+          matrix.makeScale(glowBaseScale, glowBaseScale * 1.8, glowBaseScale);
+          dummy.matrix.copy(matrix);
+          dummy.matrix.setPosition(x, y, z);
+          glowMesh.setMatrixAt(count, dummy.matrix);
+        } else {
+          dummy.position.set(x, y, z);
+          dummy.scale.setScalar(glowBaseScale);
+          dummy.updateMatrix();
+          glowMesh.setMatrixAt(count, dummy.matrix);
+        }
+
+        // --- Inner core instance (sized by intensity, coloured by intensity) ---
+        const coreBaseScale = 0.004 * intensity;
+        dummy.position.set(x, y, z);
+        dummy.scale.setScalar(coreBaseScale);
         dummy.updateMatrix();
         coreMesh.setMatrixAt(count, dummy.matrix);
+
+        // Colour the core by intensity: pale yellow (weak) to bright white (strong)
+        tempColor.lerpColors(weakColor, strongColor, intensity);
+        coreMesh.setColorAt(count, tempColor);
 
         count++;
       }
@@ -121,6 +167,9 @@ export const LightningOverlay3D = React.memo(
       if (count > 0) {
         glowMesh.instanceMatrix.needsUpdate = true;
         coreMesh.instanceMatrix.needsUpdate = true;
+        if (coreMesh.instanceColor) {
+          coreMesh.instanceColor.needsUpdate = true;
+        }
       }
     });
 
@@ -129,7 +178,7 @@ export const LightningOverlay3D = React.memo(
 
     return (
       <group name="lightning-overlay">
-        {/* Outer glow — warm yellow, additive blending, low opacity */}
+        {/* Outer glow — warm yellow, additive blending, increased opacity */}
         <instancedMesh
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
@@ -139,13 +188,13 @@ export const LightningOverlay3D = React.memo(
           <meshBasicMaterial
             color="#ffe566"
             transparent
-            opacity={0.35}
+            opacity={0.5}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
 
-        {/* Inner core — bright white, slightly higher opacity */}
+        {/* Inner core — coloured per-instance by intensity */}
         <instancedMesh
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}

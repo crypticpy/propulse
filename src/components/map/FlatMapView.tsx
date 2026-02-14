@@ -1054,7 +1054,7 @@ function drawWeatherAlerts(
     }
 
     // Warning triangle
-    const size = 6 / zoomDamp;
+    const size = 8 / zoomDamp;
     ctx.globalAlpha = 0.8;
     ctx.beginPath();
     ctx.moveTo(x, y - size); // top
@@ -1069,11 +1069,29 @@ function drawWeatherAlerts(
 
     // Exclamation mark inside triangle
     ctx.fillStyle = "#000000";
-    const fontSize = Math.max(1, Math.round(7 / zoomDamp));
+    const fontSize = Math.max(1, Math.round(8 / zoomDamp));
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("!", x, y);
+
+    // Event type label (only when zoomed in enough to read)
+    if (zoomScale > 1.5) {
+      const label =
+        alert.event.length > 16
+          ? alert.event.slice(0, 16) + "\u2026"
+          : alert.event;
+      const labelFontSize = Math.max(1, Math.round(9 / zoomDamp));
+      ctx.font = `${labelFontSize}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = color;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 2;
+      ctx.fillText(label, x, y + size * 0.6 + 2 / zoomDamp);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
   }
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -1081,7 +1099,7 @@ function drawWeatherAlerts(
 
 /**
  * Draw lightning strike markers on the 2D map
- * Renders recent strikes as small bright dots with fade based on age
+ * Renders recent strikes as bright dots scaled by peak current (currentKA)
  */
 function drawLightning(
   ctx: CanvasRenderingContext2D,
@@ -1100,17 +1118,21 @@ function drawLightning(
     const age = now - strike.time;
     const alpha = Math.max(0.1, 1 - age / (10 * 60 * 1000));
 
-    // Bright bolt dot
+    // Intensity based on peak current (200 kA max, 0.3 floor)
+    const intensity = Math.max(0.3, Math.min(1.0, strike.currentKA / 200));
+
+    // Outer glow — scaled by intensity
     ctx.globalAlpha = alpha * 0.3;
     ctx.beginPath();
-    ctx.arc(x, y, 4 / zoomDamp, 0, Math.PI * 2);
+    ctx.arc(x, y, (6 * intensity) / zoomDamp, 0, Math.PI * 2);
     ctx.fillStyle = "#ffe566";
     ctx.fill();
 
+    // Inner core — scaled by intensity, brighter white for strong strikes
     ctx.globalAlpha = alpha * 0.8;
     ctx.beginPath();
-    ctx.arc(x, y, 1.5 / zoomDamp, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
+    ctx.arc(x, y, (3 * intensity) / zoomDamp, 0, Math.PI * 2);
+    ctx.fillStyle = strike.currentKA > 100 ? "#ffffff" : "#ffe566";
     ctx.fill();
   }
   ctx.globalAlpha = 1;

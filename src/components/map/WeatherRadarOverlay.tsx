@@ -2,7 +2,7 @@
  * WeatherRadarOverlay Component
  *
  * Renders RainViewer precipitation radar data on the 3D globe.
- * Composites z=1 tiles (4 tiles covering the full world) onto a canvas,
+ * Composites z=3 tiles (8x8 = 64 tiles covering the full world) onto a canvas,
  * then maps the equirectangular texture onto a transparent sphere slightly
  * above the Earth surface.
  */
@@ -16,9 +16,14 @@ interface WeatherRadarOverlayProps {
   manifest: RadarManifest;
 }
 
-/** Canvas size — 2 tiles wide x 2 tiles tall at 256px each */
-const CANVAS_SIZE = 512;
+/** Zoom level 3: 2^3 = 8 tiles per axis */
+const ZOOM_LEVEL = 3;
+const TILES_PER_AXIS = 2 ** ZOOM_LEVEL; // 8
 const TILE_SIZE = 256;
+/** Canvas size — 8 tiles * 256px = 2048px per axis */
+const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 2048
+/** Number of tiles to load concurrently to avoid overwhelming the browser */
+const BATCH_SIZE = 16;
 
 /**
  * Load a single image from a URL, returning a promise.
@@ -33,12 +38,27 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Load all 4 z=1 radar tiles and composite them onto a canvas.
+ * Load promises in batches to limit concurrency.
+ * Each batch of `batchSize` tasks runs in parallel via Promise.allSettled,
+ * then the next batch starts.
+ */
+async function loadInBatches<T>(
+  tasks: (() => Promise<T>)[],
+  batchSize: number,
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = [];
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize);
+    const batchResults = await Promise.allSettled(batch.map((fn) => fn()));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+/**
+ * Load all 64 z=3 radar tiles and composite them onto a canvas.
  *
- * Tile layout at z=1:
- *   (x=0,y=0) | (x=1,y=0)   ← northern hemisphere
- *   (x=0,y=1) | (x=1,y=1)   ← southern hemisphere
- *
+ * Tile layout at z=3: 8x8 grid (x: 0..7, y: 0..7)
  * The canvas represents lon -180..180 left-to-right, lat ~85..-85 top-to-bottom.
  */
 async function compositeRadarTiles(
@@ -50,18 +70,22 @@ async function compositeRadarTiles(
   const ctx = canvas.getContext("2d", { willReadFrequently: false });
   if (!ctx) throw new Error("Failed to get 2d context");
 
-  // z=1 tiles: 2x2 grid
-  const tiles: { x: number; y: number }[] = [
-    { x: 0, y: 0 },
-    { x: 1, y: 0 },
-    { x: 0, y: 1 },
-    { x: 1, y: 1 },
-  ];
+  // z=3 tiles: 8x8 grid
+  const tiles: { x: number; y: number }[] = [];
+  for (let y = 0; y < TILES_PER_AXIS; y++) {
+    for (let x = 0; x < TILES_PER_AXIS; x++) {
+      tiles.push({ x, y });
+    }
+  }
 
-  const urls = tiles.map((t) => getRadarTileUrl(manifest, 1, t.x, t.y));
+  // Create lazy-evaluated load tasks for batched loading
+  const tasks = tiles.map((t) => {
+    const url = getRadarTileUrl(manifest, ZOOM_LEVEL, t.x, t.y);
+    return () => loadImage(url);
+  });
 
-  // Load all tiles in parallel — skip any that fail (radar may have gaps)
-  const results = await Promise.allSettled(urls.map((url) => loadImage(url)));
+  // Load tiles in batches of BATCH_SIZE — skip any that fail (radar may have gaps)
+  const results = await loadInBatches(tasks, BATCH_SIZE);
 
   results.forEach((result, i) => {
     if (result.status === "fulfilled") {
@@ -132,7 +156,7 @@ function WeatherRadarOverlayInner({ manifest }: WeatherRadarOverlayProps) {
    * western hemisphere).
    */
   const geometry = useMemo(
-    () => new THREE.SphereGeometry(1.002, 64, 32, Math.PI),
+    () => new THREE.SphereGeometry(1.002, 128, 64, Math.PI),
     [],
   );
 

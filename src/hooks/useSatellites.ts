@@ -15,6 +15,7 @@ import {
   getSimplePassPrediction,
 } from "@/lib/api/satellites";
 import { useUserStore } from "@/stores/userStore";
+import { useMapStore } from "@/stores/mapStore";
 import type { SatelliteInfo, PassPrediction } from "@/types/satellite";
 
 // ---------------------------------------------------------------------------
@@ -63,7 +64,8 @@ interface UseSatellitesResult {
 
 export function useSatellites(): UseSatellitesResult {
   const { station } = useUserStore();
-  const [selectedNoradId, setSelectedNoradId] = useState<number | null>(null);
+  const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
+  const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   // -------------------------------------------------------------------------
@@ -143,15 +145,18 @@ export function useSatellites(): UseSatellitesResult {
   // -------------------------------------------------------------------------
 
   const selectedSatellite = useMemo((): SatelliteInfo | null => {
-    if (selectedNoradId === null) {
+    if (selectedSatelliteId === null) {
       return null;
     }
-    return satellites.find((s) => s.noradId === selectedNoradId) ?? null;
-  }, [satellites, selectedNoradId]);
+    return satellites.find((s) => s.noradId === selectedSatelliteId) ?? null;
+  }, [satellites, selectedSatelliteId]);
 
-  const selectSatellite = useCallback((noradId: number | null) => {
-    setSelectedNoradId(noradId);
-  }, []);
+  const selectSatellite = useCallback(
+    (noradId: number | null) => {
+      setSelectedSatelliteId(noradId);
+    },
+    [setSelectedSatelliteId],
+  );
 
   // -------------------------------------------------------------------------
   // Pass Predictions for Selected Satellite

@@ -29,7 +29,6 @@ import { FlatMapView } from "./FlatMapView";
 import { BandConditionsPanel } from "./BandConditionsPanel";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
-import { MapStyleToggle } from "@/components/map/MapStyleToggle";
 import { HamClockSidebar } from "./hamclock/HamClockSidebar";
 import { HamClockInfoPanel } from "./hamclock/HamClockInfoPanel";
 import { HamClockSpotsSidebar } from "./hamclock/HamClockSpotsSidebar";
@@ -634,7 +633,6 @@ export function HamClockView({
           </button>
 
           <SolarPills />
-          <MapStyleToggle className="flex-shrink-0" />
           <LayersPopover />
           <WatchStatusPill className="hidden sm:flex" />
 

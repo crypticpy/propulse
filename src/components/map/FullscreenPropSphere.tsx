@@ -27,6 +27,7 @@ import { ContestRatePanel } from "@/components/map/ContestRatePanel";
 import { ObservatoryOverlay } from "@/components/map/ObservatoryOverlay";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
+import { SatelliteDetailModal } from "@/components/map/layers";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
 
@@ -692,6 +693,9 @@ export function FullscreenPropSphere({
         visible={showPresetManager}
         onClose={() => setShowPresetManager(false)}
       />
+
+      {/* Satellite Detail Modal (portal-based, triggered by store selection) */}
+      <SatelliteDetailModal />
     </div>
   );
 }

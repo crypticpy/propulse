@@ -25,6 +25,8 @@ import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIInteractionPrefs } from "@/stores/userStore";
+import BasemapCategory from "./layers/BasemapCategory";
+import SatelliteFilters from "./layers/SatelliteFilters";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,8 @@ interface CategoryDef {
   name: string;
   icon: ReactNode;
   items: LayerToggle[];
+  /** Optional custom submenu renderer (used by Basemap category) */
+  renderSubmenu?: () => ReactNode;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -167,6 +171,28 @@ function IconReference() {
         strokeWidth="0.8"
         strokeLinecap="round"
         opacity="0.5"
+      />
+    </svg>
+  );
+}
+
+function IconBasemap() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={iconClass}>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.2" />
+      <ellipse
+        cx="8"
+        cy="8"
+        rx="2.5"
+        ry="5.5"
+        stroke="currentColor"
+        strokeWidth="0.9"
+      />
+      <path
+        d="M2.5 8h11"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeLinecap="round"
       />
     </svg>
   );
@@ -390,6 +416,13 @@ export function LayersPopover() {
   // ── Category definitions ──
   const categories: CategoryDef[] = useMemo(
     () => [
+      {
+        id: "basemap",
+        name: "Basemap",
+        icon: <IconBasemap />,
+        items: [],
+        renderSubmenu: () => <BasemapCategory />,
+      },
       {
         id: "illumination",
         name: "Illumination",
@@ -988,7 +1021,7 @@ export function LayersPopover() {
               </div>
 
               {/* ── Submenu panel ── */}
-              <div className="w-[232px] min-h-[180px] py-2 px-2.5">
+              <div className="w-[232px] min-h-[180px] max-h-[70vh] overflow-y-auto py-2 px-2.5">
                 {/* Category header */}
                 <div className="text-[10px] uppercase tracking-wider text-white/30 font-semibold mb-1.5 px-1">
                   {activeCategory === displayCategoryId
@@ -1003,11 +1036,19 @@ export function LayersPopover() {
                 >
                   {activeCategory === displayCategoryId ? (
                     renderDisplaySubmenu()
+                  ) : activeCategoryDef?.renderSubmenu ? (
+                    activeCategoryDef.renderSubmenu()
                   ) : activeCategoryDef ? (
                     <div className="space-y-0.5">
                       {activeCategoryDef.items.map((item) => (
                         <ToggleRow key={item.key} item={item} />
                       ))}
+                      {/* Satellite filters inline (Activity category) */}
+                      {activeCategory === "activity" && layers.satellites && (
+                        <div className="mt-1 ml-1">
+                          <SatelliteFilters />
+                        </div>
+                      )}
                       {/* Auto-rotate speed slider inside Reference category */}
                       {activeCategory === "reference" &&
                         renderAutoRotateSpeed()}

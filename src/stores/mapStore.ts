@@ -5,6 +5,7 @@ import type {
   MapInteractionMode,
 } from "@/types/mapOverlays";
 import type { OperatingProfile, SpotFilters } from "@/types/operatingProfile";
+import type { SatelliteCategory } from "@/types/satellite";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -424,6 +425,16 @@ interface MapState {
   removeDockGroup: (groupId: string) => void;
   updateDockGroup: (groupId: string, updates: Partial<DockGroup>) => void;
   removePanelFromDockGroup: (panelId: string) => void;
+
+  // Satellite UI state (ephemeral — not persisted to localStorage)
+  selectedSatelliteId: number | null;
+  setSelectedSatelliteId: (noradId: number | null) => void;
+
+  satelliteCategoryFilter: SatelliteCategory | "all";
+  setSatelliteCategoryFilter: (cat: SatelliteCategory | "all") => void;
+
+  satelliteShowAll: boolean;
+  setSatelliteShowAll: (show: boolean) => void;
 
   // Reset to defaults
   reset: () => void;
@@ -926,6 +937,11 @@ const initialState = {
 
   // Panel docking
   dockGroups: loadDockGroups(),
+
+  // Satellite UI state (ephemeral — resets on page refresh)
+  selectedSatelliteId: null as number | null,
+  satelliteCategoryFilter: "all" as SatelliteCategory | "all",
+  satelliteShowAll: false,
 };
 
 export const useMapStore = create<MapState>((set, get) => ({
@@ -1650,6 +1666,11 @@ export const useMapStore = create<MapState>((set, get) => ({
       saveDockGroups(updated);
       return { dockGroups: updated };
     }),
+
+  // Satellite UI state setters (ephemeral — no persistence)
+  setSelectedSatelliteId: (noradId) => set({ selectedSatelliteId: noradId }),
+  setSatelliteCategoryFilter: (cat) => set({ satelliteCategoryFilter: cat }),
+  setSatelliteShowAll: (show) => set({ satelliteShowAll: show }),
 
   reset: () => set(initialState),
 }));

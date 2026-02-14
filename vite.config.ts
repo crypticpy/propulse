@@ -626,6 +626,12 @@ export default defineConfig({
           }
         },
       },
+      // Satellite TLE proxy (dev only) - mirrors Vercel `/api/satellites/tle`
+      "/api/satellites/tle": {
+        target: "https://celestrak.org",
+        changeOrigin: true,
+        rewrite: () => "/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle",
+      },
       // Callsign lookup proxy (dev only) - mirrors Vercel `/api/callsign/lookup`
       "/api/callsign/lookup": {
         target: "https://callook.info",

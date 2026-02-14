@@ -87,8 +87,12 @@ export { ViewsPopover } from "./ViewsPopover";
 // Visual style selector (Realistic / High-Viz, Mode / Band coloring)
 export { StyleSelector } from "./StyleSelector";
 
-// Map style toggle (Satellite / Standard grayscale)
-export { MapStyleToggle } from "./MapStyleToggle";
+// Layer submenu components (Basemap, SatelliteFilters, SatelliteDetailModal)
+export {
+  BasemapCategory,
+  SatelliteFilters,
+  SatelliteDetailModal,
+} from "./layers";
 
 // Gray line propagation zone (±5° from terminator)
 export { GrayLineZone } from "./GrayLineZone";

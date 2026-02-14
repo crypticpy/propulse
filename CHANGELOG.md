@@ -5,6 +5,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.14.0] — 2026-02-14
+
+### Net Registry / Net Controller Split
+
+The combined net system is now two focused tools under the Tools menu:
+
+- **Net Registry** (`/nets`) — Browse, discover, and subscribe to amateur radio nets. Pure participant/discovery experience with no management controls.
+- **Net Controller** (`/ncs`) — Manage nets you own or operate. Auth-gated landing page showing your managed nets with role badges, live indicators, and quick actions (Go Live, Analytics, Manage). Includes the NCS Live Dashboard, manager roster, NCS rotation calendar, and session analytics.
+
+#### New Pages
+
+- **NetControllerPage** — Landing page listing the user's managed nets with role badges (owner/ncs/moderator), live session indicators, next session times, and action buttons.
+- **NetControllerDetailPage** — Manager-focused detail view with ManagerRoster, NCSRotationCalendar, session history with ADIF export, and direct links to the NCS Dashboard and Analytics.
+
+#### Routing Changes
+
+- Controller routes moved from `/nets/*` to `/ncs/*` (`/ncs/create`, `/ncs/:netId`, `/ncs/:netId/live`, `/ncs/:netId/analytics`).
+- Old `/nets/create`, `/nets/:netId/live`, and `/nets/:netId/analytics` URLs redirect to their `/ncs` equivalents.
+- Manager-only sections (ManagerRoster, NCSRotationCalendar, NCS Dashboard button) removed from the registry detail page; replaced with a subtle "Go to Controller" link for managers.
+
+#### Navigation
+
+- Tools dropdown, mobile drawer, bottom tab bar, and command palette all updated with separate Net Registry and Net Controller entries.
+- Fixed `isToolActive` matching in Header to use `startsWith` so sub-routes properly highlight the parent tool.
+
+---
+
 ## [0.13.2] — 2026-02-08
 
 ### SDR Console Reliability Fixes

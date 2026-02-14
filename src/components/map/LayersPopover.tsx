@@ -493,6 +493,42 @@ export function LayersPopover() {
             getValue: () => layers.gridActivity,
             onToggle: () => toggleLayer("gridActivity"),
           },
+          {
+            key: "wspr",
+            label: "WSPR Paths",
+            title: "Weak Signal Propagation Reporter spot arcs colored by band",
+            getValue: () => layers.wspr,
+            onToggle: () => toggleLayer("wspr"),
+          },
+          {
+            key: "beacons",
+            label: "Beacon Network",
+            title:
+              "NCDXF/IARU 18 beacon stations with active transmission schedule",
+            getValue: () => layers.beacons,
+            onToggle: () => toggleLayer("beacons"),
+          },
+          {
+            key: "meteorShowers",
+            label: "Meteor Showers",
+            title: "Active meteor shower radiants and 6m scatter zones",
+            getValue: () => layers.meteorShowers,
+            onToggle: () => toggleLayer("meteorShowers"),
+          },
+          {
+            key: "spectrumRing",
+            label: "Spectrum Waterfall",
+            title: "Equatorial ring showing band activity waterfall over time",
+            getValue: () => layers.spectrumRing,
+            onToggle: () => toggleLayer("spectrumRing"),
+          },
+          {
+            key: "satelliteFootprints",
+            label: "Sat Footprints",
+            title: "Radio coverage circles for visible satellites",
+            getValue: () => layers.satelliteFootprints,
+            onToggle: () => toggleLayer("satelliteFootprints"),
+          },
         ],
       },
       {
@@ -581,14 +617,6 @@ export function LayersPopover() {
             onToggle: () => toggleLayer("aurora"),
           },
           {
-            key: "wspr",
-            label: "WSPR Paths",
-            title:
-              "Weak Signal Propagation Reporter \u2014 TX/RX paths showing real-time propagation",
-            getValue: () => layers.wspr,
-            onToggle: () => toggleLayer("wspr"),
-          },
-          {
             key: "ionosphere",
             label: "Ionosphere",
             title:
@@ -603,6 +631,52 @@ export function LayersPopover() {
               "Multi-hop skip path showing how signals bounce between Earth and ionosphere",
             getValue: () => layers.rayPath,
             onToggle: () => toggleLayer("rayPath"),
+          },
+          {
+            key: "nvis",
+            label: "NVIS Coverage",
+            title: "Near-Vertical Incidence Skywave coverage dome at your QTH",
+            getValue: () => layers.nvis,
+            onToggle: () => toggleLayer("nvis"),
+          },
+          {
+            key: "sporadicE",
+            label: "Sporadic E",
+            title:
+              "Sporadic E cloud probability at ionospheric E-layer altitude",
+            getValue: () => layers.sporadicE,
+            onToggle: () => toggleLayer("sporadicE"),
+          },
+          {
+            key: "drap",
+            label: "D-RAP Absorption",
+            title:
+              "D-Region Absorption Prediction \u2014 HF blackout zones from solar flares",
+            getValue: () => layers.drap,
+            onToggle: () => toggleLayer("drap"),
+          },
+          {
+            key: "ducting",
+            label: "Tropo Ducting",
+            title: "Tropospheric ducting probability regions for VHF/UHF",
+            getValue: () => layers.ducting,
+            onToggle: () => toggleLayer("ducting"),
+          },
+          {
+            key: "noiseFloor",
+            label: "HF Noise Floor",
+            title:
+              "ITU-R P.372 estimated noise levels \u2014 blue (quiet) to red (noisy)",
+            getValue: () => layers.noiseFloor,
+            onToggle: () => toggleLayer("noiseFloor"),
+          },
+          {
+            key: "geomagField",
+            label: "Geomagnetic Field",
+            title:
+              "Magnetic dipole field lines colored by Kp disturbance level",
+            getValue: () => layers.geomagField,
+            onToggle: () => toggleLayer("geomagField"),
           },
         ],
       },

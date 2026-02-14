@@ -110,6 +110,32 @@ import { SpotDetailsFlyout, type SpotDetailsData } from "./SpotDetailsFlyout";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
 import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
 
+// New overlay components (Wave 8A)
+import NVISOverlay3D from "./layers/NVISOverlay3D";
+import BeaconNetworkOverlay3D from "./layers/BeaconNetworkOverlay3D";
+import MeteorShowerOverlay3D from "./layers/MeteorShowerOverlay3D";
+import NoiseFloorOverlay3D from "./layers/NoiseFloorOverlay3D";
+import DRAPOverlay3D from "./layers/DRAPOverlay3D";
+import DuctingOverlay3D from "./layers/DuctingOverlay3D";
+import SporadicEOverlay3D from "./layers/SporadicEOverlay3D";
+import GeomagneticFieldLines3D from "./layers/GeomagneticFieldLines3D";
+import TerminatorEnhancement3D from "./layers/TerminatorEnhancement3D";
+import WSPROverlay3D from "./layers/WSPROverlay3D";
+import SpectrumWaterfallRing3D from "./layers/SpectrumWaterfallRing3D";
+import SatelliteFootprint3D from "./layers/SatelliteFootprint3D";
+
+// New hooks (Wave 8A)
+import { useBeaconNetwork } from "@/hooks/useBeaconNetwork";
+import { useMeteorShowers } from "@/hooks/useMeteorShowers";
+import { useNoiseFloor } from "@/hooks/useNoiseFloor";
+import { useDRAPOverlay } from "@/hooks/useDRAPOverlay";
+import { useWSPRSpots } from "@/hooks/useWSPRSpots";
+import { useSporadicE } from "@/hooks/useSporadicE";
+import { useDuctingForecast } from "@/hooks/useDuctingForecast";
+import { useSatellites } from "@/hooks/useSatellites";
+import { calculateNVISAtLocation } from "@/lib/utils/nvisCalculation";
+import { getTerminatorPoints } from "@/lib/utils/sun";
+
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
   displayTime: Date;
@@ -713,6 +739,16 @@ function GlobeScene({
   const { strikes: lightningStrikes } = useLightning(layers.lightning);
   const { hotspots: fireHotspots } = useFires(layers.fires);
   const { manifest: radarManifest } = useWeatherRadar(layers.radar);
+  // ── New layer data hooks (Wave 8A) ─────────────────────────────────────
+  const { beacons, currentBeacon, activeTransmissions } = useBeaconNetwork();
+  const { activeShowers } = useMeteorShowers();
+  const { grid: noiseFloorGrid } = useNoiseFloor(14); // 14 MHz (20m band default)
+  const { data: drapData } = useDRAPOverlay();
+  const { spots: wsprSpots } = useWSPRSpots();
+  const { regions: sporadicERegions } = useSporadicE();
+  const { regions: ductingRegions } = useDuctingForecast();
+  const { satellites: satelliteData } = useSatellites();
+
   const compassRosePrefs = useCompassRosePrefs();
   const holdDurationMs = useSettingsStore(
     (s) => s.uiInteraction?.holdDurationMs ?? 500,
@@ -865,6 +901,64 @@ function GlobeScene({
   // Subsolar point for night-side border enhancement
   const subsolar = useMemo(() => getSubsolarPoint(displayTime), [displayTime]);
 
+  // ── NVIS coverage data ────────────────────────────────────────────────
+  const nvisData = useMemo(() => {
+    if (!layers.nvis || !station || !currentSFI) return null;
+    const now = displayTime;
+    const utcHour = now.getUTCHours();
+    const month = now.getUTCMonth() + 1;
+    const result = calculateNVISAtLocation(
+      currentSFI,
+      currentKp,
+      station.lat,
+      station.lon,
+      utcHour,
+      month,
+    );
+    if (result.quality === "none") return null;
+    return {
+      center: { lat: station.lat, lon: station.lon },
+      radiusKm: result.radiusKm,
+      usableBands: result.usableBands,
+      quality: result.quality,
+    };
+  }, [layers.nvis, station, currentSFI, currentKp, displayTime]);
+
+  // ── Terminator enhancement points ─────────────────────────────────────
+  const terminatorPoints = useMemo(() => {
+    if (!layers.greyline) return [];
+    return getTerminatorPoints(displayTime, 180);
+  }, [layers.greyline, displayTime]);
+
+  // ── Satellite footprints (derived from satellite positions) ───────────
+  const satelliteFootprints = useMemo(() => {
+    if (
+      !layers.satelliteFootprints ||
+      !satelliteData ||
+      satelliteData.length === 0
+    )
+      return [];
+    // Category color map (mirrors SatelliteOverlay)
+    const catColors: Record<string, string> = {
+      iss: "#ffffff",
+      fm: "#00ff88",
+      linear: "#00ccff",
+      digital: "#ff9933",
+      weather: "#cc88ff",
+    };
+    // Only show visible satellites with valid positions, limit to 5
+    return satelliteData
+      .filter((s) => s.isVisible && s.position)
+      .slice(0, 5)
+      .map((s) => ({
+        satelliteId: String(s.noradId),
+        lat: s.position.lat,
+        lon: s.position.lon,
+        altitudeKm: s.position.alt,
+        color: catColors[s.category] ?? "#aaaaaa",
+      }));
+  }, [layers.satelliteFootprints, satelliteData]);
+
   // Handle click on globe surface
   const handleGlobeClick = useCallback(
     (lat: number, lon: number, screenPos: { x: number; y: number }) => {
@@ -986,6 +1080,98 @@ function GlobeScene({
         {layers.radar && radarManifest && (
           <WeatherRadarOverlay manifest={radarManifest} />
         )}
+
+        {/* === Propagation Layers === */}
+        {layers.nvis && nvisData && (
+          <NVISOverlay3D
+            center={nvisData.center}
+            radiusKm={nvisData.radiusKm}
+            usableBands={nvisData.usableBands}
+            quality={nvisData.quality}
+          />
+        )}
+
+        {layers.sporadicE &&
+          sporadicERegions &&
+          sporadicERegions.length > 0 && (
+            <SporadicEOverlay3D regions={sporadicERegions} />
+          )}
+
+        {layers.drap && drapData && <DRAPOverlay3D data={drapData} />}
+
+        {layers.ducting && ductingRegions && ductingRegions.length > 0 && (
+          <DuctingOverlay3D regions={ductingRegions} />
+        )}
+
+        {layers.noiseFloor && noiseFloorGrid && (
+          <NoiseFloorOverlay3D grid={noiseFloorGrid} />
+        )}
+
+        {layers.geomagField && (
+          <GeomagneticFieldLines3D kpIndex={currentKp ?? 2} />
+        )}
+
+        {layers.greyline && terminatorPoints && terminatorPoints.length > 0 && (
+          <TerminatorEnhancement3D
+            terminatorPoints={terminatorPoints}
+            intensity={0.5}
+          />
+        )}
+
+        {/* === Activity Layers === */}
+        {layers.wspr && wsprSpots && wsprSpots.length > 0 && (
+          <WSPROverlay3D
+            spots={wsprSpots.map((s) => ({
+              txCallsign: s.callsign,
+              txGrid: s.grid,
+              rxCallsign: s.rxCallsign,
+              rxGrid: s.rxGrid,
+              txLat: s.txLat,
+              txLon: s.txLon,
+              rxLat: s.rxLat,
+              rxLon: s.rxLon,
+              frequencyMHz: s.frequency,
+              snr: s.snr,
+              distanceKm: s.distance,
+            }))}
+          />
+        )}
+
+        {layers.beacons && beacons && beacons.length > 0 && (
+          <BeaconNetworkOverlay3D
+            beacons={beacons}
+            currentBeaconIndex={currentBeacon?.slotInCycle ?? 0}
+            activeFrequencyMHz={
+              activeTransmissions?.[0]?.frequencyKHz
+                ? activeTransmissions[0].frequencyKHz / 1000
+                : 14.1
+            }
+          />
+        )}
+
+        {layers.meteorShowers && activeShowers && activeShowers.length > 0 && (
+          <MeteorShowerOverlay3D
+            showers={activeShowers.map((s) => ({
+              name: s.name,
+              lat: s.radiantLat,
+              lon: s.radiantLon,
+              zhr: s.zhr,
+              bestFor6m: s.is6mFavorable,
+              daysUntilPeak: s.daysUntilPeak,
+            }))}
+          />
+        )}
+
+        {layers.spectrumRing && (
+          <SpectrumWaterfallRing3D bandActivity={[]} bandNames={[]} />
+        )}
+
+        {/* === Satellite Layers === */}
+        {layers.satelliteFootprints &&
+          satelliteFootprints &&
+          satelliteFootprints.length > 0 && (
+            <SatelliteFootprint3D footprints={satelliteFootprints} />
+          )}
 
         {/* Ionospheric shell layers — translucent D/E/F1/F2 spheres */}
         {layers.ionosphere && <IonosphericShells displayTime={displayTime} />}

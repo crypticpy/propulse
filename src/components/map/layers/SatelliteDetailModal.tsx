@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { useMapStore } from "@/stores/mapStore";
 import { useSatellites } from "@/hooks/useSatellites";
+import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { useUserStore } from "@/stores/userStore";
 import { useRigStore } from "@/stores/rigStore";
@@ -23,6 +24,13 @@ import {
   getCorrectedFrequencies,
   type CorrectedFrequencies,
 } from "@/lib/utils/doppler";
+import { computePassQuality } from "@/lib/utils/passQuality";
+import {
+  computeLinkBudget,
+  computeSlantRange,
+  computeSquintAngle,
+  type LinkBudgetResult,
+} from "@/lib/utils/linkBudget";
 import { calculatePosition } from "@/lib/api/satellites";
 import {
   CATEGORY_META,
@@ -31,9 +39,11 @@ import {
   formatShift,
   formatLatLon,
 } from "@/lib/utils/satellite";
+import { SatelliteLogButton } from "./SatelliteLogButton";
 import type {
   SatelliteCategory,
   SatelliteInfo,
+  SatNOGSTransmitter,
   PassPrediction,
 } from "@/types/satellite";
 
@@ -64,19 +74,118 @@ function VisibilityDot({ isVisible }: { isVisible: boolean }) {
 }
 
 // ---------------------------------------------------------------------------
+// Quality & Link Budget Helpers
+// ---------------------------------------------------------------------------
+
+function qualityColor(score: number): string {
+  if (score >= 4) return "text-green-400";
+  if (score === 3) return "text-yellow-400";
+  if (score === 2) return "text-orange-400";
+  return "text-red-400";
+}
+
+function StarRating({ score }: { score: 1 | 2 | 3 | 4 | 5 }) {
+  return (
+    <span
+      className={`text-[10px] ${qualityColor(score)}`}
+      aria-label={`${score} out of 5 stars`}
+    >
+      {"★".repeat(score)}
+      {"☆".repeat(5 - score)}
+    </span>
+  );
+}
+
+const LINK_QUALITY_STYLE: Record<
+  LinkBudgetResult["quality"],
+  { label: string; classes: string }
+> = {
+  good: {
+    label: "Good",
+    classes: "bg-green-400/15 text-green-400 border-green-400/30",
+  },
+  marginal: {
+    label: "Marginal",
+    classes: "bg-yellow-400/15 text-yellow-400 border-yellow-400/30",
+  },
+  unlikely: {
+    label: "Unlikely",
+    classes: "bg-red-400/15 text-red-400 border-red-400/30",
+  },
+};
+
+/** Single SatNOGS transponder row */
+function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
+  return (
+    <div className="bg-white/[0.03] rounded-md px-2.5 py-2 mb-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-gray-300 truncate">
+          {tx.description}
+        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span
+            className={`text-[8px] px-1 py-0.5 rounded font-semibold uppercase ${
+              tx.status === "active"
+                ? "bg-green-400/20 text-green-400"
+                : "bg-gray-500/20 text-gray-500"
+            }`}
+          >
+            {tx.status}
+          </span>
+          {tx.mode && (
+            <span className="text-[9px] px-1 py-0.5 rounded uppercase font-semibold bg-cyan-400/20 text-cyan-400">
+              {tx.mode}
+              {tx.invert ? " INV" : ""}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+        {(tx.uplink_low || tx.uplink_high) && (
+          <div>
+            <span className="text-gray-500">UP: </span>
+            <span className="text-gray-300">
+              {tx.uplink_low ? formatFreqMHz(tx.uplink_low) : "\u2014"}
+              {tx.uplink_high &&
+                tx.uplink_low !== tx.uplink_high &&
+                ` - ${formatFreqMHz(tx.uplink_high)}`}
+            </span>
+          </div>
+        )}
+        {(tx.downlink_low || tx.downlink_high) && (
+          <div>
+            <span className="text-gray-500">DN: </span>
+            <span className="text-gray-300">
+              {tx.downlink_low ? formatFreqMHz(tx.downlink_low) : "\u2014"}
+              {tx.downlink_high &&
+                tx.downlink_low !== tx.downlink_high &&
+                ` - ${formatFreqMHz(tx.downlink_high)}`}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // TransponderInfo (self-contained copy from SatellitePanel)
 // ---------------------------------------------------------------------------
 
 function TransponderInfo({
   satellite,
   transponderData,
+  satnogsTransponders,
 }: {
   satellite: SatelliteInfo;
   transponderData: SatelliteTransponder;
+  satnogsTransponders?: SatNOGSTransmitter[];
 }) {
   const { station } = useUserStore();
   const rigConnected = useRigStore((s) => s.connected);
   const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
+
+  const useSatNOGS = satnogsTransponders && satnogsTransponders.length > 0;
 
   const dopplerInfo = useMemo((): CorrectedFrequencies | null => {
     if (!station || !satellite.isVisible) return null;
@@ -103,48 +212,64 @@ function TransponderInfo({
 
   return (
     <div className="mt-3">
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">
-        Transponders
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+          Transponders
+        </span>
+        {useSatNOGS && (
+          <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">
+            SatNOGS
+          </span>
+        )}
       </div>
-      {transponderData.transponders.map((xpdr: Transponder, idx: number) => (
-        <div key={idx} className="bg-white/[0.03] rounded-md px-2.5 py-2 mb-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-gray-300">
-              {xpdr.name}
-            </span>
-            <span
-              className={`text-[9px] px-1 py-0.5 rounded uppercase font-semibold ${
-                xpdr.mode === "FM"
-                  ? "bg-green-400/20 text-green-400"
-                  : xpdr.mode === "linear"
-                    ? "bg-cyan-400/20 text-cyan-400"
-                    : "bg-orange-400/20 text-orange-400"
-              }`}
+
+      {/* Prefer SatNOGS live data when available, fallback to static */}
+      {useSatNOGS
+        ? satnogsTransponders.map((tx) => (
+            <SatNOGSTransponderRow key={tx.uuid} tx={tx} />
+          ))
+        : transponderData.transponders.map((xpdr: Transponder, idx: number) => (
+            <div
+              key={idx}
+              className="bg-white/[0.03] rounded-md px-2.5 py-2 mb-1"
             >
-              {xpdr.mode}
-              {xpdr.inverted ? " INV" : ""}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
-            <div>
-              <span className="text-gray-500">UP: </span>
-              <span className="text-gray-300">
-                {formatFreqMHz(xpdr.uplinkRangeHz[0])}
-                {xpdr.uplinkRangeHz[0] !== xpdr.uplinkRangeHz[1] &&
-                  ` - ${formatFreqMHz(xpdr.uplinkRangeHz[1])}`}
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-gray-300">
+                  {xpdr.name}
+                </span>
+                <span
+                  className={`text-[9px] px-1 py-0.5 rounded uppercase font-semibold ${
+                    xpdr.mode === "FM"
+                      ? "bg-green-400/20 text-green-400"
+                      : xpdr.mode === "linear"
+                        ? "bg-cyan-400/20 text-cyan-400"
+                        : "bg-orange-400/20 text-orange-400"
+                  }`}
+                >
+                  {xpdr.mode}
+                  {xpdr.inverted ? " INV" : ""}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+                <div>
+                  <span className="text-gray-500">UP: </span>
+                  <span className="text-gray-300">
+                    {formatFreqMHz(xpdr.uplinkRangeHz[0])}
+                    {xpdr.uplinkRangeHz[0] !== xpdr.uplinkRangeHz[1] &&
+                      ` - ${formatFreqMHz(xpdr.uplinkRangeHz[1])}`}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">DN: </span>
+                  <span className="text-gray-300">
+                    {formatFreqMHz(xpdr.downlinkRangeHz[0])}
+                    {xpdr.downlinkRangeHz[0] !== xpdr.downlinkRangeHz[1] &&
+                      ` - ${formatFreqMHz(xpdr.downlinkRangeHz[1])}`}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-gray-500">DN: </span>
-              <span className="text-gray-300">
-                {formatFreqMHz(xpdr.downlinkRangeHz[0])}
-                {xpdr.downlinkRangeHz[0] !== xpdr.downlinkRangeHz[1] &&
-                  ` - ${formatFreqMHz(xpdr.downlinkRangeHz[1])}`}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
+          ))}
 
       {transponderData.beaconHz && (
         <div className="text-[10px] font-mono text-gray-400 mt-1">
@@ -208,6 +333,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
   const isActive = pass.aos <= new Date() && pass.los >= new Date();
   const isFuture = pass.aos > new Date();
   const timeFmt = use24h ? "HH:mm" : "h:mm a";
+  const quality = computePassQuality(pass);
 
   return (
     <div
@@ -230,11 +356,27 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {format(pass.los, timeFmt)}
           </span>
         </div>
-        {isFuture && (
-          <div className="text-[10px] text-gray-500 mt-0.5">
-            in {formatDistanceToNow(pass.aos)}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <StarRating score={quality.score} />
+          <span
+            className={`text-[9px] px-1 py-0.5 rounded font-medium ${qualityColor(quality.score)} ${
+              quality.score >= 4
+                ? "bg-green-400/10"
+                : quality.score === 3
+                  ? "bg-yellow-400/10"
+                  : quality.score === 2
+                    ? "bg-orange-400/10"
+                    : "bg-red-400/10"
+            }`}
+          >
+            {quality.label}
+          </span>
+          {isFuture && (
+            <span className="text-[10px] text-gray-500">
+              in {formatDistanceToNow(pass.aos)}
+            </span>
+          )}
+        </div>
       </div>
       <div className="text-right">
         <div className="font-mono text-gray-300">
@@ -262,11 +404,58 @@ function SatelliteDetailContent({
   onClose: () => void;
 }) {
   const { lat, lon, alt, velocity } = satellite.position;
+  const { station } = useUserStore();
 
   const transponderData = useMemo(
     () => getTransponder(satellite.name, satellite.noradId),
     [satellite.name, satellite.noradId],
   );
+
+  // Fetch live SatNOGS transponder data
+  const { transponders: satnogsXpdrs } = useSatelliteTransponders(
+    satellite.noradId,
+  );
+
+  // Primary transponder for log button props
+  const primaryXpdr = transponderData?.transponders[0];
+  const activePass = passes.find(
+    (p) => p.aos <= new Date() && p.los >= new Date(),
+  );
+
+  // Link budget calculation (when satellite is visible and we have transponder + station)
+  const linkBudget = useMemo((): LinkBudgetResult | null => {
+    if (!satellite.isVisible || !station || !primaryXpdr) return null;
+
+    const downlinkMHz = primaryXpdr.downlinkRangeHz[0] / 1_000_000;
+    if (downlinkMHz <= 0) return null;
+
+    try {
+      const slantRange = computeSlantRange(
+        lat,
+        lon,
+        alt,
+        station.lat,
+        station.lon,
+      );
+
+      // Typical amateur LEO sat: ~5 dBW EIRP, observer: 6 dBi Yagi, noise floor: -135 dBm
+      const budget = computeLinkBudget(5, slantRange, downlinkMHz, 6, -135);
+
+      // Compute squint angle separately
+      const squint = computeSquintAngle(
+        { lat, lon, altitude: alt },
+        { lat: station.lat, lon: station.lon },
+        0,
+      );
+
+      return {
+        ...budget,
+        squintAngleDeg: squint,
+      };
+    } catch {
+      return null;
+    }
+  }, [satellite.isVisible, station, primaryXpdr, lat, lon, alt]);
 
   return (
     <div className="flex flex-col max-h-[80vh]">
@@ -355,8 +544,51 @@ function SatelliteDetailContent({
           <TransponderInfo
             satellite={satellite}
             transponderData={transponderData}
+            satnogsTransponders={
+              satnogsXpdrs.length > 0 ? satnogsXpdrs : undefined
+            }
           />
         )}
+
+        {/* Link Budget Indicator */}
+        {linkBudget && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                Signal
+              </span>
+              <span
+                className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${
+                  LINK_QUALITY_STYLE[linkBudget.quality].classes
+                }`}
+              >
+                {LINK_QUALITY_STYLE[linkBudget.quality].label}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-mono text-gray-500">
+              <span title="Free-space path loss">
+                FSPL: {linkBudget.freeSpacePathLossDb.toFixed(1)} dB
+              </span>
+              <span title="Squint angle from nadir">
+                Squint: {linkBudget.squintAngleDeg.toFixed(1)}&deg;
+              </span>
+              <span title="Estimated link margin">
+                Margin: {linkBudget.estimatedMarginDb.toFixed(1)} dB
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Log This Pass button */}
+        <div className="mt-2">
+          <SatelliteLogButton
+            satelliteName={satellite.name}
+            transponderMode={primaryXpdr?.mode}
+            downlinkFrequencyHz={primaryXpdr?.downlinkRangeHz[0]}
+            passStartTime={activePass?.aos}
+            isAboveHorizon={satellite.isVisible}
+          />
+        </div>
 
         {/* Pass predictions */}
         <div className="mt-3">

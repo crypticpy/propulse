@@ -136,6 +136,40 @@ import { useSatellites } from "@/hooks/useSatellites";
 import { calculateNVISAtLocation } from "@/lib/utils/nvisCalculation";
 import { getTerminatorPoints } from "@/lib/utils/sun";
 
+// ---------------------------------------------------------------------------
+// Spectrum Waterfall band activity accumulator
+// ---------------------------------------------------------------------------
+
+/** Canonical band list for the waterfall ring */
+const WATERFALL_BAND_NAMES = [
+  "160m",
+  "80m",
+  "60m",
+  "40m",
+  "30m",
+  "20m",
+  "17m",
+  "15m",
+  "12m",
+  "10m",
+  "6m",
+  "2m",
+];
+
+/** Maximum rows to retain in the rolling window */
+const WATERFALL_MAX_ROWS = 20;
+
+/** Sampling interval in milliseconds (30 seconds) */
+const WATERFALL_SAMPLE_INTERVAL_MS = 30_000;
+
+/** Maximum spot count per band used for normalisation (0-100 scale) */
+const WATERFALL_NORMALIZE_MAX = 50;
+
+interface BandActivityRow {
+  timestamp: number;
+  bands: Record<string, number>;
+}
+
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
   displayTime: Date;
@@ -930,6 +964,59 @@ function GlobeScene({
     return getTerminatorPoints(displayTime, 180);
   }, [layers.greyline, displayTime]);
 
+  // ── Spectrum waterfall band activity accumulator ──────────────────────
+  // Samples live spot counts per band every 30 seconds, keeps last 20 rows
+  const waterfallRowsRef = useRef<BandActivityRow[]>([]);
+  const [waterfallRows, setWaterfallRows] = useState<BandActivityRow[]>([]);
+
+  useEffect(() => {
+    // Sample function: count spots per band from current liveSpots
+    const sampleBandCounts = () => {
+      const counts: Record<string, number> = {};
+      for (const name of WATERFALL_BAND_NAMES) {
+        counts[name] = 0;
+      }
+
+      for (const spot of liveSpots) {
+        const band = spot.band;
+        if (band && band in counts) {
+          counts[band]++;
+        }
+      }
+
+      // Normalise to 0-100 scale
+      const normalised: Record<string, number> = {};
+      for (const name of WATERFALL_BAND_NAMES) {
+        normalised[name] = Math.min(
+          100,
+          (counts[name] / WATERFALL_NORMALIZE_MAX) * 100,
+        );
+      }
+
+      const row: BandActivityRow = {
+        timestamp: Date.now(),
+        bands: normalised,
+      };
+
+      const rows = waterfallRowsRef.current;
+      rows.push(row);
+      if (rows.length > WATERFALL_MAX_ROWS) {
+        rows.splice(0, rows.length - WATERFALL_MAX_ROWS);
+      }
+      waterfallRowsRef.current = rows;
+      setWaterfallRows([...rows]);
+    };
+
+    // Take an initial sample immediately
+    sampleBandCounts();
+
+    const intervalId = setInterval(
+      sampleBandCounts,
+      WATERFALL_SAMPLE_INTERVAL_MS,
+    );
+    return () => clearInterval(intervalId);
+  }, [liveSpots]);
+
   // ── Satellite footprints (derived from satellite positions) ───────────
   const satelliteFootprints = useMemo(() => {
     if (
@@ -1163,7 +1250,10 @@ function GlobeScene({
         )}
 
         {layers.spectrumRing && (
-          <SpectrumWaterfallRing3D bandActivity={[]} bandNames={[]} />
+          <SpectrumWaterfallRing3D
+            bandActivity={waterfallRows}
+            bandNames={WATERFALL_BAND_NAMES}
+          />
         )}
 
         {/* === Satellite Layers === */}

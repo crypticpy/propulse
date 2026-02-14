@@ -26,6 +26,12 @@ import {
   useSunspots,
   useMagnetometer,
 } from "@/hooks/useSolarData";
+import {
+  useProtonFlux,
+  useDstIndex,
+  useCMEAnalysis,
+  useFluxForecast,
+} from "@/hooks/useSolarExpanded";
 import { useSolarStore } from "@/stores/solarStore";
 import { kpToAp } from "@/lib/utils/solarConversions";
 import { SolarCycleContext } from "@/components/solar/SolarCycleContext";
@@ -256,6 +262,13 @@ export function SolarPulse() {
     refetch: refetchMag,
     isRefetching: magRefetching,
   } = useMagnetometer();
+
+  // --- Expanded solar data hooks ---
+  const { data: protonFluxData, isLoading: protonLoading } = useProtonFlux();
+  const { data: dstIndexData, isLoading: dstLoading } = useDstIndex();
+  const { data: cmeData, isLoading: cmeLoading } = useCMEAnalysis();
+  const { data: fluxForecastData, isLoading: forecastLoading } =
+    useFluxForecast();
 
   // --- Live SWPC additions (scales, alerts, x-ray, 5-min solar wind) ---
   const [noaaScales, setNoaaScales] = useState<NoaaScalesResponse | null>(null);
@@ -609,6 +622,106 @@ export function SolarPulse() {
 
   const recentHamAlerts = (alerts ?? []).filter(isHamRelevantAlert).slice(0, 5);
 
+  // --- Proton flux derived ---
+  const latestProton = protonFluxData?.[protonFluxData.length - 1] ?? null;
+  const protonPfu = latestProton?.flux ?? null;
+  const protonSScale =
+    protonPfu === null
+      ? null
+      : protonPfu >= 100_000
+        ? "S5"
+        : protonPfu >= 10_000
+          ? "S4"
+          : protonPfu >= 1_000
+            ? "S3"
+            : protonPfu >= 100
+              ? "S2"
+              : protonPfu >= 10
+                ? "S1"
+                : null;
+  const protonColor =
+    protonPfu === null
+      ? "text-gray-500"
+      : protonPfu >= 1_000
+        ? "text-alert-red"
+        : protonPfu >= 100
+          ? "text-plasma-orange"
+          : protonPfu >= 10
+            ? "text-caution-amber"
+            : "text-signal-green";
+  const protonBorderColor =
+    protonPfu === null
+      ? "border-gray-700/30"
+      : protonPfu >= 1_000
+        ? "border-alert-red/20"
+        : protonPfu >= 100
+          ? "border-plasma-orange/20"
+          : protonPfu >= 10
+            ? "border-caution-amber/20"
+            : "border-signal-green/20";
+
+  // --- Dst index derived ---
+  const latestDst = dstIndexData?.[dstIndexData.length - 1] ?? null;
+  const dstValue = latestDst?.dst ?? null;
+  const dstClassification =
+    dstValue === null
+      ? null
+      : dstValue < -200
+        ? "Severe Storm"
+        : dstValue < -100
+          ? "Storm"
+          : dstValue < -50
+            ? "Active"
+            : dstValue < -30
+              ? "Moderate"
+              : "Quiet";
+  const dstColor =
+    dstValue === null
+      ? "text-gray-500"
+      : dstValue < -100
+        ? "text-alert-red"
+        : dstValue < -50
+          ? "text-plasma-orange"
+          : dstValue < -30
+            ? "text-caution-amber"
+            : "text-signal-green";
+  const dstBorderColor =
+    dstValue === null
+      ? "border-gray-700/30"
+      : dstValue < -100
+        ? "border-alert-red/20"
+        : dstValue < -50
+          ? "border-plasma-orange/20"
+          : dstValue < -30
+            ? "border-caution-amber/20"
+            : "border-signal-green/20";
+
+  // --- CME derived ---
+  const significantCMEs = (cmeData ?? []).filter((c) => c.speed > 500);
+  const cmeSpeedColor = (speed: number) =>
+    speed > 1200
+      ? "text-alert-red"
+      : speed > 800
+        ? "text-caution-amber"
+        : "text-signal-green";
+  const cmeSpeedBorder = (speed: number) =>
+    speed > 1200
+      ? "border-alert-red/20"
+      : speed > 800
+        ? "border-caution-amber/20"
+        : "border-signal-green/20";
+
+  // --- Forecast derived ---
+  const forecastDays = fluxForecastData?.forecast ?? [];
+  const sfiColor = (sfi: number) =>
+    sfi > 100
+      ? "text-signal-green"
+      : sfi > 80
+        ? "text-caution-amber"
+        : sfi > 70
+          ? "text-plasma-orange"
+          : "text-alert-red";
+
   return (
     <div className="min-h-screen px-4">
       {/* Main content */}
@@ -876,6 +989,173 @@ export function SolarPulse() {
                 </div>
               </div>
             </div>
+          </section>
+        </div>
+
+        {/* Proton Flux + Dst Index row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Proton Flux */}
+          <section
+            className={`rounded-2xl border ${protonBorderColor} bg-white/[0.03] backdrop-blur-md p-4`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                  Proton Flux
+                </h2>
+                <InfoTip content="GOES satellite proton flux (>=10 MeV). Used for NOAA S-scale solar radiation storm classification. High proton flux degrades polar HF paths." />
+              </div>
+              <span className="text-xs text-gray-400 font-mono">
+                {latestProton?.time_tag
+                  ? new Date(latestProton.time_tag)
+                      .toISOString()
+                      .slice(11, 16) + "Z"
+                  : "—"}
+              </span>
+            </div>
+            {protonLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 border-2 border-caution-amber/30 border-t-caution-amber rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div
+                    className={`rounded-xl bg-gradient-to-br from-caution-amber/10 to-transparent border ${protonBorderColor} p-3`}
+                  >
+                    <div className="text-xs text-gray-400 uppercase tracking-wider">
+                      Flux
+                    </div>
+                    <div
+                      className={`mt-1 text-2xl font-bold font-mono ${protonColor}`}
+                    >
+                      {protonPfu !== null ? protonPfu.toFixed(1) : "—"}
+                      <span className="text-sm font-normal text-gray-500 ml-1">
+                        pfu
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className={`rounded-xl bg-gradient-to-br from-caution-amber/10 to-transparent border ${protonBorderColor} p-3`}
+                  >
+                    <div className="text-xs text-gray-400 uppercase tracking-wider">
+                      S-Scale
+                    </div>
+                    <div
+                      className={`mt-1 text-2xl font-bold font-mono ${protonColor}`}
+                    >
+                      {protonSScale ?? "None"}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/10 text-xs text-gray-400">
+                  <span className="text-gray-500">Thresholds:</span>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 font-mono">
+                    <span>
+                      <span className="text-signal-green">S1</span> 10
+                    </span>
+                    <span>
+                      <span className="text-caution-amber">S2</span> 100
+                    </span>
+                    <span>
+                      <span className="text-plasma-orange">S3</span> 1K
+                    </span>
+                    <span>
+                      <span className="text-alert-red">S4</span> 10K
+                    </span>
+                    <span>
+                      <span className="text-alert-red">S5</span> 100K pfu
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* Dst Index */}
+          <section
+            className={`rounded-2xl border ${dstBorderColor} bg-white/[0.03] backdrop-blur-md p-4`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                  Dst Index
+                </h2>
+                <InfoTip content="Disturbance Storm Time index measures ring current intensity. Negative values indicate geomagnetic storms. Affects HF propagation, especially at low latitudes." />
+              </div>
+              <span className="text-xs text-gray-400 font-mono">
+                {latestDst?.time_tag
+                  ? new Date(latestDst.time_tag).toISOString().slice(11, 16) +
+                    "Z"
+                  : "—"}
+              </span>
+            </div>
+            {dstLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 border-2 border-cosmic-cyan/30 border-t-cosmic-cyan rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div
+                    className={`rounded-xl bg-gradient-to-br from-cosmic-cyan/10 to-transparent border ${dstBorderColor} p-3`}
+                  >
+                    <div className="text-xs text-gray-400 uppercase tracking-wider">
+                      Dst Value
+                    </div>
+                    <div
+                      className={`mt-1 text-2xl font-bold font-mono ${dstColor}`}
+                    >
+                      {dstValue !== null
+                        ? `${dstValue > 0 ? "+" : ""}${dstValue}`
+                        : "—"}
+                      <span className="text-sm font-normal text-gray-500 ml-1">
+                        nT
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className={`rounded-xl bg-gradient-to-br from-cosmic-cyan/10 to-transparent border ${dstBorderColor} p-3`}
+                  >
+                    <div className="text-xs text-gray-400 uppercase tracking-wider">
+                      Status
+                    </div>
+                    <div
+                      className={`mt-1 text-2xl font-bold font-mono ${dstColor}`}
+                    >
+                      {dstClassification ?? "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/10 text-xs text-gray-400">
+                  <span className="text-gray-500">Classification:</span>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                    <span>
+                      <span className="text-signal-green font-medium">
+                        Quiet
+                      </span>{" "}
+                      &gt;-30
+                    </span>
+                    <span>
+                      <span className="text-caution-amber font-medium">
+                        Moderate
+                      </span>{" "}
+                      -30..-50
+                    </span>
+                    <span>
+                      <span className="text-plasma-orange font-medium">
+                        Active
+                      </span>{" "}
+                      -50..-100
+                    </span>
+                    <span>
+                      <span className="text-alert-red font-medium">Storm</span>{" "}
+                      &lt;-100 nT
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         </div>
 
@@ -1289,6 +1569,88 @@ export function SolarPulse() {
           />
         </div>
 
+        {/* SFI 3-Day Forecast */}
+        <section className="rounded-2xl border border-plasma-orange/20 bg-white/[0.03] backdrop-blur-md p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                SFI 3-Day Forecast
+              </h2>
+              <InfoTip content="NOAA 3-day solar flux index forecast. Higher SFI means better HF propagation on higher bands (15m, 12m, 10m). Values above 100 are generally favorable." />
+            </div>
+          </div>
+          {forecastLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
+            </div>
+          ) : forecastDays.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              No forecast data available
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-2 px-3 text-xs text-gray-400 uppercase tracking-wider font-medium">
+                      Date
+                    </th>
+                    <th className="text-center py-2 px-3 text-xs text-gray-400 uppercase tracking-wider font-medium">
+                      Predicted SFI
+                    </th>
+                    <th className="text-center py-2 px-3 text-xs text-gray-400 uppercase tracking-wider font-medium">
+                      Observed SFI
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {forecastDays.map((day) => (
+                    <tr
+                      key={day.date}
+                      className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
+                    >
+                      <td className="py-2.5 px-3 text-gray-300 font-mono text-xs">
+                        {day.date}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span
+                          className={`font-bold font-mono ${sfiColor(day.predicted_flux)}`}
+                        >
+                          {day.predicted_flux}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono text-gray-400">
+                        {day.observed_flux != null ? day.observed_flux : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="mt-3 pt-3 border-t border-white/10 text-xs text-gray-400">
+            <span className="text-gray-500">SFI interpretation:</span>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+              <span>
+                <span className="text-signal-green font-medium">&gt;100</span>{" "}
+                Good
+              </span>
+              <span>
+                <span className="text-caution-amber font-medium">80-100</span>{" "}
+                Fair
+              </span>
+              <span>
+                <span className="text-plasma-orange font-medium">70-80</span>{" "}
+                Poor
+              </span>
+              <span>
+                <span className="text-alert-red font-medium">&lt;70</span> Very
+                Poor
+              </span>
+            </div>
+          </div>
+        </section>
+
         {/* Two-column layout for probability and bands */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Flare Probability */}
@@ -1309,6 +1671,142 @@ export function SolarPulse() {
             onExpand={() => setBandConditionsOpen(true)}
           />
         </div>
+
+        {/* CME Analysis */}
+        <section className="rounded-2xl border border-plasma-orange/20 bg-white/[0.03] backdrop-blur-md p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+                CME Analysis
+              </h2>
+              <InfoTip content="Coronal Mass Ejection events from NASA DONKI. Significant CMEs (>500 km/s) can cause geomagnetic storms 1-3 days after eruption, disrupting HF propagation." />
+            </div>
+            <a
+              href="https://kauai.ccmc.gsfc.nasa.gov/DONKI/search/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-plasma-orange hover:text-white bg-plasma-orange/10 hover:bg-plasma-orange/20 border border-plasma-orange/30 rounded-lg transition-all duration-200"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+              NASA DONKI
+            </a>
+          </div>
+          {cmeLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
+            </div>
+          ) : significantCMEs.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              <svg
+                className="w-8 h-8 mx-auto mb-2 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              No significant CME activity in the past 30 days
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {significantCMEs.map((cme, i) => (
+                <div
+                  key={`cme-${cme.time21_5}-${i}`}
+                  className={`rounded-xl border ${cmeSpeedBorder(cme.speed)} bg-gradient-to-br from-white/[0.02] to-transparent p-4 transition-colors hover:bg-white/[0.04]`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          cme.speed > 1200
+                            ? "bg-alert-red"
+                            : cme.speed > 800
+                              ? "bg-caution-amber"
+                              : "bg-signal-green"
+                        }`}
+                      />
+                      <span
+                        className={`text-sm font-bold font-mono ${cmeSpeedColor(cme.speed)}`}
+                      >
+                        {Math.round(cme.speed)} km/s
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
+                      {cme.time21_5
+                        ? new Date(cme.time21_5).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZone: "UTC",
+                          }) + " UTC"
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-xs mt-2">
+                    <div>
+                      <span className="text-gray-500">Half-angle</span>
+                      <div className="text-gray-300 font-mono mt-0.5">
+                        {cme.halfAngle}°
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Type</span>
+                      <div className="text-gray-300 font-mono mt-0.5">
+                        {cme.type || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Catalog</span>
+                      <div className="text-gray-300 font-mono mt-0.5">
+                        {cme.catalog || "—"}
+                      </div>
+                    </div>
+                  </div>
+                  {cme.note && (
+                    <p className="text-xs text-gray-400 mt-2 leading-relaxed line-clamp-2">
+                      {cme.note}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 pt-3 border-t border-white/10 text-xs text-gray-400">
+            <span className="text-gray-500">Speed classification:</span>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+              <span>
+                <span className="text-signal-green font-medium">&lt;800</span>{" "}
+                Moderate
+              </span>
+              <span>
+                <span className="text-caution-amber font-medium">800-1200</span>{" "}
+                Fast
+              </span>
+              <span>
+                <span className="text-alert-red font-medium">&gt;1200</span>{" "}
+                Extreme km/s
+              </span>
+            </div>
+          </div>
+        </section>
 
         {/* Model Accuracy Panel - spot correlation with draggable support */}
         <DraggablePanel

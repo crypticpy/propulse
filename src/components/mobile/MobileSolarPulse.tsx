@@ -17,6 +17,12 @@ import { FlareProbability } from "@/components/solar/FlareProbability";
 import { SolarCycleContext } from "@/components/solar/SolarCycleContext";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { kpToAp } from "@/lib/utils/solarConversions";
+import {
+  useProtonFlux,
+  useDstIndex,
+  useCMEAnalysis,
+  useFluxForecast,
+} from "@/hooks/useSolarExpanded";
 import type {
   KIndexData,
   SolarFluxData,
@@ -110,6 +116,81 @@ export function MobileSolarPulse({
   onExpandBzChart,
   onExpandFlareProb,
 }: MobileSolarPulseProps) {
+  // --- Expanded solar data hooks ---
+  const { data: protonFluxData, isLoading: protonLoading } = useProtonFlux();
+  const { data: dstIndexData, isLoading: dstLoading } = useDstIndex();
+  const { data: cmeData, isLoading: cmeLoading } = useCMEAnalysis();
+  const { data: fluxForecastData, isLoading: forecastLoading } =
+    useFluxForecast();
+
+  // --- Proton flux derived ---
+  const latestProton = protonFluxData?.[protonFluxData.length - 1] ?? null;
+  const protonPfu = latestProton?.flux ?? null;
+  const protonSScale =
+    protonPfu === null
+      ? null
+      : protonPfu >= 100_000
+        ? "S5"
+        : protonPfu >= 10_000
+          ? "S4"
+          : protonPfu >= 1_000
+            ? "S3"
+            : protonPfu >= 100
+              ? "S2"
+              : protonPfu >= 10
+                ? "S1"
+                : null;
+  const protonColor =
+    protonPfu === null
+      ? "text-gray-500"
+      : protonPfu >= 1_000
+        ? "text-alert-red"
+        : protonPfu >= 100
+          ? "text-plasma-orange"
+          : protonPfu >= 10
+            ? "text-caution-amber"
+            : "text-signal-green";
+
+  // --- Dst index derived ---
+  const latestDst = dstIndexData?.[dstIndexData.length - 1] ?? null;
+  const dstValue = latestDst?.dst ?? null;
+  const dstClassification =
+    dstValue === null
+      ? null
+      : dstValue < -200
+        ? "Severe Storm"
+        : dstValue < -100
+          ? "Storm"
+          : dstValue < -50
+            ? "Active"
+            : dstValue < -30
+              ? "Moderate"
+              : "Quiet";
+  const dstColor =
+    dstValue === null
+      ? "text-gray-500"
+      : dstValue < -100
+        ? "text-alert-red"
+        : dstValue < -50
+          ? "text-plasma-orange"
+          : dstValue < -30
+            ? "text-caution-amber"
+            : "text-signal-green";
+
+  // --- CME derived ---
+  const significantCMEs = (cmeData ?? []).filter((c) => c.speed > 500);
+
+  // --- Forecast derived ---
+  const forecastDays = fluxForecastData?.forecast ?? [];
+  const sfiColor = (sfi: number) =>
+    sfi > 100
+      ? "text-signal-green"
+      : sfi > 80
+        ? "text-caution-amber"
+        : sfi > 70
+          ? "text-plasma-orange"
+          : "text-alert-red";
+
   // Mapped chart data (same transforms SolarPulse.tsx uses inline)
   const kChartData =
     kIndexData?.map((d) => ({ time_tag: d.time_tag, kp_index: d.kp_index })) ??
@@ -251,6 +332,265 @@ export function MobileSolarPulse({
             recentSFI={fluxData?.map((d) => d.flux)}
             loading={isLoading}
           />
+        </AccordionCard>
+
+        {/* 7 - Proton Flux */}
+        <AccordionCard title="Proton Flux">
+          {protonLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="w-5 h-5 border-2 border-caution-amber/30 border-t-caution-amber rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-400 uppercase tracking-wider">
+                    Current Flux
+                  </div>
+                  <div className={`text-xl font-bold font-mono ${protonColor}`}>
+                    {protonPfu !== null ? protonPfu.toFixed(1) : "—"}
+                    <span className="text-sm font-normal text-gray-500 ml-1">
+                      pfu
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-400 uppercase tracking-wider">
+                    S-Scale
+                  </div>
+                  <div className={`text-xl font-bold font-mono ${protonColor}`}>
+                    {protonSScale ?? "None"}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1 font-mono">
+                <span>
+                  <span className="text-signal-green">S1</span> 10
+                </span>
+                <span>
+                  <span className="text-caution-amber">S2</span> 100
+                </span>
+                <span>
+                  <span className="text-plasma-orange">S3</span> 1K
+                </span>
+                <span>
+                  <span className="text-alert-red">S4</span> 10K
+                </span>
+                <span>
+                  <span className="text-alert-red">S5</span> 100K pfu
+                </span>
+              </div>
+              {latestProton?.time_tag && (
+                <div className="text-xs text-gray-500 font-mono">
+                  {new Date(latestProton.time_tag).toISOString().slice(11, 16)}Z
+                </div>
+              )}
+            </div>
+          )}
+        </AccordionCard>
+
+        {/* 8 - Dst Index */}
+        <AccordionCard title="Dst Index">
+          {dstLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="w-5 h-5 border-2 border-cosmic-cyan/30 border-t-cosmic-cyan rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-400 uppercase tracking-wider">
+                    Dst Value
+                  </div>
+                  <div className={`text-xl font-bold font-mono ${dstColor}`}>
+                    {dstValue !== null
+                      ? `${dstValue > 0 ? "+" : ""}${dstValue}`
+                      : "—"}
+                    <span className="text-sm font-normal text-gray-500 ml-1">
+                      nT
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-400 uppercase tracking-wider">
+                    Status
+                  </div>
+                  <div className={`text-xl font-bold font-mono ${dstColor}`}>
+                    {dstClassification ?? "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
+                <span>
+                  <span className="text-signal-green font-medium">Quiet</span>{" "}
+                  &gt;-30
+                </span>
+                <span>
+                  <span className="text-caution-amber font-medium">
+                    Moderate
+                  </span>{" "}
+                  -30..-50
+                </span>
+                <span>
+                  <span className="text-plasma-orange font-medium">Active</span>{" "}
+                  -50..-100
+                </span>
+                <span>
+                  <span className="text-alert-red font-medium">Storm</span>{" "}
+                  &lt;-100 nT
+                </span>
+              </div>
+              {latestDst?.time_tag && (
+                <div className="text-xs text-gray-500 font-mono">
+                  {new Date(latestDst.time_tag).toISOString().slice(11, 16)}Z
+                </div>
+              )}
+            </div>
+          )}
+        </AccordionCard>
+
+        {/* 9 - SFI Forecast */}
+        <AccordionCard title="SFI 3-Day Forecast">
+          {forecastLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
+            </div>
+          ) : forecastDays.length === 0 ? (
+            <div className="text-center py-6 text-gray-500 text-sm">
+              No forecast data available
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-1.5 px-2 text-xs text-gray-400 uppercase tracking-wider font-medium">
+                        Date
+                      </th>
+                      <th className="text-center py-1.5 px-2 text-xs text-gray-400 uppercase tracking-wider font-medium">
+                        Predicted
+                      </th>
+                      <th className="text-center py-1.5 px-2 text-xs text-gray-400 uppercase tracking-wider font-medium">
+                        Observed
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forecastDays.map((day) => (
+                      <tr key={day.date} className="border-b border-white/5">
+                        <td className="py-2 px-2 text-gray-300 font-mono text-xs">
+                          {day.date}
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <span
+                            className={`font-bold font-mono ${sfiColor(day.predicted_flux)}`}
+                          >
+                            {day.predicted_flux}
+                          </span>
+                        </td>
+                        <td className="py-2 px-2 text-center font-mono text-gray-400">
+                          {day.observed_flux != null ? day.observed_flux : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
+                <span>
+                  <span className="text-signal-green font-medium">&gt;100</span>{" "}
+                  Good
+                </span>
+                <span>
+                  <span className="text-caution-amber font-medium">80-100</span>{" "}
+                  Fair
+                </span>
+                <span>
+                  <span className="text-plasma-orange font-medium">70-80</span>{" "}
+                  Poor
+                </span>
+                <span>
+                  <span className="text-alert-red font-medium">&lt;70</span>{" "}
+                  Very Poor
+                </span>
+              </div>
+            </div>
+          )}
+        </AccordionCard>
+
+        {/* 10 - CME Analysis */}
+        <AccordionCard title="CME Analysis">
+          {cmeLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
+            </div>
+          ) : significantCMEs.length === 0 ? (
+            <div className="text-center py-6 text-gray-500 text-sm">
+              No significant CME activity in the past 30 days
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {significantCMEs.map((cme, i) => {
+                const speedColor =
+                  cme.speed > 1200
+                    ? "text-alert-red"
+                    : cme.speed > 800
+                      ? "text-caution-amber"
+                      : "text-signal-green";
+                const dotColor =
+                  cme.speed > 1200
+                    ? "bg-alert-red"
+                    : cme.speed > 800
+                      ? "bg-caution-amber"
+                      : "bg-signal-green";
+                return (
+                  <div
+                    key={`cme-m-${cme.time21_5}-${i}`}
+                    className="rounded-xl border border-white/10 bg-white/[0.02] p-3"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${dotColor}`} />
+                        <span
+                          className={`text-sm font-bold font-mono ${speedColor}`}
+                        >
+                          {Math.round(cme.speed)} km/s
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500 font-mono">
+                        {cme.time21_5
+                          ? new Date(cme.time21_5).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="flex gap-4 text-xs text-gray-400">
+                      <span>
+                        Half-angle:{" "}
+                        <span className="text-gray-300 font-mono">
+                          {cme.halfAngle}°
+                        </span>
+                      </span>
+                      <span>
+                        Type:{" "}
+                        <span className="text-gray-300 font-mono">
+                          {cme.type || "—"}
+                        </span>
+                      </span>
+                    </div>
+                    {cme.note && (
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                        {cme.note}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </AccordionCard>
       </main>
     </div>

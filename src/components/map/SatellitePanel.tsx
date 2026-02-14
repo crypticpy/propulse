@@ -14,10 +14,13 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Card } from "@/components/ui/Card";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { useSatellites } from "@/hooks/useSatellites";
+import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
+import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
 import type {
   SatelliteInfo,
   SatelliteCategory,
   PassPrediction,
+  SatNOGSTransmitter,
 } from "@/types/satellite";
 import {
   getTransponder,
@@ -28,9 +31,12 @@ import {
   getCorrectedFrequencies,
   type CorrectedFrequencies,
 } from "@/lib/utils/doppler";
+import { computePassQuality } from "@/lib/utils/passQuality";
 import { calculatePosition } from "@/lib/api/satellites";
 import { useUserStore } from "@/stores/userStore";
 import { useRigStore } from "@/stores/rigStore";
+import { SatelliteLogButton } from "./layers/SatelliteLogButton";
+import { CustomTLEDialog } from "./layers/CustomTLEDialog";
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -78,6 +84,27 @@ function formatLatLon(lat: number, lon: number): string {
   const latDir = lat >= 0 ? "N" : "S";
   const lonDir = lon >= 0 ? "E" : "W";
   return `${Math.abs(lat).toFixed(1)}°${latDir} ${Math.abs(lon).toFixed(1)}°${lonDir}`;
+}
+
+/** Color class for pass quality score */
+function qualityColor(score: number): string {
+  if (score >= 4) return "text-green-400";
+  if (score === 3) return "text-yellow-400";
+  if (score === 2) return "text-orange-400";
+  return "text-red-400";
+}
+
+/** Render filled/empty stars for a 1-5 rating */
+function StarRating({ score }: { score: 1 | 2 | 3 | 4 | 5 }) {
+  return (
+    <span
+      className={`text-[10px] ${qualityColor(score)}`}
+      aria-label={`${score} out of 5 stars`}
+    >
+      {"★".repeat(score)}
+      {"☆".repeat(5 - score)}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -136,12 +163,13 @@ function SatelliteRow({
   );
 }
 
-/** Pass prediction row */
+/** Pass prediction row with quality stars */
 function PassRow({ pass }: { pass: PassPrediction }) {
   const { use24h } = useTimeFormat();
   const isActive = pass.aos <= new Date() && pass.los >= new Date();
   const isFuture = pass.aos > new Date();
   const timeFmt = use24h ? "HH:mm" : "h:mm a";
+  const quality = computePassQuality(pass);
 
   return (
     <div
@@ -168,11 +196,27 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {format(pass.los, timeFmt)}
           </span>
         </div>
-        {isFuture && (
-          <div className="text-[10px] text-gray-500 mt-0.5">
-            in {formatDistanceToNow(pass.aos)}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <StarRating score={quality.score} />
+          <span
+            className={`text-[9px] px-1 py-0.5 rounded font-medium ${qualityColor(quality.score)} ${
+              quality.score >= 4
+                ? "bg-green-400/10"
+                : quality.score === 3
+                  ? "bg-yellow-400/10"
+                  : quality.score === 2
+                    ? "bg-orange-400/10"
+                    : "bg-red-400/10"
+            }`}
+          >
+            {quality.label}
+          </span>
+          {isFuture && (
+            <span className="text-[10px] text-gray-500">
+              in {formatDistanceToNow(pass.aos)}
+            </span>
+          )}
+        </div>
       </div>
       <div className="text-right">
         <div className="font-mono text-gray-300">
@@ -194,16 +238,75 @@ function PassRow({ pass }: { pass: PassPrediction }) {
 // Transponder & Doppler Sub-component
 // ---------------------------------------------------------------------------
 
+/** Single SatNOGS transponder row */
+function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
+  return (
+    <div className="bg-white/[0.03] rounded-md px-2 py-1.5 mb-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium text-gray-300 truncate">
+          {tx.description}
+        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span
+            className={`text-[8px] px-1 py-0.5 rounded font-semibold uppercase ${
+              tx.status === "active"
+                ? "bg-green-400/20 text-green-400"
+                : "bg-gray-500/20 text-gray-500"
+            }`}
+          >
+            {tx.status}
+          </span>
+          {tx.mode && (
+            <span className="text-[9px] px-1 py-0.5 rounded uppercase font-semibold bg-cyan-400/20 text-cyan-400">
+              {tx.mode}
+              {tx.invert ? " INV" : ""}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+        {(tx.uplink_low || tx.uplink_high) && (
+          <div>
+            <span className="text-gray-500">UP: </span>
+            <span className="text-gray-300">
+              {tx.uplink_low ? formatFreqMHz(tx.uplink_low) : "—"}
+              {tx.uplink_high &&
+                tx.uplink_low !== tx.uplink_high &&
+                ` - ${formatFreqMHz(tx.uplink_high)}`}
+            </span>
+          </div>
+        )}
+        {(tx.downlink_low || tx.downlink_high) && (
+          <div>
+            <span className="text-gray-500">DN: </span>
+            <span className="text-gray-300">
+              {tx.downlink_low ? formatFreqMHz(tx.downlink_low) : "—"}
+              {tx.downlink_high &&
+                tx.downlink_low !== tx.downlink_high &&
+                ` - ${formatFreqMHz(tx.downlink_high)}`}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TransponderInfo({
   satellite,
   transponderData,
+  satnogsTransponders,
 }: {
   satellite: SatelliteInfo;
   transponderData: SatelliteTransponder;
+  /** SatNOGS live data — when available, shown alongside static data */
+  satnogsTransponders?: SatNOGSTransmitter[];
 }) {
   const { station } = useUserStore();
   const rigConnected = useRigStore((s) => s.connected);
   const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
+
+  const useSatNOGS = satnogsTransponders && satnogsTransponders.length > 0;
 
   // Compute Doppler-corrected frequencies for the primary transponder
   const dopplerInfo = useMemo((): CorrectedFrequencies | null => {
@@ -231,48 +334,64 @@ function TransponderInfo({
 
   return (
     <div className="mt-2">
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
-        Transponders
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+          Transponders
+        </span>
+        {useSatNOGS && (
+          <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">
+            SatNOGS
+          </span>
+        )}
       </div>
-      {transponderData.transponders.map((xpdr: Transponder, idx: number) => (
-        <div key={idx} className="bg-white/[0.03] rounded-md px-2 py-1.5 mb-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-medium text-gray-300">
-              {xpdr.name}
-            </span>
-            <span
-              className={`text-[9px] px-1 py-0.5 rounded uppercase font-semibold ${
-                xpdr.mode === "FM"
-                  ? "bg-green-400/20 text-green-400"
-                  : xpdr.mode === "linear"
-                    ? "bg-cyan-400/20 text-cyan-400"
-                    : "bg-orange-400/20 text-orange-400"
-              }`}
+
+      {/* Prefer SatNOGS live data when available, fallback to static */}
+      {useSatNOGS
+        ? satnogsTransponders.map((tx) => (
+            <SatNOGSTransponderRow key={tx.uuid} tx={tx} />
+          ))
+        : transponderData.transponders.map((xpdr: Transponder, idx: number) => (
+            <div
+              key={idx}
+              className="bg-white/[0.03] rounded-md px-2 py-1.5 mb-1"
             >
-              {xpdr.mode}
-              {xpdr.inverted ? " INV" : ""}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
-            <div>
-              <span className="text-gray-500">UP: </span>
-              <span className="text-gray-300">
-                {formatFreqMHz(xpdr.uplinkRangeHz[0])}
-                {xpdr.uplinkRangeHz[0] !== xpdr.uplinkRangeHz[1] &&
-                  ` - ${formatFreqMHz(xpdr.uplinkRangeHz[1])}`}
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium text-gray-300">
+                  {xpdr.name}
+                </span>
+                <span
+                  className={`text-[9px] px-1 py-0.5 rounded uppercase font-semibold ${
+                    xpdr.mode === "FM"
+                      ? "bg-green-400/20 text-green-400"
+                      : xpdr.mode === "linear"
+                        ? "bg-cyan-400/20 text-cyan-400"
+                        : "bg-orange-400/20 text-orange-400"
+                  }`}
+                >
+                  {xpdr.mode}
+                  {xpdr.inverted ? " INV" : ""}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+                <div>
+                  <span className="text-gray-500">UP: </span>
+                  <span className="text-gray-300">
+                    {formatFreqMHz(xpdr.uplinkRangeHz[0])}
+                    {xpdr.uplinkRangeHz[0] !== xpdr.uplinkRangeHz[1] &&
+                      ` - ${formatFreqMHz(xpdr.uplinkRangeHz[1])}`}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">DN: </span>
+                  <span className="text-gray-300">
+                    {formatFreqMHz(xpdr.downlinkRangeHz[0])}
+                    {xpdr.downlinkRangeHz[0] !== xpdr.downlinkRangeHz[1] &&
+                      ` - ${formatFreqMHz(xpdr.downlinkRangeHz[1])}`}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-gray-500">DN: </span>
-              <span className="text-gray-300">
-                {formatFreqMHz(xpdr.downlinkRangeHz[0])}
-                {xpdr.downlinkRangeHz[0] !== xpdr.downlinkRangeHz[1] &&
-                  ` - ${formatFreqMHz(xpdr.downlinkRangeHz[1])}`}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
+          ))}
 
       {transponderData.beaconHz && (
         <div className="text-[10px] font-mono text-gray-400 mt-1">
@@ -342,10 +461,21 @@ function SatelliteDetail({
 }) {
   const { lat, lon, alt, velocity } = satellite.position;
 
-  // Look up transponder data
+  // Look up static transponder data
   const transponderData = useMemo(
     () => getTransponder(satellite.name, satellite.noradId),
     [satellite.name, satellite.noradId],
+  );
+
+  // Fetch live SatNOGS transponder data
+  const { transponders: satnogsXpdrs } = useSatelliteTransponders(
+    satellite.noradId,
+  );
+
+  // Determine primary transponder mode/frequency for the log button
+  const primaryXpdr = transponderData?.transponders[0];
+  const activePass = passes.find(
+    (p) => p.aos <= new Date() && p.los >= new Date(),
   );
 
   return (
@@ -433,8 +563,22 @@ function SatelliteDetail({
         <TransponderInfo
           satellite={satellite}
           transponderData={transponderData}
+          satnogsTransponders={
+            satnogsXpdrs.length > 0 ? satnogsXpdrs : undefined
+          }
         />
       )}
+
+      {/* Log This Pass button */}
+      <div className="mt-2">
+        <SatelliteLogButton
+          satelliteName={satellite.name}
+          transponderMode={primaryXpdr?.mode}
+          downlinkFrequencyHz={primaryXpdr?.downlinkRangeHz[0]}
+          passStartTime={activePass?.aos}
+          isAboveHorizon={satellite.isVisible}
+        />
+      </div>
 
       {/* Pass predictions */}
       <div className="flex-1 min-h-0">
@@ -487,6 +631,13 @@ export function SatellitePanel({
   const [filterCategory, setFilterCategory] = useState<
     SatelliteCategory | "all"
   >("all");
+
+  // Custom TLE dialog state
+  const [showCustomTLE, setShowCustomTLE] = useState(false);
+
+  // Satellite pass alerts
+  const { alertsEnabled, notificationSupported, requestPermission } =
+    useSatelliteAlerts();
 
   // Filter and sort satellites
   const filteredSatellites = useMemo(() => {
@@ -656,6 +807,66 @@ export function SatellitePanel({
           <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
             {satellites.length} sats
           </span>
+
+          {/* Alerts toggle */}
+          {notificationSupported && (
+            <button
+              onClick={() => {
+                if (!alertsEnabled) requestPermission();
+              }}
+              className={`relative p-1 rounded transition-colors ${
+                alertsEnabled
+                  ? "text-green-400 hover:bg-green-400/10"
+                  : "text-gray-500 hover:bg-white/10"
+              }`}
+              title={
+                alertsEnabled ? "Pass alerts enabled" : "Enable pass alerts"
+              }
+              aria-label={
+                alertsEnabled ? "Pass alerts enabled" : "Enable pass alerts"
+              }
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
+              </svg>
+              {alertsEnabled && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-green-400" />
+              )}
+            </button>
+          )}
+
+          {/* Import Custom TLE */}
+          <button
+            onClick={() => setShowCustomTLE(true)}
+            className="p-1 hover:bg-white/10 rounded transition-colors"
+            title="Import custom TLE"
+            aria-label="Import custom TLE"
+          >
+            <svg
+              className="w-3.5 h-3.5 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+          </button>
+
           <button
             onClick={() => refetch()}
             className="p-1 hover:bg-white/10 rounded transition-colors"
@@ -771,6 +982,12 @@ export function SatellitePanel({
           </div>
         )}
       </div>
+
+      {/* Custom TLE import dialog */}
+      <CustomTLEDialog
+        isOpen={showCustomTLE}
+        onClose={() => setShowCustomTLE(false)}
+      />
     </Card>
   );
 }

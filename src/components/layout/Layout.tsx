@@ -15,6 +15,7 @@ import { PWAUpdatePrompt } from "@/components/ui/PWAUpdatePrompt";
 import { AuthModal } from "@/components/auth";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
+import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
@@ -35,6 +36,9 @@ export function Layout() {
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Initialize satellite pass alert monitoring (browser notifications)
+  useSatelliteAlerts();
 
   // Initialize undo/redo keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
   useUndoRedo({ enabled: true });

@@ -5,6 +5,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { MobileHeader } from "./MobileHeader";
 import { BottomTabBar } from "./BottomTabBar";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
+import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
 import {
   AlertBanner,
   AlertToastContainer,
@@ -51,6 +52,9 @@ export function MobileLayout() {
 
   // Initialize solar alert monitoring (mirrors Layout.tsx)
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Initialize satellite pass alert monitoring (browser notifications)
+  useSatelliteAlerts();
 
   // Initialize sync queue background processor
   useSyncQueue();

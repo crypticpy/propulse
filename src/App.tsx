@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState, useCallback } from "react";
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, Link, Navigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -97,6 +97,22 @@ const NetAnalyticsPage = lazy(() =>
     default: m.NetAnalyticsPage,
   })),
 );
+const NetControllerPage = lazy(() =>
+  import("@/pages/NetControllerPage").then((m) => ({
+    default: m.NetControllerPage,
+  })),
+);
+const NetControllerDetailPage = lazy(() =>
+  import("@/pages/NetControllerDetailPage").then((m) => ({
+    default: m.NetControllerDetailPage,
+  })),
+);
+
+/** Redirect helper for old /nets/:netId/* routes that moved to /ncs/:netId/* */
+function NcsRedirect({ suffix }: { suffix: string }) {
+  const { netId } = useParams<{ netId: string }>();
+  return <Navigate to={`/ncs/${netId}${suffix}`} replace />;
+}
 
 function AppLayout() {
   const isMobile = useIsMobile();
@@ -230,11 +246,30 @@ function App() {
           <Route path="/features" element={<FeaturesPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/help/:sectionId" element={<HelpArticlePage />} />
+          {/* Net Registry (browse / discover) */}
           <Route path="/nets" element={<NetsPage />} />
-          <Route path="/nets/create" element={<NetCreatePage />} />
           <Route path="/nets/:netId" element={<NetDetailPage />} />
-          <Route path="/nets/:netId/live" element={<NCSLiveDashboard />} />
-          <Route path="/nets/:netId/analytics" element={<NetAnalyticsPage />} />
+
+          {/* Net Controller (manage / operate) */}
+          <Route path="/ncs" element={<NetControllerPage />} />
+          <Route path="/ncs/create" element={<NetCreatePage />} />
+          <Route path="/ncs/:netId" element={<NetControllerDetailPage />} />
+          <Route path="/ncs/:netId/live" element={<NCSLiveDashboard />} />
+          <Route path="/ncs/:netId/analytics" element={<NetAnalyticsPage />} />
+
+          {/* Redirects from old /nets/* controller routes */}
+          <Route
+            path="/nets/create"
+            element={<Navigate to="/ncs/create" replace />}
+          />
+          <Route
+            path="/nets/:netId/live"
+            element={<NcsRedirect suffix="/live" />}
+          />
+          <Route
+            path="/nets/:netId/analytics"
+            element={<NcsRedirect suffix="/analytics" />}
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

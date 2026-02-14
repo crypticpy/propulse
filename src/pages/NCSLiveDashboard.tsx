@@ -235,7 +235,7 @@ export function NCSLiveDashboard() {
     async (notes?: string) => {
       if (!currentSession?.id) return;
       await endSession(currentSession.id, notes);
-      navigate(`/nets/${netId}`);
+      navigate(`/ncs/${netId}`);
     },
     [currentSession?.id, endSession, navigate, netId],
   );

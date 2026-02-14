@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useNetStore } from "@/stores/netStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -24,11 +24,6 @@ import { FormalityBadge } from "@/components/nets/FormalityBadge";
 import { ProtocolCheatSheet } from "@/components/nets/ProtocolCheatSheet";
 import { VoIPNodeList } from "@/components/nets/VoIPNodeList";
 import { RSVPButton } from "@/components/nets/RSVPButton";
-import { ManagerRoster } from "@/components/nets/ManagerRoster";
-import {
-  NCSRotationCalendar,
-  type NCSRotationEntry,
-} from "@/components/nets/NCSRotationCalendar";
 import { NetRegulars } from "@/components/nets/NetRegulars";
 import { NetRecommendations } from "@/components/nets/NetRecommendations";
 import { NetParticipationLog } from "@/components/nets/NetParticipationLog";
@@ -36,7 +31,7 @@ import TuneToNetButton from "@/components/nets/TuneToNetButton";
 import { downloadADIF, sessionToADIF } from "@/lib/export/adif";
 import { getNextSessionTime } from "@/lib/utils/netSchedule";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
-import type { NetManagerRole, NetCheckin, NetSession } from "@/types/net";
+import type { NetCheckin, NetSession } from "@/types/net";
 
 /** Helper: get ordinal suffix for a number (1st, 2nd, 3rd, etc.) */
 function getOrdinalSuffix(n: number): string {
@@ -47,7 +42,6 @@ function getOrdinalSuffix(n: number): string {
 
 export function NetDetailPage() {
   const { netId } = useParams<{ netId: string }>();
-  const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   // Store selectors
@@ -63,14 +57,12 @@ export function NetDetailPage() {
   const isSubscribed = useNetStore((s) => s.isSubscribed);
   const subscribe = useNetStore((s) => s.subscribe);
   const unsubscribe = useNetStore((s) => s.unsubscribe);
-  const isManager = useNetStore((s) => s.isManager);
+  const isManagerFn = useNetStore((s) => s.isManager);
   const fetchRsvps = useNetStore((s) => s.fetchRsvps);
   const addRsvp = useNetStore((s) => s.addRsvp);
   const removeRsvp = useNetStore((s) => s.removeRsvp);
   const getRsvpCount = useNetStore((s) => s.getRsvpCount);
   const hasRsvpdFn = useNetStore((s) => s.hasRsvpd);
-  const addManagerAction = useNetStore((s) => s.addManager);
-  const removeManagerAction = useNetStore((s) => s.removeManager);
 
   const authUser = useAuthStore((s) => s.user);
 
@@ -136,47 +128,6 @@ export function NetDetailPage() {
       }
     },
     [currentNet, sessions],
-  );
-
-  // NCS rotation — localStorage-backed per net
-  const rotationKey = netId ? `propulse-ncs-rotation-${netId}` : "";
-
-  const [ncsRotation, setNcsRotation] = useState<NCSRotationEntry[]>(() => {
-    if (!rotationKey) return [];
-    try {
-      const raw = localStorage.getItem(rotationKey);
-      return raw ? (JSON.parse(raw) as NCSRotationEntry[]) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const handleUpdateRotation = useCallback(
-    (updated: NCSRotationEntry[]) => {
-      setNcsRotation(updated);
-      if (rotationKey) {
-        localStorage.setItem(rotationKey, JSON.stringify(updated));
-      }
-    },
-    [rotationKey],
-  );
-
-  const handleAddManager = useCallback(
-    (callsign: string, role: NetManagerRole) => {
-      if (!netId) return;
-      // The store's addManager takes userId; pass callsign as userId for now.
-      // Backend can resolve callsign to userId if needed.
-      void addManagerAction(netId, callsign, role);
-    },
-    [netId, addManagerAction],
-  );
-
-  const handleRemoveManager = useCallback(
-    (userId: string) => {
-      if (!netId) return;
-      void removeManagerAction(netId, userId);
-    },
-    [netId, removeManagerAction],
   );
 
   // Fetch all data on mount
@@ -311,8 +262,7 @@ export function NetDetailPage() {
   const net = currentNet;
   const isLive = currentSession?.status === "live";
   const subscribed = isSubscribed(net.id);
-  const userIsManager = isManager(net.id);
-  const userIsOwner = !!(authUser && authUser.id === net.createdBy);
+  const userIsManager = isManagerFn(net.id);
 
   // Shared panel class
   const panelClass = isMobile
@@ -489,15 +439,16 @@ export function NetDetailPage() {
         </div>
       )}
 
-      {/* NCS Dashboard link (managers only) */}
+      {/* Controller link (managers only) */}
       {userIsManager && (
-        <button
-          type="button"
-          onClick={() => navigate(`/nets/${net.id}/live`)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/25 transition-all w-full justify-center"
+        <Link
+          to={`/ncs/${net.id}`}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.03] text-gray-300 border border-white/5 hover:bg-white/[0.06] transition-all"
         >
+          <span className="text-base">🎙️</span>
+          You manage this net — go to Controller
           <svg
-            className="w-4 h-4"
+            className="w-3.5 h-3.5 ml-auto text-gray-500"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -506,11 +457,10 @@ export function NetDetailPage() {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              d="M9 5l7 7-7 7"
             />
           </svg>
-          Open NCS Dashboard
-        </button>
+        </Link>
       )}
 
       {/* Protocol Cheat Sheet */}
@@ -583,26 +533,6 @@ export function NetDetailPage() {
           </div>
         )}
       </div>
-
-      {/* Manager Roster (add/remove — owner & managers only) */}
-      {userIsManager && (
-        <ManagerRoster
-          netId={net.id}
-          managers={managers}
-          isOwner={userIsOwner}
-          onAddManager={handleAddManager}
-          onRemoveManager={handleRemoveManager}
-        />
-      )}
-
-      {/* NCS Rotation Calendar (managers only) */}
-      {userIsManager && (
-        <NCSRotationCalendar
-          rotation={ncsRotation}
-          isManager={userIsManager}
-          onUpdateRotation={handleUpdateRotation}
-        />
-      )}
 
       {/* Session History */}
       <div className={panelClass}>

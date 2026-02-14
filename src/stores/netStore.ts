@@ -225,6 +225,15 @@ interface NetStore {
   getRsvpCount: (netId: string, date: string) => number;
   hasRsvpd: (netId: string, date: string) => boolean;
 
+  // Managed nets (Net Controller)
+  managedNets: Array<{
+    net: Net;
+    role: NetManagerRole;
+    hasLiveSession: boolean;
+  }>;
+  isLoadingManagedNets: boolean;
+  fetchMyManagedNets: () => Promise<void>;
+
   // Reset
   reset: () => void;
 }
@@ -243,6 +252,12 @@ const initialState = {
   isLoadingCalendarToken: false,
   callsignHistory: [] as string[],
   rsvps: [] as NetRsvp[],
+  managedNets: [] as Array<{
+    net: Net;
+    role: NetManagerRole;
+    hasLiveSession: boolean;
+  }>,
+  isLoadingManagedNets: false,
 };
 
 export const useNetStore = create<NetStore>()((set, get) => ({
@@ -1429,6 +1444,67 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     return get().rsvps.some(
       (r) => r.netId === netId && r.userId === userId && r.sessionDate === date,
     );
+  },
+
+  // ── Managed Nets (Net Controller) ────────────────────────────────
+
+  fetchMyManagedNets: async () => {
+    if (!isSupabaseConfigured) return;
+    const userId = useAuthStore.getState().user?.id;
+    if (!userId) return;
+
+    set({ isLoadingManagedNets: true });
+
+    try {
+      const supabase = getSupabase();
+
+      // 1. Fetch manager records for current user
+      const { data: managerRows, error: mgrErr } = await (supabase as any)
+        .from("net_managers")
+        .select("*")
+        .eq("user_id", userId);
+
+      if (mgrErr || !managerRows || managerRows.length === 0) {
+        set({ managedNets: [], isLoadingManagedNets: false });
+        return;
+      }
+
+      const netIds = managerRows.map((r: any) => r.net_id as string);
+      const roleMap = new Map<string, NetManagerRole>(
+        managerRows.map((r: any) => [
+          r.net_id as string,
+          r.role as NetManagerRole,
+        ]),
+      );
+
+      // 2. Fetch net details
+      const { data: netRows } = await (supabase as any)
+        .from("nets")
+        .select("*")
+        .in("id", netIds);
+
+      // 3. Check for live sessions
+      const { data: liveRows } = await (supabase as any)
+        .from("net_sessions")
+        .select("net_id")
+        .in("net_id", netIds)
+        .eq("status", "live");
+
+      const liveNetIds = new Set(
+        (liveRows ?? []).map((r: any) => r.net_id as string),
+      );
+
+      const managedNets = (netRows ?? []).map((row: any) => ({
+        net: rowToNet(row),
+        role: roleMap.get(row.id as string) ?? ("ncs" as NetManagerRole),
+        hasLiveSession: liveNetIds.has(row.id as string),
+      }));
+
+      set({ managedNets, isLoadingManagedNets: false });
+    } catch (err) {
+      console.error("[netStore] fetchMyManagedNets:", err);
+      set({ isLoadingManagedNets: false });
+    }
   },
 
   // ── Reset ────────────────────────────────────────────────────────

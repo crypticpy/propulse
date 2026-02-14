@@ -19,6 +19,7 @@ const TOOLS_PATHS = [
   "/profile",
   "/shack",
   "/nets",
+  "/ncs",
 ];
 
 /**

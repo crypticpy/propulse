@@ -7,10 +7,9 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useNetStore } from "@/stores/netStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { NetCard } from "@/components/nets/NetCard";
 import { NetFilterControls } from "@/components/nets/NetFilterControls";
@@ -21,9 +20,7 @@ import type { NetFilters } from "@/types/net";
 import { DEFAULT_NET_FILTERS } from "@/types/net";
 
 export function NetsPage() {
-  const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const requireAuth = useRequireAuth();
 
   // Store selectors
   const nets = useNetStore((s) => s.nets);
@@ -92,11 +89,6 @@ export function NetsPage() {
     return result;
   }, [sessions, nets]);
 
-  // Create net handler (auth-gated)
-  const handleCreateNet = () => {
-    requireAuth(() => navigate("/nets/create"), "Sign in to create a new net");
-  };
-
   return (
     <div
       className={
@@ -113,26 +105,13 @@ export function NetsPage() {
             Discover and subscribe to amateur radio nets
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleCreateNet}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/25 transition-all"
+        <Link
+          to="/ncs"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-gray-200 bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          {!isMobile && "Create Net"}
-        </button>
+          <span>🎙️</span>
+          Net Controller
+        </Link>
       </div>
 
       {/* Happening Now banner */}

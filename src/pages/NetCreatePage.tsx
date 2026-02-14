@@ -25,7 +25,7 @@ export function NetCreatePage() {
       try {
         const newId = await createNet(data);
         if (newId) {
-          navigate(`/nets/${newId}`);
+          navigate(`/ncs/${newId}`);
         }
       } finally {
         setIsSubmitting(false);
@@ -50,7 +50,7 @@ export function NetCreatePage() {
       <div className="mb-8">
         <button
           type="button"
-          onClick={() => navigate("/nets")}
+          onClick={() => navigate("/ncs")}
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors mb-4"
         >
           <svg
@@ -66,7 +66,7 @@ export function NetCreatePage() {
               d="M15 19l-7-7 7-7"
             />
           </svg>
-          Back to Net Registry
+          Back to Net Controller
         </button>
         <h1 className="text-2xl font-bold text-white">Create a New Net</h1>
         <p className="mt-1 text-sm text-gray-400">

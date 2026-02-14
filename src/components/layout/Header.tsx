@@ -67,14 +67,19 @@ export function Header({
     { path: "/log", label: "Logbook", icon: "📝" },
     { path: "/contest", label: "Contest", icon: "🏆" },
     { path: "/nets", label: "Net Registry", icon: "📡" },
+    { path: "/ncs", label: "Net Controller", icon: "🎙️" },
   ];
 
   // Check if any tool is active
   const isToolActive = toolsItems.some(
-    (item) => location.pathname === item.path,
+    (item) =>
+      location.pathname === item.path ||
+      location.pathname.startsWith(item.path + "/"),
   );
   const activeToolLabel = toolsItems.find(
-    (item) => location.pathname === item.path,
+    (item) =>
+      location.pathname === item.path ||
+      location.pathname.startsWith(item.path + "/"),
   )?.label;
 
   return (

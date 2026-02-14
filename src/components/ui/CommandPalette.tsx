@@ -409,10 +409,18 @@ export function CommandPalette({
       {
         id: "nav-nets",
         label: "Go to Net Registry",
-        keywords: ["net", "nets", "control", "registry", "directory", "ncs"],
+        keywords: ["net", "nets", "registry", "directory", "discover"],
         category: "navigation",
         icon: RadioIcon,
         action: nav("/nets"),
+      },
+      {
+        id: "nav-ncs",
+        label: "Go to Net Controller",
+        keywords: ["ncs", "controller", "manage", "go live", "net control"],
+        category: "navigation",
+        icon: RadioIcon,
+        action: nav("/ncs"),
       },
       {
         id: "nav-help",

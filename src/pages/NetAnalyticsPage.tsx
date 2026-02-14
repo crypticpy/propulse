@@ -251,7 +251,7 @@ export function NetAnalyticsPage() {
         </p>
         {netId && (
           <Link
-            to={`/nets/${netId}`}
+            to={`/ncs/${netId}`}
             className="px-4 py-2 rounded-lg bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium"
           >
             Back to Net
@@ -296,7 +296,7 @@ export function NetAnalyticsPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 mb-6">
         <Link
-          to={`/nets/${netId}`}
+          to={`/ncs/${netId}`}
           className="text-gray-400 hover:text-white transition-colors text-sm"
         >
           &larr; Back

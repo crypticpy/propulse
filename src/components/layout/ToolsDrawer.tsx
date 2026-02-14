@@ -92,8 +92,14 @@ const tools = [
   {
     path: "/nets",
     label: "Net Registry",
-    description: "Discover & manage ham radio nets",
+    description: "Discover & subscribe to ham radio nets",
     icon: "📡",
+  },
+  {
+    path: "/ncs",
+    label: "Net Controller",
+    description: "Manage & go live on your nets",
+    icon: "🎙️",
   },
 ];
 

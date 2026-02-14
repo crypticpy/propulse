@@ -256,3 +256,137 @@ export function getScheduleDayLabel(schedule: NetSchedule): string {
       return "—";
   }
 }
+
+// ── Local Time Formatting ─────────────────────────────────────────────────
+
+interface FormatScheduleLocalOptions {
+  timeFormat?: "12h" | "24h";
+  /** Whether to append "(HH:MM UTC)" suffix. Default true. */
+  showUtcSuffix?: boolean;
+}
+
+/**
+ * Format a schedule into a human-readable string using the browser's local
+ * timezone.
+ *
+ * Examples:
+ * - "Every Tuesday at 7:30 PM EST (01:30 UTC)"
+ * - "Daily at 19:30 CET (18:30 UTC)"
+ * - "Ad-hoc / On demand"
+ *
+ * @param schedule - The net's recurrence schedule
+ * @param options  - Formatting options for 12h/24h and UTC suffix
+ * @returns Localised human-readable schedule description
+ */
+export function formatScheduleLocal(
+  schedule: NetSchedule,
+  options?: FormatScheduleLocalOptions,
+): string {
+  const nextSession = getNextSessionTime(schedule);
+  if (!nextSession) return "Ad-hoc / On demand";
+
+  const [hours, minutes] = parseTimeUtc(schedule.timeUtc);
+  const date = new Date();
+  date.setUTCHours(hours, minutes, 0, 0);
+
+  const localTime = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: options?.timeFormat !== "24h",
+    timeZoneName: "short",
+  }).format(date);
+
+  const showUtc = options?.showUtcSuffix !== false;
+  const utcSuffix = showUtc ? ` (${schedule.timeUtc} UTC)` : "";
+
+  switch (schedule.pattern) {
+    case "daily":
+      return `Daily at ${localTime}${utcSuffix}`;
+
+    case "weekly": {
+      const dayName = DAY_NAMES[schedule.dayOfWeek ?? 0];
+      return `Every ${dayName} at ${localTime}${utcSuffix}`;
+    }
+
+    case "biweekly": {
+      const dayName = DAY_NAMES[schedule.dayOfWeek ?? 0];
+      return `Every other ${dayName} at ${localTime}${utcSuffix}`;
+    }
+
+    case "monthly": {
+      const day = ordinal(schedule.dayOfMonth ?? 1);
+      return `Monthly on the ${day} at ${localTime}${utcSuffix}`;
+    }
+
+    case "adhoc":
+      return "Ad-hoc / On demand";
+
+    default:
+      return "Unknown schedule";
+  }
+}
+
+/**
+ * Get a human-friendly relative string for the next scheduled session.
+ *
+ * Returns strings like:
+ * - "In 5 minutes"
+ * - "In 3 hours"
+ * - "Tomorrow 7:30 PM"
+ * - "Tue 7:30 PM"
+ * - "Mar 15 7:30 PM"
+ *
+ * @param schedule   - The net's recurrence schedule
+ * @param timeFormat - "12h" or "24h" (default "12h")
+ * @returns Relative time string, or null for adhoc / unpredictable schedules
+ */
+export function getNextSessionRelative(
+  schedule: NetSchedule,
+  timeFormat: "12h" | "24h" = "12h",
+): string | null {
+  const next = getNextSessionTime(schedule);
+  if (!next) return null;
+
+  const now = new Date();
+  const diffMs = next.getTime() - now.getTime();
+
+  // Should always be positive, but guard against edge timing
+  if (diffMs <= 0) return null;
+
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+
+  const hour12 = timeFormat !== "24h";
+
+  // Format the time portion for day-level labels
+  const formatTimeStr = (d: Date): string =>
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12,
+    }).format(d);
+
+  if (diffMins < 60) {
+    return diffMins === 1 ? "In 1 minute" : `In ${diffMins} minutes`;
+  }
+
+  if (diffHours < 24) {
+    return diffHours === 1 ? "In 1 hour" : `In ${diffHours} hours`;
+  }
+
+  if (diffHours < 48) {
+    return `Tomorrow ${formatTimeStr(next)}`;
+  }
+
+  if (diffHours < 7 * 24) {
+    const dayName = DAY_SHORT[next.getDay()];
+    return `${dayName} ${formatTimeStr(next)}`;
+  }
+
+  // More than a week away — show month + day
+  const monthDay = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(next);
+  return `${monthDay} ${formatTimeStr(next)}`;
+}

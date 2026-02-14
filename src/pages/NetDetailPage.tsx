@@ -3,7 +3,7 @@
  *
  * Fetches net, managers, sessions, and user subscriptions.
  * Desktop: two-column layout (sidebar info card + main content area).
- * Mobile: single column, stacked layout.
+ * Mobile: single column, reordered sections prioritising actions.
  *
  * Shows live banner if active session, NCS dashboard link for managers,
  * description, NCS roster, and session history.
@@ -29,15 +29,33 @@ import { NetRecommendations } from "@/components/nets/NetRecommendations";
 import { NetParticipationLog } from "@/components/nets/NetParticipationLog";
 import TuneToNetButton from "@/components/nets/TuneToNetButton";
 import { downloadADIF, sessionToADIF } from "@/lib/export/adif";
-import { getNextSessionTime } from "@/lib/utils/netSchedule";
+import {
+  getNextSessionTime,
+  formatScheduleLocal,
+} from "@/lib/utils/netSchedule";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { NetCheckin, NetSession } from "@/types/net";
 
-/** Helper: get ordinal suffix for a number (1st, 2nd, 3rd, etc.) */
-function getOrdinalSuffix(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
+/**
+ * Format an ISO alpha-2 country code into a display name using Intl.DisplayNames.
+ * Falls back to the raw code if the API is unavailable.
+ */
+function formatCountryDisplay(
+  countryCode: string,
+  stateOrProvince?: string,
+): string {
+  let countryName: string;
+  try {
+    const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+    countryName = regionNames.of(countryCode.toUpperCase()) ?? countryCode;
+  } catch {
+    countryName = countryCode;
+  }
+
+  if (stateOrProvince) {
+    return `${stateOrProvince}, ${countryName}`;
+  }
+  return countryName;
 }
 
 export function NetDetailPage() {
@@ -171,52 +189,6 @@ export function NetDetailPage() {
     void fetchRsvps(netId, nextSessionDate);
   }, [netId, nextSessionDate, fetchRsvps]);
 
-  // Format schedule for display
-  const formatSchedule = () => {
-    if (!currentNet?.schedule) return "Ad-hoc / On demand";
-
-    const days = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-    const { pattern, dayOfWeek, dayOfMonth, timeUtc, timezone } =
-      currentNet.schedule;
-
-    const parts: string[] = [];
-
-    if (pattern === "daily") {
-      parts.push("Daily");
-    } else if (
-      (pattern === "weekly" || pattern === "biweekly") &&
-      dayOfWeek !== undefined
-    ) {
-      parts.push(
-        pattern === "biweekly"
-          ? `Every other ${days[dayOfWeek]}`
-          : `Every ${days[dayOfWeek]}`,
-      );
-    } else if (pattern === "monthly" && dayOfMonth !== undefined) {
-      parts.push(`Monthly on the ${dayOfMonth}${getOrdinalSuffix(dayOfMonth)}`);
-    } else {
-      parts.push("Ad-hoc");
-    }
-
-    if (timeUtc) {
-      parts.push(`at ${timeUtc} UTC`);
-    }
-
-    if (timezone) {
-      parts.push(`(${timezone})`);
-    }
-
-    return parts.join(" ");
-  };
-
   // Loading state
   if (isLoading && !currentNet) {
     return (
@@ -244,7 +216,7 @@ export function NetDetailPage() {
           />
         </svg>
         <p className="text-gray-400 text-sm mb-2">Net not found</p>
-        <p className="text-gray-500 text-xs mb-4">
+        <p className="text-gray-400 text-xs mb-4">
           This net may have been removed or the link is incorrect.
         </p>
         <Link
@@ -269,186 +241,178 @@ export function NetDetailPage() {
     ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
     : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
 
-  // --- Sidebar content (shared between desktop sidebar and mobile stacked) ---
+  // ── Composable sidebar sections ─────────────────────────────────────────
 
-  const sidebarContent = (
-    <div className="space-y-5">
-      {/* Net name + type */}
-      <div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <NetTypeBadge type={net.type} size="md" />
-          {net.formalityLevel != null && (
-            <FormalityBadge level={net.formalityLevel} size="md" />
-          )}
-        </div>
-        <h1 className="text-lg font-bold text-white mt-2">{net.name}</h1>
-      </div>
-
-      {/* Frequency / Mode */}
-      <div>
-        <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-          Frequency
-        </h4>
-        <p className="text-sm font-mono text-gray-200">
-          {net.frequency} &middot; {net.mode}
-        </p>
-        {net.altFrequency && (
-          <p className="text-xs font-mono text-gray-500 mt-0.5">
-            Alt: {net.altFrequency}
-          </p>
-        )}
-        <div className="mt-2">
-          <TuneToNetButton frequency={net.frequency} mode={net.mode} />
-        </div>
-      </div>
-
-      {/* Band */}
-      <div>
-        <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-          Band
-        </h4>
-        <p className="text-sm text-gray-200">{net.band}</p>
-      </div>
-
-      {/* Schedule */}
-      <div>
-        <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-          Schedule
-        </h4>
-        <p className="text-sm text-gray-200">{formatSchedule()}</p>
-        {net.durationMinutes && (
-          <p className="text-xs text-gray-500 mt-0.5">
-            ~{net.durationMinutes} min typical duration
-          </p>
+  /** Name + type badges + summary */
+  const nameSection = (
+    <div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <NetTypeBadge type={net.type} size="md" />
+        {net.formalityLevel != null && (
+          <FormalityBadge level={net.formalityLevel} size="md" />
         )}
       </div>
-
-      {/* Region */}
-      {net.region && (
-        <div>
-          <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-            Region
-          </h4>
-          <p className="text-sm text-gray-200">{net.region}</p>
-        </div>
-      )}
-
-      {/* Repeater info */}
-      {net.repeaterInfo && (
-        <div>
-          <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-            Repeater
-          </h4>
-          <div className="text-sm text-gray-200 space-y-0.5">
-            <p className="font-mono">{net.repeaterInfo.callsign}</p>
-            <p className="text-xs text-gray-400">
-              Offset: {net.repeaterInfo.offset}
-            </p>
-            <p className="text-xs text-gray-400">
-              Tone: {net.repeaterInfo.tone}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Subscriber count */}
-      <div>
-        <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-          Subscribers
-        </h4>
-        <p className="text-sm text-gray-200">
-          {net.subscriberCount.toLocaleString()}
+      <h1 className="text-lg font-bold text-white mt-2">{net.name}</h1>
+      {net.summary && (
+        <p className="text-sm text-gray-300 mt-1 leading-relaxed">
+          {net.summary}
         </p>
-      </div>
-
-      {/* VoIP Access */}
-      <VoIPNodeList
-        echolinkNode={net.echolinkNode}
-        allstarNode={net.allstarNode}
-        irlpNode={net.irlpNode}
-      />
-
-      {/* Website link */}
-      {net.websiteUrl && /^https?:\/\//i.test(net.websiteUrl) && (
-        <div>
-          <a
-            href={net.websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-plasma-orange hover:text-plasma-orange/80 transition-colors"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-              />
-            </svg>
-            Website
-          </a>
-        </div>
       )}
+    </div>
+  );
 
-      {/* Subscribe button */}
+  /** Frequency, mode, alt frequency, TuneToNetButton */
+  const frequencySection = (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+        Frequency
+      </h4>
+      <p className="text-sm font-mono text-gray-200">
+        {net.frequency} &middot; {net.mode}
+      </p>
+      {net.altFrequency && (
+        <p className="text-xs font-mono text-gray-400 mt-0.5">
+          Alt: {net.altFrequency}
+        </p>
+      )}
+      <div className="mt-2">
+        <TuneToNetButton frequency={net.frequency} mode={net.mode} />
+      </div>
+    </div>
+  );
+
+  /** Subscribe + RSVP buttons */
+  const actionButtonsSection = (
+    <div className="space-y-3">
       <SubscribeButton
         netId={net.id}
         isSubscribed={subscribed}
         onSubscribe={() => subscribe(net.id)}
         onUnsubscribe={() => unsubscribe(net.id)}
       />
-
-      {/* Add to calendar */}
-      <AddToCalendarDropdown net={net} />
-
-      {/* Net Regulars */}
-      <NetRegulars netId={net.id} />
-
-      {/* Also popular with these operators */}
-      <NetRecommendations netId={net.id} />
+      {nextSessionDate && (
+        <RSVPButton
+          hasRsvpd={hasRsvpdFn(net.id, nextSessionDate)}
+          rsvpCount={getRsvpCount(net.id, nextSessionDate)}
+          onRsvp={() => addRsvp(net.id, nextSessionDate)}
+          onUnrsvp={() => removeRsvp(net.id, nextSessionDate)}
+        />
+      )}
     </div>
   );
 
-  // --- Main content area ---
+  /** Description panel */
+  const descriptionSection = net.description ? (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+        About This Net
+      </h4>
+      <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
+        {net.description}
+      </p>
+    </div>
+  ) : null;
 
-  const mainContent = (
-    <div className="space-y-6">
-      {/* Live banner */}
-      {isLive && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <NetLiveIndicator size="md" />
-            <span className="text-sm text-gray-200">
-              Net is currently in session
-              {currentSession?.ncsCallsign && (
-                <>
-                  {" "}
-                  &middot; NCS:{" "}
-                  <span className="font-mono text-plasma-orange">
-                    {currentSession.ncsCallsign}
-                  </span>
-                </>
-              )}
-            </span>
-          </div>
-        </div>
+  /** Schedule display — uses formatScheduleLocal for local time primary */
+  const scheduleSection = (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+        Schedule
+      </h4>
+      <p className="text-sm text-gray-200">
+        {net.schedule
+          ? formatScheduleLocal(net.schedule)
+          : "Ad-hoc / On demand"}
+      </p>
+      {net.durationMinutes && (
+        <p className="text-xs text-gray-400 mt-0.5">
+          ~{net.durationMinutes} min typical duration
+        </p>
       )}
+    </div>
+  );
 
-      {/* Controller link (managers only) */}
-      {userIsManager && (
-        <Link
-          to={`/ncs/${net.id}`}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.03] text-gray-300 border border-white/5 hover:bg-white/[0.06] transition-all"
+  /** VoIP nodes */
+  const voipSection = (
+    <VoIPNodeList
+      echolinkNode={net.echolinkNode}
+      allstarNode={net.allstarNode}
+      irlpNode={net.irlpNode}
+    />
+  );
+
+  /** Band metadata */
+  const bandSection = (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+        Band
+      </h4>
+      <p className="text-sm text-gray-200">{net.band}</p>
+    </div>
+  );
+
+  /** Country / state display */
+  const countrySection = net.country ? (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+        Location
+      </h4>
+      <p className="text-sm text-gray-200">
+        {formatCountryDisplay(net.country, net.stateOrProvince)}
+      </p>
+    </div>
+  ) : null;
+
+  /** Region */
+  const regionSection = net.region ? (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+        Region
+      </h4>
+      <p className="text-sm text-gray-200">{net.region}</p>
+    </div>
+  ) : null;
+
+  /** Repeater info */
+  const repeaterSection = net.repeaterInfo ? (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+        Repeater
+      </h4>
+      <div className="text-sm text-gray-200 space-y-0.5">
+        <p className="font-mono">{net.repeaterInfo.callsign}</p>
+        <p className="text-xs text-gray-400">
+          Offset: {net.repeaterInfo.offset}
+        </p>
+        <p className="text-xs text-gray-400">Tone: {net.repeaterInfo.tone}</p>
+      </div>
+    </div>
+  ) : null;
+
+  /** Subscriber count */
+  const subscriberSection = (
+    <div>
+      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+        Subscribers
+      </h4>
+      <p className="text-sm text-gray-200">
+        {net.subscriberCount.toLocaleString()}
+      </p>
+    </div>
+  );
+
+  /** Website link */
+  const websiteSection =
+    net.websiteUrl && /^https?:\/\//i.test(net.websiteUrl) ? (
+      <div>
+        <a
+          href={net.websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm text-plasma-orange hover:text-plasma-orange/80 transition-colors"
         >
-          <span className="text-base">🎙️</span>
-          You manage this net — go to Controller
           <svg
-            className="w-3.5 h-3.5 ml-auto text-gray-500"
+            className="w-3.5 h-3.5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -457,36 +421,171 @@ export function NetDetailPage() {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M9 5l7 7-7 7"
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
             />
           </svg>
-        </Link>
-      )}
+          Website
+        </a>
+      </div>
+    ) : null;
 
-      {/* Protocol Cheat Sheet */}
-      {net.protocolNotes && (
-        <ProtocolCheatSheet
-          protocolNotes={net.protocolNotes}
-          newcomerFriendly={net.newcomerFriendly}
+  /** Add to calendar */
+  const calendarSection = <AddToCalendarDropdown net={net} />;
+
+  /** Net regulars */
+  const regularsSection = <NetRegulars netId={net.id} />;
+
+  /** Recommendations */
+  const recommendationsSection = <NetRecommendations netId={net.id} />;
+
+  // ── Main content sections ───────────────────────────────────────────────
+
+  /** Live banner */
+  const liveBanner = isLive ? (
+    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <NetLiveIndicator size="md" />
+        <span className="text-sm text-gray-200">
+          Net is currently in session
+          {currentSession?.ncsCallsign && (
+            <>
+              {" "}
+              &middot; NCS:{" "}
+              <span className="font-mono text-plasma-orange">
+                {currentSession.ncsCallsign}
+              </span>
+            </>
+          )}
+        </span>
+      </div>
+    </div>
+  ) : null;
+
+  /** Controller link (managers only) */
+  const controllerLink = userIsManager ? (
+    <Link
+      to={`/ncs/${net.id}`}
+      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.03] text-gray-300 border border-white/5 hover:bg-white/[0.06] transition-all"
+    >
+      <span className="text-base">🎙️</span>
+      You manage this net — go to Controller
+      <svg
+        className="w-3.5 h-3.5 ml-auto text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 5l7 7-7 7"
         />
-      )}
+      </svg>
+    </Link>
+  ) : null;
 
-      {/* Description */}
-      {net.description && (
-        <div className={panelClass}>
-          <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
-            About This Net
-          </h3>
-          <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
-            {net.description}
-          </p>
+  /** Protocol cheat sheet */
+  const protocolSection = net.protocolNotes ? (
+    <ProtocolCheatSheet
+      protocolNotes={net.protocolNotes}
+      newcomerFriendly={net.newcomerFriendly}
+    />
+  ) : null;
+
+  /** NCS Roster panel */
+  const ncsRosterSection = (
+    <div className={panelClass}>
+      <h3 className="text-xs uppercase tracking-widest text-gray-400 mb-3">
+        NCS Roster
+      </h3>
+      {managers.length === 0 ? (
+        <p className="text-sm text-gray-400 italic">
+          No managers assigned yet.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {managers.map((manager) => (
+            <div
+              key={`${manager.netId}-${manager.userId}`}
+              className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+            >
+              <span className="text-sm font-mono text-gray-200">
+                {manager.callsign || manager.userId.slice(0, 8)}
+              </span>
+              <span
+                className={`text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  manager.role === "owner"
+                    ? "bg-plasma-orange/20 text-plasma-orange"
+                    : manager.role === "manager"
+                      ? "bg-purple-500/20 text-purple-400"
+                      : "bg-cyan-500/20 text-cyan-400"
+                }`}
+              >
+                {manager.role}
+              </span>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
 
-      {/* RSVP */}
+  /** Session history panel */
+  const sessionHistorySection = (
+    <div className={panelClass}>
+      <h3 className="text-xs uppercase tracking-widest text-gray-400 mb-3">
+        Session History
+      </h3>
+      <NetSessionHistory
+        sessions={sessions}
+        onExportSession={handleExportSession}
+      />
+    </div>
+  );
+
+  /** Participation log (authenticated users only) */
+  const participationLogSection =
+    authUser && netId ? <NetParticipationLog netId={netId} /> : null;
+
+  // ── Desktop sidebar content ─────────────────────────────────────────────
+
+  const desktopSidebarContent = (
+    <div className="space-y-5">
+      {nameSection}
+      {frequencySection}
+      {bandSection}
+      {countrySection}
+      {scheduleSection}
+      {regionSection}
+      {repeaterSection}
+      {subscriberSection}
+      {voipSection}
+      {websiteSection}
+      {actionButtonsSection}
+      {calendarSection}
+      {regularsSection}
+      {recommendationsSection}
+    </div>
+  );
+
+  // ── Desktop main content ────────────────────────────────────────────────
+
+  const desktopMainContent = (
+    <div className="space-y-6">
+      {liveBanner}
+      {controllerLink}
+      {protocolSection}
+
+      {/* Description */}
+      {descriptionSection && (
+        <div className={panelClass}>{descriptionSection}</div>
+      )}
+
+      {/* RSVP next session */}
       {nextSessionDate && (
         <div className={panelClass}>
-          <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+          <h3 className="text-xs uppercase tracking-widest text-gray-400 mb-3">
             Next Session
           </h3>
           <RSVPButton
@@ -498,59 +597,13 @@ export function NetDetailPage() {
         </div>
       )}
 
-      {/* NCS Roster (legacy inline list) */}
-      <div className={panelClass}>
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
-          NCS Roster
-        </h3>
-        {managers.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">
-            No managers assigned yet.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {managers.map((manager) => (
-              <div
-                key={`${manager.netId}-${manager.userId}`}
-                className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-              >
-                <span className="text-sm font-mono text-gray-200">
-                  {manager.callsign || manager.userId.slice(0, 8)}
-                </span>
-                <span
-                  className={`text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    manager.role === "owner"
-                      ? "bg-plasma-orange/20 text-plasma-orange"
-                      : manager.role === "manager"
-                        ? "bg-purple-500/20 text-purple-400"
-                        : "bg-cyan-500/20 text-cyan-400"
-                  }`}
-                >
-                  {manager.role}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Session History */}
-      <div className={panelClass}>
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
-          Session History
-        </h3>
-        <NetSessionHistory
-          sessions={sessions}
-          onExportSession={handleExportSession}
-        />
-      </div>
-
-      {/* Participation Log (authenticated users only) */}
-      {authUser && <NetParticipationLog netId={netId} />}
+      {ncsRosterSection}
+      {sessionHistorySection}
+      {participationLogSection}
     </div>
   );
 
-  // --- Desktop layout: two-column ---
+  // ── Desktop layout: two-column ──────────────────────────────────────────
 
   if (!isMobile) {
     return (
@@ -576,16 +629,24 @@ export function NetDetailPage() {
             </svg>
             Back to Registry
           </Link>
-          <div className={panelClass}>{sidebarContent}</div>
+          <div className={panelClass}>{desktopSidebarContent}</div>
         </div>
 
         {/* Main content */}
-        <div className="flex-1 min-w-0">{mainContent}</div>
+        <div className="flex-1 min-w-0">{desktopMainContent}</div>
       </div>
     );
   }
 
-  // --- Mobile layout: single column stacked ---
+  // ── Mobile layout: single column, reordered sections ────────────────────
+  //
+  // Priority order on mobile:
+  // 1. Name + frequency + TuneToNetButton
+  // 2. Subscribe + RSVP + Description
+  // 3. Schedule (local time) + VoIP nodes
+  // 4. Session history
+  // 5. Remaining metadata (band, country, repeater, subscribers, website, regulars, recommendations)
+  // 6. Participation log
 
   return (
     <div className="px-4 py-4 space-y-4">
@@ -610,11 +671,62 @@ export function NetDetailPage() {
         Back to Registry
       </Link>
 
-      {/* Sidebar content (stacked on mobile) */}
-      <div className={panelClass}>{sidebarContent}</div>
+      {/* Live banner at top */}
+      {liveBanner}
 
-      {/* Main content */}
-      {mainContent}
+      {/* Controller link if manager */}
+      {controllerLink}
+
+      {/* 1. Name + frequency + TuneToNetButton */}
+      <div className={panelClass}>
+        <div className="space-y-4">
+          {nameSection}
+          {frequencySection}
+        </div>
+      </div>
+
+      {/* 2. Subscribe + RSVP + Description */}
+      <div className={panelClass}>
+        <div className="space-y-4">
+          {actionButtonsSection}
+          {descriptionSection}
+        </div>
+      </div>
+
+      {/* Protocol cheat sheet (if present) */}
+      {protocolSection}
+
+      {/* 3. Schedule (local time) + VoIP nodes */}
+      <div className={panelClass}>
+        <div className="space-y-4">
+          {scheduleSection}
+          {calendarSection}
+          {voipSection}
+        </div>
+      </div>
+
+      {/* 4. Session history */}
+      {sessionHistorySection}
+
+      {/* 5. Remaining metadata: band, country, region, repeater, subscribers, website, regulars, recommendations */}
+      <div className={panelClass}>
+        <div className="space-y-4">
+          {bandSection}
+          {countrySection}
+          {regionSection}
+          {repeaterSection}
+          {subscriberSection}
+          {websiteSection}
+          {regularsSection}
+          {recommendationsSection}
+        </div>
+      </div>
+
+      {/* NCS Roster */}
+      {ncsRosterSection}
+
+      {/* 6. Participation log */}
+      {participationLogSection}
     </div>
   );
 }

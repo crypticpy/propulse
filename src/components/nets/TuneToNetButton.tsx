@@ -65,6 +65,21 @@ const RadioTowerIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
+const ClipboardIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    width={size}
+    height={size}
+    className="shrink-0"
+  >
+    <rect x="5" y="3" width="8" height="10" rx="1.5" strokeLinejoin="round" />
+    <path d="M3 5.5v8a1.5 1.5 0 001.5 1.5H11" strokeLinecap="round" />
+  </svg>
+);
+
 type TunePhase = "idle" | "tuning" | "tuned";
 
 export default function TuneToNetButton({
@@ -72,8 +87,9 @@ export default function TuneToNetButton({
   mode,
   compact = false,
 }: TuneToNetButtonProps) {
-  const { connected, send } = useBridge();
+  const { connected, send } = useBridge({ autoReconnect: false });
   const [phase, setPhase] = useState<TunePhase>("idle");
+  const [copied, setCopied] = useState(false);
 
   const handleTune = useCallback(() => {
     if (!connected || phase !== "idle") return;
@@ -91,6 +107,39 @@ export default function TuneToNetButton({
     }, 500);
   }, [connected, phase, frequency, mode, send]);
 
+  const handleCopyFrequency = useCallback(() => {
+    if (copied) return;
+    navigator.clipboard.writeText(frequency).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [frequency, copied]);
+
+  // When bridge is disconnected, show a copy-to-clipboard fallback
+  if (!connected) {
+    const copyBase = compact
+      ? "p-1.5 rounded-lg"
+      : "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium";
+
+    const copyColors = copied
+      ? "bg-signal-green/20 text-signal-green border border-signal-green/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"
+      : "bg-white/[0.06] text-gray-300 border border-white/15 hover:bg-white/10 hover:text-white cursor-pointer";
+
+    return (
+      <button
+        type="button"
+        onClick={handleCopyFrequency}
+        title={copied ? "Copied!" : `Copy ${frequency} to clipboard`}
+        className={`${copyBase} ${copyColors} transition-colors duration-200`}
+      >
+        <ClipboardIcon size={compact ? 14 : 16} />
+        {!compact && (
+          <span className="font-mono">{copied ? "Copied!" : frequency}</span>
+        )}
+      </button>
+    );
+  }
+
   const label =
     phase === "tuning"
       ? "Tuning..."
@@ -98,9 +147,8 @@ export default function TuneToNetButton({
         ? "Tuned!"
         : "Tune to Net";
 
-  const tooltip = !connected
-    ? "Connect bridge to tune"
-    : phase === "tuned"
+  const tooltip =
+    phase === "tuned"
       ? `Tuned to ${frequency}`
       : `Tune radio to ${frequency} ${mode}`;
 
@@ -108,11 +156,10 @@ export default function TuneToNetButton({
     ? "p-1.5 rounded-lg"
     : "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium";
 
-  const colors = !connected
-    ? "bg-white/5 text-gray-500 cursor-not-allowed border border-white/5"
-    : phase === "tuned"
-      ? "bg-signal-green/20 text-signal-green border border-signal-green/30"
-      : "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30";
+  const colors =
+    phase === "tuned"
+      ? "bg-signal-green/20 text-signal-green border border-signal-green/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"
+      : "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 hover:shadow-[0_0_12px_rgba(255,107,53,0.25)] border border-white/15 border-plasma-orange/30 focus-visible:ring-2 focus-visible:ring-plasma-orange/70";
 
   const transition = "transition-colors duration-200";
 
@@ -120,7 +167,7 @@ export default function TuneToNetButton({
     <button
       type="button"
       onClick={handleTune}
-      disabled={!connected || phase !== "idle"}
+      disabled={phase !== "idle"}
       title={tooltip}
       className={`${base} ${colors} ${transition}`}
     >

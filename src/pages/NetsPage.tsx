@@ -1,16 +1,17 @@
 /**
  * NetsPage -- Net Registry listing page.
  *
- * Displays a filterable, searchable grid of amateur radio nets.
+ * Displays a filterable, searchable, paginated grid of amateur radio nets.
  * Header with "Create Net" auth-gated button, NetFilterControls,
- * and a responsive grid of NetCard components.
+ * and a responsive grid of NetCard components with pagination.
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useNetStore } from "@/stores/netStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Pagination } from "@/components/ui/Pagination";
 import { NetCard } from "@/components/nets/NetCard";
 import { NetFilterControls } from "@/components/nets/NetFilterControls";
 import { HappeningNowBanner } from "@/components/nets/HappeningNowBanner";
@@ -27,11 +28,19 @@ export function NetsPage() {
   const isLoading = useNetStore((s) => s.isLoading);
   const fetchNets = useNetStore((s) => s.fetchNets);
   const sessions = useNetStore((s) => s.sessions);
+  const totalCount = useNetStore((s) => s.totalCount);
+  const currentPage = useNetStore((s) => s.currentPage);
+  const pageSize = useNetStore((s) => s.pageSize);
+  const setPage = useNetStore((s) => s.setPage);
+  const setPageSize = useNetStore((s) => s.setPageSize);
 
   // Local filter state
   const [filters, setFilters] = useState<NetFilters>({
     ...DEFAULT_NET_FILTERS,
   });
+
+  // Track previous filters to detect filter changes (not page changes)
+  const prevFiltersRef = useRef(filters);
 
   // Count active filters (excluding sortBy which always has a value)
   const activeFilterCount = useMemo(() => {
@@ -42,15 +51,39 @@ export function NetsPage() {
     if (filters.mode) count++;
     if (filters.dayOfWeek !== null) count++;
     if (filters.region) count++;
+    if (filters.country) count++;
+    if (filters.stateOrProvince) count++;
     if (filters.formalityLevel !== null) count++;
     if (filters.newcomerFriendly !== null) count++;
     return count;
   }, [filters]);
 
-  // Fetch nets on mount and whenever filters change
+  // Reset page to 0 when filters change (not when page changes)
+  useEffect(() => {
+    const prev = prevFiltersRef.current;
+    const filtersChanged =
+      prev.search !== filters.search ||
+      prev.type !== filters.type ||
+      prev.band !== filters.band ||
+      prev.mode !== filters.mode ||
+      prev.dayOfWeek !== filters.dayOfWeek ||
+      prev.region !== filters.region ||
+      prev.country !== filters.country ||
+      prev.stateOrProvince !== filters.stateOrProvince ||
+      prev.sortBy !== filters.sortBy ||
+      prev.formalityLevel !== filters.formalityLevel ||
+      prev.newcomerFriendly !== filters.newcomerFriendly;
+
+    if (filtersChanged) {
+      setPage(0);
+    }
+    prevFiltersRef.current = filters;
+  }, [filters, setPage]);
+
+  // Fetch nets on mount and whenever filters or pagination change
   useEffect(() => {
     void fetchNets(filters);
-  }, [fetchNets, filters]);
+  }, [fetchNets, filters, currentPage, pageSize]);
 
   // Filter change handler
   const handleFilterChange = useCallback(
@@ -64,6 +97,19 @@ export function NetsPage() {
   const handleReset = useCallback(() => {
     setFilters({ ...DEFAULT_NET_FILTERS });
   }, []);
+
+  // Page reset handler for filter controls
+  const handlePageReset = useCallback(() => {
+    setPage(0);
+  }, [setPage]);
+
+  // Page size change handler — also resets to first page
+  const handlePageSizeChange = useCallback(
+    (size: number) => {
+      setPageSize(size);
+    },
+    [setPageSize],
+  );
 
   // Check which nets have live sessions
   const liveNetIds = useMemo(() => {
@@ -88,6 +134,8 @@ export function NetsPage() {
     }
     return result;
   }, [sessions, nets]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div
@@ -129,6 +177,7 @@ export function NetsPage() {
         onChange={handleFilterChange}
         onReset={handleReset}
         activeCount={activeFilterCount}
+        onPageReset={handlePageReset}
       />
 
       {/* Loading state */}
@@ -178,6 +227,20 @@ export function NetsPage() {
             <NetCard key={net.id} net={net} isLive={liveNetIds.has(net.id)} />
           ))}
         </div>
+      )}
+
+      {/* Pagination — only show when results exceed a single page */}
+      {!isLoading && totalCount > pageSize && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
+          totalCount={totalCount}
+          pageSizeOptions={[24, 48, 96]}
+          entityName="nets"
+        />
       )}
     </div>
   );

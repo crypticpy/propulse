@@ -1,20 +1,27 @@
 /**
  * NetFilterControls -- Filter UI for the Net Registry page.
  *
- * Always-visible search input at top, with a collapsible filter section
- * containing type, band, mode, day-of-week filters and sort controls.
- * Follows the DXSpotList FilterControls expand/collapse pattern.
+ * Layout:
+ *   Always visible: Search input, Quick Filters (Type pills, Band pills), Sort row
+ *   Collapsible "More Filters": Mode, Day, Formality, Newcomer, Country, State
+ *
+ * All pill buttons include aria-pressed. Pill sizing is responsive
+ * (44px touch targets on mobile, 36px on desktop).
  */
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { NetFilters, NetType } from "@/types/net";
 import { NET_TYPE_LABELS, FORMALITY_LABELS } from "@/types/net";
+import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
+import { US_STATES } from "@/lib/data/usStates.generated";
 
 interface NetFilterControlsProps {
   filters: NetFilters;
   onChange: <K extends keyof NetFilters>(key: K, value: NetFilters[K]) => void;
   onReset: () => void;
   activeCount: number;
+  onPageReset?: () => void;
 }
 
 const NET_TYPE_OPTIONS: { value: NetType; label: string }[] = (
@@ -55,13 +62,84 @@ const SORT_OPTIONS: { value: NetFilters["sortBy"]; label: string }[] = [
   { value: "recent", label: "Recent" },
 ];
 
+/** Lightweight country list for the combobox — only name + iso, no heavy border data */
+const COUNTRY_LIST = WORLD_COUNTRIES.filter(
+  (c) => c.iso && c.iso !== "undefined",
+).map((c) => ({
+  name: c.name,
+  iso: c.iso,
+}));
+
 export function NetFilterControls({
   filters,
   onChange,
   onReset,
   activeCount,
+  onPageReset,
 }: NetFilterControlsProps) {
+  const isMobile = useIsMobile();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Country combobox state
+  const [countrySearch, setCountrySearch] = useState("");
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const countryRef = useRef<HTMLDivElement>(null);
+
+  // Close country dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        countryRef.current &&
+        !countryRef.current.contains(e.target as Node)
+      ) {
+        setCountryDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filtered country list for the combobox dropdown
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch.trim()) return COUNTRY_LIST;
+    const lower = countrySearch.toLowerCase();
+    return COUNTRY_LIST.filter(
+      (c) =>
+        c.name.toLowerCase().includes(lower) ||
+        c.iso.toLowerCase().includes(lower),
+    );
+  }, [countrySearch]);
+
+  // Resolve selected country name from ISO code
+  const selectedCountryName = useMemo(() => {
+    if (!filters.country) return null;
+    return COUNTRY_LIST.find((c) => c.iso === filters.country)?.name ?? null;
+  }, [filters.country]);
+
+  // When country changes to non-US, clear stateOrProvince
+  useEffect(() => {
+    if (filters.country !== "US" && filters.stateOrProvince) {
+      onChange("stateOrProvince", null);
+      onPageReset?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.country]);
+
+  // Wrapper that also calls onPageReset when any filter changes
+  function handleChange<K extends keyof NetFilters>(
+    key: K,
+    value: NetFilters[K],
+  ) {
+    onChange(key, value);
+    onPageReset?.();
+  }
+
+  // Pill button base classes — responsive sizing
+  const pillBase = `rounded-lg font-medium transition-all border ${
+    isMobile
+      ? "px-3 py-2 text-xs min-h-[44px]"
+      : "px-3 py-2 text-xs min-h-[36px]"
+  }`;
 
   return (
     <div className="space-y-3">
@@ -86,12 +164,12 @@ export function NetFilterControls({
             type="text"
             placeholder="Search nets by name..."
             value={filters.search}
-            onChange={(e) => onChange("search", e.target.value)}
+            onChange={(e) => handleChange("search", e.target.value)}
             className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
           />
           {filters.search && (
             <button
-              onClick={() => onChange("search", "")}
+              onClick={() => handleChange("search", "")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
               aria-label="Clear search"
             >
@@ -112,7 +190,7 @@ export function NetFilterControls({
           )}
         </div>
 
-        {/* Expand/collapse toggle */}
+        {/* "More Filters" expand/collapse toggle */}
         <button
           onClick={() => setIsExpanded((prev) => !prev)}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
@@ -135,7 +213,7 @@ export function NetFilterControls({
               d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
             />
           </svg>
-          Filters
+          More Filters
           {activeCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-plasma-orange/30 text-plasma-orange min-w-[18px] text-center">
               {activeCount}
@@ -157,63 +235,104 @@ export function NetFilterControls({
         </button>
       </div>
 
-      {/* Collapsible filter panel */}
+      {/* Quick Filters — always visible */}
+      <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-4">
+        {/* Net Type */}
+        <div>
+          <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            Type
+          </h4>
+          <div className="flex flex-wrap gap-1.5">
+            {NET_TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() =>
+                  handleChange(
+                    "type",
+                    filters.type === opt.value ? null : opt.value,
+                  )
+                }
+                aria-pressed={filters.type === opt.value}
+                className={`${pillBase} ${
+                  filters.type === opt.value
+                    ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
+                    : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Band */}
+        <div>
+          <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            Band
+          </h4>
+          <div className="flex flex-wrap gap-1.5">
+            {BAND_OPTIONS.map((band) => (
+              <button
+                key={band}
+                onClick={() =>
+                  handleChange("band", filters.band === band ? null : band)
+                }
+                aria-pressed={filters.band === band}
+                className={`${pillBase} ${
+                  filters.band === band
+                    ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40"
+                    : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {band}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Sort row — always visible */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs uppercase tracking-widest text-gray-400 mr-1">
+            Sort
+          </span>
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => handleChange("sortBy", opt.value)}
+              aria-pressed={filters.sortBy === opt.value}
+              className={`${pillBase} ${
+                filters.sortBy === opt.value
+                  ? "bg-white/10 text-white border-white/20"
+                  : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Reset */}
+        {activeCount > 0 && (
+          <button
+            onClick={() => {
+              onReset();
+              onPageReset?.();
+            }}
+            className="text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            Reset filters
+          </button>
+        )}
+      </div>
+
+      {/* Collapsible "More Filters" panel */}
       {isExpanded && (
         <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-4">
-          {/* Net Type */}
-          <div>
-            <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
-              Type
-            </h4>
-            <div className="flex flex-wrap gap-1.5">
-              {NET_TYPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() =>
-                    onChange(
-                      "type",
-                      filters.type === opt.value ? null : opt.value,
-                    )
-                  }
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
-                    filters.type === opt.value
-                      ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
-                      : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Band */}
-          <div>
-            <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
-              Band
-            </h4>
-            <div className="flex flex-wrap gap-1.5">
-              {BAND_OPTIONS.map((band) => (
-                <button
-                  key={band}
-                  onClick={() =>
-                    onChange("band", filters.band === band ? null : band)
-                  }
-                  className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all border ${
-                    filters.band === band
-                      ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40"
-                      : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {band}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Mode */}
           <div>
-            <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
               Mode
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -221,9 +340,10 @@ export function NetFilterControls({
                 <button
                   key={mode}
                   onClick={() =>
-                    onChange("mode", filters.mode === mode ? null : mode)
+                    handleChange("mode", filters.mode === mode ? null : mode)
                   }
-                  className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+                  aria-pressed={filters.mode === mode}
+                  className={`${pillBase} ${
                     filters.mode === mode
                       ? "bg-purple-500/20 text-purple-400 border-purple-500/40"
                       : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
@@ -237,7 +357,7 @@ export function NetFilterControls({
 
           {/* Day of Week */}
           <div>
-            <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
               Day
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -245,12 +365,13 @@ export function NetFilterControls({
                 <button
                   key={day.value}
                   onClick={() =>
-                    onChange(
+                    handleChange(
                       "dayOfWeek",
                       filters.dayOfWeek === day.value ? null : day.value,
                     )
                   }
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+                  aria-pressed={filters.dayOfWeek === day.value}
+                  className={`${pillBase} ${
                     filters.dayOfWeek === day.value
                       ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
                       : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
@@ -264,7 +385,7 @@ export function NetFilterControls({
 
           {/* Formality */}
           <div>
-            <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
               Formality
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -272,12 +393,13 @@ export function NetFilterControls({
                 <button
                   key={level}
                   onClick={() =>
-                    onChange(
+                    handleChange(
                       "formalityLevel",
                       filters.formalityLevel === level ? null : level,
                     )
                   }
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+                  aria-pressed={filters.formalityLevel === level}
+                  className={`${pillBase} ${
                     filters.formalityLevel === level
                       ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
                       : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
@@ -291,17 +413,18 @@ export function NetFilterControls({
 
           {/* Newcomer Friendly */}
           <div>
-            <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
               Newcomer Friendly
             </h4>
             <button
               onClick={() =>
-                onChange(
+                handleChange(
                   "newcomerFriendly",
                   filters.newcomerFriendly === true ? null : true,
                 )
               }
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+              aria-pressed={filters.newcomerFriendly === true}
+              className={`${pillBase} ${
                 filters.newcomerFriendly === true
                   ? "bg-signal-green/20 text-signal-green border-signal-green/40"
                   : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
@@ -311,38 +434,107 @@ export function NetFilterControls({
             </button>
           </div>
 
-          {/* Sort + Reset row */}
-          <div className="flex items-center justify-between pt-2 border-t border-white/5">
-            {/* Sort buttons */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-1">
-                Sort
-              </span>
-              {SORT_OPTIONS.map((opt) => (
+          {/* Country filter — searchable combobox */}
+          <div>
+            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+              Country
+            </h4>
+            {filters.country && selectedCountryName ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-200">
+                  {selectedCountryName}
+                </span>
                 <button
-                  key={opt.value}
-                  onClick={() => onChange("sortBy", opt.value)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
-                    filters.sortBy === opt.value
-                      ? "bg-white/10 text-white border-white/20"
-                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
-                  }`}
+                  onClick={() => {
+                    handleChange("country", null);
+                    setCountrySearch("");
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  aria-label="Clear country filter"
                 >
-                  {opt.label}
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
                 </button>
-              ))}
-            </div>
-
-            {/* Reset */}
-            {activeCount > 0 && (
-              <button
-                onClick={onReset}
-                className="text-[11px] text-gray-400 hover:text-white transition-colors"
-              >
-                Reset filters
-              </button>
+              </div>
+            ) : (
+              <div className="relative" ref={countryRef}>
+                <input
+                  type="text"
+                  placeholder="Search countries..."
+                  value={countrySearch}
+                  onChange={(e) => {
+                    setCountrySearch(e.target.value);
+                    setCountryDropdownOpen(true);
+                  }}
+                  onFocus={() => setCountryDropdownOpen(true)}
+                  className="w-full max-w-xs bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+                />
+                {countryDropdownOpen && filteredCountries.length > 0 && (
+                  <ul className="absolute z-20 mt-1 w-full max-w-xs max-h-[240px] overflow-y-auto bg-deep-space border border-white/10 rounded-lg shadow-lg">
+                    {filteredCountries.slice(0, 50).map((c) => (
+                      <li key={c.iso}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleChange("country", c.iso);
+                            setCountrySearch("");
+                            setCountryDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                          {c.name}{" "}
+                          <span className="text-gray-500 text-xs">
+                            ({c.iso})
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
+
+          {/* State filter — only visible when country is US */}
+          {filters.country === "US" && (
+            <div>
+              <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+                State
+              </h4>
+              <select
+                value={filters.stateOrProvince ?? ""}
+                onChange={(e) =>
+                  handleChange("stateOrProvince", e.target.value || null)
+                }
+                className="bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 px-3 py-2 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer max-w-xs w-full"
+                aria-label="Filter by state"
+              >
+                <option value="" className="bg-deep-space text-white">
+                  All states
+                </option>
+                {US_STATES.map((state) => (
+                  <option
+                    key={state.fips}
+                    value={state.name}
+                    className="bg-deep-space text-white"
+                  >
+                    {state.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
     </div>

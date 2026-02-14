@@ -6,7 +6,7 @@
  * Matches the dark-theme input styling used throughout Propulse.
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type {
   CreateNetInput,
   NetType,
@@ -15,6 +15,8 @@ import type {
   RepeaterInfo,
 } from "@/types/net";
 import { NET_TYPE_LABELS, FORMALITY_LABELS } from "@/types/net";
+import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
+import { US_STATES } from "@/lib/data/usStates.generated";
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -113,6 +115,154 @@ const inputClass =
 
 const labelClass = "block text-xs font-medium text-gray-400 mb-1";
 
+// ── Country Combobox Data ────────────────────────────────────────────────────
+
+/** Lightweight options — only name + iso, skip heavy border polygons */
+const COUNTRY_OPTIONS = WORLD_COUNTRIES.filter(
+  (c) => c.iso && c.iso !== "undefined",
+)
+  .map((c) => ({
+    name: c.name,
+    iso: c.iso,
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+// ── Country Combobox Component ──────────────────────────────────────────────
+
+function CountryCombobox({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedName = COUNTRY_OPTIONS.find((c) => c.iso === value)?.name ?? "";
+  const filtered = search
+    ? COUNTRY_OPTIONS.filter((c) =>
+        c.name.toLowerCase().includes(search.toLowerCase()),
+      ).slice(0, 10)
+    : COUNTRY_OPTIONS.slice(0, 10);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleMouseDown(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [isOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        setSearch("");
+        inputRef.current?.blur();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={isOpen ? search : selectedName}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => {
+            setIsOpen(true);
+            setSearch("");
+          }}
+          placeholder="Search countries..."
+          className={inputClass}
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setSearch("");
+            }}
+            className="shrink-0 p-1 text-gray-400 hover:text-white"
+            aria-label="Clear country"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
+      {isOpen && (
+        <ul
+          className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-deep-space border border-white/15 rounded-lg shadow-xl"
+          role="listbox"
+        >
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-gray-500">
+              No countries found
+            </li>
+          ) : (
+            filtered.map((c) => (
+              <li key={c.iso}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={c.iso === value}
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                    c.iso === value
+                      ? "bg-plasma-orange/15 text-plasma-orange"
+                      : "text-gray-300 hover:bg-white/10"
+                  }`}
+                  onClick={() => {
+                    onChange(c.iso);
+                    setSearch("");
+                    setIsOpen(false);
+                  }}
+                >
+                  {c.name}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function NetForm({
@@ -129,6 +279,11 @@ export function NetForm({
   const [band, setBand] = useState(initialValues?.band ?? "");
   const [description, setDescription] = useState(
     initialValues?.description ?? "",
+  );
+  const [summary, setSummary] = useState(initialValues?.summary ?? "");
+  const [country, setCountry] = useState(initialValues?.country ?? "");
+  const [stateOrProvince, setStateOrProvince] = useState(
+    initialValues?.stateOrProvince ?? "",
   );
   const [region, setRegion] = useState(initialValues?.region ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(initialValues?.websiteUrl ?? "");
@@ -278,10 +433,13 @@ export function NetForm({
       const data: CreateNetInput = {
         name: name.trim(),
         type,
+        summary: summary.trim() || undefined,
         frequency: frequency.trim(),
         mode,
         band: band.trim() || detectBandFromFrequency(frequency) || "Unknown",
         description: description.trim() || undefined,
+        country: country || undefined,
+        stateOrProvince: stateOrProvince || undefined,
         region: region.trim() || undefined,
         schedule,
         durationMinutes:
@@ -307,10 +465,13 @@ export function NetForm({
     [
       name,
       type,
+      summary,
       frequency,
       mode,
       band,
       description,
+      country,
+      stateOrProvince,
       region,
       showSchedule,
       schedulePattern,
@@ -356,6 +517,24 @@ export function NetForm({
         {errors.name && (
           <p className="mt-1 text-xs text-red-400">{errors.name}</p>
         )}
+      </div>
+
+      {/* ── Summary ────────────────────────────────────────────────────────── */}
+      <div>
+        <label className={labelClass}>
+          Summary <span className="text-gray-500 font-normal">(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={summary}
+          onChange={(e) => setSummary(e.target.value.slice(0, 140))}
+          placeholder="Brief one-liner for the directory card"
+          maxLength={140}
+          className={inputClass}
+        />
+        <p className="text-right text-xs text-gray-500 mt-0.5 tabular-nums">
+          {summary.length}/140
+        </p>
       </div>
 
       {/* ── Type ──────────────────────────────────────────────────────────── */}
@@ -519,16 +698,51 @@ export function NetForm({
         )}
       </div>
 
-      {/* ── Region ────────────────────────────────────────────────────────── */}
-      <div>
-        <label className={labelClass}>Region</label>
-        <input
-          type="text"
-          value={region}
-          onChange={(e) => setRegion(e.target.value)}
-          placeholder="e.g. Northeast US, Southern California"
-          className={inputClass}
-        />
+      {/* ── Location ──────────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div>
+          <label className={labelClass}>Country</label>
+          <CountryCombobox
+            value={country}
+            onChange={(iso) => {
+              setCountry(iso);
+              // Clear state if country changes to non-US
+              if (iso !== "US") setStateOrProvince("");
+            }}
+          />
+        </div>
+
+        {country === "US" && (
+          <div>
+            <label className={labelClass}>State</label>
+            <select
+              value={stateOrProvince}
+              onChange={(e) => setStateOrProvince(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Select state...</option>
+              {US_STATES.map((s) => (
+                <option key={s.fips} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <label className={labelClass}>
+            Region / Area{" "}
+            <span className="text-gray-500 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            placeholder="e.g. San Francisco Bay Area, Greater London"
+            className={inputClass}
+          />
+        </div>
       </div>
 
       {/* ── Description ───────────────────────────────────────────────────── */}

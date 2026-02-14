@@ -36,6 +36,7 @@ function rowToNet(row: Record<string, unknown>): Net {
     id: row.id as string,
     name: row.name as string,
     type: row.type as NetType,
+    summary: (row.summary as string) ?? undefined,
     description: (row.description as string) ?? "",
     frequency: row.frequency as string,
     altFrequency: (row.alt_frequency as string) ?? undefined,
@@ -43,6 +44,8 @@ function rowToNet(row: Record<string, unknown>): Net {
     band: row.band as string,
     schedule: (row.schedule as NetSchedule) ?? undefined,
     durationMinutes: (row.duration_minutes as number) ?? undefined,
+    country: (row.country as string) ?? undefined,
+    stateOrProvince: (row.state_or_province as string) ?? undefined,
     region: (row.region as string) ?? undefined,
     repeaterInfo: (row.repeater_info as RepeaterInfo) ?? undefined,
     preambleTemplate: (row.preamble_template as string) ?? undefined,
@@ -143,6 +146,9 @@ interface NetStore {
   isLoadingSession: boolean;
   calendarToken: string | null;
   isLoadingCalendarToken: boolean;
+  totalCount: number;
+  currentPage: number;
+  pageSize: number;
 
   // Net CRUD
   fetchNets: (filters?: Partial<NetFilters>) => Promise<void>;
@@ -150,6 +156,10 @@ interface NetStore {
   createNet: (data: CreateNetInput) => Promise<string | null>;
   updateNet: (netId: string, data: Partial<CreateNetInput>) => Promise<void>;
   deleteNet: (netId: string) => Promise<void>;
+
+  // Pagination
+  setPage: (page: number) => void;
+  setPageSize: (size: number) => void;
 
   // Subscriptions
   fetchMySubscriptions: () => Promise<void>;
@@ -250,6 +260,9 @@ const initialState = {
   isLoadingSession: false,
   calendarToken: null as string | null,
   isLoadingCalendarToken: false,
+  totalCount: 0,
+  currentPage: 0,
+  pageSize: 24,
   callsignHistory: [] as string[],
   rsvps: [] as NetRsvp[],
   managedNets: [] as Array<{
@@ -263,7 +276,7 @@ const initialState = {
 export const useNetStore = create<NetStore>()((set, get) => ({
   ...initialState,
 
-  // ── Fetch Nets (directory listing with optional filters) ─────────
+  // ── Fetch Nets (directory listing with optional filters + pagination) ──
 
   fetchNets: async (filters?: Partial<NetFilters>) => {
     if (!isSupabaseConfigured) return;
@@ -272,13 +285,20 @@ export const useNetStore = create<NetStore>()((set, get) => ({
 
     try {
       const supabase = getSupabase();
+      const { currentPage, pageSize } = get();
+
+      const sortBy = filters?.sortBy ?? "popularity";
+      const hasDayOfWeekFilter =
+        filters?.dayOfWeek !== undefined && filters.dayOfWeek !== null;
+      const needsClientSidePagination =
+        sortBy === "upcoming" || hasDayOfWeekFilter;
 
       let query = (supabase as any)
         .from("nets")
-        .select("*")
+        .select("*", { count: "exact" })
         .in("visibility", ["public", "unlisted"]);
 
-      // Apply optional filters
+      // ── Server-side filters ──
       if (filters?.search) {
         const escaped = filters.search.replace(/[%_\\]/g, "\\$&");
         query = query.ilike("name", `%${escaped}%`);
@@ -295,9 +315,23 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       if (filters?.region) {
         query = query.eq("region", filters.region);
       }
+      if (filters?.newcomerFriendly) {
+        query = query.eq("newcomer_friendly", true);
+      }
+      if (
+        filters?.formalityLevel !== undefined &&
+        filters.formalityLevel !== null
+      ) {
+        query = query.eq("formality_level", filters.formalityLevel);
+      }
+      if (filters?.country) {
+        query = query.eq("country", filters.country);
+      }
+      if (filters?.stateOrProvince) {
+        query = query.eq("state_or_province", filters.stateOrProvince);
+      }
 
-      // Sort order (server-side for popularity/recent; client-side for upcoming)
-      const sortBy = filters?.sortBy ?? "popularity";
+      // ── Sort order ──
       if (sortBy === "popularity") {
         query = query.order("subscriber_count", { ascending: false });
       } else if (sortBy === "recent") {
@@ -307,7 +341,19 @@ export const useNetStore = create<NetStore>()((set, get) => ({
         query = query.order("subscriber_count", { ascending: false });
       }
 
-      const { data, error } = await query;
+      // ── Pagination ──
+      if (needsClientSidePagination) {
+        // Fetch a larger window for client-side filtering/sorting
+        const fetchLimit = hasDayOfWeekFilter ? 500 : 200;
+        query = query.range(0, fetchLimit - 1);
+      } else {
+        // True server-side pagination
+        const from = currentPage * pageSize;
+        const to = from + pageSize - 1;
+        query = query.range(from, to);
+      }
+
+      const { data, error, count } = await query;
 
       if (error || !data) {
         console.error("[netStore] fetchNets error:", error?.message);
@@ -318,29 +364,12 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       let rows = data as Record<string, unknown>[];
 
       // ── Client-side dayOfWeek filter (JSONB schedule column) ──
-      if (filters?.dayOfWeek !== undefined && filters.dayOfWeek !== null) {
+      if (hasDayOfWeekFilter) {
         rows = rows.filter((row) => {
           const schedule = row.schedule as NetSchedule | null;
           if (!schedule) return false;
-          return schedule.dayOfWeek === filters.dayOfWeek;
+          return schedule.dayOfWeek === filters!.dayOfWeek;
         });
-      }
-
-      // ── Client-side newcomer-friendly filter ──
-      if (filters?.newcomerFriendly === true) {
-        rows = rows.filter(
-          (row) => (row.newcomer_friendly as boolean) === true,
-        );
-      }
-
-      // ── Client-side formality level filter ──
-      if (
-        filters?.formalityLevel !== undefined &&
-        filters.formalityLevel !== null
-      ) {
-        rows = rows.filter(
-          (row) => (row.formality_level as number) === filters.formalityLevel,
-        );
       }
 
       // ── Client-side sort for "upcoming" ──
@@ -358,15 +387,35 @@ export const useNetStore = create<NetStore>()((set, get) => ({
         });
       }
 
-      set({
-        nets: rows.map(rowToNet),
-        isLoading: false,
-      });
+      // ── Client-side pagination for upcoming / dayOfWeek ──
+      if (needsClientSidePagination) {
+        const totalFiltered = rows.length;
+        const from = currentPage * pageSize;
+        const to = from + pageSize;
+        rows = rows.slice(from, to);
+
+        set({
+          nets: rows.map(rowToNet),
+          totalCount: totalFiltered,
+          isLoading: false,
+        });
+      } else {
+        set({
+          nets: rows.map(rowToNet),
+          totalCount: (count as number) ?? 0,
+          isLoading: false,
+        });
+      }
     } catch (err) {
       console.error("[netStore] fetchNets exception:", err);
       set({ isLoading: false });
     }
   },
+
+  // ── Pagination ──────────────────────────────────────────────────
+
+  setPage: (page: number) => set({ currentPage: page }),
+  setPageSize: (size: number) => set({ pageSize: size, currentPage: 0 }),
 
   // ── Fetch Single Net ─────────────────────────────────────────────
 
@@ -411,6 +460,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
         .insert({
           name: data.name,
           type: data.type,
+          summary: data.summary ?? null,
           description: data.description ?? "",
           frequency: data.frequency,
           alt_frequency: data.altFrequency ?? null,
@@ -418,6 +468,8 @@ export const useNetStore = create<NetStore>()((set, get) => ({
           band: data.band,
           schedule: data.schedule ?? null,
           duration_minutes: data.durationMinutes ?? null,
+          country: data.country ?? null,
+          state_or_province: data.stateOrProvince ?? null,
           region: data.region ?? null,
           repeater_info: data.repeaterInfo ?? null,
           preamble_template: data.preambleTemplate ?? null,
@@ -479,6 +531,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       const updates: Record<string, unknown> = {};
       if (data.name !== undefined) updates.name = data.name;
       if (data.type !== undefined) updates.type = data.type;
+      if (data.summary !== undefined) updates.summary = data.summary;
       if (data.description !== undefined)
         updates.description = data.description;
       if (data.frequency !== undefined) updates.frequency = data.frequency;
@@ -489,6 +542,9 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       if (data.schedule !== undefined) updates.schedule = data.schedule;
       if (data.durationMinutes !== undefined)
         updates.duration_minutes = data.durationMinutes;
+      if (data.country !== undefined) updates.country = data.country;
+      if (data.stateOrProvince !== undefined)
+        updates.state_or_province = data.stateOrProvince;
       if (data.region !== undefined) updates.region = data.region;
       if (data.repeaterInfo !== undefined)
         updates.repeater_info = data.repeaterInfo;

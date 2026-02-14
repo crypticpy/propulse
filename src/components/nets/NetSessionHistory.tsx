@@ -152,6 +152,8 @@ export function NetSessionHistory({
                   onClick={() =>
                     setExpandedSummaryId(isExpanded ? null : session.id)
                   }
+                  aria-expanded={isExpanded}
+                  aria-controls={`session-details-${session.id}`}
                   className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
                     isExpanded
                       ? "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30"
@@ -165,7 +167,10 @@ export function NetSessionHistory({
 
             {/* Expandable session summary card */}
             {hasSummary && isExpanded && session.summary && (
-              <div className="ml-3 mr-3 mt-1 mb-2">
+              <div
+                id={`session-details-${session.id}`}
+                className="ml-3 mr-3 mt-1 mb-2"
+              >
                 <SessionSummaryCard
                   summary={session.summary}
                   session={session}

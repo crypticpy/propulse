@@ -1,53 +1,50 @@
 /**
  * NetCard -- Compact card for the net registry grid.
  *
- * Shows net type badge, name, frequency/mode, schedule text, subscriber count,
- * and an optional live indicator. Clicking navigates to the net detail page.
+ * Shows net type badge, name, summary, frequency/mode, next session pill,
+ * location badge, subscriber count, and an optional live indicator.
+ * Clicking navigates to the net detail page.
  */
 
 import { useNavigate } from "react-router-dom";
 import type { Net } from "@/types/net";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { NetTypeBadge } from "./NetTypeBadge";
 import { NetLiveIndicator } from "./NetLiveIndicator";
 import { FormalityBadge } from "./FormalityBadge";
+import {
+  formatSchedule,
+  getNextSessionRelative,
+} from "@/lib/utils/netSchedule";
 
 interface NetCardProps {
   net: Net;
   isLive?: boolean;
 }
 
-/** Format a schedule object into a human-readable string. */
-function formatSchedule(net: Net): string {
+/** Resolve country ISO code to display name via Intl.DisplayNames. */
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+
+/** Format a schedule object into a human-readable UTC fallback string. */
+function formatScheduleFallback(net: Net): string {
   if (!net.schedule) return "Ad-hoc";
-
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const { pattern, dayOfWeek, timeUtc } = net.schedule;
-
-  const parts: string[] = [];
-
-  if (pattern === "daily") {
-    parts.push("Daily");
-  } else if (
-    (pattern === "weekly" || pattern === "biweekly") &&
-    dayOfWeek !== undefined
-  ) {
-    parts.push(pattern === "biweekly" ? "Biweekly" : "Every");
-    parts.push(days[dayOfWeek] ?? "");
-  } else if (pattern === "monthly") {
-    parts.push("Monthly");
-  } else {
-    parts.push("Ad-hoc");
-  }
-
-  if (timeUtc) {
-    parts.push(`at ${timeUtc} UTC`);
-  }
-
-  return parts.filter(Boolean).join(" ");
+  return formatSchedule(net.schedule);
 }
 
 export function NetCard({ net, isLive }: NetCardProps) {
   const navigate = useNavigate();
+  const timeFormat = useSettingsStore((s) => s.timeFormat);
+
+  // Next session relative label (e.g., "In 3 hours", "Tue 7:30 PM")
+  const nextSession = net.schedule
+    ? getNextSessionRelative(net.schedule, timeFormat)
+    : null;
+
+  // Location label from country + state/province + region
+  const countryName = net.country ? regionNames.of(net.country) : undefined;
+  const locationLabel = [countryName, net.stateOrProvince, net.region]
+    .filter(Boolean)
+    .join(" \u00b7 ");
 
   return (
     <button
@@ -71,41 +68,78 @@ export function NetCard({ net, isLive }: NetCardProps) {
         {net.name}
       </h3>
 
+      {/* Summary line */}
+      {net.summary && (
+        <p className="text-sm text-gray-300 line-clamp-2 leading-snug mb-1">
+          {net.summary}
+        </p>
+      )}
+
       {/* Frequency + mode */}
       <p className="text-xs text-gray-400 font-mono mb-2">
         {net.frequency} &middot; {net.mode}
       </p>
 
-      {/* Schedule */}
-      <p className="text-[11px] text-gray-500 mb-3">{formatSchedule(net)}</p>
-
-      {/* Bottom row: subscriber count */}
-      <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
-        <svg
-          className="w-3 h-3"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-          />
-        </svg>
-        <span>
-          {net.subscriberCount.toLocaleString()} subscriber
-          {net.subscriberCount !== 1 ? "s" : ""}
-        </span>
+      {/* Next session pill + location badge */}
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        {nextSession ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-nebula-blue/10 text-nebula-blue text-xs">
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            {nextSession}
+          </span>
+        ) : (
+          /* UTC schedule fallback when no relative time is available */
+          <span className="text-xs text-gray-400">
+            {formatScheduleFallback(net)}
+          </span>
+        )}
+        {locationLabel && (
+          <span className="text-xs text-gray-400 truncate">
+            {locationLabel}
+          </span>
+        )}
       </div>
 
-      {/* Newcomer-friendly indicator */}
-      {net.newcomerFriendly && (
-        <span className="text-[10px] text-signal-green mt-1 inline-block">
-          Newcomer Friendly
-        </span>
-      )}
+      {/* Bottom row: subscriber count + newcomer label */}
+      <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-1.5">
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+          <span>
+            {net.subscriberCount.toLocaleString()} subscriber
+            {net.subscriberCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* Newcomer-friendly indicator */}
+        {net.newcomerFriendly && (
+          <span className="text-xs text-signal-green">Newcomer Friendly</span>
+        )}
+      </div>
     </button>
   );
 }

@@ -37,24 +37,31 @@ export function SubscribeButton({
   const showUnsubscribe = isSubscribed && isHovered;
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border ${
-        showUnsubscribe
-          ? "bg-red-500/15 text-red-400 border-red-500/30 hover:bg-red-500/25"
+    <div>
+      <button
+        type="button"
+        onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`w-full px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border ${
+          showUnsubscribe
+            ? "bg-red-500/15 text-red-400 border-red-500/30 hover:bg-red-500/25"
+            : isSubscribed
+              ? "bg-signal-green/15 text-signal-green border-signal-green/30"
+              : "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30 hover:bg-plasma-orange/25"
+        }`}
+      >
+        {showUnsubscribe
+          ? "Unsubscribe"
           : isSubscribed
-            ? "bg-signal-green/15 text-signal-green border-signal-green/30"
-            : "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30 hover:bg-plasma-orange/25"
-      }`}
-    >
-      {showUnsubscribe
-        ? "Unsubscribe"
-        : isSubscribed
-          ? "Subscribed \u2713"
-          : "Subscribe"}
-    </button>
+            ? "Subscribed \u2713"
+            : "Subscribe"}
+      </button>
+      {!isSubscribed && (
+        <p className="text-xs text-gray-400 mt-1.5">
+          Get alerts before sessions start
+        </p>
+      )}
+    </div>
   );
 }

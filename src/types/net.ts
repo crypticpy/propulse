@@ -116,6 +116,8 @@ export interface Net {
   name: string;
   /** Classification of net purpose */
   type: NetType;
+  /** Short summary line for card display */
+  summary?: string;
   /** Longer description of the net's purpose, rules, or history */
   description: string;
   /** Primary operating frequency (e.g., "146.520 MHz") */
@@ -130,6 +132,10 @@ export interface Net {
   schedule?: NetSchedule;
   /** Typical duration of a session in minutes */
   durationMinutes?: number;
+  /** ISO alpha-2 country code */
+  country?: string;
+  /** State or province within the country */
+  stateOrProvince?: string;
   /** Geographic region or coverage area */
   region?: string;
   /** Repeater details if the net operates on a repeater */
@@ -291,6 +297,10 @@ export interface NetFilters {
   dayOfWeek: number | null;
   /** Filter by geographic region */
   region: string | null;
+  /** Filter by ISO alpha-2 country code */
+  country: string | null;
+  /** Filter by state or province */
+  stateOrProvince: string | null;
   /** Sort order for results */
   sortBy: "popularity" | "upcoming" | "recent";
   /** Filter by formality level (1-5) */
@@ -307,6 +317,8 @@ export const DEFAULT_NET_FILTERS: NetFilters = {
   mode: null,
   dayOfWeek: null,
   region: null,
+  country: null,
+  stateOrProvince: null,
   sortBy: "popularity",
   formalityLevel: null,
   newcomerFriendly: null,
@@ -318,6 +330,8 @@ export interface CreateNetInput {
   name: string;
   /** Classification of net purpose */
   type: NetType;
+  /** Short summary line for card display */
+  summary?: string;
   /** Optional longer description */
   description?: string;
   /** Primary operating frequency */
@@ -332,6 +346,10 @@ export interface CreateNetInput {
   schedule?: NetSchedule;
   /** Typical duration in minutes */
   durationMinutes?: number;
+  /** ISO alpha-2 country code */
+  country?: string;
+  /** State or province within the country */
+  stateOrProvince?: string;
   /** Geographic region or coverage area */
   region?: string;
   /** Repeater details */

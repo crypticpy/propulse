@@ -19,7 +19,10 @@ export function HappeningNowBanner({ liveNets }: HappeningNowBannerProps) {
   if (liveNets.length === 0) return null;
 
   return (
-    <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4">
+    <div
+      aria-live="polite"
+      className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4"
+    >
       {/* Header row */}
       <div className="flex items-center gap-2.5 mb-3">
         {/* Pulsing red dot */}

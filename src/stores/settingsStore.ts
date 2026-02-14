@@ -67,6 +67,8 @@ export interface SettingsState {
   forecastDisplay: ForecastDisplayPreferences;
   /** SDR Console waterfall color palette */
   sdrWaterfallPalette: "classic" | "viridis" | "magma" | "gray";
+  /** DX News Ticker position */
+  tickerPosition: "bottom" | "above-panels" | "top";
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -128,6 +130,7 @@ const defaultSettings: SettingsState = {
   uiInteraction: DEFAULT_UI_INTERACTION,
   forecastDisplay: DEFAULT_FORECAST_DISPLAY,
   sdrWaterfallPalette: "classic",
+  tickerPosition: "bottom",
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────

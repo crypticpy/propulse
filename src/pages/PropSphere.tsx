@@ -100,6 +100,7 @@ import { getPathMetrics, formatBearing } from "@/lib/utils/path";
 import { ContestLiteHUD } from "@/components/contest/ContestLiteHUD";
 import { useSpotReplay } from "@/hooks/useSpotReplay";
 import { useReplayStore } from "@/stores/replayStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type { LiveSpot } from "@/types/livespot";
 
 /**
@@ -150,6 +151,7 @@ export function PropSphere() {
     setReplayEnabled,
   } = useMapStore();
   const station = useUserStore((state) => state.station);
+  const tickerPosition = useSettingsStore((s) => s.tickerPosition);
   const spotCount = useDXStore((state) => state.spots.length);
   const contestSessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const contestDockTab = useContestUIStore((s) =>
@@ -628,6 +630,11 @@ export function PropSphere() {
 
       {/* Main Content - Framed Layout */}
       <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
+        {/* Live ticker bar — "top" position (below masthead) */}
+        {!isLiteMode && tickerPosition === "top" && (
+          <DXNewsTicker className="flex-shrink-0 -mx-2 md:-mx-4 -mt-2 md:-mt-4 rounded-none" />
+        )}
+
         {/* Top Row: Lite Mode is EMPTY (controls move to map overlay), Default mode shows full cards */}
         {/* When DX Console is expanded, top row slides up and out of view */}
         {isLiteMode ? (
@@ -733,6 +740,11 @@ export function PropSphere() {
               )}
             </Card>
           </div>
+        )}
+
+        {/* Live ticker bar — "above-panels" position */}
+        {!isLiteMode && tickerPosition === "above-panels" && (
+          <DXNewsTicker className="flex-shrink-0" />
         )}
 
         {/* Middle Row: Bands | Map | Path - fills available space */}
@@ -1309,8 +1321,10 @@ export function PropSphere() {
           )}
         </div>
 
-        {/* Live ticker bar */}
-        {!isLiteMode && <DXNewsTicker className="flex-shrink-0" />}
+        {/* Live ticker bar — "bottom" position (default) */}
+        {!isLiteMode && tickerPosition === "bottom" && (
+          <DXNewsTicker className="flex-shrink-0" />
+        )}
 
         {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
         {!isLiteMode && (

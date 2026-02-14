@@ -40,6 +40,7 @@ export function AppearanceSection() {
   const themeId = useThemeStore((s) => s.themeId);
   const setTheme = useThemeStore((s) => s.setTheme);
   const sdrWaterfallPalette = useSettingsStore((s) => s.sdrWaterfallPalette);
+  const tickerPosition = useSettingsStore((s) => s.tickerPosition);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
   // Local form state for hex inputs
@@ -264,6 +265,37 @@ export function AppearanceSection() {
             <option value="viridis">Viridis</option>
             <option value="magma">Magma</option>
             <option value="gray">Grayscale</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 pt-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          News Ticker
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Position of the live DX news ticker showing propagation data, weather
+          alerts, and lightning proximity.
+        </p>
+        <div className="max-w-sm">
+          <label className="block text-xs font-medium text-gray-400 mb-1">
+            Position
+          </label>
+          <select
+            value={tickerPosition}
+            onChange={(e) =>
+              updatePreferences({
+                tickerPosition: e.target.value as
+                  | "bottom"
+                  | "above-panels"
+                  | "top",
+              })
+            }
+            className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
+          >
+            <option value="bottom">Below map (default)</option>
+            <option value="above-panels">Above map &amp; panels</option>
+            <option value="top">Top — below masthead</option>
           </select>
         </div>
       </div>

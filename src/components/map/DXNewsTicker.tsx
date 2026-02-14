@@ -23,6 +23,11 @@ import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useDXStore } from "@/stores/dxStore";
 import { getGeomagneticCondition } from "@/lib/utils/solarConversions";
+import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
+import { useLightning } from "@/hooks/useLightning";
+import { useUserStore } from "@/stores/userStore";
+import { getDistance } from "@/lib/utils/path";
+import type { LightningStrike } from "@/lib/api/lightning";
 
 // =============================================================================
 // TYPES
@@ -52,6 +57,10 @@ const CONTENT_REFRESH_INTERVAL_MS = 30_000;
 
 /** Diamond separator character */
 const SEPARATOR = "\u25C6";
+
+/** Proximity radius in km */
+const LIGHTNING_PROXIMITY_KM = 500;
+const WEATHER_PROXIMITY_KM = 800;
 
 /** Keyframes name for the scroll animation */
 const KEYFRAMES_NAME = "dx-ticker-scroll";
@@ -113,6 +122,62 @@ function countRecentSpots(spots: { time: Date }[], minutesAgo: number): number {
 }
 
 // =============================================================================
+// LIGHTNING / WEATHER HELPERS
+// =============================================================================
+
+interface LightningProximity {
+  nearestKm: number;
+  countWithin: number;
+  bearing: string; // "NE", "SW", etc.
+  maxCurrentKA: number;
+}
+
+function computeLightningProximity(
+  strikes: LightningStrike[],
+  stationLat: number,
+  stationLon: number,
+): LightningProximity | null {
+  // Filter strikes from last 10 minutes
+  const tenMinAgo = Date.now() - 10 * 60 * 1000;
+  const recent = strikes.filter((s) => s.time > tenMinAgo);
+
+  let nearest = Infinity;
+  let nearestBearing = "";
+  let count = 0;
+  let maxKA = 0;
+
+  for (const strike of recent) {
+    const dist = getDistance(stationLat, stationLon, strike.lat, strike.lon);
+    if (dist <= LIGHTNING_PROXIMITY_KM) {
+      count++;
+      if (strike.currentKA > maxKA) maxKA = strike.currentKA;
+      if (dist < nearest) {
+        nearest = dist;
+        // Compute rough bearing
+        const dLon = strike.lon - stationLon;
+        const dLat = strike.lat - stationLat;
+        nearestBearing = getCardinalDirection(dLat, dLon);
+      }
+    }
+  }
+
+  if (count === 0) return null;
+  return {
+    nearestKm: Math.round(nearest),
+    countWithin: count,
+    bearing: nearestBearing,
+    maxCurrentKA: maxKA,
+  };
+}
+
+function getCardinalDirection(dLat: number, dLon: number): string {
+  const angle = (Math.atan2(dLon, dLat) * 180) / Math.PI;
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const idx = Math.round(((angle + 360) % 360) / 45) % 8;
+  return dirs[idx];
+}
+
+// =============================================================================
 // COMPONENT
 // =============================================================================
 
@@ -135,6 +200,9 @@ export function DXNewsTicker({
   const { data: solarFluxData } = useSolarFlux();
   const { activeAlerts, hasAlerts } = useSolarAlerts({ enabled: true });
   const spots = useDXStore((s) => s.spots);
+  const { alerts: weatherAlerts } = useWeatherAlerts(true);
+  const { strikes: lightningStrikes } = useLightning(true);
+  const station = useUserStore((s) => s.station);
 
   // Compute spot count by band locally to avoid infinite loop from
   // selector returning a new object reference on every call
@@ -193,6 +261,79 @@ export function DXNewsTicker({
               : alert.priority === "WARNING"
                 ? "warning"
                 : "info",
+        });
+      }
+    }
+
+    // --- Weather / Lightning proximity alerts ---
+    if (station) {
+      // Lightning proximity
+      const lightning = computeLightningProximity(
+        lightningStrikes,
+        station.lat,
+        station.lon,
+      );
+      if (lightning) {
+        const severity =
+          lightning.nearestKm < 100
+            ? "critical"
+            : lightning.nearestKm < 300
+              ? "warning"
+              : "info";
+        items.push({
+          id: "lightning",
+          text: `\u26A1 Lightning ${lightning.nearestKm}km ${lightning.bearing} | ${lightning.countWithin} strikes within ${LIGHTNING_PROXIMITY_KM}km | Peak: ${lightning.maxCurrentKA}kA`,
+          highlight: true,
+          alertLevel: severity,
+        });
+
+        // Add QRN impact note for close lightning
+        if (lightning.nearestKm < 300) {
+          items.push({
+            id: "qrn",
+            text: "\u26A1 QRN likely on 160m-40m | Static crashes expected",
+            highlight: true,
+            alertLevel: "warning",
+          });
+        }
+      }
+
+      // Nearby weather alerts (thunderstorm-related)
+      const STORM_KEYWORDS = [
+        "thunderstorm",
+        "tornado",
+        "lightning",
+        "severe",
+        "hurricane",
+        "tropical",
+      ];
+      const nearbyAlerts = weatherAlerts.filter((alert) => {
+        const dist = getDistance(
+          station.lat,
+          station.lon,
+          alert.lat,
+          alert.lon,
+        );
+        if (dist > WEATHER_PROXIMITY_KM) return false;
+        const eventLower = alert.event.toLowerCase();
+        return STORM_KEYWORDS.some((kw) => eventLower.includes(kw));
+      });
+
+      for (const alert of nearbyAlerts.slice(0, 2)) {
+        const dist = Math.round(
+          getDistance(station.lat, station.lon, alert.lat, alert.lon),
+        );
+        const severity =
+          alert.severity === "Extreme"
+            ? "critical"
+            : alert.severity === "Severe"
+              ? "warning"
+              : "info";
+        items.push({
+          id: `wx-${alert.id}`,
+          text: `\u26A0 ${alert.event} \u2014 ${dist}km away`,
+          highlight: true,
+          alertLevel: severity,
         });
       }
     }
@@ -280,6 +421,9 @@ export function DXNewsTicker({
     spots,
     spotCountByBand,
     refreshTick,
+    lightningStrikes,
+    weatherAlerts,
+    station,
   ]);
 
   // ---------------------------------------------------------------------------

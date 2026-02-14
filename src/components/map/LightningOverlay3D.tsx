@@ -2,7 +2,7 @@
  * LightningOverlay3D
  *
  * Renders lightning strike markers on the 3D globe using two InstancedMesh
- * layers: an outer warm-yellow glow and an inner white-hot core. Designed
+ * layers: an outer bright glow and an inner white-hot core. Designed
  * for high-count scenarios (1000+ simultaneous strikes) without creating
  * individual mesh objects per strike.
  *
@@ -36,10 +36,10 @@ const FADE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 const FLASH_DURATION_MS = 5000; // 5 seconds
 
 /** Base globe-surface radius for strike placement — elevated into troposphere */
-const GLOBE_RADIUS = 1.025;
+const GLOBE_RADIUS = 1.03;
 
 /** Additional altitude for max-intensity strikes */
-const ALTITUDE_SPREAD = 0.015;
+const ALTITUDE_SPREAD = 0.02;
 
 /** Max peak current used for normalisation */
 const MAX_CURRENT_KA = 200;
@@ -50,8 +50,8 @@ const MAX_CURRENT_KA = 200;
 
 const dummy = new THREE.Object3D();
 const tempColor = new THREE.Color();
-const weakColor = new THREE.Color("#ffe566");
-const strongColor = new THREE.Color("#ffffff");
+const weakColor = new THREE.Color("#66ccff"); // electric blue for weak
+const strongColor = new THREE.Color("#ffffff"); // white-hot for strong
 const matrix = new THREE.Matrix4();
 
 // ---------------------------------------------------------------------------
@@ -115,27 +115,27 @@ export const LightningOverlay3D = React.memo(
         if (age > FADE_DURATION_MS) continue;
 
         // Normalise peak current for intensity-based sizing
-        const intensity = clamp(strike.currentKA / MAX_CURRENT_KA, 0.2, 1.0);
+        const intensity = clamp(strike.currentKA / MAX_CURRENT_KA, 0.3, 1.0);
 
         // Altitude varies with intensity — stronger strikes sit higher
         const normalizedKA = clamp(strike.currentKA / MAX_CURRENT_KA, 0, 1);
         const strikeRadius = GLOBE_RADIUS + normalizedKA * ALTITUDE_SPREAD;
 
         const [x, y, z] = latLonTo3D(strike.lat, strike.lon, strikeRadius);
-        const alpha = Math.max(0.1, 1 - age / FADE_DURATION_MS);
+        const alpha = Math.max(0.15, 1 - age / FADE_DURATION_MS);
 
         // Flash multiplier: new strikes pulse larger then ease back
         const isFlashing = age < FLASH_DURATION_MS;
         const t = isFlashing ? age / FLASH_DURATION_MS : 1;
-        const flash = isFlashing ? 1 + (1 - t) * 2.5 : 1;
+        const flash = isFlashing ? 1 + (1 - t) * 3.0 : 1;
 
-        // --- Outer glow instance ---
-        const glowBaseScale = 0.008 * intensity * alpha * flash;
+        // --- Outer glow instance --- (3x larger base than before)
+        const glowBaseScale = 0.025 * intensity * alpha * flash;
 
         if (isFlashing && strike.currentKA > 100) {
           // Stretched bolt appearance for strong, fresh strikes
           dummy.position.set(x, y, z);
-          matrix.makeScale(glowBaseScale, glowBaseScale * 1.8, glowBaseScale);
+          matrix.makeScale(glowBaseScale, glowBaseScale * 2.0, glowBaseScale);
           dummy.matrix.copy(matrix);
           dummy.matrix.setPosition(x, y, z);
           glowMesh.setMatrixAt(count, dummy.matrix);
@@ -146,14 +146,14 @@ export const LightningOverlay3D = React.memo(
           glowMesh.setMatrixAt(count, dummy.matrix);
         }
 
-        // --- Inner core instance (sized by intensity, coloured by intensity) ---
-        const coreBaseScale = 0.004 * intensity;
+        // --- Inner core instance (bright, sized by intensity) ---
+        const coreBaseScale = 0.012 * intensity * alpha * flash;
         dummy.position.set(x, y, z);
         dummy.scale.setScalar(coreBaseScale);
         dummy.updateMatrix();
         coreMesh.setMatrixAt(count, dummy.matrix);
 
-        // Colour the core by intensity: pale yellow (weak) to bright white (strong)
+        // Colour the core by intensity: electric blue (weak) to white-hot (strong)
         tempColor.lerpColors(weakColor, strongColor, intensity);
         coreMesh.setColorAt(count, tempColor);
 
@@ -178,34 +178,35 @@ export const LightningOverlay3D = React.memo(
 
     return (
       <group name="lightning-overlay">
-        {/* Outer glow — warm yellow, additive blending, increased opacity */}
+        {/* Outer glow — bright cyan, additive blending, high opacity */}
         <instancedMesh
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
         >
-          <sphereGeometry args={[1, 6, 6]} />
+          <sphereGeometry args={[1, 8, 8]} />
           <meshBasicMaterial
-            color="#ffe566"
+            color="#44ddff"
             transparent
-            opacity={0.5}
+            opacity={0.8}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
 
-        {/* Inner core — coloured per-instance by intensity */}
+        {/* Inner core — white-hot, coloured per-instance by intensity */}
         <instancedMesh
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
         >
-          <sphereGeometry args={[1, 6, 6]} />
+          <sphereGeometry args={[1, 8, 8]} />
           <meshBasicMaterial
             color="#ffffff"
             transparent
-            opacity={0.9}
+            opacity={0.95}
             depthWrite={false}
+            blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
       </group>

@@ -2,8 +2,9 @@
  * WeatherRadarOverlay Component
  *
  * Renders RainViewer precipitation radar data on the 3D globe.
- * Composites z=3 tiles (8x8 = 64 tiles covering the full world) onto a canvas,
- * then maps the equirectangular texture onto a transparent sphere slightly
+ * Composites z=4 tiles (16x16 = 256 tiles covering the full world) onto a canvas,
+ * then boosts color saturation/brightness so radar pops against the dark globe,
+ * and maps the equirectangular texture onto a transparent sphere slightly
  * above the Earth surface.
  */
 
@@ -16,18 +17,17 @@ interface WeatherRadarOverlayProps {
   manifest: RadarManifest;
 }
 
-/** Zoom level 3: 2^3 = 8 tiles per axis */
-const ZOOM_LEVEL = 3;
-const TILES_PER_AXIS = 2 ** ZOOM_LEVEL; // 8
+/** Zoom level 4: 2^4 = 16 tiles per axis, 256 total */
+const ZOOM_LEVEL = 4;
+const TILES_PER_AXIS = 2 ** ZOOM_LEVEL; // 16
 const TILE_SIZE = 256;
-/** Canvas size — 8 tiles * 256px = 2048px per axis */
-const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 2048
-/** Number of tiles to load concurrently to avoid overwhelming the browser */
-const BATCH_SIZE = 16;
+/** Canvas size — 16 tiles * 256px = 4096px per axis */
+const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 4096
+/** Number of tiles to load concurrently */
+const BATCH_SIZE = 32;
 
 /**
  * Load a single image from a URL, returning a promise.
- * Uses THREE.ImageLoader for correct cross-origin handling.
  */
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -39,8 +39,6 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 /**
  * Load promises in batches to limit concurrency.
- * Each batch of `batchSize` tasks runs in parallel via Promise.allSettled,
- * then the next batch starts.
  */
 async function loadInBatches<T>(
   tasks: (() => Promise<T>)[],
@@ -56,9 +54,54 @@ async function loadInBatches<T>(
 }
 
 /**
- * Load all 64 z=3 radar tiles and composite them onto a canvas.
+ * Post-process the radar canvas to boost color vibrancy.
+ * RainViewer tiles are subtle — we saturate and brighten precipitation pixels
+ * so they stand out against the dark globe.
+ */
+function boostRadarColors(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    // Skip fully transparent pixels (no precipitation)
+    if (a < 10) continue;
+
+    let r = data[i];
+    let g = data[i + 1];
+    let b = data[i + 2];
+
+    // Boost saturation: increase distance from gray
+    const gray = (r + g + b) / 3;
+    const satBoost = 1.6;
+    r = Math.min(255, Math.round(gray + (r - gray) * satBoost));
+    g = Math.min(255, Math.round(gray + (g - gray) * satBoost));
+    b = Math.min(255, Math.round(gray + (b - gray) * satBoost));
+
+    // Boost brightness for dim pixels
+    const brightness = Math.max(r, g, b);
+    if (brightness < 140) {
+      const lift = 1.4;
+      r = Math.min(255, Math.round(r * lift));
+      g = Math.min(255, Math.round(g * lift));
+      b = Math.min(255, Math.round(b * lift));
+    }
+
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
+
+    // Boost alpha so thin precipitation layers are more visible
+    data[i + 3] = Math.min(255, Math.round(a * 1.5));
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+/**
+ * Load all z=4 radar tiles and composite them onto a canvas.
  *
- * Tile layout at z=3: 8x8 grid (x: 0..7, y: 0..7)
+ * Tile layout at z=4: 16x16 grid (x: 0..15, y: 0..15)
  * The canvas represents lon -180..180 left-to-right, lat ~85..-85 top-to-bottom.
  */
 async function compositeRadarTiles(
@@ -67,10 +110,9 @@ async function compositeRadarTiles(
   const canvas = document.createElement("canvas");
   canvas.width = CANVAS_SIZE;
   canvas.height = CANVAS_SIZE;
-  const ctx = canvas.getContext("2d", { willReadFrequently: false });
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Failed to get 2d context");
 
-  // z=3 tiles: 8x8 grid
   const tiles: { x: number; y: number }[] = [];
   for (let y = 0; y < TILES_PER_AXIS; y++) {
     for (let x = 0; x < TILES_PER_AXIS; x++) {
@@ -78,13 +120,11 @@ async function compositeRadarTiles(
     }
   }
 
-  // Create lazy-evaluated load tasks for batched loading
   const tasks = tiles.map((t) => {
     const url = getRadarTileUrl(manifest, ZOOM_LEVEL, t.x, t.y);
     return () => loadImage(url);
   });
 
-  // Load tiles in batches of BATCH_SIZE — skip any that fail (radar may have gaps)
   const results = await loadInBatches(tasks, BATCH_SIZE);
 
   results.forEach((result, i) => {
@@ -99,6 +139,9 @@ async function compositeRadarTiles(
       );
     }
   });
+
+  // Boost color vibrancy after compositing all tiles
+  boostRadarColors(ctx, CANVAS_SIZE, CANVAS_SIZE);
 
   return canvas;
 }
@@ -164,7 +207,7 @@ function WeatherRadarOverlayInner({ manifest }: WeatherRadarOverlayProps) {
     () =>
       new THREE.MeshBasicMaterial({
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.88,
         depthWrite: false,
         blending: THREE.NormalBlending,
         side: THREE.FrontSide,

@@ -4,11 +4,12 @@
  * Renders a marker on the globe at a specific lat/lon position.
  * Used for home station and target location markers.
  * Target markers display difficulty-based coloring.
+ * Home markers show a house emoji — hover/click reveals station info tooltip.
  *
  * Performance optimized with React.memo and proper comparison function.
  */
 
-import { useMemo, useRef, memo } from "react";
+import { useMemo, useRef, useState, memo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -109,6 +110,7 @@ function LocationMarkerInner({
 }: LocationMarkerProps) {
   const markerRef = useRef<THREE.Mesh>(null);
   const pulseRef = useRef<THREE.Mesh>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // Determine final color - use difficulty color for targets, or explicit color
   const finalColor = useMemo(() => {
@@ -137,6 +139,9 @@ function LocationMarkerInner({
   // Difficulty tag for targets
   const difficultyTag = difficulty ? DIFFICULTY_LABELS[difficulty] : null;
 
+  // Home markers use emoji instead of text labels
+  const isHome = type === "home";
+
   return (
     <group position={position}>
       {/* Pulse ring for target markers */}
@@ -152,14 +157,82 @@ function LocationMarkerInner({
         </mesh>
       )}
 
-      {/* Main marker dot */}
-      <mesh ref={markerRef}>
+      {/* Main marker dot — interactive for home markers */}
+      <mesh
+        ref={markerRef}
+        onClick={
+          isHome
+            ? (event) => {
+                event.stopPropagation();
+                setShowTooltip((prev) => !prev);
+              }
+            : undefined
+        }
+        onPointerEnter={
+          isHome
+            ? (event) => {
+                event.stopPropagation();
+                setShowTooltip(true);
+              }
+            : undefined
+        }
+        onPointerLeave={isHome ? () => setShowTooltip(false) : undefined}
+      >
         <sphereGeometry args={[markerSize, 16, 16]} />
         <meshBasicMaterial color={finalColor} />
       </mesh>
 
-      {/* Label with optional difficulty tag */}
-      {label && (
+      {/* Home: house emoji + hover tooltip */}
+      {isHome && (
+        <>
+          <Html
+            position={[0, markerSize * 2.5, 0]}
+            center
+            zIndexRange={[1, 0]}
+            style={{ pointerEvents: "none" }}
+          >
+            <div
+              style={{
+                width: "22px",
+                height: "22px",
+                fontSize: "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                filter: `drop-shadow(0 0 4px ${finalColor})`,
+              }}
+            >
+              {"\uD83C\uDFE0"}
+            </div>
+          </Html>
+
+          {/* Tooltip shown on hover/click */}
+          {showTooltip && label && (
+            <Html
+              position={[0, markerSize * 5, 0]}
+              center
+              zIndexRange={[2, 1]}
+              style={{ pointerEvents: "none" }}
+            >
+              <div
+                className="px-2.5 py-1.5 rounded-lg text-xs font-mono whitespace-nowrap"
+                style={{
+                  backgroundColor: "rgba(10, 10, 26, 0.92)",
+                  color: finalColor,
+                  border: `1px solid ${finalColor}60`,
+                  boxShadow: `0 0 12px ${finalColor}30`,
+                  lineHeight: 1.4,
+                }}
+              >
+                {label}
+              </div>
+            </Html>
+          )}
+        </>
+      )}
+
+      {/* Target: text label with optional difficulty tag */}
+      {!isHome && label && (
         <Html
           position={[0, markerSize * 3, 0]}
           center

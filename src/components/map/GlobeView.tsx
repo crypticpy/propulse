@@ -629,7 +629,7 @@ function CameraController() {
       enableZoom={true}
       enableRotate={!observatoryMode}
       zoomSpeed={0.5}
-      minDistance={1.5}
+      minDistance={1.15}
       maxDistance={4}
       rotateSpeed={0.5}
       dampingFactor={0.1}
@@ -1041,7 +1041,7 @@ function GlobeScene({
           );
         })}
 
-        {/* Home station marker - Blue color */}
+        {/* Home station marker - House emoji, hover/click shows info tooltip */}
         {station && (
           <LocationMarker
             lat={station.lat}

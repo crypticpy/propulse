@@ -131,18 +131,6 @@ function shouldPulse(severity: WeatherAlert["severity"]): boolean {
   return severity === "Extreme" || severity === "Severe";
 }
 
-/**
- * Truncate a string to a maximum length, appending "..." if truncated.
- */
-function truncateLabel(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max) + "\u2026" : text;
-}
-
-/**
- * Camera distance threshold - labels only show when zoomed in close enough.
- */
-const LABEL_CAMERA_DISTANCE = 3.2;
-
 // ---------------------------------------------------------------------------
 // Sub-component: individual weather alert marker
 // ---------------------------------------------------------------------------
@@ -172,22 +160,14 @@ function AlertMarker({
   const headMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const glowRingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [showLabel, setShowLabel] = useState(false);
 
   const { camera, size: canvasSize } = useThree();
 
   const color = severityColor(alert.severity);
   const emoji = getWeatherEmoji(alert.event);
 
-  // Track camera distance to toggle label visibility
-  useFrame(({ camera: cam }) => {
-    const camDist = cam.position.length();
-    const shouldShow = camDist < LABEL_CAMERA_DISTANCE;
-    if (shouldShow !== showLabel) {
-      setShowLabel(shouldShow);
-    }
-
-    // Apply occlusion to materials
+  // Apply occlusion to materials
+  useFrame(() => {
     if (stemMaterialRef.current) {
       stemMaterialRef.current.opacity = 0.7 * occlusionOpacity;
     }
@@ -323,37 +303,6 @@ function AlertMarker({
           {emoji}
         </div>
       </Html>
-
-      {/* Event type label (shown when zoomed in) */}
-      {showLabel && (
-        <Html
-          position={[0, STEM_HEIGHT + SIZE * 5, 0]}
-          center
-          zIndexRange={[1, 0]}
-          style={{
-            pointerEvents: "none",
-            userSelect: "none",
-            transition: "opacity 0.2s ease",
-            opacity: (isHovered ? 1 : 0.7) * occlusionOpacity,
-          }}
-        >
-          <div
-            style={{
-              fontSize: "9px",
-              fontWeight: 500,
-              color: "#ffffff",
-              backgroundColor: "rgba(0, 0, 0, 0.70)",
-              padding: "1px 4px",
-              borderRadius: "3px",
-              borderLeft: `2px solid ${color}`,
-              whiteSpace: "nowrap",
-              lineHeight: 1.3,
-            }}
-          >
-            {truncateLabel(alert.event, 20)}
-          </div>
-        </Html>
-      )}
     </group>
   );
 }

@@ -35,10 +35,10 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       fetchJson<Array<{ ssn: number | null }>>(
         "https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json",
       ),
-      fetchJson<Array<{ flux: number }>>(
+      fetchJson<Array<{ flux: number; energy: string }>>(
         "https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json",
       ),
-      fetchJson<Array<{ flux: number }>>(
+      fetchJson<Array<{ flux: number; energy: string }>>(
         "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json",
       ),
       fetchJson<Array<[string, string]>>(
@@ -68,13 +68,23 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       ssnResult.status === "fulfilled" && ssnResult.value.length > 0
         ? ssnResult.value[ssnResult.value.length - 1].ssn
         : null;
+    // Filter X-ray for long wavelength band (0.1-0.8nm), the standard indicator
+    const xrayFiltered =
+      xrayResult.status === "fulfilled"
+        ? xrayResult.value.filter((e) => e.energy === "0.1-0.8nm")
+        : [];
     const xrayFlux =
-      xrayResult.status === "fulfilled" && xrayResult.value.length > 0
-        ? xrayResult.value[xrayResult.value.length - 1].flux
+      xrayFiltered.length > 0
+        ? xrayFiltered[xrayFiltered.length - 1].flux
         : null;
+    // Filter proton flux for >=10 MeV band (standard for solar proton events)
+    const protonFiltered =
+      protonResult.status === "fulfilled"
+        ? protonResult.value.filter((e) => e.energy === ">=10 MeV")
+        : [];
     const protonFlux =
-      protonResult.status === "fulfilled" && protonResult.value.length > 0
-        ? protonResult.value[protonResult.value.length - 1].flux
+      protonFiltered.length > 0
+        ? protonFiltered[protonFiltered.length - 1].flux
         : null;
     // Dst JSON is an array of [time_tag, dst] pairs; first row is header
     const dstIndex =

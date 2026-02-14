@@ -28,7 +28,9 @@ export async function computeHourlyStats(db: SupabaseClient): Promise<void> {
     // Get solar snapshot closest to mid-hour
     const { data: solarRow } = await db
       .from("solar_snapshots")
-      .select("kp_index, sfi, bz_gsm, bt")
+      .select(
+        "kp_index, sfi, bz_gsm, by_gsm, bt, xray_flux, dst_index, proton_flux_10mev",
+      )
       .gte("captured_at", prevHourISO)
       .lt("captured_at", currentHourISO)
       .order("captured_at", { ascending: false })
@@ -134,6 +136,10 @@ export async function computeHourlyStats(db: SupabaseClient): Promise<void> {
         sfi: solarRow?.sfi ?? null,
         bz_gsm: solarRow?.bz_gsm ?? null,
         bt: solarRow?.bt ?? null,
+        by_gsm: solarRow?.by_gsm ?? null,
+        xray_flux: solarRow?.xray_flux ?? null,
+        dst_index: solarRow?.dst_index ?? null,
+        proton_flux_10mev: solarRow?.proton_flux_10mev ?? null,
       };
 
       const { error: upsertError } = await db

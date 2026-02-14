@@ -127,7 +127,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
 
       {/* Card */}
       <div
-        className="relative z-10 bg-deep-space border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95"
+        className="relative z-10 bg-deep-space border border-white/15 rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95"
         onClick={handleCardClick}
       >
         {/* Header */}
@@ -140,7 +140,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50"
+            className="p-1 rounded-lg text-gray-300 hover:text-white hover:bg-white/15 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
             aria-label="Close"
           >
             <svg
@@ -166,12 +166,12 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
           onChange={(e) => setTemplate(e.target.value)}
           rows={8}
           placeholder="Enter your preamble template..."
-          className="w-full bg-void border border-white/10 rounded-lg p-3 text-sm text-gray-200 font-mono placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-plasma-orange/50 resize-none"
+          className="w-full bg-void border border-white/20 rounded-lg p-3 text-sm text-gray-200 font-mono placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-plasma-orange/70 resize-none"
         />
 
         {/* Variable chips */}
         <div className="mt-3">
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-1.5">
             Insert variable
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -179,7 +179,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
               <button
                 key={v.token}
                 onClick={() => insertVariable(v.token)}
-                className="px-2.5 py-1 text-[11px] font-mono rounded-full bg-white/5 text-gray-300 border border-white/10 hover:bg-plasma-orange/20 hover:text-plasma-orange hover:border-plasma-orange/30 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                className="px-2.5 py-1 text-xs font-mono rounded-full bg-white/5 text-gray-300 border border-white/15 hover:bg-plasma-orange/20 hover:text-plasma-orange hover:border-plasma-orange/40 hover:shadow-[0_0_8px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
               >
                 {v.label}
               </button>
@@ -190,10 +190,10 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
         {/* Preview */}
         {template.trim() && (
           <div className="mt-4">
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-1.5">
               Preview
             </p>
-            <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3">
+            <div className="bg-white/[0.06] border border-white/15 rounded-lg p-3">
               <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
                 {renderPreview(template)}
               </p>
@@ -211,7 +211,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-plasma-orange text-white hover:bg-plasma-orange/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space transition-colors"
+            className="px-4 py-2 text-sm font-semibold rounded-lg bg-plasma-orange text-white hover:bg-plasma-orange/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space transition-colors"
           >
             Save
           </button>

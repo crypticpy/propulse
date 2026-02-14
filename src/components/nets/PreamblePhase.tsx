@@ -81,11 +81,11 @@ export function PreamblePhase({
           Add a preamble to read aloud, or skip straight to check-ins
         </p>
 
-        <div className="bg-white/[0.03] border border-white/5 border-l-2 border-l-plasma-orange/30 rounded-2xl p-8 text-center">
+        <div className="bg-white/[0.05] border border-white/15 border-l-2 border-l-plasma-orange/30 rounded-2xl p-8 text-center">
           {/* Microphone icon */}
           <div className="mb-5">
             <svg
-              className="w-11 h-11 mx-auto text-gray-500"
+              className="w-11 h-11 mx-auto text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -103,7 +103,7 @@ export function PreamblePhase({
           <p className="text-sm text-gray-400 mb-1">
             No preamble configured for this net.
           </p>
-          <p className="text-xs text-gray-500 mb-6">
+          <p className="text-xs text-gray-400 mb-6">
             You can add one now or skip straight to check-ins
           </p>
 
@@ -112,7 +112,7 @@ export function PreamblePhase({
             <button
               type="button"
               onClick={onAdvance}
-              className="group px-8 py-3 text-base font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 transition-colors focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
+              className="group px-8 py-3 text-base font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:shadow-[0_0_16px_rgba(255,107,53,0.3)] transition-all focus:outline-none focus:ring-2 focus:ring-plasma-orange/70"
               aria-label="Skip preamble and begin check-ins"
             >
               <span className="inline-flex items-center gap-2">
@@ -137,7 +137,7 @@ export function PreamblePhase({
             <button
               type="button"
               onClick={onEditPreamble}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white transition-colors"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-white/5 text-gray-400 border border-white/15 hover:bg-white/15 hover:text-white transition-colors"
               aria-label="Add a preamble template"
             >
               Add Preamble
@@ -153,13 +153,13 @@ export function PreamblePhase({
   return (
     <div className="max-w-2xl mx-auto space-y-5 animate-in fade-in">
       {/* Context hint */}
-      <p className="text-sm text-gray-400 text-center">
+      <p className="text-sm text-gray-300 text-center">
         Read your preamble aloud, then begin check-ins
       </p>
 
       {/* Preamble card */}
       <div
-        className="bg-white/[0.03] backdrop-blur-md border border-white/10 border-l-[3px] border-l-plasma-orange rounded-2xl p-8"
+        className="bg-white/[0.05] backdrop-blur-md border border-white/15 border-l-[3px] border-l-plasma-orange rounded-2xl p-8"
         style={{
           boxShadow:
             "0 0 40px rgba(255,107,53,0.05), inset 0 1px 0 rgba(255,255,255,0.04)",
@@ -173,7 +173,7 @@ export function PreamblePhase({
           <button
             type="button"
             onClick={onEditPreamble}
-            className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white transition-colors"
+            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-white/5 text-gray-400 border border-white/15 hover:bg-white/15 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             aria-label="Edit preamble template"
           >
             Edit
@@ -191,7 +191,7 @@ export function PreamblePhase({
         <button
           type="button"
           onClick={onAdvance}
-          className="group px-8 py-3 text-base font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
+          className="group px-8 py-3 text-base font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:brightness-110 hover:shadow-[0_0_16px_rgba(255,107,53,0.3)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
           aria-label="Finish preamble and begin check-ins"
         >
           <span className="inline-flex items-center gap-2">

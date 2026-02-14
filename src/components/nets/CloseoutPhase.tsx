@@ -42,13 +42,13 @@ function StatCell({
 }) {
   return (
     <div
-      className="bg-white/[0.03] border border-white/10 rounded-xl p-4 overflow-hidden animate-ncs-stat-shimmer"
+      className="bg-white/[0.05] border border-white/15 rounded-xl p-4 overflow-hidden animate-ncs-stat-shimmer"
       style={{ animationDelay: `${delay}ms`, opacity: 1 }}
     >
       <p className={`text-3xl font-mono font-bold tabular-nums ${colorClass}`}>
         {value}
       </p>
-      <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-1">
+      <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">
         {label}
       </p>
     </div>
@@ -151,8 +151,8 @@ export function CloseoutPhase({
       </div>
 
       {/* Session Summary Card */}
-      <div className="bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-6">
-        <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-4">
+      <div className="bg-white/[0.05] backdrop-blur-md border border-white/15 rounded-2xl p-6">
+        <p className="text-xs uppercase tracking-widest text-gray-400 mb-4">
           Session Summary
         </p>
 
@@ -187,7 +187,7 @@ export function CloseoutPhase({
 
       {/* Session Notes */}
       <div className="space-y-2">
-        <p className="text-[10px] uppercase tracking-widest text-gray-500">
+        <p className="text-xs uppercase tracking-widest text-gray-400">
           Session Notes
         </p>
         <textarea
@@ -196,7 +196,7 @@ export function CloseoutPhase({
           onBlur={handleNotesBlur}
           placeholder="Session notes, highlights, follow-ups..."
           rows={5}
-          className="w-full bg-void border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 resize-none transition-colors"
+          className="w-full bg-void border border-white/20 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-plasma-orange/70 focus:border-plasma-orange/50 resize-none transition-colors"
           aria-label={`Session notes for ${net.name}`}
         />
       </div>
@@ -205,7 +205,7 @@ export function CloseoutPhase({
       <div className="flex flex-col items-center pt-2">
         <button
           onClick={() => setShowConfirmEnd(true)}
-          className="group px-10 py-4 text-base font-bold rounded-2xl bg-alert-red/10 text-alert-red border-2 border-alert-red/20 hover:bg-alert-red/20 hover:border-alert-red/30 hover:-translate-y-0.5 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-alert-red/50"
+          className="group px-10 py-4 text-base font-bold rounded-2xl bg-alert-red/10 text-alert-red border-2 border-alert-red/20 hover:bg-alert-red/20 hover:border-alert-red/30 hover:brightness-110 hover:shadow-[0_0_16px_rgba(239,68,68,0.25)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-alert-red/50 focus-visible:outline-none"
           aria-label="Close net session"
         >
           <span className="inline-flex items-center gap-2">
@@ -226,7 +226,7 @@ export function CloseoutPhase({
             </svg>
           </span>
         </button>
-        <p className="text-[10px] text-gray-500 mt-2">
+        <p className="text-xs text-gray-400 mt-2">
           Session data will be saved automatically
         </p>
       </div>

@@ -390,7 +390,7 @@ export function NCSLiveDashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4 animate-in fade-in">
         <svg
-          className="w-10 h-10 text-gray-600 mb-4"
+          className="w-10 h-10 text-gray-400 mb-4"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -416,10 +416,10 @@ export function NCSLiveDashboard() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* ── Header Bar (sticky) ────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white/[0.03] backdrop-blur-md border-b border-white/10 px-4 py-3 shadow-card">
+      <div className="sticky top-0 z-10 bg-white/[0.05] backdrop-blur-md border-b border-white/15 px-5 py-4 shadow-card">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Net name */}
-          <h1 className="text-lg font-bold font-orbitron text-white truncate">
+          <h1 className="text-xl font-bold font-orbitron text-white truncate">
             {currentNet.name}
           </h1>
 
@@ -428,17 +428,17 @@ export function NCSLiveDashboard() {
 
           {/* Elapsed time */}
           {currentSession && (
-            <span className="text-xs font-mono text-gray-300 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/5 shrink-0 tabular-nums">
+            <span className="text-sm font-mono text-gray-300 bg-white/[0.08] px-2 py-0.5 rounded-md border border-white/15 shrink-0 tabular-nums">
               {elapsed}
             </span>
           )}
 
           {/* Check-in count */}
           <span
-            className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border shrink-0 tabular-nums ${
+            className={`px-2 py-0.5 text-xs font-semibold rounded-full border shrink-0 tabular-nums ${
               activeCheckins.length > 0
                 ? "bg-signal-green/10 text-signal-green border-signal-green/20"
-                : "bg-white/10 text-gray-300 border-white/5"
+                : "bg-white/10 text-gray-300 border-white/15"
             }`}
           >
             {activeCheckins.length} check-in
@@ -447,7 +447,7 @@ export function NCSLiveDashboard() {
 
           {/* NCS callsign */}
           {currentSession && (
-            <span className="text-xs text-gray-400 ml-auto shrink-0 pl-3 border-l border-white/5">
+            <span className="text-sm text-gray-300 ml-auto shrink-0 pl-3 border-l border-white/15">
               NCS:{" "}
               <span className="font-mono font-medium text-plasma-orange">
                 {currentSession.ncsCallsign}
@@ -469,7 +469,7 @@ export function NCSLiveDashboard() {
             <button
               type="button"
               onClick={() => setShowKeyboardHints((prev) => !prev)}
-              className="shrink-0 px-2 py-0.5 text-[10px] font-mono rounded-md bg-white/5 border border-white/10 text-gray-400 hover:text-gray-200 hover:bg-white/10 hover:-translate-y-0.5 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
+              className="shrink-0 px-2 py-0.5 text-xs font-mono rounded-md bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/15 hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
               title="Keyboard shortcuts"
             >
               <span className="hidden sm:inline">Keyboard </span>
@@ -480,7 +480,7 @@ export function NCSLiveDashboard() {
 
         {/* Phase indicator -- only show during active session */}
         {currentSession && (
-          <div className="mt-2">
+          <div className="mt-3">
             <PhaseIndicator
               currentPhase={phase}
               onPhaseSelect={selectPhase}

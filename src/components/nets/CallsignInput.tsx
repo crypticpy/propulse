@@ -209,7 +209,7 @@ export function CallsignInput({
               ? `callsign-option-${highlightIndex}`
               : undefined
           }
-          className="w-full bg-white/5 border border-white/10 rounded-xl text-base py-3 px-4 text-gray-200 font-mono placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 focus:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-white/5 border border-white/20 rounded-xl text-base py-3 px-4 text-gray-200 font-mono placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-plasma-orange/70 focus:border-plasma-orange/50 focus:bg-white/[0.06] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         />
 
         {/* Auto-complete dropdown */}
@@ -217,7 +217,7 @@ export function CallsignInput({
           <div
             ref={dropdownRef}
             role="listbox"
-            className="absolute left-0 right-0 top-full mt-1 z-50 bg-deep-space/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-top-1"
+            className="absolute left-0 right-0 top-full mt-1 z-50 bg-deep-space/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-top-1"
           >
             {suggestions.map((cs, i) => (
               <div
@@ -232,8 +232,8 @@ export function CallsignInput({
                 onMouseEnter={() => setHighlightIndex(i)}
                 className={`py-2.5 px-4 text-sm font-mono cursor-pointer transition-colors ${
                   i === highlightIndex
-                    ? "bg-white/10 text-gray-100 border-l-2 border-l-plasma-orange"
-                    : "text-gray-300 hover:bg-white/[0.06] border-l-2 border-l-transparent"
+                    ? "bg-white/15 text-gray-100 border-l-2 border-l-plasma-orange"
+                    : "text-gray-300 hover:bg-white/[0.10] border-l-2 border-l-transparent"
                 }`}
               >
                 {renderHighlighted(cs)}
@@ -247,7 +247,7 @@ export function CallsignInput({
         type="button"
         onClick={() => handleSubmit()}
         disabled={disabled || !value.trim()}
-        className="shrink-0 px-4 py-3 min-h-[44px] text-sm font-medium rounded-xl bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/30 hover:-translate-y-0.5 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        className="shrink-0 px-4 py-3 min-h-[44px] text-sm font-medium rounded-xl bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/30 hover:brightness-110 hover:shadow-[0_0_12px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
       >
         Add
       </button>

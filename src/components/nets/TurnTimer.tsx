@@ -34,6 +34,10 @@ export interface TurnTimerHandle {
   start: () => void;
   /** Reset to default time and immediately start — used for auto-advancing. */
   resetAndStart: () => void;
+  /** Pause a running timer. No-op if not running. */
+  pause: () => void;
+  /** Add time to the current timer (in minutes). */
+  addTime: (mins: number) => void;
 }
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -42,9 +46,13 @@ interface TurnTimerProps {
   defaultMinutes?: number;
   onExpired?: () => void;
   speakerCallsign?: string; // Displayed above the timer ring
+  /** When true, don't render the control buttons div. */
+  hideControls?: boolean;
+  /** Callback fired when timer state changes. */
+  onStateChange?: (state: TimerState) => void;
 }
 
-type TimerState = "idle" | "running" | "paused" | "expired";
+export type TimerState = "idle" | "running" | "paused" | "expired";
 
 // ── Session Storage Key ──────────────────────────────────────────────────────
 
@@ -103,7 +111,16 @@ function spokenTime(seconds: number): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
-  function TurnTimer({ defaultMinutes = 3, onExpired, speakerCallsign }, ref) {
+  function TurnTimer(
+    {
+      defaultMinutes = 3,
+      onExpired,
+      speakerCallsign,
+      hideControls,
+      onStateChange,
+    },
+    ref,
+  ) {
     const totalDefault = defaultMinutes * 60;
     const saved = useRef(loadTimerState());
 
@@ -120,6 +137,14 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const onExpiredRef = useRef(onExpired);
     onExpiredRef.current = onExpired;
+
+    // ── State Change Callback ─────────────────────────────────────────────
+    const onStateChangeRef = useRef(onStateChange);
+    onStateChangeRef.current = onStateChange;
+
+    useEffect(() => {
+      onStateChangeRef.current?.(timerState);
+    }, [timerState]);
 
     // ── Tick Logic ───────────────────────────────────────────────────────────
 
@@ -233,9 +258,20 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
             startInterval();
           });
         },
+        pause: () => {
+          if (timerState === "running") {
+            stopInterval();
+            setTimerState("paused");
+            saveTimerState(remaining, "paused", totalSeconds);
+          }
+        },
+        addTime: (mins: number) => {
+          handleAddTime(mins);
+        },
       }),
       [
         handleReset,
+        handleAddTime,
         totalSeconds,
         totalDefault,
         timerState,
@@ -263,8 +299,8 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
           : timerState === "paused"
             ? "stroke-amber-400"
             : timerState === "running"
-              ? "stroke-green-400"
-              : "stroke-gray-600";
+              ? "stroke-emerald-400"
+              : "stroke-gray-500";
 
     const minutes = Math.floor(remaining / 60);
     const seconds = remaining % 60;
@@ -294,13 +330,15 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
         role="region"
         aria-label="Turn timer"
       >
-        <h3 className="font-orbitron text-[10px] uppercase tracking-widest text-gray-500 self-start">
-          Turn Timer
-        </h3>
+        {!hideControls && (
+          <h3 className="font-orbitron text-xs uppercase tracking-widest text-gray-300 self-start">
+            Turn Timer
+          </h3>
+        )}
 
         {/* Speaker callsign label */}
-        {speakerCallsign && (
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 text-center mb-1">
+        {!hideControls && speakerCallsign && (
+          <p className="text-xs uppercase tracking-widest text-gray-300 text-center mb-1">
             {speakerCallsign}
           </p>
         )}
@@ -311,7 +349,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
         >
           <svg
             viewBox="0 0 120 120"
-            className="w-32 h-32 sm:w-36 sm:h-36"
+            className="w-36 h-36 sm:w-40 sm:h-40"
             role="progressbar"
             aria-valuenow={remaining}
             aria-valuemin={0}
@@ -326,7 +364,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
               fill="none"
               stroke="currentColor"
               strokeWidth="6"
-              className="text-white/[0.06]"
+              className="text-white/[0.12]"
             />
             {/* Progress ring */}
             <circle
@@ -346,7 +384,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
           {/* Center time text */}
           <div className="absolute inset-0 flex items-center justify-center">
             <span
-              className={`font-mono text-2xl sm:text-3xl font-bold tabular-nums transition-colors duration-300 ${
+              className={`font-mono text-3xl sm:text-4xl font-bold tabular-nums transition-colors duration-300 ${
                 timerState === "expired"
                   ? "text-red-400 animate-pulse"
                   : isWarning
@@ -375,47 +413,49 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
         )}
 
         {/* Control Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleStartPause}
-            className={`px-4 py-2.5 min-h-[44px] text-xs font-medium rounded-xl border hover:-translate-y-0.5 active:scale-[0.98] transition-all ${
-              timerState === "running"
-                ? "bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30"
-                : "bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30"
-            }`}
-            aria-label={startPauseLabel}
-          >
-            {timerState === "running"
-              ? "Pause"
-              : timerState === "expired"
-                ? "Restart"
-                : "Start"}
-          </button>
+        {!hideControls && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleStartPause}
+              className={`px-4 py-2.5 min-h-[44px] text-xs font-semibold rounded-xl border will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none ${
+                timerState === "running"
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30 hover:shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                  : "bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30 hover:shadow-[0_0_16px_rgba(34,197,94,0.3)]"
+              }`}
+              aria-label={startPauseLabel}
+            >
+              {timerState === "running"
+                ? "Pause"
+                : timerState === "expired"
+                  ? "Restart"
+                  : "Start"}
+            </button>
 
-          <button
-            onClick={handleReset}
-            className="px-4 py-2.5 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
-            aria-label="Reset timer"
-          >
-            Reset
-          </button>
+            <button
+              onClick={handleReset}
+              className="px-4 py-2.5 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/15 hover:text-white will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+              aria-label="Reset timer"
+            >
+              Reset
+            </button>
 
-          <button
-            onClick={() => handleAddTime(1)}
-            className="px-3 py-2.5 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
-            aria-label="Add 1 minute"
-          >
-            +1m
-          </button>
+            <button
+              onClick={() => handleAddTime(1)}
+              className="px-2.5 py-2 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/15 hover:text-white will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+              aria-label="Add 1 minute"
+            >
+              +1m
+            </button>
 
-          <button
-            onClick={() => handleAddTime(2)}
-            className="px-3 py-2.5 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
-            aria-label="Add 2 minutes"
-          >
-            +2m
-          </button>
-        </div>
+            <button
+              onClick={() => handleAddTime(2)}
+              className="px-2.5 py-2 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/15 hover:text-white will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+              aria-label="Add 2 minutes"
+            >
+              +2m
+            </button>
+          </div>
+        )}
       </div>
     );
   },

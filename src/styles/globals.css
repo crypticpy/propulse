@@ -682,6 +682,16 @@
   50% { box-shadow: inset 0 0 16px rgba(255,107,53,0.2); }
 }
 
+@keyframes ncsInterstitialSlide {
+  from { opacity: 0; transform: translateY(-12px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ncsCallsignStrikethrough {
+  from { text-decoration-color: transparent; }
+  to { text-decoration-color: currentColor; }
+}
+
 /* Utility classes for NCS animations */
 .animate-ncs-phase-slide-in {
   animation: ncsPhaseSlideIn 200ms ease-out both;
@@ -710,6 +720,13 @@
 .animate-ncs-phase-glow {
   animation: ncsPhaseGlow 3s ease-in-out infinite;
 }
+.animate-ncs-interstitial {
+  animation: ncsInterstitialSlide 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-ncs-strikethrough {
+  text-decoration: line-through;
+  animation: ncsCallsignStrikethrough 400ms ease-out 150ms both;
+}
 
 /* Respect reduced motion for NCS animations */
 @media (prefers-reduced-motion: reduce) {
@@ -721,7 +738,9 @@
   .animate-ncs-status-glow,
   .animate-ncs-launch-pulse,
   .animate-ncs-stat-shimmer,
-  .animate-ncs-phase-glow {
+  .animate-ncs-phase-glow,
+  .animate-ncs-interstitial,
+  .animate-ncs-strikethrough {
     animation: none !important;
   }
 }

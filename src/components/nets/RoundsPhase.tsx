@@ -11,7 +11,7 @@
  * ARIA: region labels, live announcements delegated to SpeakerStage.
  */
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import type { NetCheckin, CheckinStatus } from "@/types/net";
 import type { TurnTimerHandle } from "@/components/nets/TurnTimer";
 import { SpeakerStage } from "@/components/nets/SpeakerStage";
@@ -52,6 +52,12 @@ export function RoundsPhase({
 }: RoundsPhaseProps) {
   const isMobile = useIsMobile();
 
+  // Auto-start timer when entering rounds phase (first speaker is already speaking)
+  useEffect(() => {
+    timerRef.current?.resetAndStart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Derive Queue ──────────────────────────────────────────────────────────
 
   const queue = useMemo(
@@ -67,36 +73,46 @@ export function RoundsPhase({
   const queueEmpty = queue.length === 0;
 
   // ── Speaker Actions ───────────────────────────────────────────────────────
+  // Timer auto-starts for the next speaker. Resets to idle when queue empties.
 
   const handleDone = useCallback(() => {
     if (!currentSpeaker) return;
-
-    // Mark station as completed — single-click advance
     onUpdateStatus(currentSpeaker.id, "completed");
-
-    // Auto-reset and start timer for next speaker
-    timerRef.current?.resetAndStart();
-  }, [currentSpeaker, onUpdateStatus, timerRef]);
+    // Auto-start timer for next speaker, or reset if queue is empty
+    if (nextSpeaker) {
+      timerRef.current?.resetAndStart();
+    } else {
+      timerRef.current?.reset();
+    }
+  }, [currentSpeaker, nextSpeaker, onUpdateStatus, timerRef]);
 
   const handleSkip = useCallback(() => {
     if (!currentSpeaker) return;
     onUpdateStatus(currentSpeaker.id, "skipped");
-    timerRef.current?.resetAndStart();
-  }, [currentSpeaker, onUpdateStatus, timerRef]);
+    if (nextSpeaker) {
+      timerRef.current?.resetAndStart();
+    } else {
+      timerRef.current?.reset();
+    }
+  }, [currentSpeaker, nextSpeaker, onUpdateStatus, timerRef]);
 
   const handleNoShow = useCallback(() => {
     if (!currentSpeaker) return;
     onUpdateStatus(currentSpeaker.id, "skipped");
-    timerRef.current?.resetAndStart();
-  }, [currentSpeaker, onUpdateStatus, timerRef]);
+    if (nextSpeaker) {
+      timerRef.current?.resetAndStart();
+    } else {
+      timerRef.current?.reset();
+    }
+  }, [currentSpeaker, nextSpeaker, onUpdateStatus, timerRef]);
 
   // ── Sidebar Content ───────────────────────────────────────────────────────
 
   const sidebar = (
-    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-3 flex flex-col min-h-0 h-full">
+    <div className="bg-white/[0.05] backdrop-blur-sm border border-white/15 rounded-2xl p-3 flex flex-col min-h-0 h-full">
       {/* Late check-in input */}
       <div className="mb-3">
-        <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
           Late Check-In
         </p>
         <CallsignInput
@@ -108,10 +124,10 @@ export function RoundsPhase({
 
       {/* Roster header */}
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">
+        <span className="text-xs uppercase tracking-widest text-gray-400 font-semibold">
           Roster
         </span>
-        <span className="text-[10px] tabular-nums text-gray-600">
+        <span className="text-xs tabular-nums text-gray-400">
           {checkins.length} station{checkins.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -148,12 +164,12 @@ export function RoundsPhase({
       {/* Closeout CTA when queue is empty */}
       {queueEmpty && (
         <div className="mt-6">
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2 text-center">
+          <p className="text-xs uppercase tracking-widest text-gray-400 mb-2 text-center">
             All stations served
           </p>
           <button
             onClick={onAdvance}
-            className="group px-6 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+            className="group px-6 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:shadow-lg hover:shadow-plasma-orange/30 active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             aria-label="Begin closeout phase"
           >
             Begin Closeout

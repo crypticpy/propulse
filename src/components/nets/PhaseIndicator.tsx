@@ -60,7 +60,7 @@ export function PhaseIndicator({
 
   return (
     <nav
-      className="flex w-full rounded-xl overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-sm"
+      className="flex w-full rounded-xl overflow-hidden border border-white/15 bg-white/[0.03] backdrop-blur-sm"
       aria-label="Session phases"
     >
       {PHASES.map((phase, index) => {
@@ -79,24 +79,24 @@ export function PhaseIndicator({
             aria-current={isCurrent ? "step" : undefined}
             aria-label={`${phase.label}${isCurrent ? " (current)" : ""}${completed ? " (completed)" : ""}${disabled ? " (unavailable)" : ""}`}
             className={[
-              "flex-1 relative px-3 py-2 text-xs font-medium transition-all select-none",
+              "flex-1 relative px-3 py-2.5 text-sm font-medium transition-all select-none",
               // Current phase
               isCurrent
-                ? "bg-plasma-orange/10 text-plasma-orange animate-ncs-phase-glow"
+                ? "bg-plasma-orange/20 text-plasma-orange font-bold animate-ncs-phase-glow"
                 : "",
               // Completed phase (not current)
               completed && !isCurrent
-                ? "text-signal-green bg-signal-green/[0.03] hover:bg-white/[0.04] cursor-pointer"
+                ? "text-signal-green font-medium bg-signal-green/15 hover:bg-white/[0.04] cursor-pointer"
                 : "",
               // Future / not clickable, not current
-              !clickable && !isCurrent && !completed ? "text-gray-600" : "",
+              !clickable && !isCurrent && !completed ? "text-gray-500" : "",
               // Disabled rounds (no checkins)
               disabled ? "opacity-40 cursor-not-allowed" : "",
               // Separator between pills
-              index > 0 ? "border-l border-white/5" : "",
+              index > 0 ? "border-l border-white/15" : "",
               // Focus ring
               clickable
-                ? "focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-plasma-orange/50"
+                ? "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
                 : "",
             ]
               .filter(Boolean)
@@ -105,7 +105,7 @@ export function PhaseIndicator({
             {/* Current phase left accent bar */}
             {isCurrent && (
               <div
-                className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-plasma-orange rounded-r shadow-[0_0_8px_rgba(255,107,53,0.4)]"
+                className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-plasma-orange rounded-r shadow-[0_0_8px_rgba(255,107,53,0.4)]"
                 aria-hidden="true"
               />
             )}
@@ -139,7 +139,7 @@ export function PhaseIndicator({
 
             {/* Keyboard shortcut hint */}
             <span
-              className="absolute top-0.5 right-1 text-[8px] leading-none text-gray-600 font-mono pointer-events-none bg-white/[0.03] rounded px-0.5"
+              className="absolute top-0.5 right-1 text-[11px] leading-none text-gray-400 font-mono pointer-events-none bg-white/[0.06] rounded px-0.5"
               aria-hidden="true"
             >
               {index + 1}

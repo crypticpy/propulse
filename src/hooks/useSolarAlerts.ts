@@ -33,6 +33,7 @@
 
 import { useEffect, useRef, useMemo, useCallback } from "react";
 import { useKIndex, useMagnetometer, useProbabilities } from "./useSolarData";
+import { useXrayFlux, useProtonFlux, useDstIndex } from "./useSolarExpanded";
 import {
   useAlertsStore,
   selectActiveAlertCount,
@@ -49,6 +50,7 @@ import {
   evaluateBandOpeningAlert,
   buildCompleteAlert,
   shouldResolveAlert,
+  getPriorityForValue,
 } from "@/lib/services/alertService";
 import {
   KP_THRESHOLDS,
@@ -56,8 +58,11 @@ import {
   FLARE_THRESHOLDS,
   GREYLINE_THRESHOLDS,
   BAND_OPENING_THRESHOLDS,
+  XRAY_THRESHOLDS,
+  ACTUAL_PROTON_THRESHOLDS,
+  DST_THRESHOLDS,
 } from "@/constants/alertThresholds";
-import type { SolarAlert } from "@/types/alerts";
+import type { SolarAlert, AlertPriority, AlertSource } from "@/types/alerts";
 import { isQuietHours } from "@/lib/utils/time";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import {
@@ -173,6 +178,21 @@ export function useSolarAlerts(
   const previousXProb = useRef<number | null>(null);
 
   /**
+   * Track previous X-ray flux value for threshold crossing detection
+   */
+  const previousXray = useRef<number | null>(null);
+
+  /**
+   * Track previous proton flux value for threshold crossing detection
+   */
+  const previousProton = useRef<number | null>(null);
+
+  /**
+   * Track previous Dst index value for threshold crossing detection
+   */
+  const previousDst = useRef<number | null>(null);
+
+  /**
    * Track previous greyline intensity to detect transitions
    * Only fires when intensity changes from none/normal → enhanced/peak
    */
@@ -185,6 +205,9 @@ export function useSolarAlerts(
   const kIndexQuery = useKIndex();
   const magnetometerQuery = useMagnetometer();
   const probabilitiesQuery = useProbabilities();
+  const xrayFluxQuery = useXrayFlux();
+  const protonFluxQuery = useProtonFlux();
+  const dstIndexQuery = useDstIndex();
 
   // =========================================================================
   // USER PREFERENCES
@@ -260,6 +283,33 @@ export function useSolarAlerts(
    */
   const probabilities = probabilitiesQuery.data;
 
+  /**
+   * Extract the most recent X-ray flux value
+   */
+  const latestXray = useMemo(() => {
+    const { data } = xrayFluxQuery;
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1];
+  }, [xrayFluxQuery.data]);
+
+  /**
+   * Extract the most recent proton flux value (>= 10 MeV)
+   */
+  const latestProton = useMemo(() => {
+    const { data } = protonFluxQuery;
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1];
+  }, [protonFluxQuery.data]);
+
+  /**
+   * Extract the most recent Dst index value
+   */
+  const latestDst = useMemo(() => {
+    const { data } = dstIndexQuery;
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1];
+  }, [dstIndexQuery.data]);
+
   // =========================================================================
   // HELPER FUNCTIONS
   // =========================================================================
@@ -294,6 +344,22 @@ export function useSolarAlerts(
     kIndexQuery.isPlaceholderData,
     magnetometerQuery.isPlaceholderData,
     probabilitiesQuery.isPlaceholderData,
+  ]);
+
+  /**
+   * Check if expanded data queries are returning live data
+   * These are optional — alerts still work without them
+   */
+  const isExpandedDataLive = useMemo(() => {
+    return (
+      !xrayFluxQuery.isPlaceholderData &&
+      !protonFluxQuery.isPlaceholderData &&
+      !dstIndexQuery.isPlaceholderData
+    );
+  }, [
+    xrayFluxQuery.isPlaceholderData,
+    protonFluxQuery.isPlaceholderData,
+    dstIndexQuery.isPlaceholderData,
   ]);
 
   /**
@@ -350,6 +416,15 @@ export function useSolarAlerts(
       if (probabilities) {
         previousMProb.current = probabilities.m_prob;
         previousXProb.current = probabilities.x_prob;
+      }
+      if (latestXray) {
+        previousXray.current = latestXray.flux;
+      }
+      if (latestProton) {
+        previousProton.current = latestProton.flux;
+      }
+      if (latestDst) {
+        previousDst.current = latestDst.dst;
       }
       return;
     }
@@ -577,6 +652,393 @@ export function useSolarAlerts(
     cleanupExpiredHistory,
     isDataFresh,
     hasCrossedThresholdUp,
+    hasCrossedThresholdDown,
+  ]);
+
+  // =========================================================================
+  // X-RAY FLUX EVALUATION (RADIO BLACKOUT)
+  // =========================================================================
+
+  /**
+   * Evaluates GOES X-ray flux against NOAA R-scale thresholds.
+   * Fires RADIO_BLACKOUT alerts when X-ray flux indicates C/M/X-class flare.
+   * Auto-resolves when flux drops below resolve threshold.
+   */
+  useEffect(() => {
+    if (!enabled || !isExpandedDataLive) return;
+    if (!latestXray || !Number.isFinite(latestXray.flux)) return;
+    if (notificationPrefs?.flareAlerts === false) return;
+
+    const xrayValue = latestXray.flux;
+
+    // Store initial value
+    if (previousXray.current === null) {
+      previousXray.current = xrayValue;
+      return;
+    }
+
+    // Check if data is fresh
+    if (!isDataFresh(latestXray.time_tag)) {
+      previousXray.current = xrayValue;
+      return;
+    }
+
+    // Check quiet hours
+    const quietStart = notificationPrefs?.quietHoursStart;
+    const quietEnd = notificationPrefs?.quietHoursEnd;
+    const inQuietHours = isQuietHours(quietStart, quietEnd);
+
+    // Determine if threshold is exceeded
+    const exceedsThreshold = xrayValue >= XRAY_THRESHOLDS.infoThreshold;
+
+    if (exceedsThreshold) {
+      const crossedThreshold = hasCrossedThresholdUp(
+        previousXray.current,
+        xrayValue,
+        XRAY_THRESHOLDS.infoThreshold,
+      );
+
+      const noActiveAlert = !hasActiveAlertOfType("RADIO_BLACKOUT");
+      const notInCooldown = !isInCooldown(
+        "RADIO_BLACKOUT",
+        XRAY_THRESHOLDS.cooldownMs,
+      );
+
+      if (crossedThreshold && noActiveAlert && notInCooldown && !inQuietHours) {
+        const priority = getPriorityForValue(xrayValue, {
+          info: XRAY_THRESHOLDS.infoThreshold,
+          warning: XRAY_THRESHOLDS.warningThreshold,
+          critical: XRAY_THRESHOLDS.criticalThreshold,
+        });
+
+        // Determine flare class for human-readable message
+        const flareClass =
+          xrayValue >= 1e-4
+            ? `X${(xrayValue / 1e-4).toFixed(1)}`
+            : xrayValue >= 1e-5
+              ? `M${(xrayValue / 1e-5).toFixed(1)}`
+              : `C${(xrayValue / 1e-6).toFixed(1)}`;
+
+        const affectedBands =
+          priority === "CRITICAL"
+            ? ["160m", "80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]
+            : priority === "WARNING"
+              ? ["80m", "40m", "30m", "20m", "17m", "15m"]
+              : ["40m", "30m", "20m"];
+
+        const titles: Record<AlertPriority, string> = {
+          INFO: "Minor Radio Absorption",
+          WARNING: "Moderate Radio Blackout",
+          CRITICAL: "Major Radio Blackout",
+        };
+
+        const partial: Partial<SolarAlert> = {
+          type: "RADIO_BLACKOUT",
+          priority,
+          title: `${titles[priority]} — ${flareClass} Flare`,
+          message:
+            `X-ray flux at ${xrayValue.toExponential(1)} W/m\u00B2 (${flareClass} class). ` +
+            `HF absorption expected on sunlit hemisphere. Bands affected: ${affectedBands.join(", ")}.`,
+          affectedBands,
+          source: "X_RAY_FLUX" as AlertSource,
+          thresholdValue:
+            priority === "CRITICAL"
+              ? XRAY_THRESHOLDS.criticalThreshold
+              : priority === "WARNING"
+                ? XRAY_THRESHOLDS.warningThreshold
+                : XRAY_THRESHOLDS.infoThreshold,
+          currentValue: xrayValue,
+        };
+
+        const alert = buildCompleteAlert(partial);
+        addAlert(alert);
+        recordAlertFired("RADIO_BLACKOUT");
+        playSolarAlertSound(alert.priority);
+      }
+    } else {
+      // Value below info threshold — check for resolution
+      if (xrayValue < XRAY_THRESHOLDS.resolveThreshold) {
+        const activeXrayAlert = getActiveAlerts().find(
+          (a) => a.type === "RADIO_BLACKOUT",
+        );
+        if (activeXrayAlert) {
+          resolveAlert(activeXrayAlert.id);
+        }
+      }
+    }
+
+    previousXray.current = xrayValue;
+  }, [
+    enabled,
+    isExpandedDataLive,
+    latestXray,
+    notificationPrefs,
+    addAlert,
+    resolveAlert,
+    getActiveAlerts,
+    hasActiveAlertOfType,
+    isInCooldown,
+    recordAlertFired,
+    isDataFresh,
+    hasCrossedThresholdUp,
+  ]);
+
+  // =========================================================================
+  // PROTON FLUX EVALUATION (SOLAR RADIATION STORM)
+  // =========================================================================
+
+  /**
+   * Evaluates measured proton flux (>= 10 MeV) against NOAA S-scale thresholds.
+   * Fires PROTON_EVENT alerts for solar radiation storms.
+   * This uses ACTUAL_PROTON_THRESHOLDS (measured flux in pfu) rather than
+   * probability-based PROTON_THRESHOLDS.
+   */
+  useEffect(() => {
+    if (!enabled || !isExpandedDataLive) return;
+    if (!latestProton || !Number.isFinite(latestProton.flux)) return;
+
+    const protonValue = latestProton.flux;
+
+    // Store initial value
+    if (previousProton.current === null) {
+      previousProton.current = protonValue;
+      return;
+    }
+
+    // Check if data is fresh
+    if (!isDataFresh(latestProton.time_tag)) {
+      previousProton.current = protonValue;
+      return;
+    }
+
+    // Check quiet hours
+    const quietStart = notificationPrefs?.quietHoursStart;
+    const quietEnd = notificationPrefs?.quietHoursEnd;
+    const inQuietHours = isQuietHours(quietStart, quietEnd);
+
+    const exceedsThreshold =
+      protonValue >= ACTUAL_PROTON_THRESHOLDS.infoThreshold;
+
+    if (exceedsThreshold) {
+      const crossedThreshold = hasCrossedThresholdUp(
+        previousProton.current,
+        protonValue,
+        ACTUAL_PROTON_THRESHOLDS.infoThreshold,
+      );
+
+      const noActiveAlert = !hasActiveAlertOfType("PROTON_EVENT");
+      const notInCooldown = !isInCooldown(
+        "PROTON_EVENT",
+        ACTUAL_PROTON_THRESHOLDS.cooldownMs,
+      );
+
+      if (crossedThreshold && noActiveAlert && notInCooldown && !inQuietHours) {
+        const priority = getPriorityForValue(protonValue, {
+          info: ACTUAL_PROTON_THRESHOLDS.infoThreshold,
+          warning: ACTUAL_PROTON_THRESHOLDS.warningThreshold,
+          critical: ACTUAL_PROTON_THRESHOLDS.criticalThreshold,
+        });
+
+        const sScale =
+          protonValue >= 1000
+            ? "S3+"
+            : protonValue >= 100
+              ? "S2"
+              : protonValue >= 10
+                ? "S1"
+                : "";
+
+        const affectedBands =
+          priority === "CRITICAL"
+            ? ["160m", "80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]
+            : priority === "WARNING"
+              ? ["80m", "40m", "30m", "20m"]
+              : ["40m", "30m", "20m"];
+
+        const titles: Record<AlertPriority, string> = {
+          INFO: "Minor Radiation Storm",
+          WARNING: "Moderate Radiation Storm",
+          CRITICAL: "Strong Radiation Storm",
+        };
+
+        const partial: Partial<SolarAlert> = {
+          type: "PROTON_EVENT",
+          priority,
+          title: `${titles[priority]}${sScale ? ` — ${sScale}` : ""}`,
+          message:
+            `Proton flux at ${protonValue.toFixed(0)} pfu (\u226510 MeV). ` +
+            `Polar cap absorption may disrupt transpolar HF paths. ` +
+            `Bands affected: ${affectedBands.join(", ")}.`,
+          affectedBands,
+          source: "PROTON_FLUX" as AlertSource,
+          thresholdValue:
+            priority === "CRITICAL"
+              ? ACTUAL_PROTON_THRESHOLDS.criticalThreshold
+              : priority === "WARNING"
+                ? ACTUAL_PROTON_THRESHOLDS.warningThreshold
+                : ACTUAL_PROTON_THRESHOLDS.infoThreshold,
+          currentValue: protonValue,
+        };
+
+        const alert = buildCompleteAlert(partial);
+        addAlert(alert);
+        recordAlertFired("PROTON_EVENT");
+        playSolarAlertSound(alert.priority);
+      }
+    } else {
+      // Value below info threshold — check for resolution
+      if (protonValue < ACTUAL_PROTON_THRESHOLDS.resolveThreshold) {
+        const activeProtonAlert = getActiveAlerts().find(
+          (a) => a.type === "PROTON_EVENT" && a.source === "PROTON_FLUX",
+        );
+        if (activeProtonAlert) {
+          resolveAlert(activeProtonAlert.id);
+        }
+      }
+    }
+
+    previousProton.current = protonValue;
+  }, [
+    enabled,
+    isExpandedDataLive,
+    latestProton,
+    notificationPrefs,
+    addAlert,
+    resolveAlert,
+    getActiveAlerts,
+    hasActiveAlertOfType,
+    isInCooldown,
+    recordAlertFired,
+    isDataFresh,
+    hasCrossedThresholdUp,
+  ]);
+
+  // =========================================================================
+  // DST INDEX EVALUATION (GEOMAGNETIC STORM)
+  // =========================================================================
+
+  /**
+   * Evaluates Dst (Disturbance Storm Time) index for geomagnetic storm detection.
+   * Fires DST_STORM alerts when Dst drops below thresholds (more negative = worse).
+   * Uses inverted comparison: value <= threshold means exceeded.
+   */
+  useEffect(() => {
+    if (!enabled || !isExpandedDataLive) return;
+    if (!latestDst || !Number.isFinite(latestDst.dst)) return;
+    if (notificationPrefs?.stormAlerts === false) return;
+
+    const dstValue = latestDst.dst;
+
+    // Store initial value
+    if (previousDst.current === null) {
+      previousDst.current = dstValue;
+      return;
+    }
+
+    // Check if data is fresh
+    if (!isDataFresh(latestDst.time_tag)) {
+      previousDst.current = dstValue;
+      return;
+    }
+
+    // Check quiet hours
+    const quietStart = notificationPrefs?.quietHoursStart;
+    const quietEnd = notificationPrefs?.quietHoursEnd;
+    const inQuietHours = isQuietHours(quietStart, quietEnd);
+
+    // Dst thresholds are negative: -50, -100, -200
+    // Exceeds threshold when value drops below (more negative)
+    const exceedsThreshold = dstValue <= DST_THRESHOLDS.infoThreshold;
+
+    if (exceedsThreshold) {
+      // Crossed down = was above threshold, now below
+      const crossedThreshold = hasCrossedThresholdDown(
+        previousDst.current,
+        dstValue,
+        DST_THRESHOLDS.infoThreshold,
+      );
+
+      const noActiveAlert = !hasActiveAlertOfType("DST_STORM");
+      const notInCooldown = !isInCooldown(
+        "DST_STORM",
+        DST_THRESHOLDS.cooldownMs,
+      );
+
+      if (crossedThreshold && noActiveAlert && notInCooldown && !inQuietHours) {
+        const priority = getPriorityForValue(
+          dstValue,
+          {
+            info: DST_THRESHOLDS.infoThreshold,
+            warning: DST_THRESHOLDS.warningThreshold,
+            critical: DST_THRESHOLDS.criticalThreshold,
+          },
+          true, // isNegative — lower is worse
+        );
+
+        const stormLevel =
+          dstValue <= -200
+            ? "Severe"
+            : dstValue <= -100
+              ? "Intense"
+              : "Moderate";
+
+        const affectedBands =
+          priority === "CRITICAL"
+            ? ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]
+            : priority === "WARNING"
+              ? ["20m", "17m", "15m", "12m", "10m"]
+              : ["15m", "12m", "10m"];
+
+        const partial: Partial<SolarAlert> = {
+          type: "DST_STORM",
+          priority,
+          title: `${stormLevel} Geomagnetic Storm (Dst)`,
+          message:
+            `Dst index at ${dstValue} nT. ${stormLevel} geomagnetic storm detected. ` +
+            `HF propagation disrupted, especially at higher frequencies. ` +
+            `Bands affected: ${affectedBands.join(", ")}.`,
+          affectedBands,
+          source: "DST_INDEX" as AlertSource,
+          thresholdValue:
+            priority === "CRITICAL"
+              ? DST_THRESHOLDS.criticalThreshold
+              : priority === "WARNING"
+                ? DST_THRESHOLDS.warningThreshold
+                : DST_THRESHOLDS.infoThreshold,
+          currentValue: dstValue,
+        };
+
+        const alert = buildCompleteAlert(partial);
+        addAlert(alert);
+        recordAlertFired("DST_STORM");
+        playSolarAlertSound(alert.priority);
+      }
+    } else {
+      // Value above threshold (less negative) — check for resolution
+      // Resolve when Dst recovers above resolveThreshold (e.g., > -30 nT)
+      if (dstValue > DST_THRESHOLDS.resolveThreshold) {
+        const activeDstAlert = getActiveAlerts().find(
+          (a) => a.type === "DST_STORM",
+        );
+        if (activeDstAlert) {
+          resolveAlert(activeDstAlert.id);
+        }
+      }
+    }
+
+    previousDst.current = dstValue;
+  }, [
+    enabled,
+    isExpandedDataLive,
+    latestDst,
+    notificationPrefs,
+    addAlert,
+    resolveAlert,
+    getActiveAlerts,
+    hasActiveAlertOfType,
+    isInCooldown,
+    recordAlertFired,
+    isDataFresh,
     hasCrossedThresholdDown,
   ]);
 

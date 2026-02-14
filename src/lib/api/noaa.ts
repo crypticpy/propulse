@@ -12,6 +12,14 @@ import type {
   MagnetometerData,
   ApiError,
 } from "./types";
+import type {
+  XrayFluxEntry,
+  ProtonFluxEntry,
+  DstEntry,
+  DRAPData,
+  CMEAnalysis,
+  SolarFluxForecast,
+} from "@/types/alerts";
 import { getCachedResponse, setCachedResponse } from "@/lib/utils/idbCache";
 
 /** TTL values for IDB caching per endpoint */
@@ -21,6 +29,12 @@ const ENDPOINT_TTL_MS: Record<string, number> = {
   magnetometer: 15 * 60 * 1000, // 15 minutes
   sunspots: 6 * 60 * 60 * 1000, // 6 hours
   probabilities: 60 * 60 * 1000, // 1 hour
+  xray: 2 * 60 * 1000, // 2 minutes
+  protons: 2 * 60 * 1000, // 2 minutes
+  dst: 10 * 60 * 1000, // 10 minutes
+  drap: 5 * 60 * 1000, // 5 minutes
+  cme: 30 * 60 * 1000, // 30 minutes
+  "flux-forecast": 60 * 60 * 1000, // 1 hour
 };
 
 /**
@@ -228,4 +242,126 @@ export async function fetchMagnetometer(): Promise<MagnetometerData[]> {
 
   // Already in processed format
   return data as MagnetometerData[];
+}
+
+// =============================================================================
+// EXPANDED SOLAR DATA ENDPOINTS
+// =============================================================================
+
+/**
+ * Fetch GOES X-ray flux data
+ * Returns recent X-ray flux measurements for flare detection
+ *
+ * @returns Promise<XrayFluxEntry[]> - Array of X-ray flux measurements
+ * @throws ApiError if the request fails
+ */
+export async function fetchXrayFlux(): Promise<XrayFluxEntry[]> {
+  return fetchFromProxy<XrayFluxEntry[]>("xray");
+}
+
+/**
+ * Fetch GOES integral proton flux data (>= 10 MeV)
+ * Used for solar proton event detection
+ *
+ * @returns Promise<ProtonFluxEntry[]> - Array of proton flux measurements
+ * @throws ApiError if the request fails
+ */
+export async function fetchProtonFlux(): Promise<ProtonFluxEntry[]> {
+  return fetchFromProxy<ProtonFluxEntry[]>("protons");
+}
+
+/**
+ * Raw Dst response row from NOAA Kyoto endpoint
+ * Format: [time_tag, dst_value] pairs with header row
+ */
+type RawDstRow = [string, string];
+
+/**
+ * Fetch Dst (Disturbance Storm Time) index data
+ * Dst < -50 nT indicates moderate geomagnetic storm
+ *
+ * Handles raw NOAA format (array of [time_tag, dst] pairs with header row).
+ *
+ * @returns Promise<DstEntry[]> - Array of Dst index measurements
+ * @throws ApiError if the request fails
+ */
+export async function fetchDstIndex(): Promise<DstEntry[]> {
+  const data = await fetchFromProxy<DstEntry[] | RawDstRow[]>("dst");
+
+  // Raw NOAA format: array of [time_tag, dst] string pairs, first row is header
+  if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
+    const rawData = data as RawDstRow[];
+
+    // Skip header row, transform remaining entries
+    return rawData
+      .slice(1)
+      .filter((row) => Array.isArray(row) && row.length >= 2)
+      .map((row) => ({
+        time_tag: row[0],
+        dst: parseFloat(row[1]),
+      }))
+      .filter((entry) => Number.isFinite(entry.dst));
+  }
+
+  // Already in processed format
+  return data as DstEntry[];
+}
+
+/**
+ * Fetch D-Region Absorption Prediction (DRAP) data
+ * Returns a grid of maximum usable frequencies showing HF absorption areas
+ *
+ * @returns Promise<DRAPData> - DRAP frequency absorption grid
+ * @throws ApiError if the request fails
+ */
+export async function fetchDRAPData(): Promise<DRAPData> {
+  return fetchFromProxy<DRAPData>("drap");
+}
+
+/**
+ * Fetch CME (Coronal Mass Ejection) analysis data from NASA DONKI
+ * Returns recent Earth-directed CME analyses
+ *
+ * @returns Promise<CMEAnalysis[]> - Array of CME analysis entries
+ * @throws ApiError if the request fails
+ */
+export async function fetchCMEAnalysis(): Promise<CMEAnalysis[]> {
+  return fetchFromProxy<CMEAnalysis[]>("cme");
+}
+
+/**
+ * Fetch solar flux forecast (3-day NOAA forecast)
+ * Returns the raw forecast text and parsed forecast entries
+ *
+ * @returns Promise<{ raw: string; forecast: SolarFluxForecast[] }> - Raw text + parsed forecast
+ * @throws ApiError if the request fails
+ */
+export async function fetchFluxForecast(): Promise<{
+  raw: string;
+  forecast: SolarFluxForecast[];
+}> {
+  const data = await fetchFromProxy<{
+    raw: string;
+    forecast: Array<{
+      date: string;
+      predicted_flux: number | null;
+      predicted_kp?: number | null;
+      probabilities?: {
+        m_class: number | null;
+        x_class: number | null;
+        proton: number | null;
+      };
+    }>;
+  }>("flux-forecast");
+
+  // Map the edge function response to the SolarFluxForecast type,
+  // filtering out entries with null predicted_flux
+  const forecast: SolarFluxForecast[] = data.forecast
+    .filter((entry) => entry.predicted_flux !== null)
+    .map((entry) => ({
+      date: entry.date,
+      predicted_flux: entry.predicted_flux!,
+    }));
+
+  return { raw: data.raw, forecast };
 }

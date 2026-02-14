@@ -38,22 +38,61 @@ export async function computeHourlyStats(db: SupabaseClient): Promise<void> {
     let bandsProcessed = 0;
 
     for (const band of HF_BANDS) {
-      // Query all spots for this band in the previous hour
-      const { data: spots, error } = await db
-        .from("spot_history")
-        .select("tx_callsign, rx_callsign, snr, mode, source, tx_grid, rx_grid")
-        .eq("band", band)
-        .gte("spotted_at", prevHourISO)
-        .lt("spotted_at", currentHourISO);
+      // Paginated fetch — PostgREST defaults to 1000 rows max per request.
+      // Popular bands can have 5,000-50,000+ spots per hour, so we fetch
+      // in batches of 10,000 and accumulate until we get a partial page.
+      const PAGE_SIZE = 10_000;
+      const spots: Array<{
+        tx_callsign: string;
+        rx_callsign: string;
+        snr: number | null;
+        mode: string | null;
+        source: string;
+        tx_grid: string | null;
+        rx_grid: string | null;
+      }> = [];
+      let offset = 0;
+      let fetchError: string | null = null;
 
-      if (error) {
+      while (true) {
+        const { data: page, error } = await db
+          .from("spot_history")
+          .select(
+            "tx_callsign, rx_callsign, snr, mode, source, tx_grid, rx_grid",
+          )
+          .eq("band", band)
+          .gte("spotted_at", prevHourISO)
+          .lt("spotted_at", currentHourISO)
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (error) {
+          fetchError = error.message;
+          break;
+        }
+
+        if (page && page.length > 0) {
+          spots.push(...page);
+        }
+
+        // Partial page (or empty) means we've fetched everything
+        if (!page || page.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+      }
+
+      if (fetchError) {
         log("warn", `Aggregator query failed for ${band}`, {
-          error: error.message,
+          error: fetchError,
         });
         continue;
       }
 
-      if (!spots || spots.length === 0) continue;
+      if (spots.length === 0) continue;
+
+      log("debug", `Aggregator fetched spots for ${band}`, {
+        band,
+        spotCount: spots.length,
+        pages: Math.ceil(spots.length / PAGE_SIZE),
+      });
 
       // Compute stats
       const txSet = new Set(spots.map((s) => s.tx_callsign));

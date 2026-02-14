@@ -5,22 +5,29 @@ import { reportHealth } from "../health.js";
 export async function collectSolar(db: SupabaseClient): Promise<void> {
   const start = Date.now();
   try {
-    // Fetch all three in parallel using Promise.allSettled
-    const [kpResult, sfiResult, magResult] = await Promise.allSettled([
-      fetchJson<Array<{ kp_index: number }>>(
-        "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
-      ),
-      fetchJson<Array<{ flux: number }>>(
-        "https://services.swpc.noaa.gov/json/f107_cm_flux.json",
-      ),
-      fetchJson<
-        Array<{
-          bz_gsm: number | null;
-          by_gsm: number | null;
-          bt: number | null;
-        }>
-      >("https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"),
-    ]);
+    // Fetch all five in parallel using Promise.allSettled
+    const [kpResult, sfiResult, magResult, windResult, ssnResult] =
+      await Promise.allSettled([
+        fetchJson<Array<{ kp_index: number }>>(
+          "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
+        ),
+        fetchJson<Array<{ flux: number }>>(
+          "https://services.swpc.noaa.gov/json/f107_cm_flux.json",
+        ),
+        fetchJson<
+          Array<{
+            bz_gsm: number | null;
+            by_gsm: number | null;
+            bt: number | null;
+          }>
+        >("https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"),
+        fetchJson<Array<{ proton_speed: number | null }>>(
+          "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json",
+        ),
+        fetchJson<Array<{ ssn: number | null }>>(
+          "https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json",
+        ),
+      ]);
 
     const kp =
       kpResult.status === "fulfilled" && kpResult.value.length > 0
@@ -34,6 +41,14 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       magResult.status === "fulfilled" && magResult.value.length > 0
         ? magResult.value[magResult.value.length - 1]
         : null;
+    const solarWindSpeed =
+      windResult.status === "fulfilled" && windResult.value.length > 0
+        ? windResult.value[windResult.value.length - 1].proton_speed
+        : null;
+    const sunspotNumber =
+      ssnResult.status === "fulfilled" && ssnResult.value.length > 0
+        ? ssnResult.value[ssnResult.value.length - 1].ssn
+        : null;
 
     const snapshot = {
       captured_at: new Date().toISOString(),
@@ -42,8 +57,8 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
       bz_gsm: mag?.bz_gsm ?? null,
       by_gsm: mag?.by_gsm ?? null,
       bt: mag?.bt ?? null,
-      solar_wind_speed: null, // Future: DSCOVR plasma
-      sunspot_number: null, // Future: sunspot number endpoint
+      solar_wind_speed: solarWindSpeed ?? null,
+      sunspot_number: sunspotNumber ?? null,
     };
 
     const { error } = await db.from("solar_snapshots").upsert(snapshot, {

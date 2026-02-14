@@ -1,15 +1,16 @@
 /**
  * Watch Audio Service
  *
- * Provides audio alert functionality for the Watch System using Web Audio API.
- * Generates distinct chime sounds for different watch types (callsign, grid, entity).
+ * Plays real MP3 notification sounds for watch alerts and solar events.
+ * Sounds are pre-loaded from /sounds/ for instant playback.
  *
- * Features:
- * - Three distinct alert sounds for different watch types
- * - Volume control (0-100)
- * - Master mute toggle
- * - Test sound functionality
- * - Graceful fallback if Web Audio API is unavailable
+ * Sound files (CC0 licensed, from github.com/akx/Notifications):
+ *   callsign → Chord (ascending pleasant chord)
+ *   grid     → Glisten (shimmery, spatial)
+ *   entity   → Sonar (deep sonar ping, very radio-appropriate)
+ *   info     → Polite (subtle gentle ping)
+ *   warning  → Calm (moderate attention)
+ *   critical → Belligerent (urgent alarm)
  */
 
 import type { WatchAlertType } from "@/types/user";
@@ -18,27 +19,30 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { isQuietHours } from "@/lib/utils/time";
 
 // =============================================================================
-// TYPES
+// SOUND FILE MAPPING
 // =============================================================================
 
-/**
- * Audio context singleton state
- */
-interface AudioState {
-  context: AudioContext | null;
-  gainNode: GainNode | null;
-  initialized: boolean;
-}
+const WATCH_SOUND_FILES: Record<WatchAlertType, string> = {
+  callsign: "/sounds/alert-callsign.mp3",
+  grid: "/sounds/alert-grid.mp3",
+  entity: "/sounds/alert-entity.mp3",
+};
+
+const SOLAR_SOUND_FILES: Record<AlertPriority, string> = {
+  INFO: "/sounds/alert-info.mp3",
+  WARNING: "/sounds/alert-warning.mp3",
+  CRITICAL: "/sounds/alert-critical.mp3",
+};
 
 // =============================================================================
 // STATE
 // =============================================================================
 
-const audioState: AudioState = {
-  context: null,
-  gainNode: null,
-  initialized: false,
-};
+/** Pre-loaded Audio elements keyed by file path */
+const audioCache = new Map<string, HTMLAudioElement>();
+
+/** Whether we've attempted to preload */
+let initialized = false;
 
 /** Current volume level (0-1) */
 let currentVolume = 0.5;
@@ -51,57 +55,31 @@ let isMuted = false;
 // =============================================================================
 
 /**
- * Initialize the audio context (must be called after user interaction)
- * Web Audio API requires user interaction before audio can be played
+ * Preload all audio files for instant playback.
+ * Should be called after first user interaction (click/key/touch).
  */
 export function initAudioContext(): boolean {
-  if (audioState.initialized && audioState.context) {
-    return true;
-  }
+  if (initialized) return true;
 
   try {
-    // Create audio context (with fallback for older browsers)
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
+    const allPaths = [
+      ...Object.values(WATCH_SOUND_FILES),
+      ...Object.values(SOLAR_SOUND_FILES),
+    ];
 
-    if (!AudioContextClass) {
-      console.warn("Web Audio API not supported");
-      return false;
+    for (const path of allPaths) {
+      const audio = new Audio(path);
+      audio.preload = "auto";
+      audio.volume = currentVolume;
+      audioCache.set(path, audio);
     }
 
-    audioState.context = new AudioContextClass();
-    audioState.gainNode = audioState.context.createGain();
-    audioState.gainNode.connect(audioState.context.destination);
-    audioState.gainNode.gain.value = currentVolume;
-    audioState.initialized = true;
-
+    initialized = true;
     return true;
   } catch (error) {
-    console.error("Failed to initialize audio context:", error);
+    console.error("Failed to initialize audio:", error);
     return false;
   }
-}
-
-/**
- * Resume audio context if suspended (browsers may suspend after inactivity)
- */
-async function ensureAudioContextRunning(): Promise<boolean> {
-  if (!audioState.context) {
-    return initAudioContext();
-  }
-
-  if (audioState.context.state === "suspended") {
-    try {
-      await audioState.context.resume();
-    } catch (error) {
-      console.error("Failed to resume audio context:", error);
-      return false;
-    }
-  }
-
-  return audioState.context.state === "running";
 }
 
 // =============================================================================
@@ -115,8 +93,9 @@ async function ensureAudioContextRunning(): Promise<boolean> {
 export function setVolume(volume: number): void {
   currentVolume = Math.max(0, Math.min(100, volume)) / 100;
 
-  if (audioState.gainNode) {
-    audioState.gainNode.gain.value = isMuted ? 0 : currentVolume;
+  // Update volume on all cached audio elements
+  for (const audio of audioCache.values()) {
+    audio.volume = isMuted ? 0 : currentVolume;
   }
 }
 
@@ -130,13 +109,12 @@ export function getVolume(): number {
 
 /**
  * Set the mute state
- * @param muted - Whether audio should be muted
  */
 export function setMuted(muted: boolean): void {
   isMuted = muted;
 
-  if (audioState.gainNode) {
-    audioState.gainNode.gain.value = isMuted ? 0 : currentVolume;
+  for (const audio of audioCache.values()) {
+    audio.volume = isMuted ? 0 : currentVolume;
   }
 }
 
@@ -148,181 +126,48 @@ export function getMuted(): boolean {
 }
 
 // =============================================================================
-// SOUND GENERATION
+// PLAYBACK
 // =============================================================================
 
 /**
- * Sound configuration for each watch type
- * Each type has a distinct musical pattern
+ * Play an MP3 sound file, allowing overlapping plays.
+ * Clones the cached Audio element so the same sound can fire again
+ * before the previous instance finishes.
  */
-interface SoundConfig {
-  /** Base frequency in Hz */
-  frequencies: number[];
-  /** Duration of each note in seconds */
-  durations: number[];
-  /** Type of waveform */
-  waveType: OscillatorType;
-  /** Gap between notes in seconds */
-  gap: number;
-}
-
-/**
- * Sound configurations for different alert types
- *
- * - Callsign: Two-tone ascending chime (friendly, attention-getting)
- * - Grid: Three-note descending pattern (geographic/spatial feel)
- * - Entity: Single deep tone with harmonic (importance/weight)
- */
-const SOUND_CONFIGS: Record<WatchAlertType, SoundConfig> = {
-  callsign: {
-    frequencies: [523.25, 659.25], // C5, E5 - major third, pleasant
-    durations: [0.12, 0.18],
-    waveType: "sine",
-    gap: 0.05,
-  },
-  grid: {
-    frequencies: [698.46, 587.33, 493.88], // F5, D5, B4 - descending
-    durations: [0.1, 0.1, 0.15],
-    waveType: "triangle",
-    gap: 0.04,
-  },
-  entity: {
-    frequencies: [349.23, 440], // F4, A4 - warm interval
-    durations: [0.2, 0.25],
-    waveType: "sine",
-    gap: 0.08,
-  },
-};
-
-/**
- * Sound configurations for solar/propagation alert priorities
- *
- * - WARNING: Descending two-tone (attention, something important)
- * - INFO: Single gentle ping (informational, not urgent)
- * - CRITICAL: Urgent triple-pulse (rarely used, demands attention)
- */
-const SOLAR_ALERT_SOUNDS: Record<AlertPriority, SoundConfig> = {
-  INFO: {
-    frequencies: [587.33], // D5 — single gentle ping
-    durations: [0.2],
-    waveType: "sine",
-    gap: 0,
-  },
-  WARNING: {
-    frequencies: [659.25, 523.25], // E5, C5 — descending attention
-    durations: [0.15, 0.2],
-    waveType: "triangle",
-    gap: 0.06,
-  },
-  CRITICAL: {
-    frequencies: [880, 880, 880], // A5 × 3 — urgent triple pulse
-    durations: [0.1, 0.1, 0.15],
-    waveType: "square",
-    gap: 0.08,
-  },
-};
-
-/**
- * Play an oscillator note with envelope
- */
-function playNote(
-  context: AudioContext,
-  gainNode: GainNode,
-  frequency: number,
-  startTime: number,
-  duration: number,
-  waveType: OscillatorType,
-): void {
-  const oscillator = context.createOscillator();
-  const noteGain = context.createGain();
-
-  oscillator.type = waveType;
-  oscillator.frequency.value = frequency;
-
-  // Connect through note-specific gain for envelope
-  oscillator.connect(noteGain);
-  noteGain.connect(gainNode);
-
-  // Envelope: quick attack, sustain, gentle release
-  const attackTime = 0.01;
-  const releaseTime = duration * 0.3;
-
-  noteGain.gain.setValueAtTime(0, startTime);
-  noteGain.gain.linearRampToValueAtTime(0.8, startTime + attackTime);
-  noteGain.gain.setValueAtTime(0.8, startTime + duration - releaseTime);
-  noteGain.gain.linearRampToValueAtTime(0, startTime + duration);
-
-  oscillator.start(startTime);
-  oscillator.stop(startTime + duration + 0.01);
-}
-
-/**
- * Play an alert sound for a specific watch type
- * @param type - The type of watch that triggered the alert
- * @returns Promise that resolves when sound starts (not when it finishes)
- */
-export async function playAlertSound(type: WatchAlertType): Promise<boolean> {
-  // Check if muted
-  if (isMuted) {
-    return false;
-  }
-
-  // Check master sound toggle and quiet hours
-  const { notifications } = useSettingsStore.getState();
-  if (notifications?.soundEnabled === false) {
-    return false;
-  }
-  if (
-    isQuietHours(notifications?.quietHoursStart, notifications?.quietHoursEnd)
-  ) {
-    return false;
-  }
-
-  // Ensure audio context is running
-  const isRunning = await ensureAudioContextRunning();
-  if (!isRunning || !audioState.context || !audioState.gainNode) {
-    return false;
-  }
-
-  const { context, gainNode } = audioState;
-  const config = SOUND_CONFIGS[type];
-
-  if (!config) {
-    console.warn(`Unknown alert type: ${type}`);
-    return false;
+async function playSoundFile(path: string): Promise<boolean> {
+  const cached = audioCache.get(path);
+  if (!cached) {
+    // Lazy-init if not preloaded
+    if (!initialized) initAudioContext();
+    const fallback = audioCache.get(path);
+    if (!fallback) return false;
+    return playSoundFile(path);
   }
 
   try {
-    let currentTime = context.currentTime + 0.02; // Small offset to avoid clicks
-
-    // Play each note in sequence
-    for (let i = 0; i < config.frequencies.length; i++) {
-      playNote(
-        context,
-        gainNode,
-        config.frequencies[i],
-        currentTime,
-        config.durations[i],
-        config.waveType,
-      );
-      currentTime += config.durations[i] + config.gap;
-    }
-
+    // Clone so overlapping alerts don't cut each other off
+    const clone = cached.cloneNode(true) as HTMLAudioElement;
+    clone.volume = isMuted ? 0 : currentVolume;
+    await clone.play();
     return true;
   } catch (error) {
-    console.error("Failed to play alert sound:", error);
-    return false;
+    // Autoplay policy may block — try original element as fallback
+    try {
+      cached.currentTime = 0;
+      cached.volume = isMuted ? 0 : currentVolume;
+      await cached.play();
+      return true;
+    } catch {
+      console.error("Failed to play sound:", path, error);
+      return false;
+    }
   }
 }
 
 /**
- * Play a solar/propagation alert sound based on priority level
- * @param priority - Alert priority (INFO, WARNING, CRITICAL)
- * @returns Promise that resolves to true if sound played
+ * Check mute, sound-enabled setting, and quiet hours
  */
-export async function playSolarAlertSound(
-  priority: AlertPriority,
-): Promise<boolean> {
+function shouldPlay(): boolean {
   if (isMuted) return false;
 
   const { notifications } = useSettingsStore.getState();
@@ -332,58 +177,57 @@ export async function playSolarAlertSound(
   )
     return false;
 
-  const isRunning = await ensureAudioContextRunning();
-  if (!isRunning || !audioState.context || !audioState.gainNode) return false;
-
-  const { context, gainNode } = audioState;
-  const config = SOLAR_ALERT_SOUNDS[priority];
-  if (!config) return false;
-
-  try {
-    let currentTime = context.currentTime + 0.02;
-    for (let i = 0; i < config.frequencies.length; i++) {
-      playNote(
-        context,
-        gainNode,
-        config.frequencies[i],
-        currentTime,
-        config.durations[i],
-        config.waveType,
-      );
-      currentTime += config.durations[i] + config.gap;
-    }
-    return true;
-  } catch (error) {
-    console.error("Failed to play solar alert sound:", error);
-    return false;
-  }
+  return true;
 }
 
 /**
- * Play a test sound to preview alert settings
- * Plays all three alert types in sequence
+ * Play an alert sound for a specific watch type
+ */
+export async function playAlertSound(type: WatchAlertType): Promise<boolean> {
+  if (!shouldPlay()) return false;
+
+  const path = WATCH_SOUND_FILES[type];
+  if (!path) {
+    console.warn(`Unknown alert type: ${type}`);
+    return false;
+  }
+
+  return playSoundFile(path);
+}
+
+/**
+ * Play a solar/propagation alert sound based on priority level
+ */
+export async function playSolarAlertSound(
+  priority: AlertPriority,
+): Promise<boolean> {
+  if (!shouldPlay()) return false;
+
+  const path = SOLAR_SOUND_FILES[priority];
+  if (!path) return false;
+
+  return playSoundFile(path);
+}
+
+/**
+ * Play a test sound — all three watch types in sequence
  */
 export async function playTestSound(): Promise<boolean> {
-  // Temporarily unmute for test if needed
   const wasMuted = isMuted;
 
   try {
-    // Play callsign sound
     const success = await playAlertSound("callsign");
 
     if (success) {
-      // Wait and play grid sound
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 1200));
       await playAlertSound("grid");
 
-      // Wait and play entity sound
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 2400));
       await playAlertSound("entity");
     }
 
     return success;
   } finally {
-    // Restore mute state (in case it was changed during test)
     if (wasMuted !== isMuted) {
       isMuted = wasMuted;
     }
@@ -392,7 +236,6 @@ export async function playTestSound(): Promise<boolean> {
 
 /**
  * Play a single test sound for a specific type
- * @param type - The type of alert sound to test
  */
 export async function playTestSoundForType(
   type: WatchAlertType,
@@ -406,18 +249,14 @@ export async function playTestSoundForType(
 
 /**
  * Clean up audio resources
- * Call when component using audio is unmounted
  */
 export function cleanupAudio(): void {
-  if (audioState.context) {
-    audioState.context.close().catch(() => {
-      // Ignore errors during cleanup
-    });
+  for (const audio of audioCache.values()) {
+    audio.pause();
+    audio.src = "";
   }
-
-  audioState.context = null;
-  audioState.gainNode = null;
-  audioState.initialized = false;
+  audioCache.clear();
+  initialized = false;
 }
 
 // =============================================================================
@@ -425,22 +264,15 @@ export function cleanupAudio(): void {
 // =============================================================================
 
 /**
- * Check if the audio service is available
+ * Check if audio playback is available
  */
 export function isAudioAvailable(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    !!(
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext
-    )
-  );
+  return typeof window !== "undefined" && typeof Audio !== "undefined";
 }
 
 /**
- * Check if audio context is initialized and ready
+ * Check if audio is initialized and ready
  */
 export function isAudioReady(): boolean {
-  return audioState.initialized && audioState.context !== null;
+  return initialized && audioCache.size > 0;
 }

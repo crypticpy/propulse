@@ -667,9 +667,9 @@ export function EquipmentCard({
         {/* ── Stats Zone ── */}
         {displayStats && displayStats.length > 0 && (
           <div className="relative z-[2] flex items-center justify-around px-3 sm:px-4 py-2.5 sm:py-3">
-            {displayStats.map((stat) => (
+            {displayStats.map((stat, i) => (
               <div
-                key={`${stat.icon}-${stat.label}`}
+                key={`${stat.icon}-${stat.label}-${i}`}
                 className="flex flex-col items-center gap-0.5 min-w-0 px-0.5"
               >
                 <span className="text-gray-500">
@@ -692,7 +692,7 @@ export function EquipmentCard({
         {/* ── Capabilities Row ── */}
         {effectiveCapabilities && effectiveCapabilities.length > 0 && (
           <div className="relative z-[2] px-4 pb-2 flex flex-wrap gap-1">
-            {effectiveCapabilities.map((cap) => {
+            {effectiveCapabilities.map((cap, i) => {
               let pillStyle: string;
               if (cap.category === "band") {
                 pillStyle = BAND_PILL_COLORS[cap.label] ?? DEFAULT_BAND_PILL;
@@ -701,7 +701,7 @@ export function EquipmentCard({
               }
               return (
                 <span
-                  key={`${cap.category}-${cap.label}`}
+                  key={`${cap.category}-${cap.label}-${i}`}
                   className={`px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border ${pillStyle}`}
                 >
                   {cap.label}
@@ -715,9 +715,9 @@ export function EquipmentCard({
         <div className="relative z-[2] px-4 pb-3 flex items-end justify-between min-h-[28px]">
           {/* Left: badges */}
           <div className="flex flex-wrap gap-1 min-w-0 flex-1">
-            {badges?.map((badge) => (
+            {badges?.map((badge, i) => (
               <span
-                key={badge.label}
+                key={`${badge.label}-${i}`}
                 className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${BADGE_STYLES[badge.color ?? "gray"]}`}
               >
                 {badge.label}

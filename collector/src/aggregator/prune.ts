@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
 
-const SPOT_RETENTION_DAYS = 30;
+const SPOT_RETENTION_DAYS = 14;
 const HEALTH_RETENTION_DAYS = 7;
 const SOLAR_RETENTION_DAYS = 90;
 
@@ -9,7 +9,7 @@ let lastPruneDate: string | null = null;
 
 /**
  * Prune old data once per day. Keeps:
- * - spot_history: 30 days (band_hourly_stats preserves aggregates forever)
+ * - spot_history: 14 days (band_hourly_stats preserves aggregates forever)
  * - collector_health: 7 days
  * - solar_snapshots: 90 days
  */

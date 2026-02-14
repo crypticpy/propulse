@@ -188,6 +188,7 @@ export function useISSTracker(): UseISSTrackerResult {
     for (let t = startTime; t <= endTime; t += step) {
       const time = new Date(t);
       const pos = calculatePosition(iss, time);
+      if (!pos) continue;
       const el = computeElevation(
         pos.lat,
         pos.lon,

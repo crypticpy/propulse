@@ -50,6 +50,15 @@ export interface OperatingProfile {
     gridActivity: boolean;
     ionosphere: boolean;
     rayPath: boolean;
+    drap: boolean;
+    geomagField: boolean;
+    noiseFloor: boolean;
+    meteorShowers: boolean;
+    beacons: boolean;
+    spectrumRing: boolean;
+    ducting: boolean;
+    sporadicE: boolean;
+    satelliteFootprints: boolean;
   };
 
   // Display preferences

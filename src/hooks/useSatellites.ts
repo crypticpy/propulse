@@ -4,6 +4,9 @@
  * Manages satellite TLE data fetching (via TanStack Query) and real-time
  * position computation (via setInterval). Provides satellite positions,
  * selection state, and pass predictions for the observer's location.
+ *
+ * Merges Celestrak TLE data with user-imported custom TLEs from the
+ * customTLEStore, and annotates each satellite with TLE age and origin.
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -13,10 +16,12 @@ import {
   calculatePosition,
   categoriseSatellite,
   getSimplePassPrediction,
+  getTLEAge,
 } from "@/lib/api/satellites";
+import { useCustomTLEStore } from "@/stores/customTLEStore";
 import { useUserStore } from "@/stores/userStore";
 import { useMapStore } from "@/stores/mapStore";
-import type { SatelliteInfo, PassPrediction } from "@/types/satellite";
+import type { SatelliteInfoExtended, PassPrediction } from "@/types/satellite";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -41,9 +46,9 @@ const TLE_REFETCH_INTERVAL = 6 * HOUR;
 
 interface UseSatellitesResult {
   /** All tracked satellites with current positions */
-  satellites: SatelliteInfo[];
+  satellites: SatelliteInfoExtended[];
   /** Currently selected satellite (by NORAD ID) */
-  selectedSatellite: SatelliteInfo | null;
+  selectedSatellite: SatelliteInfoExtended | null;
   /** Select a satellite by NORAD ID, or null to deselect */
   selectSatellite: (noradId: number | null) => void;
   /** TLE data loading state */
@@ -66,6 +71,7 @@ export function useSatellites(): UseSatellitesResult {
   const { station } = useUserStore();
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
+  const customTLEs = useCustomTLEStore((s) => s.customTLEs);
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   // -------------------------------------------------------------------------
@@ -100,51 +106,77 @@ export function useSatellites(): UseSatellitesResult {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Compute Satellite Positions
+  // Compute Satellite Positions (Celestrak + Custom TLEs)
   // -------------------------------------------------------------------------
 
-  const satellites = useMemo((): SatelliteInfo[] => {
-    const data = tleData && tleData.length > 0 ? tleData : [];
-    if (data.length === 0) {
-      return [];
-    }
-
+  const satellites = useMemo((): SatelliteInfoExtended[] => {
+    const celestrakData = tleData && tleData.length > 0 ? tleData : [];
     const now = currentTime;
 
-    return data.map((tle): SatelliteInfo => {
-      const position = calculatePosition(tle, now);
-      const category = categoriseSatellite(tle.name, tle.noradId);
+    // Merge: Celestrak TLEs + custom TLEs (custom override duplicates)
+    const customOverrideIds = new Set(customTLEs.map((t) => t.noradId));
+    const mergedCelestrak = celestrakData.filter(
+      (t) => !customOverrideIds.has(t.noradId),
+    );
 
-      // If observer location is available, check visibility
+    // Helper: build SatelliteInfoExtended from TLE + computed fields
+    const buildSatInfo = (
+      tle: { name: string; line1: string; line2: string; noradId: number },
+      isCustom: boolean,
+    ): SatelliteInfoExtended | null => {
+      const position = calculatePosition(tle, now);
+      if (!position) return null;
+
+      const category = categoriseSatellite(tle.name, tle.noradId);
+      const tleAge = getTLEAge(tle);
+
       let isVisible = false;
       if (station) {
-        // Simple horizon check: elevation > 0
-        const obsLat = station.lat;
-        const obsLon = station.lon;
         const el = computeSimpleElevation(
           position.lat,
           position.lon,
           position.alt,
-          obsLat,
-          obsLon,
+          station.lat,
+          station.lon,
         );
         isVisible = el > 0;
       }
 
       return {
-        ...tle,
+        name: tle.name,
+        line1: tle.line1,
+        line2: tle.line2,
+        noradId: tle.noradId,
         position,
         isVisible,
         category,
+        tleAge,
+        isCustom,
       };
-    });
-  }, [tleData, currentTime, station]);
+    };
+
+    // Process Celestrak satellites
+    const celestrakSats: SatelliteInfoExtended[] = [];
+    for (const tle of mergedCelestrak) {
+      const info = buildSatInfo(tle, false);
+      if (info) celestrakSats.push(info);
+    }
+
+    // Process custom TLEs
+    const customSatResults: SatelliteInfoExtended[] = [];
+    for (const tle of customTLEs) {
+      const info = buildSatInfo(tle, true);
+      if (info) customSatResults.push(info);
+    }
+
+    return [...celestrakSats, ...customSatResults];
+  }, [tleData, customTLEs, currentTime, station]);
 
   // -------------------------------------------------------------------------
   // Selected Satellite
   // -------------------------------------------------------------------------
 
-  const selectedSatellite = useMemo((): SatelliteInfo | null => {
+  const selectedSatellite = useMemo((): SatelliteInfoExtended | null => {
     if (selectedSatelliteId === null) {
       return null;
     }

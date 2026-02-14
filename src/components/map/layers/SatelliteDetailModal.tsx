@@ -86,6 +86,7 @@ function TransponderInfo({
     const now = new Date();
     const prevTime = new Date(now.getTime() - 1000);
     const prevPos = calculatePosition(satellite, prevTime);
+    if (!prevPos) return null;
 
     try {
       return getCorrectedFrequencies(

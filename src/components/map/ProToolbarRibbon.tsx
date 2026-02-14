@@ -39,6 +39,7 @@ const ACTIVE_STYLES: Record<PresetName, string> = {
   contest: "bg-caution-amber/20 text-caution-amber border-caution-amber/40",
   vhf: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40",
   emergency: "bg-alert-red/20 text-alert-red border-alert-red/40",
+  science: "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/40",
 };
 
 /* ─── Divider helper ─────────────────────────────────────────── */

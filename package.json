@@ -27,6 +27,7 @@
     "react-dom": "^18.3.1",
     "react-easy-crop": "^5.5.6",
     "react-router-dom": "^7.1.1",
+    "satellite.js": "^6.0.2",
     "suncalc": "^1.9.0",
     "three": "^0.182.0",
     "us-atlas": "^3.0.1",

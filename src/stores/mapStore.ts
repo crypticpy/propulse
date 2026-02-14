@@ -36,6 +36,15 @@ export const LAYER_PRESETS = {
     gridActivity: true,
     ionosphere: false,
     rayPath: false,
+    drap: false,
+    geomagField: false,
+    noiseFloor: false,
+    meteorShowers: false,
+    beacons: true,
+    spectrumRing: false,
+    ducting: false,
+    sporadicE: false,
+    satelliteFootprints: false,
   },
   contest: {
     terminator: true,
@@ -60,6 +69,15 @@ export const LAYER_PRESETS = {
     gridActivity: false,
     ionosphere: false,
     rayPath: false,
+    drap: false,
+    geomagField: false,
+    noiseFloor: false,
+    meteorShowers: false,
+    beacons: false,
+    spectrumRing: false,
+    ducting: false,
+    sporadicE: false,
+    satelliteFootprints: false,
   },
   vhf: {
     terminator: true,
@@ -84,6 +102,15 @@ export const LAYER_PRESETS = {
     gridActivity: false,
     ionosphere: false,
     rayPath: false,
+    drap: false,
+    geomagField: false,
+    noiseFloor: false,
+    meteorShowers: true,
+    beacons: false,
+    spectrumRing: false,
+    ducting: true,
+    sporadicE: false,
+    satelliteFootprints: false,
   },
   emergency: {
     terminator: true,
@@ -108,6 +135,48 @@ export const LAYER_PRESETS = {
     gridActivity: false,
     ionosphere: false,
     rayPath: false,
+    drap: false,
+    geomagField: false,
+    noiseFloor: false,
+    meteorShowers: false,
+    beacons: false,
+    spectrumRing: false,
+    ducting: false,
+    sporadicE: false,
+    satelliteFootprints: false,
+  },
+  science: {
+    terminator: true,
+    greyline: false,
+    aurora: true,
+    muf: false,
+    nvis: false,
+    spots: false,
+    spotTraces: false,
+    nightLights: false,
+    labels: false,
+    satellites: false,
+    earthquakes: false,
+    weather: false,
+    lightning: false,
+    wspr: false,
+    contestQsos: false,
+    loggedQsos: false,
+    fires: false,
+    radar: false,
+    issTracker: false,
+    gridActivity: false,
+    ionosphere: true,
+    rayPath: false,
+    drap: true,
+    geomagField: true,
+    noiseFloor: true,
+    meteorShowers: false,
+    beacons: false,
+    spectrumRing: false,
+    ducting: false,
+    sporadicE: false,
+    satelliteFootprints: false,
   },
 } as const;
 
@@ -274,6 +343,15 @@ interface MapState {
     gridActivity: boolean;
     ionosphere: boolean;
     rayPath: boolean;
+    drap: boolean;
+    geomagField: boolean;
+    noiseFloor: boolean;
+    meteorShowers: boolean;
+    beacons: boolean;
+    spectrumRing: boolean;
+    ducting: boolean;
+    sporadicE: boolean;
+    satelliteFootprints: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -884,6 +962,15 @@ const initialState = {
     gridActivity: false,
     ionosphere: false,
     rayPath: false,
+    drap: false,
+    geomagField: false,
+    noiseFloor: false,
+    meteorShowers: false,
+    beacons: false,
+    spectrumRing: false,
+    ducting: false,
+    sporadicE: false,
+    satelliteFootprints: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

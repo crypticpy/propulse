@@ -106,6 +106,68 @@ export const PROTON_THRESHOLDS: AlertThreshold = {
 };
 
 // =============================================================================
+// X-RAY FLUX THRESHOLDS (NOAA R-SCALE)
+// =============================================================================
+
+/**
+ * X-ray flux thresholds based on NOAA R-scale (flare classes)
+ * C-class: 1e-6 W/m² (minor absorption)
+ * M-class: 1e-5 W/m² (moderate blackout)
+ * X-class: 1e-4 W/m² (severe blackout)
+ */
+export const XRAY_THRESHOLDS: AlertThreshold = {
+  type: "RADIO_BLACKOUT",
+  minPriority: "INFO",
+  infoThreshold: 1e-6, // C-class flare
+  warningThreshold: 1e-5, // M-class flare
+  criticalThreshold: 1e-4, // X-class flare
+  resolveThreshold: 5e-7,
+  cooldownMs: 5 * MINUTE,
+};
+
+// =============================================================================
+// DST INDEX THRESHOLDS
+// =============================================================================
+
+/**
+ * Dst index thresholds for geomagnetic storm detection
+ * Dst < -50 nT: Moderate storm
+ * Dst < -100 nT: Intense storm
+ * Dst < -200 nT: Severe storm
+ * Note: Dst is negative during storms, so thresholds use inverted comparison
+ */
+export const DST_THRESHOLDS: AlertThreshold = {
+  type: "DST_STORM",
+  minPriority: "INFO",
+  infoThreshold: -50, // Moderate storm
+  warningThreshold: -100, // Intense storm
+  criticalThreshold: -200, // Severe storm
+  resolveThreshold: -30, // Must recover above -30 nT to resolve
+  cooldownMs: 30 * MINUTE,
+};
+
+// =============================================================================
+// ACTUAL PROTON FLUX THRESHOLDS (NOAA S-SCALE)
+// =============================================================================
+
+/**
+ * Measured proton flux thresholds based on NOAA S-scale
+ * (As opposed to PROTON_THRESHOLDS which are probability-based)
+ * S1: 10 pfu (minor radiation storm)
+ * S2: 100 pfu (moderate radiation storm)
+ * S3+: 1000 pfu (strong+ radiation storm)
+ */
+export const ACTUAL_PROTON_THRESHOLDS: AlertThreshold = {
+  type: "PROTON_EVENT",
+  minPriority: "WARNING",
+  infoThreshold: 10, // 10 pfu
+  warningThreshold: 100, // 100 pfu (S1 radiation storm)
+  criticalThreshold: 1000, // 1000 pfu (S2+)
+  resolveThreshold: 5,
+  cooldownMs: 30 * MINUTE,
+};
+
+// =============================================================================
 // GREYLINE THRESHOLDS
 // =============================================================================
 
@@ -203,6 +265,8 @@ export const ALERT_EXPIRY_HOURS: Record<AlertType, number> = {
   AURORA_WARNING: 6, // Aurora can last hours
   GREYLINE_APPROACHING: 1, // Greyline window is brief
   BAND_OPENING: 1, // Band openings can be fleeting
+  CME_INCOMING: 24, // CME transit takes 1-3 days
+  DST_STORM: 6, // Dst storms can persist for hours
 };
 
 // =============================================================================
@@ -222,6 +286,8 @@ export const ALERT_ICONS: Record<AlertType, string> = {
   AURORA_WARNING: "\u{1F30C}", // milky way
   GREYLINE_APPROACHING: "\u{1F305}", // sunrise
   BAND_OPENING: "\u{1F4E1}", // satellite antenna (band activity)
+  CME_INCOMING: "\u2604\uFE0F", // comet (CME heading toward Earth)
+  DST_STORM: "\u{1F30D}", // globe (planetary magnetic disturbance)
 };
 
 // =============================================================================
@@ -242,19 +308,19 @@ export const ALERT_COLORS: Record<
 > = {
   INFO: {
     border: "border-cosmic-cyan",
-    bg: "bg-cosmic-cyan/10",
+    bg: "bg-cosmic-cyan/25",
     text: "text-cosmic-cyan",
     icon: "text-cosmic-cyan",
   },
   WARNING: {
     border: "border-caution-amber",
-    bg: "bg-caution-amber/10",
+    bg: "bg-caution-amber/25",
     text: "text-caution-amber",
     icon: "text-caution-amber",
   },
   CRITICAL: {
     border: "border-alert-red",
-    bg: "bg-alert-red/10",
+    bg: "bg-alert-red/30",
     text: "text-alert-red",
     icon: "text-alert-red",
   },

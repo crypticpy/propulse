@@ -2,17 +2,20 @@
  * Satellite API Client
  *
  * Fetches TLE data from Celestrak and computes satellite positions
- * using a simplified orbital propagation model. Accurate enough for
- * visualization purposes (within ~10km for LEO satellites).
+ * using the SGP4 propagation model via satellite.js. Provides accurate
+ * orbital position predictions for LEO, MEO, and GEO satellites.
  *
  * TLE source: Celestrak amateur radio satellite group
  */
 
+import * as satelliteLib from "satellite.js";
+import type { SatRec } from "satellite.js";
 import type {
   TLEData,
   SatellitePosition,
   SatelliteCategory,
   PassPrediction,
+  TLEAge,
 } from "@/types/satellite";
 
 // ---------------------------------------------------------------------------
@@ -20,13 +23,8 @@ import type {
 // ---------------------------------------------------------------------------
 
 const EARTH_RADIUS_KM = 6371.0;
-const EARTH_MU = 398600.4418; // km³/s² — standard gravitational parameter
-const TWO_PI = 2 * Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
-const MINUTES_PER_DAY = 1440;
-// Note: J2000_EPOCH and EARTH_ROTATION_RAD_PER_MIN kept as reference
-// for potential future J2 perturbation implementation.
 
 /**
  * Primary TLE source — Celestrak amateur radio group
@@ -162,206 +160,83 @@ export function parseTLEText(text: string): TLEData[] {
 }
 
 // ---------------------------------------------------------------------------
-// TLE Orbital Element Extraction
+// SGP4 Satrec Caching & Helpers
 // ---------------------------------------------------------------------------
 
-interface OrbitalElements {
-  /** Epoch as Date */
-  epoch: Date;
-  /** Inclination (radians) */
-  inclination: number;
-  /** Right Ascension of Ascending Node (radians) */
-  raan: number;
-  /** Eccentricity (dimensionless) */
-  eccentricity: number;
-  /** Argument of perigee (radians) */
-  argPerigee: number;
-  /** Mean anomaly at epoch (radians) */
-  meanAnomaly: number;
-  /** Mean motion (revolutions per day) */
-  meanMotion: number;
-  /** Semi-major axis (km) */
-  semiMajorAxis: number;
+/**
+ * Parse TLE and return a satrec for caching.
+ * Avoids reparsing TLE lines on every position update.
+ */
+export function parseSatrec(tle: TLEData): SatRec {
+  return satelliteLib.twoline2satrec(tle.line1, tle.line2);
 }
 
 /**
- * Extract orbital elements from TLE lines.
+ * Get TLE epoch as a Date for age badge calculation.
  */
-function parseOrbitalElements(tle: TLEData): OrbitalElements {
-  const { line1, line2 } = tle;
-
-  // --- Epoch from line 1 (cols 19-32) ---
-  const epochYear = parseInt(line1.substring(18, 20).trim(), 10);
-  const epochDay = parseFloat(line1.substring(20, 32).trim());
-  const fullYear = epochYear < 57 ? 2000 + epochYear : 1900 + epochYear;
-
-  // Convert epoch year + fractional day to a Date
+export function getTLEEpoch(tle: TLEData): Date {
+  const satrec = satelliteLib.twoline2satrec(tle.line1, tle.line2);
+  const fullYear =
+    satrec.epochyr >= 57 ? satrec.epochyr + 1900 : satrec.epochyr + 2000;
+  // epochdays is 1-based fractional day of year
   const jan1 = Date.UTC(fullYear, 0, 1, 0, 0, 0);
-  const epochMs = jan1 + (epochDay - 1) * 86400000;
-  const epoch = new Date(epochMs);
-
-  // --- Line 2 fields ---
-  const inclination = parseFloat(line2.substring(8, 16).trim()) * DEG_TO_RAD;
-  const raan = parseFloat(line2.substring(17, 25).trim()) * DEG_TO_RAD;
-  const eccentricity = parseFloat("0." + line2.substring(26, 33).trim());
-  const argPerigee = parseFloat(line2.substring(34, 42).trim()) * DEG_TO_RAD;
-  const meanAnomaly = parseFloat(line2.substring(43, 51).trim()) * DEG_TO_RAD;
-  const meanMotion = parseFloat(line2.substring(52, 63).trim()); // rev/day
-
-  // Semi-major axis from mean motion: a = (mu / n²)^(1/3)
-  // n must be in rad/s: meanMotion rev/day → rad/s
-  const nRadPerSec = (meanMotion * TWO_PI) / 86400;
-  const semiMajorAxis = Math.pow(EARTH_MU / (nRadPerSec * nRadPerSec), 1 / 3);
-
-  return {
-    epoch,
-    inclination,
-    raan,
-    eccentricity,
-    argPerigee,
-    meanAnomaly,
-    meanMotion,
-    semiMajorAxis,
-  };
+  const epochMs = jan1 + (satrec.epochdays - 1) * 86400000;
+  return new Date(epochMs);
 }
 
-// ---------------------------------------------------------------------------
-// Kepler's Equation Solver
-// ---------------------------------------------------------------------------
-
 /**
- * Solve Kepler's equation M = E - e*sin(E) for eccentric anomaly E.
- * Uses Newton-Raphson iteration — converges in 3-5 iterations for e < 0.1.
+ * Determine TLE age category for badge display.
+ * - fresh: < 3 days old
+ * - aging: 3-7 days old
+ * - stale: > 7 days old
  */
-function solveKepler(M: number, e: number, tolerance = 1e-8): number {
-  let E = M; // initial guess
-  for (let i = 0; i < 20; i++) {
-    const dE = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
-    E -= dE;
-    if (Math.abs(dE) < tolerance) {
-      break;
-    }
-  }
-  return E;
+export function getTLEAge(tle: TLEData): TLEAge {
+  const epoch = getTLEEpoch(tle);
+  const ageMs = Date.now() - epoch.getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (ageDays < 3) return "fresh";
+  if (ageDays < 7) return "aging";
+  return "stale";
 }
 
 // ---------------------------------------------------------------------------
-// Coordinate Conversions
+// Position Calculation (SGP4)
 // ---------------------------------------------------------------------------
 
 /**
- * Greenwich Mean Sidereal Time in radians for a given Date.
- * Uses the IAU simplified formula relative to J2000.0.
- */
-function gmst(date: Date): number {
-  const jd = date.getTime() / 86400000 + 2440587.5;
-  const T = (jd - 2451545.0) / 36525.0;
-  // GMST in degrees
-  let gmstDeg =
-    280.46061837 +
-    360.98564736629 * (jd - 2451545.0) +
-    0.000387933 * T * T -
-    (T * T * T) / 38710000;
-  gmstDeg = ((gmstDeg % 360) + 360) % 360;
-  return gmstDeg * DEG_TO_RAD;
-}
-
-// ---------------------------------------------------------------------------
-// Position Calculation
-// ---------------------------------------------------------------------------
-
-/**
- * Calculate satellite position from TLE at a given date.
+ * Calculate satellite position from TLE at a given date using SGP4.
  *
- * Simplified propagation model:
- * 1. Parse TLE orbital elements
- * 2. Propagate mean anomaly using mean motion
- * 3. Solve Kepler's equation for eccentric anomaly
- * 4. Convert to true anomaly and position in orbital plane
- * 5. Rotate through argument of perigee, RAAN, inclination to ECI
- * 6. Rotate by GMST to get ECEF, then convert to lat/lon/alt
- *
- * Accurate to ~10 km for LEO satellites over short prediction windows.
+ * Uses the satellite.js SGP4 propagator for high-accuracy orbital prediction.
+ * Returns null if propagation fails (e.g. decayed orbit, bad TLE).
  */
-export function calculatePosition(tle: TLEData, date: Date): SatellitePosition {
-  const elements = parseOrbitalElements(tle);
-  const {
-    epoch,
-    inclination,
-    raan,
-    eccentricity,
-    argPerigee,
-    meanAnomaly,
-    meanMotion,
-    semiMajorAxis,
-  } = elements;
+export function calculatePosition(
+  tle: TLEData,
+  date: Date,
+): SatellitePosition | null {
+  try {
+    const satrec = satelliteLib.twoline2satrec(tle.line1, tle.line2);
+    const positionAndVelocity = satelliteLib.propagate(satrec, date);
 
-  // Time since epoch in minutes
-  const dtMinutes = (date.getTime() - epoch.getTime()) / 60000;
+    // propagate returns null on failure, or satrec.error indicates SGP4 error
+    if (!positionAndVelocity || satrec.error !== 0) return null;
 
-  // Updated mean anomaly
-  const nRadPerMin = (meanMotion * TWO_PI) / MINUTES_PER_DAY;
-  let M = meanAnomaly + nRadPerMin * dtMinutes;
-  M = ((M % TWO_PI) + TWO_PI) % TWO_PI;
+    const posEci = positionAndVelocity.position;
+    const velEci = positionAndVelocity.velocity;
 
-  // Solve Kepler's equation
-  const E = solveKepler(M, eccentricity);
+    const gmst = satelliteLib.gstime(date);
+    const positionGd = satelliteLib.eciToGeodetic(posEci, gmst);
 
-  // True anomaly from eccentric anomaly
-  const sinV =
-    (Math.sqrt(1 - eccentricity * eccentricity) * Math.sin(E)) /
-    (1 - eccentricity * Math.cos(E));
-  const cosV = (Math.cos(E) - eccentricity) / (1 - eccentricity * Math.cos(E));
-  const trueAnomaly = Math.atan2(sinV, cosV);
+    const lat = satelliteLib.degreesLat(positionGd.latitude);
+    const lon = satelliteLib.degreesLong(positionGd.longitude);
+    const alt = positionGd.height; // km
 
-  // Distance from Earth center
-  const r =
-    (semiMajorAxis * (1 - eccentricity * eccentricity)) /
-    (1 + eccentricity * Math.cos(trueAnomaly));
+    // Calculate velocity magnitude from velocity vector
+    const velocity = Math.sqrt(velEci.x ** 2 + velEci.y ** 2 + velEci.z ** 2);
 
-  // Position in orbital plane (perifocal coordinates)
-  const u = trueAnomaly + argPerigee; // argument of latitude
-  const xOrbit = r * Math.cos(u);
-  const yOrbit = r * Math.sin(u);
-
-  // Rotate by RAAN and inclination to get ECI coordinates
-  const cosRaan = Math.cos(raan);
-  const sinRaan = Math.sin(raan);
-  const cosInc = Math.cos(inclination);
-  const sinInc = Math.sin(inclination);
-
-  const xECI = xOrbit * cosRaan - yOrbit * sinRaan * cosInc;
-  const yECI = xOrbit * sinRaan + yOrbit * cosRaan * cosInc;
-  const zECI = yOrbit * sinInc;
-
-  // Rotate from ECI to ECEF using GMST
-  const theta = gmst(date);
-  const cosTheta = Math.cos(theta);
-  const sinTheta = Math.sin(theta);
-
-  const xECEF = xECI * cosTheta + yECI * sinTheta;
-  const yECEF = -xECI * sinTheta + yECI * cosTheta;
-  const zECEF = zECI;
-
-  // Convert ECEF to geodetic lat/lon/alt
-  const rECEF = Math.sqrt(xECEF * xECEF + yECEF * yECEF + zECEF * zECEF);
-  const lat = Math.asin(zECEF / rECEF) * RAD_TO_DEG;
-  let lon = Math.atan2(yECEF, xECEF) * RAD_TO_DEG;
-
-  // Normalize longitude to [-180, 180]
-  if (lon > 180) {
-    lon -= 360;
+    return { lat, lon, alt, velocity };
+  } catch {
+    return null;
   }
-  if (lon < -180) {
-    lon += 360;
-  }
-
-  const alt = rECEF - EARTH_RADIUS_KM;
-
-  // Orbital velocity: v = sqrt(mu * (2/r - 1/a))
-  const velocity = Math.sqrt(EARTH_MU * (2 / r - 1 / semiMajorAxis));
-
-  return { lat, lon, alt, velocity };
 }
 
 /**
@@ -385,14 +260,16 @@ export function calculateGroundTrack(
   for (let t = 0; t <= durationMinutes; t += stepMinutes) {
     const date = new Date(startDate.getTime() + t * 60000);
     const pos = calculatePosition(tle, date);
-    points.push({ lat: pos.lat, lon: pos.lon });
+    if (pos) {
+      points.push({ lat: pos.lat, lon: pos.lon });
+    }
   }
 
   return points;
 }
 
 // ---------------------------------------------------------------------------
-// Pass Prediction
+// Elevation & Azimuth (pure geometry — kept as-is)
 // ---------------------------------------------------------------------------
 
 /**
@@ -467,6 +344,10 @@ export function computeAzimuth(
   return az;
 }
 
+// ---------------------------------------------------------------------------
+// Pass Prediction
+// ---------------------------------------------------------------------------
+
 /**
  * Simple pass prediction: check elevation angle at 1-minute intervals
  * and identify AOS/LOS transitions.
@@ -497,6 +378,8 @@ export function getSimplePassPrediction(
   for (let t = 0; t <= totalMinutes; t += stepMinutes) {
     const currentTime = new Date(date.getTime() + t * 60000);
     const pos = calculatePosition(tle, currentTime);
+    if (!pos) continue;
+
     const el = computeElevation(pos.lat, pos.lon, pos.alt, obsLat, obsLon);
     const az = computeAzimuth(pos.lat, pos.lon, obsLat, obsLon);
 
@@ -534,7 +417,9 @@ export function getSimplePassPrediction(
   if (inPass && maxEl > 2) {
     const endTime = new Date(date.getTime() + totalMinutes * 60000);
     const endPos = calculatePosition(tle, endTime);
-    const endAz = computeAzimuth(endPos.lat, endPos.lon, obsLat, obsLon);
+    const endAz = endPos
+      ? computeAzimuth(endPos.lat, endPos.lon, obsLat, obsLon)
+      : 0;
     passes.push({
       aos: passStart,
       los: endTime,

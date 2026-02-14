@@ -54,4 +54,13 @@ export const PRESET_CONFIG: Record<
     activeColor: "alert-red",
     layerSummary: "Day/Night + Greyline + NVIS + Lights + Labels",
   },
+  science: {
+    label: "Science",
+    shortLabel: "SCI",
+    description: "Ionospheric and geomagnetic data layers for analysis",
+    iconPath:
+      "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-1.47 4.41A2.25 2.25 0 0115.393 21H8.607a2.25 2.25 0 01-2.137-1.59L5 14.5m14 0H5",
+    activeColor: "nebula-blue",
+    layerSummary: "Day/Night + Aurora + Ionosphere + DRAP + Geomag + Noise",
+  },
 };

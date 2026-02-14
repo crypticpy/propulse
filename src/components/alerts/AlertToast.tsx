@@ -29,13 +29,13 @@ export interface AlertToastProps {
 // =============================================================================
 
 /**
- * Auto-dismiss timers in milliseconds by priority
- * CRITICAL alerts never auto-dismiss (requires manual action)
+ * Auto-dismiss timers in milliseconds by priority.
+ * All alerts persist until manually dismissed — users should not miss alerts.
  */
 const AUTO_DISMISS_MS: Record<AlertPriority, number | null> = {
-  INFO: 8000,
-  WARNING: 15000,
-  CRITICAL: null, // No auto-dismiss
+  INFO: null,
+  WARNING: null,
+  CRITICAL: null,
 };
 
 /**
@@ -253,13 +253,13 @@ export const AlertToast: React.FC<AlertToastProps> = ({
     <div
       className={`
         w-80
-        bg-deep-space/95 backdrop-blur-sm
+        ${colors.bg} backdrop-blur-md
         border ${colors.border} border-l-4 rounded-lg
-        shadow-lg shadow-black/20
+        shadow-lg shadow-black/40
         cursor-pointer
         transform transition-all duration-200 ease-out
         ${isExiting ? "translate-x-full opacity-0" : isEntered ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}
-        ${isCritical ? "ring-1 ring-alert-red/30" : ""}
+        ${isCritical ? "ring-2 ring-alert-red/50" : alert.priority === "WARNING" ? "ring-1 ring-caution-amber/30" : "ring-1 ring-cosmic-cyan/20"}
         hover:scale-[1.02] hover:shadow-xl
         focus:outline-none focus:ring-2 focus:ring-white/20
       `}
@@ -305,13 +305,13 @@ export const AlertToast: React.FC<AlertToastProps> = ({
             </div>
 
             {/* Message - truncated to 2 lines */}
-            <p className="text-xs text-gray-400 line-clamp-2 mt-0.5 leading-relaxed">
+            <p className="text-xs text-gray-300 line-clamp-2 mt-0.5 leading-relaxed">
               {alert.message}
             </p>
 
             {/* Affected bands indicator (if any) */}
             {alert.affectedBands.length > 0 && (
-              <p className="text-[10px] text-gray-500 mt-1 font-mono truncate">
+              <p className="text-[10px] text-gray-400 mt-1 font-mono truncate">
                 Affects: {alert.affectedBands.slice(0, 3).join(", ")}
                 {alert.affectedBands.length > 3 &&
                   ` +${alert.affectedBands.length - 3}`}
@@ -327,8 +327,8 @@ export const AlertToast: React.FC<AlertToastProps> = ({
               handleDismiss();
             }}
             className={`
-              flex-shrink-0 p-1 rounded
-              text-gray-500 hover:text-white
+              flex-shrink-0 p-1.5 rounded
+              text-gray-400 hover:text-white
               hover:bg-white/10
               transition-colors duration-150
               focus:outline-none focus:ring-2 focus:ring-white/20

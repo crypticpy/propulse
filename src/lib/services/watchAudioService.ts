@@ -210,37 +210,36 @@ export async function playSolarAlertSound(
 }
 
 /**
- * Play a test sound — all three watch types in sequence
+ * Play a test sound — all three watch types in sequence.
+ * Bypasses shouldPlay() checks since the user explicitly clicked "test".
  */
 export async function playTestSound(): Promise<boolean> {
-  const wasMuted = isMuted;
+  if (!initialized) initAudioContext();
 
-  try {
-    const success = await playAlertSound("callsign");
+  const success = await playSoundFile(WATCH_SOUND_FILES.callsign);
 
-    if (success) {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      await playAlertSound("grid");
+  if (success) {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await playSoundFile(WATCH_SOUND_FILES.grid);
 
-      await new Promise((resolve) => setTimeout(resolve, 2400));
-      await playAlertSound("entity");
-    }
-
-    return success;
-  } finally {
-    if (wasMuted !== isMuted) {
-      isMuted = wasMuted;
-    }
+    await new Promise((resolve) => setTimeout(resolve, 2400));
+    await playSoundFile(WATCH_SOUND_FILES.entity);
   }
+
+  return success;
 }
 
 /**
- * Play a single test sound for a specific type
+ * Play a single test sound for a specific type.
+ * Bypasses shouldPlay() checks since the user explicitly clicked "test".
  */
 export async function playTestSoundForType(
   type: WatchAlertType,
 ): Promise<boolean> {
-  return playAlertSound(type);
+  if (!initialized) initAudioContext();
+  const path = WATCH_SOUND_FILES[type];
+  if (!path) return false;
+  return playSoundFile(path);
 }
 
 // =============================================================================

@@ -41,7 +41,7 @@ async function main(): Promise<void> {
   register("aggregator", 5 * 60_000, () => computeHourlyStats(db));
 
   // Auto-prune: checks every hour, runs once per day
-  // Keeps 30 days of spots, 90 days of solar, 7 days of health logs
+  // Keeps 14 days of spots, 90 days of solar, 7 days of health logs
   register("prune", 60 * 60_000, () => pruneOldData(db));
 
   // Start all scheduled tasks

@@ -27,7 +27,11 @@ export interface SolarSnapshot {
   by_gsm: number | null;
   bt: number | null;
   solar_wind_speed: number | null;
-  ssn: number | null;
+  sunspot_number: number | null;
+  xray_flux: number | null;
+  proton_flux_10mev: number | null;
+  dst_index: number | null;
+  solar_wind_density: number | null;
 }
 
 export interface CollectorConfig {

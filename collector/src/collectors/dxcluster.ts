@@ -3,6 +3,7 @@ import type { NormalizedSpot } from "../types.js";
 import { frequencyToBand } from "../transforms/bands.js";
 import { log } from "../logger.js";
 import { reportHealth } from "../health.js";
+import { insertSpots, reportToDb } from "../lib/db-helpers.js";
 
 const DXC_URL = "https://www.hamqth.com/dxc_csv.php?limit=200";
 
@@ -94,52 +95,6 @@ function parseHamQTHTime(timeDate: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Batch insert with chunking
-// ---------------------------------------------------------------------------
-
-async function insertSpots(
-  db: SupabaseClient,
-  spots: NormalizedSpot[],
-): Promise<number> {
-  if (spots.length === 0) return 0;
-  let inserted = 0;
-  for (let i = 0; i < spots.length; i += 500) {
-    const chunk = spots.slice(i, i + 500);
-    const { error } = await db.from("spot_history").upsert(chunk, {
-      onConflict: "source,tx_callsign,rx_callsign,frequency_khz,spotted_at",
-      ignoreDuplicates: true,
-    });
-    if (error) throw new Error(`Insert failed: ${error.message}`);
-    inserted += chunk.length;
-  }
-  return inserted;
-}
-
-// ---------------------------------------------------------------------------
-// Health row (fire-and-forget)
-// ---------------------------------------------------------------------------
-
-async function reportToDb(
-  db: SupabaseClient,
-  source: string,
-  status: string,
-  spotsIngested: number,
-  durationMs: number,
-  errorMsg?: string,
-): Promise<void> {
-  await db
-    .from("collector_health")
-    .insert({
-      source,
-      status,
-      spots_ingested: spotsIngested,
-      duration_ms: durationMs,
-      error_message: errorMsg || null,
-    })
-    .then(() => {}); // fire-and-forget
-}
-
-// ---------------------------------------------------------------------------
 // Main collector
 // ---------------------------------------------------------------------------
 
@@ -152,6 +107,7 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
 
     const response = await fetch(DXC_URL, {
       headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -186,6 +142,9 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
       // Skip header line
       if (spotter === "Spotter") continue;
 
+      // H5: Skip rows with empty/whitespace-only callsigns
+      if (!dx?.trim() || !spotter?.trim()) continue;
+
       const frequencyKhz = parseFloat(freqStr || "0");
       if (isNaN(frequencyKhz) || frequencyKhz === 0) continue;
 
@@ -199,11 +158,11 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
       spots.push({
         source: "dxcluster",
         spotted_at: spottedAt,
-        tx_callsign: dx || "",
+        tx_callsign: dx,
         tx_grid: null,
         tx_lat: null,
         tx_lon: null,
-        rx_callsign: spotter || "",
+        rx_callsign: spotter,
         rx_grid: null,
         rx_lat: null,
         rx_lon: null,
@@ -218,11 +177,11 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
       });
     }
 
-    count = await insertSpots(db, spots);
+    count = await insertSpots(db, spots, "dxcluster");
 
     const durationMs = Date.now() - start;
     reportHealth("dxcluster", "ok", count);
-    await reportToDb(db, "dxcluster", "ok", count, durationMs);
+    reportToDb(db, "dxcluster", "ok", count, durationMs);
     log("info", "DXCluster: collection complete", {
       spots: count,
       durationMs,
@@ -231,7 +190,7 @@ export async function collectDxCluster(db: SupabaseClient): Promise<void> {
     const durationMs = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
     reportHealth("dxcluster", "error", count);
-    await reportToDb(db, "dxcluster", "error", count, durationMs, message);
+    reportToDb(db, "dxcluster", "error", count, durationMs, message);
     log("error", "DXCluster: collection failed", { error: message });
   }
 }

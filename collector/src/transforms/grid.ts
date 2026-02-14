@@ -37,5 +37,5 @@ export function gridToLatLon(grid: string): { lat: number; lon: number } {
 }
 
 export function isValidGrid(grid: string): boolean {
-  return /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2}([0-9]{2})?)?$/.test(grid);
+  return /^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$/.test(grid);
 }

@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SolarSnapshot } from "../types.js";
 import { log } from "../logger.js";
 import { reportHealth } from "../health.js";
 
 export async function collectSolar(db: SupabaseClient): Promise<void> {
   const start = Date.now();
   try {
-    // Fetch all nine sources in parallel using Promise.allSettled
+    // Fetch all eight sources in parallel using Promise.allSettled
     const [
       kpResult,
       sfiResult,
@@ -92,7 +93,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
         ? parseFloat(dstResult.value[dstResult.value.length - 1][1])
         : null;
 
-    const snapshot = {
+    const snapshot: SolarSnapshot = {
       captured_at: new Date().toISOString(),
       kp_index: kp,
       sfi,
@@ -147,7 +148,10 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
         duration_ms: durationMs,
         error_message: msg,
       })
-      .then(() => {});
+      .then(
+        () => {},
+        () => {},
+      ); // fire-and-forget, swallow errors
     log("error", "Solar collection failed", { error: msg });
   }
 }
@@ -155,6 +159,7 @@ export async function collectSolar(db: SupabaseClient): Promise<void> {
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, {
     headers: { "User-Agent": "Propulse-Collector/1.0" },
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
   return res.json() as Promise<T>;

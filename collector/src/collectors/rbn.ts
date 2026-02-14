@@ -3,6 +3,7 @@ import type { NormalizedSpot } from "../types.js";
 import { frequencyToBand } from "../transforms/bands.js";
 import { log } from "../logger.js";
 import { reportHealth } from "../health.js";
+import { insertSpots, reportToDb } from "../lib/db-helpers.js";
 
 const RBN_URL = "https://www.hamqth.com/rbn_data.php?data=1&age=900";
 
@@ -21,52 +22,6 @@ interface RBNEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Batch insert with chunking
-// ---------------------------------------------------------------------------
-
-async function insertSpots(
-  db: SupabaseClient,
-  spots: NormalizedSpot[],
-): Promise<number> {
-  if (spots.length === 0) return 0;
-  let inserted = 0;
-  for (let i = 0; i < spots.length; i += 500) {
-    const chunk = spots.slice(i, i + 500);
-    const { error } = await db.from("spot_history").upsert(chunk, {
-      onConflict: "source,tx_callsign,rx_callsign,frequency_khz,spotted_at",
-      ignoreDuplicates: true,
-    });
-    if (error) throw new Error(`Insert failed: ${error.message}`);
-    inserted += chunk.length;
-  }
-  return inserted;
-}
-
-// ---------------------------------------------------------------------------
-// Health row (fire-and-forget)
-// ---------------------------------------------------------------------------
-
-async function reportToDb(
-  db: SupabaseClient,
-  source: string,
-  status: string,
-  spotsIngested: number,
-  durationMs: number,
-  errorMsg?: string,
-): Promise<void> {
-  await db
-    .from("collector_health")
-    .insert({
-      source,
-      status,
-      spots_ingested: spotsIngested,
-      duration_ms: durationMs,
-      error_message: errorMsg || null,
-    })
-    .then(() => {}); // fire-and-forget
-}
-
-// ---------------------------------------------------------------------------
 // Main collector
 // ---------------------------------------------------------------------------
 
@@ -82,6 +37,7 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
         Accept: "application/json",
         "User-Agent": USER_AGENT,
       },
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -93,6 +49,9 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
     const spots: NormalizedSpot[] = [];
 
     for (const entry of Object.values(data)) {
+      // H4: Skip entries with empty/whitespace-only dxcall
+      if (!entry.dxcall?.trim()) continue;
+
       // Parse frequency: "14 004.3" -> 14004.3
       const freqKhz = parseFloat((entry.freq || "0").replace(/\s+/g, ""));
       if (isNaN(freqKhz) || freqKhz === 0) continue;
@@ -100,9 +59,11 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
       const band = frequencyToBand(freqKhz);
       if (!band) continue; // Non-HF, skip
 
-      // Compute spotted_at from age
+      // H3: Round spotted_at to nearest 15s to stabilize across overlapping fetches
       const ageMs = (entry.age || 0) * 1000;
-      const spottedAt = new Date(now - ageMs).toISOString();
+      const rawTs = now - ageMs;
+      const roundedTs = Math.round(rawTs / 15000) * 15000;
+      const spottedAt = new Date(roundedTs).toISOString();
 
       const mode = entry.mode || "CW";
 
@@ -113,7 +74,7 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
         spots.push({
           source: "rbn",
           spotted_at: spottedAt,
-          tx_callsign: entry.dxcall || "",
+          tx_callsign: entry.dxcall,
           tx_grid: null,
           tx_lat: null,
           tx_lon: null,
@@ -133,17 +94,17 @@ export async function collectRbn(db: SupabaseClient): Promise<void> {
       }
     }
 
-    count = await insertSpots(db, spots);
+    count = await insertSpots(db, spots, "rbn");
 
     const durationMs = Date.now() - start;
     reportHealth("rbn", "ok", count);
-    await reportToDb(db, "rbn", "ok", count, durationMs);
+    reportToDb(db, "rbn", "ok", count, durationMs);
     log("info", "RBN: collection complete", { spots: count, durationMs });
   } catch (err) {
     const durationMs = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
     reportHealth("rbn", "error", count);
-    await reportToDb(db, "rbn", "error", count, durationMs, message);
+    reportToDb(db, "rbn", "error", count, durationMs, message);
     log("error", "RBN: collection failed", { error: message });
   }
 }

@@ -3,7 +3,7 @@
  *
  * Queries `spot_history` — individual spots from PSKReporter, RBN, and
  * DX Cluster with callsigns, grids, coordinates, frequency, band, mode,
- * and SNR. 30-day rolling window, ~7-9M rows/day.
+ * and SNR. 14-day rolling window, ~21M rows/day.
  *
  * **Important**: Always provide a time window and reasonable limit to
  * avoid pulling excessive data.
@@ -15,7 +15,7 @@ import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface SpotHistoryEntry {
-  id: number;
+  id: string;
   source: string;
   spotted_at: string;
   tx_callsign: string;
@@ -32,6 +32,7 @@ export interface SpotHistoryEntry {
   snr: number | null;
   wpm: number | null;
   dxcc: number | null;
+  comment: string | null;
   continent: string | null;
 }
 

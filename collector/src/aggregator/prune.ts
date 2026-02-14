@@ -28,10 +28,19 @@ export async function pruneOldData(db: SupabaseClient): Promise<void> {
       Date.now() - SOLAR_RETENTION_DAYS * 86_400_000,
     ).toISOString();
 
-    const { count: spotsDeleted } = await db
-      .from("spot_history")
-      .delete({ count: "exact" })
-      .lt("spotted_at", spotCutoff);
+    // Batch-delete spot_history in chunks to avoid overwhelming PostgREST
+    // with a single DELETE of potentially 100M+ rows.
+    const SPOT_BATCH_SIZE = 50_000;
+    let totalSpots = 0;
+    while (true) {
+      const { count } = await db
+        .from("spot_history")
+        .delete({ count: "exact" })
+        .lt("spotted_at", spotCutoff)
+        .limit(SPOT_BATCH_SIZE);
+      if (!count || count === 0) break;
+      totalSpots += count;
+    }
 
     const { count: healthDeleted } = await db
       .from("collector_health")
@@ -45,7 +54,7 @@ export async function pruneOldData(db: SupabaseClient): Promise<void> {
 
     lastPruneDate = today;
     log("info", "Prune complete", {
-      spotsDeleted: spotsDeleted ?? 0,
+      spotsDeleted: totalSpots,
       healthDeleted: healthDeleted ?? 0,
       solarDeleted: solarDeleted ?? 0,
       spotCutoff,

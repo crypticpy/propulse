@@ -30,6 +30,10 @@ export interface BandHourlyStat {
   sfi: number | null;
   bz_gsm: number | null;
   bt: number | null;
+  by_gsm: number | null;
+  xray_flux: number | null;
+  dst_index: number | null;
+  proton_flux_10mev: number | null;
 }
 
 // ─── Query keys ─────────────────────────────────────────────────────────────

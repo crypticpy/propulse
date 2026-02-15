@@ -69,6 +69,24 @@ export interface SettingsState {
   sdrWaterfallPalette: "classic" | "viridis" | "magma" | "gray";
   /** DX News Ticker position */
   tickerPosition: "bottom" | "above-panels" | "top";
+  /** Whether the first-time contest weather tooltip has been dismissed */
+  contestWeatherFirstTimeSeen?: boolean;
+  /** Whether to show the QuietBandNav widget in the logbook */
+  showQuietBandNav?: boolean;
+  /** ISO timestamp until which the contest weather card is temporarily dismissed */
+  contestWeatherDismissedUntil?: string;
+  /** Whether spot alert sounds are enabled (default true) */
+  alertSoundEnabled?: boolean;
+  /** Spot alert sound volume 0-100 (default 50) */
+  alertSoundVolume?: number;
+  /** Whether spot alert browser notifications are enabled (default true) */
+  alertBrowserNotifications?: boolean;
+  /** Active contest alert profile ID (default 'normal') */
+  contestAlertProfileId?: string;
+  /** Whether to auto-switch to contest profile during contests (default true) */
+  autoSwitchContestProfile?: boolean;
+  /** Contest alert throttle multiplier (default 4 = alert once per 20min instead of 5min) */
+  contestAlertThrottleMultiplier?: number;
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -131,6 +149,15 @@ const defaultSettings: SettingsState = {
   forecastDisplay: DEFAULT_FORECAST_DISPLAY,
   sdrWaterfallPalette: "classic",
   tickerPosition: "bottom",
+  contestWeatherFirstTimeSeen: false,
+  showQuietBandNav: true,
+  contestWeatherDismissedUntil: undefined,
+  alertSoundEnabled: true,
+  alertSoundVolume: 50,
+  alertBrowserNotifications: true,
+  contestAlertProfileId: "normal",
+  autoSwitchContestProfile: true,
+  contestAlertThrottleMultiplier: 4,
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -368,7 +395,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 6,
+      version: 9,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -418,6 +445,31 @@ export const useSettingsStore = create<SettingsStore>()(
           if (notif && notif.alertDisplayStyle === undefined) {
             notif.alertDisplayStyle = "toast";
           }
+        }
+        if (version < 7) {
+          // Add contest weather preferences
+          if (state.contestWeatherFirstTimeSeen === undefined)
+            state.contestWeatherFirstTimeSeen = false;
+          if (state.showQuietBandNav === undefined)
+            state.showQuietBandNav = true;
+          // contestWeatherDismissedUntil defaults to undefined (no dismissal)
+        }
+        if (version < 8) {
+          // Add spot alert sound and notification preferences
+          if (state.alertSoundEnabled === undefined)
+            state.alertSoundEnabled = true;
+          if (state.alertSoundVolume === undefined) state.alertSoundVolume = 50;
+          if (state.alertBrowserNotifications === undefined)
+            state.alertBrowserNotifications = true;
+        }
+        if (version < 9) {
+          // Add contest alert profile preferences
+          if (state.contestAlertProfileId === undefined)
+            state.contestAlertProfileId = "normal";
+          if (state.autoSwitchContestProfile === undefined)
+            state.autoSwitchContestProfile = true;
+          if (state.contestAlertThrottleMultiplier === undefined)
+            state.contestAlertThrottleMultiplier = 4;
         }
         return state as unknown as SettingsState & SettingsStore;
       },

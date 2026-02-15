@@ -1,8 +1,11 @@
 /**
  * Vercel Edge Function: D-Region Absorption Prediction (DRAP) Proxy
- * Fetches DRAP global frequency data from NOAA SWPC
+ * Fetches DRAP global frequency data from NOAA SWPC text format
+ * and parses it into structured JSON.
  *
- * Source: https://services.swpc.noaa.gov/json/drap_global_frequencies.json
+ * Source: https://services.swpc.noaa.gov/text/drap_global_frequencies.txt
+ * (The old JSON endpoint was removed by NOAA)
+ *
  * Cache: 15 minutes with 5 minute stale-while-revalidate
  */
 
@@ -21,7 +24,71 @@ function getAllowedOrigin(): string {
 }
 
 const NOAA_URL =
-  "https://services.swpc.noaa.gov/json/drap_global_frequencies.json";
+  "https://services.swpc.noaa.gov/text/drap_global_frequencies.txt";
+
+/**
+ * Parse NOAA DRAP text table into structured JSON.
+ *
+ * Format:
+ * - Comment lines start with #
+ * - Separator line starts with ---
+ * - First data line is longitude header
+ * - Subsequent lines: "lat | val val val ..."
+ */
+function parseDRAPText(text: string): {
+  observation_time: string;
+  forecast_time: string;
+  frequencies: number[][];
+  latitudes: number[];
+  longitudes: number[];
+} {
+  const lines = text.split("\n");
+
+  let observationTime = new Date().toISOString();
+  for (const line of lines) {
+    if (line.includes("Product Valid At")) {
+      const match = line.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*UTC/);
+      if (match) {
+        observationTime = new Date(match[1] + "Z").toISOString();
+      }
+      break;
+    }
+  }
+
+  let longitudes: number[] = [];
+  const latitudes: number[] = [];
+  const frequencies: number[][] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("#") || trimmed.startsWith("-") || trimmed === "")
+      continue;
+
+    // Longitude header: first non-comment, non-separator line without "|"
+    if (longitudes.length === 0 && !trimmed.includes("|")) {
+      longitudes = trimmed.split(/\s+/).map(Number).filter(Number.isFinite);
+      continue;
+    }
+
+    // Data rows: "lat | val val val ..."
+    if (trimmed.includes("|")) {
+      const [latStr, valsStr] = trimmed.split("|");
+      const lat = parseFloat(latStr.trim());
+      if (!Number.isFinite(lat)) continue;
+      const vals = valsStr.trim().split(/\s+/).map(Number);
+      latitudes.push(lat);
+      frequencies.push(vals);
+    }
+  }
+
+  return {
+    observation_time: observationTime,
+    forecast_time: observationTime,
+    frequencies,
+    latitudes,
+    longitudes,
+  };
+}
 
 export default async function handler(request: Request): Promise<Response> {
   const limited = applyRateLimit(request, "solar/drap", 30, 60);
@@ -30,7 +97,7 @@ export default async function handler(request: Request): Promise<Response> {
   try {
     const response = await fetch(NOAA_URL, {
       headers: {
-        Accept: "application/json",
+        Accept: "text/plain",
         "User-Agent": "Propulse/1.0 (Ham Radio Solar Dashboard)",
       },
     });
@@ -51,9 +118,9 @@ export default async function handler(request: Request): Promise<Response> {
       );
     }
 
-    const data = await response.json();
+    const text = await response.text();
+    const data = parseDRAPText(text);
 
-    // Return the full response — it's a grid of absorption frequencies
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: {

@@ -460,12 +460,527 @@ function qrzDevProxy(): Plugin {
   };
 }
 
+// ─── Layer dev proxy plugin ────────────────────────────────────────────────
+// Handles API endpoints that only run on Vercel in production:
+// - DRAP: parses NOAA text format (JSON endpoint is dead)
+// - Sporadic E, Ducting, WSPR: computed models (pure math, no external deps)
+// - Lightning: fetches from collector service (COLLECTOR_URL env var)
+// - Fires: proxies to NASA FIRMS (FIRMS_MAP_KEY env var)
+
+function layerDevProxy(): Plugin {
+  return {
+    name: "layer-dev-proxy",
+    configureServer(server) {
+      // ── DRAP: parse NOAA text table into DRAPData JSON ──────────────
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url !== "/api/solar/drap") return next();
+
+        try {
+          const noaaRes = await fetch(
+            "https://services.swpc.noaa.gov/text/drap_global_frequencies.txt",
+            {
+              headers: {
+                "User-Agent": "Propulse/1.0 (Dev Proxy)",
+                Accept: "text/plain",
+              },
+            },
+          );
+          if (!noaaRes.ok) {
+            res.writeHead(noaaRes.status, {
+              "Content-Type": "application/json",
+            });
+            res.end(
+              JSON.stringify({ error: `NOAA returned ${noaaRes.status}` }),
+            );
+            return;
+          }
+          const text = await noaaRes.text();
+          const lines = text.split("\n");
+
+          // Extract observation time from header
+          let observationTime = new Date().toISOString();
+          for (const line of lines) {
+            if (line.includes("Product Valid At")) {
+              const match = line.match(
+                /(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*UTC/,
+              );
+              if (match)
+                observationTime = new Date(match[1] + "Z").toISOString();
+              break;
+            }
+          }
+
+          // Parse longitude header row
+          let longitudes: number[] = [];
+          const latitudes: number[] = [];
+          const frequencies: number[][] = [];
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (
+              trimmed.startsWith("#") ||
+              trimmed.startsWith("-") ||
+              trimmed === ""
+            )
+              continue;
+
+            // Longitude header: first non-comment, non-separator line with many numbers
+            if (longitudes.length === 0 && !trimmed.includes("|")) {
+              longitudes = trimmed
+                .split(/\s+/)
+                .map(Number)
+                .filter(Number.isFinite);
+              continue;
+            }
+
+            // Data rows: "lat | val val val ..."
+            if (trimmed.includes("|")) {
+              const [latStr, valsStr] = trimmed.split("|");
+              const lat = parseFloat(latStr.trim());
+              if (!Number.isFinite(lat)) continue;
+              const vals = valsStr.trim().split(/\s+/).map(Number);
+              latitudes.push(lat);
+              frequencies.push(vals);
+            }
+          }
+
+          const result = {
+            observation_time: observationTime,
+            forecast_time: observationTime,
+            frequencies,
+            latitudes,
+            longitudes,
+          };
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : "DRAP fetch failed",
+            }),
+          );
+        }
+      });
+
+      // ── Sporadic E: computed model ──────────────────────────────────
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith("/api/propagation/sporadic-e")) return next();
+
+        const url = new URL(req.url, "http://localhost");
+        const now = new Date();
+        const month = Math.max(
+          1,
+          Math.min(
+            12,
+            parseInt(
+              url.searchParams.get("month") || String(now.getUTCMonth() + 1),
+            ),
+          ),
+        );
+        const hour = Math.max(
+          0,
+          Math.min(
+            23,
+            parseInt(url.searchParams.get("hour") || String(now.getUTCHours())),
+          ),
+        );
+        const resolution = Math.max(
+          5,
+          Math.min(30, parseInt(url.searchParams.get("resolution") || "10")),
+        );
+
+        const regions: {
+          lat: number;
+          lon: number;
+          probability: number;
+          estimatedFoEs: number;
+        }[] = [];
+        for (let lat = -80; lat <= 80; lat += resolution) {
+          for (let lon = -180; lon < 180; lon += resolution) {
+            const absLat = Math.abs(lat);
+            let latFactor =
+              absLat < 10
+                ? 0.2
+                : absLat < 25
+                  ? 0.2 + 0.6 * ((absLat - 10) / 15)
+                  : absLat < 55
+                    ? 0.8 +
+                      0.2 *
+                        Math.cos((Math.abs(absLat - 40) / 15) * (Math.PI / 2))
+                    : absLat < 70
+                      ? 0.8 * (1 - (absLat - 55) / 15)
+                      : 0.1;
+            const peakMonth = lat >= 0 ? 6 : 12;
+            const md = Math.abs(month - peakMonth);
+            const nmd = md > 6 ? 12 - md : md;
+            const seasonFactor = Math.max(
+              0,
+              0.2 + 0.8 * Math.cos((nmd / 6) * Math.PI),
+            );
+            const lsh = (((hour + lon / 15) % 24) + 24) % 24;
+            const dayPeak = Math.max(0, Math.cos(((lsh - 12) / 12) * Math.PI));
+            const nightPeak = Math.max(0, 0.3 * Math.cos((lsh / 12) * Math.PI));
+            const probability = Math.min(
+              1,
+              latFactor * seasonFactor * Math.max(dayPeak, nightPeak),
+            );
+            if (probability >= 0.02) {
+              const foEs = 3.0 + 9.0 * probability;
+              regions.push({
+                lat,
+                lon,
+                probability: Math.round(probability * 1000) / 1000,
+                estimatedFoEs: Math.round(foEs * 100) / 100,
+              });
+            }
+          }
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            month,
+            hour,
+            resolution,
+            timestamp: now.toISOString(),
+            count: regions.length,
+            regions,
+          }),
+        );
+      });
+
+      // ── Ducting: computed model ─────────────────────────────────────
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith("/api/propagation/ducting")) return next();
+
+        const url = new URL(req.url, "http://localhost");
+        const now = new Date();
+        const month = Math.max(
+          1,
+          Math.min(
+            12,
+            parseInt(
+              url.searchParams.get("month") || String(now.getUTCMonth() + 1),
+            ),
+          ),
+        );
+        const hour = Math.max(
+          0,
+          Math.min(
+            23,
+            parseInt(url.searchParams.get("hour") || String(now.getUTCHours())),
+          ),
+        );
+        const resolution = Math.max(
+          5,
+          Math.min(30, parseInt(url.searchParams.get("resolution") || "10")),
+        );
+
+        const regions: {
+          lat: number;
+          lon: number;
+          probability: number;
+          type: string;
+        }[] = [];
+        for (let lat = -70; lat <= 70; lat += resolution) {
+          for (let lon = -180; lon < 180; lon += resolution) {
+            const absLat = Math.abs(lat);
+            // Simplified coastal factor
+            const coastal = absLat < 60 ? 0.25 : 0.1;
+            const lsh = (((hour + lon / 15) % 24) + 24) % 24;
+            const isN = lat >= 0;
+            // Surface ducting
+            const sPeakMonth = isN ? 9 : 3;
+            const sMd = Math.abs(month - sPeakMonth);
+            const sNmd = sMd > 6 ? 12 - sMd : sMd;
+            const sSeason = 0.3 + 0.7 * Math.cos((sNmd / 6) * Math.PI);
+            const sNight = lsh >= 18 || lsh < 6 ? 1.0 : 0.4;
+            const sProb = Math.min(
+              1,
+              coastal * Math.max(0, sSeason) * sNight * 0.8,
+            );
+            if (sProb >= 0.02)
+              regions.push({
+                lat,
+                lon,
+                probability: Math.round(sProb * 1000) / 1000,
+                type: "surface",
+              });
+            // Elevated ducting
+            const eLat =
+              absLat >= 15 && absLat <= 45
+                ? 0.6 +
+                  0.4 * Math.cos((Math.abs(absLat - 30) / 15) * (Math.PI / 2))
+                : absLat < 15
+                  ? 0.4
+                  : Math.max(0.1, 0.6 * (1 - (absLat - 45) / 25));
+            const ePeakMonth = isN ? 7 : 1;
+            const eMd = Math.abs(month - ePeakMonth);
+            const eNmd = eMd > 6 ? 12 - eMd : eMd;
+            const eSeason = 0.3 + 0.7 * Math.cos((eNmd / 6) * Math.PI);
+            const eProb = Math.min(
+              1,
+              coastal * 0.6 * eLat * Math.max(0, eSeason),
+            );
+            if (eProb >= 0.02)
+              regions.push({
+                lat,
+                lon,
+                probability: Math.round(eProb * 1000) / 1000,
+                type: "elevated",
+              });
+          }
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            month,
+            hour,
+            resolution,
+            timestamp: now.toISOString(),
+            count: regions.length,
+            regions,
+          }),
+        );
+      });
+
+      // ── WSPR: synthetic spots ───────────────────────────────────────
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith("/api/propagation/wspr")) return next();
+
+        const url = new URL(req.url, "http://localhost");
+        const band = url.searchParams.get("band") || "20m";
+        const now = new Date();
+
+        const WSPR_BANDS: Record<string, number> = {
+          "160m": 1.8366,
+          "80m": 3.5926,
+          "60m": 5.2872,
+          "40m": 7.0386,
+          "30m": 10.1387,
+          "20m": 14.0956,
+          "17m": 18.1046,
+          "15m": 21.0946,
+          "12m": 24.9246,
+          "10m": 28.1246,
+          "6m": 50.293,
+        };
+        const STATIONS = [
+          { c: "W3HH", g: "FM19", la: 39, lo: -77 },
+          { c: "VK2RG", g: "QF56", la: -33.8, lo: 151.2 },
+          { c: "G8JNJ", g: "IO91", la: 51.5, lo: -0.1 },
+          { c: "PA0O", g: "JO21", la: 51.4, lo: 4.3 },
+          { c: "JA1BRK", g: "PM95", la: 35.7, lo: 139.7 },
+          { c: "ZL2IFB", g: "RE78", la: -41.3, lo: 174.8 },
+          { c: "LU8EKC", g: "GF05", la: -34.6, lo: -58.4 },
+          { c: "W6LVP", g: "DM04", la: 34.1, lo: -118.3 },
+          { c: "OH2GAX", g: "KP20", la: 60.2, lo: 25 },
+          { c: "VE3GHN", g: "FN03", la: 43.7, lo: -79.4 },
+        ];
+
+        function rng32(s: number) {
+          return () => {
+            s |= 0;
+            s = (s + 0x6d2b79f5) | 0;
+            let t = Math.imul(s ^ (s >>> 15), 1 | s);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        function genSpots(b: string) {
+          const freq = WSPR_BANDS[b];
+          if (!freq) return [];
+          const seed =
+            now.getUTCFullYear() * 1e6 +
+            (now.getUTCMonth() + 1) * 1e4 +
+            now.getUTCDate() * 100 +
+            now.getUTCHours() * 10 +
+            Math.floor(now.getUTCMinutes() / 5);
+          const rng = rng32(seed + freq * 1000);
+          const ha = ((now.getUTCHours() - 14) / 12) * Math.PI;
+          const df =
+            freq < 10
+              ? 0.5 + 0.5 * (1 - (0.4 + 0.6 * Math.cos(ha)))
+              : 0.3 + 0.7 * (0.4 + 0.6 * Math.cos(ha));
+          const count = Math.floor(8 + rng() * 40 * df);
+          const spots: Record<string, unknown>[] = [];
+          for (let i = 0; i < count && i < 100; i++) {
+            const tx = STATIONS[Math.floor(rng() * STATIONS.length)];
+            let ri = Math.floor(rng() * STATIONS.length);
+            if (ri === STATIONS.indexOf(tx)) ri = (ri + 1) % STATIONS.length;
+            const rx = STATIONS[ri];
+            const dLat = ((rx.la - tx.la) * Math.PI) / 180;
+            const dLon = ((rx.lo - tx.lo) * Math.PI) / 180;
+            const a =
+              Math.sin(dLat / 2) ** 2 +
+              Math.cos((tx.la * Math.PI) / 180) *
+                Math.cos((rx.la * Math.PI) / 180) *
+                Math.sin(dLon / 2) ** 2;
+            const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            spots.push({
+              callsign: tx.c,
+              grid: tx.g,
+              frequency: freq,
+              snr: Math.round(
+                -30 + 35 * Math.max(0, 1 - dist / 20000) + (rng() - 0.5) * 10,
+              ),
+              drift: Math.round((rng() - 0.5) * 4),
+              distance: Math.round(dist),
+              timestamp: new Date(
+                now.getTime() - Math.floor(rng() * 300000),
+              ).toISOString(),
+              txLat: tx.la,
+              txLon: tx.lo,
+              rxCallsign: rx.c,
+              rxGrid: rx.g,
+              rxLat: rx.la,
+              rxLon: rx.lo,
+            });
+          }
+          return spots;
+        }
+
+        let spots =
+          band === "all"
+            ? Object.keys(WSPR_BANDS).flatMap(genSpots).slice(0, 200)
+            : genSpots(band);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            band,
+            count: spots.length,
+            timestamp: now.toISOString(),
+            spots,
+          }),
+        );
+      });
+
+      // ── Lightning: fetch from collector service ────────────────────
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/lightning/strikes")) return next();
+
+        const collectorUrl = process.env.COLLECTOR_URL;
+        if (!collectorUrl) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              strikes: [],
+              note: "COLLECTOR_URL not set in .env — lightning data unavailable in dev. Set it to your Railway collector URL.",
+            }),
+          );
+          return;
+        }
+
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8_000);
+
+          const cRes = await fetch(`${collectorUrl}/lightning`, {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "Propulse/1.0 (Dev Proxy)",
+            },
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeout);
+
+          if (!cRes.ok) {
+            res.writeHead(502, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                strikes: [],
+                error: `Collector returned ${cRes.status}`,
+              }),
+            );
+            return;
+          }
+
+          const data = await cRes.json();
+          const strikes = Array.isArray(data?.strikes)
+            ? data.strikes.slice(0, 5000)
+            : [];
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ strikes }));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          res.writeHead(502, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              strikes: [],
+              error: `Collector fetch failed: ${msg}`,
+            }),
+          );
+        }
+      });
+
+      // ── Fires: proxy to NASA FIRMS (requires FIRMS_MAP_KEY) ─────────
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/fires/hotspots")) return next();
+
+        const key = process.env.FIRMS_MAP_KEY;
+        if (!key) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              hotspots: [],
+              note: "FIRMS_MAP_KEY not set in .env — fire data unavailable in dev",
+            }),
+          );
+          return;
+        }
+        try {
+          const firmsUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/-180,-90,180,90/1`;
+          const fRes = await fetch(firmsUrl, {
+            headers: { "User-Agent": "Propulse/1.0" },
+          });
+          if (!fRes.ok) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                hotspots: [],
+                error: `FIRMS returned ${fRes.status}`,
+              }),
+            );
+            return;
+          }
+          const csv = await fRes.text();
+          const rows = csv.trim().split("\n").slice(1); // skip header
+          const hotspots = rows
+            .slice(0, 2000)
+            .map((row) => {
+              const cols = row.split(",");
+              return {
+                lat: parseFloat(cols[0]),
+                lon: parseFloat(cols[1]),
+                brightness: parseFloat(cols[2]) || 0,
+                frp: parseFloat(cols[12]) || 0,
+              };
+            })
+            .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lon));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ hotspots }));
+        } catch {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ hotspots: [] }));
+        }
+      });
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     hamqthDevProxy(),
     qrzDevProxy(),
+    layerDevProxy(),
     VitePWA({
       registerType: "prompt",
       includeAssets: ["propulse.svg"],
@@ -595,11 +1110,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/json/goes/primary/xrays-6-hour.json",
       },
-      "/api/solar/drap": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/drap_global_frequencies.json",
-      },
+      // DRAP: handled by layerDevProxy() middleware (parses NOAA text format)
       "/api/solar/cme": {
         target: "https://api.nasa.gov",
         changeOrigin: true,

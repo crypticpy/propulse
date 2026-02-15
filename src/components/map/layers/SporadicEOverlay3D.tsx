@@ -11,7 +11,7 @@
  * Only regions with probability > 0.15 are rendered.
  */
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { SporadicERegion } from "@/hooks/useSporadicE";
@@ -127,8 +127,8 @@ export const SporadicEOverlay3D = React.memo(
       return { matrices, colors, probabilities, count: matrices.length };
     }, [regions]);
 
-    // Apply instance data to mesh
-    useMemo(() => {
+    // Apply instance data to mesh after mount and when data changes
+    useEffect(() => {
       const mesh = meshRef.current;
       if (!mesh || instanceData.count === 0) return;
 
@@ -178,7 +178,7 @@ export const SporadicEOverlay3D = React.memo(
             depthWrite={false}
             blending={THREE.AdditiveBlending}
             side={THREE.DoubleSide}
-            vertexColors={false}
+            vertexColors
           />
         </instancedMesh>
       </group>

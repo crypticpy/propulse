@@ -9,7 +9,8 @@ export function loadConfig(): CollectorConfig {
   }
 
   const sourcesRaw =
-    process.env.COLLECTOR_ENABLED_SOURCES || "pskreporter,rbn,dxcluster,solar";
+    process.env.COLLECTOR_ENABLED_SOURCES ||
+    "pskreporter,rbn,dxcluster,solar,lightning";
 
   return {
     supabaseUrl,

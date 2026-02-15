@@ -1,8 +1,13 @@
 /**
- * Lightning Strike API Proxy - Vercel Edge Function
+ * Lightning Strike API - Vercel Edge Function
  *
- * Proxies requests to Blitzortung lightning strike data to avoid CORS issues
- * Returns recent global lightning strikes as a clean JSON array
+ * Fetches buffered lightning strikes from the Propulse collector service,
+ * which maintains a persistent WebSocket connection to Blitzortung.
+ *
+ * Requires COLLECTOR_URL environment variable pointing to the collector's
+ * HTTP endpoint on Railway (e.g., https://collector-xyz.up.railway.app).
+ *
+ * Cache: 10 seconds with 5 second stale-while-revalidate
  */
 
 import { applyRateLimit } from "../_lib/rateLimit";
@@ -19,15 +24,11 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-/**
- * Raw strike entry from Blitzortung API
- */
-interface BlitzortungStrike {
-  lat: number;
-  lon: number;
-  time: number; // nanosecond timestamp
-  sig?: number; // signal strength (may represent kA)
-}
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": getAllowedOrigin(),
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
 
 export default async function handler(req: Request) {
   // Handle CORS preflight
@@ -35,9 +36,7 @@ export default async function handler(req: Request) {
     return new Response(null, {
       status: 204,
       headers: {
-        "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        ...CORS_HEADERS,
         "Access-Control-Max-Age": "86400",
       },
     });
@@ -46,25 +45,50 @@ export default async function handler(req: Request) {
   const limited = applyRateLimit(req, "lightning/strikes", 20, 60);
   if (limited) return limited;
 
-  try {
-    const apiUrl = "https://map.blitzortung.org/GEOjson/GEOjson_strikes_4.json";
+  const collectorUrl = process.env.COLLECTOR_URL;
 
-    const response = await fetch(apiUrl, {
+  if (!collectorUrl) {
+    return new Response(
+      JSON.stringify({
+        strikes: [],
+        error: "COLLECTOR_URL not configured. Lightning data unavailable.",
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "s-maxage=60",
+          ...CORS_HEADERS,
+        },
+      },
+    );
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+
+    const response = await fetch(`${collectorUrl}/lightning`, {
       headers: {
         Accept: "application/json",
-        "User-Agent": "Propulse/1.0 (Ham Radio Toolset)",
+        "User-Agent": "Propulse/1.0 (Edge Function)",
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       return new Response(
-        JSON.stringify({ error: "Blitzortung API error", strikes: [] }),
+        JSON.stringify({
+          error: `Collector returned ${response.status}`,
+          strikes: [],
+        }),
         {
-          status: response.status,
+          status: 502,
           headers: {
             "Content-Type": "application/json",
             "Cache-Control": "no-store",
-            "Access-Control-Allow-Origin": getAllowedOrigin(),
+            ...CORS_HEADERS,
           },
         },
       );
@@ -72,71 +96,48 @@ export default async function handler(req: Request) {
 
     const data = await response.json();
 
-    // Blitzortung GeoJSON: features[].geometry.coordinates = [lon, lat]
-    // features[].properties may contain time and sig
-    let strikes: {
-      lat: number;
-      lon: number;
-      time: number;
-      current_kA: number;
-    }[] = [];
-
-    if (data && Array.isArray(data.features)) {
-      strikes = data.features
-        .filter(
-          (f: { geometry?: { coordinates?: number[] } }) =>
-            f.geometry?.coordinates &&
-            Array.isArray(f.geometry.coordinates) &&
-            f.geometry.coordinates.length >= 2,
-        )
-        .map(
-          (f: {
-            geometry: { coordinates: number[] };
-            properties?: { time?: number; sig?: number };
-          }) => ({
-            lat: f.geometry.coordinates[1],
-            lon: f.geometry.coordinates[0],
-            time: f.properties?.time ?? Date.now(),
-            current_kA: f.properties?.sig ?? 0,
-          }),
-        );
-    } else if (Array.isArray(data)) {
-      // Fallback: plain array of strike objects
-      strikes = (data as BlitzortungStrike[]).map((s) => ({
-        lat: s.lat,
-        lon: s.lon,
-        time:
-          s.time > 1e15
-            ? Math.floor(s.time / 1e6) // nanoseconds to milliseconds
-            : s.time > 1e12
-              ? s.time // already milliseconds
-              : s.time * 1000, // seconds to milliseconds
-        current_kA: s.sig ?? 0,
-      }));
+    // Validate response shape
+    if (!data || !Array.isArray(data.strikes)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid collector response", strikes: [] }),
+        {
+          status: 502,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            ...CORS_HEADERS,
+          },
+        },
+      );
     }
 
-    // Cap strikes to prevent canvas performance issues during active storm seasons
-    if (strikes.length > 5000) {
-      strikes = strikes.slice(0, 5000);
-    }
+    // Cap strikes to prevent canvas performance issues
+    const strikes = data.strikes.slice(0, 5000);
 
     return new Response(JSON.stringify({ strikes }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "s-maxage=30, stale-while-revalidate=15",
-        "Access-Control-Allow-Origin": getAllowedOrigin(),
+        "Cache-Control": "s-maxage=10, stale-while-revalidate=5",
+        ...CORS_HEADERS,
       },
     });
   } catch (error) {
-    console.error("Lightning proxy error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const isTimeout = message.includes("abort");
+
     return new Response(
-      JSON.stringify({ error: "Internal error", strikes: [] }),
+      JSON.stringify({
+        error: isTimeout
+          ? "Collector request timed out"
+          : `Failed to fetch lightning data: ${message}`,
+        strikes: [],
+      }),
       {
-        status: 500,
+        status: isTimeout ? 504 : 500,
         headers: {
           "Content-Type": "application/json",
           "Cache-Control": "no-store",
-          "Access-Control-Allow-Origin": getAllowedOrigin(),
+          ...CORS_HEADERS,
         },
       },
     );

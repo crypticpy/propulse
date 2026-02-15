@@ -178,10 +178,35 @@ export class BandOpeningDetector {
   private subscribers: Set<BandOpeningCallback> = new Set();
   /** Cleanup interval handle */
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Sensitivity multiplier for opening detection threshold.
+   * 1.0 = default, >1.0 = more sensitive (lower threshold).
+   * During contests, set to 1.5-2.0 to detect openings faster.
+   */
+  private _sensitivity = 1.0;
 
   constructor() {
     // Periodic cleanup of stale data every 30 seconds
     this.cleanupInterval = setInterval(() => this.cleanup(), 30_000);
+  }
+
+  /**
+   * Get the current sensitivity multiplier.
+   */
+  get sensitivity(): number {
+    return this._sensitivity;
+  }
+
+  /**
+   * Set the sensitivity multiplier for band opening detection.
+   *
+   * Higher values make the detector more sensitive (lower threshold).
+   * A value of 2.0 halves the required spot count for opening detection.
+   *
+   * @param value - Sensitivity multiplier (clamped to 0.5 - 5.0)
+   */
+  set sensitivity(value: number) {
+    this._sensitivity = Math.max(0.5, Math.min(5.0, value));
   }
 
   /**
@@ -290,14 +315,18 @@ export class BandOpeningDetector {
       const windowCount = bucket.entries.length;
       bucket.peakCount = Math.max(bucket.peakCount, windowCount);
 
-      // Check for opening detection
-      if (!bucket.openingDetected && windowCount >= OPENING_THRESHOLD) {
+      // Check for opening detection (threshold scaled by sensitivity)
+      const effectiveThreshold = Math.max(
+        2,
+        Math.round(OPENING_THRESHOLD / this._sensitivity),
+      );
+      if (!bucket.openingDetected && windowCount >= effectiveThreshold) {
         // Verify spots arrived within the detection window
         const recentEntries = bucket.entries.filter(
           (e) => now - e.timestamp <= DETECTION_WINDOW_MS,
         );
 
-        if (recentEntries.length >= OPENING_THRESHOLD) {
+        if (recentEntries.length >= effectiveThreshold) {
           this.detectOpening(key, bucket, now);
         }
       }

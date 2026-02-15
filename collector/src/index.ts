@@ -9,6 +9,7 @@ import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
+import { startLightning, stopLightning } from "./collectors/lightning.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -37,6 +38,11 @@ async function main(): Promise<void> {
     register("solar", 5 * 60_000, () => collectSolar(db));
   }
 
+  // Lightning WebSocket consumer (always-on, not poll-based)
+  if (config.enabledSources.has("lightning")) {
+    startLightning();
+  }
+
   // Hourly aggregator (checks every 5 min, only runs on new hour boundary)
   register("aggregator", 5 * 60_000, () => computeHourlyStats(db));
 
@@ -53,6 +59,7 @@ async function main(): Promise<void> {
   // Graceful shutdown
   const shutdown = (): void => {
     log("info", "Shutting down...");
+    stopLightning();
     stopAll();
     process.exit(0);
   };

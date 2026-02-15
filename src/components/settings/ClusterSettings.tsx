@@ -226,14 +226,23 @@ export const ClusterSettings = memo(function ClusterSettings({
     if (!bridgeSend) return;
     if (!prefs.callsign.trim()) return;
 
+    const selectedBands = prefs.filterBands
+      .map((b) => parseInt(b, 10))
+      .filter((b) => Number.isFinite(b));
+
     setConnectionStatus("connecting");
     const success = bridgeSend("cluster.connect", {
-      host: effectiveHost,
-      port: effectivePort,
+      nodes: [
+        {
+          host: effectiveHost,
+          port: effectivePort,
+          name: currentNode?.label ?? effectiveHost,
+        },
+      ],
       callsign: prefs.callsign.trim().toUpperCase(),
       password: prefs.password || undefined,
       filters: {
-        bands: prefs.filterBands.length > 0 ? prefs.filterBands : undefined,
+        bands: selectedBands.length > 0 ? selectedBands : undefined,
         modes: prefs.filterModes.length > 0 ? prefs.filterModes : undefined,
       },
     });
@@ -249,6 +258,7 @@ export const ClusterSettings = memo(function ClusterSettings({
     prefs.filterModes,
     effectiveHost,
     effectivePort,
+    currentNode?.label,
   ]);
 
   const handleDisconnect = useCallback(() => {

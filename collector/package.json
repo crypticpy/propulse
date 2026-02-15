@@ -12,10 +12,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.4"
+    "@supabase/supabase-js": "^2.49.4",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
     "typescript": "~5.7.3"
   },

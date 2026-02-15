@@ -9,7 +9,7 @@
  * with lats[], lons[], and values[][] (total noise in dB).
  */
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -138,8 +138,8 @@ export const NoiseFloorOverlay3D = React.memo(
       return { matrices, colors, count: matrices.length };
     }, [grid]);
 
-    // Apply instance data to mesh when it changes
-    useMemo(() => {
+    // Apply instance data to mesh after mount and when data changes
+    useEffect(() => {
       const mesh = meshRef.current;
       if (!mesh || instanceData.count === 0) return;
 
@@ -182,7 +182,7 @@ export const NoiseFloorOverlay3D = React.memo(
             opacity={0.5}
             depthWrite={false}
             side={THREE.DoubleSide}
-            vertexColors={false}
+            vertexColors
           />
         </instancedMesh>
       </group>

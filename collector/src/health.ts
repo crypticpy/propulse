@@ -1,5 +1,9 @@
 import http from "node:http";
 import { log } from "./logger.js";
+import {
+  getBufferedStrikes,
+  getLightningStats,
+} from "./collectors/lightning.js";
 
 interface SourceStatus {
   at: string;
@@ -24,7 +28,34 @@ export function reportHealth(
 }
 
 export function startHealthServer(port: number): http.Server {
-  const server = http.createServer((_req, res) => {
+  const server = http.createServer((req, res) => {
+    const url = req.url?.split("?")[0] || "/";
+
+    // ── Lightning strike data endpoint ────────────────────────────────
+    if (url === "/lightning") {
+      const strikes = getBufferedStrikes();
+      const stats = getLightningStats();
+
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "s-maxage=5, stale-while-revalidate=5",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+      });
+      res.end(
+        JSON.stringify({
+          strikes,
+          meta: {
+            connected: stats.connected,
+            bufferSize: stats.bufferSize,
+            totalReceived: stats.strikesReceived,
+          },
+        }),
+      );
+      return;
+    }
+
+    // ── Health check endpoint (default) ───────────────────────────────
     const now = Date.now();
     const degradedSources: string[] = [];
 

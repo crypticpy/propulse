@@ -10,7 +10,7 @@
  *   blue (>15 MHz, normal) -> yellow (10-15 MHz) -> orange (5-10 MHz) -> red (<5 MHz, severe)
  */
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -141,8 +141,8 @@ export const DRAPOverlay3D = React.memo(
       return { matrices, colors, count: matrices.length };
     }, [data]);
 
-    // Apply instance data to mesh
-    useMemo(() => {
+    // Apply instance data to mesh after mount and when data changes
+    useEffect(() => {
       const mesh = meshRef.current;
       if (!mesh || instanceData.count === 0) return;
 
@@ -191,7 +191,7 @@ export const DRAPOverlay3D = React.memo(
             opacity={0.42}
             depthWrite={false}
             side={THREE.DoubleSide}
-            vertexColors={false}
+            vertexColors
           />
         </instancedMesh>
       </group>

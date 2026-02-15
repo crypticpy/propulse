@@ -20,7 +20,8 @@ function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-const NOAA_URL = "https://services.swpc.noaa.gov/text/3-day-forecast.txt";
+const NOAA_URL =
+  "https://services.swpc.noaa.gov/text/3-day-solar-geomag-predictions.txt";
 
 interface ForecastDay {
   date: string;
@@ -34,29 +35,32 @@ interface ForecastDay {
 }
 
 /**
- * Parse the NOAA 3-day forecast text into structured data.
- * The format includes sections for solar activity, Kp, and probabilities.
+ * Parse the NOAA 3-day solar-geomag predictions text into structured data.
+ *
+ * Format uses colon-prefixed section headers with values on the NEXT line:
+ *   :Prediction_dates:   2026 Feb 14   2026 Feb 15   2026 Feb 16
+ *   :10cm_flux:
+ *                           115           115           110
+ *   :Whole_Disk_Flare_Prob:
+ *   Class_M                  10            10            10
  */
 function parseForecast(text: string): ForecastDay[] {
-  const days: ForecastDay[] = [];
   const lines = text.split("\n");
 
-  // Find the date headers — typically a line like "Feb 15  Feb 16  Feb 17"
-  // or "15 Feb    16 Feb    17 Feb"
-  let dateLineIdx = -1;
+  // Extract dates from :Prediction_dates: line
   const dateHeaders: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    // Look for a line with 3 date-like patterns
-    const dateMatch = lines[i].match(/(\d{1,2}\s+\w{3}|\w{3}\s+\d{1,2})/g);
-    if (dateMatch && dateMatch.length >= 3) {
-      dateLineIdx = i;
-      dateHeaders.push(...dateMatch.slice(0, 3));
+  for (const line of lines) {
+    if (line.startsWith(":Prediction_dates:")) {
+      // Extract "2026 Feb 14" style dates, display as "Feb 14"
+      const matches = line.matchAll(/(\d{4})\s+(\w{3})\s+(\d{1,2})/g);
+      for (const m of matches) {
+        dateHeaders.push(`${m[2]} ${m[3]}`);
+      }
       break;
     }
   }
 
-  // Initialize forecast days
+  const days: ForecastDay[] = [];
   for (let d = 0; d < 3; d++) {
     days.push({
       date: dateHeaders[d] || `Day ${d + 1}`,
@@ -66,65 +70,48 @@ function parseForecast(text: string): ForecastDay[] {
     });
   }
 
-  // Parse Solar Flux (10.7 cm) line
-  for (let i = dateLineIdx; i < lines.length; i++) {
-    const line = lines[i];
+  // Helper: extract 3 numbers from a line (values are whitespace-separated)
+  const extract3Numbers = (line: string): number[] => {
+    const nums = line.trim().split(/\s+/).map(Number).filter(Number.isFinite);
+    return nums;
+  };
 
-    // Look for "10.7 cm" or "Solar flux" line with numbers
-    if (/10\.7\s*cm|solar\s*flux/i.test(line)) {
-      const numbers = line.match(/\d{2,4}/g);
-      if (numbers) {
-        // Filter to plausible SFI values (50-400)
-        const sfiValues = numbers
-          .map(Number)
-          .filter((n) => n >= 50 && n <= 400);
-        for (let d = 0; d < Math.min(sfiValues.length, 3); d++) {
-          days[d].predicted_flux = sfiValues[d];
-        }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // :10cm_flux: header — values on next line
+    if (line === ":10cm_flux:") {
+      const vals = extract3Numbers(lines[i + 1] || "");
+      for (let d = 0; d < Math.min(vals.length, 3); d++) {
+        if (vals[d] >= 50 && vals[d] <= 400) days[d].predicted_flux = vals[d];
       }
     }
 
-    // Look for Kp predictions
-    if (/Kp\b/i.test(line) && !/probability/i.test(line)) {
-      const numbers = line.match(/\d+/g);
-      if (numbers) {
-        const kpValues = numbers.map(Number).filter((n) => n >= 0 && n <= 9);
-        for (let d = 0; d < Math.min(kpValues.length, 3); d++) {
-          days[d].predicted_kp = kpValues[d];
-        }
+    // Flare probabilities — "Class_M  10  10  10" on same line
+    if (/^Class_M\b/i.test(line)) {
+      const vals = extract3Numbers(line.replace(/^Class_M\s*/i, ""));
+      for (let d = 0; d < Math.min(vals.length, 3); d++) {
+        if (days[d].probabilities) days[d].probabilities!.m_class = vals[d];
+      }
+    }
+    if (/^Class_X\b/i.test(line)) {
+      const vals = extract3Numbers(line.replace(/^Class_X\s*/i, ""));
+      for (let d = 0; d < Math.min(vals.length, 3); d++) {
+        if (days[d].probabilities) days[d].probabilities!.x_class = vals[d];
+      }
+    }
+    if (/^Proton\b/i.test(line)) {
+      const vals = extract3Numbers(line.replace(/^Proton\s*/i, ""));
+      for (let d = 0; d < Math.min(vals.length, 3); d++) {
+        if (days[d].probabilities) days[d].probabilities!.proton = vals[d];
       }
     }
 
-    // M-class probability
-    if (/M\s*-?\s*class/i.test(line)) {
-      const numbers = line.match(/\d+/g);
-      if (numbers) {
-        const probs = numbers.map(Number).filter((n) => n >= 0 && n <= 100);
-        for (let d = 0; d < Math.min(probs.length, 3); d++) {
-          if (days[d].probabilities) days[d].probabilities!.m_class = probs[d];
-        }
-      }
-    }
-
-    // X-class probability
-    if (/X\s*-?\s*class/i.test(line)) {
-      const numbers = line.match(/\d+/g);
-      if (numbers) {
-        const probs = numbers.map(Number).filter((n) => n >= 0 && n <= 100);
-        for (let d = 0; d < Math.min(probs.length, 3); d++) {
-          if (days[d].probabilities) days[d].probabilities!.x_class = probs[d];
-        }
-      }
-    }
-
-    // Proton probability
-    if (/proton/i.test(line) && /\d/.test(line)) {
-      const numbers = line.match(/\d+/g);
-      if (numbers) {
-        const probs = numbers.map(Number).filter((n) => n >= 0 && n <= 100);
-        for (let d = 0; d < Math.min(probs.length, 3); d++) {
-          if (days[d].probabilities) days[d].probabilities!.proton = probs[d];
-        }
+    // A Planetary index
+    if (/^A_Planetary\b/i.test(line)) {
+      const vals = extract3Numbers(line.replace(/^A_Planetary\s*/i, ""));
+      for (let d = 0; d < Math.min(vals.length, 3); d++) {
+        days[d].predicted_kp = vals[d]; // Actually A-index, but reusing field
       }
     }
   }

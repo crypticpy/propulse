@@ -22,6 +22,8 @@ import type {
   CMEAnalysis,
   SolarFluxForecast,
 } from "@/types/alerts";
+import { classifyError } from "@/lib/errors/classifyError";
+import { useDataSourceStatus } from "@/stores/dataSourceStatusStore";
 
 // Query key constants for cache management
 export const EXPANDED_QUERY_KEYS = {
@@ -45,7 +47,17 @@ const HOUR = 60 * MINUTE;
 export function useXrayFlux() {
   return useQuery<XrayFluxEntry[]>({
     queryKey: EXPANDED_QUERY_KEYS.xrayFlux,
-    queryFn: fetchXrayFlux,
+    queryFn: async () => {
+      try {
+        const data = await fetchXrayFlux();
+        useDataSourceStatus.getState().reportSuccess("noaa-xray");
+        return data;
+      } catch (err) {
+        const classified = classifyError(err, "xray");
+        useDataSourceStatus.getState().reportError("noaa-xray", classified);
+        throw err;
+      }
+    },
     staleTime: 2 * MINUTE,
     refetchInterval: 5 * MINUTE,
     retry: 3,
@@ -61,7 +73,17 @@ export function useXrayFlux() {
 export function useProtonFlux() {
   return useQuery<ProtonFluxEntry[]>({
     queryKey: EXPANDED_QUERY_KEYS.protonFlux,
-    queryFn: fetchProtonFlux,
+    queryFn: async () => {
+      try {
+        const data = await fetchProtonFlux();
+        useDataSourceStatus.getState().reportSuccess("noaa-protons");
+        return data;
+      } catch (err) {
+        const classified = classifyError(err, "protons");
+        useDataSourceStatus.getState().reportError("noaa-protons", classified);
+        throw err;
+      }
+    },
     staleTime: 2 * MINUTE,
     refetchInterval: 5 * MINUTE,
     retry: 3,
@@ -77,7 +99,17 @@ export function useProtonFlux() {
 export function useDstIndex() {
   return useQuery<DstEntry[]>({
     queryKey: EXPANDED_QUERY_KEYS.dstIndex,
-    queryFn: fetchDstIndex,
+    queryFn: async () => {
+      try {
+        const data = await fetchDstIndex();
+        useDataSourceStatus.getState().reportSuccess("noaa-dst");
+        return data;
+      } catch (err) {
+        const classified = classifyError(err, "dst");
+        useDataSourceStatus.getState().reportError("noaa-dst", classified);
+        throw err;
+      }
+    },
     staleTime: 10 * MINUTE,
     refetchInterval: 30 * MINUTE,
     retry: 3,
@@ -93,7 +125,17 @@ export function useDstIndex() {
 export function useDRAPData() {
   return useQuery<DRAPData>({
     queryKey: EXPANDED_QUERY_KEYS.drap,
-    queryFn: fetchDRAPData,
+    queryFn: async () => {
+      try {
+        const data = await fetchDRAPData();
+        useDataSourceStatus.getState().reportSuccess("noaa-drap");
+        return data;
+      } catch (err) {
+        const classified = classifyError(err, "drap");
+        useDataSourceStatus.getState().reportError("noaa-drap", classified);
+        throw err;
+      }
+    },
     staleTime: 5 * MINUTE,
     refetchInterval: 15 * MINUTE,
     retry: 3,
@@ -109,7 +151,17 @@ export function useDRAPData() {
 export function useCMEAnalysis() {
   return useQuery<CMEAnalysis[]>({
     queryKey: EXPANDED_QUERY_KEYS.cmeAnalysis,
-    queryFn: fetchCMEAnalysis,
+    queryFn: async () => {
+      try {
+        const data = await fetchCMEAnalysis();
+        useDataSourceStatus.getState().reportSuccess("nasa-cme");
+        return data;
+      } catch (err) {
+        const classified = classifyError(err, "cme");
+        useDataSourceStatus.getState().reportError("nasa-cme", classified);
+        throw err;
+      }
+    },
     staleTime: 30 * MINUTE,
     refetchInterval: 1 * HOUR,
     retry: 3,
@@ -125,7 +177,19 @@ export function useCMEAnalysis() {
 export function useFluxForecast() {
   return useQuery<{ raw: string; forecast: SolarFluxForecast[] }>({
     queryKey: EXPANDED_QUERY_KEYS.fluxForecast,
-    queryFn: fetchFluxForecast,
+    queryFn: async () => {
+      try {
+        const data = await fetchFluxForecast();
+        useDataSourceStatus.getState().reportSuccess("noaa-flux-forecast");
+        return data;
+      } catch (err) {
+        const classified = classifyError(err, "flux-forecast");
+        useDataSourceStatus
+          .getState()
+          .reportError("noaa-flux-forecast", classified);
+        throw err;
+      }
+    },
     staleTime: 1 * HOUR,
     refetchInterval: 4 * HOUR,
     retry: 3,

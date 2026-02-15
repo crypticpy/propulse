@@ -20,9 +20,9 @@ import { kpToAp } from "@/lib/utils/solarConversions";
 import {
   useProtonFlux,
   useDstIndex,
-  useCMEAnalysis,
   useFluxForecast,
 } from "@/hooks/useSolarExpanded";
+import { CMEAnalysisPanel } from "@/components/solar/CMEAnalysisPanel";
 import type {
   KIndexData,
   SolarFluxData,
@@ -119,7 +119,7 @@ export function MobileSolarPulse({
   // --- Expanded solar data hooks ---
   const { data: protonFluxData, isLoading: protonLoading } = useProtonFlux();
   const { data: dstIndexData, isLoading: dstLoading } = useDstIndex();
-  const { data: cmeData, isLoading: cmeLoading } = useCMEAnalysis();
+  // CME data is fetched internally by CMEAnalysisPanel
   const { data: fluxForecastData, isLoading: forecastLoading } =
     useFluxForecast();
 
@@ -176,9 +176,6 @@ export function MobileSolarPulse({
           : dstValue < -30
             ? "text-caution-amber"
             : "text-signal-green";
-
-  // --- CME derived ---
-  const significantCMEs = (cmeData ?? []).filter((c) => c.speed > 500);
 
   // --- Forecast derived ---
   const forecastDays = fluxForecastData?.forecast ?? [];
@@ -519,79 +516,8 @@ export function MobileSolarPulse({
           )}
         </AccordionCard>
 
-        {/* 10 - CME Analysis */}
-        <AccordionCard title="CME Analysis">
-          {cmeLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
-            </div>
-          ) : significantCMEs.length === 0 ? (
-            <div className="text-center py-6 text-gray-500 text-sm">
-              No significant CME activity in the past 30 days
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {significantCMEs.map((cme, i) => {
-                const speedColor =
-                  cme.speed > 1200
-                    ? "text-alert-red"
-                    : cme.speed > 800
-                      ? "text-caution-amber"
-                      : "text-signal-green";
-                const dotColor =
-                  cme.speed > 1200
-                    ? "bg-alert-red"
-                    : cme.speed > 800
-                      ? "bg-caution-amber"
-                      : "bg-signal-green";
-                return (
-                  <div
-                    key={`cme-m-${cme.time21_5}-${i}`}
-                    className="rounded-xl border border-white/10 bg-white/[0.02] p-3"
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${dotColor}`} />
-                        <span
-                          className={`text-sm font-bold font-mono ${speedColor}`}
-                        >
-                          {Math.round(cme.speed)} km/s
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 font-mono">
-                        {cme.time21_5
-                          ? new Date(cme.time21_5).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "—"}
-                      </span>
-                    </div>
-                    <div className="flex gap-4 text-xs text-gray-400">
-                      <span>
-                        Half-angle:{" "}
-                        <span className="text-gray-300 font-mono">
-                          {cme.halfAngle}°
-                        </span>
-                      </span>
-                      <span>
-                        Type:{" "}
-                        <span className="text-gray-300 font-mono">
-                          {cme.type || "—"}
-                        </span>
-                      </span>
-                    </div>
-                    {cme.note && (
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                        {cme.note}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </AccordionCard>
+        {/* 10 - CME Analysis — shared KPI widget */}
+        <CMEAnalysisPanel />
       </main>
     </div>
   );

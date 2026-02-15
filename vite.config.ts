@@ -579,6 +579,42 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => "/json/rtsw/rtsw_mag_1m.json",
       },
+      // New solar data proxies (proton flux, Dst, X-ray, DRAP, CME, SFI forecast)
+      "/api/solar/protons": {
+        target: "https://services.swpc.noaa.gov",
+        changeOrigin: true,
+        rewrite: () => "/json/goes/primary/integral-protons-1-day.json",
+      },
+      "/api/solar/dst": {
+        target: "https://services.swpc.noaa.gov",
+        changeOrigin: true,
+        rewrite: () => "/products/kyoto-dst.json",
+      },
+      "/api/solar/xray": {
+        target: "https://services.swpc.noaa.gov",
+        changeOrigin: true,
+        rewrite: () => "/json/goes/primary/xrays-6-hour.json",
+      },
+      "/api/solar/drap": {
+        target: "https://services.swpc.noaa.gov",
+        changeOrigin: true,
+        rewrite: () => "/json/drap_global_frequencies.json",
+      },
+      "/api/solar/cme": {
+        target: "https://api.nasa.gov",
+        changeOrigin: true,
+        rewrite: () => {
+          const end = new Date();
+          const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+          const fmt = (d: Date) => d.toISOString().slice(0, 10);
+          return `/DONKI/CMEAnalysis?startDate=${fmt(start)}&endDate=${fmt(end)}&mostAccurateOnly=true&speed500=true&halfAngle30=true&catalog=ALL&api_key=DEMO_KEY`;
+        },
+      },
+      "/api/solar/flux-forecast": {
+        target: "https://services.swpc.noaa.gov",
+        changeOrigin: true,
+        rewrite: () => "/text/3-day-solar-geomag-predictions.txt",
+      },
       // Aurora OVATION data proxy
       "/api/aurora": {
         target: "https://services.swpc.noaa.gov",

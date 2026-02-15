@@ -12,6 +12,8 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useHealthMonitor } from "@/hooks/useHealthMonitor";
 import type { ServiceStatus, ServiceHealth } from "@/hooks/useHealthMonitor";
+// DataSourceId type is available via ServiceHealth.sourceId
+// import kept for documentation: type { DataSourceId } from "@/lib/dataSourceRegistry";
 import { getTimeAgo } from "@/lib/utils/time";
 
 // ---------------------------------------------------------------------------
@@ -113,6 +115,19 @@ function serviceDetail(svc: ServiceHealth): string {
     return `Updated ${getTimeAgo(new Date(svc.lastUpdated))}`;
   }
   return "No data";
+}
+
+function groupByProvider(
+  services: ServiceHealth[],
+): Map<string, ServiceHealth[]> {
+  const groups = new Map<string, ServiceHealth[]>();
+  for (const svc of services) {
+    const key = svc.provider ?? "Other";
+    const arr = groups.get(key) ?? [];
+    arr.push(svc);
+    groups.set(key, arr);
+  }
+  return groups;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,21 +320,64 @@ export function HealthStatusIndicator(): JSX.Element {
               <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
                 API Services
               </span>
-              <div className="mt-1 space-y-1.5">
-                {health.services.map((svc) => (
-                  <div key={svc.name} className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${dotColorClass(svc.status)}`}
-                      aria-hidden="true"
-                    />
-                    <span className="text-xs text-gray-300 min-w-0 truncate flex-1">
-                      {svc.name}
-                    </span>
-                    <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                      {serviceDetail(svc)}
-                    </span>
-                  </div>
-                ))}
+              <div className="mt-1 space-y-1.5 max-h-[280px] overflow-y-auto">
+                {health.activeErrors > 0
+                  ? /* Grouped by provider when errors are present */
+                    Array.from(groupByProvider(health.services)).map(
+                      ([provider, svcs]) => (
+                        <div key={provider}>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-600 font-medium">
+                            {provider}
+                          </span>
+                          <div className="mt-0.5 space-y-1">
+                            {svcs.map((svc) => (
+                              <div key={svc.name}>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`w-2 h-2 rounded-full shrink-0 ${dotColorClass(svc.status)}`}
+                                    aria-hidden="true"
+                                  />
+                                  <span className="text-xs text-gray-300 min-w-0 truncate flex-1">
+                                    {svc.name}
+                                    {svc.isUpstream && (
+                                      <span className="text-[9px] text-gray-500 bg-white/5 px-1 py-0.5 rounded ml-1">
+                                        upstream
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                                    {serviceDetail(svc)}
+                                  </span>
+                                </div>
+                                {svc.status === "error" && svc.userMessage && (
+                                  <p
+                                    className="ml-4 mt-0.5 text-[10px] text-gray-500 leading-tight line-clamp-2"
+                                    title={svc.userMessage}
+                                  >
+                                    {svc.userMessage}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ),
+                    )
+                  : /* Flat list when no errors */
+                    health.services.map((svc) => (
+                      <div key={svc.name} className="flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${dotColorClass(svc.status)}`}
+                          aria-hidden="true"
+                        />
+                        <span className="text-xs text-gray-300 min-w-0 truncate flex-1">
+                          {svc.name}
+                        </span>
+                        <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                          {serviceDetail(svc)}
+                        </span>
+                      </div>
+                    ))}
               </div>
             </div>
           </div>

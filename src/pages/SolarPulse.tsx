@@ -29,7 +29,6 @@ import {
 import {
   useProtonFlux,
   useDstIndex,
-  useCMEAnalysis,
   useFluxForecast,
 } from "@/hooks/useSolarExpanded";
 import { useSolarStore } from "@/stores/solarStore";
@@ -41,9 +40,13 @@ import { DataFreshnessIndicator } from "@/components/ui";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileSolarPulse } from "@/components/mobile/MobileSolarPulse";
 import { InfoTip } from "@/components/ui/Tooltip";
+import { CMEAnalysisPanel } from "@/components/solar/CMEAnalysisPanel";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
+import { DataSourceError } from "@/components/ui/DataSourceError";
+import { useDataSourceStatus } from "@/stores/dataSourceStatusStore";
+import { classifyError } from "@/lib/errors/classifyError";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -266,7 +269,7 @@ export function SolarPulse() {
   // --- Expanded solar data hooks ---
   const { data: protonFluxData, isLoading: protonLoading } = useProtonFlux();
   const { data: dstIndexData, isLoading: dstLoading } = useDstIndex();
-  const { data: cmeData, isLoading: cmeLoading } = useCMEAnalysis();
+  // CME data is fetched internally by CMEAnalysisPanel
   const { data: fluxForecastData, isLoading: forecastLoading } =
     useFluxForecast();
 
@@ -297,8 +300,10 @@ export function SolarPulse() {
           ac.signal,
         );
         setNoaaScales(data);
-      } catch {
-        // Non-fatal
+        useDataSourceStatus.getState().reportSuccess("swpc-scales");
+      } catch (err) {
+        const c1 = classifyError(err, "swpc-scales");
+        useDataSourceStatus.getState().reportError("swpc-scales", c1);
       }
     };
     load();
@@ -326,8 +331,10 @@ export function SolarPulse() {
               parseIssueDatetimeUtc(a.issue_datetime).getTime(),
           );
         setAlerts(sorted);
-      } catch {
-        // Non-fatal
+        useDataSourceStatus.getState().reportSuccess("swpc-alerts");
+      } catch (err) {
+        const c1 = classifyError(err, "swpc-alerts");
+        useDataSourceStatus.getState().reportError("swpc-alerts", c1);
       }
     };
     load();
@@ -347,8 +354,14 @@ export function SolarPulse() {
           ac.signal,
         );
         setXrayLatest(data?.[0] ?? null);
-      } catch {
-        // Non-fatal
+        useDataSourceStatus.getState().reportSuccess("swpc-xray-latest");
+      } catch (err) {
+        useDataSourceStatus
+          .getState()
+          .reportError(
+            "swpc-xray-latest",
+            classifyError(err, "swpc-xray-latest"),
+          );
       }
     };
     load();
@@ -383,6 +396,7 @@ export function SolarPulse() {
             bz_gsm: toNumber(magRow.bz_gsm),
             bt: toNumber(magRow.bt),
           });
+          useDataSourceStatus.getState().reportSuccess("swpc-solar-wind-mag");
         }
 
         if (plasmaRow) {
@@ -392,9 +406,23 @@ export function SolarPulse() {
             speed: toNumber(plasmaRow.speed),
             temperature: toNumber(plasmaRow.temperature),
           });
+          useDataSourceStatus
+            .getState()
+            .reportSuccess("swpc-solar-wind-plasma");
         }
-      } catch {
-        // Non-fatal
+      } catch (err) {
+        useDataSourceStatus
+          .getState()
+          .reportError(
+            "swpc-solar-wind-mag",
+            classifyError(err, "swpc-solar-wind-mag"),
+          );
+        useDataSourceStatus
+          .getState()
+          .reportError(
+            "swpc-solar-wind-plasma",
+            classifyError(err, "swpc-solar-wind-plasma"),
+          );
       }
     };
     load();
@@ -476,6 +504,21 @@ export function SolarPulse() {
     refetchSunspot();
     refetchMag();
   };
+
+  // Data source status for panel-level error display
+  const swMagStatus = useDataSourceStatus(
+    (s) => s.sources["swpc-solar-wind-mag"],
+  );
+  const swPlasmaStatus = useDataSourceStatus(
+    (s) => s.sources["swpc-solar-wind-plasma"],
+  );
+  const protonSourceStatus = useDataSourceStatus(
+    (s) => s.sources["noaa-protons"],
+  );
+  const dstSourceStatus = useDataSourceStatus((s) => s.sources["noaa-dst"]);
+  const forecastSourceStatus = useDataSourceStatus(
+    (s) => s.sources["noaa-flux-forecast"],
+  );
 
   // --- Mobile viewport ---
   const isMobile = useIsMobile();
@@ -695,21 +738,6 @@ export function SolarPulse() {
           : dstValue < -30
             ? "border-caution-amber/20"
             : "border-signal-green/20";
-
-  // --- CME derived ---
-  const significantCMEs = (cmeData ?? []).filter((c) => c.speed > 500);
-  const cmeSpeedColor = (speed: number) =>
-    speed > 1200
-      ? "text-alert-red"
-      : speed > 800
-        ? "text-caution-amber"
-        : "text-signal-green";
-  const cmeSpeedBorder = (speed: number) =>
-    speed > 1200
-      ? "border-alert-red/20"
-      : speed > 800
-        ? "border-caution-amber/20"
-        : "border-signal-green/20";
 
   // --- Forecast derived ---
   const forecastDays = fluxForecastData?.forecast ?? [];
@@ -931,6 +959,12 @@ export function SolarPulse() {
                 {swStamp}Z
               </span>
             </div>
+            {(swMagStatus?.error || swPlasmaStatus?.error) && (
+              <DataSourceError
+                error={swMagStatus?.error ?? swPlasmaStatus?.error ?? null}
+                compact
+              />
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-gradient-to-br from-cosmic-cyan/10 to-transparent border border-cosmic-cyan/20 p-3">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">
@@ -1013,6 +1047,9 @@ export function SolarPulse() {
                   : "—"}
               </span>
             </div>
+            {protonSourceStatus?.error && !protonLoading && (
+              <DataSourceError error={protonSourceStatus.error} compact />
+            )}
             {protonLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-5 h-5 border-2 border-caution-amber/30 border-t-caution-amber rounded-full animate-spin" />
@@ -1090,6 +1127,9 @@ export function SolarPulse() {
                   : "—"}
               </span>
             </div>
+            {dstSourceStatus?.error && !dstLoading && (
+              <DataSourceError error={dstSourceStatus.error} compact />
+            )}
             {dstLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-5 h-5 border-2 border-cosmic-cyan/30 border-t-cosmic-cyan rounded-full animate-spin" />
@@ -1579,6 +1619,9 @@ export function SolarPulse() {
               <InfoTip content="NOAA 3-day solar flux index forecast. Higher SFI means better HF propagation on higher bands (15m, 12m, 10m). Values above 100 are generally favorable." />
             </div>
           </div>
+          {forecastSourceStatus?.error && !forecastLoading && (
+            <DataSourceError error={forecastSourceStatus.error} compact />
+          )}
           {forecastLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
@@ -1672,141 +1715,8 @@ export function SolarPulse() {
           />
         </div>
 
-        {/* CME Analysis */}
-        <section className="rounded-2xl border border-plasma-orange/20 bg-white/[0.03] backdrop-blur-md p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
-                CME Analysis
-              </h2>
-              <InfoTip content="Coronal Mass Ejection events from NASA DONKI. Significant CMEs (>500 km/s) can cause geomagnetic storms 1-3 days after eruption, disrupting HF propagation." />
-            </div>
-            <a
-              href="https://kauai.ccmc.gsfc.nasa.gov/DONKI/search/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-plasma-orange hover:text-white bg-plasma-orange/10 hover:bg-plasma-orange/20 border border-plasma-orange/30 rounded-lg transition-all duration-200"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-              NASA DONKI
-            </a>
-          </div>
-          {cmeLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
-            </div>
-          ) : significantCMEs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              <svg
-                className="w-8 h-8 mx-auto mb-2 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              No significant CME activity in the past 30 days
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {significantCMEs.map((cme, i) => (
-                <div
-                  key={`cme-${cme.time21_5}-${i}`}
-                  className={`rounded-xl border ${cmeSpeedBorder(cme.speed)} bg-gradient-to-br from-white/[0.02] to-transparent p-4 transition-colors hover:bg-white/[0.04]`}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          cme.speed > 1200
-                            ? "bg-alert-red"
-                            : cme.speed > 800
-                              ? "bg-caution-amber"
-                              : "bg-signal-green"
-                        }`}
-                      />
-                      <span
-                        className={`text-sm font-bold font-mono ${cmeSpeedColor(cme.speed)}`}
-                      >
-                        {Math.round(cme.speed)} km/s
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
-                      {cme.time21_5
-                        ? new Date(cme.time21_5).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone: "UTC",
-                          }) + " UTC"
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-xs mt-2">
-                    <div>
-                      <span className="text-gray-500">Half-angle</span>
-                      <div className="text-gray-300 font-mono mt-0.5">
-                        {cme.halfAngle}°
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Type</span>
-                      <div className="text-gray-300 font-mono mt-0.5">
-                        {cme.type || "—"}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Catalog</span>
-                      <div className="text-gray-300 font-mono mt-0.5">
-                        {cme.catalog || "—"}
-                      </div>
-                    </div>
-                  </div>
-                  {cme.note && (
-                    <p className="text-xs text-gray-400 mt-2 leading-relaxed line-clamp-2">
-                      {cme.note}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="mt-3 pt-3 border-t border-white/10 text-xs text-gray-400">
-            <span className="text-gray-500">Speed classification:</span>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-              <span>
-                <span className="text-signal-green font-medium">&lt;800</span>{" "}
-                Moderate
-              </span>
-              <span>
-                <span className="text-caution-amber font-medium">800-1200</span>{" "}
-                Fast
-              </span>
-              <span>
-                <span className="text-alert-red font-medium">&gt;1200</span>{" "}
-                Extreme km/s
-              </span>
-            </div>
-          </div>
-        </section>
+        {/* CME Analysis — KPI dashboard widget */}
+        <CMEAnalysisPanel />
 
         {/* Model Accuracy Panel - spot correlation with draggable support */}
         <DraggablePanel

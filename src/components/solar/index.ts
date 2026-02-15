@@ -46,6 +46,12 @@ export {
   type BzDataPoint as BzChartDataPoint,
 } from "./BzChart";
 
+// CME Analysis Panel
+export {
+  CMEAnalysisPanel,
+  type CMEAnalysisPanelProps,
+} from "./CMEAnalysisPanel";
+
 // Propagation Index
 export {
   PropagationIndex,

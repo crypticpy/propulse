@@ -62,3 +62,11 @@ export {
   DataFreshnessIndicator,
   type DataFreshnessIndicatorProps,
 } from "./DataFreshnessIndicator";
+
+// DataSourceError & StaleDataBanner Components
+export {
+  DataSourceError,
+  StaleDataBanner,
+  type DataSourceErrorProps,
+  type StaleDataBannerProps,
+} from "./DataSourceError";

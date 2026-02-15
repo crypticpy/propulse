@@ -22,6 +22,16 @@ import type {
 } from "@/types/alerts";
 import { getCachedResponse, setCachedResponse } from "@/lib/utils/idbCache";
 
+async function safeParseErrorBody(response: Response): Promise<string | null> {
+  try {
+    const clone = response.clone();
+    const body = await clone.json();
+    return typeof body?.error === "string" ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
 /** TTL values for IDB caching per endpoint */
 const ENDPOINT_TTL_MS: Record<string, number> = {
   "k-index": 30 * 60 * 1000, // 30 minutes
@@ -57,7 +67,11 @@ async function fetchFromProxy<T>(endpoint: string): Promise<T> {
     if (!response.ok) {
       throw Object.assign(
         new Error(`HTTP error ${response.status}: ${response.statusText}`),
-        { status: response.status, endpoint },
+        {
+          status: response.status,
+          endpoint,
+          upstreamError: await safeParseErrorBody(response),
+        },
       );
     }
 
@@ -340,28 +354,104 @@ export async function fetchFluxForecast(): Promise<{
   raw: string;
   forecast: SolarFluxForecast[];
 }> {
-  const data = await fetchFromProxy<{
-    raw: string;
-    forecast: Array<{
-      date: string;
-      predicted_flux: number | null;
-      predicted_kp?: number | null;
-      probabilities?: {
-        m_class: number | null;
-        x_class: number | null;
-        proton: number | null;
-      };
-    }>;
-  }>("flux-forecast");
+  const url = "/api/solar/flux-forecast";
+  const ttl = ENDPOINT_TTL_MS["flux-forecast"];
 
-  // Map the edge function response to the SolarFluxForecast type,
-  // filtering out entries with null predicted_flux
-  const forecast: SolarFluxForecast[] = data.forecast
-    .filter((entry) => entry.predicted_flux !== null)
-    .map((entry) => ({
-      date: entry.date,
-      predicted_flux: entry.predicted_flux!,
-    }));
+  // Check IDB cache first
+  if (ttl) {
+    const cached = await getCachedResponse(url);
+    if (cached !== null)
+      return cached as { raw: string; forecast: SolarFluxForecast[] };
+  }
 
-  return { raw: data.raw, forecast };
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(`HTTP error ${response.status}: ${response.statusText}`),
+      { status: response.status, endpoint: "flux-forecast" },
+    );
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+
+  // Edge function returns JSON with { raw, forecast }
+  // Dev proxy returns raw text — parse client-side
+  if (contentType.includes("application/json")) {
+    const data = (await response.json()) as {
+      raw: string;
+      forecast: Array<{
+        date: string;
+        predicted_flux: number | null;
+        predicted_kp?: number | null;
+      }>;
+    };
+
+    const forecast: SolarFluxForecast[] = data.forecast
+      .filter((entry) => entry.predicted_flux !== null)
+      .map((entry) => ({
+        date: entry.date,
+        predicted_flux: entry.predicted_flux!,
+      }));
+
+    const result = { raw: data.raw, forecast };
+    if (ttl) setCachedResponse(url, result, ttl).catch(() => {});
+    return result;
+  }
+
+  // Raw text from dev proxy — parse client-side
+  const text = await response.text();
+  const forecast = parseFluxForecastText(text);
+  const result = { raw: text, forecast };
+  if (ttl) setCachedResponse(url, result, ttl).catch(() => {});
+  return result;
+}
+
+/**
+ * Parse the NOAA 3-day solar-geomag predictions text into SolarFluxForecast entries.
+ * Used in dev mode when the Vite proxy returns raw text instead of JSON.
+ *
+ * Format: colon-prefixed section headers with values on the next line:
+ *   :Prediction_dates:   2026 Feb 14   2026 Feb 15   2026 Feb 16
+ *   :10cm_flux:
+ *                           115           115           110
+ */
+function parseFluxForecastText(text: string): SolarFluxForecast[] {
+  const lines = text.split("\n");
+
+  // Extract dates from :Prediction_dates: line
+  const dateHeaders: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith(":Prediction_dates:")) {
+      const matches = line.matchAll(/(\d{4})\s+(\w{3})\s+(\d{1,2})/g);
+      for (const m of matches) {
+        dateHeaders.push(`${m[2]} ${m[3]}`);
+      }
+      break;
+    }
+  }
+
+  const days: Array<{ date: string; predicted_flux: number | null }> = [];
+  for (let d = 0; d < 3; d++) {
+    days.push({ date: dateHeaders[d] || `Day ${d + 1}`, predicted_flux: null });
+  }
+
+  // Find :10cm_flux: header — values are on the next line
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === ":10cm_flux:") {
+      const nextLine = lines[i + 1] || "";
+      const sfiValues = nextLine
+        .trim()
+        .split(/\s+/)
+        .map(Number)
+        .filter((n) => Number.isFinite(n) && n >= 50 && n <= 400);
+      for (let d = 0; d < Math.min(sfiValues.length, 3); d++) {
+        days[d].predicted_flux = sfiValues[d];
+      }
+      break;
+    }
+  }
+
+  return days
+    .filter((d) => d.predicted_flux !== null)
+    .map((d) => ({ date: d.date, predicted_flux: d.predicted_flux! }));
 }

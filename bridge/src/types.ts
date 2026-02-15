@@ -16,6 +16,8 @@ export interface MessageEnvelope<T = unknown> {
   id?: string;
   /** ISO 8601 timestamp of when the message was created */
   ts: string;
+  /** Legacy unix timestamp in milliseconds (kept for client compatibility) */
+  timestamp?: number;
   /** Message-specific payload */
   payload: T;
 }
@@ -237,6 +239,12 @@ export type WSJTXClearMessage = MessageEnvelope<{ window?: string }>;
 // ============================================================================
 
 export const MessageTypes = {
+  // Bridge lifecycle/keepalive
+  BRIDGE_PING: "bridge.ping",
+  BRIDGE_PONG: "bridge.pong",
+  BRIDGE_SUBSCRIBE: "bridge.subscribe",
+  BRIDGE_UNSUBSCRIBE: "bridge.unsubscribe",
+
   // Rig control
   RIG_STATUS: "rig.status",
   RIG_UPDATE: "rig.update",
@@ -244,6 +252,9 @@ export const MessageTypes = {
   RIG_SET_FREQUENCY: "rig.setFrequency",
   RIG_SET_MODE: "rig.setMode",
   RIG_SET_PTT: "rig.setPTT",
+  RIG_CONNECT: "rig.connect",
+  RIG_DISCONNECT: "rig.disconnect",
+  RIG_TEST: "rig.test",
 
   // Contest session management
   CONTEST_SESSION_CREATE: "contest.session.create",
@@ -283,9 +294,11 @@ export function isMessageEnvelope(obj: unknown): obj is MessageEnvelope {
     return false;
   }
   const envelope = obj as Record<string, unknown>;
+  const hasIsoTs = typeof envelope.ts === "string";
+  const hasLegacyTs = typeof envelope.timestamp === "number";
   return (
     typeof envelope.type === "string" &&
-    typeof envelope.ts === "string" &&
+    (hasIsoTs || hasLegacyTs) &&
     "payload" in envelope
   );
 }
@@ -296,10 +309,12 @@ export function createMessage<T>(
   payload: T,
   id?: string,
 ): MessageEnvelope<T> {
+  const now = new Date();
   return {
     type,
     id,
-    ts: new Date().toISOString(),
+    ts: now.toISOString(),
+    timestamp: now.getTime(),
     payload,
   };
 }

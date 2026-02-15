@@ -60,6 +60,13 @@ export interface RigState {
   /** Set the CAT backend */
   setBackend: (backend: "hamlib" | "flrig" | "none") => void;
 
+  /**
+   * Directly set VFO-A frequency (e.g., from band map click-to-tune).
+   * Unlike setPendingFrequency (which stages a command for bridge dispatch),
+   * this immediately updates the local frequency state and derived band.
+   */
+  setFrequency: (hz: number) => void;
+
   // Pending commands (staged for bridge WebSocket dispatch)
   /** Frequency pending to be sent to rig, or null */
   pendingFrequency: number | null;
@@ -136,6 +143,10 @@ export const useRigStore = create<RigState>()((set, get) => ({
       pendingFrequency: null,
       pendingMode: null,
     }),
+
+  setFrequency: (hz) => {
+    get().updateStatus({ frequency: hz });
+  },
 
   setPendingFrequency: (hz) => set({ pendingFrequency: hz }),
 

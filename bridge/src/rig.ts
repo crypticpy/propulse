@@ -44,6 +44,8 @@ class HamlibBackend {
   private readonly host: string;
   private readonly port: number;
   private responseBuffer = "";
+  private pendingLines: string[] = [];
+  private pendingExpectedLines = 1;
   private pendingResolve: ((value: string) => void) | null = null;
   private pendingReject: ((reason: Error) => void) | null = null;
   private commandTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -82,18 +84,36 @@ class HamlibBackend {
 
       sock.on("data", (data: string) => {
         this.responseBuffer += data;
-        // rigctld terminates responses with newline
-        if (this.responseBuffer.includes("\n") && this.pendingResolve) {
-          const response = this.responseBuffer.trim();
-          this.responseBuffer = "";
-          if (this.commandTimeout) {
-            clearTimeout(this.commandTimeout);
-            this.commandTimeout = null;
+
+        if (!this.pendingResolve) {
+          return;
+        }
+
+        // rigctld responses are newline-delimited text lines.
+        let newlineIndex = this.responseBuffer.indexOf("\n");
+        while (newlineIndex >= 0) {
+          const line = this.responseBuffer.slice(0, newlineIndex).trimEnd();
+          this.responseBuffer = this.responseBuffer.slice(newlineIndex + 1);
+          this.pendingLines.push(line);
+
+          if (this.pendingLines.length >= this.pendingExpectedLines) {
+            const response = this.pendingLines.join("\n").trim();
+            this.pendingLines = [];
+            this.pendingExpectedLines = 1;
+            this.responseBuffer = "";
+
+            if (this.commandTimeout) {
+              clearTimeout(this.commandTimeout);
+              this.commandTimeout = null;
+            }
+            const resolver = this.pendingResolve;
+            this.pendingResolve = null;
+            this.pendingReject = null;
+            resolver(response);
+            return;
           }
-          const resolver = this.pendingResolve;
-          this.pendingResolve = null;
-          this.pendingReject = null;
-          resolver(response);
+
+          newlineIndex = this.responseBuffer.indexOf("\n");
         }
       });
 
@@ -118,8 +138,11 @@ class HamlibBackend {
           const rejector = this.pendingReject;
           this.pendingResolve = null;
           this.pendingReject = null;
+          this.pendingLines = [];
+          this.pendingExpectedLines = 1;
           rejector(new Error("Hamlib connection closed"));
         }
+        this.responseBuffer = "";
       });
 
       sock.connect(this.port, this.host);
@@ -137,6 +160,8 @@ class HamlibBackend {
       this.socket = null;
     }
     this.responseBuffer = "";
+    this.pendingLines = [];
+    this.pendingExpectedLines = 1;
     this.pendingResolve = null;
     this.pendingReject = null;
   }
@@ -146,7 +171,7 @@ class HamlibBackend {
   }
 
   /** Send a rigctld command and wait for the response line */
-  sendCommand(cmd: string): Promise<string> {
+  sendCommand(cmd: string, expectedLines = 1): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       if (!this.socket) {
         reject(new Error("Hamlib not connected"));
@@ -162,6 +187,8 @@ class HamlibBackend {
       this.pendingResolve = resolve;
       this.pendingReject = reject;
       this.responseBuffer = "";
+      this.pendingLines = [];
+      this.pendingExpectedLines = Math.max(1, Math.floor(expectedLines));
 
       this.commandTimeout = setTimeout(() => {
         this.commandTimeout = null;
@@ -169,6 +196,8 @@ class HamlibBackend {
           const rejector = this.pendingReject;
           this.pendingResolve = null;
           this.pendingReject = null;
+          this.pendingLines = [];
+          this.pendingExpectedLines = 1;
           rejector(new Error("Hamlib command timed out"));
         }
       }, 3000);
@@ -183,7 +212,7 @@ class HamlibBackend {
   }
 
   async getMode(): Promise<{ mode: string; passband: number }> {
-    const resp = await this.sendCommand("m");
+    const resp = await this.sendCommand("m", 2);
     const lines = resp.trim().split("\n");
     return {
       mode: lines[0] ?? "UNKNOWN",
@@ -364,6 +393,9 @@ export class RigController {
   private flrig: FlrigBackend | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private polling = false;
+  private startPromise: Promise<RigBackend> | null = null;
+  private reconnectProbeTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly reconnectProbeDelayMs = 5000;
 
   // Connection health
   private consecutiveErrors = 0;
@@ -405,6 +437,31 @@ export class RigController {
 
   /** Auto-detect backend and start polling */
   async start(): Promise<RigBackend> {
+    if (this.startPromise) {
+      return this.startPromise;
+    }
+
+    this.startPromise = this.startInternal().finally(() => {
+      this.startPromise = null;
+    });
+
+    return this.startPromise;
+  }
+
+  private async startInternal(): Promise<RigBackend> {
+    this.stopPolling();
+    this.clearReconnectProbe();
+
+    if (this.hamlib) {
+      this.hamlib.disconnect();
+      this.hamlib = null;
+    }
+
+    if (this.flrig) {
+      this.flrig.disconnect();
+      this.flrig = null;
+    }
+
     // Try Hamlib first
     this.hamlib = new HamlibBackend(
       this.config.hamlibHost,
@@ -412,6 +469,7 @@ export class RigController {
     );
     if (await this.hamlib.probe()) {
       this.backend = "hamlib";
+      this.lastStatus = null;
       this.startPolling();
       return "hamlib";
     }
@@ -422,6 +480,7 @@ export class RigController {
     this.flrig = new FlrigBackend(this.config.flrigHost, this.config.flrigPort);
     if (await this.flrig.probe()) {
       this.backend = "flrig";
+      this.lastStatus = null;
       this.startPolling();
       return "flrig";
     }
@@ -431,6 +490,7 @@ export class RigController {
     this.emitStatus({
       connected: false,
     });
+    this.scheduleReconnectProbe();
 
     return "none";
   }
@@ -438,6 +498,7 @@ export class RigController {
   /** Stop polling and disconnect */
   stop(): void {
     this.stopPolling();
+    this.clearReconnectProbe();
 
     if (this.hamlib) {
       this.hamlib.disconnect();
@@ -456,6 +517,13 @@ export class RigController {
 
   getBackend(): RigBackend {
     return this.backend;
+  }
+
+  getStatusSnapshot(): RigStatus {
+    if (this.lastStatus) {
+      return { ...this.lastStatus };
+    }
+    return { connected: this.backend !== "none" };
   }
 
   getHealthInfo(): {
@@ -595,14 +663,45 @@ export class RigController {
       this.emitStatus({ connected: false });
       this.lastStatus = null;
 
-      // Try to reconnect
       this.stopPolling();
-      setTimeout(() => {
-        this.start().catch(() => {
-          // Silently fail — will retry on next explicit start
-        });
-      }, 5000);
+      this.backend = "none";
+
+      if (this.hamlib) {
+        this.hamlib.disconnect();
+        this.hamlib = null;
+      }
+      if (this.flrig) {
+        this.flrig.disconnect();
+        this.flrig = null;
+      }
+
+      this.scheduleReconnectProbe();
     }
+  }
+
+  private scheduleReconnectProbe(): void {
+    if (this.reconnectProbeTimer || this.backend !== "none") return;
+
+    this.reconnectProbeTimer = setTimeout(() => {
+      this.reconnectProbeTimer = null;
+      if (this.backend !== "none") return;
+
+      this.start()
+        .catch(() => {
+          // Keep probing in the background until a backend comes online.
+        })
+        .finally(() => {
+          if (this.backend === "none") {
+            this.scheduleReconnectProbe();
+          }
+        });
+    }, this.reconnectProbeDelayMs);
+  }
+
+  private clearReconnectProbe(): void {
+    if (!this.reconnectProbeTimer) return;
+    clearTimeout(this.reconnectProbeTimer);
+    this.reconnectProbeTimer = null;
   }
 
   /** Shallow comparison of two RigStatus objects */

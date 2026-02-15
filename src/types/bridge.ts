@@ -21,8 +21,10 @@ export interface BridgeMessage<T = unknown> {
   type: string;
   /** Unique message ID for request/response correlation */
   id?: string;
-  /** Unix timestamp in milliseconds */
-  timestamp: number;
+  /** ISO 8601 timestamp (bridge-native field) */
+  ts?: string;
+  /** Legacy unix timestamp in milliseconds */
+  timestamp?: number;
   /** Message payload */
   payload: T;
   /** Optional error information for response messages */
@@ -122,6 +124,9 @@ export type BridgeMessageType =
   | "rig.setMode"
   | "rig.setPTT"
   | "rig.status"
+  | "rig.connect"
+  | "rig.disconnect"
+  | "rig.test"
   | "bridge.ping"
   | "bridge.pong"
   | "bridge.subscribe"
@@ -303,7 +308,7 @@ export interface ClusterConfig {
   callsign: string;
   password?: string;
   filters?: {
-    bands?: string[];
+    bands?: number[];
     modes?: string[];
     minSNR?: number;
   };

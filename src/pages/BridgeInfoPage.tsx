@@ -792,10 +792,17 @@ export function BridgeInfoPage() {
   // Last message display
   const lastMsgDisplay = useMemo(() => {
     if (!lastMessage) return null;
-    const time = new Date(lastMessage.timestamp);
+    const tsMs =
+      typeof lastMessage.timestamp === "number"
+        ? lastMessage.timestamp
+        : typeof lastMessage.ts === "string"
+          ? Date.parse(lastMessage.ts)
+          : NaN;
     return {
       type: lastMessage.type,
-      time: time.toLocaleTimeString(),
+      time: Number.isFinite(tsMs)
+        ? new Date(tsMs).toLocaleTimeString()
+        : "Unknown",
     };
   }, [lastMessage]);
 

@@ -191,6 +191,7 @@ export function useBridge(
     const message: BridgeMessage<T> = {
       type,
       id: generateMessageId(),
+      ts: new Date().toISOString(),
       timestamp: Date.now(),
       payload,
     };

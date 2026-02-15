@@ -81,19 +81,59 @@ export function useRigBridge(
       return;
     }
 
-    const message = bridge.lastMessage as BridgeMessage<RigUpdatePayload>;
+    const message = bridge.lastMessage as BridgeMessage<
+      Partial<RigUpdatePayload> & { connected?: boolean }
+    >;
 
-    if (message.type === "rig.update" && message.payload) {
+    if (
+      (message.type === "rig.update" || message.type === "rig.status") &&
+      message.payload
+    ) {
       const update = message.payload;
+      const hasFrequency = typeof update.frequency === "number";
+      const hasMode = typeof update.mode === "string";
+      const hasBand = typeof update.band === "string";
 
-      setStatus(update);
-      setFrequencyState(update.frequency);
-      setModeState(update.mode);
-      setBand(update.band || frequencyToBand(update.frequency));
-      setIsCATControlled(update.catControlled ?? true);
+      setStatus((prev) => {
+        const nextFrequency = hasFrequency
+          ? update.frequency!
+          : (prev?.frequency ?? initialFrequency);
+        const nextMode = hasMode ? update.mode! : (prev?.mode ?? initialMode);
+        const nextBand = hasBand
+          ? update.band!
+          : frequencyToBand(nextFrequency);
+
+        return {
+          ...(prev ?? {}),
+          ...(update as Partial<RigStatus>),
+          frequency: nextFrequency,
+          mode: nextMode,
+          band: nextBand,
+        } as RigStatus;
+      });
+
+      if (hasFrequency) {
+        setFrequencyState(update.frequency!);
+        setBand(
+          hasBand ? update.band! : frequencyToBand(update.frequency!),
+        );
+      }
+      if (hasMode) {
+        setModeState(update.mode!);
+      }
+      if (hasBand && !hasFrequency) {
+        setBand(update.band!);
+      }
+
+      if (typeof update.catControlled === "boolean") {
+        setIsCATControlled(update.catControlled);
+      } else if (typeof update.connected === "boolean") {
+        setIsCATControlled(update.connected);
+      }
+
       lastUpdateRef.current = Date.now();
     }
-  }, [bridge.lastMessage]);
+  }, [bridge.lastMessage, initialFrequency, initialMode]);
 
   /**
    * Send frequency change command to rig

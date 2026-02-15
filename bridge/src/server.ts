@@ -17,10 +17,16 @@ import {
   MessageEnvelope,
   MessageTypes,
 } from "./types.js";
-import type { ClusterConfig, RigUpdateRequest, WSJTXConfig } from "./types.js";
+import type {
+  ClusterConfig,
+  ClusterNodeConfig,
+  RigStatus,
+  RigUpdateRequest,
+  WSJTXConfig,
+} from "./types.js";
 import { DXClusterClient } from "./cluster.js";
 import { WSJTXListener } from "./wsjtx.js";
-import { RigController } from "./rig.js";
+import { RigController, type RigControllerConfig } from "./rig.js";
 
 // ============================================================================
 // Configuration
@@ -343,13 +349,17 @@ function stopWSJTX(): void {
 // Rig Control Integration
 // --------------------------------------------------------------------------
 
-async function startRig(): Promise<void> {
+async function startRig(
+  config?: RigControllerConfig,
+): Promise<"hamlib" | "flrig" | "none"> {
   stopRig();
 
-  rigController = new RigController();
+  rigController = new RigController(config);
 
   rigController.onStatus((status) => {
     broadcast(createMessage(MessageTypes.RIG_STATUS, status));
+    // Compatibility: some frontend code still listens for rig.update.
+    broadcast(createMessage(MessageTypes.RIG_UPDATE, status));
   });
 
   rigController.onError((error) => {
@@ -358,6 +368,7 @@ async function startRig(): Promise<void> {
 
   const backend = await rigController.start();
   logger.info("Rig controller started", { backend });
+  return backend;
 }
 
 function stopRig(): void {
@@ -366,6 +377,154 @@ function stopRig(): void {
     rigController = null;
     logger.info("Rig controller stopped");
   }
+}
+
+// ============================================================================
+// Payload Normalizers
+// ============================================================================
+
+function toNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim().length > 0) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
+function toBandNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const match = value.match(/(\d+)/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  return undefined;
+}
+
+function normalizeClusterConfig(payload: unknown): ClusterConfig | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const p = payload as Record<string, unknown>;
+
+  const callsign =
+    typeof p.callsign === "string" ? p.callsign.trim().toUpperCase() : "";
+  if (!callsign) return null;
+
+  const nodes: ClusterNodeConfig[] = [];
+  if (Array.isArray(p.nodes)) {
+    for (const node of p.nodes) {
+      if (typeof node !== "object" || node === null) continue;
+      const n = node as Record<string, unknown>;
+      const host = typeof n.host === "string" ? n.host.trim() : "";
+      const port = toNumber(n.port);
+      const name =
+        typeof n.name === "string" && n.name.trim().length > 0
+          ? n.name.trim()
+          : host;
+      if (!host || !port || port < 1 || port > 65535) continue;
+      nodes.push({ host, port, name });
+    }
+  } else {
+    const host = typeof p.host === "string" ? p.host.trim() : "";
+    const port = toNumber(p.port);
+    const name =
+      typeof p.name === "string" && p.name.trim().length > 0
+        ? p.name.trim()
+        : host;
+    if (host && port && port >= 1 && port <= 65535) {
+      nodes.push({ host, port, name });
+    }
+  }
+
+  if (nodes.length === 0) return null;
+
+  let bands: number[] | undefined;
+  let modes: string[] | undefined;
+  let minSNR: number | undefined;
+
+  if (typeof p.filters === "object" && p.filters !== null) {
+    const filters = p.filters as Record<string, unknown>;
+
+    if (Array.isArray(filters.bands)) {
+      const normalized = filters.bands
+        .map((b) => toBandNumber(b))
+        .filter((b): b is number => typeof b === "number");
+      if (normalized.length > 0) bands = normalized;
+    }
+
+    if (Array.isArray(filters.modes)) {
+      const normalized = filters.modes
+        .filter((m): m is string => typeof m === "string")
+        .map((m) => m.trim().toUpperCase())
+        .filter((m) => m.length > 0);
+      if (normalized.length > 0) modes = normalized;
+    }
+
+    const min = toNumber(filters.minSNR);
+    if (typeof min === "number") minSNR = min;
+  }
+
+  return {
+    nodes,
+    callsign,
+    password:
+      typeof p.password === "string" && p.password.length > 0
+        ? p.password
+        : undefined,
+    filters:
+      bands || modes || minSNR !== undefined
+        ? { bands, modes, minSNR }
+        : undefined,
+  };
+}
+
+function parseRigControllerConfig(payload: unknown): {
+  backend: "auto" | "hamlib" | "flrig" | "none";
+  config?: RigControllerConfig;
+} {
+  if (typeof payload !== "object" || payload === null) {
+    return { backend: "auto" };
+  }
+
+  const p = payload as Record<string, unknown>;
+  const backendRaw =
+    typeof p.backend === "string" ? p.backend.toLowerCase() : "auto";
+  const host = typeof p.host === "string" ? p.host.trim() : undefined;
+  const port = toNumber(p.port);
+
+  if (backendRaw === "none") {
+    return { backend: "none" };
+  }
+
+  if (backendRaw === "hamlib") {
+    return {
+      backend: "hamlib",
+      config: {
+        hamlibHost: host || "127.0.0.1",
+        hamlibPort: port ?? 4532,
+      },
+    };
+  }
+
+  if (backendRaw === "flrig") {
+    return {
+      backend: "flrig",
+      config: {
+        flrigHost: host || "127.0.0.1",
+        flrigPort: port ?? 12345,
+      },
+    };
+  }
+
+  return { backend: "auto" };
+}
+
+function getRigStatusSnapshot(): RigStatus {
+  return rigController?.getStatusSnapshot() ?? { connected: false };
 }
 
 // ============================================================================
@@ -402,13 +561,21 @@ function handleMessage(client: ConnectedClient, rawMessage: string): void {
       client,
       createMessage("error", {
         code: "INVALID_ENVELOPE",
-        message: "Message must have type, ts, and payload fields",
+        message:
+          "Message must have type, payload, and a timestamp field (ts or timestamp)",
       }),
     );
     return;
   }
 
-  const message = parsed as MessageEnvelope;
+  const parsedEnvelope = parsed as MessageEnvelope & { timestamp?: number };
+  const message: MessageEnvelope = {
+    ...parsedEnvelope,
+    ts:
+      typeof parsedEnvelope.ts === "string"
+        ? parsedEnvelope.ts
+        : new Date(parsedEnvelope.timestamp ?? Date.now()).toISOString(),
+  };
 
   logger.debug("Received message", {
     clientId: client.id,
@@ -420,12 +587,59 @@ function handleMessage(client: ConnectedClient, rawMessage: string): void {
 }
 
 function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
+  const respondWithRigSnapshot = (messageType: string) => {
+    sendToClient(
+      client,
+      createMessage(messageType, getRigStatusSnapshot(), message.id),
+    );
+  };
+
   switch (message.type) {
+    // ------------------------------------------------------------------
+    // Bridge keepalive/subscriptions
+    // ------------------------------------------------------------------
+    case MessageTypes.BRIDGE_PING: {
+      sendToClient(
+        client,
+        createMessage(
+          MessageTypes.BRIDGE_PONG,
+          { timestamp: Date.now() },
+          message.id,
+        ),
+      );
+      break;
+    }
+
+    case MessageTypes.BRIDGE_SUBSCRIBE:
+    case MessageTypes.BRIDGE_UNSUBSCRIBE: {
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { ok: true }, message.id),
+      );
+      break;
+    }
+
     // ------------------------------------------------------------------
     // DX Cluster
     // ------------------------------------------------------------------
     case MessageTypes.CLUSTER_CONNECT: {
-      const config = message.payload as ClusterConfig;
+      const config = normalizeClusterConfig(message.payload);
+      if (!config) {
+        sendToClient(
+          client,
+          createMessage(
+            "error",
+            {
+              code: "INVALID_CLUSTER_CONFIG",
+              message:
+                "cluster.connect requires callsign and either nodes[] or host/port",
+            },
+            message.id,
+          ),
+        );
+        break;
+      }
+
       startCluster(config);
       sendToClient(
         client,
@@ -459,6 +673,129 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
     // ------------------------------------------------------------------
     // Rig Control
     // ------------------------------------------------------------------
+    case MessageTypes.RIG_STATUS:
+    case MessageTypes.RIG_UPDATE: {
+      if (!rigController || rigController.getBackend() === "none") {
+        startRig()
+          .catch((err: unknown) => {
+            logger.warn("Rig status request: backend probe failed", {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          })
+          .finally(() => {
+            respondWithRigSnapshot(message.type);
+          });
+      } else {
+        respondWithRigSnapshot(message.type);
+      }
+      break;
+    }
+
+    case MessageTypes.RIG_CONNECT: {
+      const { backend, config } = parseRigControllerConfig(message.payload);
+
+      if (backend === "none") {
+        stopRig();
+        sendToClient(
+          client,
+          createMessage(
+            `${message.type}.ack`,
+            { connected: false, backend: "none" },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      startRig(config)
+        .then((resolvedBackend) => {
+          sendToClient(
+            client,
+            createMessage(
+              `${message.type}.ack`,
+              {
+                connected: resolvedBackend !== "none",
+                backend: resolvedBackend,
+              },
+              message.id,
+            ),
+          );
+        })
+        .catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              { code: "RIG_CONNECT_FAILED", message: errMsg },
+              message.id,
+            ),
+          );
+        });
+      break;
+    }
+
+    case MessageTypes.RIG_DISCONNECT: {
+      stopRig();
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { disconnected: true },
+          message.id,
+        ),
+      );
+      break;
+    }
+
+    case MessageTypes.RIG_TEST: {
+      const { backend, config } = parseRigControllerConfig(message.payload);
+      if (backend === "none") {
+        sendToClient(
+          client,
+          createMessage(
+            `${message.type}.ack`,
+            { success: true, backend: "none", connected: false },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      const testController = new RigController(config);
+      testController
+        .start()
+        .then((resolvedBackend) => {
+          sendToClient(
+            client,
+            createMessage(
+              `${message.type}.ack`,
+              {
+                success: resolvedBackend !== "none",
+                backend: resolvedBackend,
+                connected: resolvedBackend !== "none",
+              },
+              message.id,
+            ),
+          );
+        })
+        .catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              { code: "RIG_TEST_FAILED", message: errMsg },
+              message.id,
+            ),
+          );
+        })
+        .finally(() => {
+          testController.stop();
+        });
+      break;
+    }
+
     case MessageTypes.RIG_SET: {
       const update = message.payload as RigUpdateRequest;
       handleRigSet(client, message, update);
@@ -478,8 +815,12 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
     }
 
     case MessageTypes.RIG_SET_PTT: {
-      const payload = message.payload as { enabled: boolean };
-      handleRigSetPTT(client, message, payload.enabled);
+      const payload = message.payload as { enabled?: boolean; ptt?: boolean };
+      const enabled =
+        typeof payload.enabled === "boolean"
+          ? payload.enabled
+          : Boolean(payload.ptt);
+      handleRigSetPTT(client, message, enabled);
       break;
     }
 
@@ -507,49 +848,76 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
 // Rig Command Handlers
 // --------------------------------------------------------------------------
 
+function ensureRigController(
+  onReady: (controller: RigController) => void,
+  onUnavailable: (errorMessage?: string) => void,
+): void {
+  if (rigController && rigController.getBackend() !== "none") {
+    onReady(rigController);
+    return;
+  }
+
+  startRig()
+    .then((backend) => {
+      if (backend === "none" || !rigController) {
+        onUnavailable("No rig backend available");
+        return;
+      }
+      onReady(rigController);
+    })
+    .catch((err: unknown) => {
+      onUnavailable(err instanceof Error ? err.message : String(err));
+    });
+}
+
 function handleRigSet(
   client: ConnectedClient,
   message: MessageEnvelope,
   update: RigUpdateRequest,
 ): void {
-  if (!rigController) {
-    sendToClient(
-      client,
-      createMessage(
-        "error",
-        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
-        message.id,
-      ),
-    );
-    return;
-  }
+  ensureRigController(
+    (controller) => {
+      const promises: Promise<void>[] = [];
+      if (update.frequency !== undefined) {
+        promises.push(controller.setFrequency(update.frequency));
+      }
+      if (update.mode !== undefined) {
+        promises.push(controller.setMode(update.mode));
+      }
 
-  const promises: Promise<void>[] = [];
-  if (update.frequency !== undefined) {
-    promises.push(rigController.setFrequency(update.frequency));
-  }
-  if (update.mode !== undefined) {
-    promises.push(rigController.setMode(update.mode));
-  }
-
-  Promise.all(promises)
-    .then(() => {
-      sendToClient(
-        client,
-        createMessage(`${message.type}.ack`, { success: true }, message.id),
-      );
-    })
-    .catch((err: unknown) => {
-      const errMsg = err instanceof Error ? err.message : String(err);
+      Promise.all(promises)
+        .then(() => {
+          sendToClient(
+            client,
+            createMessage(`${message.type}.ack`, { success: true }, message.id),
+          );
+        })
+        .catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              { code: "RIG_COMMAND_FAILED", message: errMsg },
+              message.id,
+            ),
+          );
+        });
+    },
+    (errorMessage) => {
       sendToClient(
         client,
         createMessage(
           "error",
-          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          {
+            code: "RIG_NOT_CONNECTED",
+            message: errorMessage ?? "No rig backend available",
+          },
           message.id,
         ),
       );
-    });
+    },
+  );
 }
 
 function handleRigSetFrequency(
@@ -557,41 +925,46 @@ function handleRigSetFrequency(
   message: MessageEnvelope,
   frequency: number,
 ): void {
-  if (!rigController) {
-    sendToClient(
-      client,
-      createMessage(
-        "error",
-        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
-        message.id,
-      ),
-    );
-    return;
-  }
-
-  rigController
-    .setFrequency(frequency)
-    .then(() => {
-      sendToClient(
-        client,
-        createMessage(
-          `${message.type}.ack`,
-          { success: true, frequency },
-          message.id,
-        ),
-      );
-    })
-    .catch((err: unknown) => {
-      const errMsg = err instanceof Error ? err.message : String(err);
+  ensureRigController(
+    (controller) => {
+      controller
+        .setFrequency(frequency)
+        .then(() => {
+          sendToClient(
+            client,
+            createMessage(
+              `${message.type}.ack`,
+              { success: true, frequency },
+              message.id,
+            ),
+          );
+        })
+        .catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              { code: "RIG_COMMAND_FAILED", message: errMsg },
+              message.id,
+            ),
+          );
+        });
+    },
+    (errorMessage) => {
       sendToClient(
         client,
         createMessage(
           "error",
-          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          {
+            code: "RIG_NOT_CONNECTED",
+            message: errorMessage ?? "No rig backend available",
+          },
           message.id,
         ),
       );
-    });
+    },
+  );
 }
 
 function handleRigSetMode(
@@ -599,41 +972,46 @@ function handleRigSetMode(
   message: MessageEnvelope,
   mode: string,
 ): void {
-  if (!rigController) {
-    sendToClient(
-      client,
-      createMessage(
-        "error",
-        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
-        message.id,
-      ),
-    );
-    return;
-  }
-
-  rigController
-    .setMode(mode)
-    .then(() => {
-      sendToClient(
-        client,
-        createMessage(
-          `${message.type}.ack`,
-          { success: true, mode },
-          message.id,
-        ),
-      );
-    })
-    .catch((err: unknown) => {
-      const errMsg = err instanceof Error ? err.message : String(err);
+  ensureRigController(
+    (controller) => {
+      controller
+        .setMode(mode)
+        .then(() => {
+          sendToClient(
+            client,
+            createMessage(
+              `${message.type}.ack`,
+              { success: true, mode },
+              message.id,
+            ),
+          );
+        })
+        .catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              { code: "RIG_COMMAND_FAILED", message: errMsg },
+              message.id,
+            ),
+          );
+        });
+    },
+    (errorMessage) => {
       sendToClient(
         client,
         createMessage(
           "error",
-          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          {
+            code: "RIG_NOT_CONNECTED",
+            message: errorMessage ?? "No rig backend available",
+          },
           message.id,
         ),
       );
-    });
+    },
+  );
 }
 
 function handleRigSetPTT(
@@ -641,41 +1019,46 @@ function handleRigSetPTT(
   message: MessageEnvelope,
   enabled: boolean,
 ): void {
-  if (!rigController) {
-    sendToClient(
-      client,
-      createMessage(
-        "error",
-        { code: "RIG_NOT_CONNECTED", message: "No rig backend available" },
-        message.id,
-      ),
-    );
-    return;
-  }
-
-  rigController
-    .setPTT(enabled)
-    .then(() => {
-      sendToClient(
-        client,
-        createMessage(
-          `${message.type}.ack`,
-          { success: true, ptt: enabled },
-          message.id,
-        ),
-      );
-    })
-    .catch((err: unknown) => {
-      const errMsg = err instanceof Error ? err.message : String(err);
+  ensureRigController(
+    (controller) => {
+      controller
+        .setPTT(enabled)
+        .then(() => {
+          sendToClient(
+            client,
+            createMessage(
+              `${message.type}.ack`,
+              { success: true, ptt: enabled },
+              message.id,
+            ),
+          );
+        })
+        .catch((err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              { code: "RIG_COMMAND_FAILED", message: errMsg },
+              message.id,
+            ),
+          );
+        });
+    },
+    (errorMessage) => {
       sendToClient(
         client,
         createMessage(
           "error",
-          { code: "RIG_COMMAND_FAILED", message: errMsg },
+          {
+            code: "RIG_NOT_CONNECTED",
+            message: errorMessage ?? "No rig backend available",
+          },
           message.id,
         ),
       );
-    });
+    },
+  );
 }
 
 // ============================================================================

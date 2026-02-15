@@ -50,6 +50,22 @@ let currentVolume = 0.5;
 /** Current mute state */
 let isMuted = false;
 
+/** Whether the user has interacted with the page (click/key/touch) */
+let userHasInteracted = false;
+
+// Listen for first user interaction to unlock audio playback
+if (typeof document !== "undefined") {
+  const markInteracted = () => {
+    userHasInteracted = true;
+    document.removeEventListener("click", markInteracted);
+    document.removeEventListener("keydown", markInteracted);
+    document.removeEventListener("touchstart", markInteracted);
+  };
+  document.addEventListener("click", markInteracted, { once: true });
+  document.addEventListener("keydown", markInteracted, { once: true });
+  document.addEventListener("touchstart", markInteracted, { once: true });
+}
+
 // =============================================================================
 // INITIALIZATION
 // =============================================================================
@@ -168,6 +184,7 @@ async function playSoundFile(path: string): Promise<boolean> {
  * Check mute, sound-enabled setting, and quiet hours
  */
 function shouldPlay(): boolean {
+  if (!userHasInteracted) return false;
   if (isMuted) return false;
 
   const { notifications } = useSettingsStore.getState();

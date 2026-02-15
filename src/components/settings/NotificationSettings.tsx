@@ -13,6 +13,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import {
   ALL_BANDS,
   DEFAULT_NOTIFICATION_PREFERENCES,
+  type AlertDisplayStyle,
   type BandId,
   type NotificationPreferences,
 } from "@/types/user";
@@ -244,6 +245,47 @@ export function NotificationSettings({
             label="Sound enabled"
             description="Play audio for notifications"
           />
+        </div>
+
+        {/* Alert display style */}
+        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-2">
+          <label className="text-sm font-medium text-gray-300">
+            Alert display style
+          </label>
+          <p className="text-xs text-gray-500">
+            Choose where in-app alerts appear
+          </p>
+          <div className="flex gap-2 mt-2">
+            {(
+              [
+                { value: "banner", label: "Banner", desc: "Top of page" },
+                { value: "toast", label: "Toast", desc: "Bottom-right" },
+                { value: "both", label: "Both", desc: "Banner + Toast" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  updateNotifications({
+                    alertDisplayStyle: opt.value as AlertDisplayStyle,
+                  })
+                }
+                className={`
+                  flex-1 px-3 py-2 rounded-lg text-center transition-all
+                  border text-sm font-medium
+                  ${
+                    notifications.alertDisplayStyle === opt.value
+                      ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
+                      : "bg-white/5 text-gray-400 border-white/10 hover:border-white/20"
+                  }
+                `}
+              >
+                <div>{opt.label}</div>
+                <div className="text-[10px] opacity-70 mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Info notice */}

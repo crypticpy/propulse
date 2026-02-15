@@ -22,6 +22,7 @@ import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 /**
  * Layout - Root layout component with header and background effects
@@ -36,6 +37,11 @@ export function Layout() {
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Alert display style preference
+  const alertDisplayStyle = useSettingsStore(
+    (s) => s.notifications?.alertDisplayStyle ?? "toast",
+  );
 
   // Initialize satellite pass alert monitoring (browser notifications)
   useSatelliteAlerts();
@@ -85,11 +91,13 @@ export function Layout() {
         />
 
         {/* Alert Banner - appears below header when alerts are active */}
-        <AlertBanner
-          alerts={activeAlerts}
-          onDismiss={dismissAlert}
-          onViewAll={() => setShowAlertHistory(true)}
-        />
+        {(alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
+          <AlertBanner
+            alerts={activeAlerts}
+            onDismiss={dismissAlert}
+            onViewAll={() => setShowAlertHistory(true)}
+          />
+        )}
 
         <Suspense
           fallback={
@@ -103,10 +111,12 @@ export function Layout() {
       </div>
 
       {/* Toast notifications - fixed position bottom-right */}
-      <AlertToastContainer
-        onDismiss={dismissAlert}
-        onToastClick={() => setShowAlertHistory(true)}
-      />
+      {(alertDisplayStyle === "toast" || alertDisplayStyle === "both") && (
+        <AlertToastContainer
+          onDismiss={dismissAlert}
+          onToastClick={() => setShowAlertHistory(true)}
+        />
+      )}
 
       {/* Alert History Modal */}
       <AlertHistoryModal

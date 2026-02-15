@@ -368,7 +368,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -408,6 +408,15 @@ export const useSettingsStore = create<SettingsStore>()(
           const ui = state.uiInteraction as Record<string, unknown> | undefined;
           if (ui && ui.showHoverTooltips === undefined) {
             ui.showHoverTooltips = true;
+          }
+        }
+        if (version < 6) {
+          // Add alertDisplayStyle to notification preferences
+          const notif = state.notifications as
+            | Record<string, unknown>
+            | undefined;
+          if (notif && notif.alertDisplayStyle === undefined) {
+            notif.alertDisplayStyle = "toast";
           }
         }
         return state as unknown as SettingsState & SettingsStore;

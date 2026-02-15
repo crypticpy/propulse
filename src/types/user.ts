@@ -199,6 +199,8 @@ export interface BandPreset {
  * Notification/alert preferences
  * Controls which alerts the user wants to receive
  */
+export type AlertDisplayStyle = "banner" | "toast" | "both";
+
 export interface NotificationPreferences {
   /** Greyline alerts at sunrise/sunset */
   greylineAlerts: boolean;
@@ -214,6 +216,8 @@ export interface NotificationPreferences {
   bandOpeningBands: BandId[];
   /** Sound enabled for alerts */
   soundEnabled: boolean;
+  /** How to display alerts: banner (top), toast (bottom-right), or both */
+  alertDisplayStyle: AlertDisplayStyle;
   /** Quiet hours start (UTC hour 0-23, undefined = disabled) */
   quietHoursStart?: number;
   /** Quiet hours end (UTC hour 0-23, undefined = disabled) */
@@ -553,6 +557,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   bandOpeningAlerts: false,
   bandOpeningBands: [],
   soundEnabled: true,
+  alertDisplayStyle: "toast",
 };
 
 /**

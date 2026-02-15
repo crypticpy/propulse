@@ -25,6 +25,7 @@ import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 // Matches BottomTabBar's visible tab order (Tools drawer sub-pages excluded)
 const MOBILE_ROUTES = [
@@ -52,6 +53,11 @@ export function MobileLayout() {
 
   // Initialize solar alert monitoring (mirrors Layout.tsx)
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Alert display style preference
+  const alertDisplayStyle = useSettingsStore(
+    (s) => s.notifications?.alertDisplayStyle ?? "toast",
+  );
 
   // Initialize satellite pass alert monitoring (browser notifications)
   useSatelliteAlerts();
@@ -111,11 +117,13 @@ export function MobileLayout() {
       <OfflineIndicator className="w-full bg-caution-amber/90 text-void-black text-xs py-1 text-center font-medium flex-shrink-0" />
 
       {/* Alert banner (below header, above content) */}
-      <AlertBanner
-        alerts={activeAlerts}
-        onDismiss={dismissAlert}
-        onViewAll={() => setShowAlertHistory(true)}
-      />
+      {(alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
+        <AlertBanner
+          alerts={activeAlerts}
+          onDismiss={dismissAlert}
+          onViewAll={() => setShowAlertHistory(true)}
+        />
+      )}
 
       {/* Scrollable content area with pull-to-refresh */}
       <main
@@ -141,10 +149,12 @@ export function MobileLayout() {
       <BottomTabBar />
 
       {/* Toast notifications */}
-      <AlertToastContainer
-        onDismiss={dismissAlert}
-        onToastClick={() => setShowAlertHistory(true)}
-      />
+      {(alertDisplayStyle === "toast" || alertDisplayStyle === "both") && (
+        <AlertToastContainer
+          onDismiss={dismissAlert}
+          onToastClick={() => setShowAlertHistory(true)}
+        />
+      )}
 
       {/* Alert History Modal */}
       <AlertHistoryModal

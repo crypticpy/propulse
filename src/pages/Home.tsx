@@ -13,6 +13,7 @@ import {
   DashboardHeader,
   AlertsSummary,
   QuickActions,
+  ContestWeatherCard,
 } from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
 import { PropagationIndexModal } from "@/components/solar/modals/PropagationIndexModal";
@@ -150,6 +151,9 @@ export function Home() {
 
         {/* Section 2: Alerts Summary */}
         <AlertsSummary />
+
+        {/* Section 2.5: Contest Weather */}
+        <ContestWeatherCard />
 
         {/* Section 3: Band Conditions + Propagation Index (bands first — what operators check first) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

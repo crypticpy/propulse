@@ -27,6 +27,8 @@ import { SIGNAL_TOOLTIPS, GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
+import { useContestContext } from "@/hooks/useContestContext";
+import { DxWizardContestNote } from "@/components/dx/DxWizardContestNote";
 
 type WizardMode = "SSB" | "CW" | "FT8";
 
@@ -533,6 +535,18 @@ export function DXWizard() {
   const tips = useMemo(() => getModeTips(mode), [mode]);
 
   const isMobile = useIsMobile();
+  const contestContext = useContestContext();
+
+  // Bands from the current recommendation for contest awareness
+  const targetBandsForContest = useMemo(() => {
+    if (!recommendation || recommendation.type === "none") return [];
+    if (recommendation.type === "ok") {
+      return recommendation.bands
+        .filter((b) => b.status !== "closed")
+        .map((b) => b.band);
+    }
+    return [];
+  }, [recommendation]);
 
   const radioLabel = useMemo(() => {
     if (!selectedRadio) return "";
@@ -1085,6 +1099,15 @@ export function DXWizard() {
                 </div>
               )}
             </Card>
+
+            {(contestContext.isContestWeekend ||
+              contestContext.activeContests.length > 0) &&
+              targetBandsForContest.length > 0 && (
+                <DxWizardContestNote
+                  targetBands={targetBandsForContest}
+                  contestContext={contestContext}
+                />
+              )}
 
             <Card className="p-5">
               <div className="text-xs text-gray-400">Notes</div>

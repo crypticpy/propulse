@@ -101,6 +101,24 @@ const tools = [
     description: "Manage & go live on your nets",
     icon: "🎙️",
   },
+  {
+    path: "/awards",
+    label: "Awards",
+    description: "Track DXCC, WAS & WAZ progress",
+    icon: "🎖️",
+  },
+  {
+    path: "/contests",
+    label: "Contest Explorer",
+    description: "Browse upcoming contests & quick-start guides",
+    icon: "📅",
+  },
+  {
+    path: "/activation",
+    label: "Activation",
+    description: "POTA & SOTA park/summit activation tracker",
+    icon: "🏕️",
+  },
 ];
 
 /**

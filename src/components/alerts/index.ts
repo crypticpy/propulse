@@ -32,3 +32,10 @@ export type { AlertBannerProps } from "./AlertBanner";
 export type { AlertToastProps } from "./AlertToast";
 export type { AlertToastContainerProps } from "./AlertToastContainer";
 export type { AlertHistoryModalProps } from "./AlertHistoryModal";
+
+// Spot alert components
+export { SpotAlertToastContainer } from "./SpotAlertToast";
+export type { SpotAlertToastContainerProps } from "./SpotAlertToast";
+export { AlertRuleBuilder } from "./AlertRuleBuilder";
+export { SpotAlertHistory } from "./AlertHistory";
+export { ContestAlertProfiles } from "./ContestAlertProfiles";

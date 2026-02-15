@@ -41,6 +41,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileSolarPulse } from "@/components/mobile/MobileSolarPulse";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { CMEAnalysisPanel } from "@/components/solar/CMEAnalysisPanel";
+import { PropagationConfidence } from "@/components/solar/PropagationConfidence";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { SOLAR_TOOLTIPS } from "@/constants/tooltips";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
@@ -1714,6 +1715,9 @@ export function SolarPulse() {
             onExpand={() => setBandConditionsOpen(true)}
           />
         </div>
+
+        {/* Propagation Confidence */}
+        <PropagationConfidence />
 
         {/* CME Analysis — KPI dashboard widget */}
         <CMEAnalysisPanel />

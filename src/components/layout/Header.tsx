@@ -68,6 +68,9 @@ export function Header({
     { path: "/contest", label: "Contest", icon: "🏆" },
     { path: "/nets", label: "Net Registry", icon: "📡" },
     { path: "/ncs", label: "Net Controller", icon: "🎙️" },
+    { path: "/awards", label: "Awards", icon: "🎖️" },
+    { path: "/contests", label: "Contest Explorer", icon: "📅" },
+    { path: "/activation", label: "Activation", icon: "🏕️" },
   ];
 
   // Check if any tool is active

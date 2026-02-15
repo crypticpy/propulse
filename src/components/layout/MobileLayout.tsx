@@ -1,4 +1,4 @@
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -10,7 +10,9 @@ import {
   AlertBanner,
   AlertToastContainer,
   AlertHistoryModal,
+  SpotAlertToastContainer,
 } from "@/components/alerts";
+import { useSpotAlerts } from "@/hooks/useSpotAlerts";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ShortcutsHelpModal } from "@/components/ui/ShortcutsHelpModal";
@@ -66,6 +68,20 @@ export function MobileLayout() {
   useSyncQueue();
   // Keep rigStore synced with Bridge/Daemon CAT state
   useRigBridgeSync();
+
+  // DX spot alert monitoring
+  const {
+    alerts: spotAlerts,
+    startMonitoring: startSpotAlerts,
+    isMonitoring: isSpotMonitoring,
+  } = useSpotAlerts();
+
+  // Auto-start spot alert monitoring when rules exist
+  useEffect(() => {
+    if (!isSpotMonitoring) {
+      startSpotAlerts();
+    }
+  }, [isSpotMonitoring, startSpotAlerts]);
 
   // Pull-to-refresh for mobile
   const {
@@ -164,6 +180,9 @@ export function MobileLayout() {
 
       {/* Undo Toast */}
       <UndoToast />
+
+      {/* DX Spot Alert Toasts */}
+      <SpotAlertToastContainer alerts={spotAlerts} onDismiss={() => {}} />
 
       {/* Command Palette (Ctrl+K) */}
       <CommandPalette

@@ -107,6 +107,9 @@ const NetControllerDetailPage = lazy(() =>
     default: m.NetControllerDetailPage,
   })),
 );
+const AwardsPage = lazy(() => import("@/pages/AwardsPage"));
+const ContestExplorerPage = lazy(() => import("@/pages/ContestExplorerPage"));
+const ActivationPage = lazy(() => import("@/pages/ActivationPage"));
 
 /** Redirect helper for old /nets/:netId/* routes that moved to /ncs/:netId/* */
 function NcsRedirect({ suffix }: { suffix: string }) {
@@ -232,7 +235,10 @@ function App() {
           <Route path="/dx" element={<DXWizard />} />
           <Route path="/planner" element={<BandPlanner />} />
           <Route path="/log" element={<Logbook />} />
+          <Route path="/awards" element={<AwardsPage />} />
           <Route path="/contest" element={<Contest />} />
+          <Route path="/contests" element={<ContestExplorerPage />} />
+          <Route path="/activation" element={<ActivationPage />} />
           <Route path="/map" element={<MapRoute />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/profile" element={<ProfilePage />} />

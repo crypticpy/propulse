@@ -22,6 +22,9 @@ import {
 import { MobileContestEntry } from "@/components/contest/MobileContestEntry";
 import { ContestScoreShare } from "@/components/contest/ContestScoreShare";
 import { ContestVoiceControls } from "@/components/contest/ContestVoiceControls";
+import { BandReadinessStrip } from "@/components/contest/BandReadinessStrip";
+import { CabrilloExportModal } from "@/components/contest/CabrilloExportModal";
+import { AuditQueuePanel } from "@/components/contest/AuditQueuePanel";
 import type { OffTimeRules } from "@/lib/contest/offTimeTracker";
 import { useContestStore, type ContestQSO } from "@/stores/contestStore";
 import { getContestById } from "@/lib/data/contests";
@@ -101,6 +104,7 @@ export function Contest() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [editingQSO, setEditingQSO] = useState<ContestQSO | null>(null);
+  const [showCabrilloExport, setShowCabrilloExport] = useState(false);
 
   // Band and mode UI state (shared across /contest and /map via contestUIStore)
   // CAT-driven when rig is connected
@@ -420,6 +424,28 @@ export function Contest() {
             </div>
 
             <button
+              onClick={() => setShowCabrilloExport(true)}
+              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg
+                         text-gray-300 hover:text-white hover:bg-white/10
+                         transition-colors flex items-center gap-2 font-medium"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              Export
+            </button>
+
+            <button
               onClick={() => setShowEndConfirm(true)}
               className="px-4 py-2 bg-alert-red/20 border border-alert-red/50 rounded-lg
                          text-alert-red font-semibold hover:bg-alert-red/30
@@ -448,6 +474,12 @@ export function Contest() {
             </button>
           </div>
         </div>
+
+        {/* Band Readiness Strip */}
+        <BandReadinessStrip
+          currentBand={currentBand}
+          onBandClick={setCurrentBand}
+        />
 
         {/* Scoreboard + Timer Row */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -488,6 +520,11 @@ export function Contest() {
 
         {/* QSO Table */}
         <ContestQSOTable maxRows={20} onEditQSO={handleEditQSO} />
+
+        {/* Audit Queue (flagged QSOs) */}
+        {qsoCount > 0 && (
+          <AuditQueuePanel maxItems={5} onEditQSO={handleEditQSO} />
+        )}
 
         {/* Rate Sheet (only renders when QSOs exist) */}
         {qsoCount > 0 && <ContestRateSheet />}
@@ -587,6 +624,12 @@ export function Contest() {
         isOpen={showConfigModal}
         onClose={() => setShowConfigModal(false)}
         onStart={handleStartContest}
+      />
+
+      {/* Cabrillo Export Modal */}
+      <CabrilloExportModal
+        isOpen={showCabrilloExport}
+        onClose={() => setShowCabrilloExport(false)}
       />
     </div>
   );

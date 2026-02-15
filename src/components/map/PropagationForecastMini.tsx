@@ -11,7 +11,7 @@ import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useForecastDisplayPrefs } from "@/stores/userStore";
-import { useDXStore } from "@/stores/dxStore";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useKIndex, useSolarFlux, useMagnetometer } from "@/hooks/useSolarData";
 import {
   getForecastForPath,
@@ -169,7 +169,7 @@ export function PropagationForecastMini({
 }: PropagationForecastMiniProps) {
   const { target } = useMapStore();
   const { station } = useUserStore();
-  const { syncMode, syncedBand } = useDXStore();
+  const activeBand = useActiveBand();
   const forecastDisplay = useForecastDisplayPrefs();
   const updateForecastDisplay = useUserStore((s) => s.updateForecastDisplay);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -849,7 +849,7 @@ export function PropagationForecastMini({
               }}
             >
               {displayBands.map((band) => {
-                const isSynced = syncMode && syncedBand === band;
+                const isSynced = activeBand === band;
                 return (
                   <div
                     key={band}
@@ -897,7 +897,7 @@ export function PropagationForecastMini({
                   const conf = bandData?.confidence;
                   const color = getForecastStatusColor(status);
                   const isCurrentHour = hour === currentHour;
-                  const isSynced = syncMode && syncedBand === band;
+                  const isSynced = activeBand === band;
 
                   // Color intensity gradient: vivid at center, muted at edges
                   const dist = Math.abs(colIdx - currentHourIndex);

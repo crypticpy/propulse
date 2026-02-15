@@ -9,7 +9,7 @@
  * - Collapsible detail section with time windows
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card } from "@/components/ui/Card";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -19,6 +19,7 @@ import {
   getStatusColorClass,
   getStatusBgColorClass,
 } from "@/lib/utils/recommendations";
+import { useActiveMode } from "@/hooks/useActiveBandMode";
 import type {
   OperatingMode,
   PropagationRecommendations,
@@ -55,7 +56,28 @@ export function RecommendationsPanel({
   displayTime,
   className = "",
 }: RecommendationsPanelProps) {
-  const [selectedMode, setSelectedMode] = useState<OperatingMode>("FT8");
+  const activeMode = useActiveMode();
+  // Map UIMode to OperatingMode for recommendations (fall back to FT8 for modes not in OperatingMode)
+  const initialMode: OperatingMode =
+    activeMode === "SSB" ||
+    activeMode === "CW" ||
+    activeMode === "FT8" ||
+    activeMode === "RTTY"
+      ? activeMode
+      : "FT8";
+  const [selectedMode, setSelectedMode] = useState<OperatingMode>(initialMode);
+
+  // Keep selectedMode in sync when activeMode changes externally
+  useEffect(() => {
+    const mapped: OperatingMode =
+      activeMode === "SSB" ||
+      activeMode === "CW" ||
+      activeMode === "FT8" ||
+      activeMode === "RTTY"
+        ? activeMode
+        : "FT8";
+    setSelectedMode(mapped);
+  }, [activeMode]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 

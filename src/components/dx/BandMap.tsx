@@ -9,6 +9,7 @@
 
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useDXStore } from "@/stores/dxStore";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 import type { DXSpot } from "@/types/dxcluster";
 
 /**
@@ -61,8 +62,8 @@ const MARGINS = {
 export interface BandMapProps {
   /** Array of DX spots to display */
   spots: DXSpot[];
-  /** Currently selected band (e.g., "20m") */
-  selectedBand: string | null;
+  /** Currently selected band (e.g., "20m"). Falls back to useActiveBand() when omitted. */
+  selectedBand?: string | null;
   /** Height of the canvas in pixels (if not provided, fills container) */
   height?: number;
   /** Additional CSS classes */
@@ -96,10 +97,12 @@ function getSpotSize(spotTime: Date, now: number): number {
  */
 export function BandMap({
   spots,
-  selectedBand,
+  selectedBand: selectedBandProp,
   height: propHeight,
   className = "",
 }: BandMapProps) {
+  const activeBand = useActiveBand();
+  const selectedBand = selectedBandProp ?? activeBand;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(600);

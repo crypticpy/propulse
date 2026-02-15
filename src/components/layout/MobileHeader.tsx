@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ConditionsPill } from "@/components/map/ConditionsPill";
+import { BandModePill } from "@/components/operating/BandModePill";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
 import { SyncStatusIndicator } from "@/components/ui/SyncStatusIndicator";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
@@ -45,8 +46,11 @@ export function MobileHeader({
         </span>
       </div>
 
-      {/* Center: Propagation conditions */}
-      <ConditionsPill />
+      {/* Center: Band/Mode + Propagation conditions */}
+      <div className="flex items-center gap-1.5">
+        <BandModePill />
+        <ConditionsPill />
+      </div>
 
       {/* Right: alerts + settings */}
       <div className="flex items-center gap-2">

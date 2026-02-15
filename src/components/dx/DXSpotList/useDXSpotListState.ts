@@ -74,8 +74,6 @@ export interface DXSpotListState {
   };
   availableBands: string[];
   availableModes: string[];
-  syncMode: boolean;
-  syncedBand: string | null;
   activeBandFilter: string | null;
 
   // Counts
@@ -107,7 +105,6 @@ export interface DXSpotListState {
   handleContextMenu: (spot: DXSpot, position: { x: number; y: number }) => void;
   handleContextMenuClose: () => void;
   handleContextAction: (action: SpotContextAction, spot: DXSpot) => void;
-  toggleSyncMode: () => void;
   setHoveredSpot: (spot: DXSpot | null) => void;
   refetch: () => void;
 }
@@ -126,10 +123,6 @@ export function useDXSpotListState(
     setHoveredSpot,
     filters,
     updateFilter,
-    syncMode,
-    syncedBand,
-    toggleSyncMode,
-    setSyncedBand,
     hideSpot,
   } = useDXStore();
   const stats = useDXSpotStats();
@@ -470,13 +463,8 @@ export function useDXSpotListState(
       }
       const isDeselecting = selectedSpot?.id === spot.id;
       setSelectedSpot(isDeselecting ? null : spot);
-
-      // When sync mode is enabled, set the synced band to the spot's band
-      if (syncMode && !isDeselecting && spot.band) {
-        setSyncedBand(spot.band);
-      }
     },
-    [selectedSpot, setSelectedSpot, syncMode, setSyncedBand],
+    [selectedSpot, setSelectedSpot],
   );
 
   const handleNeededOnlyToggle = useCallback(() => {
@@ -639,8 +627,6 @@ export function useDXSpotListState(
     filters,
     availableBands,
     availableModes,
-    syncMode,
-    syncedBand,
     activeBandFilter,
 
     // Counts
@@ -672,7 +658,6 @@ export function useDXSpotListState(
     handleContextMenu,
     handleContextMenuClose,
     handleContextAction,
-    toggleSyncMode,
     setHoveredSpot,
     refetch,
   };

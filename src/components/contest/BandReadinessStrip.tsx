@@ -18,6 +18,7 @@
 import { useMemo, useCallback } from "react";
 import { useDXStore, selectSpotCountByBand } from "@/stores/dxStore";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 import type { DXSpot } from "@/types/dxcluster";
 
 // ============================================================================
@@ -472,7 +473,7 @@ function SolarBadge({
  * contest band awareness during operation.
  */
 export function BandReadinessStrip({
-  currentBand,
+  currentBand: currentBandProp,
   onBandClick,
   compact = false,
   className = "",
@@ -480,6 +481,8 @@ export function BandReadinessStrip({
   // showAlerts is reserved for future alert indicator feature
   showAlerts: _showAlerts = true,
 }: BandReadinessStripProps) {
+  const activeBand = useActiveBand();
+  const currentBand = currentBandProp ?? activeBand;
   // Get spots from store
   const spots = useDXStore((state) => state.spots);
   const spotCountByBand = useDXStore(selectSpotCountByBand);
@@ -493,20 +496,20 @@ export function BandReadinessStrip({
 
   // Extract latest values
   const latestKIndex = useMemo(() => {
-    const {data} = kIndexQuery;
+    const data = kIndexQuery.data;
     if (!data || data.length === 0) {
       return null;
     }
     return data[data.length - 1].kp_index;
-  }, [kIndexQuery.data]);
+  }, [kIndexQuery]);
 
   const latestSolarFlux = useMemo(() => {
-    const {data} = solarFluxQuery;
+    const data = solarFluxQuery.data;
     if (!data || data.length === 0) {
       return null;
     }
     return data[data.length - 1].flux;
-  }, [solarFluxQuery.data]);
+  }, [solarFluxQuery]);
 
   // Compute band info
   const bandInfos = useMemo((): BandInfo[] => {

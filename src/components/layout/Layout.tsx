@@ -24,6 +24,7 @@ import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
+import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 /**
@@ -55,6 +56,8 @@ export function Layout() {
   useSyncQueue();
   // Keep rigStore synced with Bridge/Daemon CAT state
   useRigBridgeSync();
+  // Keep operatingStore synced with rig, WSJT-X, and contest state
+  useOperatingSync();
 
   // DX spot alert monitoring
   const {

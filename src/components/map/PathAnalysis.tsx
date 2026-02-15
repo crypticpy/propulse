@@ -31,6 +31,7 @@ import {
   getPathIllumination,
 } from "@/lib/utils/path";
 import { getFrequencyLimits } from "@/lib/api/muf";
+import { useActiveMode } from "@/hooks/useActiveBandMode";
 import { useSolarFlux } from "@/hooks/useSolarData";
 import { Card } from "@/components/ui/Card";
 import { DetailModal } from "@/components/ui/DetailModal";
@@ -362,6 +363,8 @@ export function PathAnalysis({
     return radioInstances.find((r) => r.id === analysisRadioId) ?? null;
   }, [analysisRadioId, radioInstances]);
 
+  const activeMode = useActiveMode();
+
   // Fetch current solar data for frequency limits
   const { data: solarFluxData } = useSolarFlux();
 
@@ -428,6 +431,12 @@ export function PathAnalysis({
     );
   }, [station, target, displayTime]);
 
+  // Map activeMode to the subset accepted by getFrequencyLimits
+  const freqLimitMode: "SSB" | "CW" | "FT8" =
+    activeMode === "SSB" || activeMode === "CW" || activeMode === "FT8"
+      ? activeMode
+      : "SSB";
+
   // Calculate frequency limits (MUF, FOT, LUF, HPF) at path midpoint
   const frequencyLimits = useMemo((): FrequencyLimits | null => {
     if (!station || !target || !metrics) {
@@ -440,12 +449,12 @@ export function PathAnalysis({
         currentSfi,
         displayTime,
         100, // Default 100W TX power
-        "SSB", // Default to SSB for frequency limit calculations
+        freqLimitMode,
       );
     } catch {
       return null;
     }
-  }, [station, target, metrics, currentSfi, displayTime]);
+  }, [station, target, metrics, currentSfi, displayTime, freqLimitMode]);
 
   // No station configured
   if (!station) {

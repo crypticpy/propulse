@@ -52,14 +52,6 @@ interface DXState {
   isPanelOpen: boolean;
   togglePanel: () => void;
   setPanelOpen: (open: boolean) => void;
-
-  // Band Sync Mode (Feature 2.3)
-  syncMode: boolean;
-  syncedBand: string | null;
-  setSyncMode: (enabled: boolean) => void;
-  setSyncedBand: (band: string | null) => void;
-  toggleSyncMode: () => void;
-  cycleSyncedBand: () => void;
 }
 
 const DEFAULT_FILTERS: DXClusterFilters = {
@@ -151,38 +143,6 @@ export const useDXStore = create<DXState>()(
       isPanelOpen: false,
       togglePanel: () => set((state) => ({ isPanelOpen: !state.isPanelOpen })),
       setPanelOpen: (open) => set({ isPanelOpen: open }),
-
-      // Band Sync Mode (Feature 2.3)
-      syncMode: false,
-      syncedBand: null,
-      setSyncMode: (enabled) => set({ syncMode: enabled }),
-      setSyncedBand: (band) => set({ syncedBand: band }),
-      toggleSyncMode: () =>
-        set((state) => ({
-          syncMode: !state.syncMode,
-          // Clear synced band when disabling sync mode
-          syncedBand: state.syncMode ? null : state.syncedBand,
-        })),
-      cycleSyncedBand: () =>
-        set((state) => {
-          if (!state.syncMode) {
-            return state;
-          }
-
-          // Get available bands from current spots
-          const bands = selectAvailableBands(state);
-          if (bands.length === 0) {
-            return state;
-          }
-
-          // Find current index and cycle to next
-          const currentIndex = state.syncedBand
-            ? bands.indexOf(state.syncedBand)
-            : -1;
-          const nextIndex = (currentIndex + 1) % bands.length;
-
-          return { syncedBand: bands[nextIndex] };
-        }),
     }),
     {
       name: "propulse-dx-filters",

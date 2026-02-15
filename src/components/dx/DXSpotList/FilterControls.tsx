@@ -29,7 +29,6 @@ function countActiveFilters(props: {
   selectedModes: string[];
   selectedSources: string[];
   neededOnly: boolean;
-  syncMode: boolean;
   maxAge: number;
 }): number {
   let count = 0;
@@ -39,7 +38,6 @@ function countActiveFilters(props: {
   if (props.selectedModes.length > 0) count++;
   if (props.selectedSources.length > 0) count++;
   if (props.neededOnly) count++;
-  if (props.syncMode) count++;
   if (props.maxAge !== 30) count++; // 30 is default
   return count;
 }
@@ -62,9 +60,6 @@ export const FilterControls = memo(function FilterControls({
   onSourceToggle,
   availableBands,
   availableModes,
-  syncMode,
-  syncedBand,
-  onSyncToggle,
   neededOnly,
   onNeededOnlyToggle,
   sortByNeeded,
@@ -125,7 +120,6 @@ export const FilterControls = memo(function FilterControls({
         selectedModes,
         selectedSources,
         neededOnly,
-        syncMode,
         maxAge,
       }),
     [
@@ -135,7 +129,6 @@ export const FilterControls = memo(function FilterControls({
       selectedModes,
       selectedSources,
       neededOnly,
-      syncMode,
       maxAge,
     ],
   );
@@ -325,42 +318,6 @@ export const FilterControls = memo(function FilterControls({
             </button>
           )}
         </div>
-
-        {/* Band Sync Toggle (Feature 2.3) */}
-        <button
-          onClick={onSyncToggle}
-          className={`flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
-            syncMode
-              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
-              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
-          }`}
-          title={
-            syncMode
-              ? `Sync Mode ON${syncedBand ? ` - Synced to ${syncedBand}` : " - Click a spot to sync"}`
-              : "Enable Band Sync - links filtering across all views"
-          }
-          aria-pressed={syncMode}
-          aria-label={`Band sync${syncMode ? ` - synced to ${syncedBand || "none"}` : ""}`}
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-            />
-          </svg>
-          {syncMode && syncedBand && (
-            <span className="text-[9px] bg-cyan-500/30 px-1 py-0.5 rounded">
-              {syncedBand}
-            </span>
-          )}
-        </button>
 
         {/* Needed Only Toggle */}
         <button
@@ -596,18 +553,13 @@ export const FilterControls = memo(function FilterControls({
         {availableBands.map((band) => {
           const isActive =
             selectedBands.length === 0 || selectedBands.includes(band);
-          const isSynced = syncMode && syncedBand === band;
           const bandHex =
             BAND_COLORS[band.toLowerCase()] ?? BAND_COLORS.default;
           return (
             <button
               key={band}
               onClick={() => onBandToggle(band)}
-              className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-all ${
-                isSynced
-                  ? "ring-1 ring-cyan-400 ring-offset-1 ring-offset-nebula-blue"
-                  : ""
-              }`}
+              className="px-1.5 py-0.5 rounded text-[9px] font-bold transition-all"
               style={
                 isActive
                   ? {
@@ -622,15 +574,10 @@ export const FilterControls = memo(function FilterControls({
                       opacity: 0.5,
                     }
               }
-              title={isSynced ? `Synced to ${band}` : band}
+              title={band}
               aria-pressed={isActive}
-              aria-label={`Filter by ${band} band${isSynced ? " (synced)" : ""}`}
+              aria-label={`Filter by ${band} band`}
             >
-              {isSynced && (
-                <span className="mr-0.5" aria-hidden="true">
-                  *
-                </span>
-              )}
               {band}
             </button>
           );

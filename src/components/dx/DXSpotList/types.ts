@@ -78,10 +78,6 @@ export interface FilterControlsProps {
   onSourceToggle: (source: SpotSourceType) => void;
   availableBands: string[];
   availableModes: string[];
-  // Band Sync Mode (Feature 2.3)
-  syncMode: boolean;
-  syncedBand: string | null;
-  onSyncToggle: () => void;
   // Needed filter (Feature 2.1)
   neededOnly: boolean;
   onNeededOnlyToggle: () => void;

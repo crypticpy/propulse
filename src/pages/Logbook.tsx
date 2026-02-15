@@ -31,6 +31,7 @@ import type { ContestFilterMode } from "@/components/qso/BandMapControls";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { QuietBandNav } from "@/components/contest/QuietBandNav";
 import { useQSOStore } from "@/stores/qsoStore";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useConflicts } from "@/hooks/useConflicts";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { LogEntry } from "@/lib/db/types";
@@ -55,8 +56,9 @@ export function Logbook() {
     field: string;
   } | null>(null);
 
-  // Band map state
-  const [bandMapBand, setBandMapBand] = useState("20m");
+  // Band map state — initialize from active operating band
+  const activeBand = useActiveBand();
+  const [bandMapBand, setBandMapBand] = useState<string>(activeBand);
   const [bandMapTimeRange, setBandMapTimeRange] = useState(15);
   const [bandMapCollapsed, setBandMapCollapsed] = useState(true); // mobile only
   const [contestFilter, setContestFilter] = useState<ContestFilterMode>("all");

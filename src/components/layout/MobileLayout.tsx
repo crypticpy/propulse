@@ -23,6 +23,7 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
+import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -68,6 +69,8 @@ export function MobileLayout() {
   useSyncQueue();
   // Keep rigStore synced with Bridge/Daemon CAT state
   useRigBridgeSync();
+  // Keep operatingStore synced with rig, WSJT-X, and contest state
+  useOperatingSync();
 
   // DX spot alert monitoring
   const {

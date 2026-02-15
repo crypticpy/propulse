@@ -88,8 +88,6 @@ export function DXSpotList({
     filters,
     availableBands,
     availableModes,
-    syncMode,
-    syncedBand,
     activeBandFilter,
     alertMatchCount,
     neededCount,
@@ -113,7 +111,6 @@ export function DXSpotList({
     handleContextMenu,
     handleContextMenuClose,
     handleContextAction,
-    toggleSyncMode,
     setHoveredSpot,
     refetch,
   } = state;
@@ -298,11 +295,7 @@ export function DXSpotList({
   }
 
   return (
-    <Card
-      className={`h-full flex flex-col ${className} ${
-        syncMode ? "ring-2 ring-cyan-500/50 ring-inset" : ""
-      }`}
-    >
+    <Card className={`h-full flex flex-col ${className}`}>
       {/* Header */}
       {showHeader && (
         <div className="flex items-center justify-between mb-2">
@@ -331,24 +324,6 @@ export function DXSpotList({
               )}
               {SOURCE_BADGE_STYLES[spotSource].label}
             </span>
-            {syncMode && syncedBand && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1">
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                  />
-                </svg>
-                {syncedBand}
-              </span>
-            )}
             {alertMatchCount > 0 && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-alert-red/20 text-alert-red border border-alert-red/30 animate-pulse">
                 {alertMatchCount} alert{alertMatchCount !== 1 ? "s" : ""}
@@ -479,9 +454,6 @@ export function DXSpotList({
           onSourceToggle={handleSourceToggle}
           availableBands={availableBands}
           availableModes={availableModes}
-          syncMode={syncMode}
-          syncedBand={syncedBand}
-          onSyncToggle={toggleSyncMode}
           neededOnly={filters.neededOnly || false}
           onNeededOnlyToggle={handleNeededOnlyToggle}
           sortByNeeded={filters.sortByNeeded || false}

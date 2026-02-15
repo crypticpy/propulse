@@ -11,14 +11,16 @@
  * Accepts all data as props -- no direct hook imports.
  */
 
-import React, { useMemo } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
 import * as THREE from "three";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
+import { bandFromFreqMHz } from "@/lib/utils/bandFromFreq";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface WSPRSpot {
+export interface WSPRSpot {
   txCallsign: string;
   txGrid: string;
   rxCallsign: string;
@@ -155,10 +157,42 @@ function generateArcPoints(
 export const WSPROverlay3D = React.memo(function WSPROverlay3D({
   spots,
 }: WSPROverlay3DProps) {
-  // Build merged LineSegments geometry: all arcs in one draw call with per-vertex colors
-  const { geometry, material } = useMemo(() => {
+  const lineRef = useRef<THREE.LineSegments>(null);
+  const geoRef = useRef<THREE.BufferGeometry | null>(null);
+
+  // Active band for highlighting matching arcs
+  const activeBand = useActiveBand();
+
+  // Stable material — created once, never recreated
+  const material = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    [],
+  );
+
+  // Build geometry imperatively via useEffect so R3F always picks up changes
+  useEffect(() => {
     if (!spots || spots.length === 0) {
-      return { geometry: null, material: null };
+      // Clear existing geometry
+      if (lineRef.current && geoRef.current) {
+        geoRef.current.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute([], 3),
+        );
+        geoRef.current.setAttribute(
+          "color",
+          new THREE.Float32BufferAttribute([], 3),
+        );
+        geoRef.current.attributes.position.needsUpdate = true;
+        geoRef.current.attributes.color.needsUpdate = true;
+      }
+      return;
     }
 
     // Limit to MAX_ARCS, preferring highest SNR
@@ -181,10 +215,15 @@ export const WSPROverlay3D = React.memo(function WSPROverlay3D({
       const color = getBandColor(spot.frequencyMHz);
       const brightness = normalizeSNR(spot.snr);
 
-      // Modulate color by brightness
-      const r = color.r * brightness;
-      const g = color.g * brightness;
-      const b = color.b * brightness;
+      // Dim arcs that don't match the active band (full opacity vs 0.3)
+      const spotBand = bandFromFreqMHz(spot.frequencyMHz);
+      const bandMatch = spotBand === activeBand;
+      const bandScale = bandMatch ? 1.0 : 0.3;
+
+      // Modulate color by brightness and band match
+      const r = color.r * brightness * bandScale;
+      const g = color.g * brightness * bandScale;
+      const b = color.b * brightness * bandScale;
 
       // LineSegments topology: pairs of vertices form segments
       for (let i = 0; i < points.length - 1; i++) {
@@ -199,29 +238,44 @@ export const WSPROverlay3D = React.memo(function WSPROverlay3D({
       }
     }
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute(
+    // Create or update geometry
+    if (!geoRef.current) {
+      geoRef.current = new THREE.BufferGeometry();
+    }
+
+    geoRef.current.setAttribute(
       "position",
       new THREE.Float32BufferAttribute(positions, 3),
     );
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    geoRef.current.setAttribute(
+      "color",
+      new THREE.Float32BufferAttribute(colors, 3),
+    );
 
-    const mat = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.7,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
+    // Recompute bounding sphere for frustum culling
+    geoRef.current.computeBoundingSphere();
 
-    return { geometry: geo, material: mat };
-  }, [spots]);
+    // Attach to lineSegments if not yet attached
+    if (lineRef.current) {
+      lineRef.current.geometry = geoRef.current;
+    }
+  }, [spots, activeBand]);
 
-  if (!spots || spots.length === 0 || !geometry || !material) return null;
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      geoRef.current?.dispose();
+      geoRef.current = null;
+      material.dispose();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!spots || spots.length === 0) return null;
 
   return (
     <group name="wspr-overlay">
-      <lineSegments geometry={geometry} material={material} />
+      <lineSegments ref={lineRef} material={material} frustumCulled={false} />
     </group>
   );
 });

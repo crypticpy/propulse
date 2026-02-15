@@ -12,6 +12,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { useRadioDaemon } from "@/hooks/useRadioDaemon";
+import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
 import { getContestById } from "@/lib/data/contests";
 import {
   getNeededMultipliers,
@@ -285,13 +286,18 @@ function useContestSpotStatus(
  * Spots are color-coded by contest status and clicking selects for prefill.
  */
 export function ContestBandMap({
-  currentBand,
-  currentMode,
+  currentBand: currentBandProp,
+  currentMode: currentModeProp,
   onSpotSelect,
   onSpotClick,
   currentFrequency,
   className = "",
 }: ContestBandMapProps) {
+  const activeBand = useActiveBand();
+  const activeMode = useActiveMode();
+  const currentBand = currentBandProp ?? activeBand;
+  const currentMode = currentModeProp ?? activeMode;
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(600);
@@ -313,9 +319,10 @@ export function ContestBandMap({
   const daemonConnected = daemon.connected;
   const daemonSendCommand = daemon.sendCommand;
   const daemonLastFrame = daemon.lastFrame;
-  const [fftFrame, setFftFrame] = useState<
-    Extract<RadioBinaryFrame, { kind: "fft" }> | null
-  >(null);
+  const [fftFrame, setFftFrame] = useState<Extract<
+    RadioBinaryFrame,
+    { kind: "fft" }
+  > | null>(null);
   const sdrWaterfallRef = useRef<{
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;

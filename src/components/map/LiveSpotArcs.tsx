@@ -46,6 +46,7 @@ import {
 } from "@/lib/utils/spotColors";
 import { getMultiHopArcPoints } from "@/lib/utils/arcHeight";
 import { useReplayStore } from "@/stores/replayStore";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 
 // ==========================================================================
 // Spot Age Types and Utilities
@@ -738,6 +739,9 @@ export function LiveSpotArcs({
     return map;
   }, [singles]);
 
+  // Active band from operating store — used to visually distinguish on-band arcs
+  const activeBand = useActiveBand();
+
   // ── Replay spots (sepia-toned historical arcs) ──────────────────────────
   const replaySpots = useReplayStore((s) => s.replaySpots);
   const resolvedReplay = useMemo(
@@ -830,7 +834,15 @@ export function LiveSpotArcs({
           const passesModeFilter =
             !profileModeSet || !spotMode || profileModeSet.has(spotMode);
           const passesFilter = passesBandFilter && passesModeFilter;
-          const filterOpacity = passesFilter ? 1.0 : 0.3;
+          // Active band emphasis: arcs on the active band get full opacity,
+          // others get reduced opacity when an active band is set
+          const activeBandLower = activeBand?.toLowerCase() ?? "";
+          const matchesActiveBand =
+            !activeBandLower || !spotBand || spotBand === activeBandLower;
+          const activeBandOpacity = matchesActiveBand ? 1.0 : 0.3;
+          const filterOpacity = passesFilter
+            ? activeBandOpacity
+            : 0.3 * activeBandOpacity;
 
           const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
 

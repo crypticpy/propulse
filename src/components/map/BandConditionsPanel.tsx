@@ -14,7 +14,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useDXStore } from "@/stores/dxStore";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
 import { getAntennaGainForPath } from "@/lib/data/antennas";
@@ -335,8 +335,7 @@ export function BandConditionsPanel({
   const station = useUserStore((s) => s.station);
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
-  const syncMode = useDXStore((s) => s.syncMode);
-  const syncedBand = useDXStore((s) => s.syncedBand);
+  const activeBand = useActiveBand();
   const uiPrefs = useUIInteractionPrefs();
   const isGridView = uiPrefs.visualStyle === "high-viz";
   const [showHelp, setShowHelp] = useState(false);
@@ -899,7 +898,7 @@ export function BandConditionsPanel({
                     <BandConditionGridCell
                       key={condition.band}
                       condition={condition}
-                      isSynced={syncMode && syncedBand === condition.band}
+                      isSynced={activeBand === condition.band}
                       isEsActive={
                         (condition.band === "6m" || condition.band === "10m") &&
                         esDetection?.active === true &&
@@ -941,7 +940,7 @@ export function BandConditionsPanel({
                         condition={condition}
                         hasEnhancedData={!!enhancedBandConditions}
                         compact={compact}
-                        isSynced={syncMode && syncedBand === condition.band}
+                        isSynced={activeBand === condition.band}
                         greylineIntensity={greylineIntensity}
                         correlation={
                           showCorrelation

@@ -8,6 +8,7 @@
 
 import { useMemo, useCallback } from "react";
 import { BAND_COLORS } from "@/lib/utils/spotColors";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 import type { DXSpot } from "@/types/dxcluster";
 
 export interface BandActivityBarProps {
@@ -59,9 +60,16 @@ interface BandSegment {
 export function BandActivityBar({
   spots,
   onBandClick,
-  activeBands,
+  activeBands: activeBandsProp,
   className = "",
 }: BandActivityBarProps) {
+  // Merge prop-provided active bands with the global active band from operatingStore
+  const globalActiveBand = useActiveBand();
+  const activeBands = useMemo(() => {
+    if (activeBandsProp && activeBandsProp.length > 0) return activeBandsProp;
+    return globalActiveBand ? [globalActiveBand] : [];
+  }, [activeBandsProp, globalActiveBand]);
+
   // Count spots per band and build ordered segments
   const segments = useMemo(() => {
     const countMap = new Map<string, number>();

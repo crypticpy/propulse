@@ -45,6 +45,7 @@ import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { ColorsPopover } from "@/components/map/ColorsPopover";
 import { ProfilePopover } from "@/components/map/ProfilePopover";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
+import { BandModeSelector } from "@/components/operating/BandModeSelector";
 
 // Lazy load heavy components that aren't always visible
 const FullscreenPropSphere = lazy(() =>
@@ -175,19 +176,11 @@ export function PropSphere() {
   // Rig CAT state
   const rigConnected = useRigStore((s) => s.connected);
   const rigCatEnabled = useRigStore((s) => s.catEnabled);
-  const rigBand = useRigStore((s) => s.band);
   const getSMeterText = useRigStore((s) => s.getSMeterText);
   const catActive = rigCatEnabled && rigConnected;
 
   // WSJT-X connection state
   const wsjtxConnected = useWSJTXStore((s) => s.connected);
-
-  // Sync DX Store band filter with rig band when CAT is active
-  useEffect(() => {
-    if (catActive && rigBand) {
-      useDXStore.getState().setSyncedBand(rigBand);
-    }
-  }, [catActive, rigBand]);
 
   // Update browser tab title with spot count
   useSpotCountTitle(spotCount);
@@ -426,11 +419,6 @@ export function PropSphere() {
         }
         case "togglePathMode":
           mapStore.togglePathMode();
-          break;
-
-        // Band Sync Mode (Feature 2.3)
-        case "cycleSyncedBand":
-          useDXStore.getState().cycleSyncedBand();
           break;
 
         // Onboarding tour
@@ -873,6 +861,10 @@ export function PropSphere() {
                 activeProfile={localActiveProfile}
                 onSelectProfile={setLocalActiveProfile}
               />
+
+              {/* Band/Mode selector */}
+              <ToolbarDivider />
+              <BandModeSelector />
 
               {/* Observatory mode */}
               <ToolbarDivider />

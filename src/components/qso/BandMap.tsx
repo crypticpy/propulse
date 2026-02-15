@@ -19,6 +19,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { BAND_RANGES } from "@/lib/data/bandRanges";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useBandMapSpots } from "@/hooks/useBandMapSpots";
 import { BandMapSpotPip } from "./BandMapSpot";
 import { BandMapContestMarker } from "./BandMapContestMarker";
@@ -28,8 +29,8 @@ import type { ContestFilterMode } from "./BandMapControls";
 // ── Props ───────────────────────────────────────────────────────────────────
 
 export interface BandMapProps {
-  /** Selected band */
-  band: string;
+  /** Selected band. Falls back to useActiveBand() when omitted. */
+  band?: string;
   /** Time range in minutes (default 15) */
   timeRange?: number;
   /** Click handler for spot auto-fill */
@@ -69,13 +70,16 @@ function formatFreq(kHz: number): string {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export function BandMap({
-  band,
+  band: bandProp,
   timeRange = 15,
   onSpotClick,
   className = "",
   contestFilter = "all",
   showSubBands = false,
 }: BandMapProps) {
+  const activeBand = useActiveBand();
+  const band = bandProp ?? activeBand;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(400);
   const [height, setHeight] = useState(200);

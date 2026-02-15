@@ -26,6 +26,7 @@ import {
   type NeededMultOnBand,
   type BandPrediction,
 } from "@/lib/contest/bandAdvisor";
+import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
 import { useRigStore } from "@/stores/rigStore";
 
 // ============================================================================
@@ -33,9 +34,9 @@ import { useRigStore } from "@/stores/rigStore";
 // ============================================================================
 
 export interface BandAdvisorProps {
-  /** Currently operating band */
-  currentBand: string;
-  /** Current operating mode (CW, SSB, DIGITAL) */
+  /** Currently operating band. Falls back to useActiveBand() when omitted. */
+  currentBand?: string;
+  /** Current operating mode (CW, SSB, DIGITAL). Falls back to useActiveMode() when omitted. */
   currentMode?: string;
   /** Current QSO rate (5-min rolling average, QSOs/hr) */
   currentRate: number;
@@ -215,8 +216,8 @@ function SnoozeButton({ onSnooze }: { onSnooze: () => void }) {
  * ```
  */
 export function BandAdvisor({
-  currentBand,
-  currentMode = "CW",
+  currentBand: currentBandProp,
+  currentMode: currentModeProp,
   currentRate,
   historicalRate = 0,
   spotsByBand,
@@ -226,6 +227,11 @@ export function BandAdvisor({
   onBandChange,
   className = "",
 }: BandAdvisorProps) {
+  const activeBand = useActiveBand();
+  const activeMode = useActiveMode();
+  const currentBand = currentBandProp ?? activeBand;
+  const currentMode = currentModeProp ?? activeMode;
+
   const [snoozedUntil, setSnoozedUntil] = useState(0);
   const lastNotifyTimeRef = useRef(0);
   const [dismissed, setDismissed] = useState(false);

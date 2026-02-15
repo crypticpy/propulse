@@ -6,7 +6,8 @@
  * and each row represents a time slice. Newer data appears at the outer edge
  * and scrolls inward as time passes.
  *
- * Uses InstancedMesh with small rectangular patches for high performance.
+ * Uses InstancedMesh with rectangular patches laid flat on the ring surface
+ * so they are visible from the typical above-oblique viewing angle.
  * Color intensity maps from quiet (dark blue) to active (bright yellow/white).
  *
  * Accepts all data as props -- no direct hook imports.
@@ -16,6 +17,7 @@ import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
+import { useActiveBand } from "@/hooks/useActiveBandMode";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,11 +37,14 @@ interface SpectrumWaterfallRing3DProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Ring base radius (distance from globe center) */
-const RING_RADIUS = 1.15;
+/** Inner radius of the ring (distance from globe center) */
+const RING_INNER_RADIUS = 1.18;
 
-/** Ring width (radial extent from inner to outer) */
-const RING_WIDTH = 0.08;
+/** Ring radial width — generous so the waterfall is clearly visible */
+const RING_WIDTH = 0.22;
+
+/** Outer radius (computed) */
+const RING_OUTER_RADIUS = RING_INNER_RADIUS + RING_WIDTH;
 
 /** Maximum visible time rows */
 const MAX_TIME_ROWS = 20;
@@ -47,8 +52,8 @@ const MAX_TIME_ROWS = 20;
 /** Tilt from equatorial plane for better 3D visibility (radians) */
 const RING_TILT = (10 * Math.PI) / 180;
 
-/** Cell height (radial, for each time row) */
-const CELL_HEIGHT = RING_WIDTH / MAX_TIME_ROWS;
+/** Small gap between cells for the grid look (fraction of cell size) */
+const GAP_FRACTION = 0.08;
 
 // ---------------------------------------------------------------------------
 // Color helpers
@@ -62,6 +67,8 @@ const COLOR_MODERATE = new THREE.Color("#00aacc");
 const COLOR_ACTIVE = new THREE.Color("#ffee44");
 /** Peak activity color (white) */
 const COLOR_PEAK = new THREE.Color("#ffffff");
+/** Empty/no-data color (very dark, barely visible baseline) */
+const COLOR_EMPTY = new THREE.Color("#040c1a");
 
 /**
  * Map a normalized activity value (0-100) to a color.
@@ -98,80 +105,112 @@ export const SpectrumWaterfallRing3D = React.memo(
   }: SpectrumWaterfallRing3DProps) {
     const meshRef = useRef<THREE.InstancedMesh>(null);
 
+    // Active band for highlighting the corresponding column
+    const activeBand = useActiveBand();
+    const activeBandIndex = bandNames.indexOf(activeBand);
+
     const numBands = bandNames.length;
-    const numRows = Math.min(bandActivity.length, MAX_TIME_ROWS);
-
-    // Early exit
-    if (numBands === 0 || numRows === 0) return null;
-
-    const maxInstances = numBands * MAX_TIME_ROWS;
+    const numDataRows = Math.min(bandActivity.length, MAX_TIME_ROWS);
+    const hasRenderableData = numBands > 0 && numDataRows > 0;
+    const maxInstances = Math.max(1, numBands * MAX_TIME_ROWS);
 
     // Angular width of each band cell (in radians)
-    const cellAngle = (Math.PI * 2) / numBands;
+    const cellAngle = numBands > 0 ? (Math.PI * 2) / numBands : 0;
 
-    // Cell geometry (small rectangle)
+    // Cell geometry: a flat plane that will be laid on the ring surface.
+    // Width = arc length for the band column (with gap).
+    // Height = radial extent for one time row (with gap).
     const cellGeometry = useMemo(() => {
-      // PlaneGeometry sized for one cell
-      // Width is approximately arc length at ring radius
-      const cellWidth = cellAngle * RING_RADIUS * 0.9; // 90% fill for gaps
-      return new THREE.PlaneGeometry(cellWidth, CELL_HEIGHT);
-    }, [cellAngle]);
+      if (numBands === 0) {
+        return new THREE.PlaneGeometry(0.001, 0.001);
+      }
+      const rowHeight = RING_WIDTH / MAX_TIME_ROWS;
+      const arcWidth = cellAngle * RING_INNER_RADIUS;
+      return new THREE.PlaneGeometry(
+        arcWidth * (1 - GAP_FRACTION),
+        rowHeight * (1 - GAP_FRACTION),
+      );
+    }, [cellAngle, numBands]);
 
-    // Band label positions around the ring edge
+    // Band label positions around the outer edge of the ring
     const bandLabelPositions = useMemo(() => {
       return bandNames.map((_, i) => {
         const angle = cellAngle * i + cellAngle * 0.5;
-        const labelRadius = RING_RADIUS + RING_WIDTH * 0.5 + 0.02;
+        const labelRadius = RING_OUTER_RADIUS + 0.03;
         const x = labelRadius * Math.cos(angle);
         const z = labelRadius * Math.sin(angle);
-        const y = Math.sin(RING_TILT) * labelRadius * 0.1;
-        return new THREE.Vector3(x, y, z);
+        return new THREE.Vector3(x, 0, z);
       });
     }, [bandNames, cellAngle]);
 
-    // Update instances each frame (waterfall scroll effect)
+    // Update instances each frame
     useFrame(() => {
       const mesh = meshRef.current;
       if (!mesh) return;
 
-      let instanceIdx = 0;
+      if (!hasRenderableData) {
+        mesh.count = 0;
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) {
+          mesh.instanceColor.needsUpdate = true;
+        }
+        return;
+      }
 
-      // Take the most recent numRows entries
+      let instanceIdx = 0;
+      const rowHeight = RING_WIDTH / MAX_TIME_ROWS;
+
+      // Take the most recent rows — newest first so row 0 = newest = outermost
       const recentRows = bandActivity.slice(-MAX_TIME_ROWS);
+      const rowCount = recentRows.length;
 
       for (let row = 0; row < MAX_TIME_ROWS; row++) {
-        const dataRow = recentRows[row];
-
         for (let col = 0; col < numBands; col++) {
           if (instanceIdx >= maxInstances) break;
 
-          // Angle for this band column
+          // Angle for this band column (center of the cell)
           const angle = cellAngle * col + cellAngle * 0.5;
 
-          // Radial position: newer rows at outer edge, older toward inner
-          const rowFraction = row / MAX_TIME_ROWS;
-          const radius = RING_RADIUS + RING_WIDTH * (1 - rowFraction);
+          // Radial position: row 0 = newest = outer edge, higher rows = older = inner
+          const radius = RING_OUTER_RADIUS - rowHeight * 0.5 - rowHeight * row;
 
-          // Position the cell
+          // Position flat on the XZ plane (group rotation handles tilt)
           const x = radius * Math.cos(angle);
           const z = radius * Math.sin(angle);
-          const y = Math.sin(RING_TILT) * radius * 0.1;
 
-          dummy.position.set(x, y, z);
+          dummy.position.set(x, 0, z);
+          dummy.scale.set(1, 1, 1);
 
-          // Orient cell to face outward from the ring center
-          dummy.lookAt(0, y, 0);
-          dummy.rotateY(Math.PI); // face outward
+          // Orient cell flat on the ring surface:
+          // 1. Rx(-PI/2): lay the XY plane into XZ (normal faces +Y)
+          // 2. Ry(angle + PI/2): spin around vertical so cell width aligns
+          //    with the arc tangent at this angular position
+          // Euler order 'XYZ': M = Rz * Ry * Rx, Rx applied first.
+          dummy.rotation.set(-Math.PI / 2, angle + Math.PI / 2, 0);
 
           dummy.updateMatrix();
           mesh.setMatrixAt(instanceIdx, dummy.matrix);
 
-          // Color by activity
-          const activity = dataRow ? (dataRow.bands[bandNames[col]] ?? 0) : 0;
+          // Color: data rows get activity-based color, empty rows get baseline
+          // recentRows is ordered oldest-first from .slice(), so map row index:
+          // row 0 (outermost/newest) = recentRows[rowCount - 1]
+          const dataIdx = rowCount - 1 - row;
+          const dataRow = dataIdx >= 0 ? recentRows[dataIdx] : null;
 
-          activityToColor(activity, tempColor);
+          if (dataRow) {
+            const activity = dataRow.bands[bandNames[col]] ?? 0;
+            activityToColor(activity, tempColor);
+          } else {
+            // No data for this time slot yet — render a dim baseline
+            tempColor.copy(COLOR_EMPTY);
+          }
+
+          // Dim non-active band columns when an active band is set
+          if (activeBandIndex >= 0 && col !== activeBandIndex) {
+            tempColor.multiplyScalar(0.35);
+          }
+
           mesh.setColorAt(instanceIdx, tempColor);
-
           instanceIdx++;
         }
       }
@@ -185,6 +224,9 @@ export const SpectrumWaterfallRing3D = React.memo(
         }
       }
     });
+
+    // Early exit
+    if (!hasRenderableData) return null;
 
     return (
       <group name="spectrum-waterfall-ring" rotation={[RING_TILT, 0, 0]}>
@@ -204,27 +246,38 @@ export const SpectrumWaterfallRing3D = React.memo(
           />
         </instancedMesh>
 
-        {/* Band labels around the ring */}
-        {bandLabelPositions.map((pos, i) => (
-          <Html
-            key={bandNames[i]}
-            position={pos}
-            center
-            zIndexRange={[1, 0]}
-            style={{ pointerEvents: "none" }}
-          >
-            <div
-              className="px-1 py-0.5 rounded text-[8px] font-mono whitespace-nowrap"
-              style={{
-                backgroundColor: "rgba(0, 10, 20, 0.8)",
-                color: "#88ccff",
-                border: "1px solid rgba(100, 180, 255, 0.3)",
-              }}
+        {/* Band labels around the outer edge — active band highlighted */}
+        {bandLabelPositions.map((pos, i) => {
+          const isActive = i === activeBandIndex;
+          return (
+            <Html
+              key={bandNames[i]}
+              position={pos}
+              center
+              zIndexRange={[1, 0]}
+              style={{ pointerEvents: "none" }}
             >
-              {bandNames[i]}
-            </div>
-          </Html>
-        ))}
+              <div
+                className="px-1 py-0.5 rounded text-[8px] font-mono whitespace-nowrap"
+                style={{
+                  backgroundColor: isActive
+                    ? "rgba(0, 30, 50, 0.95)"
+                    : "rgba(0, 10, 20, 0.8)",
+                  color: isActive ? "#ffee44" : "#88ccff",
+                  border: isActive
+                    ? "1px solid rgba(255, 238, 68, 0.6)"
+                    : "1px solid rgba(100, 180, 255, 0.3)",
+                  boxShadow: isActive
+                    ? "0 0 8px rgba(255, 238, 68, 0.4)"
+                    : "none",
+                  fontWeight: isActive ? 700 : 400,
+                }}
+              >
+                {bandNames[i]}
+              </div>
+            </Html>
+          );
+        })}
       </group>
     );
   },

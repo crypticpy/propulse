@@ -1,17 +1,25 @@
 /**
  * NoiseFloorOverlay3D Component
  *
- * Renders an ITU-R P.372 noise floor heatmap on the 3D globe using
- * InstancedMesh with flat colored discs at each grid point. Color maps
- * from blue (quiet) through green/yellow to red (noisy).
+ * Renders an ITU-R P.372 noise floor heatmap on the 3D globe using a GLSL
+ * shader sphere (same approach as MUFOverlay). The pre-computed noise grid
+ * is packed into a DataTexture and sampled in the fragment shader with GPU
+ * bilinear interpolation for smooth color gradients.
+ *
+ * Color mapping:
+ *   blue  (<20 dB)  — quiet
+ *   green (20-35 dB) — moderate
+ *   yellow (35-50 dB) — loud
+ *   red   (>50 dB)   — very noisy (urban/industrial)
  *
  * Data comes from the useNoiseFloor hook which provides a NoiseFloorGrid
  * with lats[], lons[], and values[][] (total noise in dB).
  */
 
-import React, { useRef, useMemo, useEffect } from "react";
+import React, { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { useActiveFrequency } from "@/hooks/useActiveBandMode";
 
 // =============================================================================
 // TYPES
@@ -23,6 +31,8 @@ interface NoiseFloorOverlay3DProps {
     lons: number[];
     values: number[][]; // [lat][lon] total noise dB
   };
+  /** Optional frequency in Hz — falls back to useActiveFrequency() from operating store */
+  frequencyHz?: number;
 }
 
 // =============================================================================
@@ -32,135 +42,173 @@ interface NoiseFloorOverlay3DProps {
 /** Radius just above globe surface to avoid z-fighting */
 const GLOBE_RADIUS = 1.005;
 
-/** Max instances — typical 10-degree grid yields ~684 points */
-const MAX_INSTANCES = 1200;
-
-// =============================================================================
-// MODULE-LEVEL REUSABLES
-// =============================================================================
-
-const dummy = new THREE.Object3D();
-const up = new THREE.Vector3(0, 0, 1);
-
-// Color stops for noise level mapping
-const colorQuiet = new THREE.Color("#2266ff"); // blue — quiet (<20 dB)
-const colorModerate = new THREE.Color("#22cc66"); // green — moderate (20-35 dB)
-const colorLoud = new THREE.Color("#ddcc22"); // yellow — loud (35-50 dB)
-const colorNoisy = new THREE.Color("#ee3322"); // red — noisy (>50 dB)
-
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-function latLonTo3D(
-  lat: number,
-  lon: number,
-  radius: number,
-): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
+/**
+ * Build a DataTexture from the noise grid.
+ *
+ * The texture is width=lons.length, height=lats.length. Each texel stores
+ * the noise dB value in the red channel (normalized to 0-1 using a known
+ * range of 0-80 dB). The texture uses LinearFilter so the GPU automatically
+ * bilinear-interpolates between grid points, producing a smooth heatmap.
+ */
+function buildNoiseTexture(grid: {
+  lats: number[];
+  lons: number[];
+  values: number[][];
+}): THREE.DataTexture {
+  const width = grid.lons.length;
+  const height = grid.lats.length;
+  const data = new Float32Array(width * height * 4);
+
+  for (let latIdx = 0; latIdx < height; latIdx++) {
+    const row = grid.values[latIdx];
+    for (let lonIdx = 0; lonIdx < width; lonIdx++) {
+      const db = row?.[lonIdx] ?? 0;
+      // Normalize dB to 0-1 range (0 dB -> 0.0, 80 dB -> 1.0)
+      const normalized = Math.max(0, Math.min(1, db / 80));
+
+      // Flip latitude: texture row 0 is bottom (-90), row N is top (+90)
+      // Grid lats go from -90 to +90 (south to north), which matches
+      // texture bottom-to-top, so no flip needed.
+      const pixelIdx = (latIdx * width + lonIdx) * 4;
+      data[pixelIdx] = normalized; // R: noise value
+      data[pixelIdx + 1] = 0; // G: unused
+      data[pixelIdx + 2] = 0; // B: unused
+      data[pixelIdx + 3] = 1; // A: full
+    }
+  }
+
+  const texture = new THREE.DataTexture(
+    data,
+    width,
+    height,
+    THREE.RGBAFormat,
+    THREE.FloatType,
+  );
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.RepeatWrapping; // Wrap longitude
+  texture.wrapT = THREE.ClampToEdgeWrapping; // Clamp latitude
+  texture.needsUpdate = true;
+
+  return texture;
 }
 
-/** Map a noise dB value to a color using a 4-stop gradient */
-function noiseToColor(db: number, out: THREE.Color): void {
-  if (db < 20) {
-    // Quiet: solid blue
-    out.copy(colorQuiet);
-  } else if (db < 35) {
-    // Quiet -> Moderate: blue to green
-    const t = (db - 20) / 15;
-    out.lerpColors(colorQuiet, colorModerate, t);
-  } else if (db < 50) {
-    // Moderate -> Loud: green to yellow
-    const t = (db - 35) / 15;
-    out.lerpColors(colorModerate, colorLoud, t);
-  } else {
-    // Loud -> Noisy: yellow to red
-    const t = Math.min(1, (db - 50) / 20);
-    out.lerpColors(colorLoud, colorNoisy, t);
+// =============================================================================
+// GLSL SHADERS
+// =============================================================================
+
+const vertexShader = /* glsl */ `
+  varying vec3 vPosition;
+
+  void main() {
+    // World-space position (normalized sphere = unit vectors for lat/lon extraction)
+    vPosition = normalize((modelMatrix * vec4(position, 1.0)).xyz);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
-}
+`;
+
+const fragmentShader = /* glsl */ `
+  uniform sampler2D noiseMap;
+  uniform float uOpacity;
+  uniform float uTime;
+
+  varying vec3 vPosition;
+
+  // Map noise dB (normalized 0-1 where 0=0dB, 1=80dB) to color
+  // blue (<20dB) -> green (20-35dB) -> yellow (35-50dB) -> red (>50dB)
+  vec3 noiseToColor(float n) {
+    // Convert normalized back to dB for readable thresholds
+    float db = n * 80.0;
+
+    vec3 blue   = vec3(0.133, 0.400, 1.000); // #2266ff
+    vec3 green  = vec3(0.133, 0.800, 0.400); // #22cc66
+    vec3 yellow = vec3(0.867, 0.800, 0.133); // #ddcc22
+    vec3 red    = vec3(0.933, 0.200, 0.133); // #ee3322
+
+    if (db < 20.0) {
+      return blue;
+    } else if (db < 35.0) {
+      float t = (db - 20.0) / 15.0;
+      return mix(blue, green, t);
+    } else if (db < 50.0) {
+      float t = (db - 35.0) / 15.0;
+      return mix(green, yellow, t);
+    } else {
+      float t = clamp((db - 50.0) / 20.0, 0.0, 1.0);
+      return mix(yellow, red, t);
+    }
+  }
+
+  void main() {
+    // Extract lat/lon from world-space position
+    // y = cos(phi) where phi = (90 - lat) in radians
+    float lat = asin(vPosition.y) * 57.29578; // rad to deg, -90 to +90
+    float lon = atan(vPosition.z, -vPosition.x) * 57.29578 - 180.0; // -180 to +180
+
+    // Normalize to UV coordinates
+    // U: longitude -180..+180 -> 0..1
+    float u = (lon + 180.0) / 360.0;
+    // V: latitude -90..+90 -> 0..1
+    float v = (lat + 90.0) / 180.0;
+
+    // Sample the noise texture (GPU bilinear interpolation gives smooth blending)
+    float noiseVal = texture2D(noiseMap, vec2(u, v)).r;
+
+    // Color from noise level
+    vec3 color = noiseToColor(noiseVal);
+
+    // Subtle pulse animation
+    float pulse = 0.45 + 0.05 * sin(uTime * 0.5);
+
+    gl_FragColor = vec4(color, uOpacity * pulse / 0.45);
+  }
+`;
 
 // =============================================================================
 // COMPONENT
 // =============================================================================
 
 export const NoiseFloorOverlay3D = React.memo(
-  function NoiseFloorOverlay3D({ grid }: NoiseFloorOverlay3DProps) {
-    const meshRef = useRef<THREE.InstancedMesh>(null);
+  function NoiseFloorOverlay3D({
+    grid,
+    frequencyHz: frequencyHzProp,
+  }: NoiseFloorOverlay3DProps) {
+    // Active frequency from operating store (Hz), used when prop not provided.
+    const storeFrequencyHz = useActiveFrequency();
+    const activeFrequencyHz = frequencyHzProp ?? storeFrequencyHz;
+    // activeFrequencyHz is available for future inline noise computation;
+    // currently the grid is pre-computed upstream via useNoiseFloor(frequencyMHz).
+    void activeFrequencyHz;
 
-    // Build instance matrices and colors once when grid changes
-    const instanceData = useMemo(() => {
-      const { lats, lons, values } = grid;
-      const matrices: THREE.Matrix4[] = [];
-      const colors: THREE.Color[] = [];
+    const materialRef = useRef<THREE.ShaderMaterial>(null);
 
-      for (let latIdx = 0; latIdx < lats.length; latIdx++) {
-        const row = values[latIdx];
-        if (!row) continue;
+    // Build noise DataTexture from grid data
+    const noiseTexture = useMemo(() => buildNoiseTexture(grid), [grid]);
 
-        for (let lonIdx = 0; lonIdx < lons.length; lonIdx++) {
-          if (matrices.length >= MAX_INSTANCES) break;
+    // Create shader material with uniforms
+    const material = useMemo(() => {
+      return new THREE.ShaderMaterial({
+        uniforms: {
+          noiseMap: { value: noiseTexture },
+          uOpacity: { value: 0.45 },
+          uTime: { value: 0 },
+        },
+        vertexShader,
+        fragmentShader,
+        transparent: true,
+        side: THREE.FrontSide,
+        depthWrite: false,
+      });
+    }, [noiseTexture]);
 
-          const db = row[lonIdx];
-          if (db == null) continue;
-
-          const [x, y, z] = latLonTo3D(
-            lats[latIdx],
-            lons[lonIdx],
-            GLOBE_RADIUS,
-          );
-
-          // Orient disc to face outward from globe center
-          dummy.position.set(x, y, z);
-          const normal = dummy.position.clone().normalize();
-          dummy.quaternion.setFromUnitVectors(up, normal);
-
-          // Scale disc — slightly larger for coarser grids
-          const discScale = 0.04;
-          dummy.scale.setScalar(discScale);
-          dummy.updateMatrix();
-
-          matrices.push(dummy.matrix.clone());
-
-          const c = new THREE.Color();
-          noiseToColor(db, c);
-          colors.push(c);
-        }
-        if (matrices.length >= MAX_INSTANCES) break;
-      }
-
-      return { matrices, colors, count: matrices.length };
-    }, [grid]);
-
-    // Apply instance data to mesh after mount and when data changes
-    useEffect(() => {
-      const mesh = meshRef.current;
-      if (!mesh || instanceData.count === 0) return;
-
-      for (let i = 0; i < instanceData.count; i++) {
-        mesh.setMatrixAt(i, instanceData.matrices[i]);
-        mesh.setColorAt(i, instanceData.colors[i]);
-      }
-
-      mesh.count = instanceData.count;
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) {
-        mesh.instanceColor.needsUpdate = true;
-      }
-    }, [instanceData]);
-
-    // Subtle slow opacity pulse for visual interest
-    const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+    // Animate time uniform for subtle opacity pulse
     useFrame(({ clock }) => {
       if (materialRef.current) {
-        const t = clock.getElapsedTime();
-        materialRef.current.opacity = 0.45 + 0.05 * Math.sin(t * 0.5);
+        materialRef.current.uniforms.uTime.value = clock.getElapsedTime();
       }
     });
 
@@ -170,25 +218,15 @@ export const NoiseFloorOverlay3D = React.memo(
 
     return (
       <group name="noise-floor-overlay">
-        <instancedMesh
-          ref={meshRef}
-          args={[undefined, undefined, MAX_INSTANCES]}
-          frustumCulled={false}
-        >
-          <circleGeometry args={[1, 16]} />
-          <meshBasicMaterial
-            ref={materialRef}
-            transparent
-            opacity={0.5}
-            depthWrite={false}
-            side={THREE.DoubleSide}
-            vertexColors
-          />
-        </instancedMesh>
+        <mesh>
+          <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
+          <primitive object={material} attach="material" ref={materialRef} />
+        </mesh>
       </group>
     );
   },
-  (prev, next) => prev.grid === next.grid,
+  (prev, next) =>
+    prev.grid === next.grid && prev.frequencyHz === next.frequencyHz,
 );
 
 export default NoiseFloorOverlay3D;

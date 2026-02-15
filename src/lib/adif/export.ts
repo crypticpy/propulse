@@ -7,6 +7,7 @@
 
 import type { LogEntry } from "@/lib/db/types";
 import type { ADIFExportOptions } from "./types";
+import type { QSOFilters } from "@/types/qso";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -260,6 +261,144 @@ export function exportADIF(
   return lines.join("\n");
 }
 
+// ── Activation Export ──────────────────────────────────────────────────────
+
+/**
+ * Generate a filtered ADIF export for a POTA or SOTA activation.
+ *
+ * Filters entries to only those matching the activation (mySig + mySigInfo),
+ * then adds the appropriate activation-specific ADIF fields:
+ * - POTA: MY_POTA_REF, MY_SIG="POTA", MY_SIG_INFO=ref
+ * - SOTA: MY_SOTA_REF, MY_SIG="SOTA", MY_SIG_INFO=ref
+ *
+ * Also adds SIG/SIG_INFO if the contacted station has a park/summit ref.
+ *
+ * @param entries - Array of all LogEntry objects (will be filtered)
+ * @param activationType - "pota" or "sota"
+ * @param ref - The activation reference (e.g., "K-1234" or "W4C/CM-001")
+ * @returns Complete ADIF file content as a string
+ */
+export function exportActivationADIF(
+  entries: LogEntry[],
+  activationType: "pota" | "sota",
+  ref: string,
+): string {
+  const sigKey = activationType === "pota" ? "POTA" : "SOTA";
+
+  // Filter to only entries matching this activation
+  const activationEntries = entries.filter(
+    (e) => e.mySig === sigKey && e.mySigInfo === ref,
+  );
+
+  const lines: string[] = [];
+
+  // ── Header ──
+  lines.push(`${sigKey} Activation Export from Propulse — ${ref}`);
+  lines.push(field("ADIF_VER", "3.1.4"));
+  lines.push(field("CREATED_TIMESTAMP", adifTimestamp(new Date())));
+  lines.push(field("PROGRAMID", "Propulse"));
+  lines.push(field("PROGRAMVERSION", "0.14.0"));
+  lines.push("<EOH>");
+  lines.push("");
+
+  // ── Records ──
+  for (const entry of activationEntries) {
+    const fields: string[] = [];
+
+    // Required fields
+    fields.push(field("CALL", entry.callsign));
+    fields.push(field("QSO_DATE", isoToAdifDate(entry.date)));
+    fields.push(field("TIME_ON", timeToAdif(entry.timeOn)));
+
+    if (entry.timeOff) {
+      fields.push(field("TIME_OFF", timeToAdif(entry.timeOff)));
+    }
+
+    if (entry.band) {
+      fields.push(field("BAND", entry.band));
+    }
+    if (entry.mode) {
+      fields.push(field("MODE", entry.mode.toUpperCase()));
+    }
+
+    if (entry.frequency > 0) {
+      fields.push(field("FREQ", kHzToMHz(entry.frequency)));
+    }
+
+    if (entry.rstSent) {
+      fields.push(field("RST_SENT", entry.rstSent));
+    }
+    if (entry.rstRcvd) {
+      fields.push(field("RST_RCVD", entry.rstRcvd));
+    }
+
+    if (entry.grid) {
+      fields.push(field("GRIDSQUARE", entry.grid.toUpperCase()));
+    }
+    if (entry.name) {
+      fields.push(field("NAME", entry.name));
+    }
+    if (entry.qth) {
+      fields.push(field("QTH", entry.qth));
+    }
+
+    if (entry.notes) {
+      fields.push(field("COMMENT", entry.notes));
+    }
+
+    if (entry.txPower != null) {
+      fields.push(field("TX_PWR", String(entry.txPower)));
+    }
+
+    // Station info
+    if (entry.myGrid) {
+      fields.push(field("MY_GRIDSQUARE", entry.myGrid.toUpperCase()));
+    }
+    if (entry.stationCallsign) {
+      fields.push(
+        field("STATION_CALLSIGN", entry.stationCallsign.toUpperCase()),
+      );
+    }
+    if (entry.operatorCallsign) {
+      fields.push(field("OPERATOR", entry.operatorCallsign.toUpperCase()));
+    }
+
+    // Extended fields
+    if (entry.dxcc) {
+      fields.push(field("DXCC", String(entry.dxcc)));
+    }
+    if (entry.country) {
+      fields.push(field("COUNTRY", entry.country));
+    }
+
+    // ── Activation-specific fields ──
+
+    // My activation reference
+    fields.push(field("MY_SIG", sigKey));
+    fields.push(field("MY_SIG_INFO", ref));
+
+    // Program-specific reference field
+    if (activationType === "pota") {
+      fields.push(field("MY_POTA_REF", ref));
+    } else {
+      fields.push(field("MY_SOTA_REF", ref));
+    }
+
+    // Their activation reference (if the contacted station also has one)
+    if (entry.sig) {
+      fields.push(field("SIG", entry.sig));
+    }
+    if (entry.sigInfo) {
+      fields.push(field("SIG_INFO", entry.sigInfo));
+    }
+
+    lines.push(fields.join(" ") + " <EOR>");
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
 /**
  * RFC 4180-compliant CSV cell escaping.
  * Wraps in double quotes if the value contains commas, double quotes, or newlines.
@@ -324,4 +463,103 @@ export function exportCSV(entries: LogEntry[]): string {
   ];
 
   return csvLines.join("\n");
+}
+
+// ── Filtered Export ────────────────────────────────────────────────────────
+
+/**
+ * Apply QSO filters to an array of log entries.
+ * Mirrors the filter logic in qsoStore.
+ */
+function applyFilters(entries: LogEntry[], filters: QSOFilters): LogEntry[] {
+  let result = entries;
+
+  if (filters.search) {
+    const term = filters.search.toUpperCase().trim();
+    result = result.filter(
+      (e) =>
+        e.callsign.toUpperCase().includes(term) ||
+        e.name?.toUpperCase().includes(term) ||
+        e.qth?.toUpperCase().includes(term) ||
+        e.notes?.toUpperCase().includes(term) ||
+        e.grid?.toUpperCase().includes(term),
+    );
+  }
+
+  if (filters.band) {
+    result = result.filter((e) => e.band === filters.band);
+  }
+
+  if (filters.mode) {
+    result = result.filter((e) => e.mode === filters.mode);
+  }
+
+  if (filters.dateFrom) {
+    const from = filters.dateFrom;
+    result = result.filter((e) => e.date >= from);
+  }
+
+  if (filters.dateTo) {
+    const to = filters.dateTo;
+    result = result.filter((e) => e.date <= to);
+  }
+
+  if (filters.mySig) {
+    result = result.filter((e) => e.mySig === filters.mySig);
+  }
+
+  if (filters.contestId) {
+    result = result.filter((e) => e.contestId === filters.contestId);
+  }
+
+  if (filters.confirmed === true) {
+    result = result.filter(
+      (e) => e.lotw === true || e.eqsl === true || e.qslRcvd === "Y",
+    );
+  } else if (filters.confirmed === false) {
+    result = result.filter((e) => !e.lotw && !e.eqsl && e.qslRcvd !== "Y");
+  }
+
+  if (filters.dupe === true) {
+    const seen = new Map<string, boolean>();
+    const dupeKeys = new Set<string>();
+    for (const e of result) {
+      const key = `${e.callsign}|${e.band}|${e.mode}|${e.date}`;
+      if (seen.has(key)) dupeKeys.add(key);
+      seen.set(key, true);
+    }
+    result = result.filter((e) =>
+      dupeKeys.has(`${e.callsign}|${e.band}|${e.mode}|${e.date}`),
+    );
+  } else if (filters.dupe === false) {
+    const seen = new Set<string>();
+    result = result.filter((e) => {
+      const key = `${e.callsign}|${e.band}|${e.mode}|${e.date}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Generate an ADIF export from entries, filtered by the provided QSOFilters.
+ *
+ * Applies the same filter logic as the log viewer, then generates ADIF
+ * from the matching entries.
+ *
+ * @param entries - Full array of LogEntry objects (unfiltered)
+ * @param filters - QSOFilters to apply before export
+ * @param options - Optional ADIF export configuration
+ * @returns Complete ADIF file content as a string
+ */
+export function exportFilteredADIF(
+  entries: LogEntry[],
+  filters: QSOFilters,
+  options?: ADIFExportOptions,
+): string {
+  const filtered = applyFilters(entries, filters);
+  return exportADIF(filtered, options);
 }

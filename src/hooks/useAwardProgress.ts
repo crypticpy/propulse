@@ -3,12 +3,17 @@
  *
  * Derives WAS (Worked All States), WAZ (Worked All Zones), and DXCC
  * progress from logbook entries for use in map overlays and dashboards.
+ *
+ * Also exports `useDetailedAwardProgress` which returns the full
+ * slot-level breakdown for the Awards page UI.
  */
 
 import { useMemo } from "react";
 import type { LogEntry } from "@/lib/db/types";
 import { useLogbook } from "@/hooks/useLogbook";
 import { lookupEntity } from "@/lib/data/dxccEntities";
+import { computeAllAwardProgress } from "@/lib/awards/awardEngine";
+import type { AwardProgress as DetailedAwardProgress } from "@/lib/awards/types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -310,6 +315,49 @@ export function useAwardProgress(enabled = true): AwardProgress {
 
   return {
     ...progress,
+    isLoading: loading,
+  };
+}
+
+// ─── Detailed Award Progress Hook ──────────────────────────────────────────
+
+/** Return type for useDetailedAwardProgress */
+export interface DetailedAwardProgressResult {
+  progress: DetailedAwardProgress | null;
+  isLoading: boolean;
+}
+
+/**
+ * Computes detailed award progress with full slot-level breakdown.
+ *
+ * Uses the awardEngine for comprehensive DXCC/WAS/WAZ computation,
+ * returning typed slots with status, QSO counts, bands, and modes
+ * for rendering in the Awards page grids.
+ *
+ * @example
+ * ```tsx
+ * const { progress, isLoading } = useDetailedAwardProgress();
+ * if (progress) {
+ *   console.log(`DXCC: ${progress.dxcc.workedCount}/${progress.dxcc.totalEntities}`);
+ *   console.log(`WAS: ${progress.was.workedCount}/${progress.was.totalStates}`);
+ *   console.log(`WAZ: ${progress.waz.workedCount}/${progress.waz.totalZones}`);
+ * }
+ * ```
+ */
+export function useDetailedAwardProgress(
+  enabled = true,
+): DetailedAwardProgressResult {
+  const { entries, loading } = useLogbook();
+
+  const progress = useMemo(() => {
+    if (!enabled || entries.length === 0) {
+      return null;
+    }
+    return computeAllAwardProgress(entries);
+  }, [entries, enabled]);
+
+  return {
+    progress,
     isLoading: loading,
   };
 }

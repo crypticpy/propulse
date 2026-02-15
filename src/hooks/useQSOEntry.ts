@@ -5,10 +5,11 @@
  * auto-detection into a single convenient API for the entry form.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useRigStore } from "@/stores/rigStore";
+import { invalidateDxccCache } from "@/hooks/useDxccStatus";
 import type { OperatingMode } from "@/types/qso";
 
 /** Map rig modes to simplified form modes */
@@ -35,8 +36,29 @@ export function useQSOEntry() {
   const resetForm = useQSOStore((s) => s.resetForm);
   const setFormDefaults = useQSOStore((s) => s.setFormDefaults);
   const applyLookupToForm = useQSOStore((s) => s.applyLookupToForm);
-  const logQSO = useQSOStore((s) => s.logQSO);
-  const quickLog = useQSOStore((s) => s.quickLog);
+  const _logQSO = useQSOStore((s) => s.logQSO);
+  const _quickLog = useQSOStore((s) => s.quickLog);
+
+  // Wrap logQSO to invalidate DXCC cache after successful log
+  const logQSO = useCallback(async () => {
+    const id = await _logQSO();
+    if (id) {
+      // Invalidate all DXCC cache entries so the next lookup reflects the new QSO
+      invalidateDxccCache();
+    }
+    return id;
+  }, [_logQSO]);
+
+  const quickLog = useCallback(
+    async (callsign: string) => {
+      const id = await _quickLog(callsign);
+      if (id) {
+        invalidateDxccCache();
+      }
+      return id;
+    },
+    [_quickLog],
+  );
   const lookupCallsign = useQSOStore((s) => s.lookupCallsign);
   const clearLookup = useQSOStore((s) => s.clearLookup);
   const checkDupe = useQSOStore((s) => s.checkDupe);

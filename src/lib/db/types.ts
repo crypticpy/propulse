@@ -79,6 +79,8 @@ export interface LogEntry {
   ituZone?: number;
   /** Continent code */
   continent?: string;
+  /** US state abbreviation (for WAS tracking) */
+  state?: string;
   /** Transmit power in watts */
   txPower?: number;
   /** My grid square at time of QSO */
@@ -147,6 +149,8 @@ export interface AlertConditions {
   modes?: string[];
   /** Minimum SNR threshold for FT8/digital modes */
   minSnr?: number;
+  /** Filter by continent codes (AF, AN, AS, EU, NA, OC, SA) */
+  continents?: string[];
 }
 
 /**

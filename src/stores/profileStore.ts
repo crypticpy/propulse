@@ -83,6 +83,11 @@ interface ProfileStore {
   socialLinks: SocialLink[];
   visibilitySettings: VisibilitySettings;
 
+  /** Whether the encrypted credential vault has been set up with a passphrase */
+  credentialStoreSetup: boolean;
+  /** Timestamp (epoch ms) of last credential vault unlock — ephemeral, not persisted */
+  lastCredentialUnlock: number;
+
   /** Interest tags selected by the operator */
   interests: InterestTag[];
   /** On Air / Listening / Offline status */
@@ -125,6 +130,10 @@ interface ProfileStore {
 
   // Credentials
   setServiceCredentials: (creds: Partial<ServiceCredentials>) => void;
+  setCredentialStoreSetup: (isSetup: boolean) => void;
+  setLastCredentialUnlock: (timestamp: number) => void;
+  /** Migrate plaintext serviceCredentials to vault and clear them */
+  clearPlaintextCredentials: () => void;
 
   // License
   setLicense: (license: LicenseInfo | null) => void;
@@ -172,6 +181,14 @@ interface ProfileStore {
   setRankOverride: (rank: RankTier | null) => void;
   recordLogin: () => void;
   markCelebrationSeen: () => void;
+
+  // QSO sync tracking
+  /** ISO timestamp of last successful QSO sync */
+  lastQsoSyncAt: string | undefined;
+  /** Stable device identifier for multi-device sync */
+  syncDeviceId: string | undefined;
+  setLastQsoSyncAt: (ts: string) => void;
+  setSyncDeviceId: (id: string) => void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -182,6 +199,8 @@ export const useProfileStore = create<ProfileStore>()(
       station: null,
       savedTargets: [],
       serviceCredentials: {},
+      credentialStoreSetup: false,
+      lastCredentialUnlock: 0,
       license: undefined,
       licenseHistory: [],
       bio: "",
@@ -205,6 +224,8 @@ export const useProfileStore = create<ProfileStore>()(
       lastLoginDate: null,
       loginStreakDays: 0,
       rankCelebrationSeen: null,
+      lastQsoSyncAt: undefined,
+      syncDeviceId: undefined,
 
       setStation: (station) =>
         set((state) => {
@@ -468,6 +489,12 @@ export const useProfileStore = create<ProfileStore>()(
           return { serviceCredentials };
         }),
 
+      setCredentialStoreSetup: (isSetup) =>
+        set({ credentialStoreSetup: isSetup }),
+      setLastCredentialUnlock: (timestamp) =>
+        set({ lastCredentialUnlock: timestamp }),
+      clearPlaintextCredentials: () => set({ serviceCredentials: {} }),
+
       // === License ===
 
       setLicense: (license) =>
@@ -572,10 +599,15 @@ export const useProfileStore = create<ProfileStore>()(
 
       markCelebrationSeen: () =>
         set({ rankCelebrationSeen: new Date().toISOString() }),
+
+      // === QSO Sync ===
+
+      setLastQsoSyncAt: (ts) => set({ lastQsoSyncAt: ts }),
+      setSyncDeviceId: (id) => set({ syncDeviceId: id }),
     }),
     {
       name: "propulse-profile",
-      version: 10,
+      version: 12,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -588,6 +620,8 @@ export const useProfileStore = create<ProfileStore>()(
         lastIngestedCallsign: state.lastIngestedCallsign,
         socialLinks: state.socialLinks,
         // NOTE: serviceCredentials intentionally excluded — use credentialStore (encrypted IDB) instead
+        // NOTE: lastCredentialUnlock is ephemeral — not persisted
+        credentialStoreSetup: state.credentialStoreSetup,
         visibilitySettings: state.visibilitySettings,
         interests: state.interests,
         onAirStatus: state.onAirStatus,
@@ -600,6 +634,8 @@ export const useProfileStore = create<ProfileStore>()(
         subscriptionTier: state.subscriptionTier,
         subscriptionStatus: state.subscriptionStatus,
         subscriptionPeriodEnd: state.subscriptionPeriodEnd,
+        lastQsoSyncAt: state.lastQsoSyncAt,
+        syncDeviceId: state.syncDeviceId,
       }),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -655,6 +691,13 @@ export const useProfileStore = create<ProfileStore>()(
           state.onAirStatus = state.onAirStatus ?? { status: "offline" };
           state.skedAvailability = state.skedAvailability ?? "offline";
           state.favoriteFreqs = state.favoriteFreqs ?? [];
+        }
+        if (version < 11) {
+          state.credentialStoreSetup = state.credentialStoreSetup ?? false;
+        }
+        if (version < 12) {
+          state.lastQsoSyncAt = state.lastQsoSyncAt ?? undefined;
+          state.syncDeviceId = state.syncDeviceId ?? undefined;
         }
         return state as unknown as ProfileStore;
       },

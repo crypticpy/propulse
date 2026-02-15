@@ -34,6 +34,7 @@ import {
 import { getDeviceId } from "@/lib/sync/deviceId";
 import { getRSTDefault } from "@/lib/utils/rstDefaults";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
+import { useContestStore } from "@/stores/contestStore";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,13 @@ interface QSOStoreState {
 
   // ── Dupe Actions ──
   checkDupe: (callsign: string) => Promise<void>;
+
+  // ── Band Map Actions ──
+  setFromSpot: (spot: {
+    callsign: string;
+    frequency: number;
+    mode: string;
+  }) => void;
 
   // ── Operating Mode Actions ──
   setOperatingMode: (mode: OperatingMode) => void;
@@ -382,7 +390,12 @@ export const useQSOStore = create<QSOStoreState>()(
           mySigInfo: form.mySigInfo || undefined,
           sig: form.sig || undefined,
           sigInfo: form.sigInfo || undefined,
-          contestId: form.contestId || undefined,
+          contestId:
+            state.operatingMode === "contest"
+              ? (useContestStore.getState().activeSession?.id ??
+                  form.contestId) ||
+                undefined
+              : form.contestId || undefined,
           stx: form.stx || undefined,
           srx: form.srx || undefined,
           // Field Day: compose class+section into stxString for ADIF compatibility
@@ -716,6 +729,15 @@ export const useQSOStore = create<QSOStoreState>()(
         } catch (err) {
           console.error("[qsoStore] checkDupe failed:", err);
         }
+      },
+
+      // ── Band Map Actions ──
+
+      setFromSpot: (spot) => {
+        const { setField } = get();
+        setField("callsign", spot.callsign);
+        setField("frequency", spot.frequency);
+        setField("mode", spot.mode);
       },
 
       // ── Operating Mode Actions ──

@@ -282,3 +282,97 @@ export async function isDuplicateQSO(
       e.id !== excludeId,
   );
 }
+
+/**
+ * Get all unique band+mode combinations worked for a DXCC entity.
+ * Uses the by-dxcc index for efficient lookup.
+ * @param dxccId - The DXCC entity number
+ * @returns Promise resolving to array of { band, mode } slots
+ */
+export async function getWorkedDxccSlots(
+  dxccId: number,
+): Promise<{ band: string; mode: string }[]> {
+  const db = await getDB();
+  const index = db.transaction("logEntries").store.index("by-dxcc");
+  const entries = await index.getAll(dxccId);
+
+  // Deduplicate by band+mode combo
+  const seen = new Set<string>();
+  const slots: { band: string; mode: string }[] = [];
+
+  for (const entry of entries) {
+    const key = `${entry.band}|${entry.mode}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      slots.push({ band: entry.band, mode: entry.mode });
+    }
+  }
+
+  return slots;
+}
+
+/**
+ * Batch update QSL status fields across multiple log entries.
+ * Efficiently groups updates by entry ID and applies them in a single transaction.
+ *
+ * @param updates - Array of { id, field, value } objects describing each update
+ * @returns Promise resolving to the number of entries successfully updated
+ */
+export async function updateQslStatuses(
+  updates: { id: string; field: string; value: string }[],
+): Promise<number> {
+  if (updates.length === 0) return 0;
+
+  // Group updates by entry ID
+  const grouped = new Map<string, Record<string, unknown>>();
+  for (const { id, field, value } of updates) {
+    const existing = grouped.get(id) ?? {};
+    // Handle boolean fields stored as string "true"/"false"
+    if (field === "lotw" || field === "eqsl") {
+      existing[field] = value === "true";
+    } else {
+      existing[field] = value;
+    }
+    grouped.set(id, existing);
+  }
+
+  const db = await getDB();
+  const tx = db.transaction("logEntries", "readwrite");
+  let updatedCount = 0;
+
+  for (const [id, fields] of grouped) {
+    const existing = await tx.store.get(id);
+    if (!existing) continue;
+
+    const updated: LogEntry = {
+      ...existing,
+      ...(fields as Partial<LogEntry>),
+      id: existing.id,
+      createdAt: existing.createdAt,
+      updatedAt: now(),
+    };
+
+    tx.store.put(updated);
+    updatedCount++;
+  }
+
+  await tx.done;
+  return updatedCount;
+}
+
+/**
+ * Get all log entries for a specific contest session.
+ *
+ * Performs a full scan of the logEntries store and filters by contestId.
+ * No index exists on contestId, so this uses a cursor scan with filter.
+ *
+ * @param contestId - The contest session ID to filter by
+ * @returns Promise resolving to matching log entries
+ */
+export async function getEntriesByContestId(
+  contestId: string,
+): Promise<LogEntry[]> {
+  const db = await getDB();
+  const allEntries = await db.getAll("logEntries");
+  return allEntries.filter((entry) => entry.contestId === contestId);
+}

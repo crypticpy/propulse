@@ -9,6 +9,8 @@ import { useCallback } from "react";
 import { useQSOStore } from "@/stores/qsoStore";
 import type { LogEntry } from "@/lib/db/types";
 import { QSOInlineEditor } from "./QSOInlineEditor";
+import { QslStatusIcons } from "./QslStatusIcons";
+import { FilterChips } from "./FilterChips";
 
 // ── Column Definitions ──────────────────────────────────────────────────────
 
@@ -29,7 +31,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "rstRcvd", label: "RST R", sortable: false, className: "w-14" },
   { key: "grid", label: "Grid", sortable: true, className: "w-20" },
   { key: "name", label: "Name", sortable: true, className: "w-32" },
-  { key: "confirmed", label: "QSL", sortable: false, className: "w-16" },
+  { key: "confirmed", label: "QSL", sortable: false, className: "w-24" },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -191,127 +193,131 @@ export function QSOLogTable({
   };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-white/10">
-            {/* Checkbox header */}
-            <th className="w-10 px-3 py-2">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={handleToggleAll}
-                className="rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50"
-                aria-label="Select all entries"
-              />
-            </th>
-            {COLUMNS.map((col) => (
-              <SortHeader
-                key={col.key}
-                column={col}
-                currentField={sortField}
-                currentDir={sortDirection}
-                onSort={setSort}
-              />
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {entries.length === 0 && (
-            <tr>
-              <td
-                colSpan={COLUMNS.length + 1}
-                className="text-center py-12 text-gray-500"
-              >
-                No QSOs found. Start logging contacts to see them here.
-              </td>
+    <div>
+      <FilterChips />
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10">
+              {/* Checkbox header */}
+              <th className="w-10 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={handleToggleAll}
+                  className="rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50"
+                  aria-label="Select all entries"
+                />
+              </th>
+              {COLUMNS.map((col) => (
+                <SortHeader
+                  key={col.key}
+                  column={col}
+                  currentField={sortField}
+                  currentDir={sortDirection}
+                  onSort={setSort}
+                />
+              ))}
             </tr>
-          )}
-          {entries.map((entry) => {
-            const isSelected = selectedIds.has(entry.id);
-            return (
-              <tr
-                key={entry.id}
-                className={`border-b border-white/5 transition-colors cursor-pointer ${
-                  isSelected
-                    ? "bg-plasma-orange/10 border-l-2 border-l-plasma-orange"
-                    : "bg-white/[0.02] hover:bg-white/[0.05]"
-                }`}
-                onClick={() => onRowClick(entry)}
-              >
-                {/* Checkbox */}
-                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => handleToggleRow(entry.id)}
-                    className="rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50"
-                    aria-label={`Select ${entry.callsign}`}
-                  />
+          </thead>
+          <tbody>
+            {entries.length === 0 && (
+              <tr>
+                <td
+                  colSpan={COLUMNS.length + 1}
+                  className="text-center py-12 text-gray-500"
+                >
+                  No QSOs found. Start logging contacts to see them here.
                 </td>
+              </tr>
+            )}
+            {entries.map((entry) => {
+              const isSelected = selectedIds.has(entry.id);
+              return (
+                <tr
+                  key={entry.id}
+                  className={`border-b border-white/5 transition-colors cursor-pointer ${
+                    isSelected
+                      ? "bg-plasma-orange/10 border-l-2 border-l-plasma-orange"
+                      : "bg-white/[0.02] hover:bg-white/[0.05]"
+                  }`}
+                  onClick={() => onRowClick(entry)}
+                >
+                  {/* Checkbox */}
+                  <td
+                    className="px-3 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleRow(entry.id)}
+                      className="rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50"
+                      aria-label={`Select ${entry.callsign}`}
+                    />
+                  </td>
 
-                {/* Data columns */}
-                {COLUMNS.map((col) => {
-                  const isEditing =
-                    editingCell?.entryId === entry.id &&
-                    editingCell?.field === col.key;
+                  {/* Data columns */}
+                  {COLUMNS.map((col) => {
+                    const isEditing =
+                      editingCell?.entryId === entry.id &&
+                      editingCell?.field === col.key;
 
-                  if (isEditing) {
+                    if (isEditing) {
+                      return (
+                        <td
+                          key={col.key}
+                          className="px-1 py-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <QSOInlineEditor
+                            entryId={entry.id}
+                            field={col.key}
+                            currentValue={getCellValue(entry, col.key)}
+                            onCancel={onCancelEdit}
+                          />
+                        </td>
+                      );
+                    }
+
+                    const isMono = [
+                      "callsign",
+                      "grid",
+                      "band",
+                      "rstSent",
+                      "rstRcvd",
+                      "confirmed",
+                    ].includes(col.key);
+
                     return (
                       <td
                         key={col.key}
-                        className="px-1 py-1"
-                        onClick={(e) => e.stopPropagation()}
+                        className={`px-3 py-2 ${isMono ? "font-mono" : ""} ${
+                          col.key === "callsign"
+                            ? "text-white font-semibold"
+                            : "text-gray-300"
+                        }`}
+                        onDoubleClick={(e) => {
+                          if (isEditableField(col.key)) {
+                            e.stopPropagation();
+                            onStartEdit(entry.id, col.key);
+                          }
+                        }}
                       >
-                        <QSOInlineEditor
-                          entryId={entry.id}
-                          field={col.key}
-                          currentValue={getCellValue(entry, col.key)}
-                          onCancel={onCancelEdit}
-                        />
+                        {col.key === "confirmed" ? (
+                          <QslStatusIcons entry={entry} size="sm" />
+                        ) : (
+                          getCellValue(entry, col.key)
+                        )}
                       </td>
                     );
-                  }
-
-                  const isMono = [
-                    "callsign",
-                    "grid",
-                    "band",
-                    "rstSent",
-                    "rstRcvd",
-                    "confirmed",
-                  ].includes(col.key);
-
-                  return (
-                    <td
-                      key={col.key}
-                      className={`px-3 py-2 ${isMono ? "font-mono" : ""} ${
-                        col.key === "callsign"
-                          ? "text-white font-semibold"
-                          : "text-gray-300"
-                      }`}
-                      onDoubleClick={(e) => {
-                        if (isEditableField(col.key)) {
-                          e.stopPropagation();
-                          onStartEdit(entry.id, col.key);
-                        }
-                      }}
-                    >
-                      {col.key === "confirmed" ? (
-                        <span className="text-signal-green font-mono text-xs">
-                          {getCellValue(entry, col.key)}
-                        </span>
-                      ) : (
-                        getCellValue(entry, col.key)
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

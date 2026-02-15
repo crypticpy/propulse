@@ -13,11 +13,13 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useQSOEntry } from "@/hooks/useQSOEntry";
 import { useCallsignLookup } from "@/hooks/useCallsignLookup";
 import { useDupeCheck } from "@/hooks/useDupeCheck";
+import { useDxccStatus } from "@/hooks/useDxccStatus";
 import { CallsignInput } from "./CallsignInput";
 import { FrequencyInput } from "./FrequencyInput";
 import { ModeSelector } from "./ModeSelector";
 import { RSTInput } from "./RSTInput";
 import { DupeWarningBadge } from "./DupeWarningBadge";
+import { DxccStatusBadge } from "./DxccStatusBadge";
 import { QSOSuccessToast } from "./QSOSuccessToast";
 import type { OperatingMode, QSOLookupResult } from "@/types/qso";
 
@@ -447,6 +449,9 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
   useCallsignLookup();
   useDupeCheck();
 
+  // DXCC working status
+  const dxccStatus = useDxccStatus(form.callsign, form.band, form.mode);
+
   // Success toast
   const [toast, setToast] = useState<{ visible: boolean; callsign: string }>({
     visible: false,
@@ -571,7 +576,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
         )}
       </div>
 
-      {/* ── PRIMARY ROW: Callsign + Frequency + Mode + LOG ─────────────────── */}
+      {/* ── PRIMARY ROW: Callsign + DXCC Badge + Frequency + Mode + LOG ──── */}
       <div ref={callsignRowRef} className="flex items-center gap-2">
         {/* Callsign */}
         <div className="flex-[2] min-w-0">
@@ -581,6 +586,13 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
             lookupLoading={lookupLoading}
           />
         </div>
+
+        {/* DXCC Status Badge (desktop: tooltip on hover) */}
+        {dxccStatus.status && (
+          <div className="shrink-0 hidden sm:block">
+            <DxccStatusBadge dxccStatus={dxccStatus} />
+          </div>
+        )}
 
         {/* Frequency */}
         <div className="flex-1 min-w-0">
@@ -647,6 +659,13 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           )}
         </button>
       </div>
+
+      {/* ── DXCC STATUS (mobile: inline below callsign) ───────────────────── */}
+      {dxccStatus.status && (
+        <div className="sm:hidden">
+          <DxccStatusBadge dxccStatus={dxccStatus} showInlineDetail />
+        </div>
+      )}
 
       {/* ── LOOKUP STRIP ────────────────────────────────────────────────────── */}
       <LookupStrip

@@ -13,10 +13,13 @@
  *
  * All mutable data (view, tuning, notches, callbacks) is accessed through
  * refs so the effect never re-registers event listeners.
+ *
+ * Returns a callback ref `(el: HTMLCanvasElement | null) => void` that
+ * consumers attach to their `<canvas>` element.  When the element mounts
+ * or changes, listeners are automatically torn down and re-attached.
  */
 
-import { useEffect, useRef } from "react";
-import type { RefObject } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type {
   WaterfallView,
   TuningOverlay,
@@ -35,7 +38,7 @@ import {
  */
 type LiveRef<T> = { readonly current: T };
 
-// ── Exported types ──────────────────────────────────────────────────────────
+// -- Exported types ----------------------------------------------------------
 
 export type HitTarget =
   | { kind: "filterLow" }
@@ -64,8 +67,6 @@ export interface SpectrumInteractionCallbacks {
 }
 
 export interface SpectrumInteractionOptions {
-  /** The canvas element to attach pointer/wheel/context listeners to. */
-  canvasRef: RefObject<HTMLCanvasElement | null>;
   /**
    * The current frequency view (centerHz + spanHz).
    * For SpectrumScope this is the main view; for PassbandDetail it is the
@@ -95,11 +96,12 @@ export interface SpectrumInteractionOptions {
   skipDisabledNotches?: boolean;
 }
 
-// ── Hook implementation ─────────────────────────────────────────────────────
+// -- Hook implementation -----------------------------------------------------
 
-export function useSpectrumInteraction(opts: SpectrumInteractionOptions): void {
+export function useSpectrumInteraction(
+  opts: SpectrumInteractionOptions,
+): (el: HTMLCanvasElement | null) => void {
   const {
-    canvasRef,
     viewRef,
     tuningRef,
     notchRef,
@@ -108,7 +110,7 @@ export function useSpectrumInteraction(opts: SpectrumInteractionOptions): void {
     skipDisabledNotches = false,
   } = opts;
 
-  // Stable refs for config values so the effect closure never goes stale
+  // Stable refs for config values so the setup closure never goes stale
   const hitThresholdRef = useRef(hitThreshold);
   hitThresholdRef.current = hitThreshold;
   const skipDisabledRef = useRef(skipDisabledNotches);
@@ -117,11 +119,13 @@ export function useSpectrumInteraction(opts: SpectrumInteractionOptions): void {
   const dragRef = useRef<DragState>({ active: false });
   const cursorRef = useRef<string>("crosshair");
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const elementRef = useRef<HTMLCanvasElement | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-    // ── Helpers ────────────────────────────────────────────────────────
+  // -- Setup / teardown helper (NOT in useEffect) ----------------------------
+
+  const setupListeners = (canvas: HTMLCanvasElement): (() => void) => {
+    // -- Helpers -------------------------------------------------------------
 
     const setCursor = (cursor: string) => {
       if (cursorRef.current !== cursor) {
@@ -181,7 +185,7 @@ export function useSpectrumInteraction(opts: SpectrumInteractionOptions): void {
       return { kind: "none" };
     };
 
-    // ── Event handlers ────────────────────────────────────────────────
+    // -- Event handlers ------------------------------------------------------
 
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return; // only primary button
@@ -303,7 +307,7 @@ export function useSpectrumInteraction(opts: SpectrumInteractionOptions): void {
       if (direction !== 0) callbacksRef.current.onWheelTune(direction);
     };
 
-    // ── Register native listeners ─────────────────────────────────────
+    // -- Register native listeners -------------------------------------------
 
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
@@ -323,6 +327,36 @@ export function useSpectrumInteraction(opts: SpectrumInteractionOptions): void {
       canvas.removeEventListener("contextmenu", handleContextMenu);
       canvas.removeEventListener("wheel", handleWheel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  };
+
+  // -- Callback ref ----------------------------------------------------------
+
+  // setupListeners only captures stable refs — safe to omit from deps
+  const setupListenersRef = useRef(setupListeners);
+  setupListenersRef.current = setupListeners;
+
+  const callbackRef = useCallback((el: HTMLCanvasElement | null) => {
+    // Tear down old listeners
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
+    elementRef.current = el;
+    if (el) {
+      cleanupRef.current = setupListenersRef.current(el);
+    }
   }, []);
+
+  // -- Unmount cleanup -------------------------------------------------------
+
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+  }, []);
+
+  return callbackRef;
 }

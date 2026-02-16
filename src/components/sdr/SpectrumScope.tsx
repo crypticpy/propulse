@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { RadioBinaryFrame } from "@/lib/radio/protocol";
 import type {
   WaterfallPaletteName,
@@ -147,13 +147,19 @@ export function SpectrumScope({
   };
 
   // ── Shared interaction hook (replaces all inline pointer/wheel code) ──
-  useSpectrumInteraction({
-    canvasRef,
+  const interactionRef = useSpectrumInteraction({
     viewRef,
     tuningRef,
     notchRef,
     callbacksRef,
   });
+  const mergedRef = useCallback(
+    (el: HTMLCanvasElement | null) => {
+      canvasRef.current = el;
+      interactionRef(el);
+    },
+    [interactionRef],
+  );
 
   const lut = useMemo(() => getWaterfallPaletteLut(palette), [palette]);
 
@@ -583,7 +589,7 @@ export function SpectrumScope({
 
   return (
     <canvas
-      ref={canvasRef}
+      ref={mergedRef}
       className={`w-full h-full rounded-lg border border-white/10 bg-black touch-none ${className}`}
     />
   );

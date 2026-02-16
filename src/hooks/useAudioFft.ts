@@ -54,6 +54,10 @@ export function useAudioFft({
   // Worker ref — managed by lifecycle effect
   const workerRef = useRef<Worker | null>(null);
 
+  // Pre-allocated conversion buffer for Int16→Float32 (reused every frame)
+  const convBufRef = useRef<Float32Array | null>(null);
+  const convBufLenRef = useRef(0);
+
   // ── Worker message handler (stable ref) ─────────────────────────────────
   const onWorkerMessage = useCallback((e: MessageEvent) => {
     const msg = e.data;
@@ -129,17 +133,25 @@ export function useAudioFft({
     const src = audioFrame.samples;
     const len = src.length;
 
-    // Convert Int16 → Float32 and prepare a transferable buffer
-    const f32 = new Float32Array(len);
+    // Reallocate conversion buffer only when size changes
+    if (len !== convBufLenRef.current) {
+      convBufRef.current = new Float32Array(len);
+      convBufLenRef.current = len;
+    }
+    const f32 = convBufRef.current!;
+
+    // Convert Int16 → Float32 in the pre-allocated buffer
     for (let i = 0; i < len; i++) {
       f32[i] = src[i] / 32768;
     }
 
-    // Transfer the Float32Array buffer to the Worker (zero-copy)
-    worker.postMessage(
-      { type: "audio", samples: f32, sampleRate: audioFrame.sampleRate },
-      [f32.buffer],
-    );
+    // Structured clone (no transfer list) — ~4 KB copy is negligible,
+    // and lets us reuse convBufRef every frame without reallocation.
+    worker.postMessage({
+      type: "audio",
+      samples: f32,
+      sampleRate: audioFrame.sampleRate,
+    });
   }, [enabled, audioFrame]);
 
   return frame;

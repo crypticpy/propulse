@@ -2,9 +2,10 @@
 // audioFftWorker — Web Worker for audio FFT computation
 // ---------------------------------------------------------------------------
 // Offloads the Cooley-Tukey radix-2 FFT from the main thread.  All typed-
-// array buffers are pre-allocated in the Worker constructor — ZERO per-frame
-// allocations.  Communication uses transferable ArrayBuffers so neither the
-// inbound samples nor the outbound bins are copied across threads.
+// array buffers are pre-allocated in the Worker constructor.  Alternating
+// double-buffer for output — one buffer is transferred while the other is
+// ready for the next frame.  Communication uses transferable ArrayBuffers so
+// neither the inbound samples nor the outbound bins are copied across threads.
 //
 // Message protocol:
 //   IN:  { type: "audio", samples: Float32Array, sampleRate: number }
@@ -35,8 +36,10 @@ var re   = new Float32Array(FFT_SIZE);
 var im   = new Float32Array(FFT_SIZE);
 var bins = new Float32Array(HALF);
 
-// Output buffer (separate from bins so we can transfer without clobbering)
-var outBuf = new Float32Array(HALF);
+// Alternating output buffers (one transfers while the other is ready)
+var outBufA = new Float32Array(HALF);
+var outBufB = new Float32Array(HALF);
+var useA    = true;
 
 // ── Radix-2 Cooley-Tukey FFT (in-place) ──────────────────────────────────
 function fftInPlace(re, im) {
@@ -118,17 +121,20 @@ self.onmessage = function (e) {
     bins[k] = 10 * Math.log10(Math.max(1e-20, magSq * norm * norm));
   }
 
-  // Copy to output buffer (bins is reused, outBuf is transferred)
-  outBuf.set(bins);
+  // Select current output buffer and copy bins into it
+  var out = useA ? outBufA : outBufB;
+  out.set(bins);
 
-  // Transfer outBuf to main thread; replace with new buffer
+  // Transfer output buffer to main thread
   self.postMessage(
-    { type: "fft", bins: outBuf, sampleRate: sampleRate },
-    [outBuf.buffer]
+    { type: "fft", bins: out, sampleRate: sampleRate },
+    [out.buffer]
   );
 
-  // Reallocate output buffer (the old one was transferred)
-  outBuf = new Float32Array(HALF);
+  // Reallocate the transferred buffer and swap
+  if (useA) outBufA = new Float32Array(HALF);
+  else      outBufB = new Float32Array(HALF);
+  useA = !useA;
 };
 `;
 

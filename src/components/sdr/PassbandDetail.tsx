@@ -10,12 +10,13 @@
  * waterfall" for signal detail around the receiver passband.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-  getWaterfallPaletteLut,
+  getWaterfallPaletteLutWithGamma,
   computePassbandHz,
   audioHzToRfHz,
 } from "@/components/sdr/waterfallPalette";
+import { fillFftCrossfade } from "@/lib/sdr/fftCrossfade";
 import type { RadioBinaryFrame } from "@/lib/radio/protocol";
 import type {
   WaterfallPaletteName,
@@ -94,7 +95,15 @@ export function PassbandDetail({
     onWheelTune,
   };
 
-  const lut = useMemo(() => getWaterfallPaletteLut(palette), [palette]);
+  const lut = useMemo(
+    () => getWaterfallPaletteLutWithGamma(palette, gamma),
+    [palette, gamma],
+  );
+
+  // ── I2: Pre-allocated buffers (reused across frames) ─────────────────
+  const rowImageRef = useRef<ImageData | null>(null);
+  const normalizedBufRef = useRef<Float32Array | null>(null);
+  const lastRowWidthRef = useRef(0);
 
   const zoomView = useMemo<WaterfallView | null>(() => {
     if (!tuning) return null;
@@ -108,9 +117,8 @@ export function PassbandDetail({
   const zoomRef = useRef(zoomView);
   zoomRef.current = zoomView;
 
-  // ── Shared pointer interaction (hit-detection, drag, cursor, wheel) ───
-  useSpectrumInteraction({
-    canvasRef: olCanvasRef,
+  // ── H3: Shared pointer interaction (callback ref API) ─────────────────
+  const interactionRef = useSpectrumInteraction({
     viewRef: zoomRef,
     tuningRef,
     notchRef,
@@ -118,6 +126,13 @@ export function PassbandDetail({
     hitThreshold: { minPx: 4, maxPx: 8, divisor: 3 },
     skipDisabledNotches: true,
   });
+  const mergedOlRef = useCallback(
+    (el: HTMLCanvasElement | null) => {
+      olCanvasRef.current = el;
+      interactionRef(el);
+    },
+    [interactionRef],
+  );
 
   // ── Canvas resize ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -199,7 +214,7 @@ export function PassbandDetail({
   // ── Waterfall row rendering (one row per FFT frame) ────────────────────
   useEffect(() => {
     const canvas = wfCanvasRef.current;
-    if (!canvas || !effectiveFrame || !zoomView) return;
+    if (!canvas || !effectiveFrame || !zoomView || !tuning) return;
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
@@ -210,40 +225,83 @@ export function PassbandDetail({
     const bins = effectiveFrame.bins;
     if (bins.length === 0) return;
 
-    const startFrame = effectiveFrame.centerHz - effectiveFrame.spanHz / 2;
-    const viewStart = zoomView.centerHz - zoomView.spanHz / 2;
-    const viewSpan = zoomView.spanHz;
+    // I3: rAF gating -- render on next animation frame, avoid redundant paints
+    const rafId = requestAnimationFrame(() => {
+      // I2: Re-use pre-allocated buffers, only reallocate on width change
+      if (lastRowWidthRef.current !== w) {
+        rowImageRef.current = ctx.createImageData(w, 1);
+        normalizedBufRef.current = new Float32Array(w);
+        lastRowWidthRef.current = w;
+      }
+      const row = rowImageRef.current!;
+      const normalizedBuf = normalizedBufRef.current!;
 
-    // Scroll existing content down by 1 pixel
-    ctx.drawImage(canvas, 0, 1);
+      const viewStartHz = zoomView.centerHz - zoomView.spanHz / 2;
+      const viewSpanHz = zoomView.spanHz;
 
-    // Build new row with linear interpolation between FFT bins
-    const row = ctx.createImageData(w, 1);
-    const data = row.data;
-    for (let x = 0; x < w; x++) {
-      const hz = viewStart + (x / (w - 1)) * viewSpan;
-      const fracIdx = ((hz - startFrame) / effectiveFrame.spanHz) * bins.length;
-      const clamped = Math.max(0, Math.min(bins.length - 1.001, fracIdx));
-      const lo = Math.floor(clamped);
-      const hi = Math.min(lo + 1, bins.length - 1);
-      const frac = clamped - lo;
-      const db =
-        (bins[lo] ?? effectiveMinDb) * (1 - frac) +
-        (bins[hi] ?? effectiveMinDb) * frac;
-      const tLinear = Math.max(
-        0,
-        Math.min(1, (db - effectiveMinDb) / effectiveRange),
-      );
-      const t = gamma === 1.0 ? tLinear : Math.pow(tLinear, 1 / gamma);
-      const lutIdx = Math.max(0, Math.min(255, Math.round(t * 255)));
-      const i = x * 4;
-      data[i] = lut[lutIdx * 3] ?? 0;
-      data[i + 1] = lut[lutIdx * 3 + 1] ?? 0;
-      data[i + 2] = lut[lutIdx * 3 + 2] ?? 0;
-      data[i + 3] = 255;
-    }
-    ctx.putImageData(row, 0, 0);
-  }, [effectiveFrame, zoomView, lut, effectiveMinDb, effectiveRange, gamma]);
+      // I1: Compute passband boundaries for crossfade
+      const pb = computePassbandHz(tuning);
+
+      // CI-V frame geometry
+      const civStartHz = frame
+        ? frame.centerHz - frame.spanHz / 2
+        : effectiveFrame.centerHz - effectiveFrame.spanHz / 2;
+      const civSpanHz = frame ? frame.spanHz : effectiveFrame.spanHz;
+      const civBins = frame ? frame.bins : effectiveFrame.bins;
+
+      // Audio FFT geometry (may be null)
+      const audioBins = audioFftFrame?.bins ?? null;
+      const audioStartHz = audioFftFrame
+        ? audioFftFrame.centerHz - audioFftFrame.spanHz / 2
+        : 0;
+      const audioSpanHz = audioFftFrame?.spanHz ?? 1;
+
+      // I1: Fill normalized buffer via crossfade utility
+      fillFftCrossfade(normalizedBuf, viewStartHz, viewSpanHz, {
+        civBins,
+        civStartHz,
+        civSpanHz,
+        civMinDb: effectiveMinDb,
+        civRange: effectiveRange,
+        audioBins,
+        audioStartHz,
+        audioSpanHz,
+        audioMinDb: effectiveMinDb,
+        audioRange: effectiveRange,
+        passbandStartHz: pb.startHz,
+        passbandEndHz: pb.endHz,
+        fadeHz: 200,
+        civInterpolation: "linear",
+      });
+
+      // Scroll existing content down by 1 pixel
+      ctx.drawImage(canvas, 0, 1);
+
+      // I1: Map normalized 0-1 values to palette colors via gamma-baked LUT
+      const data = row.data;
+      const lutData = lut;
+      for (let x = 0; x < w; x++) {
+        const idx = Math.floor(normalizedBuf[x]! * 255);
+        const base = idx * 3;
+        data[x * 4] = lutData[base]!;
+        data[x * 4 + 1] = lutData[base + 1]!;
+        data[x * 4 + 2] = lutData[base + 2]!;
+        data[x * 4 + 3] = 255;
+      }
+      ctx.putImageData(row, 0, 0);
+    });
+
+    return () => cancelAnimationFrame(rafId);
+  }, [
+    effectiveFrame,
+    frame,
+    audioFftFrame,
+    tuning,
+    zoomView,
+    lut,
+    effectiveMinDb,
+    effectiveRange,
+  ]);
 
   // ── Overlay rendering (passband, VFO, notch markers) ───────────────────
   useEffect(() => {
@@ -372,7 +430,7 @@ export function PassbandDetail({
         style={{ imageRendering: "pixelated" }}
       />
       <canvas
-        ref={olCanvasRef}
+        ref={mergedOlRef}
         className="absolute inset-0 w-full h-full touch-none"
       />
       <span className="absolute top-1 left-2 text-[8px] text-gray-400/70 uppercase tracking-wider pointer-events-none select-none">

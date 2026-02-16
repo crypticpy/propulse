@@ -6,9 +6,10 @@ import type {
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
 import {
-  getWaterfallPaletteLut,
+  getWaterfallPaletteLutWithGamma,
   computePassbandHz,
 } from "@/components/sdr/waterfallPalette";
+import { fillFftCrossfade } from "@/lib/sdr/fftCrossfade";
 
 type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
 
@@ -150,10 +151,18 @@ export function Waterfall({
     };
   }, [frame, internalSpanHz, view]);
 
-  const lut = useMemo(() => getWaterfallPaletteLut(palette), [palette]);
+  const lut = useMemo(
+    () => getWaterfallPaletteLutWithGamma(palette, gamma),
+    [palette, gamma],
+  );
   const range = useMemo(() => Math.max(1, maxDb - minDb), [maxDb, minDb]);
   const viewCenterHz = effectiveView?.centerHz;
   const viewSpanHz = effectiveView?.spanHz;
+
+  // Pre-allocated buffers — reallocated only when width changes.
+  const normalizedBufRef = useRef<Float32Array | null>(null);
+  const rowBufRef = useRef<Uint8Array | null>(null);
+  const multiRowBufRef = useRef<Uint8Array | null>(null);
 
   const rendererRef = useRef<"webgl2" | "2d" | "none">("none");
   const glRef = useRef<WebGL2RenderingContext | null>(null);
@@ -359,6 +368,12 @@ export function Waterfall({
 
     return () => {
       ro.disconnect();
+      const g = glRef.current;
+      if (g) {
+        if (texRef.current) g.deleteTexture(texRef.current);
+        if (vaoRef.current) g.deleteVertexArray(vaoRef.current);
+        if (progRef.current) g.deleteProgram(progRef.current);
+      }
       progRef.current = null;
       vaoRef.current = null;
       texRef.current = null;
@@ -407,6 +422,57 @@ export function Waterfall({
     const viewStart = effectiveView.centerHz - effectiveView.spanHz / 2;
     const viewSpan = effectiveView.spanHz;
 
+    // ── Shared crossfade params ──────────────────────────────────────
+    const audioBins = audioFrame?.bins ?? null;
+    const audioFullStart = audioFrame
+      ? audioFrame.centerHz - audioFrame.spanHz / 2
+      : 0;
+    const audioRangeVal = Math.max(1, audioMaxDbVal - audioMinDbVal);
+    const pb = tuning && audioBins ? computePassbandHz(tuning) : null;
+
+    const crossfadeParams = {
+      civBins: bins,
+      civStartHz: startFrame,
+      civSpanHz: frame.spanHz,
+      civMinDb: minDb,
+      civRange: range,
+      audioBins: audioBins as Float32Array | null,
+      audioStartHz: audioFullStart,
+      audioSpanHz: audioFrame?.spanHz ?? 1,
+      audioMinDb: audioMinDbVal,
+      audioRange: audioRangeVal,
+      passbandStartHz: pb ? pb.startHz : 0,
+      passbandEndHz: pb ? pb.endHz : 0,
+      fadeHz: 200,
+      civInterpolation: "nearest" as const,
+    };
+
+    // ── Ensure pre-allocated buffers match current width ─────────
+    if (
+      !normalizedBufRef.current ||
+      normalizedBufRef.current.length !== width
+    ) {
+      normalizedBufRef.current = new Float32Array(width);
+    }
+    if (!rowBufRef.current || rowBufRef.current.length !== width * 4) {
+      rowBufRef.current = new Uint8Array(width * 4);
+    }
+    const normalized = normalizedBufRef.current;
+    const row = rowBufRef.current;
+
+    // ── Fill normalized values using shared cross-fade utility ────
+    fillFftCrossfade(normalized, viewStart, viewSpan, crossfadeParams);
+
+    // ── Map normalized values to RGBA via gamma-baked LUT ────────
+    for (let x = 0; x < width; x++) {
+      const lutIdx = Math.round(normalized[x]! * 255);
+      const i = x * 4;
+      row[i] = lut[lutIdx * 3]!;
+      row[i + 1] = lut[lutIdx * 3 + 1]!;
+      row[i + 2] = lut[lutIdx * 3 + 2]!;
+      row[i + 3] = 255;
+    }
+
     if (
       rendererRef.current === "webgl2" &&
       glRef.current &&
@@ -416,85 +482,13 @@ export function Waterfall({
       const gl = glRef.current;
       const tex = texRef.current;
 
-      // Pre-compute audio FFT boundaries, clipped to passband
-      const audioBins = audioFrame?.bins;
-      const audioFullStart = audioFrame
-        ? audioFrame.centerHz - audioFrame.spanHz / 2
-        : 0;
-      const audioRange = Math.max(1, audioMaxDbVal - audioMinDbVal);
-
-      // Clip to passband + cross-fade zone
-      const pb = tuning && audioBins ? computePassbandHz(tuning) : null;
-      const audioRegionStart = pb ? pb.startHz : 0;
-      const audioRegionEnd = pb ? pb.endHz : 0;
-      const fadeHz = 200;
-
-      const row = new Uint8Array(width * 4);
-      for (let x = 0; x < width; x++) {
-        const hz = viewStart + (x / (width - 1)) * viewSpan;
-
-        const inFadeRegion =
-          pb &&
-          audioBins &&
-          hz >= audioRegionStart - fadeHz &&
-          hz < audioRegionEnd + fadeHz;
-
-        let tLinear: number;
-        if (inFadeRegion) {
-          // High-res audio FFT with linear interpolation
-          const aFrac =
-            ((hz - audioFullStart) / audioFrame!.spanHz) * audioBins.length;
-          const aCl = clamp(aFrac, 0, audioBins.length - 1.001);
-          const aLo = Math.floor(aCl);
-          const aHi = Math.min(aLo + 1, audioBins.length - 1);
-          const af = aCl - aLo;
-          const aDb =
-            (audioBins[aLo] ?? audioMinDbVal) * (1 - af) +
-            (audioBins[aHi] ?? audioMinDbVal) * af;
-          const audioVal = clamp((aDb - audioMinDbVal) / audioRange, 0, 1);
-
-          // CI-V for crossfade
-          const cIdx = clamp(
-            Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
-            0,
-            bins.length - 1,
-          );
-          const civVal = clamp(((bins[cIdx] ?? minDb) - minDb) / range, 0, 1);
-
-          // Cross-fade: 1 = full audio, 0 = full CI-V
-          let blend = 1;
-          if (hz < audioRegionStart) {
-            blend = (hz - (audioRegionStart - fadeHz)) / fadeHz;
-          } else if (hz >= audioRegionEnd) {
-            blend = (audioRegionEnd + fadeHz - hz) / fadeHz;
-          }
-          blend = clamp(blend, 0, 1);
-
-          tLinear = audioVal * blend + civVal * (1 - blend);
-        } else {
-          // CI-V wideband scope (nearest neighbor)
-          const idx = clamp(
-            Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
-            0,
-            bins.length - 1,
-          );
-          const db = bins[idx] ?? minDb;
-          tLinear = clamp((db - minDb) / range, 0, 1);
-        }
-
-        const t = gamma === 1.0 ? tLinear : Math.pow(tLinear, 1 / gamma);
-        const lutIdx = clamp(Math.round(t * 255), 0, 255);
-        const i = x * 4;
-        row[i] = lut[lutIdx * 3] ?? 0;
-        row[i + 1] = lut[lutIdx * 3 + 1] ?? 0;
-        row[i + 2] = lut[lutIdx * 3 + 2] ?? 0;
-        row[i + 3] = 255;
-      }
-
       const lines =
         Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
+
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      for (let n = 0; n < lines; n++) {
+
+      if (lines === 1) {
+        // Single row — upload directly
         const head = headRef.current % height;
         gl.texSubImage2D(
           gl.TEXTURE_2D,
@@ -508,6 +502,44 @@ export function Waterfall({
           row,
         );
         headRef.current = (headRef.current + 1) % height;
+      } else {
+        // Multi-row: build a single buffer with `lines` copies, upload in
+        // contiguous chunks to minimize texSubImage2D calls.
+        const multiSize = width * 4 * lines;
+        if (
+          !multiRowBufRef.current ||
+          multiRowBufRef.current.length !== multiSize
+        ) {
+          multiRowBufRef.current = new Uint8Array(multiSize);
+        }
+        const multi = multiRowBufRef.current;
+        for (let n = 0; n < lines; n++) {
+          multi.set(row, n * width * 4);
+        }
+
+        // Upload contiguous chunks, wrapping around texture height boundary
+        let remaining = lines;
+        while (remaining > 0) {
+          const head = headRef.current % height;
+          const maxRows = Math.min(remaining, height - head);
+          gl.texSubImage2D(
+            gl.TEXTURE_2D,
+            0,
+            0,
+            head,
+            width,
+            maxRows,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            new Uint8Array(
+              multi.buffer,
+              (lines - remaining) * width * 4,
+              maxRows * width * 4,
+            ),
+          );
+          headRef.current = (headRef.current + maxRows) % height;
+          remaining -= maxRows;
+        }
       }
 
       gl.useProgram(progRef.current);
@@ -522,87 +554,26 @@ export function Waterfall({
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
-    // Canvas2D fallback: scroll and paint the newest row.
+    // Canvas2D fallback: scroll and paint the newest row(s).
     const lines =
       Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
     ctx.drawImage(canvas, 0, lines);
-    // Pre-compute audio FFT boundaries, clipped to passband (Canvas2D path)
-    const audioBinsC = audioFrame?.bins;
-    const audioFullStartC = audioFrame
-      ? audioFrame.centerHz - audioFrame.spanHz / 2
-      : 0;
-    const audioRangeC = Math.max(1, audioMaxDbVal - audioMinDbVal);
 
-    const pbC = tuning && audioBinsC ? computePassbandHz(tuning) : null;
-    const audioRegionStartC = pbC ? pbC.startHz : 0;
-    const audioRegionEndC = pbC ? pbC.endHz : 0;
-    const fadeHzC = 200;
-
-    const row = ctx.createImageData(width, 1);
-    const data = row.data;
+    const imgData = ctx.createImageData(width, 1);
+    const data = imgData.data;
     for (let x = 0; x < width; x++) {
-      const hz = viewStart + (x / (width - 1)) * viewSpan;
-
-      const inFadeC =
-        pbC &&
-        audioBinsC &&
-        hz >= audioRegionStartC - fadeHzC &&
-        hz < audioRegionEndC + fadeHzC;
-
-      let tLinear: number;
-      if (inFadeC) {
-        const aFrac =
-          ((hz - audioFullStartC) / audioFrame!.spanHz) * audioBinsC.length;
-        const aCl = clamp(aFrac, 0, audioBinsC.length - 1.001);
-        const aLo = Math.floor(aCl);
-        const aHi = Math.min(aLo + 1, audioBinsC.length - 1);
-        const af = aCl - aLo;
-        const aDb =
-          (audioBinsC[aLo] ?? audioMinDbVal) * (1 - af) +
-          (audioBinsC[aHi] ?? audioMinDbVal) * af;
-        const audioVal = clamp((aDb - audioMinDbVal) / audioRangeC, 0, 1);
-
-        const cIdx = clamp(
-          Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
-          0,
-          bins.length - 1,
-        );
-        const civVal = clamp(((bins[cIdx] ?? minDb) - minDb) / range, 0, 1);
-
-        let blend = 1;
-        if (hz < audioRegionStartC) {
-          blend = (hz - (audioRegionStartC - fadeHzC)) / fadeHzC;
-        } else if (hz >= audioRegionEndC) {
-          blend = (audioRegionEndC + fadeHzC - hz) / fadeHzC;
-        }
-        blend = clamp(blend, 0, 1);
-
-        tLinear = audioVal * blend + civVal * (1 - blend);
-      } else {
-        const idx = clamp(
-          Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
-          0,
-          bins.length - 1,
-        );
-        const db = bins[idx] ?? minDb;
-        tLinear = clamp((db - minDb) / range, 0, 1);
-      }
-
-      const t = gamma === 1.0 ? tLinear : Math.pow(tLinear, 1 / gamma);
-      const lutIdx = clamp(Math.round(t * 255), 0, 255);
       const i = x * 4;
-      data[i] = lut[lutIdx * 3] ?? 0;
-      data[i + 1] = lut[lutIdx * 3 + 1] ?? 0;
-      data[i + 2] = lut[lutIdx * 3 + 2] ?? 0;
+      data[i] = row[i]!;
+      data[i + 1] = row[i + 1]!;
+      data[i + 2] = row[i + 2]!;
       data[i + 3] = 255;
     }
     for (let n = 0; n < lines; n++) {
-      ctx.putImageData(row, 0, n);
+      ctx.putImageData(imgData, 0, n);
     }
   }, [
     effectiveView,
     frame,
-    gamma,
     lut,
     minDb,
     range,

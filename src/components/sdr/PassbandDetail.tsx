@@ -14,7 +14,6 @@ import { useEffect, useMemo, useRef } from "react";
 import {
   getWaterfallPaletteLut,
   computePassbandHz,
-  rfHzToAudioHz,
   audioHzToRfHz,
 } from "@/components/sdr/waterfallPalette";
 import type { RadioBinaryFrame } from "@/lib/radio/protocol";
@@ -23,18 +22,10 @@ import type {
   WaterfallView,
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
+import { useSpectrumInteraction } from "@/hooks/useSpectrumInteraction";
+import type { SpectrumInteractionCallbacks } from "@/hooks/useSpectrumInteraction";
 
 type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
-
-type HitTarget =
-  | { kind: "filterLow" }
-  | { kind: "filterHigh" }
-  | { kind: "notch"; id: string; freqHz: number; q: number }
-  | { kind: "none" };
-
-type DragState =
-  | { active: false }
-  | { active: true; target: HitTarget; startX: number; startY: number };
 
 interface PassbandDetailProps {
   /** Radio scope FFT (wideband, low resolution ~1050 Hz/bin). */
@@ -79,11 +70,14 @@ export function PassbandDetail({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const olCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const dragRef = useRef<DragState>({ active: false });
-  const cursorRef = useRef<string>("crosshair");
   const lastViewRef = useRef<{ centerHz: number; spanHz: number } | null>(null);
 
-  const cbRef = useRef({
+  const tuningRef = useRef(tuning);
+  tuningRef.current = tuning;
+  const notchRef = useRef(notchFilters);
+  notchRef.current = notchFilters;
+
+  const callbacksRef = useRef<SpectrumInteractionCallbacks>({
     onPickFrequencyHz,
     onFilterChange,
     onAddNotch,
@@ -91,7 +85,7 @@ export function PassbandDetail({
     onRemoveNotch,
     onWheelTune,
   });
-  cbRef.current = {
+  callbacksRef.current = {
     onPickFrequencyHz,
     onFilterChange,
     onAddNotch,
@@ -99,11 +93,6 @@ export function PassbandDetail({
     onRemoveNotch,
     onWheelTune,
   };
-
-  const tuningRef = useRef(tuning);
-  tuningRef.current = tuning;
-  const notchRef = useRef(notchFilters);
-  notchRef.current = notchFilters;
 
   const lut = useMemo(() => getWaterfallPaletteLut(palette), [palette]);
 
@@ -118,6 +107,17 @@ export function PassbandDetail({
 
   const zoomRef = useRef(zoomView);
   zoomRef.current = zoomView;
+
+  // ── Shared pointer interaction (hit-detection, drag, cursor, wheel) ───
+  useSpectrumInteraction({
+    canvasRef: olCanvasRef,
+    viewRef: zoomRef,
+    tuningRef,
+    notchRef,
+    callbacksRef,
+    hitThreshold: { minPx: 4, maxPx: 8, divisor: 3 },
+    skipDisabledNotches: true,
+  });
 
   // ── Canvas resize ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -358,192 +358,6 @@ export function PassbandDetail({
       ctx.fill();
     }
   }, [tuning, zoomView, notchFilters, onFilterChange]);
-
-  // ── Hit detection ──────────────────────────────────────────────────────
-  const hitDetect = (clientX: number): HitTarget => {
-    const canvas = olCanvasRef.current;
-    const z = zoomRef.current;
-    const t = tuningRef.current;
-    if (!canvas || !z || !t) return { kind: "none" };
-
-    const rect = canvas.getBoundingClientRect();
-    const cssX = clientX - rect.left;
-    const cssW = rect.width;
-    if (cssW <= 0) return { kind: "none" };
-
-    const viewStart = z.centerHz - z.spanHz / 2;
-    const hzPerPx = z.spanHz / cssW;
-
-    const pb = computePassbandHz(t);
-    const pbStartPx = (pb.startHz - viewStart) / hzPerPx;
-    const pbEndPx = (pb.endHz - viewStart) / hzPerPx;
-    const pbWidthPx = pbEndPx - pbStartPx;
-    const threshold = Math.max(4, Math.min(8, pbWidthPx / 3));
-
-    // Notch markers (highest priority)
-    const notches = notchRef.current;
-    for (const n of notches) {
-      if (!n.enabled) continue;
-      const nRfHz = audioHzToRfHz(n.freqHz, t.freqHz, t.mode);
-      const nPx = (nRfHz - viewStart) / hzPerPx;
-      if (Math.abs(cssX - nPx) <= threshold) {
-        return { kind: "notch", id: n.id, freqHz: n.freqHz, q: n.q };
-      }
-    }
-
-    // Passband edges
-    if (Math.abs(cssX - pbStartPx) <= threshold) return { kind: "filterLow" };
-    if (Math.abs(cssX - pbEndPx) <= threshold) return { kind: "filterHigh" };
-
-    return { kind: "none" };
-  };
-
-  // ── Pointer events ─────────────────────────────────────────────────────
-  useEffect(() => {
-    const canvas = olCanvasRef.current;
-    if (!canvas) return;
-
-    const setCursor = (c: string) => {
-      if (cursorRef.current !== c) {
-        cursorRef.current = c;
-        canvas.style.cursor = c;
-      }
-    };
-
-    const pxToRfHz = (clientX: number): number => {
-      const rect = canvas.getBoundingClientRect();
-      const frac = (clientX - rect.left) / rect.width;
-      const z = zoomRef.current!;
-      const viewStart = z.centerHz - z.spanHz / 2;
-      return viewStart + Math.max(0, Math.min(1, frac)) * z.spanHz;
-    };
-
-    const handlePointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      const hit = hitDetect(e.clientX);
-      if (
-        hit.kind !== "none" &&
-        (cbRef.current.onFilterChange || cbRef.current.onUpdateNotch)
-      ) {
-        canvas.setPointerCapture(e.pointerId);
-        dragRef.current = {
-          active: true,
-          target: hit,
-          startX: e.clientX,
-          startY: e.clientY,
-        };
-        e.preventDefault();
-      } else {
-        dragRef.current = {
-          active: true,
-          target: { kind: "none" },
-          startX: e.clientX,
-          startY: e.clientY,
-        };
-      }
-    };
-
-    const handlePointerMove = (e: PointerEvent) => {
-      const drag = dragRef.current;
-      const t = tuningRef.current;
-      const z = zoomRef.current;
-
-      if (drag.active && drag.target.kind !== "none" && t && z) {
-        const rfHz = pxToRfHz(e.clientX);
-        const audioHz = rfHzToAudioHz(rfHz, t.freqHz, t.mode);
-
-        if (drag.target.kind === "filterLow") {
-          const clamped = Math.max(0, Math.min(5000, Math.round(audioHz)));
-          cbRef.current.onFilterChange?.(clamped, t.filterHighHz);
-        } else if (drag.target.kind === "filterHigh") {
-          const clamped = Math.max(500, Math.min(15000, Math.round(audioHz)));
-          cbRef.current.onFilterChange?.(t.filterLowHz, clamped);
-        } else if (drag.target.kind === "notch") {
-          const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
-          cbRef.current.onUpdateNotch?.(drag.target.id, clamped, drag.target.q);
-        }
-        return;
-      }
-
-      // Hover cursor feedback
-      if (!drag.active || drag.target.kind === "none") {
-        const hit = hitDetect(e.clientX);
-        if (hit.kind === "filterLow" || hit.kind === "filterHigh") {
-          setCursor("ew-resize");
-        } else if (hit.kind === "notch") {
-          setCursor("grab");
-        } else {
-          setCursor(cbRef.current.onPickFrequencyHz ? "crosshair" : "default");
-        }
-      }
-    };
-
-    const handlePointerUp = (e: PointerEvent) => {
-      const drag = dragRef.current;
-      if (!drag.active) return;
-      canvas.releasePointerCapture(e.pointerId);
-
-      if (drag.target.kind === "none") {
-        const dx = e.clientX - drag.startX;
-        const dy = e.clientY - drag.startY;
-        if (
-          Math.sqrt(dx * dx + dy * dy) < 4 &&
-          cbRef.current.onPickFrequencyHz &&
-          zoomRef.current
-        ) {
-          cbRef.current.onPickFrequencyHz(Math.round(pxToRfHz(e.clientX)));
-        }
-      }
-      dragRef.current = { active: false };
-    };
-
-    const handlePointerCancel = (e: PointerEvent) => {
-      canvas.releasePointerCapture(e.pointerId);
-      dragRef.current = { active: false };
-    };
-
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      const t = tuningRef.current;
-      const z = zoomRef.current;
-      if (!t || !z) return;
-
-      const hit = hitDetect(e.clientX);
-      if (hit.kind === "notch") {
-        cbRef.current.onRemoveNotch?.(hit.id);
-      } else {
-        const rfHz = pxToRfHz(e.clientX);
-        const audioHz = rfHzToAudioHz(rfHz, t.freqHz, t.mode);
-        const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
-        cbRef.current.onAddNotch?.(clamped, 10);
-      }
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!cbRef.current.onWheelTune) return;
-      e.preventDefault();
-      const direction = e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0;
-      if (direction !== 0) cbRef.current.onWheelTune(direction);
-    };
-
-    canvas.addEventListener("pointerdown", handlePointerDown);
-    canvas.addEventListener("pointermove", handlePointerMove);
-    canvas.addEventListener("pointerup", handlePointerUp);
-    canvas.addEventListener("pointercancel", handlePointerCancel);
-    canvas.addEventListener("contextmenu", handleContextMenu);
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-
-    setCursor(cbRef.current.onPickFrequencyHz ? "crosshair" : "default");
-
-    return () => {
-      canvas.removeEventListener("pointerdown", handlePointerDown);
-      canvas.removeEventListener("pointermove", handlePointerMove);
-      canvas.removeEventListener("pointerup", handlePointerUp);
-      canvas.removeEventListener("pointercancel", handlePointerCancel);
-      canvas.removeEventListener("contextmenu", handleContextMenu);
-      canvas.removeEventListener("wheel", handleWheel);
-    };
-  }, []);
 
   if (!zoomView) return null;
 

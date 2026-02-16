@@ -7,75 +7,22 @@
  * Resolution: fftSize=4096 at 48 kHz → 2048 bins, ~11.7 Hz/bin — roughly 90×
  * better than the radio's CI-V scope data (~1050 Hz/bin across 500 kHz).
  *
- * This operates on the raw PCM samples (pre-notch), so interference remains
- * visible in the zoom waterfall for accurate notch placement.
+ * FFT computation is offloaded to a Web Worker to keep the main thread free.
+ * This hook handles Int16→Float32 conversion, Worker lifecycle, transferable
+ * buffer management, and RF coordinate mapping (USB/LSB offset → absolute Hz).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { TuningOverlay } from "@/components/sdr/waterfallPalette";
 import type { RadioBinaryFrame } from "@/lib/radio/protocol";
+import {
+  createAudioFftWorker,
+  disposeAudioFftWorker,
+} from "@/lib/audio/audioFftWorker";
 
 type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
 
-const FFT_SIZE = 4096;
-const HALF = FFT_SIZE / 2;
-
-/** Minimum interval between FFT computations in ms (~20 fps). */
-const FRAME_INTERVAL_MS = 50;
-
-// ── Pre-computed Hann window ────────────────────────────────────────────────
-const hannWindow = new Float32Array(FFT_SIZE);
-for (let i = 0; i < FFT_SIZE; i++) {
-  hannWindow[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)));
-}
-
-// ── Radix-2 Cooley-Tukey FFT (in-place) ────────────────────────────────────
-function fftInPlace(re: Float32Array, im: Float32Array): void {
-  const n = re.length;
-
-  // Bit-reversal permutation
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    while (j & bit) {
-      j ^= bit;
-      bit >>= 1;
-    }
-    j ^= bit;
-    if (i < j) {
-      let tmp = re[i];
-      re[i] = re[j];
-      re[j] = tmp;
-      tmp = im[i];
-      im[i] = im[j];
-      im[j] = tmp;
-    }
-  }
-
-  // Butterfly stages
-  for (let len = 2; len <= n; len <<= 1) {
-    const halfLen = len >> 1;
-    const angle = (-2 * Math.PI) / len;
-    const wRe = Math.cos(angle);
-    const wIm = Math.sin(angle);
-    for (let i = 0; i < n; i += len) {
-      let curRe = 1;
-      let curIm = 0;
-      for (let j = 0; j < halfLen; j++) {
-        const a = i + j;
-        const b = a + halfLen;
-        const tRe = curRe * re[b] - curIm * im[b];
-        const tIm = curRe * im[b] + curIm * re[b];
-        re[b] = re[a] - tRe;
-        im[b] = im[a] - tIm;
-        re[a] += tRe;
-        im[a] += tIm;
-        const nextRe = curRe * wRe - curIm * wIm;
-        curIm = curRe * wIm + curIm * wRe;
-        curRe = nextRe;
-      }
-    }
-  }
-}
+const HALF = 4096 / 2; // Must match FFT_SIZE / 2 in the worker
 
 // ── Hook ────────────────────────────────────────────────────────────────────
 
@@ -100,69 +47,25 @@ export function useAudioFft({
 }: UseAudioFftOptions): FftFrame | null {
   const [frame, setFrame] = useState<FftFrame | null>(null);
 
-  // Ring buffer to accumulate samples
-  const ringRef = useRef(new Float32Array(FFT_SIZE));
-  const writePos = useRef(0);
-  const hasFullBuffer = useRef(false);
-  const lastComputeTime = useRef(0);
-
-  // Keep tuning ref current without re-triggering the effect
+  // Keep tuning ref current without re-triggering effects
   const tuningRef = useRef(tuning);
   tuningRef.current = tuning;
 
-  // Accumulate samples and compute FFT
-  useEffect(() => {
-    if (!enabled || !audioFrame || audioFrame.samples.length === 0) {
-      if (!enabled) {
-        setFrame(null);
-        hasFullBuffer.current = false;
-        writePos.current = 0;
-      }
-      return;
-    }
+  // Worker ref — managed by lifecycle effect
+  const workerRef = useRef<Worker | null>(null);
 
-    const ring = ringRef.current;
-    const samples = audioFrame.samples;
-    const sampleRate = audioFrame.sampleRate;
+  // ── Worker message handler (stable ref) ─────────────────────────────────
+  const onWorkerMessage = useCallback((e: MessageEvent) => {
+    const msg = e.data;
+    if (msg.type !== "fft") return;
 
-    // Copy new samples into ring buffer (convert i16 → float)
-    for (let i = 0; i < samples.length; i++) {
-      ring[writePos.current] = samples[i] / 32768;
-      writePos.current = (writePos.current + 1) % FFT_SIZE;
-      if (writePos.current === 0) hasFullBuffer.current = true;
-    }
-
-    // Throttle FFT computation
-    const now = performance.now();
-    if (now - lastComputeTime.current < FRAME_INTERVAL_MS) return;
-    if (!hasFullBuffer.current) return;
-    lastComputeTime.current = now;
+    const bins: Float32Array = msg.bins; // transferred from Worker
+    const sampleRate: number = msg.sampleRate;
 
     const t = tuningRef.current;
     if (!t) return;
 
-    // Build windowed input from ring buffer (read from writePos = oldest sample)
-    const re = new Float32Array(FFT_SIZE);
-    const im = new Float32Array(FFT_SIZE);
-    for (let i = 0; i < FFT_SIZE; i++) {
-      const idx = (writePos.current + i) % FFT_SIZE;
-      re[i] = ring[idx] * hannWindow[i];
-    }
-
-    // Compute FFT
-    fftInPlace(re, im);
-
-    // Compute magnitude spectrum in dB (first half only = positive frequencies)
     const nyquist = sampleRate / 2;
-    const bins = new Float32Array(HALF);
-    const norm = 1 / FFT_SIZE;
-    for (let k = 0; k < HALF; k++) {
-      const magSq = re[k] * re[k] + im[k] * im[k];
-      // 10 * log10(magSq * norm^2) = 20 * log10(mag * norm)
-      bins[k] = 10 * Math.log10(Math.max(1e-20, magSq * norm * norm));
-    }
-
-    // Map audio bins to RF coordinates
     const mode = (t.mode ?? "USB").toUpperCase();
     const isLsb = mode === "LSB" || mode === "CWR";
 
@@ -190,6 +93,53 @@ export function useAudioFft({
       spanHz: nyquist,
       bins: rfBins,
     });
+  }, []);
+
+  // ── Worker lifecycle ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!enabled) {
+      // Tear down worker when disabled
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+      setFrame(null);
+      return;
+    }
+
+    // Create worker
+    const worker = createAudioFftWorker();
+    worker.onmessage = onWorkerMessage;
+    workerRef.current = worker;
+
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+      disposeAudioFftWorker();
+    };
+  }, [enabled, onWorkerMessage]);
+
+  // ── Post audio samples to Worker ────────────────────────────────────────
+  useEffect(() => {
+    if (!enabled || !audioFrame || audioFrame.samples.length === 0) return;
+
+    const worker = workerRef.current;
+    if (!worker) return;
+
+    const src = audioFrame.samples;
+    const len = src.length;
+
+    // Convert Int16 → Float32 and prepare a transferable buffer
+    const f32 = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      f32[i] = src[i] / 32768;
+    }
+
+    // Transfer the Float32Array buffer to the Worker (zero-copy)
+    worker.postMessage(
+      { type: "audio", samples: f32, sampleRate: audioFrame.sampleRate },
+      [f32.buffer],
+    );
   }, [enabled, audioFrame]);
 
   return frame;

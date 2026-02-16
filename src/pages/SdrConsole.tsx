@@ -7,14 +7,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DevicePicker } from "@/components/sdr/DevicePicker";
 import { useAudioStreamPlayer } from "@/hooks/useAudioStreamPlayer";
 import { useAudioFft } from "@/hooks/useAudioFft";
-import { AudioProcessingChain } from "@/lib/audio/audioProcessingChain";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRadioDaemon } from "@/hooks/useRadioDaemon";
 import type {
   ClusterSpotMessage,
   DaemonDiscoveryDaemonsMessage,
   DaemonIncomingMessage,
-  RadioState,
   RadioBinaryFrame,
   WsjtxDecode,
   WsjtxStatus,
@@ -48,15 +46,16 @@ import { FlexibleSkin } from "@/components/sdr/skins/FlexibleSkin";
 import { FateSkin } from "@/components/sdr/skins/fate/FateSkin";
 import type { SdrSkinProps, SdrSkinName } from "@/components/sdr/skins/types";
 import { useSdrSettings } from "@/hooks/useSdrSettings";
+import { useRadioCommands } from "@/hooks/useRadioCommands";
+import { useSmartTuning } from "@/hooks/useSmartTuning";
+import { useNotchFilters } from "@/hooks/useNotchFilters";
+import { useClientDsp } from "@/hooks/useClientDsp";
+import { useFt8AutoConfig } from "@/hooks/useFt8AutoConfig";
+import { useAudioDspChain } from "@/hooks/useAudioDspChain";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
 const LS_LAST_DEVICE_KEY = "propulse-radio-daemon-device";
-
-/** Modes compatible with FT8/FT4 decoding (all upper-sideband digital variants). */
-const FT8_USB_MODES = ["USB", "DIGU", "DATA-U", "DIGI-U", "USB-D"];
-const isFt8CompatibleMode = (m: string) =>
-  FT8_USB_MODES.includes(m.toUpperCase());
 
 export function SdrConsole() {
   const isMobile = useIsMobile();
@@ -100,8 +99,6 @@ export function SdrConsole() {
     ),
   });
   const autoConnectAttemptedRef = useRef(false);
-  const gainDebounceRef = useRef<Record<string, number>>({});
-  const filterDebounceRef = useRef<number | null>(null);
   const autoFftStartRef = useRef<Record<string, boolean>>({});
   const [waterfallSpanHz, setWaterfallSpanHz] = useState<number | null>(null);
 
@@ -138,7 +135,6 @@ export function SdrConsole() {
   );
   const [freqInput, setFreqInput] = useState("");
   const [freqUnit, setFreqUnit] = useState<"MHz" | "kHz" | "Hz">("MHz");
-  const [draftState, setDraftState] = useState<RadioState | null>(null);
 
   // ── Daemon message handler ──────────────────────────────────
   const handleDaemonMessage = useCallback(
@@ -230,15 +226,141 @@ export function SdrConsole() {
   const connectedState = connectedDeviceId
     ? (radioStateById[connectedDeviceId] ?? null)
     : null;
-  const effectiveState = draftState ?? connectedState;
+
+  // ── Extracted hooks ─────────────────────────────────────────
+
+  // Hook 1: Radio command handlers + draftState + effectiveState
+  const {
+    draftState: _draftState,
+    setDraftState,
+    effectiveState,
+    handleConnectRadio,
+    handleDisconnectRadio,
+    handleTune,
+    handleModeChange,
+    handleGainChange,
+    handleAgcToggle,
+    handleAntennaChange,
+    handleFilterChange,
+    handleNrChange,
+    handleNbChange,
+    handlePttChange,
+    handleVfoChange,
+  } = useRadioCommands({
+    connectedDeviceId,
+    selectedDeviceId,
+    daemonSendCommand,
+    connectedState,
+    freqInput,
+    freqUnit,
+    setFreqInput,
+    setLastResponseError,
+    setFftEnabled,
+    setAudioEnabled,
+  });
+
+  // Keep effectiveStateRef in sync for useFt8AutoConfig
   const effectiveStateRef = useRef(effectiveState);
   effectiveStateRef.current = effectiveState;
 
-  useEffect(() => {
-    setDraftState(connectedState);
-  }, [connectedState]);
+  // Hook 2: Smart tuning (click-to-tune, wheel tune, step change)
+  const { handlePickFrequencyHz, handleWheelTune, handleTuningStepChange } =
+    useSmartTuning({
+      connectedDeviceId,
+      daemonSendCommand,
+      lastFftFrame,
+      tuningStepHz: sdrSettings.tuningStepHz,
+      effectiveState,
+      freqUnit,
+      setDraftState,
+      setFreqInput,
+    });
+
+  // Hook 3: Notch filter CRUD
+  const {
+    handleAddNotch,
+    handleRemoveNotch,
+    handleUpdateNotch,
+    handleToggleNotch,
+  } = useNotchFilters();
+
+  // Hook 4: Client-side DSP controls
+  const {
+    handleNoiseGateToggle,
+    handleNoiseGateThresholdChange,
+    handleClientNrToggle,
+    handleClientNrLevelChange,
+  } = useClientDsp();
+
+  // ── Stream toggle handlers (inline — used by useFt8AutoConfig) ──
+
+  const handleToggleFft = useCallback(() => {
+    if (!connectedDeviceId) return;
+    if (fftEnabled) {
+      daemonSendCommand("stream:fft:stop", { device_id: connectedDeviceId });
+      setFftEnabled(false);
+    } else {
+      const storedPort = parseInt(
+        localStorage.getItem("propulse-civ-port") || "4580",
+        10,
+      );
+      daemonSendCommand("stream:fft:start", {
+        device_id: connectedDeviceId,
+        fft_size: 4096,
+        fps: 20,
+        averaging: 4,
+        civ_port: storedPort > 0 ? storedPort : 4580,
+      });
+      setFftEnabled(true);
+    }
+  }, [connectedDeviceId, daemonSendCommand, fftEnabled, setFftEnabled]);
+
+  const handleToggleAudio = useCallback(() => {
+    if (!connectedDeviceId) return;
+    if (audioEnabled) {
+      daemonSendCommand("stream:audio:stop", { device_id: connectedDeviceId });
+      setAudioEnabled(false);
+    } else {
+      daemonSendCommand("stream:audio:start", {
+        device_id: connectedDeviceId,
+        sample_rate: 48000,
+        format: "pcm_i16",
+      });
+      setAudioEnabled(true);
+    }
+  }, [audioEnabled, connectedDeviceId, daemonSendCommand, setAudioEnabled]);
+
+  // Hook 5: FT8 auto-config toggle
+  const { handleFt8Toggle } = useFt8AutoConfig({
+    connectedDeviceId,
+    effectiveStateRef,
+    ft8Decoder,
+    fftEnabled,
+    audioEnabled,
+    handleModeChange,
+    handleFilterChange,
+    handleAgcToggle,
+    handleNrChange,
+    handleNbChange,
+    handleToggleFft,
+    handleToggleAudio,
+  });
+
+  // Hook 6: Audio DSP chain lifecycle
+  const processingChain = useAudioDspChain({
+    audioEnabled,
+    noiseGateEnabled: sdrSettings.sdrNoiseGateEnabled,
+    noiseGateThreshold: sdrSettings.sdrNoiseGateThreshold,
+    clientNrEnabled: sdrSettings.sdrNrEnabled,
+    clientNrLevel: sdrSettings.sdrNrLevel,
+  });
 
   // ── Side effects ────────────────────────────────────────────
+
+  // Sync draftState from connectedState
+  useEffect(() => {
+    setDraftState(connectedState);
+  }, [connectedState, setDraftState]);
 
   // Persist daemon URL; reset radio state when switching daemons.
   useEffect(() => {
@@ -374,55 +496,7 @@ export function SdrConsole() {
   const canControlDevice = daemonConnected && !!selectedDeviceId;
   const canControlConnected = daemonConnected && !!connectedDeviceId;
 
-  // ── Audio DSP chain (notch filters, noise gate, spectral NR) ──
-
-  const audioChainRef = useRef<AudioProcessingChain | null>(null);
-
-  // Lazily create the chain when audio becomes enabled
-  const processingChain = useMemo(() => {
-    if (!audioEnabled) {
-      if (audioChainRef.current) {
-        audioChainRef.current.dispose();
-        audioChainRef.current = null;
-      }
-      return null;
-    }
-    if (!audioChainRef.current) {
-      // AudioContext will be created by useAudioStreamPlayer — use a temporary
-      // one here that the chain will connect to internally. The player hook
-      // passes audio through chain.getInputNode() → chain.getOutputNode().
-      audioChainRef.current = new AudioProcessingChain(new AudioContext());
-    }
-    return audioChainRef.current;
-  }, [audioEnabled]);
-
-  // Sync noise gate settings to chain
-  useEffect(() => {
-    if (!processingChain) return;
-    processingChain.setNoiseGate(sdrSettings.sdrNoiseGateEnabled, {
-      threshold: sdrSettings.sdrNoiseGateThreshold,
-    });
-  }, [
-    processingChain,
-    sdrSettings.sdrNoiseGateEnabled,
-    sdrSettings.sdrNoiseGateThreshold,
-  ]);
-
-  // Sync spectral NR settings to chain
-  useEffect(() => {
-    if (!processingChain) return;
-    processingChain.setSpectralNr(sdrSettings.sdrNrEnabled, {
-      nrLevel: sdrSettings.sdrNrLevel,
-    });
-  }, [processingChain, sdrSettings.sdrNrEnabled, sdrSettings.sdrNrLevel]);
-
-  // Cleanup chain on unmount
-  useEffect(() => {
-    return () => {
-      audioChainRef.current?.dispose();
-      audioChainRef.current = null;
-    };
-  }, []);
+  // ── Audio stream player ─────────────────────────────────────
 
   useAudioStreamPlayer({
     enabled: audioEnabled,
@@ -436,341 +510,35 @@ export function SdrConsole() {
     notchFilters: sdrSettings.sdrNotchFilters,
   });
 
-  // ── Command handlers ────────────────────────────────────────
-
-  const handleConnectRadio = useCallback(() => {
-    if (!selectedDeviceId) return;
-    daemonSendCommand("radio:connect", { device_id: selectedDeviceId });
-  }, [daemonSendCommand, selectedDeviceId]);
-
-  const handleDisconnectRadio = useCallback(() => {
-    if (!connectedDeviceId) return;
-    daemonSendCommand("radio:disconnect", { device_id: connectedDeviceId });
-    setFftEnabled(false);
-    setAudioEnabled(false);
-    setDraftState(null);
-  }, [connectedDeviceId, daemonSendCommand, setAudioEnabled, setFftEnabled]);
-
-  const handleTune = useCallback(() => {
-    if (!connectedDeviceId) return;
-    const value = Number(freqInput);
-    if (!Number.isFinite(value) || value <= 0) {
-      setLastResponseError("Invalid frequency");
-      return;
-    }
-    const hz =
-      freqUnit === "MHz"
-        ? Math.round(value * 1_000_000)
-        : freqUnit === "kHz"
-          ? Math.round(value * 1_000)
-          : Math.round(value);
-    daemonSendCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
-    setDraftState((s) => (s ? { ...s, freq: hz } : s));
-  }, [connectedDeviceId, daemonSendCommand, freqInput, freqUnit]);
-
-  const handleModeChange = useCallback(
-    (mode: string) => {
-      if (!connectedDeviceId) return;
-      daemonSendCommand("radio:mode", { device_id: connectedDeviceId, mode });
-      setDraftState((s) => (s ? { ...s, mode } : s));
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleGainChange = useCallback(
-    (stage: string, value: number) => {
-      setDraftState((s) => {
-        if (!s) return s;
-        return { ...s, gains: { ...s.gains, [stage]: value } };
-      });
-      if (!connectedDeviceId) return;
-
-      const existing = gainDebounceRef.current[stage];
-      if (existing) window.clearTimeout(existing);
-      gainDebounceRef.current[stage] = window.setTimeout(() => {
-        daemonSendCommand("radio:gain", {
-          device_id: connectedDeviceId,
-          stage,
-          value,
-        });
-      }, 50);
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleAgcToggle = useCallback(
-    (enabled: boolean) => {
-      setDraftState((s) => (s ? { ...s, agc: enabled } : s));
-      if (!connectedDeviceId) return;
-      daemonSendCommand("radio:agc", {
-        device_id: connectedDeviceId,
-        enabled,
-      });
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleAntennaChange = useCallback(
-    (port: string) => {
-      setDraftState((s) => (s ? { ...s, antenna: port } : s));
-      if (!connectedDeviceId) return;
-      daemonSendCommand("radio:antenna", {
-        device_id: connectedDeviceId,
-        port,
-      });
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleFilterChange = useCallback(
-    (low: number, high: number) => {
-      const lo = Math.min(low, high);
-      const hi = Math.max(low, high);
-      setDraftState((s) =>
-        s ? { ...s, filter: { low: Math.round(lo), high: Math.round(hi) } } : s,
-      );
-      if (!connectedDeviceId) return;
-      if (filterDebounceRef.current)
-        window.clearTimeout(filterDebounceRef.current);
-      filterDebounceRef.current = window.setTimeout(() => {
-        daemonSendCommand("radio:filter", {
-          device_id: connectedDeviceId,
-          low: Math.round(lo),
-          high: Math.round(hi),
-        });
-      }, 75);
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleNrChange = useCallback(
-    (enabled: boolean, level: number) => {
-      setDraftState((s) =>
-        s ? { ...s, nr: { enabled, level: Math.round(level) } } : s,
-      );
-      if (!connectedDeviceId) return;
-      daemonSendCommand("radio:nr", {
-        device_id: connectedDeviceId,
-        enabled,
-        level: Math.round(level),
-      });
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleNbChange = useCallback(
-    (enabled: boolean, threshold: number) => {
-      setDraftState((s) =>
-        s ? { ...s, nb: { enabled, threshold: Math.round(threshold) } } : s,
-      );
-      if (!connectedDeviceId) return;
-      daemonSendCommand("radio:nb", {
-        device_id: connectedDeviceId,
-        enabled,
-        threshold: Math.round(threshold),
-      });
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handlePttChange = useCallback(
-    (active: boolean) => {
-      setDraftState((s) => (s ? { ...s, ptt: active } : s));
-      if (!connectedDeviceId) return;
-      daemonSendCommand("radio:ptt", {
-        device_id: connectedDeviceId,
-        active,
-      });
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleVfoChange = useCallback(
-    (vfo: "A" | "B") => {
-      if (!connectedDeviceId) return;
-      daemonSendCommand("radio:vfo", { device_id: connectedDeviceId, vfo });
-      setDraftState((s) => (s ? { ...s, vfo } : s));
-    },
-    [connectedDeviceId, daemonSendCommand],
-  );
-
-  const handleToggleFft = useCallback(() => {
-    if (!connectedDeviceId) return;
-    if (fftEnabled) {
-      daemonSendCommand("stream:fft:stop", { device_id: connectedDeviceId });
-      setFftEnabled(false);
-    } else {
-      const storedPort = parseInt(
-        localStorage.getItem("propulse-civ-port") || "4580",
-        10,
-      );
-      daemonSendCommand("stream:fft:start", {
-        device_id: connectedDeviceId,
-        fft_size: 4096,
-        fps: 20,
-        averaging: 4,
-        civ_port: storedPort > 0 ? storedPort : 4580,
-      });
-      setFftEnabled(true);
-    }
-  }, [connectedDeviceId, daemonSendCommand, fftEnabled, setFftEnabled]);
-
-  const handleToggleAudio = useCallback(() => {
-    if (!connectedDeviceId) return;
-    if (audioEnabled) {
-      daemonSendCommand("stream:audio:stop", { device_id: connectedDeviceId });
-      setAudioEnabled(false);
-    } else {
-      daemonSendCommand("stream:audio:start", {
-        device_id: connectedDeviceId,
-        sample_rate: 48000,
-        format: "pcm_i16",
-      });
-      setAudioEnabled(true);
-    }
-  }, [audioEnabled, connectedDeviceId, daemonSendCommand, setAudioEnabled]);
-
-  // ── FT8/FT4 toggle — full auto-configuration ─────────────
-  //
-  // FT8 decoding requires specific radio + DSP settings to work reliably.
-  // When enabling:  save current state, configure radio for FT8, start streams.
-  // When disabling: restore all previous settings.
-  //
-  // The decoder itself uses getUserMedia (system audio loopback), not the
-  // bridge audio stream — but we auto-start FFT so the waterfall shows signals.
-
-  const preFt8SettingsRef = useRef<{
-    mode: string | null;
-    filter: { low: number; high: number } | null;
-    agc: boolean | null;
-    nr: { enabled: boolean; level: number } | null;
-    nb: { enabled: boolean; threshold?: number } | null;
-    clientNr: boolean;
-    noiseGate: boolean;
-  } | null>(null);
-
-  const handleFt8Toggle = useCallback(() => {
-    const wasEnabled = ft8Decoder.enabled;
-    ft8Decoder.toggle();
-
-    if (!wasEnabled) {
-      // ── ENABLING ──────────────────────────────────────────────
-      const state = effectiveStateRef.current;
-      const settings = useSettingsStore.getState();
-
-      // 1. Snapshot current radio + client-side DSP settings
-      preFt8SettingsRef.current = {
-        mode: state?.mode ?? null,
-        filter: state?.filter ? { ...state.filter } : null,
-        agc: state?.agc ?? null,
-        nr: state?.nr ? { ...state.nr } : null,
-        nb: state?.nb ? { ...state.nb } : null,
-        clientNr: settings.sdrNrEnabled,
-        noiseGate: settings.sdrNoiseGateEnabled,
-      };
-
-      if (connectedDeviceId) {
-        // 2. Mode → USB if not already an FT8-compatible sideband mode
-        if (state?.mode && !isFt8CompatibleMode(state.mode)) {
-          handleModeChange("USB");
-        }
-
-        // 3. Filter → 0–3000 Hz (full FT8 decode window)
-        handleFilterChange(0, 3000);
-
-        // 4. AGC off — prevents audio level modulation that corrupts decoding
-        if (state?.agc !== false) {
-          handleAgcToggle(false);
-        }
-
-        // 5. Hardware NR off — DSP noise reduction mangles FT8 waveforms
-        if (state?.nr?.enabled) {
-          handleNrChange(false, state.nr.level);
-        }
-
-        // 6. Hardware NB off — noise blanker clips FT8 signal pulses
-        if (state?.nb?.enabled) {
-          handleNbChange(false, state.nb.threshold ?? 0);
-        }
-
-        // 7. Auto-start FFT streaming so waterfall shows FT8 signals
-        if (!useSdrStore.getState().fftEnabled) {
-          handleToggleFft();
-        }
-      }
-
-      // 8. Client-side NR off — same reason as hardware NR
-      if (settings.sdrNrEnabled) {
-        useSettingsStore.getState().updatePreferences({ sdrNrEnabled: false });
-      }
-
-      // 9. Client-side noise gate off — would squelch weak FT8 signals
-      if (settings.sdrNoiseGateEnabled) {
-        useSettingsStore
-          .getState()
-          .updatePreferences({ sdrNoiseGateEnabled: false });
-      }
-    } else {
-      // ── DISABLING — restore previous settings ─────────────────
-      const saved = preFt8SettingsRef.current;
-
-      if (saved && connectedDeviceId) {
-        // Restore mode (only if we changed it)
-        if (saved.mode && !isFt8CompatibleMode(saved.mode)) {
-          handleModeChange(saved.mode);
-        }
-
-        // Restore filter
-        if (saved.filter) {
-          handleFilterChange(saved.filter.low, saved.filter.high);
-        }
-
-        // Restore AGC
-        if (saved.agc === true) {
-          handleAgcToggle(true);
-        }
-
-        // Restore hardware NR
-        if (saved.nr?.enabled) {
-          handleNrChange(true, saved.nr.level);
-        }
-
-        // Restore hardware NB
-        if (saved.nb?.enabled) {
-          handleNbChange(true, saved.nb.threshold ?? 0);
-        }
-      }
-
-      // Restore client-side DSP (works even without radio connection)
-      if (saved) {
-        if (saved.clientNr) {
-          useSettingsStore.getState().updatePreferences({ sdrNrEnabled: true });
-        }
-        if (saved.noiseGate) {
-          useSettingsStore
-            .getState()
-            .updatePreferences({ sdrNoiseGateEnabled: true });
-        }
-      }
-
-      // Don't stop FFT/audio streaming — user may want those running
-      preFt8SettingsRef.current = null;
-    }
-  }, [
-    connectedDeviceId,
-    ft8Decoder,
-    handleAgcToggle,
-    handleFilterChange,
-    handleModeChange,
-    handleNbChange,
-    handleNrChange,
-    handleToggleFft,
-  ]);
+  // ── Remaining handlers ──────────────────────────────────────
 
   const refreshDiscovery = useCallback(() => {
     if (!daemonConnected) return;
     daemonSendCommand("discovery:mdns:browse");
   }, [daemonConnected, daemonSendCommand]);
+
+  const handleSelectRangeHz = useCallback(
+    (range: { startHz: number; endHz: number }) => {
+      const mid = Math.round((range.startHz + range.endHz) / 2);
+      handlePickFrequencyHz(mid);
+      const bw = Math.max(
+        50,
+        Math.round(Math.abs(range.endHz - range.startHz)),
+      );
+      const mode = (effectiveState?.mode ?? "USB").toUpperCase();
+      if (mode === "CW") {
+        const center = 700;
+        handleFilterChange(center - bw / 2, center + bw / 2);
+        return;
+      }
+      if (mode === "AM" || mode === "FM") {
+        handleFilterChange(0, bw / 2);
+        return;
+      }
+      handleFilterChange(300, 300 + bw);
+    },
+    [effectiveState?.mode, handleFilterChange, handlePickFrequencyHz],
+  );
 
   // ── Derived memos ───────────────────────────────────────────
 
@@ -843,266 +611,6 @@ export function SdrConsole() {
   const handleWaterfallViewChange = useCallback((next: WaterfallView) => {
     setWaterfallSpanHz(next.spanHz);
   }, []);
-
-  /**
-   * Smart snap: find the center of a signal near clickedHz using FFT data.
-   * Returns the centroid frequency if a signal is found above noise floor,
-   * or null to fall back to step-size snapping.
-   */
-  const smartSnap = useCallback(
-    (clickedHz: number): number | null => {
-      const frame = lastFftFrame;
-      if (!frame || frame.bins.length < 4) return null;
-
-      const bins = frame.bins;
-      const startHz = frame.centerHz - frame.spanHz / 2;
-      const hzPerBin = frame.spanHz / bins.length;
-
-      // Search window: +/- half the step size (min 2 kHz, max 10 kHz)
-      const searchWindowHz = Math.max(
-        2000,
-        Math.min(10000, sdrSettings.tuningStepHz * 3),
-      );
-      const searchStartBin = Math.max(
-        0,
-        Math.floor((clickedHz - searchWindowHz - startHz) / hzPerBin),
-      );
-      const searchEndBin = Math.min(
-        bins.length - 1,
-        Math.ceil((clickedHz + searchWindowHz - startHz) / hzPerBin),
-      );
-      if (searchEndBin <= searchStartBin) return null;
-
-      // Compute noise floor as the median of the search window
-      const windowVals: number[] = [];
-      for (let i = searchStartBin; i <= searchEndBin; i++) {
-        windowVals.push(bins[i]);
-      }
-      windowVals.sort((a, b) => a - b);
-      const noiseFloor = windowVals[Math.floor(windowVals.length / 2)];
-
-      // Find the strongest bin above noise floor + threshold
-      const threshold = 6; // dB above noise floor to count as a signal
-      let peakBin = -1;
-      let peakDb = -Infinity;
-      for (let i = searchStartBin; i <= searchEndBin; i++) {
-        if (bins[i] > peakDb && bins[i] > noiseFloor + threshold) {
-          peakDb = bins[i];
-          peakBin = i;
-        }
-      }
-      if (peakBin === -1) return null; // No signal found
-
-      // Refine center using power-weighted centroid around peak
-      const refineBins = Math.max(2, Math.round(1500 / hzPerBin)); // ~1.5 kHz radius
-      const lo = Math.max(0, peakBin - refineBins);
-      const hi = Math.min(bins.length - 1, peakBin + refineBins);
-      let weightedSum = 0;
-      let weightSum = 0;
-      for (let i = lo; i <= hi; i++) {
-        // Convert dB to linear power for weighting; floor at noise level
-        const dbAboveNoise = Math.max(0, bins[i] - noiseFloor);
-        const linear = Math.pow(10, dbAboveNoise / 10);
-        weightedSum += linear * i;
-        weightSum += linear;
-      }
-      if (weightSum <= 0) return null;
-
-      const centroidBin = weightedSum / weightSum;
-      return startHz + centroidBin * hzPerBin;
-    },
-    [lastFftFrame, sdrSettings.tuningStepHz],
-  );
-
-  const handlePickFrequencyHz = useCallback(
-    (hz: number) => {
-      if (!connectedDeviceId) return;
-
-      // Smart snap: try to find signal center, fall back to step-size snap
-      let snappedHz: number;
-      const signalCenter = smartSnap(hz);
-      if (signalCenter !== null) {
-        // Snap the signal center to the step grid for clean frequency
-        snappedHz =
-          Math.round(signalCenter / sdrSettings.tuningStepHz) *
-          sdrSettings.tuningStepHz;
-      } else {
-        // No signal detected — snap to nearest step
-        snappedHz =
-          Math.round(hz / sdrSettings.tuningStepHz) * sdrSettings.tuningStepHz;
-      }
-
-      daemonSendCommand("radio:tune", {
-        device_id: connectedDeviceId,
-        freq: snappedHz,
-      });
-      setDraftState((s) => (s ? { ...s, freq: snappedHz } : s));
-      const base =
-        freqUnit === "MHz"
-          ? snappedHz / 1_000_000
-          : freqUnit === "kHz"
-            ? snappedHz / 1_000
-            : snappedHz;
-      const text =
-        freqUnit === "MHz"
-          ? base.toFixed(6)
-          : freqUnit === "kHz"
-            ? base.toFixed(3)
-            : Math.round(base).toString();
-      setFreqInput(text);
-    },
-    [
-      connectedDeviceId,
-      daemonSendCommand,
-      freqUnit,
-      smartSnap,
-      sdrSettings.tuningStepHz,
-    ],
-  );
-
-  const handleTuningStepChange = useCallback(
-    (stepHz: number) => updatePreferences({ sdrTuningStepHz: stepHz }),
-    [updatePreferences],
-  );
-
-  const handleWheelTune = useCallback(
-    (direction: number) => {
-      if (!connectedDeviceId || !effectiveState) return;
-      const currentHz = effectiveState.freq;
-      const stepHz = sdrSettings.tuningStepHz;
-      const candidateHz = currentHz + direction * stepHz;
-
-      // Smart snap: look for a signal near the candidate, but ONLY accept
-      // results that are in the same direction as travel (or at least not
-      // behind the current frequency). This prevents the oscillation where
-      // a strong signal behind you keeps pulling you backwards.
-      let snappedHz: number;
-      const signalCenter = smartSnap(candidateHz);
-      if (signalCenter !== null) {
-        const signalSnapped = Math.round(signalCenter / stepHz) * stepHz;
-        // Accept the snap only if it moves in the intended direction
-        const movedCorrectDirection =
-          direction > 0 ? signalSnapped > currentHz : signalSnapped < currentHz;
-        snappedHz = movedCorrectDirection
-          ? signalSnapped
-          : Math.round(candidateHz / stepHz) * stepHz;
-      } else {
-        snappedHz = Math.round(candidateHz / stepHz) * stepHz;
-      }
-
-      // Guard: if snapping somehow didn't move at all, force one step
-      if (snappedHz === currentHz) {
-        snappedHz = currentHz + direction * stepHz;
-      }
-
-      daemonSendCommand("radio:tune", {
-        device_id: connectedDeviceId,
-        freq: snappedHz,
-      });
-      setDraftState((s) => (s ? { ...s, freq: snappedHz } : s));
-      const base =
-        freqUnit === "MHz"
-          ? snappedHz / 1_000_000
-          : freqUnit === "kHz"
-            ? snappedHz / 1_000
-            : snappedHz;
-      const text =
-        freqUnit === "MHz"
-          ? base.toFixed(6)
-          : freqUnit === "kHz"
-            ? base.toFixed(3)
-            : Math.round(base).toString();
-      setFreqInput(text);
-    },
-    [
-      connectedDeviceId,
-      daemonSendCommand,
-      effectiveState,
-      freqUnit,
-      smartSnap,
-      sdrSettings.tuningStepHz,
-    ],
-  );
-
-  const handleAddNotch = useCallback((freqHz: number, q: number) => {
-    const id = crypto.randomUUID?.() ?? `notch-${Date.now()}`;
-    const current = useSettingsStore.getState().sdrNotchFilters;
-    if (current.length >= 8) return; // max 8
-    useSettingsStore.getState().updatePreferences({
-      sdrNotchFilters: [...current, { id, freqHz, q, enabled: true }],
-    });
-  }, []);
-
-  const handleRemoveNotch = useCallback((id: string) => {
-    const current = useSettingsStore.getState().sdrNotchFilters;
-    useSettingsStore.getState().updatePreferences({
-      sdrNotchFilters: current.filter((n) => n.id !== id),
-    });
-  }, []);
-
-  const handleUpdateNotch = useCallback(
-    (id: string, freqHz: number, q: number) => {
-      const current = useSettingsStore.getState().sdrNotchFilters;
-      useSettingsStore.getState().updatePreferences({
-        sdrNotchFilters: current.map((n) =>
-          n.id === id ? { ...n, freqHz, q } : n,
-        ),
-      });
-    },
-    [],
-  );
-
-  const handleToggleNotch = useCallback((id: string, enabled: boolean) => {
-    const current = useSettingsStore.getState().sdrNotchFilters;
-    useSettingsStore.getState().updatePreferences({
-      sdrNotchFilters: current.map((n) =>
-        n.id === id ? { ...n, enabled } : n,
-      ),
-    });
-  }, []);
-
-  const handleNoiseGateToggle = useCallback((enabled: boolean) => {
-    useSettingsStore.getState().updatePreferences({
-      sdrNoiseGateEnabled: enabled,
-    });
-  }, []);
-
-  const handleNoiseGateThresholdChange = useCallback((threshold: number) => {
-    useSettingsStore.getState().updatePreferences({
-      sdrNoiseGateThreshold: threshold,
-    });
-  }, []);
-
-  const handleClientNrToggle = useCallback((enabled: boolean) => {
-    useSettingsStore.getState().updatePreferences({ sdrNrEnabled: enabled });
-  }, []);
-
-  const handleClientNrLevelChange = useCallback((level: number) => {
-    useSettingsStore.getState().updatePreferences({ sdrNrLevel: level });
-  }, []);
-
-  const handleSelectRangeHz = useCallback(
-    (range: { startHz: number; endHz: number }) => {
-      const mid = Math.round((range.startHz + range.endHz) / 2);
-      handlePickFrequencyHz(mid);
-      const bw = Math.max(
-        50,
-        Math.round(Math.abs(range.endHz - range.startHz)),
-      );
-      const mode = (effectiveState?.mode ?? "USB").toUpperCase();
-      if (mode === "CW") {
-        const center = 700;
-        handleFilterChange(center - bw / 2, center + bw / 2);
-        return;
-      }
-      if (mode === "AM" || mode === "FM") {
-        handleFilterChange(0, bw / 2);
-        return;
-      }
-      handleFilterChange(300, 300 + bw);
-    },
-    [effectiveState?.mode, handleFilterChange, handlePickFrequencyHz],
-  );
 
   // ── Assemble skin props (memoised) ─────────────────────────
 

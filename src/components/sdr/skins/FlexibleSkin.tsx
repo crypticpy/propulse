@@ -26,6 +26,7 @@ import { FlexDbScale } from "./flexible/FlexDbScale";
 import { FlexTimeAxis } from "./flexible/FlexTimeAxis";
 import { FlexInfoTabs } from "./flexible/FlexInfoTabs";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
+import { BandPlanOverlay, SpotTagOverlay } from "@/components/sdr/overlays";
 import type { SdrSkinProps } from "./types";
 
 /** RX gain stage names — constant, lives outside the component to avoid re-creation. */
@@ -390,6 +391,15 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   onWheelTune={interaction.onWheelTune}
                   className="rounded-none border-0"
                 />
+                {/* Band plan segments overlay on spectrum */}
+                {waterfallView && (
+                  <BandPlanOverlay
+                    centerHz={waterfallView.centerHz}
+                    spanHz={waterfallView.spanHz}
+                    position="full"
+                    showLabels
+                  />
+                )}
                 <FlexDbScale minDb={waterfallMinDb} maxDb={waterfallMaxDb} />
               </div>
 
@@ -455,6 +465,26 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   rowHeight={waterfallRowHeight}
                   className="rounded-none border-0"
                 />
+                {/* Spot tags overlay on waterfall — click-to-tune */}
+                {waterfallView && (
+                  <SpotTagOverlay
+                    spots={clusterSpots}
+                    centerHz={waterfallView.centerHz}
+                    spanHz={waterfallView.spanHz}
+                    maxSpots={30}
+                    onPickFrequencyHz={onPickFrequencyHz}
+                    position="top"
+                  />
+                )}
+                {/* Band plan overlay on waterfall (subtle) */}
+                {waterfallView && (
+                  <BandPlanOverlay
+                    centerHz={waterfallView.centerHz}
+                    spanHz={waterfallView.spanHz}
+                    position="full"
+                    showLabels={false}
+                  />
+                )}
                 <FlexTimeAxis
                   speed={waterfallSpeed}
                   containerHeight={waterfallHeight}

@@ -157,6 +157,27 @@ export const DEFAULT_SHORTCUTS: KeyboardShortcut[] = [
     category: "general",
   },
 
+  // Band/Mode cycling
+  {
+    key: "b",
+    action: "cycleBand",
+    description: "Cycle active band",
+    category: "general",
+  },
+  {
+    key: "m",
+    action: "cycleMode",
+    description: "Cycle active mode",
+    category: "general",
+  },
+  {
+    key: "b",
+    modifiers: ["shift"],
+    action: "cycleBandReverse",
+    description: "Cycle band (reverse)",
+    category: "general",
+  },
+
   // Onboarding tour
   {
     key: "h",

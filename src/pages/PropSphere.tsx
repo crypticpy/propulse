@@ -45,7 +45,6 @@ import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { ColorsPopover } from "@/components/map/ColorsPopover";
 import { ProfilePopover } from "@/components/map/ProfilePopover";
 import { ViewsPopover } from "@/components/map/ViewsPopover";
-import { BandModeSelector } from "@/components/operating/BandModeSelector";
 
 // Lazy load heavy components that aren't always visible
 const FullscreenPropSphere = lazy(() =>
@@ -861,10 +860,6 @@ export function PropSphere() {
                 activeProfile={localActiveProfile}
                 onSelectProfile={setLocalActiveProfile}
               />
-
-              {/* Band/Mode selector */}
-              <ToolbarDivider />
-              <BandModeSelector />
 
               {/* Observatory mode */}
               <ToolbarDivider />

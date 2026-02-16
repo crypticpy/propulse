@@ -3,7 +3,8 @@
  *
  * A compact operator profile card displaying station information including
  * callsign, grid square, sunrise/sunset times at QTH, local time, license class,
- * and active radio equipment. Designed for the PropSphere view's top row.
+ * active radio equipment, and band/mode selector. Designed for the PropSphere
+ * view's top row.
  *
  * Information is tailored for different user types:
  * - Electrical engineers: Technical specs, measurements
@@ -12,7 +13,7 @@
  * - New hams: Explanations, guidance
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useActiveRadio, useUserStore } from "@/stores/userStore";
 import { getSunTimes } from "@/lib/utils/time";
 import {
@@ -22,6 +23,11 @@ import {
 } from "@/hooks/useActiveLocation";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
+import { useActiveBandMode } from "@/hooks/useActiveBandMode";
+import { BandModeModal } from "@/components/operating/BandModeModal";
+import { BAND_COLORS } from "@/lib/utils/spotColors";
+import { useOperatingStore } from "@/stores/operatingStore";
+import type { BandId } from "@/types/user";
 
 interface OperatorProfileProps {
   className?: string;
@@ -43,90 +49,10 @@ function formatCompactTime(date: Date, use24h: boolean = true): string {
   return `${displayHours}:${minutes} ${period}`;
 }
 
-/**
- * Sunrise SVG icon - cheerful sun rising with rays
- * Bright yellow/orange sun peeking over horizon with radiating rays
- */
-function SunriseIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      {/* Sun body - bright and cheerful */}
-      <circle cx="12" cy="14" r="5" fill="#FFD93D" />
-      <circle cx="12" cy="14" r="5" stroke="#FF9500" strokeWidth="1" />
-
-      {/* Sun rays - energetic, radiating outward */}
-      <g stroke="#FFD93D" strokeWidth="2" strokeLinecap="round">
-        <path d="M12 4v3" />
-        <path d="M18.36 7.64l-2.12 2.12" />
-        <path d="M21 14h-3" />
-        <path d="M5.64 7.64l2.12 2.12" />
-        <path d="M3 14h3" />
-      </g>
-
-      {/* Horizon line */}
-      <path
-        d="M1 19h22"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-
-      {/* Up arrow indicating rising */}
-      <path d="M12 1l-2.5 3h5L12 1z" fill="#FF9500" />
-    </svg>
-  );
-}
-
-/**
- * Sunset SVG icon - sleepy sun going down with clouds
- * Orange/red sun partially behind clouds, sinking below horizon
- */
-function SunsetIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      {/* Sun body - warm orange, partially hidden */}
-      <circle cx="12" cy="16" r="5" fill="#FF8C42" />
-      <circle cx="12" cy="16" r="5" stroke="#FF6B35" strokeWidth="1" />
-
-      {/* Fading rays - shorter, dimmer */}
-      <g stroke="#FF8C42" strokeWidth="1.5" strokeLinecap="round" opacity="0.6">
-        <path d="M12 7v2" />
-        <path d="M17 10l-1.5 1.5" />
-        <path d="M7 10l1.5 1.5" />
-      </g>
-
-      {/* Clouds - fluffy, partially covering sun */}
-      <ellipse cx="8" cy="14" rx="4" ry="2.5" fill="#64748b" opacity="0.8" />
-      <ellipse cx="15" cy="13" rx="5" ry="3" fill="#475569" opacity="0.7" />
-      <ellipse cx="11" cy="12" rx="3" ry="2" fill="#94a3b8" opacity="0.6" />
-
-      {/* Horizon line */}
-      <path
-        d="M1 19h22"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-
-      {/* Down arrow indicating setting */}
-      <path d="M12 23l-2.5-3h5L12 23z" fill="#FF6B35" />
-    </svg>
-  );
-}
-
 export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const { use24h } = useTimeFormat();
   const [showHelp, setShowHelp] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const station = useUserStore((state) => state.station);
   const preferences = useUserStore((state) => state.preferences);
   const activeRadio = useActiveRadio();
@@ -135,6 +61,53 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const activeLocation = useActiveLocation();
   const isTemporaryActive = useIsTemporaryActive();
   const licenseStatus = useLicenseStatus();
+
+  // Band/mode state
+  const { activeBand, activeMode, activeSource } = useActiveBandMode();
+  const catOverridden = useOperatingStore((s) => s.catOverridden);
+  const catConnected = useOperatingStore((s) => s._catConnected);
+  const bandSessionStart = useOperatingStore((s) => s.bandSessionStart);
+  const contestLocked = useOperatingStore((s) => s.contestLocked);
+  const watchedBands = useOperatingStore((s) => s.watchedBands);
+  const subBandSegment = useOperatingStore((s) => s.subBandSegment);
+
+  // ── Band change flash animation ──────────────────────────────────────────
+  const prevBandRef = useRef<BandId>(activeBand);
+  const [isFlashing, setIsFlashing] = useState(false);
+
+  useEffect(() => {
+    if (activeBand !== prevBandRef.current) {
+      prevBandRef.current = activeBand;
+      setIsFlashing(true);
+      const timer = setTimeout(() => setIsFlashing(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [activeBand]);
+
+  // ── Session elapsed timer ────────────────────────────────────────────────
+  const [sessionElapsed, setSessionElapsed] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (bandSessionStart == null) {
+      setSessionElapsed(null);
+      return;
+    }
+
+    function computeElapsed() {
+      const mins = Math.floor((Date.now() - bandSessionStart!) / 60_000);
+      if (mins < 60) {
+        setSessionElapsed(`${mins}m`);
+      } else {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        setSessionElapsed(`${h}h ${m}m`);
+      }
+    }
+
+    computeElapsed();
+    const interval = setInterval(computeElapsed, 60_000);
+    return () => clearInterval(interval);
+  }, [bandSessionStart]);
 
   const stationConfigured = station !== null;
   const operatorCallsign = station?.callsign?.trim() || null;
@@ -165,6 +138,17 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
 
   const operatorStatus =
     stationConfigured && operatorGrid ? "ready" : "incomplete";
+
+  // Source dot color for band/mode widget
+  const getSourceDotColor = (): string | null => {
+    if (activeSource === "cat") return "bg-green-400";
+    if (activeSource === "wsjtx") return "bg-cyan-400";
+    if (activeSource === "contest") return "bg-amber-400";
+    return null;
+  };
+
+  const sourceDotColor = getSourceDotColor();
+  const bandColor = BAND_COLORS[activeBand] ?? BAND_COLORS.default;
 
   // Empty state
   if (!stationConfigured) {
@@ -275,52 +259,196 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
         </div>
       </div>
 
-      {/* Sun times - stacked vertically with larger display */}
+      {/* Compact sun times - single inline row */}
       {operatorLat !== null && operatorLon !== null && (
-        <div className="flex justify-center gap-6 py-2">
-          {/* Sunrise */}
-          <div
-            className="flex flex-col items-center"
+        <div className="flex items-center gap-1 text-xs text-gray-400 mb-2">
+          <span
+            className="flex items-center gap-0.5"
             title={
               sunTimes.sunrise
                 ? `Sunrise at QTH: ${formatCompactTime(sunTimes.sunrise, use24h)} UTC`
                 : "No sunrise today"
             }
           >
-            <SunriseIcon className="w-10 h-10" />
-            <span className="text-xl font-mono font-bold text-amber-400 mt-1">
+            <svg
+              className="w-3 h-3 text-amber-400"
+              viewBox="0 0 12 12"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <circle cx="6" cy="7" r="2.5" />
+              <path
+                d="M6 2v1.5M9.5 4.5L8.4 5.6M10 7H8.5M3.5 4.5L4.6 5.6M2 7h1.5"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+            <svg
+              className="w-2.5 h-2.5 text-amber-400"
+              viewBox="0 0 8 8"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M4 1L2 4h4L4 1z" />
+            </svg>
+            <span className="font-mono text-amber-400">
               {sunTimes.sunrise
                 ? formatCompactTime(sunTimes.sunrise, use24h)
                 : (getPolarLabel() ?? "--:--")}
             </span>
-            <span className="text-[10px] text-gray-500 uppercase">Sunrise</span>
-          </div>
-
-          {/* Divider */}
-          <div className="w-px bg-white/10" />
-
-          {/* Sunset */}
-          <div
-            className="flex flex-col items-center"
+          </span>
+          <span className="text-gray-600 mx-0.5">&middot;</span>
+          <span
+            className="flex items-center gap-0.5"
             title={
               sunTimes.sunset
                 ? `Sunset at QTH: ${formatCompactTime(sunTimes.sunset, use24h)} UTC`
                 : "No sunset today"
             }
           >
-            <SunsetIcon className="w-10 h-10" />
-            <span className="text-xl font-mono font-bold text-orange-400 mt-1">
+            <svg
+              className="w-3 h-3 text-orange-400"
+              viewBox="0 0 12 12"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <circle cx="6" cy="5" r="2.5" />
+              <path
+                d="M6 9v1.5M9.5 7.5L8.4 6.4M10 5H8.5M3.5 7.5L4.6 6.4M2 5h1.5"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="round"
+                fill="none"
+                opacity="0.6"
+              />
+            </svg>
+            <svg
+              className="w-2.5 h-2.5 text-orange-400"
+              viewBox="0 0 8 8"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M4 7L2 4h4L4 7z" />
+            </svg>
+            <span className="font-mono text-orange-400">
               {sunTimes.sunset
                 ? formatCompactTime(sunTimes.sunset, use24h)
                 : (getPolarLabel() ?? "--:--")}
             </span>
-            <span className="text-[10px] text-gray-500 uppercase">Sunset</span>
+          </span>
+        </div>
+      )}
+
+      {/* Band/Mode selector widget */}
+      <button
+        onClick={() => {
+          if (!contestLocked) setIsModalOpen(true);
+        }}
+        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/5 border-l-2 transition-all duration-150 mb-1 w-full text-left ${
+          contestLocked
+            ? "opacity-60 cursor-not-allowed"
+            : "hover:bg-white/[0.08]"
+        } ${isFlashing ? "ring-2" : ""}`}
+        style={{
+          borderLeftColor: bandColor,
+          ...(isFlashing
+            ? {
+                ringColor: bandColor,
+                boxShadow: `0 0 0 2px ${bandColor}`,
+                transform: "scale(1.02)",
+              }
+            : { transform: "scale(1)" }),
+        }}
+        aria-label={
+          contestLocked
+            ? `Active band ${activeBand}, mode ${activeMode}. Locked for contest.`
+            : `Active band ${activeBand}, mode ${activeMode}. Click to change.`
+        }
+        aria-disabled={contestLocked}
+      >
+        {sourceDotColor && (
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${sourceDotColor}`}
+          />
+        )}
+        <span className="text-sm font-bold text-white font-mono">
+          {activeBand}
+        </span>
+        <span className="text-xs text-gray-400">&middot;</span>
+        <span className="text-sm text-gray-300">{activeMode}</span>
+        {contestLocked && (
+          <svg
+            className="w-3.5 h-3.5 text-amber-400 ml-auto flex-shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        )}
+        {!contestLocked && catOverridden && catConnected && (
+          <span className="ml-auto text-[10px] text-gray-500">
+            Resume &#8617;
+          </span>
+        )}
+      </button>
+
+      {/* Session timer + sub-band segment + contest lock label */}
+      {(sessionElapsed != null || contestLocked) && (
+        <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-1 px-0.5">
+          {sessionElapsed != null && (
+            <span>
+              on {activeBand} for {sessionElapsed}
+            </span>
+          )}
+          {sessionElapsed != null && subBandSegment && (
+            <span className="text-gray-600">&middot;</span>
+          )}
+          {subBandSegment && <span>{subBandSegment}</span>}
+          {contestLocked && (
+            <>
+              {(sessionElapsed != null || subBandSegment) && (
+                <span className="text-gray-600">&middot;</span>
+              )}
+              <span className="text-amber-500">Locked for contest</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Multi-band monitoring dots */}
+      {watchedBands.length > 0 && (
+        <div className="flex items-center gap-1 mb-1 px-0.5">
+          <span className="text-[10px] text-gray-500">Watching</span>
+          <div className="flex items-center gap-1">
+            {watchedBands.map((band) => (
+              <span
+                key={band}
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{
+                  backgroundColor: BAND_COLORS[band] ?? BAND_COLORS.default,
+                }}
+                title={band}
+              />
+            ))}
           </div>
         </div>
       )}
 
+      {/* Band/Mode selection modal */}
+      <BandModeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+
       {/* Radio profile - expanded details */}
-      <div className="pt-2 border-t border-white/10 mt-auto">
+      <div className="pt-2 border-t border-white/10">
         {activeRadio ? (
           <div className="space-y-1.5">
             {/* Radio name */}
@@ -391,6 +519,11 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             title: "Sun Times",
             content:
               "Sunrise and sunset times at your QTH in UTC. These are key for greyline propagation - the terminator crossing your location creates enhanced propagation windows.",
+          },
+          {
+            title: "Band & Mode",
+            content:
+              "Shows your active band and mode. Click to change manually, or it follows your radio via CAT/WSJT-X automatically. The colored dot indicates the source: green for CAT, cyan for WSJT-X, amber for contest.",
           },
         ]}
       />

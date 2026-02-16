@@ -19,7 +19,6 @@ import { TimeControl } from "@/components/map/TimeControl";
 import { LayersPopover } from "@/components/map/LayersPopover";
 import { WatchPopover } from "@/components/map/WatchPopover";
 import { RegionPresetSelector } from "@/components/map/RegionPresetSelector";
-import { BandModeSelector } from "@/components/operating/BandModeSelector";
 
 /* ─── Props ──────────────────────────────────────────────────── */
 
@@ -414,11 +413,6 @@ export function ProToolbarRibbon({
             </button>
           ))}
         </div>
-
-        <Divider />
-
-        {/* ── 3b. Band/Mode selector ───────────────────────────── */}
-        <BandModeSelector />
 
         <Divider />
 

@@ -22,6 +22,7 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
 import { ContestGlobalHotkeys } from "@/components/contest/ContestGlobalHotkeys";
+import { BandSuggestToast } from "@/components/operating/BandSuggestToast";
 import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
@@ -172,6 +173,9 @@ export function Layout() {
 
       {/* Auth Modal */}
       <AuthModal />
+
+      {/* Band opening suggest toast — bottom-center */}
+      <BandSuggestToast />
     </div>
   );
 }

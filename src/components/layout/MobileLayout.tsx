@@ -28,6 +28,7 @@ import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { PullToRefreshIndicator } from "@/components/ui/PullToRefreshIndicator";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { BandSuggestToast } from "@/components/operating/BandSuggestToast";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 // Matches BottomTabBar's visible tab order (Tools drawer sub-pages excluded)
@@ -211,6 +212,9 @@ export function MobileLayout() {
 
       {/* Auth Modal */}
       <AuthModal />
+
+      {/* Band opening suggest toast — bottom-center */}
+      <BandSuggestToast />
     </div>
   );
 }

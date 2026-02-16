@@ -15,6 +15,11 @@
  */
 
 import { useEffect, useCallback, useRef } from "react";
+import { useOperatingStore } from "@/stores/operatingStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { ALL_BANDS } from "@/types/user";
+import type { BandId } from "@/types/user";
+import { ALL_UI_MODES } from "@/lib/utils/modeNormalize";
 
 // =============================================================================
 // TYPES
@@ -144,6 +149,81 @@ export function useGlobalShortcuts({
       event.preventDefault();
       event.stopImmediatePropagation();
       callbacksRef.current.onShowShortcuts();
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // B — cycle active band forward (only when not in input, not contest-locked)
+    // -----------------------------------------------------------------------
+    if (
+      event.key === "b" &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      const opState = useOperatingStore.getState();
+      if (opState.contestSessionId) return; // contest controls band
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const favored = useSettingsStore.getState().favoredBands?.primary ?? [];
+      const bandList: BandId[] = favored.length > 0 ? favored : [...ALL_BANDS];
+      const currentIdx = bandList.indexOf(opState.activeBand);
+      const nextIdx =
+        currentIdx === -1 ? 0 : (currentIdx + 1) % bandList.length;
+      opState.setManualBand(bandList[nextIdx]);
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Shift+B — cycle active band reverse (only when not in input, not contest-locked)
+    // -----------------------------------------------------------------------
+    if (
+      event.key === "B" &&
+      event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      const opState = useOperatingStore.getState();
+      if (opState.contestSessionId) return; // contest controls band
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const favored = useSettingsStore.getState().favoredBands?.primary ?? [];
+      const bandList: BandId[] = favored.length > 0 ? favored : [...ALL_BANDS];
+      const currentIdx = bandList.indexOf(opState.activeBand);
+      const prevIdx =
+        currentIdx === -1
+          ? bandList.length - 1
+          : (currentIdx - 1 + bandList.length) % bandList.length;
+      opState.setManualBand(bandList[prevIdx]);
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // M — cycle active mode forward (only when not in input, not contest-locked)
+    // -----------------------------------------------------------------------
+    if (
+      event.key === "m" &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      const opState = useOperatingStore.getState();
+      if (opState.contestSessionId) return; // contest controls mode
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const currentIdx = ALL_UI_MODES.indexOf(opState.activeMode);
+      const nextIdx =
+        currentIdx === -1 ? 0 : (currentIdx + 1) % ALL_UI_MODES.length;
+      opState.setManualMode(ALL_UI_MODES[nextIdx]);
       return;
     }
   }, []);

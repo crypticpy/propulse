@@ -155,15 +155,9 @@ export function FateSkin(props: SdrSkinProps) {
     // Data
     wsjtxDecodes,
 
-    // Skin
-    activeSkin,
-    onSkinChange,
-    isMobile,
-
     // Callbacks
     onPickFrequencyHz,
     onWheelTune,
-    onOpenSdrSettings,
   } = props;
 
   // ── Operator info from profile ──────────────────────────────────────────
@@ -302,7 +296,7 @@ export function FateSkin(props: SdrSkinProps) {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[#080810] text-gray-200 overflow-hidden select-none">
+    <div className="flex flex-col h-full w-full bg-[#080810] text-gray-200 overflow-hidden select-none">
       {/* Row 1: Top Bar */}
       <FateTopBar
         ft8DecoderEnabled={ft8DecoderEnabled}
@@ -315,10 +309,6 @@ export function FateSkin(props: SdrSkinProps) {
         onFt8Toggle={onFt8Toggle}
         onFt8ModeChange={onFt8ModeChange}
         onPickFrequencyHz={onPickFrequencyHz}
-        activeSkin={activeSkin}
-        onSkinChange={onSkinChange}
-        isMobile={isMobile}
-        onOpenSdrSettings={onOpenSdrSettings}
       />
 
       {/* Audio level meter strip — between top bar and main content */}

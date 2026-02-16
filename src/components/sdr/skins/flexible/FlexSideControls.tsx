@@ -79,10 +79,6 @@ export interface FlexSideControlsProps {
   vfo?: "A" | "B" | null;
   onVfoChange?: (vfo: "A" | "B") => void;
 
-  // Device management
-  onConnectRadio: () => void;
-  onDisconnectRadio: () => void;
-
   // Band selection
   freqHz: number | null;
   onBandSelect: (freqHz: number) => void;
@@ -300,8 +296,6 @@ export function FlexSideControls({
   onTuningStepChange,
   vfo,
   onVfoChange,
-  onConnectRadio,
-  onDisconnectRadio,
   freqHz,
   onBandSelect,
   hasMultipleAntennas,
@@ -314,8 +308,6 @@ export function FlexSideControls({
   onFt8Toggle,
   onFt8ModeChange,
 }: FlexSideControlsProps) {
-  const isConnected = effectiveState?.connected ?? false;
-
   const handleFreqKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -323,44 +315,13 @@ export function FlexSideControls({
     }
   };
 
-  // ─── Section: Device ─────────────────────────────────────────────────────
+  // ─── Section: Antenna ────────────────────────────────────────────────────
 
-  const deviceSection = (
-    <div className="space-y-1">
-      <SectionHeader>Device</SectionHeader>
-
-      <div className="text-xs text-gray-300 truncate">
-        {isConnected && selectedDevice ? selectedDevice.name : "No Radio"}
-      </div>
-
-      {isConnected ? (
-        <button
-          onClick={onDisconnectRadio}
-          disabled={!canControlConnected}
-          className="w-full px-2 py-1 text-[10px] font-semibold rounded
-            bg-alert-red/15 border border-alert-red/30 text-alert-red
-            hover:bg-alert-red/25 transition-colors
-            disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Disconnect
-        </button>
-      ) : (
-        <button
-          onClick={onConnectRadio}
-          disabled={!selectedDevice}
-          className="w-full px-2 py-1 text-[10px] font-semibold rounded
-            bg-cosmic-cyan/15 border border-cosmic-cyan/30 text-cosmic-cyan
-            hover:bg-cosmic-cyan/25 transition-colors
-            disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Connect
-        </button>
-      )}
-
-      {/* ANT cycling (when multiple antennas available) */}
-      {hasMultipleAntennas && antennas.length > 1 && (
-        <div className="flex items-center gap-1 mt-1">
-          <span className="text-[10px] text-gray-500 shrink-0">ANT</span>
+  const antennaSection =
+    hasMultipleAntennas && antennas.length > 1 ? (
+      <div className="space-y-1">
+        <SectionHeader>Antenna</SectionHeader>
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => {
@@ -372,15 +333,14 @@ export function FlexSideControls({
             }}
             disabled={!canControlConnected}
             className="flex-1 px-2 py-0.5 text-[10px] font-medium rounded border
-              bg-white/5 border-white/10 text-gray-300
-              hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+            bg-white/5 border-white/10 text-gray-300
+            hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {effectiveState?.antenna ?? "\u2014"}
           </button>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    ) : null;
 
   // ─── Section: VFO A/B ──────────────────────────────────────────────────
 
@@ -1072,7 +1032,7 @@ export function FlexSideControls({
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#0d0d14]">
       <div className="overflow-y-auto flex-1 px-3 py-2 space-y-3">
-        {deviceSection}
+        {antennaSection}
         {vfoSection}
         {bandSection}
         {frequencySection}

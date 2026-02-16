@@ -20,7 +20,6 @@ export interface FateTopBarProps {
   ft8Error: string | null;
   freqHz: number | null;
   showCqOnly: boolean;
-  isMobile: boolean;
   onCqFilterChange: (value: boolean) => void;
   onFt8Toggle: () => void;
   onFt8ModeChange: (mode: "FT8" | "FT4") => void;

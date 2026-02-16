@@ -411,8 +411,6 @@ export function FlexibleSkin(props: SdrSkinProps) {
             onToggleAudio={props.onToggleAudio}
             vfo={effectiveState?.vfo}
             onVfoChange={props.onVfoChange}
-            onConnectRadio={props.onConnectRadio}
-            onDisconnectRadio={props.onDisconnectRadio}
             freqHz={effectiveState?.freq ?? null}
             onBandSelect={onPickFrequencyHz}
             hasMultipleAntennas={

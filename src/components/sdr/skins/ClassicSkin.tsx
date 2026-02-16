@@ -17,12 +17,19 @@ import { formatHz } from "./types";
 
 export function ClassicSkin(props: SdrSkinProps) {
   const {
-    daemonConnected,
-    daemonError,
-    lastResponseError,
-    effectiveState,
+    radio,
+    fft,
+    spectrum,
+    waterfall,
+    ft8,
+    decodes,
+    controls,
+    dsp,
+    interaction,
     isMobile,
   } = props;
+  const { daemonConnected, daemonError, lastResponseError, effectiveState } =
+    radio;
 
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
 
@@ -30,28 +37,28 @@ export function ClassicSkin(props: SdrSkinProps) {
     <div className="space-y-6">
       <RadioControlsCard
         effectiveState={effectiveState}
-        selectedDevice={props.selectedDevice}
-        canControlConnected={props.canControlConnected}
-        smeterDbm={props.smeterDbm}
-        canStreamFft={props.canStreamFft}
-        canStreamAudio={props.canStreamAudio}
-        fftEnabled={props.fftEnabled}
-        audioEnabled={props.audioEnabled}
-        freqInput={props.freqInput}
-        freqUnit={props.freqUnit}
-        onTune={props.onTune}
-        onFreqInputChange={props.onFreqInputChange}
-        onFreqUnitChange={props.onFreqUnitChange}
-        onModeChange={props.onModeChange}
-        onPttChange={props.onPttChange}
-        onAgcToggle={props.onAgcToggle}
-        onAntennaChange={props.onAntennaChange}
-        onGainChange={props.onGainChange}
-        onFilterChange={props.onFilterChange}
-        onNrChange={props.onNrChange}
-        onNbChange={props.onNbChange}
-        onToggleFft={props.onToggleFft}
-        onToggleAudio={props.onToggleAudio}
+        selectedDevice={radio.selectedDevice}
+        canControlConnected={radio.canControlConnected}
+        smeterDbm={radio.smeterDbm}
+        canStreamFft={radio.canStreamFft}
+        canStreamAudio={radio.canStreamAudio}
+        fftEnabled={radio.fftEnabled}
+        audioEnabled={radio.audioEnabled}
+        freqInput={controls.freqInput}
+        freqUnit={controls.freqUnit}
+        onTune={controls.onTune}
+        onFreqInputChange={controls.onFreqInputChange}
+        onFreqUnitChange={controls.onFreqUnitChange}
+        onModeChange={controls.onModeChange}
+        onPttChange={controls.onPttChange}
+        onAgcToggle={controls.onAgcToggle}
+        onAntennaChange={controls.onAntennaChange}
+        onGainChange={controls.onGainChange}
+        onFilterChange={controls.onFilterChange}
+        onNrChange={controls.onNrChange}
+        onNbChange={controls.onNbChange}
+        onToggleFft={controls.onToggleFft}
+        onToggleAudio={controls.onToggleAudio}
       />
 
       <RadioStatusCard effectiveState={effectiveState} />
@@ -62,60 +69,60 @@ export function ClassicSkin(props: SdrSkinProps) {
     <div className="space-y-6">
       <WaterfallPanel
         effectiveState={effectiveState}
-        canStreamFft={props.canStreamFft}
-        fftEnabled={props.fftEnabled}
-        lastFftFrame={props.lastFftFrame}
-        waterfallView={props.waterfallView}
-        tuningOverlay={props.tuningOverlay}
-        waterfallOverlays={props.waterfallOverlays}
-        waterfallPalette={props.waterfallPalette}
-        waterfallMinDb={props.waterfallMinDb}
-        waterfallMaxDb={props.waterfallMaxDb}
-        waterfallSpeed={props.waterfallSpeed}
-        spectrumPeakHold={props.spectrumPeakHold}
-        spectrumGradientFill={props.spectrumGradientFill}
-        spectrumBgColor={props.spectrumBgColor}
-        spectrumGridLines={props.spectrumGridLines}
-        spectrumVerticalGridLines={props.spectrumVerticalGridLines}
-        spectrumGridOpacity={props.spectrumGridOpacity}
-        spectrumSmoothing={props.spectrumSmoothing}
-        spectrumLineColor={props.spectrumLineColor}
-        spectrumLineWidth={props.spectrumLineWidth}
-        spectrumFillOpacity={props.spectrumFillOpacity}
-        spectrumLineShadow={props.spectrumLineShadow}
-        spectrumLineShadowBlur={props.spectrumLineShadowBlur}
-        tuningLineColor={props.tuningLineColor}
-        tuningArrowColor={props.tuningArrowColor}
-        notchFilters={props.notchFilters}
-        onFilterChange={props.onFilterChange}
-        onAddNotch={props.onAddNotch}
-        onUpdateNotch={props.onUpdateNotch}
-        onRemoveNotch={props.onRemoveNotch}
-        passbandBlendMode={props.passbandBlendMode}
-        passbandOpacity={props.passbandOpacity}
-        waterfallInterpolation={props.waterfallInterpolation}
-        waterfallGamma={props.waterfallGamma}
-        waterfallRowHeight={props.waterfallRowHeight}
-        clusterSpots={props.clusterSpots}
-        onWaterfallViewChange={props.onWaterfallViewChange}
-        onPickFrequencyHz={props.onPickFrequencyHz}
-        onSelectRangeHz={props.onSelectRangeHz}
+        canStreamFft={radio.canStreamFft}
+        fftEnabled={radio.fftEnabled}
+        lastFftFrame={fft.lastFftFrame}
+        waterfallView={fft.waterfallView}
+        tuningOverlay={fft.tuningOverlay}
+        waterfallOverlays={fft.waterfallOverlays}
+        waterfallPalette={waterfall.waterfallPalette}
+        waterfallMinDb={waterfall.waterfallMinDb}
+        waterfallMaxDb={waterfall.waterfallMaxDb}
+        waterfallSpeed={waterfall.waterfallSpeed}
+        spectrumPeakHold={spectrum.spectrumPeakHold}
+        spectrumGradientFill={spectrum.spectrumGradientFill}
+        spectrumBgColor={spectrum.spectrumBgColor}
+        spectrumGridLines={spectrum.spectrumGridLines}
+        spectrumVerticalGridLines={spectrum.spectrumVerticalGridLines}
+        spectrumGridOpacity={spectrum.spectrumGridOpacity}
+        spectrumSmoothing={spectrum.spectrumSmoothing}
+        spectrumLineColor={spectrum.spectrumLineColor}
+        spectrumLineWidth={spectrum.spectrumLineWidth}
+        spectrumFillOpacity={spectrum.spectrumFillOpacity}
+        spectrumLineShadow={spectrum.spectrumLineShadow}
+        spectrumLineShadowBlur={spectrum.spectrumLineShadowBlur}
+        tuningLineColor={spectrum.tuningLineColor}
+        tuningArrowColor={spectrum.tuningArrowColor}
+        notchFilters={dsp.notchFilters}
+        onFilterChange={controls.onFilterChange}
+        onAddNotch={dsp.onAddNotch}
+        onUpdateNotch={dsp.onUpdateNotch}
+        onRemoveNotch={dsp.onRemoveNotch}
+        passbandBlendMode={waterfall.passbandBlendMode}
+        passbandOpacity={waterfall.passbandOpacity}
+        waterfallInterpolation={waterfall.waterfallInterpolation}
+        waterfallGamma={waterfall.waterfallGamma}
+        waterfallRowHeight={waterfall.waterfallRowHeight}
+        clusterSpots={decodes.clusterSpots}
+        onWaterfallViewChange={interaction.onWaterfallViewChange}
+        onPickFrequencyHz={interaction.onPickFrequencyHz}
+        onSelectRangeHz={interaction.onSelectRangeHz}
       />
 
       <DecodesPanel
-        wsjtxStatus={props.wsjtxStatus}
-        wsjtxDecodes={props.wsjtxDecodes}
-        clusterSpots={props.clusterSpots}
+        wsjtxStatus={decodes.wsjtxStatus}
+        wsjtxDecodes={decodes.wsjtxDecodes}
+        clusterSpots={decodes.clusterSpots}
       />
 
       <Ft8DecoderPanel
-        enabled={props.ft8DecoderEnabled}
-        mode={props.ft8DecoderMode}
-        cycleProgress={props.ft8CycleProgress}
-        stats={props.ft8DecoderStats}
-        error={props.ft8Error}
-        onToggle={props.onFt8Toggle}
-        onModeChange={props.onFt8ModeChange}
+        enabled={ft8.ft8DecoderEnabled}
+        mode={ft8.ft8DecoderMode}
+        cycleProgress={ft8.ft8CycleProgress}
+        stats={ft8.ft8DecoderStats}
+        error={ft8.ft8Error}
+        onToggle={ft8.onFt8Toggle}
+        onModeChange={ft8.onFt8ModeChange}
       />
     </div>
   );

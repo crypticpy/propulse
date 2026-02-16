@@ -1,5 +1,5 @@
 /**
- * FateWaterfallStrip — Compact waterfall display for the Fate (F8) FT8/FT4 skin.
+ * FateWaterfallStrip -- Compact waterfall display for the Fate (F8) FT8/FT4 skin.
  *
  * A thin wrapper around the existing Waterfall component, constrained to 80px
  * height. Renders the audio-derived FFT waterfall with a subtle label overlay.
@@ -12,8 +12,7 @@ import type {
   WaterfallView,
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
-import type { FftFrame } from "@/components/sdr/skins/types";
-import type { SdrSkinProps } from "@/components/sdr/skins/types";
+import type { FftFrame, SdrFftDataProps } from "@/components/sdr/skins/types";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -25,7 +24,7 @@ export interface FateWaterfallStripProps {
   minDb: number;
   maxDb: number;
   speed: number;
-  overlays: SdrSkinProps["waterfallOverlays"];
+  overlays: SdrFftDataProps["waterfallOverlays"];
   onPickFrequencyHz: (hz: number) => void;
   onWheelTune: (direction: number) => void;
   interpolation: "nearest" | "linear";

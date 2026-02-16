@@ -28,48 +28,129 @@ import { FlexInfoTabs } from "./flexible/FlexInfoTabs";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import type { SdrSkinProps } from "./types";
 
+/** RX gain stage names — constant, lives outside the component to avoid re-creation. */
+const RX_STAGES = ["RF", "SQL", "PREAMP", "ATT"];
+
 export function FlexibleSkin(props: SdrSkinProps) {
+  const {
+    radio,
+    fft,
+    spectrum,
+    waterfall: wf,
+    ft8,
+    decodes,
+    controls,
+    dsp,
+    interaction,
+    lastDaemonStatus,
+  } = props;
   const {
     daemonConnected,
     daemonError,
     lastResponseError,
-    lastDaemonStatus,
     effectiveState,
-
-    // FFT / Spectrum
     canStreamFft,
     fftEnabled,
-    lastFftFrame,
-    waterfallView,
-    tuningOverlay,
-    waterfallOverlays,
+    smeterDbm,
+  } = radio;
+
+  const { lastFftFrame, waterfallView, tuningOverlay, waterfallOverlays } = fft;
+
+  const {
     waterfallPalette,
     waterfallMinDb,
     waterfallMaxDb,
     waterfallSpeed,
-    spectrumPeakHold,
-    spectrumGradientFill,
-
-    // Waterfall fidelity
     waterfallInterpolation,
     waterfallGamma,
     waterfallRowHeight,
-
-    // Data
-    clusterSpots,
-    smeterDbm,
     sliceBgColor,
+  } = wf;
 
-    // Callbacks
-    onWaterfallViewChange,
-    onPickFrequencyHz,
-    onSelectRangeHz,
-  } = props;
+  const { spectrumPeakHold, spectrumGradientFill } = spectrum;
 
-  const hasRadio = !!props.connectedDeviceId;
+  const { onWaterfallViewChange, onPickFrequencyHz, onSelectRangeHz } =
+    interaction;
+
+  const { clusterSpots } = decodes;
+
+  const hasRadio = !!radio.connectedDeviceId;
   const hasFft = canStreamFft && fftEnabled && !!lastFftFrame;
   const radioName =
-    props.selectedDevice?.name ?? props.selectedDevice?.device_id ?? null;
+    radio.selectedDevice?.name ?? radio.selectedDevice?.device_id ?? null;
+
+  // ── Gain stage groupings for slice panels ────────────────────────
+
+  const slicePanels = useMemo(() => {
+    const allStages = radio.selectedDevice?.capabilities.gain_stages ?? [];
+    const gains = effectiveState?.gains ?? {};
+
+    return radio.canControlConnected
+      ? {
+          canControl: true,
+          // DSP
+          nbEnabled: !!effectiveState?.nb?.enabled,
+          nrEnabled: !!effectiveState?.nr?.enabled,
+          agcEnabled: !!effectiveState?.agc,
+          onNbToggle: () =>
+            controls.onNbChange(
+              !effectiveState?.nb?.enabled,
+              effectiveState?.nb?.threshold ?? 50,
+            ),
+          onNrToggle: () =>
+            controls.onNrChange(
+              !effectiveState?.nr?.enabled,
+              effectiveState?.nr?.level ?? 5,
+            ),
+          onAgcToggle: () => controls.onAgcToggle(!effectiveState?.agc),
+          // Filter / Mode
+          availableModes: radio.selectedDevice?.capabilities.modes ?? [],
+          currentMode: effectiveState?.mode ?? "USB",
+          filterLow: effectiveState?.filter?.low ?? 300,
+          filterHigh: effectiveState?.filter?.high ?? 2700,
+          onModeChange: controls.onModeChange,
+          onFilterChange: controls.onFilterChange,
+          // RX gains
+          rxGainStages: allStages.filter((s) => RX_STAGES.includes(s.name)),
+          gains,
+          onGainChange: controls.onGainChange,
+          // Audio
+          audioEnabled: radio.audioEnabled,
+          afGainStage: allStages.find((s) => s.name === "AF") ?? null,
+          noiseGateEnabled: dsp.noiseGateEnabled,
+          noiseGateThreshold: dsp.noiseGateThreshold,
+          clientNrEnabled: dsp.clientNrEnabled,
+          clientNrLevel: dsp.clientNrLevel,
+          onNoiseGateToggle: dsp.onNoiseGateToggle,
+          onNoiseGateThresholdChange: dsp.onNoiseGateThresholdChange,
+          onClientNrToggle: dsp.onClientNrToggle,
+          onClientNrLevelChange: dsp.onClientNrLevelChange,
+        }
+      : undefined;
+  }, [
+    radio.canControlConnected,
+    radio.selectedDevice?.capabilities.modes,
+    radio.selectedDevice?.capabilities.gain_stages,
+    radio.audioEnabled,
+    effectiveState?.nb?.enabled,
+    effectiveState?.nb?.threshold,
+    effectiveState?.nr?.enabled,
+    effectiveState?.nr?.level,
+    effectiveState?.agc,
+    effectiveState?.gains,
+    effectiveState?.mode,
+    effectiveState?.filter?.low,
+    effectiveState?.filter?.high,
+    controls,
+    dsp.noiseGateEnabled,
+    dsp.noiseGateThreshold,
+    dsp.clientNrEnabled,
+    dsp.clientNrLevel,
+    dsp.onNoiseGateToggle,
+    dsp.onNoiseGateThresholdChange,
+    dsp.onClientNrToggle,
+    dsp.onClientNrLevelChange,
+  ]);
 
   // Track waterfall container height for FlexTimeAxis
   const waterfallContainerRef = useRef<HTMLDivElement>(null);
@@ -197,34 +278,37 @@ export function FlexibleSkin(props: SdrSkinProps) {
               vfo={effectiveState?.vfo}
               bgColor={sliceBgColor}
               onVfoSwap={
-                props.canControlConnected
+                radio.canControlConnected
                   ? () =>
-                      props.onVfoChange(effectiveState?.vfo === "B" ? "A" : "B")
+                      controls.onVfoChange(
+                        effectiveState?.vfo === "B" ? "A" : "B",
+                      )
                   : undefined
               }
               onNbToggle={
-                props.canControlConnected
+                radio.canControlConnected
                   ? () =>
-                      props.onNbChange(
+                      controls.onNbChange(
                         !effectiveState?.nb?.enabled,
                         effectiveState?.nb?.threshold ?? 50,
                       )
                   : undefined
               }
               onNrToggle={
-                props.canControlConnected
+                radio.canControlConnected
                   ? () =>
-                      props.onNrChange(
+                      controls.onNrChange(
                         !effectiveState?.nr?.enabled,
                         effectiveState?.nr?.level ?? 5,
                       )
                   : undefined
               }
               onAgcToggle={
-                props.canControlConnected
-                  ? () => props.onAgcToggle(!effectiveState?.agc)
+                radio.canControlConnected
+                  ? () => controls.onAgcToggle(!effectiveState?.agc)
                   : undefined
               }
+              slicePanels={slicePanels}
             />
           </div>
 
@@ -234,7 +318,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
               <div className="relative h-[30%] min-h-[80px]">
                 <SpectrumScope
                   frame={lastFftFrame}
-                  audioFrame={props.audioFftFrame}
+                  audioFrame={fft.audioFftFrame}
                   view={waterfallView}
                   palette={waterfallPalette}
                   tuning={tuningOverlay}
@@ -243,25 +327,25 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   showPeakHold={spectrumPeakHold}
                   showGradientFill={spectrumGradientFill}
                   overlays={waterfallOverlays}
-                  bgColor={props.spectrumBgColor}
-                  gridLines={props.spectrumGridLines}
-                  verticalGridLines={props.spectrumVerticalGridLines}
-                  gridOpacity={props.spectrumGridOpacity}
-                  smoothing={props.spectrumSmoothing}
-                  lineColor={props.spectrumLineColor}
-                  lineWidth={props.spectrumLineWidth}
-                  fillOpacity={props.spectrumFillOpacity}
-                  lineShadow={props.spectrumLineShadow}
-                  lineShadowBlur={props.spectrumLineShadowBlur}
-                  tuningLineColor={props.tuningLineColor}
-                  tuningArrowColor={props.tuningArrowColor}
-                  notchFilters={props.notchFilters}
-                  onFilterChange={props.onFilterChange}
-                  onAddNotch={props.onAddNotch}
-                  onUpdateNotch={props.onUpdateNotch}
-                  onRemoveNotch={props.onRemoveNotch}
+                  bgColor={spectrum.spectrumBgColor}
+                  gridLines={spectrum.spectrumGridLines}
+                  verticalGridLines={spectrum.spectrumVerticalGridLines}
+                  gridOpacity={spectrum.spectrumGridOpacity}
+                  smoothing={spectrum.spectrumSmoothing}
+                  lineColor={spectrum.spectrumLineColor}
+                  lineWidth={spectrum.spectrumLineWidth}
+                  fillOpacity={spectrum.spectrumFillOpacity}
+                  lineShadow={spectrum.spectrumLineShadow}
+                  lineShadowBlur={spectrum.spectrumLineShadowBlur}
+                  tuningLineColor={spectrum.tuningLineColor}
+                  tuningArrowColor={spectrum.tuningArrowColor}
+                  notchFilters={dsp.notchFilters}
+                  onFilterChange={controls.onFilterChange}
+                  onAddNotch={dsp.onAddNotch}
+                  onUpdateNotch={dsp.onUpdateNotch}
+                  onRemoveNotch={dsp.onRemoveNotch}
                   onPickFrequencyHz={onPickFrequencyHz}
-                  onWheelTune={props.onWheelTune}
+                  onWheelTune={interaction.onWheelTune}
                   className="rounded-none border-0"
                 />
                 <FlexDbScale minDb={waterfallMinDb} maxDb={waterfallMaxDb} />
@@ -270,19 +354,19 @@ export function FlexibleSkin(props: SdrSkinProps) {
               {/* Passband detail zoom scope */}
               <PassbandDetail
                 frame={lastFftFrame}
-                audioFftFrame={props.audioFftFrame}
+                audioFftFrame={fft.audioFftFrame}
                 tuning={tuningOverlay}
                 minDb={waterfallMinDb}
                 maxDb={waterfallMaxDb}
                 palette={waterfallPalette}
                 gamma={waterfallGamma}
-                notchFilters={props.notchFilters}
-                onFilterChange={props.onFilterChange}
-                onAddNotch={props.onAddNotch}
-                onUpdateNotch={props.onUpdateNotch}
-                onRemoveNotch={props.onRemoveNotch}
+                notchFilters={dsp.notchFilters}
+                onFilterChange={controls.onFilterChange}
+                onAddNotch={dsp.onAddNotch}
+                onUpdateNotch={dsp.onUpdateNotch}
+                onRemoveNotch={dsp.onRemoveNotch}
                 onPickFrequencyHz={onPickFrequencyHz}
-                onWheelTune={props.onWheelTune}
+                onWheelTune={interaction.onWheelTune}
               />
 
               {/* Frequency axis — ticks point up toward spectrum */}
@@ -299,7 +383,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
               >
                 <Waterfall
                   frame={lastFftFrame}
-                  audioFrame={props.audioFftFrame}
+                  audioFrame={fft.audioFftFrame}
                   view={waterfallView}
                   onViewChange={onWaterfallViewChange}
                   palette={waterfallPalette}
@@ -310,9 +394,9 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   overlays={waterfallOverlays}
                   onPickFrequencyHz={onPickFrequencyHz}
                   onSelectRangeHz={onSelectRangeHz}
-                  onWheelTune={props.onWheelTune}
+                  onWheelTune={interaction.onWheelTune}
                   passbandBlendMode={
-                    props.passbandBlendMode as
+                    wf.passbandBlendMode as
                       | "screen"
                       | "overlay"
                       | "color-dodge"
@@ -320,7 +404,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                       | "soft-light"
                       | "none"
                   }
-                  passbandOpacity={props.passbandOpacity}
+                  passbandOpacity={wf.passbandOpacity}
                   interpolation={waterfallInterpolation}
                   gamma={waterfallGamma}
                   rowHeight={waterfallRowHeight}
@@ -372,64 +456,49 @@ export function FlexibleSkin(props: SdrSkinProps) {
         <div className="flex flex-col min-h-0 border-l border-white/10 bg-[#0d0d14]">
           <FlexSideControls
             effectiveState={effectiveState}
-            selectedDevice={props.selectedDevice}
-            canControlConnected={props.canControlConnected}
-            smeterDbm={smeterDbm}
+            selectedDevice={radio.selectedDevice}
+            canControlConnected={radio.canControlConnected}
             canStreamFft={canStreamFft}
-            canStreamAudio={props.canStreamAudio}
+            canStreamAudio={radio.canStreamAudio}
             fftEnabled={fftEnabled}
-            audioEnabled={props.audioEnabled}
-            freqInput={props.freqInput}
-            freqUnit={props.freqUnit}
-            noiseGateEnabled={props.noiseGateEnabled}
-            noiseGateThreshold={props.noiseGateThreshold}
-            onNoiseGateToggle={props.onNoiseGateToggle}
-            onNoiseGateThresholdChange={props.onNoiseGateThresholdChange}
-            clientNrEnabled={props.clientNrEnabled}
-            clientNrLevel={props.clientNrLevel}
-            onClientNrToggle={props.onClientNrToggle}
-            onClientNrLevelChange={props.onClientNrLevelChange}
-            notchFilters={props.notchFilters}
-            tuningStepHz={props.tuningStepHz}
-            onTuningStepChange={props.onTuningStepChange}
-            onAddNotch={props.onAddNotch}
-            onRemoveNotch={props.onRemoveNotch}
-            onUpdateNotch={props.onUpdateNotch}
-            onToggleNotch={props.onToggleNotch}
-            onTune={props.onTune}
-            onFreqInputChange={props.onFreqInputChange}
-            onFreqUnitChange={props.onFreqUnitChange}
-            onModeChange={props.onModeChange}
-            onPttChange={props.onPttChange}
-            onAgcToggle={props.onAgcToggle}
-            onAntennaChange={props.onAntennaChange}
-            onGainChange={props.onGainChange}
-            onFilterChange={props.onFilterChange}
-            onNrChange={props.onNrChange}
-            onNbChange={props.onNbChange}
-            onToggleFft={props.onToggleFft}
-            onToggleAudio={props.onToggleAudio}
+            audioEnabled={radio.audioEnabled}
+            freqInput={controls.freqInput}
+            freqUnit={controls.freqUnit}
+            notchFilters={dsp.notchFilters}
+            tuningStepHz={dsp.tuningStepHz}
+            onTuningStepChange={dsp.onTuningStepChange}
+            onAddNotch={dsp.onAddNotch}
+            onRemoveNotch={dsp.onRemoveNotch}
+            onUpdateNotch={dsp.onUpdateNotch}
+            onToggleNotch={dsp.onToggleNotch}
+            onTune={controls.onTune}
+            onFreqInputChange={controls.onFreqInputChange}
+            onFreqUnitChange={controls.onFreqUnitChange}
+            onAntennaChange={controls.onAntennaChange}
+            onGainChange={controls.onGainChange}
+            onToggleFft={controls.onToggleFft}
+            onToggleAudio={controls.onToggleAudio}
             vfo={effectiveState?.vfo}
-            onVfoChange={props.onVfoChange}
+            onVfoChange={controls.onVfoChange}
             freqHz={effectiveState?.freq ?? null}
             onBandSelect={onPickFrequencyHz}
             hasMultipleAntennas={
-              (props.selectedDevice?.capabilities.antennas.length ?? 0) > 1
+              (radio.selectedDevice?.capabilities.antennas.length ?? 0) > 1
             }
-            antennas={props.selectedDevice?.capabilities.antennas ?? []}
-            ft8DecoderEnabled={props.ft8DecoderEnabled}
-            ft8DecoderMode={props.ft8DecoderMode}
-            ft8CycleProgress={props.ft8CycleProgress}
-            ft8DecoderStats={props.ft8DecoderStats}
-            ft8Error={props.ft8Error}
-            onFt8Toggle={props.onFt8Toggle}
-            onFt8ModeChange={props.onFt8ModeChange}
+            antennas={radio.selectedDevice?.capabilities.antennas ?? []}
+            ft8DecoderEnabled={ft8.ft8DecoderEnabled}
+            ft8DecoderMode={ft8.ft8DecoderMode}
+            ft8CycleProgress={ft8.ft8CycleProgress}
+            ft8DecoderStats={ft8.ft8DecoderStats}
+            ft8Error={ft8.ft8Error}
+            onFt8Toggle={ft8.onFt8Toggle}
+            onFt8ModeChange={ft8.onFt8ModeChange}
           />
           <FlexInfoTabs
-            wsjtxStatus={props.wsjtxStatus}
-            wsjtxDecodes={props.wsjtxDecodes}
+            wsjtxStatus={decodes.wsjtxStatus}
+            wsjtxDecodes={decodes.wsjtxDecodes}
             clusterSpots={clusterSpots}
-            ft8DecoderEnabled={props.ft8DecoderEnabled}
+            ft8DecoderEnabled={ft8.ft8DecoderEnabled}
           />
         </div>
       </div>
@@ -440,7 +509,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
         radioName={radioName}
         ptt={effectiveState?.ptt ?? false}
         fftEnabled={fftEnabled}
-        audioEnabled={props.audioEnabled}
+        audioEnabled={radio.audioEnabled}
         cpuPercent={lastDaemonStatus?.cpu_percent ?? null}
         memoryMb={lastDaemonStatus?.memory_mb ?? null}
         vfo={effectiveState?.vfo ?? null}

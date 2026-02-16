@@ -2,9 +2,10 @@
  * FlexSideControls -- Right sidebar (280px) control surface for the
  * FlexRadio SmartSDR-inspired Flexible SDR skin.
  *
- * Provides compact, flat-design controls for radio tuning, DSP, gain,
- * filters, and streaming toggles. Replaces the Classic skin's card-based
- * layout with a dense, scrollable column.
+ * DSP, filter, mode, RX gain, and audio controls have migrated to the
+ * slice flag's expandable panels (SlicePanelTabs). This sidebar now
+ * handles band/frequency tuning, TX controls, streams, FT8 decoder,
+ * and notch filters.
  */
 
 import { useMemo, useState, type KeyboardEvent } from "react";
@@ -14,6 +15,7 @@ import type { BandId } from "@/types/user";
 import { BAND_CENTER_FREQUENCIES } from "@/lib/data/feedlines";
 import { BAND_COLORS } from "@/lib/utils/spotColors";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
+import { SidebarAccordion } from "./SidebarAccordion";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -28,7 +30,6 @@ export interface FlexSideControlsProps {
   effectiveState: RadioState | null;
   selectedDevice: DeviceInfo | null;
   canControlConnected: boolean;
-  smeterDbm: number | undefined;
 
   canStreamFft: boolean;
   canStreamAudio: boolean;
@@ -37,18 +38,6 @@ export interface FlexSideControlsProps {
 
   freqInput: string;
   freqUnit: "MHz" | "kHz" | "Hz";
-
-  // Client-side noise gate
-  noiseGateEnabled: boolean;
-  noiseGateThreshold: number;
-  onNoiseGateToggle: (enabled: boolean) => void;
-  onNoiseGateThresholdChange: (threshold: number) => void;
-
-  // Client-side noise reduction
-  clientNrEnabled: boolean;
-  clientNrLevel: number;
-  onClientNrToggle: (enabled: boolean) => void;
-  onClientNrLevelChange: (level: number) => void;
 
   // Notch filters
   notchFilters: NotchFilter[];
@@ -60,14 +49,8 @@ export interface FlexSideControlsProps {
   onTune: () => void;
   onFreqInputChange: (value: string) => void;
   onFreqUnitChange: (unit: "MHz" | "kHz" | "Hz") => void;
-  onModeChange: (mode: string) => void;
-  onPttChange: (active: boolean) => void;
-  onAgcToggle: (enabled: boolean) => void;
   onAntennaChange: (port: string) => void;
   onGainChange: (stage: string, value: number) => void;
-  onFilterChange: (low: number, high: number) => void;
-  onNrChange: (enabled: boolean, level: number) => void;
-  onNbChange: (enabled: boolean, threshold: number) => void;
   onToggleFft: () => void;
   onToggleAudio: () => void;
 
@@ -117,25 +100,7 @@ const STEP_OPTIONS = [
 
 const MAX_NOTCH_FILTERS = 8;
 
-const GAIN_GROUPS = [
-  { label: "RX Controls", stages: ["RF", "SQL", "PREAMP", "ATT"] },
-  { label: "TX Controls", stages: ["RFPOWER", "MICGAIN", "COMP", "VOXGAIN"] },
-  { label: "Audio", stages: ["AF", "MONITOR_GAIN"] },
-] as const;
-
-const DISCRETE_STAGES = new Set(["PREAMP", "ATT"]);
-const DISCRETE_STEPS = [
-  { label: "Off", value: 0 },
-  { label: "10dB", value: 10 },
-  { label: "20dB", value: 20 },
-];
-
-function nrLevelLabel(level: number): string {
-  if (level === 0) return "Off";
-  if (level <= 3) return "Mild";
-  if (level <= 6) return "Moderate";
-  return "Aggressive";
-}
+const TX_STAGE_NAMES = ["RFPOWER", "MICGAIN", "COMP", "VOXGAIN"] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -267,14 +232,6 @@ export function FlexSideControls({
   audioEnabled,
   freqInput,
   freqUnit,
-  noiseGateEnabled,
-  noiseGateThreshold,
-  onNoiseGateToggle,
-  onNoiseGateThresholdChange,
-  clientNrEnabled,
-  clientNrLevel,
-  onClientNrToggle,
-  onClientNrLevelChange,
   notchFilters,
   onAddNotch,
   onRemoveNotch,
@@ -283,13 +240,8 @@ export function FlexSideControls({
   onTune,
   onFreqInputChange,
   onFreqUnitChange,
-  onModeChange,
-  onAgcToggle,
   onAntennaChange,
   onGainChange,
-  onFilterChange,
-  onNrChange,
-  onNbChange,
   onToggleFft,
   onToggleAudio,
   tuningStepHz,
@@ -389,8 +341,6 @@ export function FlexSideControls({
 
   const bandSection = (
     <div className="space-y-1">
-      <SectionHeader>Band</SectionHeader>
-
       <div className="grid grid-cols-2 gap-1">
         {HF_BANDS.map((band) => {
           const isActive = activeBand === band;
@@ -452,8 +402,6 @@ export function FlexSideControls({
 
   const frequencySection = (
     <div className="space-y-1">
-      <SectionHeader>Frequency</SectionHeader>
-
       <input
         type="text"
         value={freqInput}
@@ -484,38 +432,10 @@ export function FlexSideControls({
     </div>
   );
 
-  // ─── Section: Mode Selector ──────────────────────────────────────────────
-
-  const modeSection = (
-    <div className="space-y-1">
-      <SectionHeader>Mode</SectionHeader>
-
-      <select
-        value={effectiveState?.mode ?? ""}
-        onChange={(e) => onModeChange(e.target.value)}
-        disabled={!canControlConnected || !selectedDevice}
-        className="w-full px-2 py-1 text-xs text-white
-          bg-black/40 border border-white/10 rounded
-          focus:border-cosmic-cyan/50 focus:outline-none
-          disabled:opacity-40 disabled:cursor-not-allowed
-          [&>option]:bg-[#0d0d14]"
-      >
-        {!effectiveState?.mode && <option value="">--</option>}
-        {selectedDevice?.capabilities.modes.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
   // ─── Section: FT8/FT4 Decoder ──────────────────────────────────────────
 
   const ft8Section = (
     <div className="space-y-2">
-      <SectionHeader>Digital Decoder</SectionHeader>
-
       {/* Big ON/OFF toggle + mode indicator */}
       <div className="flex items-center gap-2">
         <button
@@ -620,8 +540,6 @@ export function FlexSideControls({
 
   const stepSection = (
     <div className="space-y-1">
-      <SectionHeader>Step</SectionHeader>
-
       <div className="grid grid-cols-2 gap-1">
         {STEP_OPTIONS.map((opt) => (
           <button
@@ -640,149 +558,18 @@ export function FlexSideControls({
     </div>
   );
 
-  // ─── Section: Filter Width ───────────────────────────────────────────────
-
-  const filterLow = effectiveState?.filter?.low ?? 300;
-  const filterHigh = effectiveState?.filter?.high ?? 2700;
-
-  const filterSection = (
-    <div className="space-y-1">
-      <SectionHeader>Filter</SectionHeader>
-
-      <div className="font-mono text-[10px] text-gray-400 text-center">
-        {filterLow}&mdash;{filterHigh} Hz
-      </div>
-
-      <div className="flex gap-2">
-        <div className="flex-1 space-y-0.5">
-          <label className="text-[10px] text-gray-500">Low</label>
-          <input
-            type="range"
-            min={0}
-            max={5000}
-            step={50}
-            value={filterLow}
-            onChange={(e) => onFilterChange(Number(e.target.value), filterHigh)}
-            disabled={!canControlConnected}
-            className="w-full h-1 accent-cosmic-cyan disabled:opacity-40"
-          />
-        </div>
-        <div className="flex-1 space-y-0.5">
-          <label className="text-[10px] text-gray-500">High</label>
-          <input
-            type="range"
-            min={500}
-            max={15000}
-            step={50}
-            value={filterHigh}
-            onChange={(e) => onFilterChange(filterLow, Number(e.target.value))}
-            disabled={!canControlConnected}
-            className="w-full h-1 accent-cosmic-cyan disabled:opacity-40"
-          />
-        </div>
-      </div>
-    </div>
-  );
-
-  // ─── Section: DSP Toggles ───────────────────────────────────────────────
-
-  const nb = effectiveState?.nb;
-  const nr = effectiveState?.nr;
-  const agc = effectiveState?.agc ?? false;
-
-  const dspSection = (
-    <div className="space-y-1">
-      <SectionHeader>DSP</SectionHeader>
-
-      <div className="flex gap-1">
-        <button
-          onClick={() =>
-            onNbChange(!(nb?.enabled ?? false), nb?.threshold ?? 50)
-          }
-          disabled={!canControlConnected}
-          className={`flex-1 px-1.5 py-1 text-[10px] font-semibold rounded border transition-colors
-            disabled:opacity-40 disabled:cursor-not-allowed ${
-              nb?.enabled
-                ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                : "bg-white/5 border-white/10 text-gray-400"
-            }`}
-        >
-          NB
-        </button>
-
-        <button
-          onClick={() => onNrChange(!(nr?.enabled ?? false), nr?.level ?? 3)}
-          disabled={!canControlConnected}
-          className={`flex-1 px-1.5 py-1 text-[10px] font-semibold rounded border transition-colors
-            disabled:opacity-40 disabled:cursor-not-allowed ${
-              nr?.enabled
-                ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                : "bg-white/5 border-white/10 text-gray-400"
-            }`}
-        >
-          NR
-        </button>
-
-        <button
-          onClick={() => onAgcToggle(!agc)}
-          disabled={!canControlConnected}
-          className={`flex-1 px-1.5 py-1 text-[10px] font-semibold rounded border transition-colors
-            disabled:opacity-40 disabled:cursor-not-allowed ${
-              agc
-                ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                : "bg-white/5 border-white/10 text-gray-400"
-            }`}
-        >
-          AGC
-        </button>
-      </div>
-    </div>
-  );
-
-  // ─── Sections: Gain Stages (RX / TX / Audio) ───────────────────────────
+  // ─── Section: TX Gain Stages ────────────────────────────────────────────
 
   const allGainStages = selectedDevice?.capabilities.gain_stages ?? [];
+  const txStages = allGainStages.filter((s) =>
+    (TX_STAGE_NAMES as readonly string[]).includes(s.name),
+  );
 
-  const gainSections = GAIN_GROUPS.map((group) => {
-    const matchedStages = allGainStages.filter((s) =>
-      (group.stages as readonly string[]).includes(s.name),
-    );
-    if (matchedStages.length === 0) return null;
-
-    return (
-      <div key={group.label} className="space-y-1">
-        <SectionHeader>{group.label}</SectionHeader>
-
-        {matchedStages.map((stage) => {
+  const txSection =
+    txStages.length > 0 ? (
+      <div className="space-y-1">
+        {txStages.map((stage) => {
           const currentValue = effectiveState?.gains[stage.name] ?? stage.min;
-
-          if (DISCRETE_STAGES.has(stage.name)) {
-            return (
-              <div key={stage.name} className="space-y-0.5">
-                <span className="text-[10px] text-gray-500">
-                  {stage.label ?? stage.name}
-                </span>
-                <div className="flex gap-1">
-                  {DISCRETE_STEPS.map((step) => (
-                    <button
-                      key={step.value}
-                      onClick={() => onGainChange(stage.name, step.value)}
-                      disabled={!canControlConnected}
-                      className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors
-                        disabled:opacity-40 disabled:cursor-not-allowed ${
-                          currentValue === step.value
-                            ? "bg-signal-green/15 text-signal-green border-signal-green/30"
-                            : "bg-white/5 text-gray-500 border-white/10 hover:bg-white/10"
-                        }`}
-                    >
-                      {step.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          }
-
           return (
             <div key={stage.name} className="space-y-0.5">
               <div className="flex items-center justify-between">
@@ -811,52 +598,7 @@ export function FlexSideControls({
           );
         })}
       </div>
-    );
-  });
-
-  // ─── Section: RIT / XIT ─────────────────────────────────────────────────
-
-  const ritXitSection = (
-    <div
-      className="space-y-1 opacity-40 cursor-not-allowed"
-      title="Not yet available"
-    >
-      <SectionHeader>RIT / XIT</SectionHeader>
-
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-0.5">
-            <span className="text-[10px] text-gray-500">RIT</span>
-            <span className="text-[9px] font-semibold text-gray-600 bg-white/5 px-1 rounded">
-              N/A
-            </span>
-          </div>
-          <input
-            type="text"
-            value="0 Hz"
-            disabled
-            className="w-full px-1.5 py-0.5 text-[10px] font-mono text-gray-500
-              bg-black/30 border border-white/5 rounded cursor-not-allowed"
-          />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-0.5">
-            <span className="text-[10px] text-gray-500">XIT</span>
-            <span className="text-[9px] font-semibold text-gray-600 bg-white/5 px-1 rounded">
-              N/A
-            </span>
-          </div>
-          <input
-            type="text"
-            value="0 Hz"
-            disabled
-            className="w-full px-1.5 py-0.5 text-[10px] font-mono text-gray-500
-              bg-black/30 border border-white/5 rounded cursor-not-allowed"
-          />
-        </div>
-      </div>
-    </div>
-  );
+    ) : null;
 
   // ─── Section: FFT / Audio Toggle ────────────────────────────────────────
 
@@ -894,12 +636,10 @@ export function FlexSideControls({
     </div>
   );
 
-  // ─── Section: Notch Filters (always visible) ──────────────────────────
+  // ─── Section: Notch Filters ──────────────────────────────────────────────
 
   const notchSection = (
     <div className="space-y-1">
-      <SectionHeader>Notch Filters</SectionHeader>
-
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-gray-400">
           {notchFilters.length}/{MAX_NOTCH_FILTERS}
@@ -927,7 +667,7 @@ export function FlexSideControls({
         <NotchFilterRow
           key={notch.id}
           notch={notch}
-          onUpdate={(freqHz, q) => onUpdateNotch(notch.id, freqHz, q)}
+          onUpdate={(fHz, q) => onUpdateNotch(notch.id, fHz, q)}
           onToggle={(enabled) => onToggleNotch(notch.id, enabled)}
           onRemove={() => onRemoveNotch(notch.id)}
         />
@@ -935,117 +675,54 @@ export function FlexSideControls({
     </div>
   );
 
-  // ─── Section: Audio DSP (Noise Gate + NR) ─────────────────────────────
-
-  const audioDspSection = (
-    <div className="space-y-1">
-      <SectionHeader>Audio DSP</SectionHeader>
-
-      {!audioEnabled ? (
-        <div className="text-[10px] text-gray-600 italic">
-          Start audio stream to use DSP
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {/* ── Noise Gate ─────────────────────────── */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">Noise Gate</span>
-              <button
-                onClick={() => onNoiseGateToggle(!noiseGateEnabled)}
-                className={`px-1.5 py-0.5 text-[9px] font-semibold rounded border transition-colors ${
-                  noiseGateEnabled
-                    ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                    : "bg-white/5 border-white/10 text-gray-500"
-                }`}
-              >
-                {noiseGateEnabled ? "On" : "Off"}
-              </button>
-            </div>
-            {noiseGateEnabled && (
-              <div className="flex items-center gap-1">
-                <label className="text-[9px] text-gray-500 shrink-0">
-                  Threshold
-                </label>
-                <input
-                  type="range"
-                  min={-80}
-                  max={-20}
-                  step={1}
-                  value={noiseGateThreshold}
-                  onChange={(e) =>
-                    onNoiseGateThresholdChange(Number(e.target.value))
-                  }
-                  className="flex-1 h-1 accent-plasma-orange"
-                />
-                <span className="text-[10px] font-mono text-gray-400 shrink-0 w-10 text-right">
-                  {noiseGateThreshold} dB
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* ── Noise Reduction ────────────────────── */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">Noise Reduction</span>
-              <button
-                onClick={() => onClientNrToggle(!clientNrEnabled)}
-                className={`px-1.5 py-0.5 text-[9px] font-semibold rounded border transition-colors ${
-                  clientNrEnabled
-                    ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                    : "bg-white/5 border-white/10 text-gray-500"
-                }`}
-              >
-                {clientNrEnabled ? "On" : "Off"}
-              </button>
-            </div>
-            {clientNrEnabled && (
-              <div className="flex items-center gap-1">
-                <label className="text-[9px] text-gray-500 shrink-0">
-                  Level
-                </label>
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={clientNrLevel}
-                  onChange={(e) =>
-                    onClientNrLevelChange(Number(e.target.value))
-                  }
-                  className="flex-1 h-1 accent-plasma-orange"
-                />
-                <span className="text-[10px] font-mono text-gray-400 shrink-0 w-16 text-right">
-                  {clientNrLevel} {nrLevelLabel(clientNrLevel)}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#0d0d14]">
-      <div className="overflow-y-auto flex-1 px-3 py-2 space-y-3">
+      <div className="overflow-y-auto flex-1 px-3 py-2 space-y-2">
+        {/* Always visible — compact critical controls */}
         {antennaSection}
         {vfoSection}
-        {bandSection}
-        {frequencySection}
-        {modeSection}
-        {ft8Section}
-        {stepSection}
-        {filterSection}
-        {notchSection}
-        {dspSection}
-        {gainSections}
-        {ritXitSection}
         {streamSection}
-        {audioDspSection}
+
+        {/* Separator */}
+        <div className="border-t border-white/5" />
+
+        {/* Accordion sections — primary tuning (default open) */}
+        <SidebarAccordion title="Band">{bandSection}</SidebarAccordion>
+
+        <SidebarAccordion title="Frequency & Step">
+          <div className="space-y-2">
+            {frequencySection}
+            {stepSection}
+          </div>
+        </SidebarAccordion>
+
+        {/* Separator */}
+        <div className="border-t border-white/5" />
+
+        {/* Accordion sections — secondary (default collapsed) */}
+        <SidebarAccordion title="Digital Decoder" defaultOpen={false}>
+          {ft8Section}
+        </SidebarAccordion>
+
+        {txSection && (
+          <SidebarAccordion title="TX Controls" defaultOpen={false}>
+            {txSection}
+          </SidebarAccordion>
+        )}
+
+        <SidebarAccordion
+          title="Notch Filters"
+          defaultOpen={false}
+          badge={
+            notchFilters.length > 0
+              ? `${notchFilters.length}/${MAX_NOTCH_FILTERS}`
+              : undefined
+          }
+        >
+          {notchSection}
+        </SidebarAccordion>
       </div>
     </div>
   );

@@ -125,16 +125,18 @@ function useAudioAnalyser(enabled: boolean): AnalyserNode | null {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function FateSkin(props: SdrSkinProps) {
-  const {
-    daemonConnected,
-    effectiveState,
+  const { radio, fft, waterfall: wf, ft8, decodes, interaction } = props;
+  const { daemonConnected, effectiveState } = radio;
 
-    // FFT
+  const {
     lastFftFrame,
     audioFftFrame,
     waterfallView,
     tuningOverlay,
     waterfallOverlays,
+  } = fft;
+
+  const {
     waterfallPalette,
     waterfallMinDb,
     waterfallMaxDb,
@@ -142,8 +144,9 @@ export function FateSkin(props: SdrSkinProps) {
     waterfallInterpolation,
     waterfallGamma,
     waterfallRowHeight,
+  } = wf;
 
-    // FT8 decoder
+  const {
     ft8DecoderEnabled,
     ft8DecoderMode,
     ft8CycleProgress,
@@ -151,14 +154,10 @@ export function FateSkin(props: SdrSkinProps) {
     ft8Error,
     onFt8Toggle,
     onFt8ModeChange,
+  } = ft8;
 
-    // Data
-    wsjtxDecodes,
-
-    // Callbacks
-    onPickFrequencyHz,
-    onWheelTune,
-  } = props;
+  const { wsjtxDecodes } = decodes;
+  const { onPickFrequencyHz, onWheelTune } = interaction;
 
   // ── Operator info from profile ──────────────────────────────────────────
   const station = useProfileStore((s) => s.station);
@@ -227,7 +226,7 @@ export function FateSkin(props: SdrSkinProps) {
 
   // ── Derived values ──────────────────────────────────────────────────────
   const radioName =
-    props.selectedDevice?.name ?? props.selectedDevice?.device_id ?? null;
+    radio.selectedDevice?.name ?? radio.selectedDevice?.device_id ?? null;
   const freqHz = effectiveState?.freq ?? null;
   const vfo = effectiveState?.vfo ?? null;
   const activeBand = freqHz ? (bandFromFreq(freqHz / 1000) ?? null) : null;

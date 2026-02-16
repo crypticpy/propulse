@@ -12,6 +12,7 @@
  */
 
 import { useMemo } from "react";
+import { SlicePanelTabs, type SlicePanelControlProps } from "./SlicePanelTabs";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,9 @@ export interface FlexVfoDisplayProps {
   onNrToggle?: () => void;
   /** Toggle AGC. */
   onAgcToggle?: () => void;
+
+  /** Slice panel controls — when provided, renders the tab panel row. */
+  slicePanels?: SlicePanelControlProps;
 }
 
 // ─── Mode color mapping (Tailwind classes) ──────────────────────────────────
@@ -217,6 +221,7 @@ export function FlexVfoDisplay({
   onNbToggle,
   onNrToggle,
   onAgcToggle,
+  slicePanels,
 }: FlexVfoDisplayProps) {
   const segments = useMemo<FreqSegments | null>(
     () =>
@@ -405,11 +410,14 @@ export function FlexVfoDisplay({
       </div>
 
       {/* ── Bottom info row ──────────────────────────────────────────── */}
-      {bandwidth && (
+      {bandwidth && !slicePanels && (
         <div className="mt-0.5 text-[10px] font-mono text-gray-500 tracking-wide">
           BW {bandwidth}
         </div>
       )}
+
+      {/* ── Slice panel tabs (SmartSDR-style expandable controls) ──── */}
+      {slicePanels && <SlicePanelTabs controls={slicePanels} />}
     </div>
   );
 }

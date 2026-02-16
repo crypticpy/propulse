@@ -8,7 +8,6 @@ import type {
   DeviceInfo,
   RadioBinaryFrame,
   DaemonStatusMessage,
-  DaemonDiscoveryDaemonsMessage,
   ClusterSpotMessage,
   WsjtxStatus,
   WsjtxDecode,
@@ -30,12 +29,12 @@ export type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
 // ─── Display helpers (shared by all skins) ──────────────────────────────────
 
 export function formatHz(hz: number): string {
-  if (!Number.isFinite(hz)) return "—";
+  if (!Number.isFinite(hz)) return "\u2014";
   return `${(hz / 1_000_000).toFixed(6)} MHz`;
 }
 
 export function formatUtcMsSinceMidnight(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return "—";
+  if (!Number.isFinite(ms) || ms < 0) return "\u2014";
   const totalSeconds = Math.floor(ms / 1000);
   const hh = Math.floor(totalSeconds / 3600) % 24;
   const mm = Math.floor((totalSeconds % 3600) / 60);
@@ -43,35 +42,24 @@ export function formatUtcMsSinceMidnight(ms: number): string {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}Z`;
 }
 
-// ─── Skin props contract ────────────────────────────────────────────────────
+// ─── Sub-interfaces ─────────────────────────────────────────────────────────
 
-export interface SdrSkinProps {
-  // ── Connection ────────────────────────────────
-  daemonConnected: boolean;
-  daemonConnecting: boolean;
-  daemonError: string | null;
-  daemonUrl: string;
-  lastResponseError: string | null;
-  lastDaemonStatus: DaemonStatusMessage | null;
-  discoveredDaemons: DaemonDiscoveryDaemonsMessage["daemons"];
-
-  // ── Devices ───────────────────────────────────
-  devices: DeviceInfo[];
+export interface SdrRadioStateProps {
+  effectiveState: RadioState | null;
+  smeterDbm: number | undefined;
+  fftEnabled: boolean;
+  audioEnabled: boolean;
   selectedDevice: DeviceInfo | null;
-  selectedDeviceId: string | null;
   connectedDeviceId: string | null;
-  canControlDevice: boolean;
   canControlConnected: boolean;
   canStreamFft: boolean;
   canStreamAudio: boolean;
+  daemonConnected: boolean;
+  daemonError: string | null;
+  lastResponseError: string | null;
+}
 
-  // ── Radio state ───────────────────────────────
-  effectiveState: RadioState | null;
-  smeterDbm: number | undefined;
-
-  // ── FFT / Spectrum ────────────────────────────
-  fftEnabled: boolean;
-  audioEnabled: boolean;
+export interface SdrFftDataProps {
   lastFftFrame: FftFrame | null;
   /** High-resolution FFT derived from the audio stream (~11.7 Hz/bin). */
   audioFftFrame: FftFrame | null;
@@ -82,15 +70,9 @@ export interface SdrSkinProps {
     label?: string;
     color?: "cyan" | "orange" | "red" | "green";
   }>;
+}
 
-  // ── Waterfall / Spectrum settings ─────────────
-  waterfallPalette: WaterfallPaletteName;
-  waterfallMinDb: number;
-  waterfallMaxDb: number;
-  waterfallSpeed: number;
-  waterfallInterpolation: "nearest" | "linear";
-  waterfallGamma: number;
-  waterfallRowHeight: number;
+export interface SdrSpectrumSettings {
   spectrumPeakHold: boolean;
   spectrumGradientFill: boolean;
   spectrumBgColor: string;
@@ -103,56 +85,27 @@ export interface SdrSkinProps {
   spectrumFillOpacity: number;
   spectrumLineShadow: boolean;
   spectrumLineShadowBlur: number;
-  passbandBlendMode: string;
-  passbandOpacity: number;
-  /** Slice flag background color (CSS value) */
-  sliceBgColor: string;
-  /** Tuning step size in Hz */
-  tuningStepHz: number;
   /** Tuning indicator line color (CSS hex) */
   tuningLineColor: string;
   /** Tuning indicator arrow color (CSS hex) */
   tuningArrowColor: string;
+}
 
-  // ── Client-side noise gate ─────────────────────
-  noiseGateEnabled: boolean;
-  noiseGateThreshold: number;
-  onNoiseGateToggle: (enabled: boolean) => void;
-  onNoiseGateThresholdChange: (threshold: number) => void;
+export interface SdrWaterfallSettings {
+  waterfallPalette: WaterfallPaletteName;
+  waterfallMinDb: number;
+  waterfallMaxDb: number;
+  waterfallSpeed: number;
+  waterfallInterpolation: "nearest" | "linear";
+  waterfallGamma: number;
+  waterfallRowHeight: number;
+  passbandBlendMode: string;
+  passbandOpacity: number;
+  /** Slice flag background color (CSS value) */
+  sliceBgColor: string;
+}
 
-  // ── Client-side noise reduction ───────────────
-  clientNrEnabled: boolean;
-  clientNrLevel: number;
-  onClientNrToggle: (enabled: boolean) => void;
-  onClientNrLevelChange: (level: number) => void;
-
-  // ── Notch filters ──────────────────────────────
-  notchFilters: Array<{
-    id: string;
-    freqHz: number;
-    q: number;
-    enabled: boolean;
-  }>;
-  onAddNotch: (freqHz: number, q: number) => void;
-  onRemoveNotch: (id: string) => void;
-  onUpdateNotch: (id: string, freqHz: number, q: number) => void;
-  onToggleNotch: (id: string, enabled: boolean) => void;
-
-  // ── Tuning step ──────────────────────────────────
-  onTuningStepChange: (stepHz: number) => void;
-  /** Wheel-tune: direction +1 (freq up) or -1 (freq down) */
-  onWheelTune: (direction: number) => void;
-
-  // ── Frequency input ───────────────────────────
-  freqInput: string;
-  freqUnit: "MHz" | "kHz" | "Hz";
-
-  // ── WSJT-X + DX Cluster ──────────────────────
-  wsjtxStatus: WsjtxStatus | null;
-  wsjtxDecodes: WsjtxDecode[];
-  clusterSpots: ClusterSpotMessage[];
-
-  // ── Native FT8/FT4 decoder ─────────────────────
+export interface SdrFt8Props {
   ft8DecoderEnabled: boolean;
   ft8DecoderMode: "FT8" | "FT4";
   ft8CycleProgress: number;
@@ -165,20 +118,17 @@ export interface SdrSkinProps {
   ft8Error: string | null;
   onFt8Toggle: () => void;
   onFt8ModeChange: (mode: "FT8" | "FT4") => void;
+}
 
-  // ── Viewport ──────────────────────────────────
-  isMobile: boolean;
+export interface SdrDecodeProps {
+  wsjtxStatus: WsjtxStatus | null;
+  wsjtxDecodes: WsjtxDecode[];
+  clusterSpots: ClusterSpotMessage[];
+}
 
-  // ── Skin switching ────────────────────────────
-  activeSkin: SdrSkinName;
-  onSkinChange: (skin: SdrSkinName) => void;
-
-  /** Open the SDR settings modal */
-  onOpenSdrSettings: () => void;
-
-  // ── Callbacks ─────────────────────────────────
-  onConnectRadio: () => void;
-  onDisconnectRadio: () => void;
+export interface SdrControlProps {
+  freqInput: string;
+  freqUnit: "MHz" | "kHz" | "Hz";
   onTune: () => void;
   onFreqInputChange: (value: string) => void;
   onFreqUnitChange: (unit: "MHz" | "kHz" | "Hz") => void;
@@ -193,9 +143,52 @@ export interface SdrSkinProps {
   onPttChange: (active: boolean) => void;
   onToggleFft: () => void;
   onToggleAudio: () => void;
-  onDeviceSelect: (deviceId: string | null) => void;
-  onWaterfallViewChange: (view: WaterfallView) => void;
+}
+
+export interface SdrDspProps {
+  noiseGateEnabled: boolean;
+  noiseGateThreshold: number;
+  onNoiseGateToggle: (enabled: boolean) => void;
+  onNoiseGateThresholdChange: (threshold: number) => void;
+  clientNrEnabled: boolean;
+  clientNrLevel: number;
+  onClientNrToggle: (enabled: boolean) => void;
+  onClientNrLevelChange: (level: number) => void;
+  notchFilters: Array<{
+    id: string;
+    freqHz: number;
+    q: number;
+    enabled: boolean;
+  }>;
+  onAddNotch: (freqHz: number, q: number) => void;
+  onRemoveNotch: (id: string) => void;
+  onUpdateNotch: (id: string, freqHz: number, q: number) => void;
+  onToggleNotch: (id: string, enabled: boolean) => void;
+  /** Tuning step size in Hz */
+  tuningStepHz: number;
+  onTuningStepChange: (stepHz: number) => void;
+}
+
+export interface SdrInteractionProps {
   onPickFrequencyHz: (hz: number) => void;
   onSelectRangeHz: (range: { startHz: number; endHz: number }) => void;
-  onOpenDevicePicker: () => void;
+  /** Wheel-tune: direction +1 (freq up) or -1 (freq down) */
+  onWheelTune: (direction: number) => void;
+  onWaterfallViewChange: (view: WaterfallView) => void;
+}
+
+// ─── Composed main interface ────────────────────────────────────────────────
+
+export interface SdrSkinProps {
+  radio: SdrRadioStateProps;
+  fft: SdrFftDataProps;
+  spectrum: SdrSpectrumSettings;
+  waterfall: SdrWaterfallSettings;
+  ft8: SdrFt8Props;
+  decodes: SdrDecodeProps;
+  controls: SdrControlProps;
+  dsp: SdrDspProps;
+  interaction: SdrInteractionProps;
+  isMobile: boolean;
+  lastDaemonStatus: DaemonStatusMessage | null;
 }

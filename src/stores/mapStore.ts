@@ -46,6 +46,7 @@ export const LAYER_PRESETS = {
     ducting: false,
     sporadicE: false,
     satelliteFootprints: false,
+    ft8Spotter: true,
   },
   contest: {
     terminator: true,
@@ -79,6 +80,7 @@ export const LAYER_PRESETS = {
     ducting: false,
     sporadicE: false,
     satelliteFootprints: false,
+    ft8Spotter: false,
   },
   vhf: {
     terminator: true,
@@ -112,6 +114,7 @@ export const LAYER_PRESETS = {
     ducting: true,
     sporadicE: false,
     satelliteFootprints: false,
+    ft8Spotter: false,
   },
   emergency: {
     terminator: true,
@@ -145,6 +148,7 @@ export const LAYER_PRESETS = {
     ducting: false,
     sporadicE: false,
     satelliteFootprints: false,
+    ft8Spotter: false,
   },
   science: {
     terminator: true,
@@ -178,6 +182,7 @@ export const LAYER_PRESETS = {
     ducting: false,
     sporadicE: false,
     satelliteFootprints: false,
+    ft8Spotter: false,
   },
 } as const;
 
@@ -353,6 +358,7 @@ interface MapState {
     ducting: boolean;
     sporadicE: boolean;
     satelliteFootprints: boolean;
+    ft8Spotter: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -1031,6 +1037,7 @@ const initialState = {
     ducting: false,
     sporadicE: false,
     satelliteFootprints: false,
+    ft8Spotter: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

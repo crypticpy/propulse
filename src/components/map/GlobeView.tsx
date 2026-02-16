@@ -123,6 +123,9 @@ import TerminatorEnhancement3D from "./layers/TerminatorEnhancement3D";
 import WSPROverlay3D from "./layers/WSPROverlay3D";
 import SpectrumWaterfallRing3D from "./layers/SpectrumWaterfallRing3D";
 import SatelliteFootprint3D from "./layers/SatelliteFootprint3D";
+import { Ft8SpotterOverlay } from "./layers/Ft8SpotterOverlay";
+import { Ft8SpotterHUD } from "./Ft8SpotterHUD";
+import { useFt8SpotterData } from "@/hooks/useFt8SpotterData";
 
 // New hooks (Wave 8A)
 import { useBeaconNetwork } from "@/hooks/useBeaconNetwork";
@@ -1294,6 +1297,9 @@ function GlobeScene({
           <AnimatedSpotTraces grid={station?.grid} maxTraces={40} />
         )}
 
+        {/* FT8 Spotter — burst traces, grid heatmap, cycle radar */}
+        {layers.ft8Spotter && <Ft8SpotterOverlay station={station} />}
+
         {/* Persistent grid activity overlay — density-colored steady glow */}
         {layers.gridActivity && (
           <GridPersistOverlay activityMap={gridActivityMap} />
@@ -1472,6 +1478,13 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
 
   // Watch store v2 — grid watch action for flyout
   const setWatch = useWatchStore((s) => s.setWatch);
+
+  // FT8 Spotter HUD data (outside Canvas, gated by layer toggle).
+  // Note: useFt8SpotterData() is also called inside Ft8SpotterOverlay (R3F tree).
+  // This is intentional — R3F Canvas uses a separate React reconciler, so hooks
+  // cannot be shared across the boundary. The merge logic is cheap (~500 items).
+  const ft8SpotterEnabled = useMapStore((s) => s.layers.ft8Spotter);
+  const ft8SpotterData = useFt8SpotterData();
 
   // State for AddPinDialog
   const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
@@ -2032,6 +2045,19 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
         alert={alertModalData}
         onClose={handleAlertModalClose}
       />
+
+      {/* FT8 Spotter HUD — cycle timer, decode count, stats */}
+      {ft8SpotterEnabled && (
+        <Ft8SpotterHUD
+          cycleProgress={ft8SpotterData.cycleProgress}
+          totalDecodes={ft8SpotterData.totalDecodes}
+          uniqueStations={ft8SpotterData.uniqueStations}
+          currentBand={ft8SpotterData.currentBand}
+          currentMode={ft8SpotterData.currentMode}
+          isNewCycle={ft8SpotterData.isNewCycle}
+          currentCycleCount={ft8SpotterData.currentCycleDecodes.length}
+        />
+      )}
 
       {/* Spot & pin size sliders - bottom left corner */}
       <MapSizeSliders />

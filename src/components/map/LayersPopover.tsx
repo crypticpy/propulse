@@ -471,6 +471,13 @@ export function LayersPopover() {
             onToggle: () => toggleLayer("spotTraces"),
           },
           {
+            key: "ft8Spotter",
+            label: "FT8 Spotter",
+            title: "Live FT8/FT4 decode visualization on the globe",
+            getValue: () => layers.ft8Spotter,
+            onToggle: () => toggleLayer("ft8Spotter"),
+          },
+          {
             key: "satellites",
             label: "Satellites",
             title: "Track amateur radio satellites with pass predictions",

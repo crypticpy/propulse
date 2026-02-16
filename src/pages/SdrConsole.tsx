@@ -40,6 +40,7 @@ import type {
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
 import { SdrSettingsModal } from "@/components/sdr/SdrSettingsModal";
+import { SdrConsoleHeader } from "@/components/sdr/SdrConsoleHeader";
 import { useFt8Decoder } from "@/hooks/useFt8Decoder";
 import { useFt8DecoderStore } from "@/stores/ft8DecoderStore";
 import { ClassicSkin } from "@/components/sdr/skins/ClassicSkin";

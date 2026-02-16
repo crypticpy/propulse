@@ -34,6 +34,8 @@ import {
 import type { ColorBlindMode } from "@/lib/themes/colorblind";
 import type { AntennaType } from "@/lib/data/antennas";
 import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
+import type { WaterfallPaletteName } from "@/components/sdr/waterfallPalette";
+import type { SdrSkinName } from "@/components/sdr/skins/types";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -66,7 +68,19 @@ export interface SettingsState {
   uiInteraction: UIInteractionPreferences;
   forecastDisplay: ForecastDisplayPreferences;
   /** SDR Console waterfall color palette */
-  sdrWaterfallPalette: "classic" | "viridis" | "magma" | "gray";
+  sdrWaterfallPalette: WaterfallPaletteName;
+  /** SDR waterfall dB floor (mapped to black) */
+  sdrWaterfallMinDb: number;
+  /** SDR waterfall dB ceiling (mapped to palette high end) */
+  sdrWaterfallMaxDb: number;
+  /** SDR waterfall scroll speed multiplier */
+  sdrWaterfallSpeed: number;
+  /** SDR spectrum scope peak hold enabled */
+  sdrSpectrumPeakHold: boolean;
+  /** SDR spectrum scope gradient fill enabled */
+  sdrSpectrumGradientFill: boolean;
+  /** SDR Console skin layout */
+  sdrSkinName: SdrSkinName;
   /** DX News Ticker position */
   tickerPosition: "bottom" | "above-panels" | "top";
   /** Whether the first-time contest weather tooltip has been dismissed */
@@ -148,6 +162,12 @@ const defaultSettings: SettingsState = {
   uiInteraction: DEFAULT_UI_INTERACTION,
   forecastDisplay: DEFAULT_FORECAST_DISPLAY,
   sdrWaterfallPalette: "classic",
+  sdrWaterfallMinDb: -125,
+  sdrWaterfallMaxDb: -40,
+  sdrWaterfallSpeed: 1,
+  sdrSpectrumPeakHold: true,
+  sdrSpectrumGradientFill: true,
+  sdrSkinName: "classic" as SdrSkinName,
   tickerPosition: "bottom",
   contestWeatherFirstTimeSeen: false,
   showQuietBandNav: true,
@@ -395,7 +415,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 9,
+      version: 11,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -470,6 +490,23 @@ export const useSettingsStore = create<SettingsStore>()(
             state.autoSwitchContestProfile = true;
           if (state.contestAlertThrottleMultiplier === undefined)
             state.contestAlertThrottleMultiplier = 4;
+        }
+        if (version < 10) {
+          // Add SDR waterfall/spectrum settings
+          if (state.sdrWaterfallMinDb === undefined)
+            state.sdrWaterfallMinDb = -125;
+          if (state.sdrWaterfallMaxDb === undefined)
+            state.sdrWaterfallMaxDb = -40;
+          if (state.sdrWaterfallSpeed === undefined)
+            state.sdrWaterfallSpeed = 1;
+          if (state.sdrSpectrumPeakHold === undefined)
+            state.sdrSpectrumPeakHold = true;
+          if (state.sdrSpectrumGradientFill === undefined)
+            state.sdrSpectrumGradientFill = true;
+        }
+        if (version < 11) {
+          // Add SDR Console skin preference
+          if (state.sdrSkinName === undefined) state.sdrSkinName = "classic";
         }
         return state as unknown as SettingsState & SettingsStore;
       },

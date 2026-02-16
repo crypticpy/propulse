@@ -25,7 +25,9 @@ import { useActiveBandMode } from "@/hooks/useActiveBandMode";
 import { BandModeModal } from "@/components/operating/BandModeModal";
 import { BAND_COLORS, MODE_COLORS } from "@/lib/utils/spotColors";
 import { useOperatingStore, SOURCE_DISPLAY } from "@/stores/operatingStore";
-import type { BandId } from "@/types/user";
+import { useBandConditionsTint } from "@/hooks/useBandConditionsTint";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { ALL_BANDS, type BandId } from "@/types/user";
 
 interface OperatorProfileProps {
   className?: string;
@@ -55,6 +57,97 @@ function formatFrequency(hz: number): string {
   const str = mhz.toFixed(5);
   const [whole, dec] = str.split(".");
   return `${whole}.${dec.slice(0, 3)}.${dec.slice(3)}`;
+}
+
+// ── Status color palette (matches BandModeModal) ─────────────────────────
+const STATUS_BAR_COLORS: Record<string, string> = {
+  excellent: "#22c55e",
+  good: "#eab308",
+  fair: "#f97316",
+  poor: "#ef4444",
+  closed: "#4b5563",
+};
+
+// Bar height mapping by status — taller = better propagation
+const STATUS_BAR_HEIGHT: Record<string, number> = {
+  excellent: 18,
+  good: 14,
+  fair: 10,
+  poor: 7,
+  closed: 4,
+};
+
+/**
+ * BandConditionsStrip — Compact propagation equalizer visualization.
+ *
+ * Shows all bands as slim vertical bars whose height + color encode
+ * real-time propagation quality. Active band pulses with its identity
+ * color. Clicking a bar selects that band instantly.
+ */
+function BandConditionsStrip({
+  activeBand,
+  onBandSelect,
+  contestLocked,
+}: {
+  activeBand: BandId;
+  onBandSelect: (band: BandId) => void;
+  contestLocked: boolean;
+}) {
+  const { statuses } = useBandConditionsTint();
+  const hiddenBands = useSettingsStore((s) => s.favoredBands?.hidden ?? []);
+  const radioBands = useActiveRadio()?.bands ?? null;
+
+  // Filter to only supported bands (when radio configured)
+  const visibleBands = radioBands
+    ? ALL_BANDS.filter((b) => radioBands.includes(b))
+    : ALL_BANDS;
+
+  return (
+    <div
+      className="flex items-end justify-between h-[22px] px-2 mb-1.5"
+      role="group"
+      aria-label="Band conditions overview"
+      title="Band conditions — click any bar to switch bands"
+    >
+      {visibleBands.map((band) => {
+        const isActive = band === activeBand;
+        const isHidden = hiddenBands.includes(band);
+        const status = statuses[band] ?? null;
+        const barColor = isActive
+          ? (BAND_COLORS[band] ?? BAND_COLORS.default)
+          : (STATUS_BAR_COLORS[status ?? "closed"] ?? STATUS_BAR_COLORS.closed);
+        const barHeight = isActive
+          ? 20
+          : (STATUS_BAR_HEIGHT[status ?? "closed"] ?? 4);
+
+        return (
+          <button
+            key={band}
+            onClick={() => {
+              if (!contestLocked) onBandSelect(band);
+            }}
+            className={`
+              relative rounded-sm transition-all duration-500 ease-out
+              ${contestLocked ? "cursor-not-allowed" : "cursor-pointer hover:scale-y-[1.15] hover:brightness-130"}
+              ${isHidden ? "opacity-30" : ""}
+            `}
+            style={{
+              width: isActive ? 8 : 5,
+              height: barHeight,
+              backgroundColor: barColor,
+              transformOrigin: "bottom",
+              boxShadow: isActive
+                ? `0 0 8px ${barColor}90, 0 -2px 6px ${barColor}40`
+                : `0 0 2px ${barColor}20`,
+              animation: isActive ? "eqPulse 2s ease-in-out infinite" : "none",
+            }}
+            title={`${band}${isActive ? " (active)" : ""} — ${status ? status.charAt(0).toUpperCase() + status.slice(1) : "No data"}`}
+            aria-label={`${band}: ${status ?? "no data"}${isActive ? ", active band" : ""}`}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 export function OperatorProfile({ className = "" }: OperatorProfileProps) {
@@ -617,6 +710,23 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             </div>
           )}
       </button>
+
+      {/* ── Band Conditions Strip — propagation EQ ────────────────── */}
+      <BandConditionsStrip
+        activeBand={activeBand}
+        onBandSelect={(band) => {
+          useOperatingStore.getState().setManualBand(band);
+        }}
+        contestLocked={contestLocked}
+      />
+
+      {/* EQ bar animation keyframes */}
+      <style>{`
+        @keyframes eqPulse {
+          0%, 100% { opacity: 1; transform: scaleY(1); }
+          50% { opacity: 0.8; transform: scaleY(0.88); }
+        }
+      `}</style>
 
       {/* Band/Mode selection modal */}
       <BandModeModal

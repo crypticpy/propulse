@@ -3,8 +3,12 @@ import type { RadioBinaryFrame } from "@/lib/radio/protocol";
 import type {
   WaterfallPaletteName,
   WaterfallView,
+  TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
-import { getWaterfallPaletteLut } from "@/components/sdr/waterfallPalette";
+import {
+  getWaterfallPaletteLut,
+  computePassbandHz,
+} from "@/components/sdr/waterfallPalette";
 
 type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
 
@@ -18,6 +22,10 @@ interface WaterfallProps {
   /** dB ceiling (mapped to the palette's high end) */
   maxDb?: number;
   palette?: WaterfallPaletteName;
+  /** VFO tuning line + filter passband overlay */
+  tuning?: TuningOverlay | null;
+  /** Speed multiplier — rows appended per frame (default 1) */
+  speed?: number;
   /** Click-to-tune handler (Hz) */
   onPickFrequencyHz?: (hz: number) => void;
   /** Drag-select handler (Hz) */
@@ -39,7 +47,11 @@ function formatAxisHz(hz: number): string {
   return `${mhz.toFixed(6)} MHz`;
 }
 
-function createProgram(gl: WebGL2RenderingContext, vsSrc: string, fsSrc: string): WebGLProgram {
+function createProgram(
+  gl: WebGL2RenderingContext,
+  vsSrc: string,
+  fsSrc: string,
+): WebGLProgram {
   const vs = gl.createShader(gl.VERTEX_SHADER);
   if (!vs) throw new Error("Failed to create vertex shader");
   gl.shaderSource(vs, vsSrc);
@@ -86,6 +98,8 @@ export function Waterfall({
   palette = "classic",
   onPickFrequencyHz,
   onSelectRangeHz,
+  tuning,
+  speed = 1,
   overlays = [],
 }: WaterfallProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -150,7 +164,17 @@ export function Waterfall({
       if (w <= 0 || h <= 0) return;
       const empty = new Uint8Array(w * h * 4);
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, empty);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        w,
+        h,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        empty,
+      );
       headRef.current = 0;
       return;
     }
@@ -249,7 +273,10 @@ export function Waterfall({
 
       gl.viewport(0, 0, w, h);
 
-      if (texRef.current && (texSizeRef.current.w !== w || texSizeRef.current.h !== h)) {
+      if (
+        texRef.current &&
+        (texSizeRef.current.w !== w || texSizeRef.current.h !== h)
+      ) {
         texSizeRef.current = { w, h };
         headRef.current = 0;
         gl.bindTexture(gl.TEXTURE_2D, texRef.current);
@@ -289,6 +316,12 @@ export function Waterfall({
     ro.observe(el);
     resize();
 
+    // StrictMode fix: if resize() skipped because canvas size was already set
+    // from a prior mount, ensure WebGL resources are still initialized.
+    if (gl && !progRef.current) {
+      initGl(canvas.width, canvas.height);
+    }
+
     return () => {
       ro.disconnect();
       progRef.current = null;
@@ -307,7 +340,11 @@ export function Waterfall({
   const setSpanHz = useCallback(
     (spanHz: number) => {
       if (!frame) return;
-      const next = clamp(spanHz, Math.max(10_000, frame.spanHz / 128), frame.spanHz);
+      const next = clamp(
+        spanHz,
+        Math.max(10_000, frame.spanHz / 128),
+        frame.spanHz,
+      );
       if (view && onViewChange) {
         onViewChange({ centerHz: view.centerHz, spanHz: next });
         return;
@@ -334,7 +371,12 @@ export function Waterfall({
     const viewStart = effectiveView.centerHz - effectiveView.spanHz / 2;
     const viewSpan = effectiveView.spanHz;
 
-    if (rendererRef.current === "webgl2" && glRef.current && progRef.current && texRef.current) {
+    if (
+      rendererRef.current === "webgl2" &&
+      glRef.current &&
+      progRef.current &&
+      texRef.current
+    ) {
       const gl = glRef.current;
       const tex = texRef.current;
 
@@ -356,10 +398,23 @@ export function Waterfall({
         row[i + 3] = 255;
       }
 
-      const head = headRef.current % height;
+      const lines = Math.max(1, Math.round(speed));
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, head, width, 1, gl.RGBA, gl.UNSIGNED_BYTE, row);
-      headRef.current = (headRef.current + 1) % height;
+      for (let n = 0; n < lines; n++) {
+        const head = headRef.current % height;
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          0,
+          head,
+          width,
+          1,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          row,
+        );
+        headRef.current = (headRef.current + 1) % height;
+      }
 
       gl.useProgram(progRef.current);
       gl.bindVertexArray(vaoRef.current);
@@ -374,7 +429,8 @@ export function Waterfall({
     if (!ctx) return;
 
     // Canvas2D fallback: scroll and paint the newest row.
-    ctx.drawImage(canvas, 0, 1);
+    const lines = Math.max(1, Math.round(speed));
+    ctx.drawImage(canvas, 0, lines);
     const row = ctx.createImageData(width, 1);
     const data = row.data;
     for (let x = 0; x < width; x++) {
@@ -393,8 +449,33 @@ export function Waterfall({
       data[i + 2] = lut[lutIdx * 3 + 2] ?? 0;
       data[i + 3] = 255;
     }
-    ctx.putImageData(row, 0, 0);
-  }, [effectiveView, frame, lut, minDb, range]);
+    for (let n = 0; n < lines; n++) {
+      ctx.putImageData(row, 0, n);
+    }
+  }, [effectiveView, frame, lut, minDb, range, speed]);
+
+  const tuningPositions = useMemo(() => {
+    if (!tuning || !effectiveView) return null;
+    const start = effectiveView.centerHz - effectiveView.spanHz / 2;
+    const span = effectiveView.spanHz;
+
+    const vfoT = (tuning.freqHz - start) / span;
+    if (vfoT < -0.1 || vfoT > 1.1) return null;
+
+    const passband = computePassbandHz(tuning);
+    const pbStartT = (passband.startHz - start) / span;
+    const pbEndT = (passband.endHz - start) / span;
+
+    const clampedStart = Math.max(0, pbStartT);
+    const clampedEnd = Math.min(1, pbEndT);
+
+    return {
+      vfoPercent: clamp(vfoT, 0, 1) * 100,
+      pbLeftPercent: clampedStart * 100,
+      pbWidthPercent: Math.max(0, (clampedEnd - clampedStart) * 100),
+      visible: vfoT >= 0 && vfoT <= 1,
+    };
+  }, [effectiveView, tuning]);
 
   const overlayPositions = useMemo(() => {
     if (!effectiveView) return [];
@@ -573,7 +654,10 @@ export function Waterfall({
       onPointerUp={endSelection}
       onPointerCancel={endSelection}
     >
-      <canvas ref={canvasRef} className="w-full h-full rounded-lg border border-white/10 bg-black" />
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full rounded-lg border border-white/10 bg-black"
+      />
 
       {axis ? (
         <div className="absolute left-2 right-2 bottom-1 pointer-events-none flex justify-between text-[10px] text-gray-300 font-mono">
@@ -583,10 +667,37 @@ export function Waterfall({
         </div>
       ) : null}
 
+      {tuningPositions && tuningPositions.pbWidthPercent > 0 ? (
+        <div
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{
+            left: `${tuningPositions.pbLeftPercent}%`,
+            width: `${tuningPositions.pbWidthPercent}%`,
+          }}
+        >
+          <div className="w-full h-full bg-cosmic-cyan/[0.06] border-x border-cosmic-cyan/20" />
+        </div>
+      ) : null}
+
+      {tuningPositions?.visible ? (
+        <div
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{ left: `${tuningPositions.vfoPercent}%` }}
+        >
+          <div
+            className="w-[2px] h-full -translate-x-[1px] bg-white/80"
+            style={{ boxShadow: "0 0 4px rgba(255,255,255,0.5)" }}
+          />
+        </div>
+      ) : null}
+
       {selectionOverlay ? (
         <div
           className="absolute top-0 bottom-0 pointer-events-none"
-          style={{ left: `${selectionOverlay.left}%`, width: `${selectionOverlay.width}%` }}
+          style={{
+            left: `${selectionOverlay.left}%`,
+            width: `${selectionOverlay.width}%`,
+          }}
         >
           <div className="w-full h-full bg-cosmic-cyan/10 border border-cosmic-cyan/30" />
         </div>

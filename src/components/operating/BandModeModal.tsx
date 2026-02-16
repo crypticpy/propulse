@@ -42,14 +42,70 @@ function getRelativeTime(timestamp: number): string {
   return `${Math.floor(hrs / 24)}d`;
 }
 
-// Propagation status display lookup
-const STATUS_DISPLAY: Record<string, { color: string; label: string }> = {
-  excellent: { color: "#22c55e", label: "EXCL" },
-  good: { color: "#eab308", label: "GOOD" },
-  fair: { color: "#f97316", label: "FAIR" },
-  poor: { color: "#ef4444", label: "POOR" },
-  closed: { color: "#6b7280", label: "CLSD" },
+// Propagation status display lookup — color, label, and signal bar count
+const STATUS_DISPLAY: Record<
+  string,
+  { color: string; label: string; bars: number }
+> = {
+  excellent: { color: "#22c55e", label: "EXCL", bars: 4 },
+  good: { color: "#eab308", label: "GOOD", bars: 3 },
+  fair: { color: "#f97316", label: "FAIR", bars: 2 },
+  poor: { color: "#ef4444", label: "POOR", bars: 1 },
+  closed: { color: "#6b7280", label: "CLSD", bars: 0 },
 };
+
+/** Compact 4-bar signal strength icon — reuses the PredictionsCard pattern */
+function SignalBars({
+  bars,
+  color,
+  className = "",
+}: {
+  bars: number;
+  color: string;
+  className?: string;
+}) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      style={{ color }}
+    >
+      <rect
+        x="2"
+        y="16"
+        width="4"
+        height="6"
+        rx="1"
+        opacity={bars >= 1 ? 1 : 0.2}
+      />
+      <rect
+        x="8"
+        y="12"
+        width="4"
+        height="10"
+        rx="1"
+        opacity={bars >= 2 ? 1 : 0.2}
+      />
+      <rect
+        x="14"
+        y="8"
+        width="4"
+        height="14"
+        rx="1"
+        opacity={bars >= 3 ? 1 : 0.2}
+      />
+      <rect
+        x="20"
+        y="4"
+        width="4"
+        height="18"
+        rx="1"
+        opacity={bars >= 4 ? 1 : 0.2}
+      />
+    </svg>
+  );
+}
 
 function SectionLabel({
   children,
@@ -374,75 +430,140 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
           />
 
           {/* ── 2. Band Grid ─────────────────────────────────────── */}
-          <div
-            className={contestLocked ? "opacity-40 pointer-events-none" : ""}
-          >
-            <SectionLabel hint="press B">Select a band</SectionLabel>
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              {ALL_BANDS.map((band) => {
-                const isActive = activeBand === band;
-                const isHidden = hiddenBands.includes(band);
-                const bColor = BAND_COLORS[band] ?? BAND_COLORS.default;
-                const bandSupported = isBandSupported(band);
-                const status = statuses[band];
-                const isWatched = watchedBands.includes(band);
+          {(() => {
+            const supportedBands = ALL_BANDS.filter((b) => isBandSupported(b));
+            const unsupportedCount = ALL_BANDS.length - supportedBands.length;
+            const visibleBands = radioBands ? supportedBands : ALL_BANDS;
 
-                return (
-                  <button
-                    key={band}
-                    onClick={() => handleBandSelect(band)}
-                    disabled={!bandSupported}
-                    className={`
-                      relative rounded-lg text-center transition-all duration-150 overflow-hidden group
-                      ${isHidden ? "opacity-35" : ""}
-                      ${!bandSupported ? "opacity-25 cursor-not-allowed" : "cursor-pointer"}
-                    `}
-                    style={{
-                      backgroundColor: bColor,
-                      ...(isActive
-                        ? {
-                            boxShadow: `0 0 12px ${bColor}60, inset 0 0 0 2px rgba(255,255,255,0.35)`,
-                          }
-                        : {}),
-                    }}
-                  >
-                    {/* Inactive dim overlay — fades on hover */}
-                    {!isActive && (
-                      <div className="absolute inset-0 bg-black/25 group-hover:bg-black/10 transition-colors duration-150 pointer-events-none" />
-                    )}
-                    <div className="relative px-2 py-2.5">
-                      <div className="text-sm font-black font-mono text-black">
-                        {band}
-                      </div>
-                      {status && STATUS_DISPLAY[status] && (
-                        <div className="text-[7px] font-bold uppercase tracking-wider mt-0.5 text-black/50">
-                          {STATUS_DISPLAY[status].label}
+            return (
+              <div
+                className={
+                  contestLocked ? "opacity-40 pointer-events-none" : ""
+                }
+              >
+                <SectionLabel hint="press B">Select a band</SectionLabel>
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {visibleBands.map((band) => {
+                    const isActive = activeBand === band;
+                    const isHidden = hiddenBands.includes(band);
+                    const bColor = BAND_COLORS[band] ?? BAND_COLORS.default;
+                    const status = statuses[band];
+                    const isWatched = watchedBands.includes(band);
+                    const statusInfo = status ? STATUS_DISPLAY[status] : null;
+                    const statusColor = statusInfo?.color ?? "#6b7280";
+
+                    return (
+                      <button
+                        key={band}
+                        onClick={() => handleBandSelect(band)}
+                        className={`
+                          relative rounded-lg overflow-hidden transition-all duration-150 group
+                          active:scale-90 active:brightness-125 cursor-pointer
+                          ${isHidden ? "opacity-40" : ""}
+                          ${isActive ? "ring-[3px] ring-white scale-[1.08] z-10" : ""}
+                        `}
+                        style={{
+                          ...(isActive
+                            ? {
+                                boxShadow: `0 0 20px ${bColor}70, 0 0 40px ${bColor}30`,
+                                outline: `2px solid ${bColor}`,
+                                outlineOffset: "3px",
+                              }
+                            : {}),
+                        }}
+                      >
+                        {/* Top strip — band color identity */}
+                        <div
+                          className="relative px-2 py-1.5 text-center"
+                          style={{ backgroundColor: bColor }}
+                        >
+                          {!isActive && (
+                            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-150 pointer-events-none" />
+                          )}
+                          <div className="relative text-sm font-black font-mono text-black leading-none">
+                            {band}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className={`absolute top-1 right-1 z-10 transition-opacity p-0 bg-transparent border-none cursor-pointer ${
-                        isWatched
-                          ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-60"
-                      }`}
-                      onClick={(e) => handleWatchToggle(band, e)}
-                      aria-label={
-                        isWatched ? `Unwatch ${band}` : `Watch ${band}`
-                      }
+
+                        {/* Bottom panel — dark with signal bars + status */}
+                        <div
+                          className="relative px-1.5 py-1.5 flex items-center justify-center gap-1"
+                          style={{
+                            backgroundColor: isActive
+                              ? `${bColor}18`
+                              : "rgba(0,0,0,0.75)",
+                          }}
+                        >
+                          {!isActive && (
+                            <div className="absolute inset-0 group-hover:bg-white/[0.04] transition-colors duration-150 pointer-events-none" />
+                          )}
+                          {statusInfo ? (
+                            <>
+                              <SignalBars
+                                bars={statusInfo.bars}
+                                color={statusColor}
+                                className="w-3 h-3 flex-shrink-0 relative"
+                              />
+                              <span
+                                className="text-[8px] font-bold uppercase tracking-wider relative"
+                                style={{ color: statusColor }}
+                              >
+                                {statusInfo.label}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-[8px] text-gray-600 relative">
+                              --
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Watched indicator */}
+                        <button
+                          type="button"
+                          className={`absolute top-0.5 right-0.5 z-10 transition-opacity p-0 bg-transparent border-none cursor-pointer ${
+                            isWatched
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-60"
+                          }`}
+                          onClick={(e) => handleWatchToggle(band, e)}
+                          aria-label={
+                            isWatched ? `Unwatch ${band}` : `Watch ${band}`
+                          }
+                        >
+                          {isWatched ? (
+                            <span className="block w-2 h-2 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                          ) : (
+                            <span className="block w-2 h-2 rounded-full border border-black/30" />
+                          )}
+                        </button>
+                      </button>
+                    );
+                  })}
+                </div>
+                {unsupportedCount > 0 && radioBands && (
+                  <p className="text-[10px] text-gray-600 mt-2 flex items-center gap-1.5">
+                    <svg
+                      className="w-3 h-3 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
                     >
-                      {isWatched ? (
-                        <span className="block w-2 h-2 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
-                      ) : (
-                        <span className="block w-2 h-2 rounded-full border border-black/30" />
-                      )}
-                    </button>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {unsupportedCount} band
+                    {unsupportedCount > 1 ? "s" : ""} not shown (not supported
+                    by your radio)
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Gradient divider ───────────────────────────────────── */}
           <div
@@ -454,46 +575,85 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
           />
 
           {/* ── 3. Mode Grid ─────────────────────────────────────── */}
-          <div
-            className={contestLocked ? "opacity-40 pointer-events-none" : ""}
-          >
-            <SectionLabel hint="press M">Select a mode</SectionLabel>
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              {ALL_UI_MODES.map((mode) => {
-                const isActive = activeMode === mode;
-                const modeSupported = isModeSupported(mode);
-                const modeColor = MODE_COLORS[mode] ?? MODE_COLORS.default;
+          {(() => {
+            const supportedModes = ALL_UI_MODES.filter((m) =>
+              isModeSupported(m),
+            );
+            const unsupportedModeCount =
+              ALL_UI_MODES.length - supportedModes.length;
+            const visibleModes = radioModes ? supportedModes : ALL_UI_MODES;
 
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => handleModeSelect(mode)}
-                    disabled={!modeSupported}
-                    className={`
-                      px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150
-                      ${!modeSupported ? "opacity-25 cursor-not-allowed" : "cursor-pointer"}
-                      ${
-                        isActive
-                          ? "text-white"
-                          : "text-gray-400 bg-white/[0.03] hover:bg-white/[0.08] hover:text-gray-200"
-                      }
-                    `}
-                    style={
-                      isActive
-                        ? {
-                            backgroundColor: `${modeColor}20`,
-                            color: modeColor,
-                            boxShadow: `inset 0 0 0 1px ${modeColor}30`,
-                          }
-                        : {}
-                    }
-                  >
-                    {mode}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+            return (
+              <div
+                className={
+                  contestLocked ? "opacity-40 pointer-events-none" : ""
+                }
+              >
+                <SectionLabel hint="press M">Select a mode</SectionLabel>
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {visibleModes.map((mode) => {
+                    const isActive = activeMode === mode;
+                    const mColor = MODE_COLORS[mode] ?? MODE_COLORS.default;
+
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => handleModeSelect(mode)}
+                        className={`
+                          relative px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-150
+                          active:scale-90 active:brightness-125 cursor-pointer
+                          ${isActive ? "ring-[3px] ring-white scale-[1.08] z-10 text-black" : "text-gray-400 hover:text-gray-200"}
+                        `}
+                        style={
+                          isActive
+                            ? {
+                                backgroundColor: mColor,
+                                boxShadow: `0 0 16px ${mColor}60, 0 0 32px ${mColor}25`,
+                                outline: `2px solid ${mColor}`,
+                                outlineOffset: "3px",
+                              }
+                            : {
+                                backgroundColor: `${mColor}12`,
+                                borderWidth: "1px",
+                                borderColor: `${mColor}20`,
+                              }
+                        }
+                      >
+                        {/* Inactive hover overlay */}
+                        {!isActive && (
+                          <div
+                            className="absolute inset-0 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-150 pointer-events-none"
+                            style={{ backgroundColor: `${mColor}15` }}
+                          />
+                        )}
+                        <span className="relative">{mode}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {unsupportedModeCount > 0 && radioModes && (
+                  <p className="text-[10px] text-gray-600 mt-2 flex items-center gap-1.5">
+                    <svg
+                      className="w-3 h-3 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {unsupportedModeCount} mode
+                    {unsupportedModeCount > 1 ? "s" : ""} not shown (not
+                    supported by your radio)
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Gradient divider ───────────────────────────────────── */}
           <div

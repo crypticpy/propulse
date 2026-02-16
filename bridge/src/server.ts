@@ -794,8 +794,20 @@ function broadcastDaemonRadioState(status: RigStatus): void {
  * Frame layout (little-endian):
  *   [0x01 type] [0x00 devIdx] [f64 centerHz] [f64 spanHz] [...f32 dBm bins]
  */
+let fftFrameCount = 0;
 function broadcastBinaryFftFrame(line: CivSpectrumLine): void {
   if (fftSubscribers.size === 0) return;
+
+  fftFrameCount++;
+  if (fftFrameCount <= 5 || fftFrameCount % 100 === 0) {
+    logger.debug("FFT frame broadcast", {
+      frame: fftFrameCount,
+      bins: line.pixels.length,
+      centerHz: line.centerHz,
+      spanHz: line.spanHz,
+      subscribers: fftSubscribers.size,
+    });
+  }
 
   const binCount = line.pixels.length;
   const byteLength = 1 + 1 + 8 + 8 + binCount * 4; // 18 + bins*4

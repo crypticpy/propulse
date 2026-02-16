@@ -9,6 +9,12 @@ import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { THEMES, type ThemeId } from "@/lib/themes";
+import {
+  PALETTE_NAMES,
+  getPaletteDisplayName,
+  getWaterfallPaletteGradientCss,
+} from "@/components/sdr/waterfallPalette";
+import type { SdrSkinName } from "@/components/sdr/skins/types";
 
 // ─── Hex validation ─────────────────────────────────────────────────────────
 
@@ -39,7 +45,15 @@ export function AppearanceSection() {
   const setAccent = useThemeStore((s) => s.setAccent);
   const themeId = useThemeStore((s) => s.themeId);
   const setTheme = useThemeStore((s) => s.setTheme);
+  const sdrSkinName = useSettingsStore((s) => s.sdrSkinName ?? "classic");
   const sdrWaterfallPalette = useSettingsStore((s) => s.sdrWaterfallPalette);
+  const sdrWaterfallMinDb = useSettingsStore((s) => s.sdrWaterfallMinDb);
+  const sdrWaterfallMaxDb = useSettingsStore((s) => s.sdrWaterfallMaxDb);
+  const sdrWaterfallSpeed = useSettingsStore((s) => s.sdrWaterfallSpeed);
+  const sdrSpectrumPeakHold = useSettingsStore((s) => s.sdrSpectrumPeakHold);
+  const sdrSpectrumGradientFill = useSettingsStore(
+    (s) => s.sdrSpectrumGradientFill,
+  );
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
@@ -242,30 +256,171 @@ export function AppearanceSection() {
           SDR Waterfall
         </h3>
         <p className="text-xs text-gray-500 mb-4">
-          Controls the color palette used by the SDR Console waterfall and
-          spectrum.
+          Color palette for the SDR Console waterfall and spectrum scope.
         </p>
-        <div className="max-w-sm">
-          <label className="block text-xs font-medium text-gray-400 mb-1">
-            Palette
-          </label>
-          <select
-            value={sdrWaterfallPalette}
-            onChange={(e) =>
-              updatePreferences({
-                sdrWaterfallPalette: e.target
-                  .value as typeof sdrWaterfallPalette,
-              })
-            }
-            className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
-          >
-            <option value="classic">
-              Classic (black→blue→cyan→yellow→red)
-            </option>
-            <option value="viridis">Viridis</option>
-            <option value="magma">Magma</option>
-            <option value="gray">Grayscale</option>
-          </select>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {PALETTE_NAMES.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => updatePreferences({ sdrWaterfallPalette: name })}
+              className={`p-2 rounded-lg border text-left transition-colors ${
+                sdrWaterfallPalette === name
+                  ? "border-plasma-orange/40 bg-plasma-orange/10"
+                  : "border-white/10 bg-void-black hover:border-white/20 hover:bg-white/[0.03]"
+              }`}
+            >
+              <div
+                className="h-3 rounded-sm mb-1.5"
+                style={{
+                  background: getWaterfallPaletteGradientCss(name),
+                }}
+              />
+              <div className="text-[11px] text-gray-400 leading-tight">
+                {getPaletteDisplayName(name)}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+              <span>dB Floor</span>
+              <span className="font-mono text-gray-300">
+                {sdrWaterfallMinDb} dB
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-160}
+              max={-60}
+              step={5}
+              value={sdrWaterfallMinDb}
+              onChange={(e) =>
+                updatePreferences({ sdrWaterfallMinDb: Number(e.target.value) })
+              }
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+              <span>dB Ceiling</span>
+              <span className="font-mono text-gray-300">
+                {sdrWaterfallMaxDb} dB
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-80}
+              max={0}
+              step={5}
+              value={sdrWaterfallMaxDb}
+              onChange={(e) =>
+                updatePreferences({ sdrWaterfallMaxDb: Number(e.target.value) })
+              }
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+              <span>Scroll Speed</span>
+              <span className="font-mono text-gray-300">
+                {sdrWaterfallSpeed}x
+              </span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={4}
+              step={1}
+              value={sdrWaterfallSpeed}
+              onChange={(e) =>
+                updatePreferences({ sdrWaterfallSpeed: Number(e.target.value) })
+              }
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex items-center gap-4 pt-1">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sdrSpectrumGradientFill}
+                onChange={(e) =>
+                  updatePreferences({
+                    sdrSpectrumGradientFill: e.target.checked,
+                  })
+                }
+                className="w-4 h-4 rounded border-white/20 bg-void-black text-plasma-orange focus:ring-plasma-orange/30"
+              />
+              <span className="text-xs text-gray-400">Gradient fill</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sdrSpectrumPeakHold}
+                onChange={(e) =>
+                  updatePreferences({ sdrSpectrumPeakHold: e.target.checked })
+                }
+                className="w-4 h-4 rounded border-white/20 bg-void-black text-plasma-orange focus:ring-plasma-orange/30"
+              />
+              <span className="text-xs text-gray-400">Peak hold</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 pt-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          SDR Console Skin
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Choose a layout for the SDR Console page. Classic is the original
+          2-column layout. Flexible is a full-viewport layout inspired by
+          FlexRadio SmartSDR (desktop only).
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {(
+            [
+              {
+                id: "classic" as SdrSkinName,
+                name: "Classic",
+                desc: "Card-based 2-column layout with controls on the left and waterfall on the right.",
+              },
+              {
+                id: "flexible" as SdrSkinName,
+                name: "Flexible",
+                desc: "Full-viewport SDR interface with spectrum scope, waterfall, S-meter, and side controls.",
+              },
+            ] as const
+          ).map((skin) => {
+            const isActive = sdrSkinName === skin.id;
+            return (
+              <button
+                key={skin.id}
+                type="button"
+                onClick={() => updatePreferences({ sdrSkinName: skin.id })}
+                className={`relative px-4 py-3 rounded-lg text-left transition-colors border ${
+                  isActive
+                    ? "bg-plasma-orange/15 border-plasma-orange/40 text-white"
+                    : "bg-void-black border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200"
+                }`}
+              >
+                <div className="text-sm font-medium">{skin.name}</div>
+                <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                  {skin.desc}
+                </p>
+                {isActive && (
+                  <span className="absolute top-2 right-2 text-plasma-orange text-xs">
+                    &#10003;
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

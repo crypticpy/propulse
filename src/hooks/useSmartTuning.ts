@@ -5,7 +5,7 @@
  * tuning, and tuning step change from SdrConsole.
  */
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type { RadioState, RadioBinaryFrame } from "@/lib/radio/protocol";
 import { useSettingsStore } from "@/stores/settingsStore";
 
@@ -47,6 +47,12 @@ export function useSmartTuning(
     setFreqInput,
   } = opts;
 
+  // Keep fast-changing values in refs to avoid handler identity churn at 20fps
+  const frameRef = useRef(lastFftFrame);
+  frameRef.current = lastFftFrame;
+  const stateRef = useRef(effectiveState);
+  stateRef.current = effectiveState;
+
   // ── Internal: smart snap via FFT centroid analysis ──────────────────────
 
   /**
@@ -56,7 +62,7 @@ export function useSmartTuning(
    */
   const smartSnap = useCallback(
     (clickedHz: number): number | null => {
-      const frame = lastFftFrame;
+      const frame = frameRef.current;
       if (!frame || frame.bins.length < 4) return null;
 
       const bins = frame.bins;
@@ -113,7 +119,7 @@ export function useSmartTuning(
       const centroidBin = weightedSum / weightSum;
       return startHz + centroidBin * hzPerBin;
     },
-    [lastFftFrame, tuningStepHz],
+    [tuningStepHz],
   );
 
   // ── Frequency display helper ───────────────────────────────────────────
@@ -175,8 +181,8 @@ export function useSmartTuning(
 
   const handleWheelTune = useCallback(
     (direction: number) => {
-      if (!connectedDeviceId || !effectiveState) return;
-      const currentHz = effectiveState.freq;
+      if (!connectedDeviceId || !stateRef.current) return;
+      const currentHz = stateRef.current.freq;
       const stepHz = tuningStepHz;
       const candidateHz = currentHz + direction * stepHz;
 
@@ -213,7 +219,6 @@ export function useSmartTuning(
     [
       connectedDeviceId,
       daemonSendCommand,
-      effectiveState,
       smartSnap,
       tuningStepHz,
       setDraftState,

@@ -253,7 +253,6 @@ export function SdrConsole() {
     connectedState,
     freqInput,
     freqUnit,
-    setFreqInput,
     setLastResponseError,
     setFftEnabled,
     setAudioEnabled,
@@ -335,15 +334,12 @@ export function SdrConsole() {
     connectedDeviceId,
     effectiveStateRef,
     ft8Decoder,
-    fftEnabled,
-    audioEnabled,
     handleModeChange,
     handleFilterChange,
     handleAgcToggle,
     handleNrChange,
     handleNbChange,
     handleToggleFft,
-    handleToggleAudio,
   });
 
   // Hook 6: Audio DSP chain lifecycle

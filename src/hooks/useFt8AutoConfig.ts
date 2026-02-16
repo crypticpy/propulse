@@ -33,15 +33,12 @@ export interface UseFt8AutoConfigOptions {
     enabled: boolean;
     toggle: () => void;
   };
-  fftEnabled: boolean;
-  audioEnabled: boolean;
   handleModeChange: (mode: string) => void;
   handleFilterChange: (low: number, high: number) => void;
   handleAgcToggle: (enabled: boolean) => void;
   handleNrChange: (enabled: boolean, level: number) => void;
   handleNbChange: (enabled: boolean, threshold: number) => void;
   handleToggleFft: () => void;
-  handleToggleAudio: () => void;
 }
 
 export interface Ft8AutoConfig {

@@ -17,7 +17,6 @@ export interface UseRadioCommandsOptions {
   connectedState: RadioState | null;
   freqInput: string;
   freqUnit: "MHz" | "kHz" | "Hz";
-  setFreqInput: (v: string) => void;
   setLastResponseError: (e: string | null) => void;
   setFftEnabled: (v: boolean) => void;
   setAudioEnabled: (v: boolean) => void;

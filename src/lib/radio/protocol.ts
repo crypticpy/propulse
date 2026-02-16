@@ -63,6 +63,17 @@ export interface RadioState {
   nb?: RadioNb;
   squelch?: number;
   signal_dbm?: number;
+  rit?: { enabled: boolean; offsetHz: number };
+  xit?: { enabled: boolean; offsetHz: number };
+  split?: boolean;
+  anf?: boolean;
+  qsk?: boolean;
+  vox?: boolean;
+  lock?: boolean;
+  txAntenna?: string;
+  txMeter?: { powerW?: number; swr?: number; alc?: number };
+  cwSpeed?: number;
+  ifShift?: number;
 }
 
 export interface DaemonHelloMessage {

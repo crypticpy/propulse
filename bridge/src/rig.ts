@@ -564,6 +564,15 @@ export class RigController {
   private lastStatus: RigStatus | null = null;
   private smeterWarned = false;
   private vfoWarned = false;
+  private ritWarned = false;
+  private xitWarned = false;
+  private splitWarned = false;
+  private anfWarned = false;
+  private qskWarned = false;
+  private voxWarned = false;
+  private cwSpeedWarned = false;
+  private ifShiftWarned = false;
+  private txMeterWarned = false;
 
   // Event handlers
   private statusHandlers: RigStatusHandler[] = [];
@@ -833,6 +842,93 @@ export class RigController {
     }
   }
 
+  /**
+   * Set RIT (Receiver Incremental Tuning).
+   * Enables/disables the function and optionally sets the offset in Hz.
+   */
+  async setRit(enabled: boolean, offsetHz?: number): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("RIT", enabled);
+      if (offsetHz !== undefined) {
+        await this.hamlib.setLevel("RIT", offsetHz);
+      }
+    } else {
+      throw new Error("RIT control requires Hamlib backend");
+    }
+  }
+
+  /**
+   * Set XIT (Transmitter Incremental Tuning).
+   * Enables/disables the function and optionally sets the offset in Hz.
+   */
+  async setXit(enabled: boolean, offsetHz?: number): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("XIT", enabled);
+      if (offsetHz !== undefined) {
+        await this.hamlib.setLevel("XIT", offsetHz);
+      }
+    } else {
+      throw new Error("XIT control requires Hamlib backend");
+    }
+  }
+
+  /**
+   * Set split operation (TX on VFO-B, RX on VFO-A).
+   * Uses the rigctld `S` command.
+   */
+  async setSplit(enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.sendCommand(`S ${enabled ? 1 : 0} VFOB`);
+    } else {
+      throw new Error("Split control requires Hamlib backend");
+    }
+  }
+
+  /** Set ANF (Auto Notch Filter) on/off. */
+  async setAnf(enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("ANF", enabled);
+    } else {
+      throw new Error("ANF control requires Hamlib backend");
+    }
+  }
+
+  /** Set QSK (full break-in CW) on/off. Uses Hamlib FBKIN function. */
+  async setQsk(enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("FBKIN", enabled);
+    } else {
+      throw new Error("QSK control requires Hamlib backend");
+    }
+  }
+
+  /** Set VOX (voice-operated transmit) on/off. */
+  async setVox(enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("VOX", enabled);
+    } else {
+      throw new Error("VOX control requires Hamlib backend");
+    }
+  }
+
+  /** Set IF shift in Hz. */
+  async setIfShift(hz: number): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setLevel("IF", hz);
+    } else {
+      throw new Error("IF shift control requires Hamlib backend");
+    }
+  }
+
+  /** Set CW keyer speed in WPM. */
+  async setCwSpeed(wpm: number): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setLevel("KEYSPD", wpm);
+    } else {
+      throw new Error("CW speed control requires Hamlib backend");
+    }
+  }
+
   // --------------------------------------------------------------------------
   // Polling
   // --------------------------------------------------------------------------
@@ -910,6 +1006,142 @@ export class RigController {
         }
       }
 
+      // RIT — non-fatal
+      let rit: { enabled: boolean; offsetHz: number } | undefined;
+      try {
+        const ritEnabled = await this.hamlib.getFunc("RIT");
+        const ritOffset = await this.hamlib.getLevel("RIT");
+        rit = { enabled: ritEnabled, offsetHz: ritOffset };
+      } catch (err) {
+        if (!this.ritWarned) {
+          this.ritWarned = true;
+          console.warn(
+            `[rig] RIT not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // XIT — non-fatal
+      let xit: { enabled: boolean; offsetHz: number } | undefined;
+      try {
+        const xitEnabled = await this.hamlib.getFunc("XIT");
+        const xitOffset = await this.hamlib.getLevel("XIT");
+        xit = { enabled: xitEnabled, offsetHz: xitOffset };
+      } catch (err) {
+        if (!this.xitWarned) {
+          this.xitWarned = true;
+          console.warn(
+            `[rig] XIT not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // Split — non-fatal
+      let split: boolean | undefined;
+      try {
+        const splitResp = await this.hamlib.sendCommand("s");
+        const splitVal = parseInt(splitResp.trim(), 10);
+        split = splitVal !== 0;
+      } catch (err) {
+        if (!this.splitWarned) {
+          this.splitWarned = true;
+          console.warn(
+            `[rig] Split query not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // ANF — non-fatal
+      let anf: boolean | undefined;
+      try {
+        anf = await this.hamlib.getFunc("ANF");
+      } catch (err) {
+        if (!this.anfWarned) {
+          this.anfWarned = true;
+          console.warn(
+            `[rig] ANF not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // QSK (FBKIN) — non-fatal
+      let qsk: boolean | undefined;
+      try {
+        qsk = await this.hamlib.getFunc("FBKIN");
+      } catch (err) {
+        if (!this.qskWarned) {
+          this.qskWarned = true;
+          console.warn(
+            `[rig] QSK/FBKIN not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // VOX — non-fatal
+      let vox: boolean | undefined;
+      try {
+        vox = await this.hamlib.getFunc("VOX");
+      } catch (err) {
+        if (!this.voxWarned) {
+          this.voxWarned = true;
+          console.warn(
+            `[rig] VOX not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // CW speed — non-fatal
+      let cwSpeed: number | undefined;
+      try {
+        cwSpeed = await this.hamlib.getLevel("KEYSPD");
+      } catch (err) {
+        if (!this.cwSpeedWarned) {
+          this.cwSpeedWarned = true;
+          console.warn(
+            `[rig] CW speed not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // IF shift — non-fatal
+      let ifShift: number | undefined;
+      try {
+        ifShift = await this.hamlib.getLevel("IF");
+      } catch (err) {
+        if (!this.ifShiftWarned) {
+          this.ifShiftWarned = true;
+          console.warn(
+            `[rig] IF shift not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // TX metering (power, SWR, ALC) — non-fatal
+      let txMeter: { powerW?: number; swr?: number; alc?: number } | undefined;
+      try {
+        const powerW = await this.hamlib.getLevel("RFPOWER_METER_WATTS");
+        txMeter = { powerW };
+      } catch {
+        // powerW not available, try individual meters
+      }
+      try {
+        const swr = await this.hamlib.getLevel("SWR");
+        txMeter = { ...txMeter, swr };
+      } catch {
+        // SWR not available
+      }
+      try {
+        const alc = await this.hamlib.getLevel("ALC");
+        txMeter = { ...txMeter, alc };
+      } catch (err) {
+        if (!this.txMeterWarned && !txMeter) {
+          this.txMeterWarned = true;
+          console.warn(
+            `[rig] TX metering not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
       status = {
         connected: true,
         frequency: freq,
@@ -917,6 +1149,15 @@ export class RigController {
         ptt,
         smeter,
         vfo,
+        rit,
+        xit,
+        split,
+        anf,
+        qsk,
+        vox,
+        cwSpeed,
+        ifShift,
+        txMeter,
       };
     } else if (this.backend === "flrig" && this.flrig) {
       const freq = await this.flrig.getFrequency();
@@ -1025,7 +1266,19 @@ export class RigController {
       a.power === b.power &&
       a.ptt === b.ptt &&
       a.vfo === b.vfo &&
-      a.split === b.split
+      a.split === b.split &&
+      a.rit?.enabled === b.rit?.enabled &&
+      a.rit?.offsetHz === b.rit?.offsetHz &&
+      a.xit?.enabled === b.xit?.enabled &&
+      a.xit?.offsetHz === b.xit?.offsetHz &&
+      a.anf === b.anf &&
+      a.qsk === b.qsk &&
+      a.vox === b.vox &&
+      a.cwSpeed === b.cwSpeed &&
+      a.ifShift === b.ifShift &&
+      a.txMeter?.powerW === b.txMeter?.powerW &&
+      a.txMeter?.swr === b.txMeter?.swr &&
+      a.txMeter?.alc === b.txMeter?.alc
     );
   }
 

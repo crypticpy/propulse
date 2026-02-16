@@ -9,7 +9,14 @@ import {
   getWaterfallPaletteLut,
   computePassbandHz,
   audioHzToRfHz,
+  rfHzToAudioHz,
 } from "@/components/sdr/waterfallPalette";
+import type { EqBand, EqBandCategory } from "@/lib/audio/eqTypes";
+import { filterTypeUsesGain } from "@/lib/audio/eqTypes";
+import {
+  computeEqResponse,
+  computeSingleBandResponse,
+} from "@/lib/audio/eqResponse";
 import { fillFftCrossfade } from "@/lib/sdr/fftCrossfade";
 import { useSpectrumInteraction } from "@/hooks/useSpectrumInteraction";
 import type { SpectrumInteractionCallbacks } from "@/hooks/useSpectrumInteraction";
@@ -56,6 +63,29 @@ interface SpectrumScopeProps {
   onAddNotch?: (freqHz: number, q: number) => void;
   onUpdateNotch?: (id: string, freqHz: number, q: number) => void;
   onRemoveNotch?: (id: string) => void;
+  /** EQ bands to render as frequency response overlay */
+  eqBands?: EqBand[];
+  /** ID of the currently hovered EQ band (for individual response display) */
+  hoveredEqBandId?: string | null;
+  /** Called to add a new EQ band */
+  onAddEqBand?: (
+    freqHz: number,
+    gainDb: number,
+    category: EqBandCategory,
+  ) => void;
+  /** Called to update an existing EQ band (freq, q, gain) */
+  onUpdateEqBand?: (
+    id: string,
+    freqHz: number,
+    q: number,
+    gainDb: number,
+  ) => void;
+  /** Called to remove an EQ band */
+  onRemoveEqBand?: (id: string) => void;
+  /** Called when hovering over/away from an EQ band dot */
+  onEqBandHover?: (id: string | null) => void;
+  /** Called when mouse wheel adjusts Q on an EQ band */
+  onEqBandQChange?: (id: string, q: number) => void;
   /** Optional high-resolution audio FFT frame (~11.7 Hz/bin). When provided,
    *  pixels within its frequency range are sampled from this frame. */
   audioFrame?: FftFrame | null;
@@ -108,6 +138,13 @@ export function SpectrumScope({
   onAddNotch,
   onUpdateNotch,
   onRemoveNotch,
+  eqBands = [],
+  hoveredEqBandId = null,
+  onAddEqBand,
+  onUpdateEqBand,
+  onRemoveEqBand,
+  onEqBandHover,
+  onEqBandQChange,
   audioFrame = null,
   audioMinDb: audioMinDbVal = -120,
   audioMaxDb: audioMaxDbVal = -20,
@@ -128,6 +165,11 @@ export function SpectrumScope({
   tuningRef.current = tuning ?? null;
   const notchRef = useRef(notchFilters);
   notchRef.current = notchFilters;
+  const eqBandsRef = useRef(eqBands);
+  eqBandsRef.current = eqBands;
+
+  // ── Pre-allocated EQ rendering buffers ──────────────────────────────
+  const eqFreqBufRef = useRef<Float32Array | null>(null);
 
   const callbacksRef = useRef<SpectrumInteractionCallbacks>({
     onPickFrequencyHz,
@@ -136,6 +178,11 @@ export function SpectrumScope({
     onUpdateNotch,
     onRemoveNotch,
     onWheelTune,
+    onAddEqBand,
+    onUpdateEqBand,
+    onRemoveEqBand,
+    onEqBandHover,
+    onEqBandQChange,
   });
   callbacksRef.current = {
     onPickFrequencyHz,
@@ -144,6 +191,11 @@ export function SpectrumScope({
     onUpdateNotch,
     onRemoveNotch,
     onWheelTune,
+    onAddEqBand,
+    onUpdateEqBand,
+    onRemoveEqBand,
+    onEqBandHover,
+    onEqBandQChange,
   };
 
   // ── Shared interaction hook (replaces all inline pointer/wheel code) ──
@@ -152,6 +204,7 @@ export function SpectrumScope({
     tuningRef,
     notchRef,
     callbacksRef,
+    eqBandsRef,
   });
   const mergedRef = useCallback(
     (el: HTMLCanvasElement | null) => {
@@ -389,43 +442,141 @@ export function SpectrumScope({
           }
         }
 
-        // ── Notch filter markers (enabled only) ─────────────────────
-        for (const n of notchFilters) {
-          if (!n.enabled) continue;
-          const nRfHz = audioHzToRfHz(n.freqHz, tuning.freqHz, tuning.mode);
-          const nT = (nRfHz - viewStart) / view.spanHz;
-          if (nT < -0.01 || nT > 1.01) continue;
-          const nX = Math.round(nT * (w - 1));
+        // ── EQ frequency response overlay ──────────────────────────
+        if (eqBands.length > 0) {
+          // Ensure frequency buffer is allocated for current width
+          if (!eqFreqBufRef.current || eqFreqBufRef.current.length !== w) {
+            eqFreqBufRef.current = new Float32Array(w);
+          }
+          const freqBuf = eqFreqBufRef.current;
 
-          // Notch band width from Q (bandwidth = freq / Q)
-          const bwHz = n.freqHz / Math.max(1, n.q);
-          const bwPx = Math.max(2, (bwHz / view.spanHz) * (w - 1));
-          const halfBw = bwPx / 2;
+          // Convert each pixel X to audio Hz
+          for (let x = 0; x < w; x++) {
+            const rfHz = viewStart + (x / (w - 1)) * view.spanHz;
+            freqBuf[x] = rfHzToAudioHz(rfHz, tuning.freqHz, tuning.mode);
+          }
 
-          // Semi-transparent notch band
-          ctx.fillStyle = "rgba(255, 140, 0, 0.12)";
-          ctx.fillRect(nX - halfBw, 0, bwPx, h);
+          // Compute combined EQ response (dB at each pixel)
+          const responseDb = computeEqResponse(eqBands, freqBuf);
 
-          // Dashed center line
-          ctx.save();
-          ctx.setLineDash([4 * dpr, 3 * dpr]);
-          ctx.strokeStyle = "rgba(255, 140, 0, 0.7)";
-          ctx.lineWidth = 1.5;
+          // Draw combined EQ curve
+          const eqCenterY = h * 0.5;
+          const dbPerPx = h / 48; // 48 dB range (-24 to +24) mapped to full height
+
+          // Filled area between curve and center line
           ctx.beginPath();
-          ctx.moveTo(nX, 0);
-          ctx.lineTo(nX, h);
-          ctx.stroke();
-          ctx.restore();
-
-          // "V" marker at top
-          const vSize = 5 * dpr;
-          ctx.fillStyle = "rgba(255, 140, 0, 0.9)";
-          ctx.beginPath();
-          ctx.moveTo(nX - vSize, 0);
-          ctx.lineTo(nX, vSize);
-          ctx.lineTo(nX + vSize, 0);
+          ctx.moveTo(0, eqCenterY);
+          for (let x = 0; x < w; x++) {
+            const y = eqCenterY - responseDb[x] * dbPerPx;
+            ctx.lineTo(x, y);
+          }
+          ctx.lineTo(w - 1, eqCenterY);
           ctx.closePath();
+          ctx.fillStyle = "rgba(100, 200, 255, 0.08)";
           ctx.fill();
+
+          // Curve stroke
+          ctx.beginPath();
+          for (let x = 0; x < w; x++) {
+            const y = eqCenterY - responseDb[x] * dbPerPx;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = "rgba(100, 200, 255, 0.5)";
+          ctx.lineWidth = 1.5 * dpr;
+          ctx.stroke();
+
+          // Draw hovered band's individual response
+          if (hoveredEqBandId) {
+            const hoveredBand = eqBands.find((b) => b.id === hoveredEqBandId);
+            if (hoveredBand?.enabled) {
+              const singleDb = computeSingleBandResponse(hoveredBand, freqBuf);
+
+              // Individual band filled area
+              ctx.beginPath();
+              ctx.moveTo(0, eqCenterY);
+              for (let x = 0; x < w; x++) {
+                const y = eqCenterY - singleDb[x] * dbPerPx;
+                ctx.lineTo(x, y);
+              }
+              ctx.lineTo(w - 1, eqCenterY);
+              ctx.closePath();
+              const hoverColor =
+                hoveredBand.category === "notch"
+                  ? "rgba(255, 140, 0, 0.15)"
+                  : "rgba(100, 200, 255, 0.15)";
+              ctx.fillStyle = hoverColor;
+              ctx.fill();
+
+              // Individual band stroke
+              ctx.beginPath();
+              for (let x = 0; x < w; x++) {
+                const y = eqCenterY - singleDb[x] * dbPerPx;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+              }
+              ctx.strokeStyle =
+                hoveredBand.category === "notch"
+                  ? "rgba(255, 140, 0, 0.7)"
+                  : "rgba(100, 200, 255, 0.7)";
+              ctx.lineWidth = 1.5 * dpr;
+              ctx.stroke();
+            }
+          }
+
+          // Draw control dots for each band
+          for (const band of eqBands) {
+            const bandRfHz = audioHzToRfHz(
+              band.freqHz,
+              tuning.freqHz,
+              tuning.mode,
+            );
+            const t = (bandRfHz - viewStart) / view.spanHz;
+            if (t < -0.02 || t > 1.02) continue;
+            const dotX = Math.round(t * (w - 1));
+
+            // Y position: gain-using types map gainDb to Y, others at center
+            const dotY = filterTypeUsesGain(band.filterType)
+              ? eqCenterY - band.gainDb * dbPerPx
+              : eqCenterY;
+
+            const dotRadius = 5 * dpr;
+            const isHovered = band.id === hoveredEqBandId;
+            const isNotch = band.category === "notch";
+
+            // Outer glow when hovered
+            if (isHovered) {
+              ctx.beginPath();
+              ctx.arc(dotX, dotY, dotRadius + 3 * dpr, 0, Math.PI * 2);
+              ctx.fillStyle = isNotch
+                ? "rgba(255, 140, 0, 0.2)"
+                : "rgba(100, 200, 255, 0.2)";
+              ctx.fill();
+            }
+
+            // Main dot
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
+            if (!band.enabled) {
+              ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+            } else if (isNotch) {
+              ctx.fillStyle = isHovered
+                ? "rgba(255, 160, 40, 1.0)"
+                : "rgba(255, 140, 0, 0.85)";
+            } else {
+              ctx.fillStyle = isHovered
+                ? "rgba(120, 220, 255, 1.0)"
+                : "rgba(100, 200, 255, 0.85)";
+            }
+            ctx.fill();
+
+            // White border on dot
+            ctx.strokeStyle = band.enabled
+              ? "rgba(255, 255, 255, 0.6)"
+              : "rgba(255, 255, 255, 0.2)";
+            ctx.lineWidth = 1 * dpr;
+            ctx.stroke();
+          }
         }
       }
 
@@ -582,6 +733,8 @@ export function SpectrumScope({
     tuningArrowColorProp,
     notchFilters,
     onFilterChange,
+    eqBands,
+    hoveredEqBandId,
     audioFrame,
     audioMinDbVal,
     audioMaxDbVal,

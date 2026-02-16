@@ -795,6 +795,16 @@ function rigStatusToDaemonState(status: RigStatus): {
   agc: boolean;
   ptt: boolean;
   signal_dbm?: number;
+  split?: boolean;
+  rit?: { enabled: boolean; offsetHz: number };
+  xit?: { enabled: boolean; offsetHz: number };
+  anf?: boolean;
+  qsk?: boolean;
+  vox?: boolean;
+  txAntenna?: string;
+  txMeter?: { powerW?: number; swr?: number; alc?: number };
+  cwSpeed?: number;
+  ifShift?: number;
 } {
   return {
     connected: status.connected,
@@ -806,6 +816,16 @@ function rigStatusToDaemonState(status: RigStatus): {
     agc: false,
     ptt: status.ptt ?? false,
     signal_dbm: status.smeter,
+    split: status.split,
+    rit: status.rit,
+    xit: status.xit,
+    anf: status.anf,
+    qsk: status.qsk,
+    vox: status.vox,
+    txAntenna: status.txAntenna,
+    txMeter: status.txMeter,
+    cwSpeed: status.cwSpeed,
+    ifShift: status.ifShift,
   };
 }
 
@@ -1207,6 +1227,179 @@ function handleDaemonCommand(
         try {
           const controller = await ensureRigController();
           await controller.setGainLevel("SQL", level);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // RIT — enable/disable and set offset
+    // ----------------------------------------------------------------
+    case "radio:rit": {
+      const enabled = !!cmd.enabled;
+      const offsetHz = toNumber(cmd.offsetHz);
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setRit(enabled, offsetHz);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // XIT — enable/disable and set offset
+    // ----------------------------------------------------------------
+    case "radio:xit": {
+      const enabled = !!cmd.enabled;
+      const offsetHz = toNumber(cmd.offsetHz);
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setXit(enabled, offsetHz);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Split — enable/disable split operation
+    // ----------------------------------------------------------------
+    case "radio:split": {
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setSplit(!!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // ANF — Auto Notch Filter
+    // ----------------------------------------------------------------
+    case "radio:anf": {
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setAnf(!!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // QSK — Full break-in CW
+    // ----------------------------------------------------------------
+    case "radio:qsk": {
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setQsk(!!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // VOX — Voice-operated transmit
+    // ----------------------------------------------------------------
+    case "radio:vox": {
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setVox(!!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Generic function toggle — future-proof for any Hamlib function
+    // ----------------------------------------------------------------
+    case "radio:func": {
+      const func =
+        typeof cmd.func === "string" ? cmd.func.trim().toUpperCase() : "";
+      if (!func) {
+        sendDaemonResponse(client, id, false, "Invalid function name");
+        break;
+      }
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setFunction(func, !!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // IF Shift — set IF shift in Hz
+    // ----------------------------------------------------------------
+    case "radio:ifshift": {
+      const hz = toNumber(cmd.hz);
+      if (hz === undefined) {
+        sendDaemonResponse(client, id, false, "Invalid IF shift value");
+        break;
+      }
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setIfShift(hz);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // CW Speed — set keyer speed in WPM
+    // ----------------------------------------------------------------
+    case "radio:cwspeed": {
+      const wpm = toNumber(cmd.wpm);
+      if (wpm === undefined || wpm < 1 || wpm > 99) {
+        sendDaemonResponse(client, id, false, "Invalid CW speed (1-99 WPM)");
+        break;
+      }
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setCwSpeed(wpm);
           sendDaemonResponse(client, id, true);
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);

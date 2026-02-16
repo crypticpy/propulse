@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import type { GainStage } from "@/lib/radio/protocol";
+import { GainSlider } from "@/components/sdr/primitives/GainSlider";
 import { SlicePanelDsp } from "./SlicePanelDsp";
 import { SlicePanelFilter } from "./SlicePanelFilter";
 
@@ -209,13 +210,6 @@ export function SlicePanelTabs({
 
 // ─── Inline RX Panel ─────────────────────────────────────────────────────────
 
-const DISCRETE_STAGES = new Set(["PREAMP", "ATT"]);
-const DISCRETE_STEPS = [
-  { label: "Off", value: 0 },
-  { label: "10dB", value: 10 },
-  { label: "20dB", value: 20 },
-];
-
 function SlicePanelRxInline({
   stages,
   gains,
@@ -237,59 +231,16 @@ function SlicePanelRxInline({
 
   return (
     <div className="space-y-2">
-      {stages.map((stage) => {
-        const val = gains[stage.name] ?? stage.min;
-
-        if (DISCRETE_STAGES.has(stage.name)) {
-          return (
-            <div key={stage.name} className="space-y-0.5">
-              <span className="text-[10px] text-gray-500">
-                {stage.label ?? stage.name}
-              </span>
-              <div className="flex gap-1">
-                {DISCRETE_STEPS.map((step) => (
-                  <button
-                    key={step.value}
-                    onClick={() => onGainChange(stage.name, step.value)}
-                    disabled={!canControl}
-                    className={`flex-1 px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors
-                      disabled:opacity-40 disabled:cursor-not-allowed ${
-                        val === step.value
-                          ? "bg-signal-green/15 text-signal-green border-signal-green/30"
-                          : "bg-white/5 text-gray-500 border-white/10 hover:bg-white/10"
-                      }`}
-                  >
-                    {step.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <div key={stage.name} className="space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-500">
-                {stage.label ?? stage.name}
-              </span>
-              <span className="text-[10px] text-gray-200 font-mono">
-                {stage.max <= 1 ? Math.round(val * 100) + "%" : val}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={stage.min}
-              max={stage.max}
-              step={stage.step}
-              value={val}
-              onChange={(e) => onGainChange(stage.name, Number(e.target.value))}
-              disabled={!canControl}
-              className="w-full h-1 accent-cosmic-cyan disabled:opacity-40"
-            />
-          </div>
-        );
-      })}
+      {stages.map((stage) => (
+        <GainSlider
+          key={stage.name}
+          stage={stage}
+          value={gains[stage.name] ?? stage.min}
+          onChange={(v) => onGainChange(stage.name, v)}
+          disabled={!canControl}
+          size="compact"
+        />
+      ))}
     </div>
   );
 }
@@ -336,30 +287,13 @@ function SlicePanelAudioInline({
     <div className="space-y-2">
       {/* AF gain slider */}
       {afGainStage && (
-        <div className="space-y-0.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-gray-500">
-              {afGainStage.label ?? "AF"}
-            </span>
-            <span className="text-[10px] text-gray-200 font-mono">
-              {afGainStage.max <= 1
-                ? Math.round((gains[afGainStage.name] ?? 0) * 100) + "%"
-                : (gains[afGainStage.name] ?? afGainStage.min)}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={afGainStage.min}
-            max={afGainStage.max}
-            step={afGainStage.step}
-            value={gains[afGainStage.name] ?? afGainStage.min}
-            onChange={(e) =>
-              onGainChange(afGainStage.name, Number(e.target.value))
-            }
-            disabled={!canControl}
-            className="w-full h-1 accent-cosmic-cyan disabled:opacity-40"
-          />
-        </div>
+        <GainSlider
+          stage={afGainStage}
+          value={gains[afGainStage.name] ?? afGainStage.min}
+          onChange={(v) => onGainChange(afGainStage.name, v)}
+          disabled={!canControl}
+          size="compact"
+        />
       )}
 
       {/* Client-side DSP */}

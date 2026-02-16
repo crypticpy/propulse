@@ -5,6 +5,8 @@
  * Presets change based on the active mode category (SSB, CW, AM/FM, Digital).
  */
 
+import { getModeTextClass, getModeBgClass } from "@/lib/sdr/modeColors";
+
 // ─── Filter presets by mode category ─────────────────────────────────────────
 
 const SSB_PRESETS = [
@@ -51,23 +53,6 @@ function getPresetsForMode(mode: string) {
   return SSB_PRESETS;
 }
 
-// ─── Mode color mapping ──────────────────────────────────────────────────────
-
-const MODE_PILL_COLORS: Record<string, string> = {
-  USB: "bg-signal-green/15 border-signal-green/30 text-signal-green",
-  LSB: "bg-signal-green/15 border-signal-green/30 text-signal-green",
-  CW: "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan",
-  CWR: "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan",
-  AM: "bg-caution-amber/15 border-caution-amber/30 text-caution-amber",
-  FM: "bg-caution-amber/15 border-caution-amber/30 text-caution-amber",
-  RTTY: "bg-purple-400/15 border-purple-400/30 text-purple-400",
-  DIGI: "bg-purple-400/15 border-purple-400/30 text-purple-400",
-  DIGU: "bg-purple-400/15 border-purple-400/30 text-purple-400",
-  DIGL: "bg-purple-400/15 border-purple-400/30 text-purple-400",
-  FT8: "bg-purple-400/15 border-purple-400/30 text-purple-400",
-  FT4: "bg-purple-400/15 border-purple-400/30 text-purple-400",
-};
-
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface SlicePanelFilterProps {
@@ -101,9 +86,7 @@ export function SlicePanelFilter({
         <div className="grid grid-cols-4 gap-1">
           {availableModes.map((m) => {
             const isActive = m.toUpperCase() === currentMode.toUpperCase();
-            const colors =
-              MODE_PILL_COLORS[m.toUpperCase()] ??
-              "bg-white/5 border-white/10 text-gray-400";
+            const colors = `${getModeBgClass(m)} ${getModeTextClass(m)}`;
 
             return (
               <button

@@ -1,7 +1,13 @@
 // ---------------------------------------------------------------------------
-// AudioProcessingChain — Modular Web Audio DSP chain with notch filter management
+// AudioProcessingChain — Modular Web Audio DSP chain with EQ and notch filter management
 // ---------------------------------------------------------------------------
 
+import type { EqBand } from "./eqTypes";
+import {
+  EQ_FILTER_TO_BIQUAD,
+  MAX_EQ_BANDS,
+  filterTypeUsesGain,
+} from "./eqTypes";
 import {
   createNoiseGateNode,
   updateNoiseGateParams as updateGateParams,
@@ -28,6 +34,11 @@ interface InternalNotchFilter {
   node: BiquadFilterNode;
 }
 
+interface InternalEqBand {
+  config: EqBand;
+  node: BiquadFilterNode;
+}
+
 const MAX_NOTCH_FILTERS = 8;
 
 export class AudioProcessingChain {
@@ -35,6 +46,7 @@ export class AudioProcessingChain {
   private readonly inputGain: GainNode;
   private readonly outputGain: GainNode;
   private notchFilters: InternalNotchFilter[] = [];
+  private eqBands: InternalEqBand[] = [];
   private noiseGateNode: AudioWorkletNode | null = null;
   private spectralNrNode: AudioWorkletNode | null = null;
   private idCounter = 0;
@@ -188,6 +200,58 @@ export class AudioProcessingChain {
   }
 
   // ---------------------------------------------------------------------------
+  // Unified EQ bands (supports all BiquadFilterNode types)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Synchronise the internal EQ band set with an external array of EqBand configs.
+   * Adds, removes, and updates bands as needed so the chain matches `configs`.
+   */
+  syncEqBands(configs: EqBand[]): void {
+    if (this.disposed) return;
+
+    const incomingIds = new Set(configs.map((c) => c.id));
+    const currentIds = new Set(this.eqBands.map((f) => f.config.id));
+
+    // Remove bands not in incoming
+    const toRemove = this.eqBands.filter((f) => !incomingIds.has(f.config.id));
+    for (const entry of toRemove) entry.node.disconnect();
+    this.eqBands = this.eqBands.filter((f) => incomingIds.has(f.config.id));
+
+    let needsRebuild = toRemove.length > 0;
+
+    for (const cfg of configs) {
+      if (currentIds.has(cfg.id)) {
+        // Update existing
+        const entry = this.eqBands.find((f) => f.config.id === cfg.id)!;
+        entry.config = { ...cfg };
+        this.configureBiquadNode(entry.node, cfg);
+      } else {
+        // Add new (with MAX_EQ_BANDS limit)
+        if (this.eqBands.length >= MAX_EQ_BANDS) continue;
+        const node = this.ctx.createBiquadFilter();
+        this.configureBiquadNode(node, cfg);
+        this.eqBands.push({ config: { ...cfg }, node });
+        needsRebuild = true;
+      }
+    }
+
+    // Reorder to match incoming
+    const orderMap = new Map(configs.map((c, i) => [c.id, i]));
+    this.eqBands.sort(
+      (a, b) =>
+        (orderMap.get(a.config.id) ?? 0) - (orderMap.get(b.config.id) ?? 0),
+    );
+
+    if (needsRebuild) this.rebuildChain();
+  }
+
+  /** Return a snapshot of all current EQ band configs. */
+  getEqBands(): EqBand[] {
+    return this.eqBands.map((f) => ({ ...f.config }));
+  }
+
+  // ---------------------------------------------------------------------------
   // Noise Gate
   // ---------------------------------------------------------------------------
 
@@ -295,6 +359,11 @@ export class AudioProcessingChain {
     for (const entry of this.notchFilters) {
       entry.node.disconnect();
     }
+    this.notchFilters = [];
+    for (const entry of this.eqBands) {
+      entry.node.disconnect();
+    }
+    this.eqBands = [];
     if (this.noiseGateNode) {
       this.noiseGateNode.disconnect();
       this.noiseGateNode = null;
@@ -304,7 +373,6 @@ export class AudioProcessingChain {
       this.spectralNrNode = null;
     }
     this.outputGain.disconnect();
-    this.notchFilters = [];
   }
 
   // ---------------------------------------------------------------------------
@@ -322,6 +390,32 @@ export class AudioProcessingChain {
     return `notch-${this.idCounter}-${Date.now()}`;
   }
 
+  private configureBiquadNode(node: BiquadFilterNode, band: EqBand): void {
+    node.type = EQ_FILTER_TO_BIQUAD[band.filterType];
+    node.frequency.value = band.freqHz;
+
+    if (band.enabled) {
+      node.Q.value = band.q;
+      if (filterTypeUsesGain(band.filterType)) {
+        node.gain.value = band.gainDb;
+      } else {
+        node.gain.value = 0;
+      }
+    } else {
+      // Bypass: move cutoff to extreme so all frequencies pass through
+      if (band.filterType === "lowpass") {
+        node.frequency.value = 24000; // Pass everything
+        node.Q.value = 0.0001;
+      } else if (band.filterType === "highpass") {
+        node.frequency.value = 1; // Pass everything
+        node.Q.value = 0.0001;
+      } else {
+        node.Q.value = 0.0001;
+      }
+      node.gain.value = 0;
+    }
+  }
+
   private createNotchNode(freqHz: number, q: number): BiquadFilterNode {
     const node = this.ctx.createBiquadFilter();
     node.type = "notch";
@@ -332,12 +426,15 @@ export class AudioProcessingChain {
 
   /**
    * Disconnect the entire chain and reconnect in order:
-   *   inputGain → notch[0] → ... → noiseGate → spectralNR → outputGain
+   *   inputGain → notch[0] → ... → eq[0] → ... → noiseGate → spectralNR → outputGain
    */
   private rebuildChain(): void {
     // Disconnect everything first
     this.inputGain.disconnect();
     for (const entry of this.notchFilters) {
+      entry.node.disconnect();
+    }
+    for (const entry of this.eqBands) {
       entry.node.disconnect();
     }
     if (this.noiseGateNode) this.noiseGateNode.disconnect();
@@ -347,6 +444,7 @@ export class AudioProcessingChain {
     // Build the ordered list of nodes between inputGain and outputGain
     const chain: AudioNode[] = [
       ...this.notchFilters.map((f) => f.node),
+      ...this.eqBands.map((f) => f.node),
       ...(this.noiseGateNode ? [this.noiseGateNode] : []),
       ...(this.spectralNrNode ? [this.spectralNrNode] : []),
     ];

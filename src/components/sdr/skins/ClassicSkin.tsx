@@ -32,6 +32,7 @@ export function ClassicSkin(props: SdrSkinProps) {
     radio;
 
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
+  const [hoveredEqBandId, setHoveredEqBandId] = useState<string | null>(null);
 
   const leftControls = (
     <div className="space-y-6">
@@ -93,11 +94,15 @@ export function ClassicSkin(props: SdrSkinProps) {
         spectrumLineShadowBlur={spectrum.spectrumLineShadowBlur}
         tuningLineColor={spectrum.tuningLineColor}
         tuningArrowColor={spectrum.tuningArrowColor}
-        notchFilters={dsp.notchFilters}
+        eqBands={dsp.eqBands}
         onFilterChange={controls.onFilterChange}
-        onAddNotch={dsp.onAddNotch}
-        onUpdateNotch={dsp.onUpdateNotch}
-        onRemoveNotch={dsp.onRemoveNotch}
+        onAddEqBand={dsp.onAddEqBand}
+        onUpdateEqBand={dsp.onUpdateEqBand}
+        onRemoveEqBand={dsp.onRemoveEqBand}
+        onEqBandHover={setHoveredEqBandId}
+        onEqBandQChange={dsp.onEqBandQChange}
+        hoveredEqBandId={hoveredEqBandId}
+        onWheelTune={interaction.onWheelTune}
         passbandBlendMode={waterfall.passbandBlendMode}
         passbandOpacity={waterfall.passbandOpacity}
         waterfallInterpolation={waterfall.waterfallInterpolation}

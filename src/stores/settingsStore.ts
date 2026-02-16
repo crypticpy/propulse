@@ -36,6 +36,7 @@ import type { AntennaType } from "@/lib/data/antennas";
 import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
 import type { WaterfallPaletteName } from "@/components/sdr/waterfallPalette";
 import type { SdrSkinName } from "@/components/sdr/skins/types";
+import type { EqBand } from "@/lib/audio/eqTypes";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -135,13 +136,8 @@ export interface SettingsState {
   autoSwitchContestProfile?: boolean;
   /** Contest alert throttle multiplier (default 4 = alert once per 20min instead of 5min) */
   contestAlertThrottleMultiplier?: number;
-  /** SDR notch filters (persisted, max 8) */
-  sdrNotchFilters: Array<{
-    id: string;
-    freqHz: number;
-    q: number;
-    enabled: boolean;
-  }>;
+  /** SDR parametric EQ bands (persisted, max 16) — replaces old sdrNotchFilters */
+  sdrEqBands: EqBand[];
   /** Client-side noise gate enabled */
   sdrNoiseGateEnabled: boolean;
   /** Client-side noise gate threshold in dBFS (range -80 to -20) */
@@ -257,7 +253,7 @@ const defaultSettings: SettingsState = {
   contestAlertProfileId: "normal",
   autoSwitchContestProfile: true,
   contestAlertThrottleMultiplier: 4,
-  sdrNotchFilters: [],
+  sdrEqBands: [],
   sdrNoiseGateEnabled: false,
   sdrNoiseGateThreshold: -40,
   sdrNrEnabled: false,
@@ -507,7 +503,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 20,
+      version: 21,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -668,6 +664,29 @@ export const useSettingsStore = create<SettingsStore>()(
           if (state.sdrFt8AudioDeviceId === undefined)
             state.sdrFt8AudioDeviceId = null;
           if (state.sdrFt8Mode === undefined) state.sdrFt8Mode = "FT8";
+        }
+        if (version < 21) {
+          // Migrate sdrNotchFilters to sdrEqBands
+          const oldNotches = (state as Record<string, unknown>)
+            .sdrNotchFilters as
+            | Array<{ id: string; freqHz: number; q: number; enabled: boolean }>
+            | undefined;
+          if (oldNotches && oldNotches.length > 0) {
+            (state as Record<string, unknown>).sdrEqBands = oldNotches.map(
+              (n) => ({
+                id: n.id,
+                freqHz: n.freqHz,
+                q: n.q,
+                gainDb: 0,
+                filterType: "notch" as const,
+                category: "notch" as const,
+                enabled: n.enabled,
+              }),
+            );
+          } else {
+            (state as Record<string, unknown>).sdrEqBands = [];
+          }
+          delete (state as Record<string, unknown>).sdrNotchFilters;
         }
         return state as unknown as SettingsState & SettingsStore;
       },

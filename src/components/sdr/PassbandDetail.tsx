@@ -25,6 +25,7 @@ import type {
 } from "@/components/sdr/waterfallPalette";
 import { useSpectrumInteraction } from "@/hooks/useSpectrumInteraction";
 import type { SpectrumInteractionCallbacks } from "@/hooks/useSpectrumInteraction";
+import type { EqBand, EqBandCategory } from "@/lib/audio/eqTypes";
 
 type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
 
@@ -50,6 +51,23 @@ interface PassbandDetailProps {
   onRemoveNotch?: (id: string) => void;
   onPickFrequencyHz?: (hz: number) => void;
   onWheelTune?: (direction: number) => void;
+  /** EQ bands to display on the zoomed view */
+  eqBands?: EqBand[];
+  /** Callbacks for EQ band interaction */
+  onAddEqBand?: (
+    freqHz: number,
+    gainDb: number,
+    category: EqBandCategory,
+  ) => void;
+  onUpdateEqBand?: (
+    id: string,
+    freqHz: number,
+    q: number,
+    gainDb: number,
+  ) => void;
+  onRemoveEqBand?: (id: string) => void;
+  onEqBandHover?: (id: string | null) => void;
+  onEqBandQChange?: (id: string, q: number) => void;
 }
 
 export function PassbandDetail({
@@ -67,6 +85,12 @@ export function PassbandDetail({
   onRemoveNotch,
   onPickFrequencyHz,
   onWheelTune,
+  eqBands = [],
+  onAddEqBand,
+  onUpdateEqBand,
+  onRemoveEqBand,
+  onEqBandHover,
+  onEqBandQChange,
 }: PassbandDetailProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wfCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -77,6 +101,8 @@ export function PassbandDetail({
   tuningRef.current = tuning;
   const notchRef = useRef(notchFilters);
   notchRef.current = notchFilters;
+  const eqBandsRef = useRef(eqBands);
+  eqBandsRef.current = eqBands;
 
   const callbacksRef = useRef<SpectrumInteractionCallbacks>({
     onPickFrequencyHz,
@@ -85,6 +111,11 @@ export function PassbandDetail({
     onUpdateNotch,
     onRemoveNotch,
     onWheelTune,
+    onAddEqBand,
+    onUpdateEqBand,
+    onRemoveEqBand,
+    onEqBandHover,
+    onEqBandQChange,
   });
   callbacksRef.current = {
     onPickFrequencyHz,
@@ -93,6 +124,11 @@ export function PassbandDetail({
     onUpdateNotch,
     onRemoveNotch,
     onWheelTune,
+    onAddEqBand,
+    onUpdateEqBand,
+    onRemoveEqBand,
+    onEqBandHover,
+    onEqBandQChange,
   };
 
   const lut = useMemo(
@@ -123,6 +159,7 @@ export function PassbandDetail({
     tuningRef,
     notchRef,
     callbacksRef,
+    eqBandsRef,
     hitThreshold: { minPx: 4, maxPx: 8, divisor: 3 },
     skipDisabledNotches: true,
   });
@@ -381,41 +418,30 @@ export function PassbandDetail({
       ctx.fill();
     }
 
-    // ── Enabled notch markers ────────────────────────────────────────
-    for (const n of notchFilters) {
-      if (!n.enabled) continue;
-      const nRfHz = audioHzToRfHz(n.freqHz, tuning.freqHz, tuning.mode);
-      const nT = (nRfHz - viewStart) / zoomView.spanHz;
-      if (nT < -0.01 || nT > 1.01) continue;
-      const nX = Math.round(hzToX(nRfHz));
+    // ── EQ band dots ──────────────────────────────────────────────────
+    for (const band of eqBands) {
+      if (!band.enabled) continue;
+      const bandRfHz = audioHzToRfHz(band.freqHz, tuning.freqHz, tuning.mode);
+      const nT = (bandRfHz - viewStart) / zoomView.spanHz;
+      if (nT < -0.02 || nT > 1.02) continue;
+      const dotX = Math.round(nT * (w - 1));
+      const dotY = Math.round(h / 2); // Center vertically (passband detail is narrow)
 
-      const bwHz = n.freqHz / Math.max(1, n.q);
-      const bwPx = Math.max(2, (bwHz / zoomView.spanHz) * (w - 1));
-      const halfBw = bwPx / 2;
+      const dotRadius = 4 * dpr;
+      const isNotch = band.category === "notch";
 
-      ctx.fillStyle = "rgba(255, 140, 0, 0.15)";
-      ctx.fillRect(nX - halfBw, 0, bwPx, h);
-
-      ctx.save();
-      ctx.setLineDash([4 * dpr, 3 * dpr]);
-      ctx.strokeStyle = "rgba(255, 140, 0, 0.8)";
-      ctx.lineWidth = 1.5;
+      // Main dot
       ctx.beginPath();
-      ctx.moveTo(nX, 0);
-      ctx.lineTo(nX, h);
-      ctx.stroke();
-      ctx.restore();
-
-      const vSize = 4 * dpr;
-      ctx.fillStyle = "rgba(255, 140, 0, 0.9)";
-      ctx.beginPath();
-      ctx.moveTo(nX - vSize, 0);
-      ctx.lineTo(nX, vSize);
-      ctx.lineTo(nX + vSize, 0);
-      ctx.closePath();
+      ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
+      ctx.fillStyle = isNotch
+        ? "rgba(255, 140, 0, 0.85)"
+        : "rgba(100, 200, 255, 0.85)";
       ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.lineWidth = 1 * dpr;
+      ctx.stroke();
     }
-  }, [tuning, zoomView, notchFilters, onFilterChange]);
+  }, [tuning, zoomView, notchFilters, eqBands, onFilterChange]);
 
   if (!zoomView) return null;
 

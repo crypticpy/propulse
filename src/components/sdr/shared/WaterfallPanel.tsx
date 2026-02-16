@@ -15,6 +15,7 @@ import type {
   WaterfallView,
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
+import type { EqBand, EqBandCategory } from "@/lib/audio/eqTypes";
 
 export interface WaterfallPanelProps {
   effectiveState: RadioState | null;
@@ -48,16 +49,24 @@ export interface WaterfallPanelProps {
   spectrumLineShadowBlur: number;
   tuningLineColor?: string;
   tuningArrowColor?: string;
-  notchFilters?: Array<{
-    id: string;
-    freqHz: number;
-    q: number;
-    enabled: boolean;
-  }>;
+  eqBands?: EqBand[];
   onFilterChange?: (low: number, high: number) => void;
-  onAddNotch?: (freqHz: number, q: number) => void;
-  onUpdateNotch?: (id: string, freqHz: number, q: number) => void;
-  onRemoveNotch?: (id: string) => void;
+  onAddEqBand?: (
+    freqHz: number,
+    gainDb: number,
+    category: EqBandCategory,
+  ) => void;
+  onUpdateEqBand?: (
+    id: string,
+    freqHz: number,
+    q: number,
+    gainDb: number,
+  ) => void;
+  onRemoveEqBand?: (id: string) => void;
+  onEqBandHover?: (id: string | null) => void;
+  onEqBandQChange?: (id: string, q: number) => void;
+  hoveredEqBandId?: string | null;
+  onWheelTune?: (direction: number) => void;
   passbandBlendMode: string;
   passbandOpacity: number;
 
@@ -98,11 +107,15 @@ export function WaterfallPanel({
   spectrumLineShadowBlur,
   tuningLineColor,
   tuningArrowColor,
-  notchFilters,
+  eqBands,
   onFilterChange,
-  onAddNotch,
-  onUpdateNotch,
-  onRemoveNotch,
+  onAddEqBand,
+  onUpdateEqBand,
+  onRemoveEqBand,
+  onEqBandHover,
+  onEqBandQChange,
+  hoveredEqBandId,
+  onWheelTune,
   passbandBlendMode,
   passbandOpacity,
   waterfallInterpolation,
@@ -149,11 +162,15 @@ export function WaterfallPanel({
               lineShadowBlur={spectrumLineShadowBlur}
               tuningLineColor={tuningLineColor}
               tuningArrowColor={tuningArrowColor}
-              notchFilters={notchFilters}
+              eqBands={eqBands}
               onFilterChange={onFilterChange}
-              onAddNotch={onAddNotch}
-              onUpdateNotch={onUpdateNotch}
-              onRemoveNotch={onRemoveNotch}
+              onAddEqBand={onAddEqBand}
+              onUpdateEqBand={onUpdateEqBand}
+              onRemoveEqBand={onRemoveEqBand}
+              onEqBandHover={onEqBandHover}
+              onEqBandQChange={onEqBandQChange}
+              hoveredEqBandId={hoveredEqBandId}
+              onWheelTune={onWheelTune}
             />
           </div>
         ) : null}

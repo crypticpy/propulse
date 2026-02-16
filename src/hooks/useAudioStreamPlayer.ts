@@ -1,9 +1,7 @@
 import { useEffect, useRef } from "react";
 
-import type {
-  AudioProcessingChain,
-  NotchFilterConfig,
-} from "@/lib/audio/audioProcessingChain";
+import type { AudioProcessingChain } from "@/lib/audio/audioProcessingChain";
+import type { EqBand } from "@/lib/audio/eqTypes";
 
 type AudioFrame = { sampleRate: number; samples: Int16Array };
 
@@ -14,8 +12,8 @@ interface AudioStreamPlayerOptions {
   frame: AudioFrame | null;
   /** Optional externally-managed DSP chain to route audio through. */
   processingChain?: AudioProcessingChain | null;
-  /** Notch filter configs to sync to the processing chain each render. */
-  notchFilters?: NotchFilterConfig[];
+  /** EQ band configs to sync to the processing chain each render. */
+  eqBands?: EqBand[];
 }
 
 export function useAudioStreamPlayer(options: AudioStreamPlayerOptions): void;
@@ -36,7 +34,7 @@ export function useAudioStreamPlayer(
       ? { enabled: enabledOrOptions, frame: frameLegacy ?? null }
       : enabledOrOptions;
 
-  const { enabled, frame, processingChain = null, notchFilters } = opts;
+  const { enabled, frame, processingChain = null, eqBands } = opts;
 
   const ctxRef = useRef<AudioContext | null>(null);
   const gainRef = useRef<GainNode | null>(null);
@@ -45,13 +43,13 @@ export function useAudioStreamPlayer(
   const chainConnectedRef = useRef(false);
 
   // ---------------------------------------------------------------------------
-  // Sync notch filters to the processing chain whenever they change.
+  // Sync EQ bands to the processing chain whenever they change.
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (processingChain && notchFilters) {
-      processingChain.syncNotchFilters(notchFilters);
+    if (processingChain && eqBands) {
+      processingChain.syncEqBands(eqBands);
     }
-  }, [processingChain, notchFilters]);
+  }, [processingChain, eqBands]);
 
   // ---------------------------------------------------------------------------
   // Audio context lifecycle — create / tear-down based on `enabled`.

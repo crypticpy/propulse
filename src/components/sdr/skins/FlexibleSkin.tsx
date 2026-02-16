@@ -152,6 +152,9 @@ export function FlexibleSkin(props: SdrSkinProps) {
     dsp.onClientNrLevelChange,
   ]);
 
+  // EQ band hover state (shared between SpectrumScope and PassbandDetail)
+  const [hoveredEqBandId, setHoveredEqBandId] = useState<string | null>(null);
+
   // Track waterfall container height for FlexTimeAxis
   const waterfallContainerRef = useRef<HTMLDivElement>(null);
   const [waterfallHeight, setWaterfallHeight] = useState(400);
@@ -339,11 +342,14 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   lineShadowBlur={spectrum.spectrumLineShadowBlur}
                   tuningLineColor={spectrum.tuningLineColor}
                   tuningArrowColor={spectrum.tuningArrowColor}
-                  notchFilters={dsp.notchFilters}
+                  eqBands={dsp.eqBands}
+                  hoveredEqBandId={hoveredEqBandId}
                   onFilterChange={controls.onFilterChange}
-                  onAddNotch={dsp.onAddNotch}
-                  onUpdateNotch={dsp.onUpdateNotch}
-                  onRemoveNotch={dsp.onRemoveNotch}
+                  onAddEqBand={dsp.onAddEqBand}
+                  onUpdateEqBand={dsp.onUpdateEqBand}
+                  onRemoveEqBand={dsp.onRemoveEqBand}
+                  onEqBandHover={setHoveredEqBandId}
+                  onEqBandQChange={dsp.onEqBandQChange}
                   onPickFrequencyHz={onPickFrequencyHz}
                   onWheelTune={interaction.onWheelTune}
                   className="rounded-none border-0"
@@ -360,11 +366,14 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 maxDb={waterfallMaxDb}
                 palette={waterfallPalette}
                 gamma={waterfallGamma}
-                notchFilters={dsp.notchFilters}
+                notchFilters={[]}
+                eqBands={dsp.eqBands}
                 onFilterChange={controls.onFilterChange}
-                onAddNotch={dsp.onAddNotch}
-                onUpdateNotch={dsp.onUpdateNotch}
-                onRemoveNotch={dsp.onRemoveNotch}
+                onAddEqBand={dsp.onAddEqBand}
+                onUpdateEqBand={dsp.onUpdateEqBand}
+                onRemoveEqBand={dsp.onRemoveEqBand}
+                onEqBandHover={setHoveredEqBandId}
+                onEqBandQChange={dsp.onEqBandQChange}
                 onPickFrequencyHz={onPickFrequencyHz}
                 onWheelTune={interaction.onWheelTune}
               />
@@ -464,13 +473,15 @@ export function FlexibleSkin(props: SdrSkinProps) {
             audioEnabled={radio.audioEnabled}
             freqInput={controls.freqInput}
             freqUnit={controls.freqUnit}
-            notchFilters={dsp.notchFilters}
+            eqBands={dsp.eqBands}
             tuningStepHz={dsp.tuningStepHz}
             onTuningStepChange={dsp.onTuningStepChange}
-            onAddNotch={dsp.onAddNotch}
-            onRemoveNotch={dsp.onRemoveNotch}
-            onUpdateNotch={dsp.onUpdateNotch}
-            onToggleNotch={dsp.onToggleNotch}
+            onAddEqBand={dsp.onAddEqBand}
+            onRemoveEqBand={dsp.onRemoveEqBand}
+            onUpdateEqBand={dsp.onUpdateEqBand}
+            onUpdateEqBandType={dsp.onUpdateEqBandType}
+            onToggleEqBand={dsp.onToggleEqBand}
+            onEqBandQChange={dsp.onEqBandQChange}
             onTune={controls.onTune}
             onFreqInputChange={controls.onFreqInputChange}
             onFreqUnitChange={controls.onFreqUnitChange}

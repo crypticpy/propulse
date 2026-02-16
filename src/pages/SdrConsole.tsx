@@ -48,7 +48,7 @@ import type { SdrSkinProps, SdrSkinName } from "@/components/sdr/skins/types";
 import { useSdrSettings } from "@/hooks/useSdrSettings";
 import { useRadioCommands } from "@/hooks/useRadioCommands";
 import { useSmartTuning } from "@/hooks/useSmartTuning";
-import { useNotchFilters } from "@/hooks/useNotchFilters";
+import { useEqBands } from "@/hooks/useEqBands";
 import { useClientDsp } from "@/hooks/useClientDsp";
 import { useFt8AutoConfig } from "@/hooks/useFt8AutoConfig";
 import { useAudioDspChain } from "@/hooks/useAudioDspChain";
@@ -246,6 +246,17 @@ export function SdrConsole() {
     handleNbChange,
     handlePttChange,
     handleVfoChange,
+    handleRitToggle,
+    handleRitOffset,
+    handleXitToggle,
+    handleXitOffset,
+    handleSplitToggle,
+    handleAnfToggle,
+    handleQskToggle,
+    handleVoxToggle,
+    handleIfShift,
+    handleCwSpeed,
+    handleLockToggle,
   } = useRadioCommands({
     connectedDeviceId,
     selectedDeviceId,
@@ -275,13 +286,15 @@ export function SdrConsole() {
       setFreqInput,
     });
 
-  // Hook 3: Notch filter CRUD
+  // Hook 3: EQ band CRUD (replaces old notch filter hook)
   const {
-    handleAddNotch,
-    handleRemoveNotch,
-    handleUpdateNotch,
-    handleToggleNotch,
-  } = useNotchFilters();
+    handleAddEqBand,
+    handleRemoveEqBand,
+    handleUpdateEqBand,
+    handleUpdateEqBandType,
+    handleToggleEqBand,
+    handleEqBandQChange,
+  } = useEqBands();
 
   // Hook 4: Client-side DSP controls
   const {
@@ -503,7 +516,7 @@ export function SdrConsole() {
         }
       : null,
     processingChain,
-    notchFilters: sdrSettings.sdrNotchFilters,
+    eqBands: sdrSettings.sdrEqBands,
   });
 
   // ── Remaining handlers ──────────────────────────────────────
@@ -630,6 +643,17 @@ export function SdrConsole() {
         daemonConnected,
         daemonError,
         lastResponseError,
+        rit: effectiveState?.rit,
+        xit: effectiveState?.xit,
+        split: effectiveState?.split,
+        anf: effectiveState?.anf,
+        qsk: effectiveState?.qsk,
+        vox: effectiveState?.vox,
+        lock: effectiveState?.lock,
+        txAntenna: effectiveState?.txAntenna,
+        txMeter: effectiveState?.txMeter,
+        cwSpeed: effectiveState?.cwSpeed,
+        ifShift: effectiveState?.ifShift,
       },
       fft: {
         lastFftFrame,
@@ -697,6 +721,17 @@ export function SdrConsole() {
         onPttChange: handlePttChange,
         onToggleFft: handleToggleFft,
         onToggleAudio: handleToggleAudio,
+        onRitToggle: handleRitToggle,
+        onRitOffset: handleRitOffset,
+        onXitToggle: handleXitToggle,
+        onXitOffset: handleXitOffset,
+        onSplitToggle: handleSplitToggle,
+        onAnfToggle: handleAnfToggle,
+        onQskToggle: handleQskToggle,
+        onVoxToggle: handleVoxToggle,
+        onIfShift: handleIfShift,
+        onCwSpeed: handleCwSpeed,
+        onLockToggle: handleLockToggle,
       },
       dsp: {
         noiseGateEnabled: sdrSettings.sdrNoiseGateEnabled,
@@ -707,11 +742,13 @@ export function SdrConsole() {
         clientNrLevel: sdrSettings.sdrNrLevel,
         onClientNrToggle: handleClientNrToggle,
         onClientNrLevelChange: handleClientNrLevelChange,
-        notchFilters: sdrSettings.sdrNotchFilters,
-        onAddNotch: handleAddNotch,
-        onRemoveNotch: handleRemoveNotch,
-        onUpdateNotch: handleUpdateNotch,
-        onToggleNotch: handleToggleNotch,
+        eqBands: sdrSettings.sdrEqBands,
+        onAddEqBand: handleAddEqBand,
+        onRemoveEqBand: handleRemoveEqBand,
+        onUpdateEqBand: handleUpdateEqBand,
+        onUpdateEqBandType: handleUpdateEqBandType,
+        onToggleEqBand: handleToggleEqBand,
+        onEqBandQChange: handleEqBandQChange,
         tuningStepHz: sdrSettings.tuningStepHz,
         onTuningStepChange: handleTuningStepChange,
       },
@@ -767,14 +804,27 @@ export function SdrConsole() {
       handlePttChange,
       handleToggleFft,
       handleToggleAudio,
+      handleRitToggle,
+      handleRitOffset,
+      handleXitToggle,
+      handleXitOffset,
+      handleSplitToggle,
+      handleAnfToggle,
+      handleQskToggle,
+      handleVoxToggle,
+      handleIfShift,
+      handleCwSpeed,
+      handleLockToggle,
       handleNoiseGateToggle,
       handleNoiseGateThresholdChange,
       handleClientNrToggle,
       handleClientNrLevelChange,
-      handleAddNotch,
-      handleRemoveNotch,
-      handleUpdateNotch,
-      handleToggleNotch,
+      handleAddEqBand,
+      handleRemoveEqBand,
+      handleUpdateEqBand,
+      handleUpdateEqBandType,
+      handleToggleEqBand,
+      handleEqBandQChange,
       handleTuningStepChange,
       handlePickFrequencyHz,
       handleSelectRangeHz,

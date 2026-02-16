@@ -96,56 +96,98 @@ function BandConditionsStrip({
   const { statuses } = useBandConditionsTint();
   const hiddenBands = useSettingsStore((s) => s.favoredBands?.hidden ?? []);
   const radioBands = useActiveRadio()?.bands ?? null;
+  const [hoveredBand, setHoveredBand] = useState<BandId | null>(null);
 
   // Filter to only supported bands (when radio configured)
   const visibleBands = radioBands
     ? ALL_BANDS.filter((b) => radioBands.includes(b))
     : ALL_BANDS;
 
-  return (
-    <div
-      className="flex items-end justify-between h-[22px] px-2 mb-1.5"
-      role="group"
-      aria-label="Band conditions overview"
-      title="Band conditions — click any bar to switch bands"
-    >
-      {visibleBands.map((band) => {
-        const isActive = band === activeBand;
-        const isHidden = hiddenBands.includes(band);
-        const status = statuses[band] ?? null;
-        const barColor = isActive
-          ? (BAND_COLORS[band] ?? BAND_COLORS.default)
-          : (STATUS_BAR_COLORS[status ?? "closed"] ?? STATUS_BAR_COLORS.closed);
-        const barHeight = isActive
-          ? 20
-          : (STATUS_BAR_HEIGHT[status ?? "closed"] ?? 4);
+  const hoveredStatus = hoveredBand ? (statuses[hoveredBand] ?? null) : null;
+  const hoveredColor = hoveredBand
+    ? (STATUS_BAR_COLORS[hoveredStatus ?? "closed"] ?? STATUS_BAR_COLORS.closed)
+    : null;
 
-        return (
-          <button
-            key={band}
-            onClick={() => {
-              if (!contestLocked) onBandSelect(band);
-            }}
-            className={`
-              relative rounded-sm transition-all duration-500 ease-out
-              ${contestLocked ? "cursor-not-allowed" : "cursor-pointer hover:scale-y-[1.15] hover:brightness-130"}
-              ${isHidden ? "opacity-30" : ""}
-            `}
+  return (
+    <div className="relative mb-1.5">
+      {/* Instant tooltip — floats above the strip */}
+      {hoveredBand && (
+        <div className="absolute -top-6 left-0 right-0 flex justify-center pointer-events-none z-20">
+          <div
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-medium whitespace-nowrap"
             style={{
-              width: isActive ? 8 : 5,
-              height: barHeight,
-              backgroundColor: barColor,
-              transformOrigin: "bottom",
-              boxShadow: isActive
-                ? `0 0 8px ${barColor}90, 0 -2px 6px ${barColor}40`
-                : `0 0 2px ${barColor}20`,
-              animation: isActive ? "eqPulse 2s ease-in-out infinite" : "none",
+              backgroundColor: "rgba(0,0,0,0.85)",
+              border: `1px solid ${hoveredColor}40`,
+              boxShadow: `0 0 8px ${hoveredColor}20`,
             }}
-            title={`${band}${isActive ? " (active)" : ""} — ${status ? status.charAt(0).toUpperCase() + status.slice(1) : "No data"}`}
-            aria-label={`${band}: ${status ?? "no data"}${isActive ? ", active band" : ""}`}
-          />
-        );
-      })}
+          >
+            <span
+              className="font-bold font-mono"
+              style={{ color: BAND_COLORS[hoveredBand] ?? BAND_COLORS.default }}
+            >
+              {hoveredBand}
+            </span>
+            <span className="text-gray-500">&middot;</span>
+            <span style={{ color: hoveredColor ?? "#6b7280" }}>
+              {hoveredStatus
+                ? hoveredStatus.charAt(0).toUpperCase() + hoveredStatus.slice(1)
+                : "No data"}
+            </span>
+            {hoveredBand === activeBand && (
+              <span className="text-[8px] text-gray-500 ml-0.5">active</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bar strip */}
+      <div
+        className="flex items-end justify-between h-[22px] px-2"
+        role="group"
+        aria-label="Band conditions — click any bar to switch bands"
+        onMouseLeave={() => setHoveredBand(null)}
+      >
+        {visibleBands.map((band) => {
+          const isActive = band === activeBand;
+          const isHidden = hiddenBands.includes(band);
+          const status = statuses[band] ?? null;
+          const barColor = isActive
+            ? (BAND_COLORS[band] ?? BAND_COLORS.default)
+            : (STATUS_BAR_COLORS[status ?? "closed"] ??
+              STATUS_BAR_COLORS.closed);
+          const barHeight = isActive
+            ? 20
+            : (STATUS_BAR_HEIGHT[status ?? "closed"] ?? 4);
+
+          return (
+            <button
+              key={band}
+              onClick={() => {
+                if (!contestLocked) onBandSelect(band);
+              }}
+              onMouseEnter={() => setHoveredBand(band)}
+              className={`
+                relative rounded-sm transition-all duration-500 ease-out
+                ${contestLocked ? "cursor-not-allowed" : "cursor-pointer hover:scale-y-[1.15] hover:brightness-130"}
+                ${isHidden ? "opacity-30" : ""}
+              `}
+              style={{
+                width: isActive ? 8 : 5,
+                height: barHeight,
+                backgroundColor: barColor,
+                transformOrigin: "bottom",
+                boxShadow: isActive
+                  ? `0 0 8px ${barColor}90, 0 -2px 6px ${barColor}40`
+                  : `0 0 2px ${barColor}20`,
+                animation: isActive
+                  ? "eqPulse 2s ease-in-out infinite"
+                  : "none",
+              }}
+              aria-label={`${band}: ${status ?? "no data"}${isActive ? ", active band" : ""}`}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

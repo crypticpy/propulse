@@ -59,6 +59,7 @@ export interface OperatingProfile {
     ducting: boolean;
     sporadicE: boolean;
     satelliteFootprints: boolean;
+    ft8Spotter: boolean;
   };
 
   // Display preferences

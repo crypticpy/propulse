@@ -161,6 +161,8 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
   // Accordion disclosure state
   const [presetsOpen, setPresetsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // No-radio warning dismiss (session-scoped)
+  const [radioWarningDismissed, setRadioWarningDismissed] = useState(false);
 
   // ── Escape key ───────────────────────────────────────────────────────────
   const handleKeyDown = useCallback(
@@ -711,7 +713,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 Change radio &rarr;
               </button>
             </div>
-          ) : (
+          ) : !radioWarningDismissed ? (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5">
               <div className="flex items-start gap-2.5">
                 <svg
@@ -745,7 +747,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                       Configure in Shack &rarr;
                     </button>
                     <button
-                      onClick={() => {}}
+                      onClick={() => setRadioWarningDismissed(true)}
                       className="text-[10px] text-gray-500 hover:text-gray-400 transition-colors"
                     >
                       Continue with defaults
@@ -754,7 +756,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* ── Gradient divider ───────────────────────────────────── */}
           <div

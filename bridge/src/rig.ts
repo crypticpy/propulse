@@ -279,7 +279,10 @@ class HamlibBackend {
 
   async getSMeter(): Promise<number> {
     const resp = await this.sendCommand("l STRENGTH");
-    return parseRigctldNumber(resp, "getSMeter");
+    const raw = parseRigctldNumber(resp, "getSMeter");
+    // Hamlib `l STRENGTH` returns dB relative to S9 (S9 = 0, S8 = -6, S1 = -48,
+    // S9+10 = +10, etc.). Convert to absolute dBm where S9 = -73 dBm.
+    return raw - 73;
   }
 
   async setFrequency(hz: number): Promise<void> {
@@ -299,6 +302,45 @@ class HamlibBackend {
 
   async setPTT(on: boolean): Promise<void> {
     await this.sendCommand(`T ${on ? 1 : 0}`);
+  }
+
+  async setFunc(func: string, on: boolean): Promise<void> {
+    const safe = sanitizeCommandParam(func);
+    await this.sendCommand(`U ${safe} ${on ? 1 : 0}`);
+  }
+
+  async setLevel(level: string, value: number): Promise<void> {
+    const safe = sanitizeCommandParam(level);
+    await this.sendCommand(`L ${safe} ${value}`);
+  }
+
+  async getLevel(level: string): Promise<number> {
+    const safe = sanitizeCommandParam(level);
+    const resp = await this.sendCommand(`l ${safe}`);
+    return parseRigctldNumber(resp, `getLevel(${level})`);
+  }
+
+  async getFunc(func: string): Promise<boolean> {
+    const safe = sanitizeCommandParam(func);
+    const resp = await this.sendCommand(`u ${safe}`);
+    return parseRigctldNumber(resp, `getFunc(${func})`) !== 0;
+  }
+
+  async setAntenna(ant: number): Promise<void> {
+    await this.sendCommand(`Y ${ant}`);
+  }
+
+  async getVFO(): Promise<"A" | "B"> {
+    const resp = await this.sendCommand("v");
+    const trimmed = resp.trim().toUpperCase();
+    // rigctld returns "VFOA", "VFOB", "Main", "Sub", "currVFO", etc.
+    if (trimmed.includes("B") || trimmed.includes("SUB")) return "B";
+    return "A";
+  }
+
+  async setVFO(vfo: string): Promise<void> {
+    const target = vfo.toUpperCase() === "B" ? "VFOB" : "VFOA";
+    await this.sendCommand(`V ${target}`);
   }
 }
 
@@ -430,7 +472,11 @@ class FlrigBackend {
         `Flrig: invalid S-meter response ${JSON.stringify(resp)}`,
       );
     }
-    return val;
+    // Flrig rig.get_smeter returns 0-100 (meter percentage).
+    // Convert to absolute dBm: 0% → -121 dBm (S1), 100% → -23 dBm (S9+50).
+    const S1_DBM = -121;
+    const DBM_RANGE = 98; // -23 - (-121)
+    return S1_DBM + (Math.max(0, Math.min(100, val)) / 100) * DBM_RANGE;
   }
 
   async setFrequency(hz: number): Promise<void> {
@@ -516,10 +562,13 @@ export class RigController {
 
   // Last known status (for change detection)
   private lastStatus: RigStatus | null = null;
+  private smeterWarned = false;
+  private vfoWarned = false;
 
   // Event handlers
   private statusHandlers: RigStatusHandler[] = [];
   private errorHandlers: RigErrorHandler[] = [];
+  private smeterHandlers: Array<(dbm: number) => void> = [];
 
   constructor(config?: RigControllerConfig) {
     this.config = {
@@ -548,6 +597,14 @@ export class RigController {
     return () => {
       const idx = this.errorHandlers.indexOf(handler);
       if (idx >= 0) this.errorHandlers.splice(idx, 1);
+    };
+  }
+
+  onSmeter(handler: (dbm: number) => void): () => void {
+    this.smeterHandlers.push(handler);
+    return () => {
+      const idx = this.smeterHandlers.indexOf(handler);
+      if (idx >= 0) this.smeterHandlers.splice(idx, 1);
     };
   }
 
@@ -693,6 +750,89 @@ export class RigController {
     }
   }
 
+  async setNb(enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("NB", enabled);
+    } else {
+      throw new Error("NB control requires Hamlib backend");
+    }
+  }
+
+  async setNr(enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("NR", enabled);
+    } else {
+      throw new Error("NR control requires Hamlib backend");
+    }
+  }
+
+  async setAgc(enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      // AGC is a level: 0 = off, 3 = slow (default when enabled)
+      await this.hamlib.setLevel("AGC", enabled ? 3 : 0);
+    } else {
+      throw new Error("AGC control requires Hamlib backend");
+    }
+  }
+
+  /**
+   * Set a named Hamlib level (e.g., "AF", "RF", "SQL", "RFPOWER", "MICGAIN",
+   * "MONITOR_GAIN", "COMP", "VOXGAIN"). Values are floats 0.0-1.0 for most
+   * levels, or specific dB values for PREAMP/ATT.
+   */
+  async setGainLevel(level: string, value: number): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setLevel(level, value);
+    } else {
+      throw new Error("Gain control requires Hamlib backend");
+    }
+  }
+
+  /**
+   * Toggle a named Hamlib function (e.g., "VOX", "COMP", "TUNER").
+   */
+  async setFunction(func: string, enabled: boolean): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc(func, enabled);
+    } else {
+      throw new Error("Function control requires Hamlib backend");
+    }
+  }
+
+  /**
+   * Set filter passband width. Uses the Hamlib `M <mode> <passband>` command
+   * with the current mode and the given passband in Hz.
+   */
+  async setPassband(passbandHz: number): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      const modeInfo = await this.hamlib.getMode();
+      await this.hamlib.setMode(modeInfo.mode, passbandHz);
+    } else {
+      throw new Error("Filter control requires Hamlib backend");
+    }
+  }
+
+  /**
+   * Set the antenna port. Maps the 1-indexed antenna number to Hamlib `Y <ant>`.
+   */
+  async setAntenna(antIndex: number): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setAntenna(antIndex);
+    } else {
+      throw new Error("Antenna control requires Hamlib backend");
+    }
+  }
+
+  async setVFO(vfo: "A" | "B"): Promise<void> {
+    if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setVFO(vfo);
+    } else if (this.backend === "flrig" && this.flrig) {
+      await this.flrig.setVFO(vfo);
+    } else {
+      throw new Error("VFO control requires an active backend");
+    }
+  }
+
   // --------------------------------------------------------------------------
   // Polling
   // --------------------------------------------------------------------------
@@ -743,22 +883,64 @@ export class RigController {
       const modeInfo = await this.hamlib.getMode();
       const ptt = await this.hamlib.getPTT();
 
+      // S-meter — non-fatal, not all rigs support it
+      let smeter: number | undefined;
+      try {
+        smeter = await this.hamlib.getSMeter();
+      } catch (err) {
+        // Log once so the user knows S-meter isn't available
+        if (!this.smeterWarned) {
+          this.smeterWarned = true;
+          console.warn(
+            `[rig] S-meter not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // VFO — non-fatal, not all rigs support it
+      let vfo: "A" | "B" | undefined;
+      try {
+        vfo = await this.hamlib.getVFO();
+      } catch (err) {
+        if (!this.vfoWarned) {
+          this.vfoWarned = true;
+          console.warn(
+            `[rig] VFO query not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
       status = {
         connected: true,
         frequency: freq,
         mode: modeInfo.mode,
         ptt,
+        smeter,
+        vfo,
       };
     } else if (this.backend === "flrig" && this.flrig) {
       const freq = await this.flrig.getFrequency();
       const mode = await this.flrig.getMode();
       const vfo = await this.flrig.getVFO();
 
+      let smeter: number | undefined;
+      try {
+        smeter = await this.flrig.getSMeter();
+      } catch (err) {
+        if (!this.smeterWarned) {
+          this.smeterWarned = true;
+          console.warn(
+            `[rig] S-meter not available via Flrig: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
       status = {
         connected: true,
         frequency: freq,
         mode,
         vfo: vfo === "B" ? "B" : "A",
+        smeter,
       };
     } else {
       return;
@@ -771,6 +953,11 @@ export class RigController {
     if (!this.statusEquals(status, this.lastStatus)) {
       this.lastStatus = status;
       this.emitStatus(status);
+    }
+
+    // Emit S-meter separately (changes too frequently for status diffing)
+    if (status.smeter != null) {
+      this.emitSmeter(status.smeter);
     }
   }
 
@@ -863,6 +1050,12 @@ export class RigController {
       } catch {
         /* swallow handler errors to prevent cascade failures */
       }
+    }
+  }
+
+  private emitSmeter(dbm: number): void {
+    for (const handler of this.smeterHandlers) {
+      handler(dbm);
     }
   }
 }

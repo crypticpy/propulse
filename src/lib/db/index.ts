@@ -5,10 +5,16 @@
 
 import { openDB, IDBPDatabase } from "idb";
 import { DB_CONFIG, StoreName } from "./config";
-import type { LogEntry, AlertRule, AlertHistoryEntry, DBSchema } from "./types";
+import type {
+  LogEntry,
+  AlertRule,
+  AlertHistoryEntry,
+  Ft8Decode,
+  DBSchema,
+} from "./types";
 
 // Re-export types for convenience
-export type { LogEntry, AlertRule, AlertHistoryEntry, DBSchema };
+export type { LogEntry, AlertRule, AlertHistoryEntry, Ft8Decode, DBSchema };
 export { DB_CONFIG };
 
 /** Database instance (lazy initialized) */
@@ -117,6 +123,19 @@ export async function getDB(): Promise<IDBPDatabase<DBSchema>> {
           logStore.createIndex("by-version", "version");
         }
       }
+
+      // Version 5: FT8/FT4 decode persistence
+      if (oldVersion < 5) {
+        if (!db.objectStoreNames.contains(DB_CONFIG.stores.ft8Decodes)) {
+          const ft8Store = db.createObjectStore(DB_CONFIG.stores.ft8Decodes, {
+            keyPath: "id",
+          });
+          ft8Store.createIndex("by-timestamp", "timestamp");
+          ft8Store.createIndex("by-callsign", "callsign");
+          ft8Store.createIndex("by-band", "band");
+          ft8Store.createIndex("by-mode", "mode");
+        }
+      }
     },
     blocked() {
       console.warn(
@@ -180,8 +199,8 @@ export async function isApproachingLimit(
  * @returns Promise resolving to the number of deleted entries
  */
 export async function cleanupStore(
-  storeName: "logEntries" | "alertHistory",
-  indexName: "by-date" | "by-triggeredAt",
+  storeName: "logEntries" | "alertHistory" | "ft8Decodes",
+  indexName: "by-date" | "by-triggeredAt" | "by-timestamp",
 ): Promise<number> {
   const db = await getDB();
   const count = await db.count(storeName);
@@ -229,6 +248,14 @@ export async function initializeDB(): Promise<void> {
     const deleted = await cleanupStore("alertHistory", "by-triggeredAt");
     if (deleted > 0) {
       console.log(`Cleaned up ${deleted} old alert history entries`);
+    }
+  }
+
+  // Check and cleanup ft8Decodes if needed
+  if (await isApproachingLimit("ft8Decodes")) {
+    const deleted = await cleanupStore("ft8Decodes", "by-timestamp");
+    if (deleted > 0) {
+      console.log(`Cleaned up ${deleted} old FT8 decodes`);
     }
   }
 }

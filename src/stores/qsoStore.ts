@@ -83,7 +83,16 @@ interface QSOStoreState {
 
   // ── QSO CRUD ──
   logQSO: () => Promise<string | null>;
-  quickLog: (callsign: string) => Promise<string | null>;
+  quickLog: (
+    callsign: string,
+    overrides?: {
+      mode?: string;
+      band?: string;
+      frequency?: number;
+      grid?: string;
+      snr?: number;
+    },
+  ) => Promise<string | null>;
   editQSO: (
     id: string,
     updates: Partial<Omit<LogEntry, "id" | "createdAt">>,
@@ -449,10 +458,24 @@ export const useQSOStore = create<QSOStoreState>()(
         }
       },
 
-      quickLog: async (callsign) => {
+      quickLog: async (callsign, overrides) => {
         const state = get();
-        const mode = state.form.mode || state.formDefaults.mode || "SSB";
+        const mode =
+          overrides?.mode ||
+          state.form.mode ||
+          state.formDefaults.mode ||
+          "SSB";
         const rstDefault = getRSTDefault(mode);
+
+        // For FT8/FT4, format SNR as RST (e.g., +05 → "+05", -15 → "-15")
+        const formatFt8Rst = (snr: number) =>
+          snr >= 0
+            ? `+${String(snr).padStart(2, "0")}`
+            : String(snr).padStart(3, "0");
+        const rstSent =
+          overrides?.snr != null ? formatFt8Rst(overrides.snr) : rstDefault;
+        const rstRcvd =
+          overrides?.snr != null ? formatFt8Rst(overrides.snr) : rstDefault;
 
         // Set form fields for quick log
         set((s) => ({
@@ -460,8 +483,11 @@ export const useQSOStore = create<QSOStoreState>()(
             ...s.form,
             callsign: callsign.trim().toUpperCase(),
             mode,
-            rstSent: rstDefault,
-            rstRcvd: rstDefault,
+            band: overrides?.band || s.form.band,
+            frequency: overrides?.frequency ?? s.form.frequency,
+            grid: overrides?.grid || s.form.grid,
+            rstSent,
+            rstRcvd,
           },
         }));
 

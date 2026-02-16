@@ -37,6 +37,8 @@ export interface RigStatus {
   ptt?: boolean;
   vfo?: "A" | "B";
   split?: boolean;
+  /** S-meter reading in dBm (relative to S9 in Hamlib convention) */
+  smeter?: number;
 }
 
 /** Request to update rig settings */

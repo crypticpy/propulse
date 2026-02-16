@@ -28,6 +28,7 @@ import { DXClusterClient } from "./cluster.js";
 import { WSJTXListener } from "./wsjtx.js";
 import { RigController, type RigControllerConfig } from "./rig.js";
 import { CivSpectrumClient, pixelToDb, type CivSpectrumLine } from "./civ.js";
+import { AudioCapture } from "./audioCapture.js";
 
 // ============================================================================
 // Configuration
@@ -281,6 +282,7 @@ let rigController: RigController | null = null;
 // Event handler disposers (prevent accumulation on reconnect cycles)
 let rigStatusDispose: (() => void) | null = null;
 let rigErrorDispose: (() => void) | null = null;
+let rigSmeterDispose: (() => void) | null = null;
 let clusterSpotDispose: (() => void) | null = null;
 let clusterStatusDispose: (() => void) | null = null;
 let clusterErrorDispose: (() => void) | null = null;
@@ -296,6 +298,11 @@ let civSpectrumDispose: (() => void) | null = null;
 let civStatusDispose: (() => void) | null = null;
 let civErrorDispose: (() => void) | null = null;
 const fftSubscribers = new Set<string>();
+
+// Audio capture streaming state
+let audioCapture: AudioCapture | null = null;
+let audioPcmDispose: (() => void) | null = null;
+const audioSubscribers = new Set<string>();
 
 // --------------------------------------------------------------------------
 // DX Cluster Integration
@@ -448,6 +455,10 @@ async function startRig(
     logger.error("Rig controller error", { error: error.message });
   });
 
+  rigSmeterDispose = rigController.onSmeter((dbm) => {
+    broadcastSmeter(dbm);
+  });
+
   const backend = await rigController.start();
   logger.info("Rig controller started", { backend });
   return backend;
@@ -458,6 +469,8 @@ function stopRig(): void {
   rigStatusDispose = null;
   rigErrorDispose?.();
   rigErrorDispose = null;
+  rigSmeterDispose?.();
+  rigSmeterDispose = null;
 
   if (rigController) {
     rigController.stop();
@@ -691,6 +704,20 @@ function sendDaemonResponse(
   sendDaemonMessage(client, { type: "response", id, success, error });
 }
 
+/** Standard gain stages exposed to the frontend. Hamlib level names as keys. */
+const GAIN_STAGES = [
+  { name: "AF", label: "AF Gain", min: 0, max: 1, step: 0.01 },
+  { name: "RF", label: "RF Gain", min: 0, max: 1, step: 0.01 },
+  { name: "SQL", label: "Squelch", min: 0, max: 1, step: 0.01 },
+  { name: "RFPOWER", label: "TX Power", min: 0, max: 1, step: 0.01 },
+  { name: "MICGAIN", label: "MIC Gain", min: 0, max: 1, step: 0.01 },
+  { name: "MONITOR_GAIN", label: "Monitor", min: 0, max: 1, step: 0.01 },
+  { name: "COMP", label: "Compression", min: 0, max: 1, step: 0.01 },
+  { name: "VOXGAIN", label: "VOX Gain", min: 0, max: 1, step: 0.01 },
+  { name: "PREAMP", label: "Preamp", min: 0, max: 20, step: 10 },
+  { name: "ATT", label: "Attenuator", min: 0, max: 20, step: 10 },
+] as const;
+
 /** Build a DeviceInfo object from the current rig state. */
 function buildDaemonDeviceInfo(): {
   device_id: string;
@@ -707,7 +734,13 @@ function buildDaemonDeviceInfo(): {
     modes: string[];
     frequency_range: [number, number];
     sample_rates: number[];
-    gain_stages: never[];
+    gain_stages: Array<{
+      name: string;
+      label: string;
+      min: number;
+      max: number;
+      step: number;
+    }>;
   };
 } {
   const backend = rigController?.getBackend() ?? "none";
@@ -726,8 +759,8 @@ function buildDaemonDeviceInfo(): {
       can_transmit: true,
       can_stream_iq: false,
       can_stream_fft: true,
-      can_stream_audio: false,
-      antennas: ["ANT1"],
+      can_stream_audio: true,
+      antennas: ["ANT1", "ANT2"],
       modes: [
         "LSB",
         "USB",
@@ -746,7 +779,7 @@ function buildDaemonDeviceInfo(): {
       ],
       frequency_range: [30000, 470000000],
       sample_rates: [],
-      gain_stages: [],
+      gain_stages: backend !== "none" ? [...GAIN_STAGES] : [],
     },
   };
 }
@@ -756,6 +789,7 @@ function rigStatusToDaemonState(status: RigStatus): {
   connected: boolean;
   freq: number;
   mode: string;
+  vfo: "A" | "B";
   antenna: string;
   gains: Record<string, number>;
   agc: boolean;
@@ -766,11 +800,12 @@ function rigStatusToDaemonState(status: RigStatus): {
     connected: status.connected,
     freq: status.frequency ?? 0,
     mode: status.mode ?? "USB",
+    vfo: status.vfo ?? "A",
     antenna: "ANT1",
     gains: {},
     agc: false,
     ptt: status.ptt ?? false,
-    signal_dbm: undefined,
+    signal_dbm: status.smeter,
   };
 }
 
@@ -785,6 +820,20 @@ function broadcastDaemonRadioState(status: RigStatus): void {
   for (const client of clients.values()) {
     if (client.socket.readyState === WebSocket.OPEN) {
       client.socket.send(serialized);
+    }
+  }
+}
+
+/** Broadcast a radio:smeter message to all connected clients. */
+function broadcastSmeter(dbm: number): void {
+  const msg = JSON.stringify({
+    type: "radio:smeter",
+    device_id: DAEMON_DEVICE_ID,
+    dbm,
+  });
+  for (const client of clients.values()) {
+    if (client.socket.readyState === WebSocket.OPEN) {
+      client.socket.send(msg);
     }
   }
 }
@@ -834,6 +883,49 @@ function broadcastBinaryFftFrame(line: CivSpectrumLine): void {
       client.socket.send(buffer);
     }
   }
+}
+
+/**
+ * Broadcast a binary audio frame to all clients subscribed to audio streaming.
+ * Frame layout (little-endian):
+ *   [0x02 type] [0x00 devIdx] [u32 sampleRate] [...i16 PCM samples]
+ */
+function broadcastBinaryAudioFrame(
+  samples: Int16Array,
+  sampleRate: number,
+): void {
+  if (audioSubscribers.size === 0) return;
+
+  const headerBytes = 6; // type(1) + devIdx(1) + sampleRate(4)
+  const byteLength = headerBytes + samples.length * 2;
+  const buffer = Buffer.alloc(byteLength);
+
+  buffer[0] = 0x02; // FRAME_TYPE_AUDIO
+  buffer[1] = 0x00; // devIdx = 0
+  buffer.writeUInt32LE(sampleRate, 2);
+
+  for (let i = 0; i < samples.length; i++) {
+    buffer.writeInt16LE(samples[i], headerBytes + i * 2);
+  }
+
+  for (const clientId of audioSubscribers) {
+    const client = clients.get(clientId);
+    if (client && client.socket.readyState === WebSocket.OPEN) {
+      client.socket.send(buffer);
+    }
+  }
+}
+
+/** Stop audio capture and clean up resources. */
+function stopAudioCapture(): void {
+  audioPcmDispose?.();
+  audioPcmDispose = null;
+  if (audioCapture) {
+    audioCapture.stop();
+    audioCapture = null;
+  }
+  audioSubscribers.clear();
+  logger.info("Audio capture stopped");
 }
 
 /** Stop the CI-V spectrum client and clean up all resources. */
@@ -895,15 +987,12 @@ function handleDaemonCommand(
     }
 
     // ----------------------------------------------------------------
-    // Radio disconnect
+    // Radio disconnect — actually stop the rig controller
     // ----------------------------------------------------------------
     case "radio:disconnect": {
+      stopRig();
       sendDaemonResponse(client, id, true);
-      sendDaemonMessage(client, {
-        type: "radio:state",
-        device_id: DAEMON_DEVICE_ID,
-        state: rigStatusToDaemonState({ connected: false }),
-      });
+      broadcastDaemonRadioState({ connected: false });
       break;
     }
 
@@ -974,17 +1063,156 @@ function handleDaemonCommand(
     }
 
     // ----------------------------------------------------------------
-    // AGC, Gain, Filter, NR, NB, Antenna — acknowledge but no-op
-    // (WFView handles these via its own connection)
+    // DSP controls — NB, NR, AGC forwarded to rig via Hamlib
     // ----------------------------------------------------------------
-    case "radio:agc":
-    case "radio:gain":
-    case "radio:filter":
-    case "radio:nr":
-    case "radio:nb":
-    case "radio:antenna":
+    case "radio:nb": {
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setNb(!!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    case "radio:nr": {
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setNr(!!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    case "radio:agc": {
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setAgc(!!cmd.enabled);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // VFO — switch active VFO
+    // ----------------------------------------------------------------
+    case "radio:vfo": {
+      const vfo = cmd.vfo === "B" ? "B" : "A";
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setVFO(vfo as "A" | "B");
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Gain — set a Hamlib level by stage name
+    // ----------------------------------------------------------------
+    case "radio:gain": {
+      const stage =
+        typeof cmd.stage === "string" ? cmd.stage.trim().toUpperCase() : "";
+      const value = toNumber(cmd.value);
+      if (!stage || value === undefined) {
+        sendDaemonResponse(client, id, false, "Invalid gain stage or value");
+        break;
+      }
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setGainLevel(stage, value);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Filter — set passband width via Hamlib
+    // ----------------------------------------------------------------
+    case "radio:filter": {
+      const low = toNumber(cmd.low);
+      const high = toNumber(cmd.high);
+      if (low === undefined || high === undefined) {
+        sendDaemonResponse(client, id, false, "Invalid filter range");
+        break;
+      }
+      const passbandHz = Math.max(0, Math.round(high - low));
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setPassband(passbandHz);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Antenna — set antenna port via Hamlib
+    // ----------------------------------------------------------------
+    case "radio:antenna": {
+      const port = typeof cmd.port === "string" ? cmd.port.trim() : "";
+      // Extract antenna number from port name (e.g., "ANT1" → 1, "ANT2" → 2)
+      const antMatch = port.match(/(\d+)/);
+      const antIndex = antMatch ? parseInt(antMatch[1], 10) : 0;
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setAntenna(antIndex);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Squelch — set squelch level via Hamlib
+    // ----------------------------------------------------------------
     case "radio:squelch": {
-      sendDaemonResponse(client, id, true);
+      const level = toNumber(cmd.level);
+      if (level === undefined) {
+        sendDaemonResponse(client, id, false, "Invalid squelch level");
+        break;
+      }
+      void (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setGainLevel("SQL", level);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
       break;
     }
 
@@ -1045,16 +1273,47 @@ function handleDaemonCommand(
     }
 
     // ----------------------------------------------------------------
-    // Audio stream control — not yet supported
+    // Audio stream control — captures from USB audio device via ffmpeg
     // ----------------------------------------------------------------
-    case "stream:audio:start":
+    case "stream:audio:start": {
+      // Default to device "2" (USB Audio Device = IC-7300)
+      // Can be overridden via command params
+      const audioDevice =
+        typeof cmd.audio_device === "string" ? cmd.audio_device : "2";
+      const audioSampleRate =
+        typeof cmd.sample_rate === "number" ? cmd.sample_rate : 48000;
+
+      audioSubscribers.add(client.id);
+
+      if (!audioCapture) {
+        audioCapture = new AudioCapture({
+          device: audioDevice,
+          sampleRate: audioSampleRate,
+        });
+
+        audioPcmDispose = audioCapture.onPcm((samples, sr) => {
+          broadcastBinaryAudioFrame(samples, sr);
+        });
+
+        audioCapture.start();
+        logger.info("Audio capture started", {
+          device: audioDevice,
+          sampleRate: audioSampleRate,
+        });
+      }
+
+      sendDaemonResponse(client, id, true);
+      break;
+    }
+
     case "stream:audio:stop": {
-      sendDaemonResponse(
-        client,
-        id,
-        false,
-        "Audio streaming not available — use WFView for audio output",
-      );
+      audioSubscribers.delete(client.id);
+
+      if (audioSubscribers.size === 0 && audioCapture) {
+        stopAudioCapture();
+      }
+
+      sendDaemonResponse(client, id, true);
       break;
     }
 
@@ -1728,6 +1987,12 @@ function startServer(): void {
       fftSubscribers.delete(clientId);
       if (fftSubscribers.size === 0 && civClient) {
         stopCiv();
+      }
+
+      // Clean up audio subscription for this client
+      audioSubscribers.delete(clientId);
+      if (audioSubscribers.size === 0 && audioCapture) {
+        stopAudioCapture();
       }
 
       logger.info("Client disconnected", {

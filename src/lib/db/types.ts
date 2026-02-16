@@ -202,6 +202,49 @@ export interface AlertHistoryEntry {
 }
 
 /**
+ * FT8/FT4 decode record
+ * Represents a single decoded digital mode message
+ */
+export interface Ft8Decode {
+  /** Unique identifier (UUID) */
+  id: string;
+  /** ISO 8601 wall-clock timestamp when decoded */
+  timestamp: string;
+  /** ms since midnight UTC (WSJT-X protocol field) */
+  time: number;
+  /** Signal-to-noise ratio (dB) */
+  snr: number;
+  /** Time offset (seconds) */
+  deltaTime: number;
+  /** Audio frequency offset (Hz) */
+  deltaFrequency: number;
+  /** Decode mode: "FT8" or "FT4" */
+  mode: string;
+  /** Raw decoded message text */
+  message: string;
+  /** Extracted callsign */
+  callsign?: string;
+  /** Extracted Maidenhead grid */
+  grid?: string;
+  /** Whether this is a CQ call */
+  isCQ?: boolean;
+  /** True if LDPC errors > 0 */
+  lowConfidence: boolean;
+  /** RF frequency in Hz (VFO + audio offset) */
+  frequencyHz?: number;
+  /** Derived amateur band */
+  band?: string;
+  /** Station callsign at time of decode */
+  myCallsign?: string;
+  /** Source instance ID */
+  instanceId?: string;
+  /** Record creation timestamp (ISO) */
+  createdAt: string;
+  /** Record update timestamp (ISO) */
+  updatedAt: string;
+}
+
+/**
  * Database schema for IndexedDB
  * Defines the structure of object stores and their indexes
  */
@@ -233,6 +276,16 @@ export interface DBSchema {
     indexes: {
       "by-triggeredAt": string;
       "by-ruleId": string;
+    };
+  };
+  ft8Decodes: {
+    key: string;
+    value: Ft8Decode;
+    indexes: {
+      "by-timestamp": string;
+      "by-callsign": string;
+      "by-band": string;
+      "by-mode": string;
     };
   };
 }

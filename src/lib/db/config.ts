@@ -11,18 +11,20 @@ export const DB_CONFIG = {
   /** Database name in IndexedDB */
   name: "propulse-db",
   /** Schema version - increment when modifying store structure */
-  version: 4,
+  version: 5,
   /** Object store names */
   stores: {
     logEntries: "logEntries",
     alertRules: "alertRules",
     alertHistory: "alertHistory",
+    ft8Decodes: "ft8Decodes",
   },
   /** Maximum entries per store */
   limits: {
     logEntries: 50000,
     alertRules: 100,
     alertHistory: 1000,
+    ft8Decodes: 100000,
   },
   /** Percentage of limit at which cleanup runs (0.9 = 90%) */
   cleanupThreshold: 0.9,

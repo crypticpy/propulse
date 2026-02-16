@@ -19,6 +19,7 @@ import { skedSync } from "./skedSync";
 import { alertRuleSync } from "./alertRuleSync";
 import { logbookSync } from "./logbookSync";
 import { contestSync } from "./contestSync";
+import { ft8DecodeSync } from "./ft8DecodeSync";
 import { shackSync } from "./shackSync";
 import { dxccSync } from "./dxccSync";
 import { imageSync } from "./imageSync";
@@ -44,6 +45,7 @@ export function registerAllModules(): void {
   // Tier 2 — Incremental (30s batch flush, delta sync)
   manager.registerModule(logbookSync);
   manager.registerModule(contestSync);
+  manager.registerModule(ft8DecodeSync);
 
   // Tier 3 — Lazy (immediate on CRUD)
   manager.registerModule(watchSync);
@@ -73,6 +75,7 @@ export { preferencesSync } from "./preferencesSync";
 export { targetsSync } from "./targetsSync";
 export { logbookSync } from "./logbookSync";
 export { contestSync } from "./contestSync";
+export { ft8DecodeSync } from "./ft8DecodeSync";
 export { watchSync } from "./watchSync";
 export { pinSync } from "./pinSync";
 export { skedSync } from "./skedSync";

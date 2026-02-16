@@ -29,7 +29,8 @@ export type SyncableTable =
   | "station_chains"
   | "equipment_history"
   | "custom_radios"
-  | "user_images";
+  | "user_images"
+  | "ft8_decodes";
 
 /** Sync tier determines flush cadence */
 export type SyncTier = "eager" | "incremental" | "lazy";

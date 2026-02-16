@@ -5,6 +5,7 @@ export type RadioType = "sdr" | "transceiver";
 
 export interface GainStage {
   name: string;
+  label?: string;
   min: number;
   max: number;
   step: number;
@@ -53,6 +54,7 @@ export interface RadioState {
   freq: number;
   mode: string;
   antenna?: string;
+  vfo?: "A" | "B";
   gains: Record<string, number>;
   agc: boolean;
   ptt?: boolean;
@@ -248,19 +250,28 @@ export type DaemonIncomingMessage =
 export function isDevicesListMessage(
   msg: DaemonIncomingMessage,
 ): msg is DevicesListMessage {
-  return msg.type === "devices:list" && Array.isArray((msg as DevicesListMessage).devices);
+  return (
+    msg.type === "devices:list" &&
+    Array.isArray((msg as DevicesListMessage).devices)
+  );
 }
 
 export function isDevicesAddedMessage(
   msg: DaemonIncomingMessage,
 ): msg is DevicesAddedMessage {
-  return msg.type === "devices:added" && typeof (msg as DevicesAddedMessage).device_id === "string";
+  return (
+    msg.type === "devices:added" &&
+    typeof (msg as DevicesAddedMessage).device_id === "string"
+  );
 }
 
 export function isDevicesRemovedMessage(
   msg: DaemonIncomingMessage,
 ): msg is DevicesRemovedMessage {
-  return msg.type === "devices:removed" && typeof (msg as DevicesRemovedMessage).device_id === "string";
+  return (
+    msg.type === "devices:removed" &&
+    typeof (msg as DevicesRemovedMessage).device_id === "string"
+  );
 }
 
 export function isRadioStateMessage(
@@ -315,19 +326,28 @@ export function isDaemonDiscoveryDaemonsMessage(
 export function isWsjtxStatusMessage(
   msg: DaemonIncomingMessage,
 ): msg is WsjtxStatusMessage {
-  return msg.type === "wsjtx:status" && typeof (msg as WsjtxStatusMessage).status === "object";
+  return (
+    msg.type === "wsjtx:status" &&
+    typeof (msg as WsjtxStatusMessage).status === "object"
+  );
 }
 
 export function isWsjtxDecodeMessage(
   msg: DaemonIncomingMessage,
 ): msg is WsjtxDecodeMessage {
-  return msg.type === "wsjtx:decode" && typeof (msg as WsjtxDecodeMessage).decode === "object";
+  return (
+    msg.type === "wsjtx:decode" &&
+    typeof (msg as WsjtxDecodeMessage).decode === "object"
+  );
 }
 
 export function isClusterSpotMessage(
   msg: DaemonIncomingMessage,
 ): msg is ClusterSpotMessage {
-  return msg.type === "cluster:spot" && typeof (msg as ClusterSpotMessage).freq === "number";
+  return (
+    msg.type === "cluster:spot" &&
+    typeof (msg as ClusterSpotMessage).freq === "number"
+  );
 }
 
 export type RadioBinaryFrame =
@@ -352,24 +372,17 @@ export function parseBinaryFrame(data: ArrayBuffer): RadioBinaryFrame | null {
 
   if (frameType === FRAME_TYPE_FFT) {
     if (data.byteLength < 18) return null;
+    if ((data.byteLength - 18) % 4 !== 0) return null;
     const centerHz = dv.getFloat64(2, true);
     const spanHz = dv.getFloat64(10, true);
-    const binCount = Math.floor((data.byteLength - 18) / 4);
-    const bins = new Float32Array(binCount);
-    for (let i = 0; i < binCount; i++) {
-      bins[i] = dv.getFloat32(18 + i * 4, true);
-    }
+    const bins = new Float32Array(data.slice(18));
     return { kind: "fft", devIdx, centerHz, spanHz, bins };
   }
 
   if (frameType === FRAME_TYPE_AUDIO) {
     if (data.byteLength < 6) return null;
     const sampleRate = dv.getUint32(2, true);
-    const sampleCount = Math.floor((data.byteLength - 6) / 2);
-    const samples = new Int16Array(sampleCount);
-    for (let i = 0; i < sampleCount; i++) {
-      samples[i] = dv.getInt16(6 + i * 2, true);
-    }
+    const samples = new Int16Array(data, 6);
     return { kind: "audio", devIdx, sampleRate, samples };
   }
 

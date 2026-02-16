@@ -11,7 +11,18 @@ node_modules
 dist
 dist-ssr
 dev-dist
+bridge/dist
+collector/dist
 *.local
+*.tsbuildinfo
+.eslintcache
+.vite
+.cache
+.turbo
+coverage
+tmp
+temp
+*.tmp
 
 # Rust
 daemon/target
@@ -34,6 +45,11 @@ daemon/target
 
 # Vercel
 .vercel
+
+# Next.js (build artifacts from experiments)
+.next/
+next-env.d.ts
+out/
 
 # AI assistant artifacts
 .claude/

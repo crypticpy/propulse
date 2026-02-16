@@ -1,0 +1,54 @@
+{
+  "distDir": "dist/assets",
+  "budgets": [
+    {
+      "name": "App Entry",
+      "pattern": "index-*.js",
+      "maxRawKb": 980,
+      "maxGzipKb": 275,
+      "required": true
+    },
+    {
+      "name": "PropSphere Route",
+      "pattern": "PropSphere-*.js",
+      "maxRawKb": 560,
+      "maxGzipKb": 150,
+      "required": true
+    },
+    {
+      "name": "Three Core Vendor",
+      "pattern": "vendor-three-core-*.js",
+      "maxRawKb": 760,
+      "maxGzipKb": 210,
+      "required": true
+    },
+    {
+      "name": "Drei Vendor",
+      "pattern": "vendor-drei-*.js",
+      "maxRawKb": 190,
+      "maxGzipKb": 70,
+      "required": true
+    },
+    {
+      "name": "R3F Vendor",
+      "pattern": "vendor-r3f-*.js",
+      "maxRawKb": 150,
+      "maxGzipKb": 50,
+      "required": true
+    },
+    {
+      "name": "React Vendor",
+      "pattern": "vendor-react-*.js",
+      "maxRawKb": 220,
+      "maxGzipKb": 75,
+      "required": true
+    },
+    {
+      "name": "Main CSS",
+      "pattern": "index-*.css",
+      "maxRawKb": 190,
+      "maxGzipKb": 32,
+      "required": true
+    }
+  ]
+}

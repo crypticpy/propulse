@@ -5,7 +5,17 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules"] },
+  {
+    ignores: [
+      "dist",
+      "node_modules",
+      ".next",
+      "next-env.d.ts",
+      "dev-dist",
+      "bridge/dist",
+      "collector/dist",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -21,7 +31,38 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": [
         "warn",
-        { allowConstantExport: true },
+        {
+          allowConstantExport: true,
+          allowExportNames: [
+            "drawDXSpots",
+            "getSpotAtPoint",
+            "useVirtualList",
+            "useVariableHeightVirtualList",
+            "getSpotAgeInfo",
+            "formatSpotAge",
+            "getShortAgeLabel",
+            "getAgeBadgeColors",
+            "getModeColor",
+            "MODE_COLORS",
+            "getGreatCirclePoints",
+            "resolveSpotLocations",
+            "getAgeOpacity",
+            "DIFFICULTY_COLORS",
+            "DIFFICULTY_LABELS",
+            "getDifficultyColor",
+            "drawNVISCoverage",
+            "FIELD_LABELS",
+            "getEquipmentSymbol",
+            "getElectricalSymbol",
+            "getFeedlineRunNodeHeight",
+            "calculatePropagationIndex",
+            "getBzColor",
+            "getBzDescription",
+            "HELP_CONTENT",
+            "heightToRadius",
+            "DEFAULT_SATELLITE_FILTERS",
+          ],
+        },
       ],
       "@typescript-eslint/no-unused-vars": [
         "warn",

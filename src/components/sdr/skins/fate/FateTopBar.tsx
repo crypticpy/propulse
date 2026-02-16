@@ -6,12 +6,10 @@
  * Purpose-built for dense digital-mode hunting workflows.
  */
 
-import { SkinSwitcher } from "@/components/sdr/skins/SkinSwitcher";
 import { FT8_DIAL_FREQUENCIES } from "./useFateDecodes";
 import { BAND_COLORS } from "@/lib/utils/spotColors";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import { FateBandAdvisor } from "./FateBandAdvisor";
-import type { SdrSkinName } from "@/components/sdr/skins/types";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -22,14 +20,11 @@ export interface FateTopBarProps {
   ft8Error: string | null;
   freqHz: number | null;
   showCqOnly: boolean;
+  isMobile: boolean;
   onCqFilterChange: (value: boolean) => void;
   onFt8Toggle: () => void;
   onFt8ModeChange: (mode: "FT8" | "FT4") => void;
   onPickFrequencyHz: (hz: number) => void;
-  activeSkin: SdrSkinName;
-  onSkinChange: (skin: SdrSkinName) => void;
-  isMobile: boolean;
-  onOpenSdrSettings: () => void;
 }
 
 // ─── Inline: Cycle progress bar ──────────────────────────────────────────────
@@ -151,10 +146,6 @@ export function FateTopBar({
   onFt8Toggle,
   onFt8ModeChange,
   onPickFrequencyHz,
-  activeSkin,
-  onSkinChange,
-  isMobile,
-  onOpenSdrSettings,
 }: FateTopBarProps) {
   // Determine current band from frequency for context
   const currentBand = freqHz ? bandFromFreq(freqHz / 1000) : null;
@@ -250,7 +241,7 @@ export function FateTopBar({
         )}
 
         {/* Current band context (subtle) */}
-        {currentBand && !isMobile && (
+        {currentBand && (
           <span
             className="text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0"
             style={{
@@ -264,54 +255,22 @@ export function FateTopBar({
 
         {/* Spacer */}
         <div className="flex-1" />
-
-        {/* 5. Right side: SkinSwitcher + Settings gear */}
-        <div className="flex items-center gap-2 shrink-0">
-          <SkinSwitcher
-            activeSkin={activeSkin}
-            onSkinChange={onSkinChange}
-            isMobile={isMobile}
-          />
-          <button
-            type="button"
-            onClick={onOpenSdrSettings}
-            className="p-1 rounded hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-            title="SDR Settings"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-4 h-4"
-            >
-              <path
-                fillRule="evenodd"
-                d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
       </div>
 
       {/* Row 2: Band/Dial frequency selector — full-width, easy to hit */}
-      {!isMobile && (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-white/5 bg-[#0a0a14]">
-          <span className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold shrink-0 mr-1">
-            Tune
-          </span>
-          <FateDialSwitcher
-            currentMode={ft8DecoderMode}
-            freqHz={freqHz}
-            onPickFrequencyHz={onPickFrequencyHz}
-          />
-        </div>
-      )}
+      <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-white/5 bg-[#0a0a14]">
+        <span className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold shrink-0 mr-1">
+          Tune
+        </span>
+        <FateDialSwitcher
+          currentMode={ft8DecoderMode}
+          freqHz={freqHz}
+          onPickFrequencyHz={onPickFrequencyHz}
+        />
+      </div>
 
-      {/* Row 3: Propagation band advisor — desktop only */}
-      {!isMobile && (
-        <FateBandAdvisor currentBand={currentBand} freqHz={freqHz} />
-      )}
+      {/* Row 3: Propagation band advisor */}
+      <FateBandAdvisor currentBand={currentBand} freqHz={freqHz} />
     </div>
   );
 }

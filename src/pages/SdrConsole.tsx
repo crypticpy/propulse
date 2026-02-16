@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DevicePicker } from "@/components/sdr/DevicePicker";
 import { useAudioStreamPlayer } from "@/hooks/useAudioStreamPlayer";
+import { useAudioFft } from "@/hooks/useAudioFft";
+import { AudioProcessingChain } from "@/lib/audio/audioProcessingChain";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRadioDaemon } from "@/hooks/useRadioDaemon";
 import type {
@@ -37,13 +39,22 @@ import type {
   WaterfallView,
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
+import { SdrSettingsModal } from "@/components/sdr/SdrSettingsModal";
+import { useFt8Decoder } from "@/hooks/useFt8Decoder";
+import { useFt8DecoderStore } from "@/stores/ft8DecoderStore";
 import { ClassicSkin } from "@/components/sdr/skins/ClassicSkin";
 import { FlexibleSkin } from "@/components/sdr/skins/FlexibleSkin";
+import { FateSkin } from "@/components/sdr/skins/fate/FateSkin";
 import type { SdrSkinProps, SdrSkinName } from "@/components/sdr/skins/types";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
 const LS_LAST_DEVICE_KEY = "propulse-radio-daemon-device";
+
+/** Modes compatible with FT8/FT4 decoding (all upper-sideband digital variants). */
+const FT8_USB_MODES = ["USB", "DIGU", "DATA-U", "DIGI-U", "USB-D"];
+const isFt8CompatibleMode = (m: string) =>
+  FT8_USB_MODES.includes(m.toUpperCase());
 
 export function SdrConsole() {
   const isMobile = useIsMobile();
@@ -66,12 +77,26 @@ export function SdrConsole() {
     }
   });
   const [devicePickerOpen, setDevicePickerOpen] = useState(false);
+  const [sdrSettingsOpen, setSdrSettingsOpen] = useState(false);
   const [discoveredDaemons, setDiscoveredDaemons] = useState<
     DaemonDiscoveryDaemonsMessage["daemons"]
   >([]);
   const [wsjtxStatus, setWsjtxStatus] = useState<WsjtxStatus | null>(null);
-  const [wsjtxDecodes, setWsjtxDecodes] = useState<WsjtxDecode[]>([]);
+  const wsjtxDecodes = useFt8DecoderStore((s) => s.decodes);
+  const ft8AddDecodes = useFt8DecoderStore((s) => s.addDecodes);
+  const ft8ClearDecodes = useFt8DecoderStore((s) => s.clearDecodes);
+  const ft8LoadRecent = useFt8DecoderStore((s) => s.loadRecent);
   const [clusterSpots, setClusterSpots] = useState<ClusterSpotMessage[]>([]);
+
+  // ── Native FT8/FT4 decoder ────────────────────────────────────
+  const ft8Decoder = useFt8Decoder({
+    onDecodes: useCallback(
+      (decodes: WsjtxDecode[]) => {
+        ft8AddDecodes(decodes);
+      },
+      [ft8AddDecodes],
+    ),
+  });
   const autoConnectAttemptedRef = useRef(false);
   const gainDebounceRef = useRef<Record<string, number>>({});
   const filterDebounceRef = useRef<number | null>(null);
@@ -107,10 +132,42 @@ export function SdrConsole() {
   const waterfallMinDb = useSettingsStore((s) => s.sdrWaterfallMinDb);
   const waterfallMaxDb = useSettingsStore((s) => s.sdrWaterfallMaxDb);
   const waterfallSpeed = useSettingsStore((s) => s.sdrWaterfallSpeed);
+  const waterfallInterpolation = useSettingsStore(
+    (s) => s.sdrWaterfallInterpolation,
+  );
+  const waterfallGamma = useSettingsStore((s) => s.sdrWaterfallGamma);
+  const waterfallRowHeight = useSettingsStore((s) => s.sdrWaterfallRowHeight);
   const spectrumPeakHold = useSettingsStore((s) => s.sdrSpectrumPeakHold);
   const spectrumGradientFill = useSettingsStore(
     (s) => s.sdrSpectrumGradientFill,
   );
+  const spectrumBgColor = useSettingsStore((s) => s.sdrSpectrumBgColor);
+  const spectrumGridLines = useSettingsStore((s) => s.sdrSpectrumGridLines);
+  const spectrumVerticalGridLines = useSettingsStore(
+    (s) => s.sdrSpectrumVerticalGridLines,
+  );
+  const spectrumGridOpacity = useSettingsStore((s) => s.sdrSpectrumGridOpacity);
+  const spectrumSmoothing = useSettingsStore((s) => s.sdrSpectrumSmoothing);
+  const spectrumLineColor = useSettingsStore((s) => s.sdrSpectrumLineColor);
+  const spectrumLineWidth = useSettingsStore((s) => s.sdrSpectrumLineWidth);
+  const spectrumFillOpacity = useSettingsStore((s) => s.sdrSpectrumFillOpacity);
+  const spectrumLineShadow = useSettingsStore((s) => s.sdrSpectrumLineShadow);
+  const spectrumLineShadowBlur = useSettingsStore(
+    (s) => s.sdrSpectrumLineShadowBlur,
+  );
+  const passbandBlendMode = useSettingsStore((s) => s.sdrPassbandBlendMode);
+  const passbandOpacity = useSettingsStore((s) => s.sdrPassbandOpacity);
+  const sliceBgColor = useSettingsStore((s) => s.sdrSliceBgColor);
+  const tuningStepHz = useSettingsStore((s) => s.sdrTuningStepHz);
+  const tuningLineColor = useSettingsStore((s) => s.sdrTuningLineColor);
+  const tuningArrowColor = useSettingsStore((s) => s.sdrTuningArrowColor);
+  const sdrNotchFilters = useSettingsStore((s) => s.sdrNotchFilters);
+  const sdrNoiseGateEnabled = useSettingsStore((s) => s.sdrNoiseGateEnabled);
+  const sdrNoiseGateThreshold = useSettingsStore(
+    (s) => s.sdrNoiseGateThreshold,
+  );
+  const sdrNrEnabled = useSettingsStore((s) => s.sdrNrEnabled);
+  const sdrNrLevel = useSettingsStore((s) => s.sdrNrLevel);
 
   // ── Local UI state ──────────────────────────────────────────
   const [lastResponseError, setLastResponseError] = useState<string | null>(
@@ -161,11 +218,7 @@ export function SdrConsole() {
         return;
       }
       if (isWsjtxDecodeMessage(msg)) {
-        setWsjtxDecodes((prev) => {
-          const next = [msg.decode, ...prev];
-          if (next.length > 200) next.length = 200;
-          return next;
-        });
+        ft8AddDecodes([msg.decode]);
         return;
       }
       if (isClusterSpotMessage(msg)) {
@@ -182,7 +235,7 @@ export function SdrConsole() {
       setLastDaemonStatus,
       setLastResponseError,
       setSmeterDbm,
-      setWsjtxDecodes,
+      ft8AddDecodes,
       setWsjtxStatus,
       upsertRadioState,
     ],
@@ -215,6 +268,8 @@ export function SdrConsole() {
     ? (radioStateById[connectedDeviceId] ?? null)
     : null;
   const effectiveState = draftState ?? connectedState;
+  const effectiveStateRef = useRef(effectiveState);
+  effectiveStateRef.current = effectiveState;
 
   useEffect(() => {
     setDraftState(connectedState);
@@ -235,11 +290,22 @@ export function SdrConsole() {
     autoConnectAttemptedRef.current = false;
     setDiscoveredDaemons([]);
     setWsjtxStatus(null);
-    setWsjtxDecodes([]);
+    ft8ClearDecodes();
     setClusterSpots([]);
     setWaterfallSpanHz(null);
     autoFftStartRef.current = {};
-  }, [daemonUrl, resetRadioStore, setAudioEnabled, setFftEnabled]);
+  }, [
+    daemonUrl,
+    ft8ClearDecodes,
+    resetRadioStore,
+    setAudioEnabled,
+    setFftEnabled,
+  ]);
+
+  // Restore recent FT8 decodes from IndexedDB on mount.
+  useEffect(() => {
+    ft8LoadRecent();
+  }, [ft8LoadRecent]);
 
   // Track successful radio connection for auto-reconnect.
   useEffect(() => {
@@ -345,15 +411,61 @@ export function SdrConsole() {
   const canControlDevice = daemonConnected && !!selectedDeviceId;
   const canControlConnected = daemonConnected && !!connectedDeviceId;
 
-  useAudioStreamPlayer(
-    audioEnabled,
-    lastAudioFrame
+  // ── Audio DSP chain (notch filters, noise gate, spectral NR) ──
+
+  const audioChainRef = useRef<AudioProcessingChain | null>(null);
+
+  // Lazily create the chain when audio becomes enabled
+  const processingChain = useMemo(() => {
+    if (!audioEnabled) {
+      if (audioChainRef.current) {
+        audioChainRef.current.dispose();
+        audioChainRef.current = null;
+      }
+      return null;
+    }
+    if (!audioChainRef.current) {
+      // AudioContext will be created by useAudioStreamPlayer — use a temporary
+      // one here that the chain will connect to internally. The player hook
+      // passes audio through chain.getInputNode() → chain.getOutputNode().
+      audioChainRef.current = new AudioProcessingChain(new AudioContext());
+    }
+    return audioChainRef.current;
+  }, [audioEnabled]);
+
+  // Sync noise gate settings to chain
+  useEffect(() => {
+    if (!processingChain) return;
+    processingChain.setNoiseGate(sdrNoiseGateEnabled, {
+      threshold: sdrNoiseGateThreshold,
+    });
+  }, [processingChain, sdrNoiseGateEnabled, sdrNoiseGateThreshold]);
+
+  // Sync spectral NR settings to chain
+  useEffect(() => {
+    if (!processingChain) return;
+    processingChain.setSpectralNr(sdrNrEnabled, { nrLevel: sdrNrLevel });
+  }, [processingChain, sdrNrEnabled, sdrNrLevel]);
+
+  // Cleanup chain on unmount
+  useEffect(() => {
+    return () => {
+      audioChainRef.current?.dispose();
+      audioChainRef.current = null;
+    };
+  }, []);
+
+  useAudioStreamPlayer({
+    enabled: audioEnabled,
+    frame: lastAudioFrame
       ? {
           sampleRate: lastAudioFrame.sampleRate,
           samples: lastAudioFrame.samples,
         }
       : null,
-  );
+    processingChain,
+    notchFilters: sdrNotchFilters,
+  });
 
   // ── Command handlers ────────────────────────────────────────
 
@@ -504,6 +616,15 @@ export function SdrConsole() {
     [connectedDeviceId, daemonSendCommand],
   );
 
+  const handleVfoChange = useCallback(
+    (vfo: "A" | "B") => {
+      if (!connectedDeviceId) return;
+      daemonSendCommand("radio:vfo", { device_id: connectedDeviceId, vfo });
+      setDraftState((s) => (s ? { ...s, vfo } : s));
+    },
+    [connectedDeviceId, daemonSendCommand],
+  );
+
   const handleToggleFft = useCallback(() => {
     if (!connectedDeviceId) return;
     if (fftEnabled) {
@@ -539,6 +660,143 @@ export function SdrConsole() {
       setAudioEnabled(true);
     }
   }, [audioEnabled, connectedDeviceId, daemonSendCommand, setAudioEnabled]);
+
+  // ── FT8/FT4 toggle — full auto-configuration ─────────────
+  //
+  // FT8 decoding requires specific radio + DSP settings to work reliably.
+  // When enabling:  save current state, configure radio for FT8, start streams.
+  // When disabling: restore all previous settings.
+  //
+  // The decoder itself uses getUserMedia (system audio loopback), not the
+  // bridge audio stream — but we auto-start FFT so the waterfall shows signals.
+
+  const preFt8SettingsRef = useRef<{
+    mode: string | null;
+    filter: { low: number; high: number } | null;
+    agc: boolean | null;
+    nr: { enabled: boolean; level: number } | null;
+    nb: { enabled: boolean; threshold?: number } | null;
+    clientNr: boolean;
+    noiseGate: boolean;
+  } | null>(null);
+
+  const handleFt8Toggle = useCallback(() => {
+    const wasEnabled = ft8Decoder.enabled;
+    ft8Decoder.toggle();
+
+    if (!wasEnabled) {
+      // ── ENABLING ──────────────────────────────────────────────
+      const state = effectiveStateRef.current;
+      const settings = useSettingsStore.getState();
+
+      // 1. Snapshot current radio + client-side DSP settings
+      preFt8SettingsRef.current = {
+        mode: state?.mode ?? null,
+        filter: state?.filter ? { ...state.filter } : null,
+        agc: state?.agc ?? null,
+        nr: state?.nr ? { ...state.nr } : null,
+        nb: state?.nb ? { ...state.nb } : null,
+        clientNr: settings.sdrNrEnabled,
+        noiseGate: settings.sdrNoiseGateEnabled,
+      };
+
+      if (connectedDeviceId) {
+        // 2. Mode → USB if not already an FT8-compatible sideband mode
+        if (state?.mode && !isFt8CompatibleMode(state.mode)) {
+          handleModeChange("USB");
+        }
+
+        // 3. Filter → 0–3000 Hz (full FT8 decode window)
+        handleFilterChange(0, 3000);
+
+        // 4. AGC off — prevents audio level modulation that corrupts decoding
+        if (state?.agc !== false) {
+          handleAgcToggle(false);
+        }
+
+        // 5. Hardware NR off — DSP noise reduction mangles FT8 waveforms
+        if (state?.nr?.enabled) {
+          handleNrChange(false, state.nr.level);
+        }
+
+        // 6. Hardware NB off — noise blanker clips FT8 signal pulses
+        if (state?.nb?.enabled) {
+          handleNbChange(false, state.nb.threshold ?? 0);
+        }
+
+        // 7. Auto-start FFT streaming so waterfall shows FT8 signals
+        if (!useSdrStore.getState().fftEnabled) {
+          handleToggleFft();
+        }
+      }
+
+      // 8. Client-side NR off — same reason as hardware NR
+      if (settings.sdrNrEnabled) {
+        useSettingsStore.getState().updatePreferences({ sdrNrEnabled: false });
+      }
+
+      // 9. Client-side noise gate off — would squelch weak FT8 signals
+      if (settings.sdrNoiseGateEnabled) {
+        useSettingsStore
+          .getState()
+          .updatePreferences({ sdrNoiseGateEnabled: false });
+      }
+    } else {
+      // ── DISABLING — restore previous settings ─────────────────
+      const saved = preFt8SettingsRef.current;
+
+      if (saved && connectedDeviceId) {
+        // Restore mode (only if we changed it)
+        if (saved.mode && !isFt8CompatibleMode(saved.mode)) {
+          handleModeChange(saved.mode);
+        }
+
+        // Restore filter
+        if (saved.filter) {
+          handleFilterChange(saved.filter.low, saved.filter.high);
+        }
+
+        // Restore AGC
+        if (saved.agc === true) {
+          handleAgcToggle(true);
+        }
+
+        // Restore hardware NR
+        if (saved.nr?.enabled) {
+          handleNrChange(true, saved.nr.level);
+        }
+
+        // Restore hardware NB
+        if (saved.nb?.enabled) {
+          handleNbChange(true, saved.nb.threshold ?? 0);
+        }
+      }
+
+      // Restore client-side DSP (works even without radio connection)
+      if (saved) {
+        if (saved.clientNr) {
+          useSettingsStore.getState().updatePreferences({ sdrNrEnabled: true });
+        }
+        if (saved.noiseGate) {
+          useSettingsStore
+            .getState()
+            .updatePreferences({ sdrNoiseGateEnabled: true });
+        }
+      }
+
+      // Don't stop FFT/audio streaming — user may want those running
+      preFt8SettingsRef.current = null;
+    }
+  }, [
+    connectedDeviceId,
+    ft8Decoder,
+    handleAgcToggle,
+    handleFilterChange,
+    handleModeChange,
+    handleNbChange,
+    handleNrChange,
+    handleToggleFft,
+  ]);
 
   const refreshDiscovery = useCallback(() => {
     if (!daemonConnected) return;
@@ -606,24 +864,110 @@ export function SdrConsole() {
     };
   }, [effectiveState]);
 
+  // ── Audio-derived FFT for zoom waterfall (~11.7 Hz/bin) ──
+  const audioFftFrame = useAudioFft({
+    enabled: audioEnabled,
+    audioFrame: lastAudioFrame,
+    tuning: tuningOverlay,
+  });
+
   const handleWaterfallViewChange = useCallback((next: WaterfallView) => {
     setWaterfallSpanHz(next.spanHz);
   }, []);
 
+  /**
+   * Smart snap: find the center of a signal near clickedHz using FFT data.
+   * Returns the centroid frequency if a signal is found above noise floor,
+   * or null to fall back to step-size snapping.
+   */
+  const smartSnap = useCallback(
+    (clickedHz: number): number | null => {
+      const frame = lastFftFrame;
+      if (!frame || frame.bins.length < 4) return null;
+
+      const bins = frame.bins;
+      const startHz = frame.centerHz - frame.spanHz / 2;
+      const hzPerBin = frame.spanHz / bins.length;
+
+      // Search window: +/- half the step size (min 2 kHz, max 10 kHz)
+      const searchWindowHz = Math.max(2000, Math.min(10000, tuningStepHz * 3));
+      const searchStartBin = Math.max(
+        0,
+        Math.floor((clickedHz - searchWindowHz - startHz) / hzPerBin),
+      );
+      const searchEndBin = Math.min(
+        bins.length - 1,
+        Math.ceil((clickedHz + searchWindowHz - startHz) / hzPerBin),
+      );
+      if (searchEndBin <= searchStartBin) return null;
+
+      // Compute noise floor as the median of the search window
+      const windowVals: number[] = [];
+      for (let i = searchStartBin; i <= searchEndBin; i++) {
+        windowVals.push(bins[i]);
+      }
+      windowVals.sort((a, b) => a - b);
+      const noiseFloor = windowVals[Math.floor(windowVals.length / 2)];
+
+      // Find the strongest bin above noise floor + threshold
+      const threshold = 6; // dB above noise floor to count as a signal
+      let peakBin = -1;
+      let peakDb = -Infinity;
+      for (let i = searchStartBin; i <= searchEndBin; i++) {
+        if (bins[i] > peakDb && bins[i] > noiseFloor + threshold) {
+          peakDb = bins[i];
+          peakBin = i;
+        }
+      }
+      if (peakBin === -1) return null; // No signal found
+
+      // Refine center using power-weighted centroid around peak
+      const refineBins = Math.max(2, Math.round(1500 / hzPerBin)); // ~1.5 kHz radius
+      const lo = Math.max(0, peakBin - refineBins);
+      const hi = Math.min(bins.length - 1, peakBin + refineBins);
+      let weightedSum = 0;
+      let weightSum = 0;
+      for (let i = lo; i <= hi; i++) {
+        // Convert dB to linear power for weighting; floor at noise level
+        const dbAboveNoise = Math.max(0, bins[i] - noiseFloor);
+        const linear = Math.pow(10, dbAboveNoise / 10);
+        weightedSum += linear * i;
+        weightSum += linear;
+      }
+      if (weightSum <= 0) return null;
+
+      const centroidBin = weightedSum / weightSum;
+      return startHz + centroidBin * hzPerBin;
+    },
+    [lastFftFrame, tuningStepHz],
+  );
+
   const handlePickFrequencyHz = useCallback(
     (hz: number) => {
       if (!connectedDeviceId) return;
+
+      // Smart snap: try to find signal center, fall back to step-size snap
+      let snappedHz: number;
+      const signalCenter = smartSnap(hz);
+      if (signalCenter !== null) {
+        // Snap the signal center to the step grid for clean frequency
+        snappedHz = Math.round(signalCenter / tuningStepHz) * tuningStepHz;
+      } else {
+        // No signal detected — snap to nearest step
+        snappedHz = Math.round(hz / tuningStepHz) * tuningStepHz;
+      }
+
       daemonSendCommand("radio:tune", {
         device_id: connectedDeviceId,
-        freq: hz,
+        freq: snappedHz,
       });
-      setDraftState((s) => (s ? { ...s, freq: hz } : s));
+      setDraftState((s) => (s ? { ...s, freq: snappedHz } : s));
       const base =
         freqUnit === "MHz"
-          ? hz / 1_000_000
+          ? snappedHz / 1_000_000
           : freqUnit === "kHz"
-            ? hz / 1_000
-            : hz;
+            ? snappedHz / 1_000
+            : snappedHz;
       const text =
         freqUnit === "MHz"
           ? base.toFixed(6)
@@ -632,8 +976,129 @@ export function SdrConsole() {
             : Math.round(base).toString();
       setFreqInput(text);
     },
-    [connectedDeviceId, daemonSendCommand, freqUnit],
+    [connectedDeviceId, daemonSendCommand, freqUnit, smartSnap, tuningStepHz],
   );
+
+  const handleTuningStepChange = useCallback(
+    (stepHz: number) => updatePreferences({ sdrTuningStepHz: stepHz }),
+    [updatePreferences],
+  );
+
+  const handleWheelTune = useCallback(
+    (direction: number) => {
+      if (!connectedDeviceId || !effectiveState) return;
+      const currentHz = effectiveState.freq;
+      const candidateHz = currentHz + direction * tuningStepHz;
+
+      // Smart snap: look for a signal near the candidate, but ONLY accept
+      // results that are in the same direction as travel (or at least not
+      // behind the current frequency). This prevents the oscillation where
+      // a strong signal behind you keeps pulling you backwards.
+      let snappedHz: number;
+      const signalCenter = smartSnap(candidateHz);
+      if (signalCenter !== null) {
+        const signalSnapped =
+          Math.round(signalCenter / tuningStepHz) * tuningStepHz;
+        // Accept the snap only if it moves in the intended direction
+        const movedCorrectDirection =
+          direction > 0 ? signalSnapped > currentHz : signalSnapped < currentHz;
+        snappedHz = movedCorrectDirection
+          ? signalSnapped
+          : Math.round(candidateHz / tuningStepHz) * tuningStepHz;
+      } else {
+        snappedHz = Math.round(candidateHz / tuningStepHz) * tuningStepHz;
+      }
+
+      // Guard: if snapping somehow didn't move at all, force one step
+      if (snappedHz === currentHz) {
+        snappedHz = currentHz + direction * tuningStepHz;
+      }
+
+      daemonSendCommand("radio:tune", {
+        device_id: connectedDeviceId,
+        freq: snappedHz,
+      });
+      setDraftState((s) => (s ? { ...s, freq: snappedHz } : s));
+      const base =
+        freqUnit === "MHz"
+          ? snappedHz / 1_000_000
+          : freqUnit === "kHz"
+            ? snappedHz / 1_000
+            : snappedHz;
+      const text =
+        freqUnit === "MHz"
+          ? base.toFixed(6)
+          : freqUnit === "kHz"
+            ? base.toFixed(3)
+            : Math.round(base).toString();
+      setFreqInput(text);
+    },
+    [
+      connectedDeviceId,
+      daemonSendCommand,
+      effectiveState,
+      freqUnit,
+      smartSnap,
+      tuningStepHz,
+    ],
+  );
+
+  const handleAddNotch = useCallback((freqHz: number, q: number) => {
+    const id = crypto.randomUUID?.() ?? `notch-${Date.now()}`;
+    const current = useSettingsStore.getState().sdrNotchFilters;
+    if (current.length >= 8) return; // max 8
+    useSettingsStore.getState().updatePreferences({
+      sdrNotchFilters: [...current, { id, freqHz, q, enabled: true }],
+    });
+  }, []);
+
+  const handleRemoveNotch = useCallback((id: string) => {
+    const current = useSettingsStore.getState().sdrNotchFilters;
+    useSettingsStore.getState().updatePreferences({
+      sdrNotchFilters: current.filter((n) => n.id !== id),
+    });
+  }, []);
+
+  const handleUpdateNotch = useCallback(
+    (id: string, freqHz: number, q: number) => {
+      const current = useSettingsStore.getState().sdrNotchFilters;
+      useSettingsStore.getState().updatePreferences({
+        sdrNotchFilters: current.map((n) =>
+          n.id === id ? { ...n, freqHz, q } : n,
+        ),
+      });
+    },
+    [],
+  );
+
+  const handleToggleNotch = useCallback((id: string, enabled: boolean) => {
+    const current = useSettingsStore.getState().sdrNotchFilters;
+    useSettingsStore.getState().updatePreferences({
+      sdrNotchFilters: current.map((n) =>
+        n.id === id ? { ...n, enabled } : n,
+      ),
+    });
+  }, []);
+
+  const handleNoiseGateToggle = useCallback((enabled: boolean) => {
+    useSettingsStore.getState().updatePreferences({
+      sdrNoiseGateEnabled: enabled,
+    });
+  }, []);
+
+  const handleNoiseGateThresholdChange = useCallback((threshold: number) => {
+    useSettingsStore.getState().updatePreferences({
+      sdrNoiseGateThreshold: threshold,
+    });
+  }, []);
+
+  const handleClientNrToggle = useCallback((enabled: boolean) => {
+    useSettingsStore.getState().updatePreferences({ sdrNrEnabled: enabled });
+  }, []);
+
+  const handleClientNrLevelChange = useCallback((level: number) => {
+    useSettingsStore.getState().updatePreferences({ sdrNrLevel: level });
+  }, []);
 
   const handleSelectRangeHz = useCallback(
     (range: { startHz: number; endHz: number }) => {
@@ -684,6 +1149,7 @@ export function SdrConsole() {
     fftEnabled,
     audioEnabled,
     lastFftFrame,
+    audioFftFrame,
     waterfallView,
     tuningOverlay,
     waterfallOverlays,
@@ -692,8 +1158,45 @@ export function SdrConsole() {
     waterfallMinDb,
     waterfallMaxDb,
     waterfallSpeed,
+    waterfallInterpolation,
+    waterfallGamma,
+    waterfallRowHeight,
     spectrumPeakHold,
     spectrumGradientFill,
+    spectrumBgColor,
+    spectrumGridLines,
+    spectrumVerticalGridLines,
+    spectrumGridOpacity,
+    spectrumSmoothing,
+    spectrumLineColor,
+    spectrumLineWidth,
+    spectrumFillOpacity,
+    spectrumLineShadow,
+    spectrumLineShadowBlur,
+    passbandBlendMode,
+    passbandOpacity,
+    sliceBgColor,
+    tuningStepHz,
+    tuningLineColor,
+    tuningArrowColor,
+    onTuningStepChange: handleTuningStepChange,
+    onWheelTune: handleWheelTune,
+
+    noiseGateEnabled: sdrNoiseGateEnabled,
+    noiseGateThreshold: sdrNoiseGateThreshold,
+    onNoiseGateToggle: handleNoiseGateToggle,
+    onNoiseGateThresholdChange: handleNoiseGateThresholdChange,
+
+    clientNrEnabled: sdrNrEnabled,
+    clientNrLevel: sdrNrLevel,
+    onClientNrToggle: handleClientNrToggle,
+    onClientNrLevelChange: handleClientNrLevelChange,
+
+    notchFilters: sdrNotchFilters,
+    onAddNotch: handleAddNotch,
+    onRemoveNotch: handleRemoveNotch,
+    onUpdateNotch: handleUpdateNotch,
+    onToggleNotch: handleToggleNotch,
 
     freqInput,
     freqUnit,
@@ -701,6 +1204,14 @@ export function SdrConsole() {
     wsjtxStatus,
     wsjtxDecodes,
     clusterSpots,
+
+    ft8DecoderEnabled: ft8Decoder.enabled,
+    ft8DecoderMode: ft8Decoder.mode,
+    ft8CycleProgress: ft8Decoder.cycleProgress,
+    ft8DecoderStats: ft8Decoder.stats,
+    ft8Error: ft8Decoder.error,
+    onFt8Toggle: handleFt8Toggle,
+    onFt8ModeChange: ft8Decoder.setMode,
 
     isMobile,
     activeSkin,
@@ -718,6 +1229,7 @@ export function SdrConsole() {
     onFilterChange: handleFilterChange,
     onNrChange: handleNrChange,
     onNbChange: handleNbChange,
+    onVfoChange: handleVfoChange,
     onPttChange: handlePttChange,
     onToggleFft: handleToggleFft,
     onToggleAudio: handleToggleAudio,
@@ -726,11 +1238,17 @@ export function SdrConsole() {
     onPickFrequencyHz: handlePickFrequencyHz,
     onSelectRangeHz: handleSelectRangeHz,
     onOpenDevicePicker: () => setDevicePickerOpen(true),
+    onOpenSdrSettings: () => setSdrSettingsOpen(true),
   };
 
   // ── Render ──────────────────────────────────────────────────
 
-  const SkinComponent = activeSkin === "flexible" ? FlexibleSkin : ClassicSkin;
+  const SkinComponent =
+    activeSkin === "fate"
+      ? FateSkin
+      : activeSkin === "flexible"
+        ? FlexibleSkin
+        : ClassicSkin;
 
   return (
     <>
@@ -751,6 +1269,10 @@ export function SdrConsole() {
         onRefresh={refreshDiscovery}
       />
       <SkinComponent {...skinProps} />
+      <SdrSettingsModal
+        isOpen={sdrSettingsOpen}
+        onClose={() => setSdrSettingsOpen(false)}
+      />
     </>
   );
 }

@@ -8,6 +8,7 @@ import type { SdrSkinName } from "./types";
 const SKIN_LABELS: Record<SdrSkinName, string> = {
   classic: "Classic",
   flexible: "Flexible",
+  fate: "F8",
 };
 
 interface SkinSwitcherProps {

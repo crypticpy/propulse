@@ -21,7 +21,7 @@ import type {
 
 // ─── Skin name type ─────────────────────────────────────────────────────────
 
-export type SdrSkinName = "classic" | "flexible";
+export type SdrSkinName = "classic" | "flexible" | "fate";
 
 // ─── FFT frame helper type ──────────────────────────────────────────────────
 
@@ -73,6 +73,8 @@ export interface SdrSkinProps {
   fftEnabled: boolean;
   audioEnabled: boolean;
   lastFftFrame: FftFrame | null;
+  /** High-resolution FFT derived from the audio stream (~11.7 Hz/bin). */
+  audioFftFrame: FftFrame | null;
   waterfallView: WaterfallView | null;
   tuningOverlay: TuningOverlay | null;
   waterfallOverlays: Array<{
@@ -86,8 +88,60 @@ export interface SdrSkinProps {
   waterfallMinDb: number;
   waterfallMaxDb: number;
   waterfallSpeed: number;
+  waterfallInterpolation: "nearest" | "linear";
+  waterfallGamma: number;
+  waterfallRowHeight: number;
   spectrumPeakHold: boolean;
   spectrumGradientFill: boolean;
+  spectrumBgColor: string;
+  spectrumGridLines: number;
+  spectrumVerticalGridLines: number;
+  spectrumGridOpacity: number;
+  spectrumSmoothing: number;
+  spectrumLineColor: string;
+  spectrumLineWidth: number;
+  spectrumFillOpacity: number;
+  spectrumLineShadow: boolean;
+  spectrumLineShadowBlur: number;
+  passbandBlendMode: string;
+  passbandOpacity: number;
+  /** Slice flag background color (CSS value) */
+  sliceBgColor: string;
+  /** Tuning step size in Hz */
+  tuningStepHz: number;
+  /** Tuning indicator line color (CSS hex) */
+  tuningLineColor: string;
+  /** Tuning indicator arrow color (CSS hex) */
+  tuningArrowColor: string;
+
+  // ── Client-side noise gate ─────────────────────
+  noiseGateEnabled: boolean;
+  noiseGateThreshold: number;
+  onNoiseGateToggle: (enabled: boolean) => void;
+  onNoiseGateThresholdChange: (threshold: number) => void;
+
+  // ── Client-side noise reduction ───────────────
+  clientNrEnabled: boolean;
+  clientNrLevel: number;
+  onClientNrToggle: (enabled: boolean) => void;
+  onClientNrLevelChange: (level: number) => void;
+
+  // ── Notch filters ──────────────────────────────
+  notchFilters: Array<{
+    id: string;
+    freqHz: number;
+    q: number;
+    enabled: boolean;
+  }>;
+  onAddNotch: (freqHz: number, q: number) => void;
+  onRemoveNotch: (id: string) => void;
+  onUpdateNotch: (id: string, freqHz: number, q: number) => void;
+  onToggleNotch: (id: string, enabled: boolean) => void;
+
+  // ── Tuning step ──────────────────────────────────
+  onTuningStepChange: (stepHz: number) => void;
+  /** Wheel-tune: direction +1 (freq up) or -1 (freq down) */
+  onWheelTune: (direction: number) => void;
 
   // ── Frequency input ───────────────────────────
   freqInput: string;
@@ -98,12 +152,29 @@ export interface SdrSkinProps {
   wsjtxDecodes: WsjtxDecode[];
   clusterSpots: ClusterSpotMessage[];
 
+  // ── Native FT8/FT4 decoder ─────────────────────
+  ft8DecoderEnabled: boolean;
+  ft8DecoderMode: "FT8" | "FT4";
+  ft8CycleProgress: number;
+  ft8DecoderStats: {
+    totalDecodes: number;
+    cyclesCompleted: number;
+    lastCycleDecodes: number;
+    workerReady: boolean;
+  };
+  ft8Error: string | null;
+  onFt8Toggle: () => void;
+  onFt8ModeChange: (mode: "FT8" | "FT4") => void;
+
   // ── Viewport ──────────────────────────────────
   isMobile: boolean;
 
   // ── Skin switching ────────────────────────────
   activeSkin: SdrSkinName;
   onSkinChange: (skin: SdrSkinName) => void;
+
+  /** Open the SDR settings modal */
+  onOpenSdrSettings: () => void;
 
   // ── Callbacks ─────────────────────────────────
   onConnectRadio: () => void;
@@ -118,6 +189,7 @@ export interface SdrSkinProps {
   onFilterChange: (low: number, high: number) => void;
   onNrChange: (enabled: boolean, level: number) => void;
   onNbChange: (enabled: boolean, threshold: number) => void;
+  onVfoChange: (vfo: "A" | "B") => void;
   onPttChange: (active: boolean) => void;
   onToggleFft: () => void;
   onToggleAudio: () => void;

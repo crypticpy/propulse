@@ -8,6 +8,8 @@ export interface FlexBottomBarProps {
   audioEnabled: boolean;
   cpuPercent: number | null;
   memoryMb: number | null;
+  vfo?: "A" | "B" | null;
+  activeBand?: string | null;
 }
 
 function formatUtc(): string {
@@ -25,6 +27,8 @@ export function FlexBottomBar({
   fftEnabled,
   cpuPercent,
   memoryMb,
+  vfo,
+  activeBand,
 }: FlexBottomBarProps) {
   const [utc, setUtc] = useState(() => formatUtc());
 
@@ -61,6 +65,16 @@ export function FlexBottomBar({
           }`}
         />
         <span>{radioName ?? "No Radio"}</span>
+        {vfo && (
+          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-white/10 text-gray-300">
+            VFO {vfo}
+          </span>
+        )}
+        {activeBand && (
+          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-white/10 text-gray-300">
+            {activeBand}
+          </span>
+        )}
         {cpuPercent != null && memoryMb != null && (
           <span className="font-mono text-[10px] text-gray-500">
             CPU {cpuPercent.toFixed(0)}% &middot; {memoryMb.toFixed(0)} MB

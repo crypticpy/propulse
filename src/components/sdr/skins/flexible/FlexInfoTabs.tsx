@@ -1,11 +1,12 @@
 /**
  * FlexInfoTabs — Tabbed information panel for the Flexible skin sidebar.
  *
- * Three tabs: Decodes (WSJT-X), Spots (DX Cluster), and WSJT-X status.
+ * Three tabs: Decodes (WSJT-X + native FT8), Spots (DX Cluster), and WSJT-X status.
+ * Auto-switches to Decodes tab when native FT8 decoder is active.
  * Renders compact rows optimized for the 280px sidebar width.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   WsjtxStatus,
   WsjtxDecode,
@@ -22,6 +23,8 @@ export interface FlexInfoTabsProps {
   wsjtxStatus: WsjtxStatus | null;
   wsjtxDecodes: WsjtxDecode[];
   clusterSpots: ClusterSpotMessage[];
+  /** When true, auto-switches to Decodes tab and shows NATIVE badge. */
+  ft8DecoderEnabled: boolean;
 }
 
 // ─── Tab type ────────────────────────────────────────────────────────────────
@@ -40,8 +43,18 @@ export function FlexInfoTabs({
   wsjtxStatus,
   wsjtxDecodes,
   clusterSpots,
+  ft8DecoderEnabled,
 }: FlexInfoTabsProps) {
   const [activeTab, setActiveTab] = useState<InfoTab>("decodes");
+
+  // Auto-switch to Decodes when FT8 decoder turns on
+  const prevEnabledRef = useRef(ft8DecoderEnabled);
+  useEffect(() => {
+    if (ft8DecoderEnabled && !prevEnabledRef.current) {
+      setActiveTab("decodes");
+    }
+    prevEnabledRef.current = ft8DecoderEnabled;
+  }, [ft8DecoderEnabled]);
 
   return (
     <div className="flex flex-col border-t border-white/10">
@@ -68,6 +81,11 @@ export function FlexInfoTabs({
               }`}
             >
               {TAB_LABELS[tab]}
+              {tab === "decodes" && ft8DecoderEnabled && (
+                <span className="ml-1 text-[7px] text-signal-green/80 font-bold">
+                  LIVE
+                </span>
+              )}
               {badge && (
                 <span
                   className={`ml-1 text-[8px] ${

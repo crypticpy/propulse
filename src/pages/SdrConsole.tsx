@@ -46,6 +46,7 @@ import { ClassicSkin } from "@/components/sdr/skins/ClassicSkin";
 import { FlexibleSkin } from "@/components/sdr/skins/FlexibleSkin";
 import { FateSkin } from "@/components/sdr/skins/fate/FateSkin";
 import type { SdrSkinProps, SdrSkinName } from "@/components/sdr/skins/types";
+import { useSdrSettings } from "@/hooks/useSdrSettings";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
@@ -127,47 +128,8 @@ export function SdrConsole() {
   const setAudioEnabled = useSdrStore((s) => s.setAudioEnabled);
   const setFrame = useSdrStore((s) => s.setFrame);
 
-  // ── Settings ────────────────────────────────────────────────
-  const waterfallPalette = useSettingsStore((s) => s.sdrWaterfallPalette);
-  const waterfallMinDb = useSettingsStore((s) => s.sdrWaterfallMinDb);
-  const waterfallMaxDb = useSettingsStore((s) => s.sdrWaterfallMaxDb);
-  const waterfallSpeed = useSettingsStore((s) => s.sdrWaterfallSpeed);
-  const waterfallInterpolation = useSettingsStore(
-    (s) => s.sdrWaterfallInterpolation,
-  );
-  const waterfallGamma = useSettingsStore((s) => s.sdrWaterfallGamma);
-  const waterfallRowHeight = useSettingsStore((s) => s.sdrWaterfallRowHeight);
-  const spectrumPeakHold = useSettingsStore((s) => s.sdrSpectrumPeakHold);
-  const spectrumGradientFill = useSettingsStore(
-    (s) => s.sdrSpectrumGradientFill,
-  );
-  const spectrumBgColor = useSettingsStore((s) => s.sdrSpectrumBgColor);
-  const spectrumGridLines = useSettingsStore((s) => s.sdrSpectrumGridLines);
-  const spectrumVerticalGridLines = useSettingsStore(
-    (s) => s.sdrSpectrumVerticalGridLines,
-  );
-  const spectrumGridOpacity = useSettingsStore((s) => s.sdrSpectrumGridOpacity);
-  const spectrumSmoothing = useSettingsStore((s) => s.sdrSpectrumSmoothing);
-  const spectrumLineColor = useSettingsStore((s) => s.sdrSpectrumLineColor);
-  const spectrumLineWidth = useSettingsStore((s) => s.sdrSpectrumLineWidth);
-  const spectrumFillOpacity = useSettingsStore((s) => s.sdrSpectrumFillOpacity);
-  const spectrumLineShadow = useSettingsStore((s) => s.sdrSpectrumLineShadow);
-  const spectrumLineShadowBlur = useSettingsStore(
-    (s) => s.sdrSpectrumLineShadowBlur,
-  );
-  const passbandBlendMode = useSettingsStore((s) => s.sdrPassbandBlendMode);
-  const passbandOpacity = useSettingsStore((s) => s.sdrPassbandOpacity);
-  const sliceBgColor = useSettingsStore((s) => s.sdrSliceBgColor);
-  const tuningStepHz = useSettingsStore((s) => s.sdrTuningStepHz);
-  const tuningLineColor = useSettingsStore((s) => s.sdrTuningLineColor);
-  const tuningArrowColor = useSettingsStore((s) => s.sdrTuningArrowColor);
-  const sdrNotchFilters = useSettingsStore((s) => s.sdrNotchFilters);
-  const sdrNoiseGateEnabled = useSettingsStore((s) => s.sdrNoiseGateEnabled);
-  const sdrNoiseGateThreshold = useSettingsStore(
-    (s) => s.sdrNoiseGateThreshold,
-  );
-  const sdrNrEnabled = useSettingsStore((s) => s.sdrNrEnabled);
-  const sdrNrLevel = useSettingsStore((s) => s.sdrNrLevel);
+  // ── Settings (consolidated via shallow-equality hook) ──────
+  const sdrSettings = useSdrSettings();
 
   // ── Local UI state ──────────────────────────────────────────
   const [lastResponseError, setLastResponseError] = useState<string | null>(
@@ -436,16 +398,22 @@ export function SdrConsole() {
   // Sync noise gate settings to chain
   useEffect(() => {
     if (!processingChain) return;
-    processingChain.setNoiseGate(sdrNoiseGateEnabled, {
-      threshold: sdrNoiseGateThreshold,
+    processingChain.setNoiseGate(sdrSettings.sdrNoiseGateEnabled, {
+      threshold: sdrSettings.sdrNoiseGateThreshold,
     });
-  }, [processingChain, sdrNoiseGateEnabled, sdrNoiseGateThreshold]);
+  }, [
+    processingChain,
+    sdrSettings.sdrNoiseGateEnabled,
+    sdrSettings.sdrNoiseGateThreshold,
+  ]);
 
   // Sync spectral NR settings to chain
   useEffect(() => {
     if (!processingChain) return;
-    processingChain.setSpectralNr(sdrNrEnabled, { nrLevel: sdrNrLevel });
-  }, [processingChain, sdrNrEnabled, sdrNrLevel]);
+    processingChain.setSpectralNr(sdrSettings.sdrNrEnabled, {
+      nrLevel: sdrSettings.sdrNrLevel,
+    });
+  }, [processingChain, sdrSettings.sdrNrEnabled, sdrSettings.sdrNrLevel]);
 
   // Cleanup chain on unmount
   useEffect(() => {
@@ -464,7 +432,7 @@ export function SdrConsole() {
         }
       : null,
     processingChain,
-    notchFilters: sdrNotchFilters,
+    notchFilters: sdrSettings.sdrNotchFilters,
   });
 
   // ── Command handlers ────────────────────────────────────────
@@ -890,7 +858,10 @@ export function SdrConsole() {
       const hzPerBin = frame.spanHz / bins.length;
 
       // Search window: +/- half the step size (min 2 kHz, max 10 kHz)
-      const searchWindowHz = Math.max(2000, Math.min(10000, tuningStepHz * 3));
+      const searchWindowHz = Math.max(
+        2000,
+        Math.min(10000, sdrSettings.tuningStepHz * 3),
+      );
       const searchStartBin = Math.max(
         0,
         Math.floor((clickedHz - searchWindowHz - startHz) / hzPerBin),
@@ -939,7 +910,7 @@ export function SdrConsole() {
       const centroidBin = weightedSum / weightSum;
       return startHz + centroidBin * hzPerBin;
     },
-    [lastFftFrame, tuningStepHz],
+    [lastFftFrame, sdrSettings.tuningStepHz],
   );
 
   const handlePickFrequencyHz = useCallback(
@@ -951,10 +922,13 @@ export function SdrConsole() {
       const signalCenter = smartSnap(hz);
       if (signalCenter !== null) {
         // Snap the signal center to the step grid for clean frequency
-        snappedHz = Math.round(signalCenter / tuningStepHz) * tuningStepHz;
+        snappedHz =
+          Math.round(signalCenter / sdrSettings.tuningStepHz) *
+          sdrSettings.tuningStepHz;
       } else {
         // No signal detected — snap to nearest step
-        snappedHz = Math.round(hz / tuningStepHz) * tuningStepHz;
+        snappedHz =
+          Math.round(hz / sdrSettings.tuningStepHz) * sdrSettings.tuningStepHz;
       }
 
       daemonSendCommand("radio:tune", {
@@ -976,7 +950,13 @@ export function SdrConsole() {
             : Math.round(base).toString();
       setFreqInput(text);
     },
-    [connectedDeviceId, daemonSendCommand, freqUnit, smartSnap, tuningStepHz],
+    [
+      connectedDeviceId,
+      daemonSendCommand,
+      freqUnit,
+      smartSnap,
+      sdrSettings.tuningStepHz,
+    ],
   );
 
   const handleTuningStepChange = useCallback(
@@ -988,7 +968,8 @@ export function SdrConsole() {
     (direction: number) => {
       if (!connectedDeviceId || !effectiveState) return;
       const currentHz = effectiveState.freq;
-      const candidateHz = currentHz + direction * tuningStepHz;
+      const stepHz = sdrSettings.tuningStepHz;
+      const candidateHz = currentHz + direction * stepHz;
 
       // Smart snap: look for a signal near the candidate, but ONLY accept
       // results that are in the same direction as travel (or at least not
@@ -997,21 +978,20 @@ export function SdrConsole() {
       let snappedHz: number;
       const signalCenter = smartSnap(candidateHz);
       if (signalCenter !== null) {
-        const signalSnapped =
-          Math.round(signalCenter / tuningStepHz) * tuningStepHz;
+        const signalSnapped = Math.round(signalCenter / stepHz) * stepHz;
         // Accept the snap only if it moves in the intended direction
         const movedCorrectDirection =
           direction > 0 ? signalSnapped > currentHz : signalSnapped < currentHz;
         snappedHz = movedCorrectDirection
           ? signalSnapped
-          : Math.round(candidateHz / tuningStepHz) * tuningStepHz;
+          : Math.round(candidateHz / stepHz) * stepHz;
       } else {
-        snappedHz = Math.round(candidateHz / tuningStepHz) * tuningStepHz;
+        snappedHz = Math.round(candidateHz / stepHz) * stepHz;
       }
 
       // Guard: if snapping somehow didn't move at all, force one step
       if (snappedHz === currentHz) {
-        snappedHz = currentHz + direction * tuningStepHz;
+        snappedHz = currentHz + direction * stepHz;
       }
 
       daemonSendCommand("radio:tune", {
@@ -1039,7 +1019,7 @@ export function SdrConsole() {
       effectiveState,
       freqUnit,
       smartSnap,
-      tuningStepHz,
+      sdrSettings.tuningStepHz,
     ],
   );
 
@@ -1123,123 +1103,200 @@ export function SdrConsole() {
     [effectiveState?.mode, handleFilterChange, handlePickFrequencyHz],
   );
 
-  // ── Assemble skin props ─────────────────────────────────────
+  // ── Assemble skin props (memoised) ─────────────────────────
 
-  const skinProps: SdrSkinProps = {
-    daemonConnected,
-    daemonConnecting,
-    daemonError,
-    daemonUrl,
-    lastResponseError,
-    lastDaemonStatus: lastStatus,
-    discoveredDaemons,
+  const openDevicePicker = useCallback(() => setDevicePickerOpen(true), []);
+  const openSdrSettings = useCallback(() => setSdrSettingsOpen(true), []);
 
-    devices,
-    selectedDevice,
-    selectedDeviceId,
-    connectedDeviceId,
-    canControlDevice,
-    canControlConnected,
-    canStreamFft,
-    canStreamAudio,
+  const skinProps: SdrSkinProps = useMemo(
+    () => ({
+      daemonConnected,
+      daemonConnecting,
+      daemonError,
+      daemonUrl,
+      lastResponseError,
+      lastDaemonStatus: lastStatus,
+      discoveredDaemons,
 
-    effectiveState,
-    smeterDbm: connectedDeviceId ? smeterById[connectedDeviceId] : undefined,
+      devices,
+      selectedDevice,
+      selectedDeviceId,
+      connectedDeviceId,
+      canControlDevice,
+      canControlConnected,
+      canStreamFft,
+      canStreamAudio,
 
-    fftEnabled,
-    audioEnabled,
-    lastFftFrame,
-    audioFftFrame,
-    waterfallView,
-    tuningOverlay,
-    waterfallOverlays,
+      effectiveState,
+      smeterDbm: connectedDeviceId ? smeterById[connectedDeviceId] : undefined,
 
-    waterfallPalette,
-    waterfallMinDb,
-    waterfallMaxDb,
-    waterfallSpeed,
-    waterfallInterpolation,
-    waterfallGamma,
-    waterfallRowHeight,
-    spectrumPeakHold,
-    spectrumGradientFill,
-    spectrumBgColor,
-    spectrumGridLines,
-    spectrumVerticalGridLines,
-    spectrumGridOpacity,
-    spectrumSmoothing,
-    spectrumLineColor,
-    spectrumLineWidth,
-    spectrumFillOpacity,
-    spectrumLineShadow,
-    spectrumLineShadowBlur,
-    passbandBlendMode,
-    passbandOpacity,
-    sliceBgColor,
-    tuningStepHz,
-    tuningLineColor,
-    tuningArrowColor,
-    onTuningStepChange: handleTuningStepChange,
-    onWheelTune: handleWheelTune,
+      fftEnabled,
+      audioEnabled,
+      lastFftFrame,
+      audioFftFrame,
+      waterfallView,
+      tuningOverlay,
+      waterfallOverlays,
 
-    noiseGateEnabled: sdrNoiseGateEnabled,
-    noiseGateThreshold: sdrNoiseGateThreshold,
-    onNoiseGateToggle: handleNoiseGateToggle,
-    onNoiseGateThresholdChange: handleNoiseGateThresholdChange,
+      waterfallPalette: sdrSettings.waterfallPalette,
+      waterfallMinDb: sdrSettings.waterfallMinDb,
+      waterfallMaxDb: sdrSettings.waterfallMaxDb,
+      waterfallSpeed: sdrSettings.waterfallSpeed,
+      waterfallInterpolation: sdrSettings.waterfallInterpolation,
+      waterfallGamma: sdrSettings.waterfallGamma,
+      waterfallRowHeight: sdrSettings.waterfallRowHeight,
+      spectrumPeakHold: sdrSettings.spectrumPeakHold,
+      spectrumGradientFill: sdrSettings.spectrumGradientFill,
+      spectrumBgColor: sdrSettings.spectrumBgColor,
+      spectrumGridLines: sdrSettings.spectrumGridLines,
+      spectrumVerticalGridLines: sdrSettings.spectrumVerticalGridLines,
+      spectrumGridOpacity: sdrSettings.spectrumGridOpacity,
+      spectrumSmoothing: sdrSettings.spectrumSmoothing,
+      spectrumLineColor: sdrSettings.spectrumLineColor,
+      spectrumLineWidth: sdrSettings.spectrumLineWidth,
+      spectrumFillOpacity: sdrSettings.spectrumFillOpacity,
+      spectrumLineShadow: sdrSettings.spectrumLineShadow,
+      spectrumLineShadowBlur: sdrSettings.spectrumLineShadowBlur,
+      passbandBlendMode: sdrSettings.passbandBlendMode,
+      passbandOpacity: sdrSettings.passbandOpacity,
+      sliceBgColor: sdrSettings.sliceBgColor,
+      tuningStepHz: sdrSettings.tuningStepHz,
+      tuningLineColor: sdrSettings.tuningLineColor,
+      tuningArrowColor: sdrSettings.tuningArrowColor,
+      onTuningStepChange: handleTuningStepChange,
+      onWheelTune: handleWheelTune,
 
-    clientNrEnabled: sdrNrEnabled,
-    clientNrLevel: sdrNrLevel,
-    onClientNrToggle: handleClientNrToggle,
-    onClientNrLevelChange: handleClientNrLevelChange,
+      noiseGateEnabled: sdrSettings.sdrNoiseGateEnabled,
+      noiseGateThreshold: sdrSettings.sdrNoiseGateThreshold,
+      onNoiseGateToggle: handleNoiseGateToggle,
+      onNoiseGateThresholdChange: handleNoiseGateThresholdChange,
 
-    notchFilters: sdrNotchFilters,
-    onAddNotch: handleAddNotch,
-    onRemoveNotch: handleRemoveNotch,
-    onUpdateNotch: handleUpdateNotch,
-    onToggleNotch: handleToggleNotch,
+      clientNrEnabled: sdrSettings.sdrNrEnabled,
+      clientNrLevel: sdrSettings.sdrNrLevel,
+      onClientNrToggle: handleClientNrToggle,
+      onClientNrLevelChange: handleClientNrLevelChange,
 
-    freqInput,
-    freqUnit,
+      notchFilters: sdrSettings.sdrNotchFilters,
+      onAddNotch: handleAddNotch,
+      onRemoveNotch: handleRemoveNotch,
+      onUpdateNotch: handleUpdateNotch,
+      onToggleNotch: handleToggleNotch,
 
-    wsjtxStatus,
-    wsjtxDecodes,
-    clusterSpots,
+      freqInput,
+      freqUnit,
 
-    ft8DecoderEnabled: ft8Decoder.enabled,
-    ft8DecoderMode: ft8Decoder.mode,
-    ft8CycleProgress: ft8Decoder.cycleProgress,
-    ft8DecoderStats: ft8Decoder.stats,
-    ft8Error: ft8Decoder.error,
-    onFt8Toggle: handleFt8Toggle,
-    onFt8ModeChange: ft8Decoder.setMode,
+      wsjtxStatus,
+      wsjtxDecodes,
+      clusterSpots,
 
-    isMobile,
-    activeSkin,
-    onSkinChange: handleSkinChange,
+      ft8DecoderEnabled: ft8Decoder.enabled,
+      ft8DecoderMode: ft8Decoder.mode,
+      ft8CycleProgress: ft8Decoder.cycleProgress,
+      ft8DecoderStats: ft8Decoder.stats,
+      ft8Error: ft8Decoder.error,
+      onFt8Toggle: handleFt8Toggle,
+      onFt8ModeChange: ft8Decoder.setMode,
 
-    onConnectRadio: handleConnectRadio,
-    onDisconnectRadio: handleDisconnectRadio,
-    onTune: handleTune,
-    onFreqInputChange: setFreqInput,
-    onFreqUnitChange: setFreqUnit,
-    onModeChange: handleModeChange,
-    onGainChange: handleGainChange,
-    onAgcToggle: handleAgcToggle,
-    onAntennaChange: handleAntennaChange,
-    onFilterChange: handleFilterChange,
-    onNrChange: handleNrChange,
-    onNbChange: handleNbChange,
-    onVfoChange: handleVfoChange,
-    onPttChange: handlePttChange,
-    onToggleFft: handleToggleFft,
-    onToggleAudio: handleToggleAudio,
-    onDeviceSelect: setSelectedDeviceId,
-    onWaterfallViewChange: handleWaterfallViewChange,
-    onPickFrequencyHz: handlePickFrequencyHz,
-    onSelectRangeHz: handleSelectRangeHz,
-    onOpenDevicePicker: () => setDevicePickerOpen(true),
-    onOpenSdrSettings: () => setSdrSettingsOpen(true),
-  };
+      isMobile,
+      activeSkin,
+      onSkinChange: handleSkinChange,
+
+      onConnectRadio: handleConnectRadio,
+      onDisconnectRadio: handleDisconnectRadio,
+      onTune: handleTune,
+      onFreqInputChange: setFreqInput,
+      onFreqUnitChange: setFreqUnit,
+      onModeChange: handleModeChange,
+      onGainChange: handleGainChange,
+      onAgcToggle: handleAgcToggle,
+      onAntennaChange: handleAntennaChange,
+      onFilterChange: handleFilterChange,
+      onNrChange: handleNrChange,
+      onNbChange: handleNbChange,
+      onVfoChange: handleVfoChange,
+      onPttChange: handlePttChange,
+      onToggleFft: handleToggleFft,
+      onToggleAudio: handleToggleAudio,
+      onDeviceSelect: setSelectedDeviceId,
+      onWaterfallViewChange: handleWaterfallViewChange,
+      onPickFrequencyHz: handlePickFrequencyHz,
+      onSelectRangeHz: handleSelectRangeHz,
+      onOpenDevicePicker: openDevicePicker,
+      onOpenSdrSettings: openSdrSettings,
+    }),
+    [
+      daemonConnected,
+      daemonConnecting,
+      daemonError,
+      daemonUrl,
+      lastResponseError,
+      lastStatus,
+      discoveredDaemons,
+      devices,
+      selectedDevice,
+      selectedDeviceId,
+      connectedDeviceId,
+      canControlDevice,
+      canControlConnected,
+      canStreamFft,
+      canStreamAudio,
+      effectiveState,
+      smeterById,
+      fftEnabled,
+      audioEnabled,
+      lastFftFrame,
+      audioFftFrame,
+      waterfallView,
+      tuningOverlay,
+      waterfallOverlays,
+      sdrSettings,
+      handleTuningStepChange,
+      handleWheelTune,
+      handleNoiseGateToggle,
+      handleNoiseGateThresholdChange,
+      handleClientNrToggle,
+      handleClientNrLevelChange,
+      handleAddNotch,
+      handleRemoveNotch,
+      handleUpdateNotch,
+      handleToggleNotch,
+      freqInput,
+      freqUnit,
+      wsjtxStatus,
+      wsjtxDecodes,
+      clusterSpots,
+      ft8Decoder.enabled,
+      ft8Decoder.mode,
+      ft8Decoder.cycleProgress,
+      ft8Decoder.stats,
+      ft8Decoder.error,
+      handleFt8Toggle,
+      ft8Decoder.setMode,
+      isMobile,
+      activeSkin,
+      handleSkinChange,
+      handleConnectRadio,
+      handleDisconnectRadio,
+      handleTune,
+      handleModeChange,
+      handleGainChange,
+      handleAgcToggle,
+      handleAntennaChange,
+      handleFilterChange,
+      handleNrChange,
+      handleNbChange,
+      handleVfoChange,
+      handlePttChange,
+      handleToggleFft,
+      handleToggleAudio,
+      setSelectedDeviceId,
+      handleWaterfallViewChange,
+      handlePickFrequencyHz,
+      handleSelectRangeHz,
+      openDevicePicker,
+      openSdrSettings,
+    ],
+  );
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -1268,11 +1325,34 @@ export function SdrConsole() {
         canRefresh={daemonConnected}
         onRefresh={refreshDiscovery}
       />
-      <SkinComponent {...skinProps} />
       <SdrSettingsModal
         isOpen={sdrSettingsOpen}
         onClose={() => setSdrSettingsOpen(false)}
       />
+      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+        <SdrConsoleHeader
+          daemonConnected={daemonConnected}
+          daemonConnecting={daemonConnecting}
+          daemonUrl={daemonUrl}
+          devices={devices}
+          selectedDeviceId={selectedDeviceId}
+          selectedDevice={selectedDevice}
+          connectedDeviceId={connectedDeviceId}
+          canControlDevice={canControlDevice}
+          canControlConnected={canControlConnected}
+          onDeviceSelect={setSelectedDeviceId}
+          onConnectRadio={handleConnectRadio}
+          onDisconnectRadio={handleDisconnectRadio}
+          onOpenDevicePicker={openDevicePicker}
+          onOpenSdrSettings={openSdrSettings}
+          activeSkin={activeSkin}
+          onSkinChange={handleSkinChange}
+          isMobile={isMobile}
+        />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <SkinComponent {...skinProps} />
+        </div>
+      </div>
     </>
   );
 }

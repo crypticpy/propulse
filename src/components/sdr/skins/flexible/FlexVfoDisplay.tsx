@@ -51,6 +51,30 @@ export interface FlexVfoDisplayProps {
   /** Background color CSS value, default "rgba(0, 40, 60, 0.85)" */
   bgColor?: string;
 
+  // ── New radio state fields (Package 1) ──
+  /** RIT state */
+  rit?: { enabled: boolean; offsetHz: number };
+  /** XIT state */
+  xit?: { enabled: boolean; offsetHz: number };
+  /** Split mode active */
+  split?: boolean;
+  /** Frequency lock (client-side) */
+  lock?: boolean;
+  /** Auto notch filter enabled */
+  anf?: boolean;
+  /** Full break-in CW */
+  qsk?: boolean;
+  /** Voice-operated transmit */
+  vox?: boolean;
+  /** TX antenna (when different from RX) */
+  txAntenna?: string;
+  /** TX meter readings (shown during transmit) */
+  txMeter?: { powerW?: number; swr?: number; alc?: number };
+  /** CW keyer speed in WPM */
+  cwSpeed?: number;
+  /** IF shift in Hz */
+  ifShift?: number;
+
   // ── Interactive callbacks (optional — omit for display-only) ──
   /** Swap VFO A/B. Omit to render label as non-interactive. */
   onVfoSwap?: () => void;
@@ -60,6 +84,8 @@ export interface FlexVfoDisplayProps {
   onNrToggle?: () => void;
   /** Toggle AGC. */
   onAgcToggle?: () => void;
+  /** Toggle frequency lock. */
+  onLockToggle?: () => void;
 
   /** Slice panel controls — when provided, renders the tab panel row. */
   slicePanels?: SlicePanelControlProps;
@@ -98,10 +124,22 @@ export function FlexVfoDisplay({
   agcEnabled = false,
   vfo,
   bgColor = DEFAULT_BG_COLOR,
+  rit,
+  xit,
+  split = false,
+  lock = false,
+  anf = false,
+  qsk = false,
+  vox = false,
+  txAntenna,
+  txMeter,
+  cwSpeed,
+  ifShift,
   onVfoSwap,
   onNbToggle,
   onNrToggle,
   onAgcToggle,
+  onLockToggle,
   slicePanels,
 }: FlexVfoDisplayProps) {
   const bandwidth = useMemo(
@@ -111,6 +149,10 @@ export function FlexVfoDisplay({
 
   const modeUpper = mode?.toUpperCase() ?? null;
   const accentColor = getModeAccentCss(mode);
+  const isCw = modeUpper === "CW" || modeUpper === "CWR";
+  const ritActive = rit?.enabled && rit.offsetHz !== 0;
+  const xitActive = xit?.enabled && xit.offsetHz !== 0;
+  const showTxAntenna = txAntenna && txAntenna !== antenna;
 
   return (
     <div
@@ -120,13 +162,13 @@ export function FlexVfoDisplay({
         boxShadow: `inset 3px 0 0 ${accentColor}, 0 4px 24px rgba(0,0,0,0.6), 0 1px 6px rgba(0,0,0,0.4)`,
       }}
     >
-      {/* ── Top row: Slice label + badges ─────────────────────────────── */}
-      <div className="flex items-center gap-1.5 mb-0.5">
+      {/* ── Row 1: VFO label + status badges ─────────────────────────── */}
+      <div className="flex items-center gap-1 mb-0.5">
         {/* VFO label */}
         {onVfoSwap ? (
           <button
             onClick={onVfoSwap}
-            className="text-[10px] font-bold tracking-wider hover:brightness-125 active:scale-95 transition-all cursor-pointer mr-auto"
+            className="text-[10px] font-bold tracking-wider hover:brightness-125 active:scale-95 transition-all cursor-pointer"
             style={{ color: accentColor }}
             title="Switch VFO"
           >
@@ -134,23 +176,43 @@ export function FlexVfoDisplay({
           </button>
         ) : (
           <span
-            className="text-[10px] font-bold tracking-wider mr-auto"
+            className="text-[10px] font-bold tracking-wider"
             style={{ color: accentColor }}
           >
             VFO {vfo ?? "A"}
           </span>
         )}
 
+        <div className="flex-1" />
+
         {/* Antenna badge */}
         {antenna && <RadioBadge label={antenna} />}
 
-        {/* DSP badges: NB, NR, AGC — interactive when callbacks provided */}
-        <DspBadge label="NB" active={nbEnabled} onClick={onNbToggle} />
-        <DspBadge label="NR" active={nrEnabled} onClick={onNrToggle} />
-        <DspBadge label="AGC" active={agcEnabled} onClick={onAgcToggle} />
+        {/* TX antenna when different */}
+        {showTxAntenna && (
+          <RadioBadge label={`TX:${txAntenna}`} variant="warning" />
+        )}
 
-        {/* Bandwidth badge */}
-        {bandwidth && <RadioBadge label={bandwidth} />}
+        {/* SPLIT badge */}
+        {split && <RadioBadge label="SPLIT" variant="warning" />}
+
+        {/* LOCK badge */}
+        {lock && (
+          <RadioBadge
+            label="LOCK"
+            variant="accent"
+            onClick={onLockToggle}
+            icon={
+              <svg
+                className="w-2.5 h-2.5"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+              >
+                <path d="M8 1a3 3 0 0 0-3 3v2H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1V4a3 3 0 0 0-3-3zm-1.5 3a1.5 1.5 0 1 1 3 0v2h-3V4z" />
+              </svg>
+            }
+          />
+        )}
 
         {/* TX / RX indicator */}
         {ptt ? (
@@ -160,15 +222,39 @@ export function FlexVfoDisplay({
         )}
       </div>
 
-      {/* ── S-meter bar ──────────────────────────────────────────────── */}
-      <SmeterBar dbm={smeterDbm} className="mb-0.5" />
+      {/* ── Row 2: DSP badges ────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 mb-0.5">
+        <DspBadge label="NB" active={nbEnabled} onClick={onNbToggle} />
+        <DspBadge label="NR" active={nrEnabled} onClick={onNrToggle} />
+        <DspBadge label="AGC" active={agcEnabled} onClick={onAgcToggle} />
+        <DspBadge label="ANF" active={anf} />
+        {qsk && <DspBadge label="QSK" active />}
+        {vox && <DspBadge label="VOX" active />}
+
+        <div className="flex-1" />
+
+        {/* Bandwidth badge */}
+        {bandwidth && <RadioBadge label={bandwidth} />}
+
+        {/* CW speed — only in CW modes */}
+        {isCw && cwSpeed != null && (
+          <span className="text-[9px] font-mono text-signal-green/80">
+            {cwSpeed} WPM
+          </span>
+        )}
+      </div>
+
+      {/* ── S-meter / TX meter bar ───────────────────────────────────── */}
+      {ptt && txMeter ? (
+        <TxMeterBar txMeter={txMeter} />
+      ) : (
+        <SmeterBar dbm={smeterDbm} size="compact" className="mb-0.5" />
+      )}
 
       {/* ── Frequency row ────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
-        {/* Segmented frequency display */}
         <FrequencyDisplay freqHz={freqHz} size="lg" glow />
 
-        {/* Mode pill */}
         <div className="flex items-center gap-1.5 ml-auto">
           {modeUpper && (
             <span
@@ -183,6 +269,30 @@ export function FlexVfoDisplay({
         </div>
       </div>
 
+      {/* ── RIT/XIT offset display ───────────────────────────────────── */}
+      {(ritActive || xitActive || (ifShift != null && ifShift !== 0)) && (
+        <div className="flex items-center gap-2 mt-0.5">
+          {ritActive && (
+            <span className="text-[9px] font-mono text-plasma-orange">
+              RIT {rit.offsetHz >= 0 ? "+" : ""}
+              {rit.offsetHz}
+            </span>
+          )}
+          {xitActive && (
+            <span className="text-[9px] font-mono text-cosmic-cyan">
+              XIT {xit.offsetHz >= 0 ? "+" : ""}
+              {xit.offsetHz}
+            </span>
+          )}
+          {ifShift != null && ifShift !== 0 && (
+            <span className="text-[9px] font-mono text-nebula-blue">
+              IF {ifShift >= 0 ? "+" : ""}
+              {ifShift}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ── Bottom info row ──────────────────────────────────────────── */}
       {bandwidth && !slicePanels && (
         <div className="mt-0.5 text-[10px] font-mono text-gray-500 tracking-wide">
@@ -192,6 +302,71 @@ export function FlexVfoDisplay({
 
       {/* ── Slice panel tabs (SmartSDR-style expandable controls) ──── */}
       {slicePanels && <SlicePanelTabs controls={slicePanels} />}
+    </div>
+  );
+}
+
+// ─── TX Meter Bar ─────────────────────────────────────────────────────────
+
+function TxMeterBar({
+  txMeter,
+}: {
+  txMeter: { powerW?: number; swr?: number; alc?: number };
+}) {
+  const { powerW, swr, alc } = txMeter;
+
+  return (
+    <div className="flex items-center gap-2 mb-0.5 h-4">
+      {/* Power */}
+      {powerW != null && (
+        <div className="flex items-center gap-1 flex-1">
+          <span className="text-[8px] font-semibold text-gray-500 w-6">
+            PWR
+          </span>
+          <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-alert-red/80 rounded-full transition-[width] duration-75"
+              style={{ width: `${Math.min(100, (powerW / 100) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[9px] font-mono text-alert-red/80 w-8 text-right">
+            {powerW.toFixed(0)}W
+          </span>
+        </div>
+      )}
+
+      {/* SWR */}
+      {swr != null && (
+        <div className="flex items-center gap-1">
+          <span className="text-[8px] font-semibold text-gray-500">SWR</span>
+          <span
+            className={`text-[9px] font-mono font-semibold ${
+              swr > 3
+                ? "text-alert-red"
+                : swr > 2
+                  ? "text-caution-amber"
+                  : "text-signal-green"
+            }`}
+          >
+            {swr.toFixed(1)}
+          </span>
+        </div>
+      )}
+
+      {/* ALC */}
+      {alc != null && (
+        <div className="flex items-center gap-1">
+          <span className="text-[8px] font-semibold text-gray-500">ALC</span>
+          <div className="w-8 h-1.5 bg-white/5 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-[width] duration-75 ${
+                alc > 80 ? "bg-alert-red/80" : "bg-signal-green/70"
+              }`}
+              style={{ width: `${Math.min(100, alc)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

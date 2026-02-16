@@ -20,7 +20,7 @@ import { SlicePanelFilter } from "./SlicePanelFilter";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type SlicePanelId = "dsp" | "filter" | "rx" | "audio";
+export type SlicePanelId = "dsp" | "filter" | "rx" | "audio" | "xrit";
 
 export interface SlicePanelControlProps {
   canControl: boolean;
@@ -29,9 +29,11 @@ export interface SlicePanelControlProps {
   nbEnabled: boolean;
   nrEnabled: boolean;
   agcEnabled: boolean;
+  anfEnabled: boolean;
   onNbToggle: () => void;
   onNrToggle: () => void;
   onAgcToggle: () => void;
+  onAnfToggle: () => void;
 
   // Filter / Mode
   availableModes: string[];
@@ -57,6 +59,21 @@ export interface SlicePanelControlProps {
   onNoiseGateThresholdChange: (threshold: number) => void;
   onClientNrToggle: (enabled: boolean) => void;
   onClientNrLevelChange: (level: number) => void;
+
+  // X/RIT
+  rit: { enabled: boolean; offsetHz: number } | undefined;
+  xit: { enabled: boolean; offsetHz: number } | undefined;
+  split: boolean;
+  ifShift: number;
+  cwSpeed: number;
+  currentMode2: string; // for CW speed visibility
+  onRitToggle: (enabled: boolean) => void;
+  onRitOffset: (offsetHz: number) => void;
+  onXitToggle: (enabled: boolean) => void;
+  onXitOffset: (offsetHz: number) => void;
+  onSplitToggle: (enabled: boolean) => void;
+  onIfShift: (hz: number) => void;
+  onCwSpeed: (wpm: number) => void;
 }
 
 // ─── Tab config ──────────────────────────────────────────────────────────────
@@ -66,6 +83,7 @@ const TABS: { id: SlicePanelId; label: string }[] = [
   { id: "filter", label: "FILT" },
   { id: "rx", label: "RX" },
   { id: "audio", label: "AUD" },
+  { id: "xrit", label: "X/RIT" },
 ];
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -122,9 +140,11 @@ export function SlicePanelTabs({
         nbEnabled={controls.nbEnabled}
         nrEnabled={controls.nrEnabled}
         agcEnabled={controls.agcEnabled}
+        anfEnabled={controls.anfEnabled}
         onNbToggle={controls.onNbToggle}
         onNrToggle={controls.onNrToggle}
         onAgcToggle={controls.onAgcToggle}
+        onAnfToggle={controls.onAnfToggle}
         canControl={controls.canControl}
       />
     );
@@ -146,6 +166,25 @@ export function SlicePanelTabs({
         stages={controls.rxGainStages}
         gains={controls.gains}
         onGainChange={controls.onGainChange}
+        canControl={controls.canControl}
+      />
+    );
+  } else if (activePanel === "xrit") {
+    panelContent = (
+      <SlicePanelXRit
+        rit={controls.rit}
+        xit={controls.xit}
+        split={controls.split}
+        ifShift={controls.ifShift}
+        cwSpeed={controls.cwSpeed}
+        currentMode={controls.currentMode2}
+        onRitToggle={controls.onRitToggle}
+        onRitOffset={controls.onRitOffset}
+        onXitToggle={controls.onXitToggle}
+        onXitOffset={controls.onXitOffset}
+        onSplitToggle={controls.onSplitToggle}
+        onIfShift={controls.onIfShift}
+        onCwSpeed={controls.onCwSpeed}
         canControl={controls.canControl}
       />
     );
@@ -241,6 +280,196 @@ function SlicePanelRxInline({
           size="compact"
         />
       ))}
+    </div>
+  );
+}
+
+// ─── Inline X/RIT Panel ─────────────────────────────────────────────────
+
+function SlicePanelXRit({
+  rit,
+  xit,
+  split,
+  ifShift,
+  cwSpeed,
+  currentMode,
+  onRitToggle,
+  onRitOffset,
+  onXitToggle,
+  onXitOffset,
+  onSplitToggle,
+  onIfShift,
+  onCwSpeed,
+  canControl,
+}: {
+  rit: { enabled: boolean; offsetHz: number } | undefined;
+  xit: { enabled: boolean; offsetHz: number } | undefined;
+  split: boolean;
+  ifShift: number;
+  cwSpeed: number;
+  currentMode: string;
+  onRitToggle: (enabled: boolean) => void;
+  onRitOffset: (offsetHz: number) => void;
+  onXitToggle: (enabled: boolean) => void;
+  onXitOffset: (offsetHz: number) => void;
+  onSplitToggle: (enabled: boolean) => void;
+  onIfShift: (hz: number) => void;
+  onCwSpeed: (wpm: number) => void;
+  canControl: boolean;
+}) {
+  const ritEnabled = rit?.enabled ?? false;
+  const ritOffset = rit?.offsetHz ?? 0;
+  const xitEnabled = xit?.enabled ?? false;
+  const xitOffset = xit?.offsetHz ?? 0;
+  const isCw =
+    currentMode.toUpperCase() === "CW" || currentMode.toUpperCase() === "CWR";
+
+  return (
+    <div className="space-y-2">
+      {/* RIT row */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onRitToggle(!ritEnabled)}
+          disabled={!canControl}
+          className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors shrink-0
+            disabled:opacity-40 disabled:cursor-not-allowed ${
+              ritEnabled
+                ? "bg-plasma-orange/20 border-plasma-orange/30 text-plasma-orange"
+                : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+            }`}
+        >
+          RIT
+        </button>
+        <input
+          type="range"
+          min={-9999}
+          max={9999}
+          step={10}
+          value={ritOffset}
+          onChange={(e) => onRitOffset(Number(e.target.value))}
+          disabled={!canControl || !ritEnabled}
+          className="flex-1 h-1 accent-plasma-orange disabled:opacity-30"
+        />
+        <span className="text-[10px] font-mono text-gray-400 w-14 text-right tabular-nums">
+          {ritOffset >= 0 ? "+" : ""}
+          {ritOffset}
+        </span>
+        {ritEnabled && ritOffset !== 0 && (
+          <button
+            onClick={() => onRitOffset(0)}
+            disabled={!canControl}
+            className="text-[9px] text-gray-500 hover:text-gray-300 disabled:opacity-40"
+            title="Clear RIT offset"
+          >
+            CLR
+          </button>
+        )}
+      </div>
+
+      {/* XIT row */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onXitToggle(!xitEnabled)}
+          disabled={!canControl}
+          className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors shrink-0
+            disabled:opacity-40 disabled:cursor-not-allowed ${
+              xitEnabled
+                ? "bg-cosmic-cyan/20 border-cosmic-cyan/30 text-cosmic-cyan"
+                : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+            }`}
+        >
+          XIT
+        </button>
+        <input
+          type="range"
+          min={-9999}
+          max={9999}
+          step={10}
+          value={xitOffset}
+          onChange={(e) => onXitOffset(Number(e.target.value))}
+          disabled={!canControl || !xitEnabled}
+          className="flex-1 h-1 accent-cosmic-cyan disabled:opacity-30"
+        />
+        <span className="text-[10px] font-mono text-gray-400 w-14 text-right tabular-nums">
+          {xitOffset >= 0 ? "+" : ""}
+          {xitOffset}
+        </span>
+        {xitEnabled && xitOffset !== 0 && (
+          <button
+            onClick={() => onXitOffset(0)}
+            disabled={!canControl}
+            className="text-[9px] text-gray-500 hover:text-gray-300 disabled:opacity-40"
+            title="Clear XIT offset"
+          >
+            CLR
+          </button>
+        )}
+      </div>
+
+      {/* SPLIT toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onSplitToggle(!split)}
+          disabled={!canControl}
+          className={`flex-1 px-2 py-1 text-[10px] font-bold uppercase rounded border transition-colors
+            disabled:opacity-40 disabled:cursor-not-allowed ${
+              split
+                ? "bg-caution-amber/20 border-caution-amber/30 text-caution-amber"
+                : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+            }`}
+        >
+          SPLIT {split ? "ON" : "OFF"}
+        </button>
+      </div>
+
+      {/* IF Shift */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] text-gray-500 shrink-0 w-7">IF</span>
+        <input
+          type="range"
+          min={-2000}
+          max={2000}
+          step={10}
+          value={ifShift}
+          onChange={(e) => onIfShift(Number(e.target.value))}
+          disabled={!canControl}
+          className="flex-1 h-1 accent-nebula-blue disabled:opacity-30"
+        />
+        <span className="text-[10px] font-mono text-gray-400 w-14 text-right tabular-nums">
+          {ifShift >= 0 ? "+" : ""}
+          {ifShift} Hz
+        </span>
+        {ifShift !== 0 && (
+          <button
+            onClick={() => onIfShift(0)}
+            disabled={!canControl}
+            className="text-[9px] text-gray-500 hover:text-gray-300 disabled:opacity-40"
+            title="Clear IF shift"
+          >
+            CLR
+          </button>
+        )}
+      </div>
+
+      {/* CW Speed — only shown in CW modes */}
+      {isCw && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-500 shrink-0 w-7">WPM</span>
+          <input
+            type="range"
+            min={5}
+            max={60}
+            step={1}
+            value={cwSpeed}
+            onChange={(e) => onCwSpeed(Number(e.target.value))}
+            disabled={!canControl}
+            className="flex-1 h-1 accent-signal-green disabled:opacity-30"
+          />
+          <span className="text-[10px] font-mono text-gray-400 w-8 text-right tabular-nums">
+            {cwSpeed}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

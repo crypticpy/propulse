@@ -92,6 +92,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
           nbEnabled: !!effectiveState?.nb?.enabled,
           nrEnabled: !!effectiveState?.nr?.enabled,
           agcEnabled: !!effectiveState?.agc,
+          anfEnabled: !!effectiveState?.anf,
           onNbToggle: () =>
             controls.onNbChange(
               !effectiveState?.nb?.enabled,
@@ -103,6 +104,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
               effectiveState?.nr?.level ?? 5,
             ),
           onAgcToggle: () => controls.onAgcToggle(!effectiveState?.agc),
+          onAnfToggle: controls.onAnfToggle,
           // Filter / Mode
           availableModes: radio.selectedDevice?.capabilities.modes ?? [],
           currentMode: effectiveState?.mode ?? "USB",
@@ -125,6 +127,20 @@ export function FlexibleSkin(props: SdrSkinProps) {
           onNoiseGateThresholdChange: dsp.onNoiseGateThresholdChange,
           onClientNrToggle: dsp.onClientNrToggle,
           onClientNrLevelChange: dsp.onClientNrLevelChange,
+          // X/RIT
+          rit: effectiveState?.rit,
+          xit: effectiveState?.xit,
+          split: effectiveState?.split ?? false,
+          ifShift: effectiveState?.ifShift ?? 0,
+          cwSpeed: effectiveState?.cwSpeed ?? 20,
+          currentMode2: effectiveState?.mode ?? "USB",
+          onRitToggle: controls.onRitToggle,
+          onRitOffset: controls.onRitOffset,
+          onXitToggle: controls.onXitToggle,
+          onXitOffset: controls.onXitOffset,
+          onSplitToggle: controls.onSplitToggle,
+          onIfShift: controls.onIfShift,
+          onCwSpeed: controls.onCwSpeed,
         }
       : undefined;
   }, [
@@ -137,10 +153,16 @@ export function FlexibleSkin(props: SdrSkinProps) {
     effectiveState?.nr?.enabled,
     effectiveState?.nr?.level,
     effectiveState?.agc,
+    effectiveState?.anf,
     effectiveState?.gains,
     effectiveState?.mode,
     effectiveState?.filter?.low,
     effectiveState?.filter?.high,
+    effectiveState?.rit,
+    effectiveState?.xit,
+    effectiveState?.split,
+    effectiveState?.ifShift,
+    effectiveState?.cwSpeed,
     controls,
     dsp.noiseGateEnabled,
     dsp.noiseGateThreshold,
@@ -280,6 +302,17 @@ export function FlexibleSkin(props: SdrSkinProps) {
               agcEnabled={effectiveState?.agc}
               vfo={effectiveState?.vfo}
               bgColor={sliceBgColor}
+              rit={effectiveState?.rit}
+              xit={effectiveState?.xit}
+              split={effectiveState?.split}
+              lock={effectiveState?.lock}
+              anf={effectiveState?.anf}
+              qsk={effectiveState?.qsk}
+              vox={effectiveState?.vox}
+              txAntenna={effectiveState?.txAntenna}
+              txMeter={effectiveState?.txMeter}
+              cwSpeed={effectiveState?.cwSpeed}
+              ifShift={effectiveState?.ifShift}
               onVfoSwap={
                 radio.canControlConnected
                   ? () =>
@@ -310,6 +343,9 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 radio.canControlConnected
                   ? () => controls.onAgcToggle(!effectiveState?.agc)
                   : undefined
+              }
+              onLockToggle={
+                radio.canControlConnected ? controls.onLockToggle : undefined
               }
               slicePanels={slicePanels}
             />

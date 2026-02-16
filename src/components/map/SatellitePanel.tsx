@@ -10,6 +10,7 @@
  */
 
 import { useMemo, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { Card } from "@/components/ui/Card";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
@@ -807,6 +808,13 @@ export function SatellitePanel({
           <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
             {satellites.length} sats
           </span>
+
+          <Link
+            to="/satellites"
+            className="text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
+          >
+            Manage
+          </Link>
 
           {/* Alerts toggle */}
           {notificationSupported && (

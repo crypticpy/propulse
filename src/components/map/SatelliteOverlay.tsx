@@ -5,6 +5,11 @@
  * Each satellite appears as a small diamond marker above the globe surface
  * with an Html label. Uses useGlobeOcclusion for far-side fading.
  *
+ * Click a satellite to show an inline info popup with key details (name,
+ * NORAD ID, category, position, transponders, next pass). Click again or
+ * click another satellite to dismiss. The full SatelliteDetailModal also
+ * opens via mapStore.selectedSatelliteId for comprehensive details.
+ *
  * Selected satellites show their orbital ground track.
  */
 
@@ -12,11 +17,23 @@ import { useMemo, useRef, useCallback } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
+import { formatDistanceToNow } from "date-fns";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useMapStore } from "@/stores/mapStore";
+import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
 import { calculateGroundTrack } from "@/lib/api/satellites";
-import type { SatelliteInfo, SatelliteCategory } from "@/types/satellite";
+import { getTransponder } from "@/lib/data/satelliteTransponders";
+import {
+  CATEGORY_META,
+  formatFreqMHz,
+  formatLatLon,
+} from "@/lib/utils/satellite";
+import type {
+  SatelliteInfoExtended,
+  SatelliteCategory,
+  PassPrediction,
+} from "@/types/satellite";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -93,19 +110,251 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
 }
 
 // ---------------------------------------------------------------------------
+// Satellite Info Popup (drei Html — appears near marker when selected)
+// ---------------------------------------------------------------------------
+
+interface SatelliteInfoPopupProps {
+  satellite: SatelliteInfoExtended;
+  occlusionOpacity: number;
+  nextPasses: PassPrediction[];
+}
+
+function SatelliteInfoPopup({
+  satellite,
+  occlusionOpacity,
+  nextPasses,
+}: SatelliteInfoPopupProps) {
+  const color = CATEGORY_COLORS[satellite.category];
+  const { lat, lon, alt, velocity } = satellite.position;
+  const catMeta = CATEGORY_META[satellite.category];
+
+  // Static transponder data (not a hook — safe to call here)
+  const transponderData = getTransponder(satellite.name, satellite.noradId);
+  const primaryXpdr = transponderData?.transponders[0] ?? null;
+
+  // Next upcoming pass
+  const now = new Date();
+  const nextPass = nextPasses.find((p) => p.los >= now) ?? null;
+  const activePass =
+    nextPass && nextPass.aos <= now && nextPass.los >= now ? nextPass : null;
+
+  return (
+    <Html
+      position={[0, MARKER_SIZE * 7, 0]}
+      center
+      zIndexRange={[10, 5]}
+      style={{
+        pointerEvents: "auto",
+        opacity: Math.max(occlusionOpacity, 0.25),
+      }}
+    >
+      <div
+        className="flex flex-col gap-1 rounded-md px-3 py-2 text-[10px] font-mono"
+        style={{
+          backgroundColor: "rgba(8, 8, 24, 0.94)",
+          border: `1px solid ${color}60`,
+          boxShadow: `0 0 12px ${color}30`,
+          minWidth: "200px",
+          maxWidth: "260px",
+          color: "#e0e0e8",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header: name + category badge + visibility */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className="text-[12px] font-bold tracking-wider truncate"
+              style={{ color }}
+            >
+              {satellite.name}
+            </span>
+            <span
+              className={`inline-block flex-shrink-0 px-1 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider ${catMeta.color} ${catMeta.bg}`}
+            >
+              {catMeta.label}
+            </span>
+          </div>
+          <span
+            className={`flex-shrink-0 w-2 h-2 rounded-full ${
+              satellite.isVisible ? "bg-green-400 animate-pulse" : "bg-gray-600"
+            }`}
+            title={satellite.isVisible ? "Above horizon" : "Below horizon"}
+          />
+        </div>
+
+        {/* NORAD ID */}
+        <div className="text-[9px]" style={{ color: "#777" }}>
+          NORAD {satellite.noradId}
+          {satellite.isCustom && (
+            <span className="ml-1.5 px-1 py-0.5 rounded bg-orange-400/15 text-orange-400 text-[8px]">
+              Custom TLE
+            </span>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div
+          className="my-0.5"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+        />
+
+        {/* Position & altitude grid */}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          <div>
+            <span style={{ color: "#888" }}>Pos: </span>
+            <span style={{ color: "#ccc" }}>{formatLatLon(lat, lon)}</span>
+          </div>
+          <div>
+            <span style={{ color: "#888" }}>Alt: </span>
+            <span style={{ color: "#ccc" }}>{Math.round(alt)} km</span>
+          </div>
+          <div>
+            <span style={{ color: "#888" }}>Vel: </span>
+            <span style={{ color: "#ccc" }}>{velocity.toFixed(1)} km/s</span>
+          </div>
+          <div>
+            <span style={{ color: "#888" }}>Status: </span>
+            <span
+              style={{
+                color: satellite.isVisible ? "#4ade80" : "#9ca3af",
+              }}
+            >
+              {satellite.isVisible ? "Visible" : "Below horizon"}
+            </span>
+          </div>
+        </div>
+
+        {/* Transponder info (if available) */}
+        {transponderData && transponderData.transponders.length > 0 && (
+          <>
+            <div
+              className="my-0.5"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+            />
+            <div className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">
+              Transponders
+            </div>
+            {transponderData.transponders.slice(0, 2).map((xpdr, idx) => (
+              <div key={idx} className="flex items-center gap-1.5">
+                <span
+                  className="px-1 py-0.5 rounded text-[8px] font-semibold uppercase"
+                  style={{
+                    backgroundColor:
+                      xpdr.mode === "FM"
+                        ? "rgba(74,222,128,0.15)"
+                        : xpdr.mode === "linear"
+                          ? "rgba(34,211,238,0.15)"
+                          : "rgba(251,146,60,0.15)",
+                    color:
+                      xpdr.mode === "FM"
+                        ? "#4ade80"
+                        : xpdr.mode === "linear"
+                          ? "#22d3ee"
+                          : "#fb923c",
+                  }}
+                >
+                  {xpdr.mode}
+                </span>
+                <span style={{ color: "#aaa" }}>
+                  {formatFreqMHz(xpdr.downlinkRangeHz[0])}
+                </span>
+              </div>
+            ))}
+            {primaryXpdr && (
+              <div className="grid grid-cols-2 gap-x-3 text-[9px]">
+                <div>
+                  <span style={{ color: "#888" }}>UP: </span>
+                  <span style={{ color: "#aaa" }}>
+                    {formatFreqMHz(primaryXpdr.uplinkRangeHz[0])}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: "#888" }}>DN: </span>
+                  <span style={{ color: "#aaa" }}>
+                    {formatFreqMHz(primaryXpdr.downlinkRangeHz[0])}
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Active pass / next pass */}
+        {nextPass && (
+          <>
+            <div
+              className="my-0.5"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+            />
+            {activePass ? (
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                <span style={{ color: "#4ade80", fontWeight: 600 }}>
+                  PASS NOW
+                </span>
+                <span style={{ color: "#aaa" }}>
+                  {Math.round(activePass.maxEl)}&deg; max el
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span style={{ color: "#888" }}>Next pass: </span>
+                <span style={{ color: "#ccc" }}>
+                  in {formatDistanceToNow(nextPass.aos)}
+                </span>
+                <span style={{ color: "#aaa" }}>
+                  {Math.round(nextPass.maxEl)}&deg; max
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* TLE age indicator */}
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span style={{ color: "#555" }}>TLE:</span>
+          <span
+            className="px-1 py-0.5 rounded text-[8px] font-medium"
+            style={{
+              backgroundColor:
+                satellite.tleAge === "fresh"
+                  ? "rgba(74,222,128,0.12)"
+                  : satellite.tleAge === "aging"
+                    ? "rgba(250,204,21,0.12)"
+                    : "rgba(248,113,113,0.12)",
+              color:
+                satellite.tleAge === "fresh"
+                  ? "#4ade80"
+                  : satellite.tleAge === "aging"
+                    ? "#facc15"
+                    : "#f87171",
+            }}
+          >
+            {satellite.tleAge}
+          </span>
+        </div>
+      </div>
+    </Html>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Individual Satellite Marker
 // ---------------------------------------------------------------------------
 
 interface SatelliteMarkerProps {
-  satellite: SatelliteInfo;
+  satellite: SatelliteInfoExtended;
   isSelected: boolean;
   onSelect: (noradId: number) => void;
+  nextPasses: PassPrediction[];
 }
 
 function SatelliteMarker({
   satellite,
   isSelected,
   onSelect,
+  nextPasses,
 }: SatelliteMarkerProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -228,6 +477,15 @@ function SatelliteMarker({
           {satellite.name}
         </div>
       </Html>
+
+      {/* Info popup when selected */}
+      {isSelected && (
+        <SatelliteInfoPopup
+          satellite={satellite}
+          occlusionOpacity={occlusionOpacity}
+          nextPasses={nextPasses}
+        />
+      )}
     </group>
   );
 }
@@ -237,7 +495,7 @@ function SatelliteMarker({
 // ---------------------------------------------------------------------------
 
 interface GroundTrackProps {
-  satellite: SatelliteInfo;
+  satellite: SatelliteInfoExtended;
 }
 
 function GroundTrack({ satellite }: GroundTrackProps) {
@@ -307,16 +565,26 @@ function GroundTrack({ satellite }: GroundTrackProps) {
  * ```
  */
 export function SatelliteOverlay() {
-  const { satellites, selectedSatellite, selectSatellite } = useSatellites();
+  const { satellites, selectedSatellite, selectSatellite, nextPasses } =
+    useSatellites();
   const issTrackerActive = useMapStore((s) => s.layers.issTracker);
 
-  // Filter out ISS (NORAD ID 25544) when the dedicated ISS Tracker layer is active
+  const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
+
+  // Filter satellites: ISS dedup when dedicated tracker is active + user tracking prefs
   const filteredSatellites = useMemo(() => {
+    let sats = satellites;
+    // Remove ISS from general overlay when dedicated ISS tracker is active
     if (issTrackerActive) {
-      return satellites.filter((s) => s.noradId !== 25544);
+      sats = sats.filter((s) => s.noradId !== 25544);
     }
-    return satellites;
-  }, [satellites, issTrackerActive]);
+    // Apply user tracking preferences (default "all" = no filter)
+    if (trackedNoradIds !== "all") {
+      const idSet = new Set(trackedNoradIds);
+      sats = sats.filter((s) => idSet.has(s.noradId));
+    }
+    return sats;
+  }, [satellites, issTrackerActive, trackedNoradIds]);
 
   const handleSelect = useCallback(
     (noradId: number) => {
@@ -351,6 +619,9 @@ export function SatelliteOverlay() {
           satellite={sat}
           isSelected={sat.noradId === selectedSatellite?.noradId}
           onSelect={handleSelect}
+          nextPasses={
+            sat.noradId === selectedSatellite?.noradId ? nextPasses : []
+          }
         />
       ))}
     </group>

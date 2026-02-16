@@ -119,6 +119,12 @@ const tools = [
     description: "POTA & SOTA park/summit activation tracker",
     icon: "🏕️",
   },
+  {
+    path: "/satellites",
+    label: "Satellite Database",
+    description: "Browse & select satellites to track",
+    icon: "🛰️",
+  },
 ];
 
 /**

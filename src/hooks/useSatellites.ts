@@ -12,13 +12,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  fetchTLEData,
+  fetchAllEnabledTLEGroups,
   calculatePosition,
   categoriseSatellite,
   getSimplePassPrediction,
   getTLEAge,
 } from "@/lib/api/satellites";
 import { useCustomTLEStore } from "@/stores/customTLEStore";
+import { useSatelliteGroupStore } from "@/stores/satelliteGroupStore";
 import { useUserStore } from "@/stores/userStore";
 import { useMapStore } from "@/stores/mapStore";
 import type { SatelliteInfoExtended, PassPrediction } from "@/types/satellite";
@@ -72,10 +73,11 @@ export function useSatellites(): UseSatellitesResult {
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const setSelectedSatelliteId = useMapStore((s) => s.setSelectedSatelliteId);
   const customTLEs = useCustomTLEStore((s) => s.customTLEs);
+  const enabledGroups = useSatelliteGroupStore((s) => s.enabledGroups);
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   // -------------------------------------------------------------------------
-  // TLE Data Query
+  // TLE Data Query (multi-group)
   // -------------------------------------------------------------------------
 
   const {
@@ -84,12 +86,11 @@ export function useSatellites(): UseSatellitesResult {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["satellites", "tle"],
-    queryFn: fetchTLEData,
+    queryKey: ["satellites", "tle", enabledGroups],
+    queryFn: () => fetchAllEnabledTLEGroups(enabledGroups),
     staleTime: TLE_STALE_TIME,
     refetchInterval: TLE_REFETCH_INTERVAL,
     retry: 2,
-    // Keep previous data while refetching
     placeholderData: (previousData) => previousData,
   });
 

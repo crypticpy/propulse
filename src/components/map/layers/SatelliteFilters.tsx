@@ -7,7 +7,9 @@
  */
 
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useMapStore } from "@/stores/mapStore";
+import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
 import { useSatellites } from "@/hooks/useSatellites";
 import { POPULAR_SATS } from "@/lib/api/satellites";
 import { CATEGORY_META } from "@/lib/utils/satellite";
@@ -239,6 +241,32 @@ export default function SatelliteFilters() {
           </div>
         )}
       </div>
+
+      {/* ── Tracking status + manage link ── */}
+      <TrackingStatusFooter totalCount={satellites.length} />
+    </div>
+  );
+}
+
+function TrackingStatusFooter({ totalCount }: { totalCount: number }) {
+  const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
+  const hasCustomized = useSatellitePrefsStore((s) => s.hasCustomized);
+
+  const trackedCount =
+    trackedNoradIds === "all" ? totalCount : trackedNoradIds.length;
+  const label = hasCustomized
+    ? `Tracking ${trackedCount} of ${totalCount}`
+    : "Tracking all";
+
+  return (
+    <div className="flex items-center justify-between px-0.5 pt-1 border-t border-white/[0.06]">
+      <span className="text-[9px] text-white/30">{label}</span>
+      <Link
+        to="/satellites"
+        className="text-[9px] text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
+      >
+        Manage
+      </Link>
     </div>
   );
 }

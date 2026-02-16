@@ -23,6 +23,7 @@ const TOOLS_PATHS = [
   "/awards",
   "/contests",
   "/activation",
+  "/satellites",
 ];
 
 /**

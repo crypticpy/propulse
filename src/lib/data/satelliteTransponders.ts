@@ -188,6 +188,128 @@ const TRANSPONDER_DB: SatelliteTransponder[] = [
     beaconHz: null,
     notes: "FM repeater. Part of the TEVEL constellation by AMSAT-Israel.",
   },
+
+  // ── Additional satellites ────────────────────────────────────────────────
+
+  {
+    satName: "AO-92",
+    noradId: 43137,
+    transponders: [
+      {
+        name: "U/V FM",
+        uplinkRangeHz: [435350000, 435350000],
+        downlinkRangeHz: [145880000, 145880000],
+        inverted: false,
+        mode: "FM",
+      },
+    ],
+    beaconHz: 145880000,
+    notes:
+      "67.0 Hz CTCSS on uplink. L-band uplink experiment on 1267.350 MHz. No longer on orbit.",
+  },
+  {
+    satName: "JO-97",
+    noradId: 43803,
+    transponders: [
+      {
+        name: "U/V Linear",
+        uplinkRangeHz: [435100000, 435120000],
+        downlinkRangeHz: [145855000, 145875000],
+        inverted: true,
+        mode: "linear",
+      },
+    ],
+    beaconHz: 145840000,
+    notes:
+      "Inverted linear transponder. LSB uplink / USB downlink. FUNcube telemetry beacon on 145.840 MHz.",
+  },
+  {
+    satName: "AO-7",
+    noradId: 7530,
+    transponders: [
+      {
+        name: "Mode A (V/HF Linear)",
+        uplinkRangeHz: [145850000, 145950000],
+        downlinkRangeHz: [29400000, 29500000],
+        inverted: false,
+        mode: "linear",
+      },
+      {
+        name: "Mode B (U/V Linear)",
+        uplinkRangeHz: [432125000, 432175000],
+        downlinkRangeHz: [145975000, 145925000],
+        inverted: true,
+        mode: "linear",
+      },
+    ],
+    beaconHz: 29502000,
+    notes:
+      "Alternates Mode A / Mode B every ~24h when sunlit. No battery — solar power only since 2002.",
+  },
+  {
+    satName: "NOAA-15",
+    noradId: 25338,
+    transponders: [
+      {
+        name: "APT Downlink",
+        uplinkRangeHz: [0, 0],
+        downlinkRangeHz: [137620000, 137620000],
+        inverted: false,
+        mode: "FM",
+      },
+    ],
+    beaconHz: null,
+    notes:
+      "Automatic Picture Transmission (APT) weather imagery. Receive-only — no uplink.",
+  },
+  {
+    satName: "NOAA-18",
+    noradId: 28654,
+    transponders: [
+      {
+        name: "APT Downlink",
+        uplinkRangeHz: [0, 0],
+        downlinkRangeHz: [137912500, 137912500],
+        inverted: false,
+        mode: "FM",
+      },
+    ],
+    beaconHz: null,
+    notes:
+      "Automatic Picture Transmission (APT) weather imagery on 137.9125 MHz. Receive-only.",
+  },
+  {
+    satName: "NOAA-19",
+    noradId: 33591,
+    transponders: [
+      {
+        name: "APT Downlink",
+        uplinkRangeHz: [0, 0],
+        downlinkRangeHz: [137100000, 137100000],
+        inverted: false,
+        mode: "FM",
+      },
+    ],
+    beaconHz: null,
+    notes:
+      "Automatic Picture Transmission (APT) weather imagery on 137.100 MHz. Receive-only. Last POES satellite.",
+  },
+  {
+    satName: "PSAT-2",
+    noradId: 46287,
+    transponders: [
+      {
+        name: "APRS Digipeater",
+        uplinkRangeHz: [145825000, 145825000],
+        downlinkRangeHz: [145825000, 145825000],
+        inverted: false,
+        mode: "digital",
+      },
+    ],
+    beaconHz: null,
+    notes:
+      "1200 baud APRS on 145.825 MHz (shared with ISS). DTMF uplink experiment on 145.980 MHz.",
+  },
 ];
 
 const _byName = new Map<string, SatelliteTransponder>();

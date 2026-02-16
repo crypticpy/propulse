@@ -71,6 +71,7 @@ export function Header({
     { path: "/awards", label: "Awards", icon: "🎖️" },
     { path: "/contests", label: "Contest Explorer", icon: "📅" },
     { path: "/activation", label: "Activation", icon: "🏕️" },
+    { path: "/satellites", label: "Satellite Database", icon: "🛰️" },
   ];
 
   // Check if any tool is active

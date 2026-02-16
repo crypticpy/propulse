@@ -1,11 +1,18 @@
 /**
  * Vercel Edge Function: Satellite TLE Proxy
- * Fetches TLE (Two-Line Element) data from Celestrak for amateur radio satellites.
- * Eliminates CORS dependency — the client falls back to this proxy when direct
- * Celestrak access is blocked.
+ * Fetches TLE (Two-Line Element) data from Celestrak for satellite groups,
+ * with AMSAT as a fallback source when Celestrak is unavailable (amateur only).
  *
- * Source: https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle
- * Cache: 2 hours with 30 min stale-while-revalidate (TLE data ages slowly)
+ * Query params:
+ *   ?group=<name>  — Celestrak group name (default: "amateur")
+ *
+ * Sources:
+ *   Primary: https://celestrak.org/NORAD/elements/gp.php?GROUP=<group>&FORMAT=tle
+ *   Fallback (amateur only): https://www.amsat.org/tle/current/nasabare.txt
+ *
+ * Cache:
+ *   amateur: 2h with 30min stale-while-revalidate
+ *   others:  4h with 1h stale-while-revalidate (change less frequently)
  */
 
 import { applyRateLimit } from "../_lib/rateLimit";
@@ -14,12 +21,53 @@ export const config = {
   runtime: "edge",
 };
 
+const ALLOWED_GROUPS = new Set([
+  "amateur",
+  "stations",
+  "weather",
+  "noaa",
+  "cubesat",
+  "education",
+  "engineering",
+  "science",
+  "tle-new",
+]);
+
+const AMSAT_URL = "https://www.amsat.org/tle/current/nasabare.txt";
+
+function celestrakUrl(group: string): string {
+  return `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`;
+}
+
 function getAllowedOrigin(): string {
   return process.env.ALLOWED_ORIGIN || "https://propulse.vercel.app";
 }
 
-const CELESTRAK_URL =
-  "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle";
+function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": getAllowedOrigin(),
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+  };
+}
+
+async function tryFetch(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "text/plain",
+        "User-Agent": "Propulse/1.0 (Ham Radio Satellite Tracker)",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) {
+      const text = await response.text();
+      if (text.trim().length > 100) return text;
+    }
+  } catch {
+    // Source unavailable
+  }
+  return null;
+}
 
 export default async function handler(request: Request): Promise<Response> {
   // Handle CORS preflight
@@ -27,8 +75,7 @@ export default async function handler(request: Request): Promise<Response> {
     return new Response(null, {
       status: 204,
       headers: {
-        "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        ...corsHeaders(),
         "Access-Control-Max-Age": "86400",
       },
     });
@@ -37,57 +84,57 @@ export default async function handler(request: Request): Promise<Response> {
   const limited = applyRateLimit(request, "satellites/tle", 10, 60);
   if (limited) return limited;
 
-  try {
-    const response = await fetch(CELESTRAK_URL, {
+  // Parse group from query string, default to "amateur"
+  const url = new URL(request.url);
+  const group = url.searchParams.get("group") || "amateur";
+
+  // Validate against whitelist
+  if (!ALLOWED_GROUPS.has(group)) {
+    return new Response(JSON.stringify({ error: "Invalid group" }), {
+      status: 400,
       headers: {
-        Accept: "text/plain",
-        "User-Agent": "Propulse/1.0 (Ham Radio Satellite Tracker)",
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        ...corsHeaders(),
       },
     });
+  }
 
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({
-          error: `Celestrak returned ${response.status}: ${response.statusText}`,
-        }),
-        {
-          status: response.status,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Access-Control-Allow-Origin": getAllowedOrigin(),
-          },
-        },
-      );
-    }
+  // Try Celestrak first; AMSAT fallback only available for amateur group
+  let tleText = await tryFetch(celestrakUrl(group));
+  if (!tleText && group === "amateur") {
+    tleText = await tryFetch(AMSAT_URL);
+  }
 
-    const tleText = await response.text();
+  if (tleText) {
+    // Amateur group: 2h cache + 30min SWR (more consumers, fresher data preferred)
+    // Other groups: 4h cache + 1h SWR (change less frequently)
+    const cacheControl =
+      group === "amateur"
+        ? "s-maxage=7200, stale-while-revalidate=1800"
+        : "s-maxage=14400, stale-while-revalidate=3600";
 
-    // Return raw TLE text wrapped in JSON for consistent parsing
     return new Response(JSON.stringify({ tle: tleText }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "s-maxage=7200, stale-while-revalidate=1800",
-        "Access-Control-Allow-Origin": getAllowedOrigin(),
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Cache-Control": cacheControl,
+        ...corsHeaders(),
       },
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-
-    return new Response(
-      JSON.stringify({
-        error: `Failed to fetch satellite TLE data: ${message}`,
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-          "Access-Control-Allow-Origin": getAllowedOrigin(),
-        },
-      },
-    );
   }
+
+  return new Response(
+    JSON.stringify({
+      error: "Failed to fetch satellite TLE data from all sources",
+    }),
+    {
+      status: 502,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        ...corsHeaders(),
+      },
+    },
+  );
 }

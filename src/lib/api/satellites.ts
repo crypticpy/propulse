@@ -33,6 +33,11 @@ const CELESTRAK_URL =
   "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle";
 
 /**
+ * Secondary TLE source — AMSAT (always available, amateur sats only)
+ */
+const AMSAT_URL = "https://www.amsat.org/tle/current/nasabare.txt";
+
+/**
  * Proxy fallback matching the app's existing proxy pattern
  */
 const PROXY_URL = "/api/satellites/tle";
@@ -45,70 +50,273 @@ export const POPULAR_SATS: Record<
   string,
   { noradId: number; category: SatelliteCategory }
 > = {
+  // ── ISS / Space Stations ────────────────────────────────────────────
   "ISS (ZARYA)": { noradId: 25544, category: "iss" },
+  ISS: { noradId: 25544, category: "iss" },
+  "CSS (TIANHE-1)": { noradId: 48274, category: "iss" },
+
+  // ── FM Repeaters ────────────────────────────────────────────────────
   "SO-50": { noradId: 27607, category: "fm" },
+  "AO-27": { noradId: 22825, category: "fm" },
   "AO-91": { noradId: 43017, category: "fm" },
-  "IO-117": { noradId: 57166, category: "fm" },
-  "RS-44": { noradId: 44909, category: "linear" },
+  "AO-92": { noradId: 43137, category: "fm" },
+  "PO-101": { noradId: 44104, category: "fm" },
+  "IO-86": { noradId: 40931, category: "fm" },
+  "AO-123": { noradId: 58580, category: "fm" },
+  "HADES-ICM (SO-125)": { noradId: 63492, category: "fm" },
+  "SO-125": { noradId: 63492, category: "fm" },
+  "HADES-D": { noradId: 0, category: "fm" }, // NORAD TBD; matched by name
+  "MO-122": { noradId: 57172, category: "fm" },
+
+  // TEVEL series (first generation — decayed, but may appear in older TLEs)
+  "TEVEL-1": { noradId: 50988, category: "fm" },
+  "TEVEL-2": { noradId: 50989, category: "fm" },
+  "TEVEL-3": { noradId: 50990, category: "fm" },
+  "TEVEL-4": { noradId: 50991, category: "fm" },
+  "TEVEL-5": { noradId: 50992, category: "fm" },
+  "TEVEL-6": { noradId: 50993, category: "fm" },
+  "TEVEL-7": { noradId: 50994, category: "fm" },
+  "TEVEL-8": { noradId: 50995, category: "fm" },
+
+  // TEVEL-2 series (second generation from AMSAT nasabare.txt)
+  "TEVEL2-1": { noradId: 0, category: "fm" },
+  "TEVEL2-2": { noradId: 0, category: "fm" },
+  "TEVEL2-3": { noradId: 0, category: "fm" },
+  "TEVEL2-4": { noradId: 0, category: "fm" },
+  "TEVEL2-5": { noradId: 0, category: "fm" },
+  "TEVEL2-6": { noradId: 0, category: "fm" },
+  "TEVEL2-7": { noradId: 0, category: "fm" },
+  "TEVEL2-8": { noradId: 0, category: "fm" },
+  "TEVEL2-9": { noradId: 0, category: "fm" },
+
+  // Other FM repeaters
+  "CAS-10": { noradId: 0, category: "fm" }, // CAS-10 has FM transponder
+  SAUDISAT: { noradId: 0, category: "fm" },
+  "SAUDISAT-1C": { noradId: 0, category: "fm" },
+
+  // ── Linear Transponders (SSB/CW) ───────────────────────────────────
+  "AO-7": { noradId: 7530, category: "linear" },
+  "AO-73": { noradId: 39444, category: "linear" },
+  "FO-29": { noradId: 24278, category: "linear" },
   "FO-99": { noradId: 43937, category: "linear" },
+  "JO-97": { noradId: 43803, category: "linear" },
+  "RS-44": { noradId: 44909, category: "linear" },
   "QO-100": { noradId: 43700, category: "linear" },
   "CAS-4A": { noradId: 44881, category: "linear" },
   "CAS-4B": { noradId: 44884, category: "linear" },
-  "TEVEL-1": { noradId: 50988, category: "fm" },
+  "TO-108": { noradId: 0, category: "linear" }, // CAS-6
+  "HO-113": { noradId: 0, category: "linear" },
+
+  // XW-2 series (CAS-3 constellation) — all carry 435/145 linear transponders
+  "XW-2A": { noradId: 40903, category: "linear" },
+  "XW-2B": { noradId: 40911, category: "linear" },
+  "XW-2C": { noradId: 40906, category: "linear" },
+  "XW-2D": { noradId: 40907, category: "linear" },
+  "XW-2E": { noradId: 40909, category: "linear" },
+  "XW-2F": { noradId: 40910, category: "linear" },
+
+  // XW-3 / CAS-9 — linear transponder
+  "XW-3": { noradId: 50466, category: "linear" },
+  "CAS-9": { noradId: 50466, category: "linear" },
+
+  // Other linear transponder sats
+  "LILACSAT-2": { noradId: 40908, category: "linear" },
+  "LilacSat-2": { noradId: 40908, category: "linear" },
+  "RS-22": { noradId: 0, category: "linear" },
+  "RS-30": { noradId: 0, category: "linear" },
+  "RS-38S": { noradId: 0, category: "linear" },
+  "EO-80": { noradId: 0, category: "linear" },
+  "CO-55": { noradId: 0, category: "linear" },
+  "CO-57": { noradId: 0, category: "linear" },
+  "CO-58": { noradId: 0, category: "linear" },
+  "CO-65": { noradId: 0, category: "linear" },
+  "CO-66": { noradId: 0, category: "linear" },
+  "LO-74": { noradId: 0, category: "linear" },
+
+  // ── Digital (APRS, digipeaters, packet, FSK, SSTV) ─────────────────
+  "IO-117": { noradId: 57166, category: "digital" }, // GreenCube digipeater
+  "NO-44": { noradId: 26931, category: "digital" },
+  "NO-104": { noradId: 44354, category: "digital" }, // PSAT-2 (decayed)
+  "GO-32": { noradId: 25397, category: "digital" },
+  "CAS-2T": { noradId: 0, category: "digital" },
+  BOTAN: { noradId: 0, category: "digital" }, // APRS digipeater
+  "SNUGLITE-III DURI": { noradId: 0, category: "digital" }, // 9600bps GMSK AX.25
+  "SNUGLITE 2": { noradId: 0, category: "digital" },
+  "ISS-DATA": { noradId: 25544, category: "iss" }, // ISS packet — keep as ISS
+
+  // ── Weather (APT / LRPT / HRPT receivable) ─────────────────────────
+  "NOAA 15": { noradId: 25338, category: "weather" },
+  "NOAA 18": { noradId: 28654, category: "weather" },
+  "NOAA 19": { noradId: 33591, category: "weather" },
+  "NOAA-15": { noradId: 25338, category: "weather" },
+  "NOAA-18": { noradId: 28654, category: "weather" },
+  "NOAA-19": { noradId: 33591, category: "weather" },
+  "METEOR-M 2": { noradId: 40069, category: "weather" },
+  "METEOR-M2 2": { noradId: 44387, category: "weather" },
+  "METEOR-M2 3": { noradId: 57166, category: "weather" },
+  "METEOR-M2 4": { noradId: 0, category: "weather" },
+  "METEOR-M 2-2": { noradId: 44387, category: "weather" },
+  "METEOR-M 2-3": { noradId: 57166, category: "weather" },
+  "METOP-A": { noradId: 29499, category: "weather" },
+  "METOP-B": { noradId: 38771, category: "weather" },
+  "METOP-C": { noradId: 43689, category: "weather" },
+  "FENGYUN 3A": { noradId: 32958, category: "weather" },
+  "FENGYUN 3B": { noradId: 37214, category: "weather" },
+  "FENGYUN 3C": { noradId: 39260, category: "weather" },
+  "FENGYUN 3D": { noradId: 43010, category: "weather" },
+  "FENGYUN 3E": { noradId: 49008, category: "weather" },
+  "GOES-16": { noradId: 41866, category: "weather" },
+  "GOES-17": { noradId: 43226, category: "weather" },
+  "GOES-18": { noradId: 51850, category: "weather" },
 };
+
+// ---------------------------------------------------------------------------
+// Fast NORAD ID → category lookup (built once from POPULAR_SATS)
+// Skips entries with noradId 0 (name-only matches)
+// ---------------------------------------------------------------------------
+const _noradCategoryMap = new Map<number, SatelliteCategory>();
+for (const entry of Object.values(POPULAR_SATS)) {
+  if (entry.noradId > 0 && !_noradCategoryMap.has(entry.noradId)) {
+    _noradCategoryMap.set(entry.noradId, entry.category);
+  }
+}
 
 /**
  * Resolve the category for a satellite from name or NORAD ID.
  * Falls back to "other" for unknown satellites.
+ *
+ * Performance: O(1) for known names/NORAD IDs via Map lookups,
+ * then falls through to simple string heuristics.
  */
 export function categoriseSatellite(
   name: string,
   noradId: number,
 ): SatelliteCategory {
-  // Check known satellites first
+  // 1. Exact name match in POPULAR_SATS (O(1) property lookup)
   const trimmedName = name.trim();
   const known = POPULAR_SATS[trimmedName];
   if (known) {
     return known.category;
   }
 
-  // Match by NORAD ID
-  for (const entry of Object.values(POPULAR_SATS)) {
-    if (entry.noradId === noradId) {
-      return entry.category;
+  // 2. NORAD ID match via pre-built Map (O(1))
+  if (noradId > 0) {
+    const byId = _noradCategoryMap.get(noradId);
+    if (byId) {
+      return byId;
     }
   }
 
-  // Heuristic categorisation by name prefix
+  // 3. Heuristic categorisation by name patterns
   const upper = trimmedName.toUpperCase();
-  if (upper.includes("ISS") || upper.includes("ZARYA")) {
+
+  // ── ISS / Space Stations ──────────────────────────────────────────
+  if (
+    upper.includes("ISS") ||
+    upper.includes("ZARYA") ||
+    upper.includes("TIANHE") ||
+    upper.includes("TIANGONG")
+  ) {
     return "iss";
   }
+
+  // ── Weather satellites ────────────────────────────────────────────
+  // Check weather BEFORE amateur categories since NOAA/METEOR names
+  // are distinctive and should never fall into FM/linear buckets.
   if (
-    upper.startsWith("AO-") ||
+    upper.includes("NOAA") ||
+    upper.includes("METEOR") ||
+    upper.includes("METOP") ||
+    upper.includes("FENGYUN") ||
+    upper.includes("FENG YUN") ||
+    upper.includes("GOES-") ||
+    upper.startsWith("GOES ") ||
+    upper.includes("WEATHER") ||
+    upper.includes("HIMAWARI") ||
+    upper.includes("ELECTRO-L")
+  ) {
+    return "weather";
+  }
+
+  // ── FM Repeaters ──────────────────────────────────────────────────
+  if (
     upper.startsWith("SO-") ||
-    upper.startsWith("IO-") ||
-    upper.startsWith("TEVEL")
+    upper.startsWith("TEVEL") ||
+    upper.startsWith("PO-") ||
+    upper.includes("HADES") ||
+    upper.includes("SAUDISAT") ||
+    upper.includes("BREEZE") ||
+    upper.startsWith("CAS-10")
   ) {
     return "fm";
   }
+
+  // AO- prefix: most are FM repeaters (AO-91, AO-92, AO-27, AO-123)
+  // but AO-7 and AO-73 are linear — handle the exceptions
+  if (upper.startsWith("AO-")) {
+    if (upper === "AO-7" || upper.startsWith("AO-73")) {
+      return "linear";
+    }
+    return "fm";
+  }
+
+  // IO- prefix: IO-86 is FM, IO-117 is digital — default FM for others
+  if (upper.startsWith("IO-")) {
+    if (upper.startsWith("IO-117")) {
+      return "digital";
+    }
+    return "fm";
+  }
+
+  // MO- prefix: FM repeaters (e.g. MO-122)
+  if (upper.startsWith("MO-")) {
+    return "fm";
+  }
+
+  // ── Linear Transponders (SSB/CW) ──────────────────────────────────
   if (
     upper.startsWith("FO-") ||
     upper.startsWith("RS-") ||
     upper.startsWith("QO-") ||
-    upper.startsWith("CAS-")
+    upper.startsWith("JO-") ||
+    upper.startsWith("XW-") ||
+    upper.startsWith("HO-") ||
+    upper.startsWith("EO-") ||
+    upper.startsWith("LO-") ||
+    upper.startsWith("CO-") ||
+    upper.includes("LILACSAT")
   ) {
     return "linear";
   }
-  if (upper.includes("DIGI") || upper.includes("APRS")) {
-    return "digital";
+
+  // CAS- prefix: CAS-4A/B, CAS-9, XW-series are linear; CAS-10 is FM
+  // CAS-2T is digital; default to linear for other CAS- sats
+  if (upper.startsWith("CAS-")) {
+    if (upper.startsWith("CAS-10")) {
+      return "fm";
+    }
+    if (upper.startsWith("CAS-2T")) {
+      return "digital";
+    }
+    return "linear";
   }
+
+  // ── Digital (APRS, digipeaters, packet, FSK, SSTV) ────────────────
   if (
-    upper.includes("NOAA") ||
-    upper.includes("METEOR") ||
-    upper.includes("WEATHER")
+    upper.includes("APRS") ||
+    upper.includes("DIGI") ||
+    upper.includes("PACKET") ||
+    upper.includes("PSAT") ||
+    upper.includes("AX25") ||
+    upper.includes("AX.25") ||
+    upper.includes("BPSK") ||
+    upper.includes("GMSK") ||
+    upper.includes("FSK") ||
+    upper.includes("SSTV") ||
+    upper.includes("UVSQ") ||
+    upper.startsWith("NO-")
   ) {
-    return "weather";
+    return "digital";
   }
 
   return "other";
@@ -496,12 +704,51 @@ export function calculateRangeRateForSat(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch TLE data from Celestrak (amateur radio group).
- * Falls back to the app's proxy endpoint if CORS blocks the direct request.
+ * In-memory TLE cache to respect Celestrak's rate limits.
+ * Celestrak updates GP data every ~2 hours and will firewall-block IPs
+ * that make >100 error requests in a 2-hour window.
+ * See: https://celestrak.org/NORAD/elements/gp.php (FAQ section)
+ */
+let _tleCache: TLEData[] | null = null;
+let _tleCacheTime = 0;
+const TLE_CACHE_MIN_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — matches Celestrak update cadence
+
+/**
+ * Fetch TLE data from multiple sources with graceful fallback.
  *
- * @returns Array of parsed TLE records
+ * Order: Celestrak → Vite/Vercel proxy → AMSAT
+ *
+ * Respects Celestrak rate limits by caching results for a minimum of
+ * 2 hours (their update cadence). If all sources fail, returns the
+ * last cached result if available.
  */
 export async function fetchTLEData(): Promise<TLEData[]> {
+  // Return cached data if fresh enough (prevents hammering during dev restarts)
+  if (_tleCache && _tleCache.length > 0) {
+    const age = Date.now() - _tleCacheTime;
+    if (age < TLE_CACHE_MIN_AGE_MS) {
+      return _tleCache;
+    }
+  }
+
+  const result = await _fetchTLEFromSources();
+
+  if (result.length > 0) {
+    _tleCache = result;
+    _tleCacheTime = Date.now();
+  } else if (_tleCache && _tleCache.length > 0) {
+    // All sources failed — return stale cache rather than nothing
+    console.warn(
+      "[Satellites] All sources unavailable, using cached TLE data " +
+        `(${Math.round((Date.now() - _tleCacheTime) / 60000)}min old)`,
+    );
+    return _tleCache;
+  }
+
+  return result;
+}
+
+async function _fetchTLEFromSources(): Promise<TLEData[]> {
   // Try direct Celestrak fetch first
   try {
     const response = await fetch(CELESTRAK_URL, {
@@ -514,11 +761,17 @@ export async function fetchTLEData(): Promise<TLEData[]> {
         return parsed;
       }
     }
+    // Celestrak returns 403 when rate-limited — don't retry
+    if (response.status === 403 || response.status === 429) {
+      console.warn(
+        `[Satellites] Celestrak rate-limited (HTTP ${response.status}), trying fallbacks`,
+      );
+    }
   } catch {
-    // CORS blocked or network error — fall through to proxy
+    // CORS blocked, timeout, or firewall block — fall through
   }
 
-  // Try proxy endpoint
+  // Try proxy endpoint (Vite dev proxy or Vercel edge function)
   try {
     const response = await fetch(PROXY_URL, {
       signal: AbortSignal.timeout(10000),
@@ -532,16 +785,133 @@ export async function fetchTLEData(): Promise<TLEData[]> {
         }
       } else {
         const text = await response.text();
-        return parseTLEText(text);
+        const parsed = parseTLEText(text);
+        if (parsed.length > 0) return parsed;
       }
     }
   } catch {
     // Proxy also failed
   }
 
-  // Return empty — hook layer will use fallback
+  // Try AMSAT as secondary source (no CORS issues, amateur sats only)
+  try {
+    const response = await fetch(AMSAT_URL, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) {
+      const text = await response.text();
+      const parsed = parseTLEText(text);
+      if (parsed.length > 0) {
+        console.info(
+          `[Satellites] Celestrak unavailable, loaded ${parsed.length} sats from AMSAT`,
+        );
+        return parsed;
+      }
+    }
+  } catch {
+    // AMSAT also failed
+  }
+
+  // All external sources failed
   console.warn(
-    "Failed to fetch TLE data from Celestrak and proxy. Using fallback.",
+    "[Satellites] All TLE sources unavailable (Celestrak, proxy, AMSAT)",
   );
   return [];
+}
+
+// ---------------------------------------------------------------------------
+// Multi-Group TLE Fetching
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-group TLE cache. Each non-amateur group gets its own cache entry
+ * so groups can be independently refreshed without re-fetching all data.
+ */
+const _groupCache = new Map<string, { data: TLEData[]; time: number }>();
+
+/**
+ * Fetch TLE data for a specific Celestrak group.
+ *
+ * For the "amateur" group, delegates to `fetchTLEData()` which has a
+ * 3-source fallback chain (Celestrak → proxy → AMSAT). For all other
+ * groups, fetches via the proxy endpoint only (the edge function
+ * handles Celestrak on the server side).
+ *
+ * Results are cached per-group for 2 hours (matching Celestrak update cadence).
+ */
+export async function fetchTLEForGroup(group: string): Promise<TLEData[]> {
+  // "amateur" uses the existing fetchTLEData() with full fallback chain
+  if (group === "amateur") return fetchTLEData();
+
+  // Check per-group cache
+  const cached = _groupCache.get(group);
+  if (cached && Date.now() - cached.time < TLE_CACHE_MIN_AGE_MS) {
+    return cached.data;
+  }
+
+  try {
+    const res = await fetch(
+      `/api/satellites/tle?group=${encodeURIComponent(group)}`,
+      {
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!res.ok) return cached?.data ?? [];
+
+    const contentType = res.headers.get("content-type");
+    let result: TLEData[];
+    if (contentType?.includes("application/json")) {
+      const json = await res.json();
+      result = parseTLEText(json.tle ?? "");
+    } else {
+      result = parseTLEText(await res.text());
+    }
+
+    if (result.length > 0) {
+      _groupCache.set(group, { data: result, time: Date.now() });
+    }
+    return result;
+  } catch {
+    return cached?.data ?? [];
+  }
+}
+
+/**
+ * Fetch TLE data for all enabled groups in parallel, then merge
+ * and deduplicate by NORAD ID.
+ *
+ * The "amateur" group is always fetched first and its results take
+ * priority during deduplication (first occurrence wins). This ensures
+ * amateur radio satellite entries are never overwritten by entries from
+ * other groups that might carry different names for the same object.
+ *
+ * Uses `Promise.allSettled` so a failure in one group doesn't block others.
+ */
+export async function fetchAllEnabledTLEGroups(
+  enabledGroups: string[],
+): Promise<TLEData[]> {
+  // Always put amateur first for dedup priority
+  const sorted = ["amateur", ...enabledGroups.filter((g) => g !== "amateur")];
+  const unique = [...new Set(sorted)];
+
+  const results = await Promise.allSettled(
+    unique.map((group) => fetchTLEForGroup(group)),
+  );
+
+  // Merge and deduplicate by NORAD ID
+  const seen = new Set<number>();
+  const merged: TLEData[] = [];
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const tle of result.value) {
+        if (!seen.has(tle.noradId)) {
+          seen.add(tle.noradId);
+          merged.push(tle);
+        }
+      }
+    }
+  }
+
+  return merged;
 }

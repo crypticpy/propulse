@@ -6,6 +6,7 @@ import type {
 } from "@/types/mapOverlays";
 import type { OperatingProfile, SpotFilters } from "@/types/operatingProfile";
 import type { SatelliteCategory } from "@/types/satellite";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type MapStyle = "satellite" | "standard";
@@ -514,6 +515,14 @@ interface MapState {
   satelliteShowAll: boolean;
   setSatelliteShowAll: (show: boolean) => void;
 
+  // Beacon inactive opacity (0-1, persisted)
+  beaconInactiveOpacity: number;
+  setBeaconInactiveOpacity: (opacity: number) => void;
+
+  // NVIS dome opacity (0.1-0.8, persisted)
+  nvisOpacity: number;
+  setNvisOpacity: (opacity: number) => void;
+
   // Reset to defaults
   reset: () => void;
 }
@@ -897,6 +906,57 @@ function saveAutoRotateSpeed(speed: number): void {
   }
 }
 
+// ── Beacon inactive opacity persistence ────────────────────────────────────────
+
+const BEACON_INACTIVE_OPACITY_KEY = "propulse-beacon-inactive-opacity";
+
+function loadBeaconInactiveOpacity(): number {
+  try {
+    const saved = localStorage.getItem(BEACON_INACTIVE_OPACITY_KEY);
+    if (saved !== null) {
+      const parsed = parseFloat(saved);
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return 0.6;
+}
+
+function saveBeaconInactiveOpacity(opacity: number): void {
+  try {
+    localStorage.setItem(BEACON_INACTIVE_OPACITY_KEY, String(opacity));
+  } catch {
+    /* ignore */
+  }
+}
+
+// ── NVIS dome opacity persistence ────────────────────────────────────────────
+
+const NVIS_OPACITY_KEY = "propulse-nvis-opacity";
+
+function loadNvisOpacity(): number {
+  try {
+    const saved = localStorage.getItem(NVIS_OPACITY_KEY);
+    if (saved !== null) {
+      const parsed = parseFloat(saved);
+      if (Number.isFinite(parsed) && parsed >= 0.1 && parsed <= 0.8)
+        return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return 0.35;
+}
+
+function saveNvisOpacity(opacity: number): void {
+  try {
+    localStorage.setItem(NVIS_OPACITY_KEY, String(opacity));
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Dock groups persistence ───────────────────────────────────────────────────
 
 const DOCK_GROUPS_KEY = "propulse-dock-groups";
@@ -1029,6 +1089,12 @@ const initialState = {
   selectedSatelliteId: null as number | null,
   satelliteCategoryFilter: "all" as SatelliteCategory | "all",
   satelliteShowAll: false,
+
+  // Beacon inactive opacity (persisted)
+  beaconInactiveOpacity: loadBeaconInactiveOpacity(),
+
+  // NVIS dome opacity (persisted)
+  nvisOpacity: loadNvisOpacity(),
 };
 
 export const useMapStore = create<MapState>((set, get) => ({
@@ -1248,12 +1314,9 @@ export const useMapStore = create<MapState>((set, get) => ({
     });
 
     // 7. Set spotColorMode and visualStyle via settingsStore
-    // Lazy import to avoid potential circular dependency
-    import("@/stores/settingsStore").then(({ useSettingsStore }) => {
-      useSettingsStore.getState().updateUIInteraction({
-        spotColorMode: profile.spotColorMode,
-        visualStyle: profile.visualStyle,
-      });
+    useSettingsStore.getState().updateUIInteraction({
+      spotColorMode: profile.spotColorMode,
+      visualStyle: profile.visualStyle,
     });
   },
 
@@ -1758,6 +1821,20 @@ export const useMapStore = create<MapState>((set, get) => ({
   setSelectedSatelliteId: (noradId) => set({ selectedSatelliteId: noradId }),
   setSatelliteCategoryFilter: (cat) => set({ satelliteCategoryFilter: cat }),
   setSatelliteShowAll: (show) => set({ satelliteShowAll: show }),
+
+  // Beacon inactive opacity
+  setBeaconInactiveOpacity: (opacity) => {
+    const clamped = Math.max(0, Math.min(1, opacity));
+    saveBeaconInactiveOpacity(clamped);
+    set({ beaconInactiveOpacity: clamped });
+  },
+
+  // NVIS dome opacity
+  setNvisOpacity: (opacity) => {
+    const clamped = Math.max(0.1, Math.min(0.8, opacity));
+    saveNvisOpacity(clamped);
+    set({ nvisOpacity: clamped });
+  },
 
   reset: () => set(initialState),
 }));

@@ -96,30 +96,6 @@ export const AnimationModal: React.FC<AnimationModalProps> = ({
     }
   }, [isOpen]);
 
-  // Handle escape key
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      } else if (e.key === " " && animationJsonUrl) {
-        e.preventDefault();
-        togglePlayback();
-      }
-    },
-    [onClose, animationJsonUrl],
-  );
-
-  useEffect(() => {
-    if (isOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [isOpen, handleKeyDown]);
-
   // Preload frames
   const preloadFrames = useCallback(
     async (frameList: AnimationFrame[], start: number, count: number) => {
@@ -201,6 +177,44 @@ export const AnimationModal: React.FC<AnimationModalProps> = ({
     }
   }, [animationJsonUrl, preloadFrames]);
 
+  // Toggle playback
+  const togglePlayback = useCallback(() => {
+    if (playerState === "idle" && animationJsonUrl) {
+      loadAnimation();
+    } else if (playerState === "ready" || playerState === "paused") {
+      setPlayerState("playing");
+    } else if (playerState === "playing") {
+      setPlayerState("paused");
+    } else if (playerState === "error") {
+      // Retry
+      loadAnimation();
+    }
+  }, [playerState, animationJsonUrl, loadAnimation]);
+
+  // Handle escape key
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      } else if (e.key === " " && animationJsonUrl) {
+        e.preventDefault();
+        togglePlayback();
+      }
+    },
+    [onClose, animationJsonUrl, togglePlayback],
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, handleKeyDown]);
+
   // Animation loop
   useEffect(() => {
     if (playerState !== "playing" || frames.length === 0) {
@@ -246,11 +260,12 @@ export const AnimationModal: React.FC<AnimationModalProps> = ({
 
   // Cleanup on unmount
   useEffect(() => {
+    const cache = imageCache.current;
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      imageCache.current.clear();
+      cache.clear();
     };
   }, []);
 
@@ -278,20 +293,6 @@ export const AnimationModal: React.FC<AnimationModalProps> = ({
       });
     } catch {
       return "";
-    }
-  };
-
-  // Toggle playback
-  const togglePlayback = () => {
-    if (playerState === "idle" && animationJsonUrl) {
-      loadAnimation();
-    } else if (playerState === "ready" || playerState === "paused") {
-      setPlayerState("playing");
-    } else if (playerState === "playing") {
-      setPlayerState("paused");
-    } else if (playerState === "error") {
-      // Retry
-      loadAnimation();
     }
   };
 

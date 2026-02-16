@@ -382,7 +382,7 @@ export async function fetchFluxForecast(): Promise<{
       forecast: Array<{
         date: string;
         predicted_flux: number | null;
-        predicted_kp?: number | null;
+        predicted_a_index?: number | null;
       }>;
     };
 
@@ -391,6 +391,10 @@ export async function fetchFluxForecast(): Promise<{
       .map((entry) => ({
         date: entry.date,
         predicted_flux: entry.predicted_flux!,
+        predicted_a_index:
+          typeof entry.predicted_a_index === "number"
+            ? entry.predicted_a_index
+            : undefined,
       }));
 
     const result = { raw: data.raw, forecast };

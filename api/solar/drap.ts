@@ -61,7 +61,8 @@ function parseDRAPText(text: string): {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith("#") || trimmed.startsWith("-") || trimmed === "")
+    // Skip comments, pure-dash separator lines, and blank lines
+    if (trimmed.startsWith("#") || /^-+$/.test(trimmed) || trimmed === "")
       continue;
 
     // Longitude header: first non-comment, non-separator line without "|"

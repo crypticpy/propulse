@@ -55,6 +55,7 @@ import type { EarthquakeEvent } from "@/lib/api/earthquakes";
 import type { WeatherAlert } from "@/lib/api/weather";
 import type { LightningStrike } from "@/lib/api/lightning";
 import type { FireHotspot } from "@/lib/api/fires";
+import type { LiveSpot } from "@/types/livespot";
 
 interface AzimuthalViewProps {
   /** Current display time */
@@ -1453,7 +1454,12 @@ export function AzimuthalView({
   // Resolve selected DX cluster spot location for highlight arc
   const resolvedSelectedSpot = useMemo(() => {
     if (!selectedSpot) return null;
-    const resolved = resolveSpotLocations([selectedSpot as any]);
+    const selectedSpotSource =
+      (selectedSpot as unknown as { source?: LiveSpot["source"] }).source ??
+      "Cluster";
+    const resolved = resolveSpotLocations([
+      { ...selectedSpot, source: selectedSpotSource },
+    ]);
     return resolved.length > 0 ? resolved[0] : null;
   }, [selectedSpot]);
 
@@ -1470,7 +1476,7 @@ export function AzimuthalView({
       if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, spotColorMode);
-      const staggerOffset = isInitialLoad ? Math.random() * 6000 : 0;
+      const staggerOffset = isInitialLoad ? Math.random() * 1000 : 0;
       const timestamp = now - staggerOffset;
 
       try {

@@ -131,6 +131,28 @@ function rowToRsvp(row: Record<string, unknown>): NetRsvp {
   };
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isNetManagerRoleValue(value: unknown): value is NetManagerRole {
+  return value === "owner" || value === "manager" || value === "ncs";
+}
+
+interface NetStoreQueryResult {
+  data: unknown;
+  count?: number | null;
+  error: { message: string } | null;
+}
+
+type NetStoreQueryBuilder = PromiseLike<NetStoreQueryResult> & {
+  [method: string]: (...args: unknown[]) => NetStoreQueryBuilder;
+};
+
+interface NetStoreQueryClient {
+  from: (table: string) => NetStoreQueryBuilder;
+}
+
 // ── Store ────────────────────────────────────────────────────────────
 
 interface NetStore {
@@ -293,7 +315,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       const needsClientSidePagination =
         sortBy === "upcoming" || hasDayOfWeekFilter;
 
-      let query = (supabase as any)
+      let query = (supabase as unknown as NetStoreQueryClient)
         .from("nets")
         .select("*", { count: "exact" })
         .in("visibility", ["public", "unlisted"]);
@@ -425,7 +447,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("nets")
         .select("*")
         .eq("id", netId)
@@ -455,7 +477,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data: inserted, error } = await (supabase as any)
+      const { data: inserted, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("nets")
         .insert({
           name: data.name,
@@ -496,7 +518,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       const netId = (inserted as Record<string, unknown>).id as string;
 
       // Insert creator as owner in net_managers
-      const { error: managerError } = await (supabase as any)
+      const { error: managerError } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_managers")
         .insert({
           net_id: netId,
@@ -565,7 +587,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
         updates.allstar_node = data.allstarNode;
       if (data.irlpNode !== undefined) updates.irlp_node = data.irlpNode;
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("nets")
         .update(updates)
         .eq("id", netId);
@@ -594,7 +616,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("nets")
         .delete()
         .eq("id", netId)
@@ -625,7 +647,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_subscriptions")
         .select("*")
         .eq("user_id", userId);
@@ -655,7 +677,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_subscriptions")
         .insert({
           user_id: userId,
@@ -687,7 +709,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_subscriptions")
         .delete()
         .eq("user_id", userId)
@@ -733,7 +755,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       if (prefs.showOnProfile !== undefined)
         updates.show_on_profile = prefs.showOnProfile;
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_subscriptions")
         .update(updates)
         .eq("user_id", userId)
@@ -764,7 +786,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_managers")
         .select("*")
         .eq("net_id", netId);
@@ -790,7 +812,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await (supabase as any).from("net_managers").insert({
+      const { error } = await (supabase as unknown as NetStoreQueryClient).from("net_managers").insert({
         net_id: netId,
         user_id: userId,
         role,
@@ -815,7 +837,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_managers")
         .delete()
         .eq("net_id", netId)
@@ -855,7 +877,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_sessions")
         .select("*")
         .eq("net_id", netId)
@@ -895,7 +917,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_sessions")
         .insert({
           net_id: netId,
@@ -939,7 +961,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
 
       if (Object.keys(dbUpdates).length === 0) return;
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_sessions")
         .update(dbUpdates)
         .eq("id", sessionId);
@@ -1022,7 +1044,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
         updates.notes = notes;
       }
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_sessions")
         .update(updates)
         .eq("id", sessionId);
@@ -1060,7 +1082,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_checkins")
         .select("*")
         .eq("session_id", sessionId)
@@ -1101,7 +1123,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
           : 0;
       const nextPosition = maxPosition + 1;
 
-      const { error } = await (supabase as any).from("net_checkins").insert({
+      const { error } = await (supabase as unknown as NetStoreQueryClient).from("net_checkins").insert({
         session_id: sessionId,
         callsign,
         checked_in_at: new Date().toISOString(),
@@ -1146,7 +1168,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       if (data.isRelay !== undefined) updates.is_relay = data.isRelay;
       if (data.relayVia !== undefined) updates.relay_via = data.relayVia;
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_checkins")
         .update(updates)
         .eq("id", checkinId);
@@ -1183,7 +1205,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_checkins")
         .delete()
         .eq("id", checkinId);
@@ -1211,6 +1233,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
   ) => {
     if (!isSupabaseConfigured) return;
     const supabase = getSupabase();
+    const queryClient = supabase as unknown as NetStoreQueryClient;
 
     // Get current checkins for this session, sorted by position
     const currentCheckins = get()
@@ -1236,8 +1259,8 @@ export const useNetStore = create<NetStore>()((set, get) => ({
       const newPos = i + 1;
       if (currentCheckins[i].queuePosition !== newPos) {
         updates.push(
-          supabase
-            .from("net_checkins" as any)
+          queryClient
+            .from("net_checkins")
             .update({ queue_position: newPos })
             .eq("id", currentCheckins[i].id)
             .then(() => {}),
@@ -1272,7 +1295,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("calendar_tokens")
         .select("token")
         .eq("user_id", userId)
@@ -1304,13 +1327,13 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     const supabase = getSupabase();
 
     // Delete any existing token for this user first (one token per user)
-    await (supabase as any)
+    await (supabase as unknown as NetStoreQueryClient)
       .from("calendar_tokens")
       .delete()
       .eq("user_id", userId);
 
     // Insert new token
-    const { error } = await (supabase as any).from("calendar_tokens").insert({
+    const { error } = await (supabase as unknown as NetStoreQueryClient).from("calendar_tokens").insert({
       user_id: userId,
       token,
     });
@@ -1335,7 +1358,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
 
     const supabase = getSupabase();
 
-    await (supabase as any)
+    await (supabase as unknown as NetStoreQueryClient)
       .from("calendar_tokens")
       .delete()
       .eq("user_id", userId);
@@ -1351,19 +1374,23 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
+      const sessionIdRowsResult = await (supabase as unknown as NetStoreQueryClient)
+        .from("net_sessions")
+        .select("id")
+        .eq("net_id", netId);
+      const sessionIdRows = Array.isArray(sessionIdRowsResult.data)
+        ? sessionIdRowsResult.data
+        : [];
+      const sessionIds = sessionIdRows
+        .filter(isObjectRecord)
+        .map((row) => (typeof row.id === "string" ? row.id : ""))
+        .filter((id) => id.length > 0);
+
       // Fetch distinct callsigns from all sessions belonging to this net
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_checkins")
         .select("callsign, session_id")
-        .in(
-          "session_id",
-          (
-            await (supabase as any)
-              .from("net_sessions")
-              .select("id")
-              .eq("net_id", netId)
-          ).data?.map((r: Record<string, unknown>) => r.id) ?? [],
-        )
+        .in("session_id", sessionIds)
         .order("callsign", { ascending: true });
 
       if (error || !data) {
@@ -1394,7 +1421,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_rsvps")
         .select("*")
         .eq("net_id", netId)
@@ -1423,7 +1450,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_rsvps")
         .insert({
           net_id: netId,
@@ -1457,7 +1484,7 @@ export const useNetStore = create<NetStore>()((set, get) => ({
     try {
       const supabase = getSupabase();
 
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown as NetStoreQueryClient)
         .from("net_rsvps")
         .delete()
         .eq("net_id", netId)
@@ -1513,48 +1540,90 @@ export const useNetStore = create<NetStore>()((set, get) => ({
 
     try {
       const supabase = getSupabase();
+      const queryClient = supabase as unknown as NetStoreQueryClient;
 
       // 1. Fetch manager records for current user
-      const { data: managerRows, error: mgrErr } = await (supabase as any)
+      const { data: managerRowsRaw, error: mgrErr } = await queryClient
         .from("net_managers")
         .select("*")
         .eq("user_id", userId);
 
-      if (mgrErr || !managerRows || managerRows.length === 0) {
+      if (mgrErr) {
+        console.error("[netStore] fetchMyManagedNets manager query:", mgrErr);
         set({ managedNets: [], isLoadingManagedNets: false });
         return;
       }
 
-      const netIds = managerRows.map((r: any) => r.net_id as string);
+      const managerRows = Array.isArray(managerRowsRaw)
+        ? managerRowsRaw.filter(isObjectRecord)
+        : [];
+
+      const managerEntries = managerRows.flatMap((row) => {
+        const netId = typeof row.net_id === "string" ? row.net_id : "";
+        if (!netId) return [];
+        return [
+          {
+            netId,
+            role: isNetManagerRoleValue(row.role) ? row.role : ("ncs" as const),
+          },
+        ];
+      });
+
+      if (managerEntries.length === 0) {
+        set({ managedNets: [], isLoadingManagedNets: false });
+        return;
+      }
+
+      const netIds = managerEntries.map((entry) => entry.netId);
       const roleMap = new Map<string, NetManagerRole>(
-        managerRows.map((r: any) => [
-          r.net_id as string,
-          r.role as NetManagerRole,
-        ]),
+        managerEntries.map((entry) => [entry.netId, entry.role]),
       );
 
       // 2. Fetch net details
-      const { data: netRows } = await (supabase as any)
+      const { data: netRowsRaw, error: netErr } = await queryClient
         .from("nets")
         .select("*")
         .in("id", netIds);
+      if (netErr) {
+        console.error("[netStore] fetchMyManagedNets nets query:", netErr);
+        set({ managedNets: [], isLoadingManagedNets: false });
+        return;
+      }
+
+      const netRows = Array.isArray(netRowsRaw)
+        ? netRowsRaw.filter(isObjectRecord)
+        : [];
 
       // 3. Check for live sessions
-      const { data: liveRows } = await (supabase as any)
+      const { data: liveRowsRaw, error: liveErr } = await queryClient
         .from("net_sessions")
         .select("net_id")
         .in("net_id", netIds)
         .eq("status", "live");
+      if (liveErr) {
+        console.error("[netStore] fetchMyManagedNets live sessions query:", liveErr);
+        set({ managedNets: [], isLoadingManagedNets: false });
+        return;
+      }
 
       const liveNetIds = new Set(
-        (liveRows ?? []).map((r: any) => r.net_id as string),
+        (Array.isArray(liveRowsRaw) ? liveRowsRaw : [])
+          .filter(isObjectRecord)
+          .map((row) => (typeof row.net_id === "string" ? row.net_id : ""))
+          .filter((netId) => netId.length > 0),
       );
 
-      const managedNets = (netRows ?? []).map((row: any) => ({
-        net: rowToNet(row),
-        role: roleMap.get(row.id as string) ?? ("ncs" as NetManagerRole),
-        hasLiveSession: liveNetIds.has(row.id as string),
-      }));
+      const managedNets = netRows.flatMap((row) => {
+        const netId = typeof row.id === "string" ? row.id : "";
+        if (!netId) return [];
+        return [
+          {
+            net: rowToNet(row),
+            role: roleMap.get(netId) ?? ("ncs" as NetManagerRole),
+            hasLiveSession: liveNetIds.has(netId),
+          },
+        ];
+      });
 
       set({ managedNets, isLoadingManagedNets: false });
     } catch (err) {

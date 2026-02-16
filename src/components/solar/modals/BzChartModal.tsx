@@ -66,6 +66,8 @@ const BZ_SCALE = [
   },
 ];
 
+const CHART_PADDING = { top: 20, right: 50, bottom: 40, left: 55 } as const;
+
 /**
  * Get color for Bz value
  */
@@ -124,9 +126,8 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
   // Chart dimensions
   const chartWidth = 600;
   const chartHeight = 280;
-  const padding = { top: 20, right: 50, bottom: 40, left: 55 };
-  const innerWidth = chartWidth - padding.left - padding.right;
-  const innerHeight = chartHeight - padding.top - padding.bottom;
+  const innerWidth = chartWidth - CHART_PADDING.left - CHART_PADDING.right;
+  const innerHeight = chartHeight - CHART_PADDING.top - CHART_PADDING.bottom;
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) {
@@ -143,9 +144,10 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
     const yMax = Math.ceil(absMax / 5) * 5;
 
     const xScale = (index: number) =>
-      padding.left + (index / (sampledData.length - 1 || 1)) * innerWidth;
+      CHART_PADDING.left +
+      (index / (sampledData.length - 1 || 1)) * innerWidth;
     const yScale = (value: number) =>
-      padding.top + innerHeight / 2 - (value / yMax) * (innerHeight / 2);
+      CHART_PADDING.top + innerHeight / 2 - (value / yMax) * (innerHeight / 2);
 
     const points = sampledData.map((d, i) => ({
       x: xScale(i),
@@ -211,7 +213,7 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
     const step = chartData.yMax <= 15 ? 5 : 10;
     for (let v = chartData.yMin || -15; v <= chartData.yMax; v += step) {
       const y =
-        padding.top +
+        CHART_PADDING.top +
         innerHeight / 2 -
         (v / chartData.yMax) * (innerHeight / 2);
       labels.push({ value: v, y });
@@ -291,10 +293,10 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
 
               {/* Y-axis */}
               <line
-                x1={padding.left}
-                y1={padding.top}
-                x2={padding.left}
-                y2={padding.top + innerHeight}
+                x1={CHART_PADDING.left}
+                y1={CHART_PADDING.top}
+                x2={CHART_PADDING.left}
+                y2={CHART_PADDING.top + innerHeight}
                 stroke="rgba(255,255,255,0.2)"
                 strokeWidth="1"
               />
@@ -303,15 +305,15 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
               {yLabels.map(({ value, y }) => (
                 <g key={value}>
                   <line
-                    x1={padding.left - 8}
+                    x1={CHART_PADDING.left - 8}
                     y1={y}
-                    x2={padding.left}
+                    x2={CHART_PADDING.left}
                     y2={y}
                     stroke="rgba(255,255,255,0.3)"
                     strokeWidth="1"
                   />
                   <text
-                    x={padding.left - 12}
+                    x={CHART_PADDING.left - 12}
                     y={y}
                     fill="rgba(255,255,255,0.6)"
                     fontSize="12"
@@ -322,9 +324,9 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
                     {value > 0 ? `+${value}` : value}
                   </text>
                   <line
-                    x1={padding.left}
+                    x1={CHART_PADDING.left}
                     y1={y}
-                    x2={padding.left + innerWidth}
+                    x2={CHART_PADDING.left + innerWidth}
                     y2={y}
                     stroke={
                       value === 0
@@ -338,10 +340,10 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
 
               {/* X-axis */}
               <line
-                x1={padding.left}
-                y1={padding.top + innerHeight}
-                x2={padding.left + innerWidth}
-                y2={padding.top + innerHeight}
+                x1={CHART_PADDING.left}
+                y1={CHART_PADDING.top + innerHeight}
+                x2={CHART_PADDING.left + innerWidth}
+                y2={CHART_PADDING.top + innerHeight}
                 stroke="rgba(255,255,255,0.2)"
                 strokeWidth="1"
               />
@@ -413,7 +415,7 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
                       <text
                         key={i}
                         x={point.x}
-                        y={padding.top + innerHeight + 20}
+                        y={CHART_PADDING.top + innerHeight + 20}
                         fill="rgba(255,255,255,0.5)"
                         fontSize="11"
                         fontFamily="monospace"
@@ -426,7 +428,7 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
 
               {/* Axis labels */}
               <text
-                x={padding.left + innerWidth / 2}
+                x={CHART_PADDING.left + innerWidth / 2}
                 y={chartHeight - 5}
                 fill="rgba(255,255,255,0.4)"
                 fontSize="11"
@@ -437,8 +439,8 @@ export const BzChartModal: React.FC<BzChartModalProps> = ({
               </text>
 
               <text
-                x={padding.left + innerWidth + 8}
-                y={chartData.zeroY || padding.top + innerHeight / 2}
+                x={CHART_PADDING.left + innerWidth + 8}
+                y={chartData.zeroY || CHART_PADDING.top + innerHeight / 2}
                 fill="rgba(255,255,255,0.6)"
                 fontSize="10"
                 dominantBaseline="middle"

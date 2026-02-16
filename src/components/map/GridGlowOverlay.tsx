@@ -49,10 +49,10 @@ const GLOW_RADIUS = 1.003;
 const SUBDIVISIONS = 5;
 
 /** Duration of the rise phase in seconds (ease-out) */
-const RISE_DURATION = 0.8;
+const RISE_DURATION = 0.3;
 
 /** Duration of the fade phase in seconds (ease-in) */
-const FADE_DURATION = 1.2;
+const FADE_DURATION = 0.7;
 
 /** Total animation cycle in seconds */
 const TOTAL_DURATION = RISE_DURATION + FADE_DURATION;

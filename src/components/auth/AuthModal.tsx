@@ -202,9 +202,14 @@ export function AuthModal() {
   useEffect(() => {
     if (isRecoveryMode) {
       openAuthModal("Set a new password for your account");
-      switchView("reset_password");
+      clearError();
+      setConfirmError("");
+      setSuccessMessage("");
+      setDisplayView("reset_password");
+      setPassword("");
+      setConfirmPassword("");
     }
-  }, [isRecoveryMode, openAuthModal]);
+  }, [isRecoveryMode, openAuthModal, clearError]);
 
   // ── Auto-close when auth succeeds ────────────────────────────────
   useEffect(() => {

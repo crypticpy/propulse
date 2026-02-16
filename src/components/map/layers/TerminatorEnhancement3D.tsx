@@ -169,11 +169,7 @@ export const TerminatorEnhancement3D = React.memo(
     const bandMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
     const innerBandMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
     const particleRefs = useRef<THREE.Mesh[]>([]);
-
-    // Early exit if no data or zero intensity
-    if (!terminatorPoints || terminatorPoints.length < 2 || intensity <= 0) {
-      return null;
-    }
+    const hasRenderableData = terminatorPoints.length >= 2 && intensity > 0;
 
     // Build the band geometry
     const bandGeometry = useMemo(
@@ -188,12 +184,13 @@ export const TerminatorEnhancement3D = React.memo(
     );
 
     // Build the curve path along the terminator for particle animation
-    const terminatorCurve = useMemo(() => {
+    const terminatorCurve = useMemo<THREE.CatmullRomCurve3 | null>(() => {
+      if (!hasRenderableData) return null;
       const curvePoints = terminatorPoints.map((p) =>
         latLonToVector3(p.lat, p.lon, SURFACE_RADIUS + 0.005),
       );
       return new THREE.CatmullRomCurve3(curvePoints, true, "catmullrom", 0.5);
-    }, [terminatorPoints]);
+    }, [hasRenderableData, terminatorPoints]);
 
     // Particle geometry and material
     const particleGeometry = useMemo(
@@ -215,6 +212,8 @@ export const TerminatorEnhancement3D = React.memo(
 
     // Animation: pulse opacity and advance particles
     useFrame(({ clock }) => {
+      if (!hasRenderableData || !terminatorCurve) return;
+
       const t = clock.getElapsedTime();
 
       // Pulsing glow on the band
@@ -243,6 +242,11 @@ export const TerminatorEnhancement3D = React.memo(
         mesh.scale.setScalar(0.8 + 0.4 * particlePulse);
       }
     });
+
+    // Early exit if no data or zero intensity
+    if (!hasRenderableData) {
+      return null;
+    }
 
     return (
       <group name="terminator-enhancement">

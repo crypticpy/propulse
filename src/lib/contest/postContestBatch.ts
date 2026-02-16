@@ -10,6 +10,8 @@
 import type { LogEntry } from "@/lib/db/types";
 import { getAllLogEntries } from "@/lib/db/logStore";
 import { uploadToLotw } from "@/lib/sync/lotwSync";
+import { uploadToEqsl } from "@/lib/sync/eqslSync";
+import { uploadToQrz } from "@/lib/sync/qrzSync";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -76,8 +78,7 @@ export async function createBatchUpload(
  * Execute a batch upload job, yielding progress updates for each service.
  *
  * Processes each service sequentially. For LoTW, generates an ADIF file
- * for download (user must sign with TQSL). eQSL and QRZ are stubbed
- * and will throw errors until implemented in Wave 5.
+ * for download (user must sign with TQSL). eQSL and QRZ perform API uploads.
  *
  * @param job - The batch upload job to execute
  * @yields BatchUploadProgress updates for each service
@@ -112,11 +113,25 @@ export async function* executeBatchUpload(
         }
 
         case "eqsl": {
-          throw new Error("eQSL sync not yet implemented");
+          const result = await uploadToEqsl(job.entries);
+          if (result.success) {
+            progress.completed = result.recordsUploaded ?? result.qsoCount;
+          } else {
+            progress.failed = job.entries.length;
+            progress.errors.push(result.message);
+          }
+          break;
         }
 
         case "qrz": {
-          throw new Error("QRZ sync not yet implemented");
+          const result = await uploadToQrz(job.entries);
+          if (result.success) {
+            progress.completed = result.recordsUploaded ?? result.qsoCount;
+          } else {
+            progress.failed = job.entries.length;
+            progress.errors.push(result.message);
+          }
+          break;
         }
       }
     } catch (err) {

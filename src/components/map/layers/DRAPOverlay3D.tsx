@@ -3,11 +3,18 @@
  *
  * Renders D-Region Absorption Prediction (DRAP) data on the 3D globe.
  * Displays a heatmap at ionospheric D-region altitude showing HF absorption
- * zones caused by solar X-ray and proton events. Grid points where the
- * maximum usable frequency is below 15 MHz are rendered as colored discs.
+ * zones caused by solar X-ray and proton events.
  *
- * Color mapping:
- *   blue (>15 MHz, normal) -> yellow (10-15 MHz) -> orange (5-10 MHz) -> red (<5 MHz, severe)
+ * DRAP values represent the Highest Affected Frequency (HAF) in MHz.
+ * Higher HAF = more severe absorption:
+ *   - 0 MHz: no absorption (not rendered)
+ *   - 0.1-5 MHz: mild absorption (blue)
+ *   - 5-10 MHz: moderate absorption (yellow/orange)
+ *   - 10-20 MHz: strong absorption (orange/red)
+ *   - >20 MHz: severe blackout (deep red)
+ *
+ * Only grid points with HAF > 0 are rendered (absorption is occurring).
+ * Subtle opacity pulse animation on the overlay.
  */
 
 import React, { useRef, useMemo, useEffect } from "react";
@@ -20,7 +27,7 @@ import * as THREE from "three";
 
 interface DRAPOverlay3DProps {
   data: {
-    frequencies: number[][]; // lat x lon grid of max usable freq (MHz)
+    frequencies: number[][]; // lat x lon grid of Highest Affected Frequency (MHz)
     latitudes: number[];
     longitudes: number[];
   };
@@ -30,14 +37,14 @@ interface DRAPOverlay3DProps {
 // CONSTANTS
 // =============================================================================
 
-/** D-region altitude — above surface to show ionospheric layer */
+/** D-region altitude — slightly above surface to show ionospheric layer */
 const GLOBE_RADIUS = 1.015;
 
-/** Only render grid points with absorption (freq below this threshold) */
-const ABSORPTION_THRESHOLD_MHZ = 15;
+/** Only render grid points where absorption is occurring (HAF > this) */
+const MIN_HAF_MHZ = 0;
 
 /** Hard cap on rendered instances */
-const MAX_INSTANCES = 5000;
+const MAX_INSTANCES = 8200;
 
 // =============================================================================
 // MODULE-LEVEL REUSABLES
@@ -46,11 +53,11 @@ const MAX_INSTANCES = 5000;
 const dummy = new THREE.Object3D();
 const up = new THREE.Vector3(0, 0, 1);
 
-// Color stops for DRAP frequency mapping
-const colorNormal = new THREE.Color("#2266ff"); // blue — near 15 MHz (minimal absorption)
-const colorModerate = new THREE.Color("#ddcc22"); // yellow — 10-15 MHz
-const colorStrong = new THREE.Color("#ee8800"); // orange — 5-10 MHz
-const colorSevere = new THREE.Color("#ee2222"); // red — <5 MHz (severe blackout)
+// Color stops for DRAP HAF mapping (higher HAF = worse absorption)
+const colorMild = new THREE.Color("#2266ff"); // blue — low HAF (mild absorption)
+const colorModerate = new THREE.Color("#ddcc22"); // yellow — moderate HAF
+const colorStrong = new THREE.Color("#ee8800"); // orange — strong absorption
+const colorSevere = new THREE.Color("#ee2222"); // red — severe blackout
 
 // =============================================================================
 // HELPERS
@@ -70,21 +77,30 @@ function latLonTo3D(
   ];
 }
 
-/** Map a frequency value to a DRAP color. Lower freq = more severe. */
-function freqToColor(freqMHz: number, out: THREE.Color): void {
-  if (freqMHz >= 15) {
-    out.copy(colorNormal);
-  } else if (freqMHz >= 10) {
-    // 10-15 MHz: blue to yellow
-    const t = 1 - (freqMHz - 10) / 5;
-    out.lerpColors(colorNormal, colorModerate, t);
-  } else if (freqMHz >= 5) {
-    // 5-10 MHz: yellow to orange
-    const t = 1 - (freqMHz - 5) / 5;
+/**
+ * Map a DRAP HAF value to a color. Higher HAF = more severe = redder.
+ *
+ * Scale:
+ *   0-5 MHz: blue (mild)
+ *   5-10 MHz: blue -> yellow (moderate)
+ *   10-20 MHz: yellow -> orange (strong)
+ *   20+ MHz: orange -> red (severe blackout)
+ */
+function hafToColor(hafMHz: number, out: THREE.Color): void {
+  if (hafMHz <= 5) {
+    // 0-5 MHz: mild — solid blue
+    out.copy(colorMild);
+  } else if (hafMHz <= 10) {
+    // 5-10 MHz: blue to yellow
+    const t = (hafMHz - 5) / 5;
+    out.lerpColors(colorMild, colorModerate, t);
+  } else if (hafMHz <= 20) {
+    // 10-20 MHz: yellow to orange
+    const t = (hafMHz - 10) / 10;
     out.lerpColors(colorModerate, colorStrong, t);
   } else {
-    // <5 MHz: orange to red
-    const t = Math.min(1, 1 - freqMHz / 5);
+    // >20 MHz: orange to red (severe)
+    const t = Math.min(1, (hafMHz - 20) / 10);
     out.lerpColors(colorStrong, colorSevere, t);
   }
 }
@@ -110,8 +126,9 @@ export const DRAPOverlay3D = React.memo(
         for (let lonIdx = 0; lonIdx < longitudes.length; lonIdx++) {
           if (matrices.length >= MAX_INSTANCES) break;
 
-          const freq = row[lonIdx];
-          if (freq == null || freq >= ABSORPTION_THRESHOLD_MHZ) continue;
+          const haf = row[lonIdx];
+          // Skip null/undefined values and grid points with no absorption
+          if (haf == null || haf <= MIN_HAF_MHZ) continue;
 
           const [x, y, z] = latLonTo3D(
             latitudes[latIdx],
@@ -124,7 +141,7 @@ export const DRAPOverlay3D = React.memo(
           const normal = dummy.position.clone().normalize();
           dummy.quaternion.setFromUnitVectors(up, normal);
 
-          // Scale disc — size proportional to grid spacing
+          // Scale disc — size proportional to grid spacing (~4 deg lon, ~2 deg lat)
           const discScale = 0.025;
           dummy.scale.setScalar(discScale);
           dummy.updateMatrix();
@@ -132,7 +149,7 @@ export const DRAPOverlay3D = React.memo(
           matrices.push(dummy.matrix.clone());
 
           const c = new THREE.Color();
-          freqToColor(freq, c);
+          hafToColor(haf, c);
           colors.push(c);
         }
         if (matrices.length >= MAX_INSTANCES) break;
@@ -158,7 +175,7 @@ export const DRAPOverlay3D = React.memo(
       }
     }, [instanceData]);
 
-    // Subtle pulse on the most severely affected areas
+    // Subtle pulse on the overlay
     const materialRef = useRef<THREE.MeshBasicMaterial>(null);
     useFrame(({ clock }) => {
       if (materialRef.current) {

@@ -4,15 +4,16 @@
  * Renders animated "missile command" style trace lines on the 3D globe when
  * live spots arrive. Each line grows from the transmitter (spotter) to the
  * receiver (DX station) along a great circle arc, with a glowing head and
- * a landing pulse effect at the destination.
+ * an integrated landing pulse effect at the destination.
  *
  * Technical approach:
  * - Queue-based staggering: new spots enter a pending queue and are dequeued
  *   one at a time every 2 seconds to avoid visual overload
- * - Each trace animates over 2 seconds with cubic ease-out progression
- * - A 1-second landing pulse (expanding ring) fires at the DX endpoint
+ * - Each trace travels over 2.5s with quintic ease-out for ultra-smooth decel
+ * - The landing ring is blended into the final 15% of travel — the head dot
+ *   shrinks while the ring expands, creating a seamless arrival with no jerk
  * - Child <TraceAnimation> components drive their own useFrame loops
- * - Pool capped at maxTraces (default 20) concurrent animations
+ * - Pool capped at maxTraces (default 40) concurrent animations
  */
 
 import React, {
@@ -56,11 +57,11 @@ interface QueuedTrace {
 // CONSTANTS
 // =============================================================================
 
-/** Duration of the traveling phase in seconds */
-const TRAVEL_DURATION = 2.0;
+/** Duration of the traveling phase in seconds (includes integrated landing) */
+const TRAVEL_DURATION = 2.5;
 
-/** Duration of the landing pulse phase in seconds */
-const LANDING_DURATION = 1.0;
+/** Normalized progress at which the landing ring begins expanding (0–1) */
+const LANDING_BLEND_START = 0.85;
 
 /** How long the trail persists at full opacity after landing (seconds) */
 const PERSIST_DURATION = 30.0;
@@ -90,10 +91,24 @@ const LANDING_RING_MAX = 0.03;
 // EASING
 // =============================================================================
 
-/** Cubic ease-out: fast start, decelerating finish */
-function easeOutCubic(t: number): number {
+/**
+ * Quintic ease-out: fast start, very gradual deceleration into the endpoint.
+ * Smoother than cubic — the trace "floats" into its destination rather than
+ * snapping. The derivative approaches zero much more gently, which eliminates
+ * the perceptual hitch at the travel/landing boundary.
+ */
+function easeOutQuint(t: number): number {
   const inv = 1 - t;
-  return 1 - inv * inv * inv;
+  return 1 - inv * inv * inv * inv * inv;
+}
+
+/**
+ * Quadratic ease-in for the landing ring expansion — starts slow, accelerates.
+ * This makes the ring bloom outward with increasing speed, matching the visual
+ * impression of energy dissipating from the impact point.
+ */
+function easeInQuad(t: number): number {
+  return t * t;
 }
 
 // =============================================================================
@@ -119,9 +134,9 @@ const TraceAnimation = React.memo(
     onComplete,
   }: TraceAnimationProps) {
     const startTimeRef = useRef<number | null>(null);
-    const phaseRef = useRef<
-      "traveling" | "landing" | "persist" | "fadeout" | "done"
-    >("traveling");
+    const phaseRef = useRef<"traveling" | "persist" | "fadeout" | "done">(
+      "traveling",
+    );
     const completedRef = useRef(false);
     // When true, useFrame skips all work (persist phase uses a timer instead)
     const sleepingRef = useRef(false);
@@ -151,11 +166,12 @@ const TraceAnimation = React.memo(
 
     // Dispose Line2 geometry + material on unmount to prevent GPU memory leaks
     useEffect(() => {
+      const line = lineRef.current;
       return () => {
         if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-        if (lineRef.current) {
-          lineRef.current.geometry?.dispose();
-          lineRef.current.material?.dispose();
+        if (line) {
+          line.geometry?.dispose();
+          line.material?.dispose();
         }
       };
     }, []);
@@ -180,7 +196,7 @@ const TraceAnimation = React.memo(
 
       if (phaseRef.current === "traveling") {
         const rawT = Math.min(elapsed / TRAVEL_DURATION, 1);
-        const progress = easeOutCubic(rawT);
+        const progress = easeOutQuint(rawT);
 
         const visibleSegments = Math.max(
           0,
@@ -200,6 +216,18 @@ const TraceAnimation = React.memo(
 
         const pointIndex = Math.min(visibleSegments, totalSegments);
         const currentPoint = points[pointIndex];
+
+        // --- Integrated landing blend ---
+        // When the head reaches the final 15% of travel, the landing ring
+        // begins expanding while the head simultaneously shrinks and fades.
+        // This creates a seamless "arrival" rather than an abrupt phase switch.
+        const inLandingBlend = rawT >= LANDING_BLEND_START;
+        const blendT = inLandingBlend
+          ? (rawT - LANDING_BLEND_START) / (1 - LANDING_BLEND_START)
+          : 0;
+        const easedBlendT = easeInQuad(blendT);
+
+        // Head dot: visible during travel, shrinks and fades during blend
         if (headRef.current) {
           headRef.current.position.set(
             currentPoint[0],
@@ -207,6 +235,9 @@ const TraceAnimation = React.memo(
             currentPoint[2],
           );
           headRef.current.visible = true;
+          // Scale down from 1.0 to 0.0 during blend
+          const headScale = inLandingBlend ? 1 - easedBlendT : 1;
+          headRef.current.scale.setScalar(headScale);
         }
         if (headGlowRef.current) {
           headGlowRef.current.position.set(
@@ -215,38 +246,47 @@ const TraceAnimation = React.memo(
             currentPoint[2],
           );
           headGlowRef.current.visible = true;
+          const glowScale = inLandingBlend ? 1 - easedBlendT : 1;
+          headGlowRef.current.scale.setScalar(glowScale);
+          // Also fade the glow material opacity
+          const glowMat = headGlowRef.current
+            .material as THREE.MeshBasicMaterial;
+          if (glowMat) {
+            glowMat.opacity = 0.25 * (inLandingBlend ? 1 - easedBlendT : 1);
+          }
         }
 
-        if (rawT >= 1) {
-          phaseRef.current = "landing";
-          startTimeRef.current = clock;
-
-          if (lineRef.current?.geometry) {
-            lineRef.current.geometry.instanceCount = totalSegments;
-          }
-          if (headRef.current) headRef.current.visible = false;
-          if (headGlowRef.current) headGlowRef.current.visible = false;
-
-          if (ringRef.current) {
+        // Landing ring: starts expanding during the blend portion of travel
+        if (inLandingBlend && ringRef.current && ringMaterialRef.current) {
+          if (!ringRef.current.visible) {
             ringRef.current.visible = true;
             ringRef.current.position.set(endpoint[0], endpoint[1], endpoint[2]);
             ringRef.current.quaternion.copy(ringQuaternion);
           }
-        }
-      } else if (phaseRef.current === "landing") {
-        const rawT = Math.min(elapsed / LANDING_DURATION, 1);
-
-        if (ringRef.current && ringMaterialRef.current) {
-          const scale =
-            (LANDING_RING_MIN + rawT * (LANDING_RING_MAX - LANDING_RING_MIN)) /
+          const ringScale =
+            (LANDING_RING_MIN +
+              easedBlendT * (LANDING_RING_MAX - LANDING_RING_MIN)) /
             LANDING_RING_MIN;
-          ringRef.current.scale.set(scale, scale, scale);
-          ringMaterialRef.current.opacity = 0.7 * (1 - rawT);
+          ringRef.current.scale.set(ringScale, ringScale, ringScale);
+          // Ring fades from 0.7 to 0 as blend completes
+          ringMaterialRef.current.opacity = 0.7 * (1 - easedBlendT);
         }
 
         if (rawT >= 1) {
-          // Enter persist phase: line stays visible, useFrame goes to sleep
+          // Travel complete — transition directly to persist (no separate landing phase)
           phaseRef.current = "persist";
+
+          if (lineRef.current?.geometry) {
+            lineRef.current.geometry.instanceCount = totalSegments;
+          }
+          if (headRef.current) {
+            headRef.current.visible = false;
+            headRef.current.scale.setScalar(1); // reset for potential reuse
+          }
+          if (headGlowRef.current) {
+            headGlowRef.current.visible = false;
+            headGlowRef.current.scale.setScalar(1);
+          }
           if (ringRef.current) ringRef.current.visible = false;
 
           // PERF: Sleep this useFrame — use a timer to wake up for fadeout

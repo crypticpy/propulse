@@ -32,13 +32,13 @@ interface GeomagneticFieldLines3DProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Earth's magnetic north pole (approximate 2025 location) */
-const MAG_NORTH_LAT = 86.5;
-const MAG_NORTH_LON = -172.5;
-
-/** Earth's magnetic south pole */
-const MAG_SOUTH_LAT = -64.1;
-const MAG_SOUTH_LON = 136.0;
+/**
+ * Earth's magnetic north pole (approximate 2025 IGRF location).
+ * The dipole is modeled as centered at Earth's center with the axis
+ * passing through this point; the south pole is its antipode.
+ */
+const MAG_NORTH_LAT = 80.65;
+const MAG_NORTH_LON = -72.68;
 
 /** Globe unit radius */
 const GLOBE_RADIUS = 1.0;
@@ -107,76 +107,87 @@ function getKpColor(kp: number): THREE.Color {
 }
 
 /**
- * Generate a single dipole field line curve from a starting colatitude.
+ * Build the magnetic dipole coordinate frame (cached outside the hot path).
  *
- * Simplified magnetic dipole: r = L * cos^2(theta_m) where L is the
- * equatorial crossing distance and theta_m is the magnetic colatitude.
- *
- * We trace the line from north magnetic hemisphere to south, producing
- * a 3D CatmullRom curve rotated into geographic coordinates.
+ * Returns three orthonormal vectors:
+ *   magUp   – unit vector along the magnetic axis (toward magnetic north)
+ *   magRight – perpendicular to magUp (arbitrary but fixed)
+ *   magForward – completes the right-handed frame
  */
-function generateFieldLineCurve(
-  startLat: number,
-  lonOffset: number,
-): THREE.CatmullRomCurve3 {
-  // Convert starting geographic latitude to magnetic colatitude
-  const startColatRad = ((90 - startLat) * Math.PI) / 180;
+function buildMagneticFrame() {
+  const magUp = latLonToVector3(MAG_NORTH_LAT, MAG_NORTH_LON, 1).normalize();
 
-  // L-shell parameter: r at equator for this field line
-  const L = GLOBE_RADIUS / (Math.cos(startColatRad) * Math.cos(startColatRad));
-
-  // Clamp L so lines don't extend too far
-  const effectiveL = Math.min(L, MAX_FIELD_EXTENT * GLOBE_RADIUS);
-
-  // Magnetic pole axis: direction from center of Earth through magnetic north
-  const magNorth = latLonToVector3(MAG_NORTH_LAT, MAG_NORTH_LON, 1).normalize();
-  const magSouth = latLonToVector3(MAG_SOUTH_LAT, MAG_SOUTH_LON, 1).normalize();
-  const magAxis = magNorth.clone().sub(magSouth).normalize();
-
-  // Build a local coordinate frame aligned with the magnetic axis
-  const up = magAxis.clone();
-  const right = new THREE.Vector3();
-  // Pick a vector not parallel to up
-  const tempVec =
-    Math.abs(up.x) < 0.9
+  // Pick a reference vector that isn't nearly parallel to magUp
+  const ref =
+    Math.abs(magUp.x) < 0.9
       ? new THREE.Vector3(1, 0, 0)
       : new THREE.Vector3(0, 1, 0);
-  right.crossVectors(up, tempVec).normalize();
-  const forward = new THREE.Vector3().crossVectors(right, up).normalize();
 
-  // Rotate the plane of this field line around the magnetic axis
+  const magRight = new THREE.Vector3().crossVectors(magUp, ref).normalize();
+  const magForward = new THREE.Vector3()
+    .crossVectors(magRight, magUp)
+    .normalize();
+
+  return { magUp, magRight, magForward };
+}
+
+const MAG_FRAME = buildMagneticFrame();
+
+/**
+ * Generate a single dipole field line curve from a starting magnetic latitude.
+ *
+ * Magnetic dipole equation: r(θ) = L · cos²(θ)
+ *   θ = magnetic colatitude (0 at north pole, π at south pole)
+ *   L = equatorial crossing distance = R / cos²(λ)
+ *       where λ is the magnetic latitude of the footpoint
+ *
+ * The line is traced from the northern footpoint (colatitude θ_start)
+ * symmetrically through the equator to the southern footpoint (π − θ_start).
+ * All geometry is centered at the origin (Earth's center).
+ */
+function generateFieldLineCurve(
+  startMagLat: number,
+  lonOffset: number,
+): THREE.CatmullRomCurve3 {
+  const { magUp, magRight, magForward } = MAG_FRAME;
+
+  // Magnetic colatitude of the footpoint
+  const startColatRad = ((90 - startMagLat) * Math.PI) / 180;
+
+  // L-shell: equatorial crossing distance
+  const cosLambda = Math.cos(startColatRad);
+  const L = Math.min(
+    GLOBE_RADIUS / (cosLambda * cosLambda),
+    MAX_FIELD_EXTENT * GLOBE_RADIUS,
+  );
+
+  // Rotate the meridional plane of this line around the magnetic axis
   const lonRad = (lonOffset * Math.PI) / 180;
-  const planeX = right
+  const planePerp = magRight
     .clone()
     .multiplyScalar(Math.cos(lonRad))
-    .add(forward.clone().multiplyScalar(Math.sin(lonRad)));
+    .add(magForward.clone().multiplyScalar(Math.sin(lonRad)));
 
-  // Trace field line: magnetic colatitude from ~startColatRad to PI - startColatRad
-  const points: THREE.Vector3[] = [];
+  // Trace from northern footpoint to southern footpoint
+  const thetaStart = startColatRad; // north footpoint
+  const thetaEnd = Math.PI - startColatRad; // south footpoint
   const steps = CURVE_SEGMENTS;
-  const thetaStart = startColatRad;
-  const thetaEnd = Math.PI - startColatRad;
+  const points: THREE.Vector3[] = [];
 
   for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const theta = thetaStart + t * (thetaEnd - thetaStart);
+    const frac = i / steps;
+    const theta = thetaStart + frac * (thetaEnd - thetaStart);
 
-    // Dipole formula: r = L * cos^2(theta_m)
-    const cosTheta = Math.cos(theta);
-    const sinTheta = Math.sin(theta);
-    const r = effectiveL * cosTheta * cosTheta;
+    const cosT = Math.cos(theta);
+    const sinT = Math.sin(theta);
+    const r = L * cosT * cosT;
 
-    // Convert from magnetic polar to 3D cartesian
-    // In magnetic frame: along-axis = r*cos(theta), perpendicular = r*sin(theta)
-    const axialComponent = up.clone().multiplyScalar(r * cosTheta);
-    const radialComponent = planeX.clone().multiplyScalar(r * sinTheta);
-
-    // Earth center offset to put magnetic dipole at center
-    const magCenter = magNorth
+    // Decompose into axial (along magUp) and radial (in meridional plane)
+    // Polar → Cartesian: axial = r·cos(θ), radial = r·sin(θ)
+    const point = magUp
       .clone()
-      .add(magSouth)
-      .multiplyScalar(0.5 * GLOBE_RADIUS);
-    const point = magCenter.clone().add(axialComponent).add(radialComponent);
+      .multiplyScalar(r * cosT)
+      .add(planePerp.clone().multiplyScalar(r * sinT));
 
     points.push(point);
   }

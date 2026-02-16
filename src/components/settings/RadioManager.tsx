@@ -620,7 +620,10 @@ export function RadioManager({
   } = useUserStore();
   const userRadios = useUserRadios();
   const preferTested = usePreferTestedSpecs();
-  const customRadios = preferences.customRadios || [];
+  const customRadios = useMemo(
+    () => preferences.customRadios ?? [],
+    [preferences.customRadios],
+  );
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

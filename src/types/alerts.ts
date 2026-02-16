@@ -209,6 +209,8 @@ export interface SolarFluxForecast {
   date: string;
   /** Predicted 10.7 cm solar flux */
   predicted_flux: number;
+  /** Optional NOAA A-index prediction (planetary geomagnetic index) */
+  predicted_a_index?: number;
   /** Observed flux value (if available) */
   observed_flux?: number;
 }

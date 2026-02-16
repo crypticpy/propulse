@@ -14,6 +14,7 @@
 import type { LogEntry } from "@/lib/db/types";
 import { getCredential, isUnlocked } from "@/lib/db/credentialStore";
 import { exportADIF } from "@/lib/adif/export";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 
 // -- Types ------------------------------------------------------------------
 
@@ -35,6 +36,30 @@ export interface QrzStatusResult {
   logbookAccessible: boolean;
   /** Human-readable status message */
   message: string;
+}
+
+async function getAuthAccessToken(): Promise<string> {
+  if (!isSupabaseConfigured) {
+    throw new Error(
+      "Supabase auth is not configured. QRZ sync requires authenticated API access.",
+    );
+  }
+
+  const supabase = getSupabase();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error) {
+    throw new Error(`Unable to read authentication session: ${error.message}`);
+  }
+
+  if (!session?.access_token) {
+    throw new Error("Authentication required. Sign in to use QRZ sync.");
+  }
+
+  return session.access_token;
 }
 
 // -- Upload -----------------------------------------------------------------
@@ -92,10 +117,14 @@ export async function uploadToQrz(
       includeContest: true,
       includeActivation: true,
     });
+    const accessToken = await getAuthAccessToken();
 
     const response = await fetch("/api/log/qrz", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         adif: adifContent,
         apiKey,
@@ -183,9 +212,13 @@ export async function getQrzStatus(): Promise<QrzStatusResult> {
   }
 
   try {
+    const accessToken = await getAuthAccessToken();
     const response = await fetch("/api/log/qrz", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         adif: "",
         apiKey,

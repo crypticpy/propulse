@@ -21,9 +21,6 @@ import { useCMEAnalysis } from "@/hooks/useSolarExpanded";
 // TYPES
 // =============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface CMEAnalysisPanelProps {}
-
 type CMEStatus = "en_route" | "arrived" | "past";
 
 interface ClassifiedCME {
@@ -367,7 +364,7 @@ function CMECard({
 // MAIN COMPONENT
 // =============================================================================
 
-export const CMEAnalysisPanel: React.FC<CMEAnalysisPanelProps> = React.memo(
+export const CMEAnalysisPanel = React.memo(
   function CMEAnalysisPanel() {
     const { data: cmeData, isLoading, isError } = useCMEAnalysis();
     const [showPast, setShowPast] = useState(false);

@@ -16,6 +16,19 @@ import { useNetStore } from "@/stores/netStore";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { NetSession, NetCheckin } from "@/types/net";
 
+interface NetAnalyticsQueryResult {
+  data: unknown;
+  error?: { message?: string } | null;
+}
+
+type NetAnalyticsQueryBuilder = PromiseLike<NetAnalyticsQueryResult> & {
+  [method: string]: (...args: unknown[]) => NetAnalyticsQueryBuilder;
+};
+
+interface NetAnalyticsQueryClient {
+  from: (table: string) => NetAnalyticsQueryBuilder;
+}
+
 // ── Chart Constants (matching QSOByBandChart) ──────────────────────────
 
 const BAR_HEIGHT = 20;
@@ -83,8 +96,9 @@ export function NetAnalyticsPage() {
 
       // Fetch completed sessions (up to 24)
       const supabase = getSupabase();
+      const queryClient = supabase as unknown as NetAnalyticsQueryClient;
 
-      const { data: sessionRows } = await (supabase as any)
+      const { data: sessionRows } = await queryClient
         .from("net_sessions")
         .select("*")
         .eq("net_id", netId!)
@@ -94,16 +108,20 @@ export function NetAnalyticsPage() {
 
       if (cancelled) return;
 
-      if (!sessionRows || sessionRows.length === 0) {
+      const safeSessionRows = Array.isArray(sessionRows) ? sessionRows : [];
+
+      if (safeSessionRows.length === 0) {
         setSessions([]);
         setCheckins([]);
         setLoading(false);
         return;
       }
 
-      const mappedSessions: NetSession[] = (
-        sessionRows as Record<string, unknown>[]
-      ).map((row) => ({
+      const mappedSessions: NetSession[] = safeSessionRows
+        .filter((row): row is Record<string, unknown> => {
+          return typeof row === "object" && row !== null;
+        })
+        .map((row) => ({
         id: row.id as string,
         netId: row.net_id as string,
         ncsUserId: row.ncs_user_id as string,
@@ -122,16 +140,19 @@ export function NetAnalyticsPage() {
 
       // Fetch all check-ins for these sessions in a single query
       const sessionIds = mappedSessions.map((s) => s.id);
-      const { data: checkinRows } = await (supabase as any)
+      const { data: checkinRows } = await queryClient
         .from("net_checkins")
         .select("*")
         .in("session_id", sessionIds);
 
       if (cancelled) return;
 
-      const mappedCheckins: NetCheckin[] = (
-        (checkinRows ?? []) as Record<string, unknown>[]
-      ).map((row) => ({
+      const safeCheckinRows = Array.isArray(checkinRows) ? checkinRows : [];
+      const mappedCheckins: NetCheckin[] = safeCheckinRows
+        .filter((row): row is Record<string, unknown> => {
+          return typeof row === "object" && row !== null;
+        })
+        .map((row) => ({
         id: row.id as string,
         sessionId: row.session_id as string,
         callsign: row.callsign as string,

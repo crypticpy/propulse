@@ -51,7 +51,7 @@ function jsonResponse(
       "Cache-Control": "no-cache, no-store",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       ...extraHeaders,
     },
   });
@@ -120,7 +120,7 @@ export default async function handler(request: Request): Promise<Response> {
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
   }
@@ -143,15 +143,23 @@ export default async function handler(request: Request): Promise<Response> {
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-  if (supabaseUrl && supabaseAnonKey) {
-    const token = authHeader.replace("Bearer ", "");
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { error: authError } = await authClient.auth.getUser(token);
-    if (authError) {
-      return jsonResponse({ error: "Invalid or expired token" }, 401);
-    }
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return jsonResponse({ error: "Server auth is not configured" }, 500);
+  }
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return jsonResponse({ error: "Authentication required" }, 401);
+  }
+
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data: authData, error: authError } = await authClient.auth.getUser(
+    token,
+  );
+  if (authError || !authData?.user) {
+    return jsonResponse({ error: "Invalid or expired token" }, 401);
   }
 
   let body: {

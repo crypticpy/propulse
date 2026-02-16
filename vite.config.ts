@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
@@ -517,9 +517,10 @@ function layerDevProxy(): Plugin {
 
           for (const line of lines) {
             const trimmed = line.trim();
+            // Skip comments, pure-dash separator lines, and blank lines
             if (
               trimmed.startsWith("#") ||
-              trimmed.startsWith("-") ||
+              /^-+$/.test(trimmed) ||
               trimmed === ""
             )
               continue;
@@ -600,7 +601,7 @@ function layerDevProxy(): Plugin {
         for (let lat = -80; lat <= 80; lat += resolution) {
           for (let lon = -180; lon < 180; lon += resolution) {
             const absLat = Math.abs(lat);
-            let latFactor =
+            const latFactor =
               absLat < 10
                 ? 0.2
                 : absLat < 25
@@ -615,8 +616,10 @@ function layerDevProxy(): Plugin {
             const peakMonth = lat >= 0 ? 6 : 12;
             const md = Math.abs(month - peakMonth);
             const nmd = md > 6 ? 12 - md : md;
+            // Floor of 0.08 ensures some Es activity year-round (real Es
+            // can occur in any month, just at much lower rates in winter)
             const seasonFactor = Math.max(
-              0,
+              0.08,
               0.2 + 0.8 * Math.cos((nmd / 6) * Math.PI),
             );
             const lsh = (((hour + lon / 15) % 24) + 24) % 24;
@@ -844,7 +847,7 @@ function layerDevProxy(): Plugin {
           return spots;
         }
 
-        let spots =
+        const spots =
           band === "all"
             ? Object.keys(WSPR_BANDS).flatMap(genSpots).slice(0, 200)
             : genSpots(band);
@@ -935,7 +938,7 @@ function layerDevProxy(): Plugin {
           return;
         }
         try {
-          const firmsUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/-180,-90,180,90/1`;
+          const firmsUrl = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/world/1`;
           const fRes = await fetch(firmsUrl, {
             headers: { "User-Agent": "Propulse/1.0" },
           });
@@ -950,19 +953,45 @@ function layerDevProxy(): Plugin {
             return;
           }
           const csv = await fRes.text();
-          const rows = csv.trim().split("\n").slice(1); // skip header
-          const hotspots = rows
-            .slice(0, 2000)
-            .map((row) => {
-              const cols = row.split(",");
-              return {
-                lat: parseFloat(cols[0]),
-                lon: parseFloat(cols[1]),
-                brightness: parseFloat(cols[2]) || 0,
-                frp: parseFloat(cols[12]) || 0,
-              };
-            })
-            .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lon));
+          const lines = csv.trim().split("\n");
+          if (lines.length < 2) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ hotspots: [] }));
+            return;
+          }
+          // Parse header to find column indices (resilient to column order changes)
+          const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+          const latIdx = header.indexOf("latitude");
+          const lonIdx = header.indexOf("longitude");
+          const brightIdx = header.indexOf("bright_ti4");
+          const confIdx = header.indexOf("confidence");
+          const frpIdx = header.indexOf("frp");
+          if (latIdx === -1 || lonIdx === -1) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ hotspots: [] }));
+            return;
+          }
+          const hotspots: {
+            lat: number;
+            lon: number;
+            brightness: number;
+            confidence: string;
+            frp: number;
+          }[] = [];
+          for (let i = 1; i < lines.length && hotspots.length < 5000; i++) {
+            const cols = lines[i].split(",");
+            const lat = parseFloat(cols[latIdx]);
+            const lon = parseFloat(cols[lonIdx]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+            hotspots.push({
+              lat,
+              lon,
+              brightness:
+                brightIdx !== -1 ? parseFloat(cols[brightIdx]) || 0 : 0,
+              confidence: confIdx !== -1 ? cols[confIdx].trim() : "nominal",
+              frp: frpIdx !== -1 ? parseFloat(cols[frpIdx]) || 0 : 0,
+            });
+          }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ hotspots }));
         } catch {
@@ -975,225 +1004,286 @@ function layerDevProxy(): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    hamqthDevProxy(),
-    qrzDevProxy(),
-    layerDevProxy(),
-    VitePWA({
-      registerType: "prompt",
-      includeAssets: ["propulse.svg"],
-      manifest: {
-        name: "Propulse — Ham Radio Propagation Dashboard",
-        short_name: "Propulse",
-        description:
-          "Real-time propagation conditions, band planning, and DX tools",
-        theme_color: "#0a0a1a",
-        background_color: "#0a0a1a",
-        display: "standalone",
-        start_url: "/",
-        icons: [
-          {
-            src: "propulse.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any",
-          },
-        ],
-      },
-      devOptions: {
-        enabled: true,
-      },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,jpg,woff2}"],
-        globIgnores: ["**/textures/**"],
-        navigateFallback: "/index.html",
-        runtimeCaching: [
-          {
-            // Cache public data APIs only — exclude credential-forwarding endpoints
-            urlPattern:
-              /^https:\/\/.*\/api\/(?!log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 300,
-              },
-              networkTimeoutSeconds: 10,
+export default defineConfig(({ mode }) => {
+  // Load ALL env variables (prefix '') so non-VITE_ keys like FIRMS_MAP_KEY,
+  // COLLECTOR_URL, HAMQTH_USERNAME, etc. are available to dev proxy middleware
+  // via process.env. Vite only auto-loads VITE_-prefixed vars by default.
+  const env = loadEnv(mode, process.cwd(), "");
+  for (const [key, value] of Object.entries(env)) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+
+  return {
+    plugins: [
+      react(),
+      hamqthDevProxy(),
+      qrzDevProxy(),
+      layerDevProxy(),
+      VitePWA({
+        registerType: "prompt",
+        includeAssets: ["propulse.svg"],
+        manifest: {
+          name: "Propulse — Ham Radio Propagation Dashboard",
+          short_name: "Propulse",
+          description:
+            "Real-time propagation conditions, band planning, and DX tools",
+          theme_color: "#0a0a1a",
+          background_color: "#0a0a1a",
+          display: "standalone",
+          start_url: "/",
+          icons: [
+            {
+              src: "propulse.svg",
+              sizes: "any",
+              type: "image/svg+xml",
+              purpose: "any",
             },
-          },
-        ],
-      },
-    }),
-  ],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  build: {
-    // Code splitting configuration for optimal bundle sizes
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Vendor chunks for caching
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-three": ["three", "@react-three/fiber", "@react-three/drei"],
-          "vendor-tanstack": ["@tanstack/react-query"],
-          "vendor-utils": ["date-fns", "zustand", "zod", "suncalc"],
+          ],
         },
-      },
-    },
-    // Enable source maps for production debugging (optional)
-    sourcemap: false,
-    // Chunk size warning limit (kB)
-    chunkSizeWarningLimit: 500,
-  },
-  // Optimize deps for faster dev startup
-  optimizeDeps: {
-    include: [
-      "react",
-      "react-dom",
-      "react-router-dom",
-      "three",
-      "@react-three/fiber",
-      "@react-three/drei",
-      "@tanstack/react-query",
-      "date-fns",
-      "zustand",
+        devOptions: {
+          enabled: true,
+        },
+        workbox: {
+          globPatterns: ["**/*.{js,css,html,svg,png,jpg,woff2}"],
+          globIgnores: ["**/textures/**"],
+          navigateFallback: "/index.html",
+          runtimeCaching: [
+            {
+              // Cache public data APIs only — exclude credential-forwarding endpoints
+              urlPattern:
+                /^https:\/\/.*\/api\/(?!log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
+              handler: "NetworkFirst",
+              options: {
+                cacheName: "api-cache",
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 300,
+                },
+                networkTimeoutSeconds: 10,
+              },
+            },
+          ],
+        },
+      }),
     ],
-  },
-  server: {
-    proxy: {
-      // Proxy API requests to NOAA during local development
-      // Uses same JSON endpoints as Vercel Edge Functions
-      "/api/solar/k-index": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/planetary_k_index_1m.json",
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
       },
-      "/api/solar/flux": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/f107_cm_flux.json",
-      },
-      "/api/solar/probabilities": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/solar_probabilities.json",
-      },
-      "/api/solar/sunspots": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/solar-cycle/sunspots.json",
-      },
-      "/api/solar/magnetometer": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/rtsw/rtsw_mag_1m.json",
-      },
-      // New solar data proxies (proton flux, Dst, X-ray, DRAP, CME, SFI forecast)
-      "/api/solar/protons": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/goes/primary/integral-protons-1-day.json",
-      },
-      "/api/solar/dst": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/products/kyoto-dst.json",
-      },
-      "/api/solar/xray": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/goes/primary/xrays-6-hour.json",
-      },
-      // DRAP: handled by layerDevProxy() middleware (parses NOAA text format)
-      "/api/solar/cme": {
-        target: "https://api.nasa.gov",
-        changeOrigin: true,
-        rewrite: () => {
-          const end = new Date();
-          const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-          const fmt = (d: Date) => d.toISOString().slice(0, 10);
-          return `/DONKI/CMEAnalysis?startDate=${fmt(start)}&endDate=${fmt(end)}&mostAccurateOnly=true&speed500=true&halfAngle30=true&catalog=ALL&api_key=DEMO_KEY`;
+    },
+    build: {
+      // Code splitting configuration for optimal bundle sizes
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            // Vendor chunks for caching and smaller chunk sizes.
+            if (id.includes("node_modules")) {
+              if (
+                id.includes("/node_modules/react/") ||
+                id.includes("/node_modules/react-dom/") ||
+                id.includes("/node_modules/react-router") ||
+                id.includes("/node_modules/scheduler/")
+              ) {
+                return "vendor-react";
+              }
+              if (id.includes("/node_modules/@react-three/drei/")) {
+                return "vendor-drei";
+              }
+              if (id.includes("/node_modules/@react-three/fiber/")) {
+                return "vendor-r3f";
+              }
+              if (id.includes("/node_modules/three/")) {
+                return "vendor-three-core";
+              }
+              if (id.includes("/node_modules/@tanstack/react-query/")) {
+                return "vendor-tanstack";
+              }
+              if (
+                id.includes("/node_modules/date-fns/") ||
+                id.includes("/node_modules/zustand/") ||
+                id.includes("/node_modules/zod/") ||
+                id.includes("/node_modules/suncalc/")
+              ) {
+                return "vendor-utils";
+              }
+            }
+
+            return undefined;
+          },
         },
       },
-      "/api/solar/flux-forecast": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/text/3-day-solar-geomag-predictions.txt",
-      },
-      // Aurora OVATION data proxy
-      "/api/aurora": {
-        target: "https://services.swpc.noaa.gov",
-        changeOrigin: true,
-        rewrite: () => "/json/ovation_aurora_latest.json",
-      },
-      // DX Cluster spots proxy (dev only) - mirrors Vercel `/api/spots/dxcluster`
-      "/api/spots/dxcluster": {
-        target: "https://www.hamqth.com",
-        changeOrigin: true,
-        rewrite: (pathStr) => {
-          try {
-            const url = new URL(`http://local${pathStr}`);
-            const limit = url.searchParams.get("limit") || "50";
-            return `/dxc_csv.php?limit=${limit}`;
-          } catch {
-            return "/dxc_csv.php?limit=50";
-          }
+      // Enable source maps for production debugging (optional)
+      sourcemap: false,
+      // Chunk size warning limit (kB): WebGL/3D bundles are expected to be larger.
+      chunkSizeWarningLimit: 1000,
+    },
+    // Optimize deps for faster dev startup
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "three",
+        "@react-three/fiber",
+        "@react-three/drei",
+        "@tanstack/react-query",
+        "date-fns",
+        "zustand",
+      ],
+    },
+    server: {
+      proxy: {
+        // Proxy API requests to NOAA during local development
+        // Uses same JSON endpoints as Vercel Edge Functions
+        "/api/solar/k-index": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/planetary_k_index_1m.json",
         },
-      },
-      // RBN spots proxy (dev only) - mirrors Vercel `/api/spots/rbn`
-      "/api/spots/rbn": {
-        target: "https://www.hamqth.com",
-        changeOrigin: true,
-        rewrite: () => `/rbn_data.php?data=1&age=900`,
-      },
-      // PSKReporter spots proxy (dev only) - mirrors Vercel `/api/spots/pskreporter`
-      "/api/spots/pskreporter": {
-        target: "https://retrieve.pskreporter.info",
-        changeOrigin: true,
-        rewrite: (pathStr) => {
-          try {
-            const url = new URL(`http://local${pathStr}`);
-            const params = new URLSearchParams();
-            params.set("flowStartSeconds", "-900");
-            params.set("rronly", "1");
-            params.set("noactive", "1");
-            const grid = url.searchParams.get("grid");
-            if (grid) params.set("receiverLocator", grid.substring(0, 4));
-            const mode = url.searchParams.get("mode");
-            if (mode) params.set("mode", mode);
-            return `/query?${params}`;
-          } catch {
-            return "/query?flowStartSeconds=-900&rronly=1&noactive=1";
-          }
+        "/api/solar/flux": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/f107_cm_flux.json",
         },
-      },
-      // Satellite TLE proxy (dev only) - mirrors Vercel `/api/satellites/tle`
-      "/api/satellites/tle": {
-        target: "https://celestrak.org",
-        changeOrigin: true,
-        rewrite: () => "/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle",
-      },
-      // Callsign lookup proxy (dev only) - mirrors Vercel `/api/callsign/lookup`
-      "/api/callsign/lookup": {
-        target: "https://callook.info",
-        changeOrigin: true,
-        rewrite: (pathStr) => {
-          try {
-            const url = new URL(`http://local${pathStr}`);
-            const callsign = url.searchParams.get("callsign");
-            if (callsign) return `/${callsign}/json`;
-          } catch {
-            // ignore
-          }
-          return "/INVALID/json";
+        "/api/solar/probabilities": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/solar_probabilities.json",
+        },
+        "/api/solar/sunspots": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/solar-cycle/sunspots.json",
+        },
+        "/api/solar/magnetometer": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/rtsw/rtsw_mag_1m.json",
+        },
+        // New solar data proxies (proton flux, Dst, X-ray, DRAP, CME, SFI forecast)
+        "/api/solar/protons": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/goes/primary/integral-protons-1-day.json",
+        },
+        "/api/solar/dst": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/products/kyoto-dst.json",
+        },
+        "/api/solar/xray": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/goes/primary/xrays-6-hour.json",
+        },
+        // DRAP: handled by layerDevProxy() middleware (parses NOAA text format)
+        "/api/solar/cme": {
+          target: "https://api.nasa.gov",
+          changeOrigin: true,
+          rewrite: () => {
+            const end = new Date();
+            const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const fmt = (d: Date) => d.toISOString().slice(0, 10);
+            return `/DONKI/CMEAnalysis?startDate=${fmt(start)}&endDate=${fmt(end)}&mostAccurateOnly=true&speed500=true&halfAngle30=true&catalog=ALL&api_key=DEMO_KEY`;
+          },
+        },
+        "/api/solar/flux-forecast": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/text/3-day-solar-geomag-predictions.txt",
+        },
+        // Aurora OVATION data proxy
+        "/api/aurora": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/json/ovation_aurora_latest.json",
+        },
+        // DX Cluster spots proxy (dev only) - mirrors Vercel `/api/spots/dxcluster`
+        "/api/spots/dxcluster": {
+          target: "https://www.hamqth.com",
+          changeOrigin: true,
+          rewrite: (pathStr) => {
+            try {
+              const url = new URL(`http://local${pathStr}`);
+              const limit = url.searchParams.get("limit") || "50";
+              return `/dxc_csv.php?limit=${limit}`;
+            } catch {
+              return "/dxc_csv.php?limit=50";
+            }
+          },
+        },
+        // RBN spots proxy (dev only) - mirrors Vercel `/api/spots/rbn`
+        "/api/spots/rbn": {
+          target: "https://www.hamqth.com",
+          changeOrigin: true,
+          rewrite: () => `/rbn_data.php?data=1&age=900`,
+        },
+        // PSKReporter spots proxy (dev only) - mirrors Vercel `/api/spots/pskreporter`
+        "/api/spots/pskreporter": {
+          target: "https://retrieve.pskreporter.info",
+          changeOrigin: true,
+          rewrite: (pathStr) => {
+            try {
+              const url = new URL(`http://local${pathStr}`);
+              const params = new URLSearchParams();
+              params.set("flowStartSeconds", "-900");
+              params.set("rronly", "1");
+              params.set("noactive", "1");
+              const grid = url.searchParams.get("grid");
+              if (grid) params.set("receiverLocator", grid.substring(0, 4));
+              const mode = url.searchParams.get("mode");
+              if (mode) params.set("mode", mode);
+              return `/query?${params}`;
+            } catch {
+              return "/query?flowStartSeconds=-900&rronly=1&noactive=1";
+            }
+          },
+        },
+        // Satellite TLE proxy (dev only) - mirrors Vercel `/api/satellites/tle`
+        // Uses AMSAT as primary (reliable) with Celestrak as rewrite target backup
+        "/api/satellites/tle": {
+          target: "https://www.amsat.org",
+          changeOrigin: true,
+          rewrite: () => "/tle/current/nasabare.txt",
+        },
+        // SatNOGS transmitter data proxy (dev only) - fetches transmitter info by NORAD ID
+        "/api/satellites/satnogs": {
+          target: "https://db.satnogs.org",
+          changeOrigin: true,
+          rewrite: (pathStr) => {
+            const url = new URL(pathStr, "http://localhost");
+            const norad = url.searchParams.get("norad") || "";
+            return `/api/transmitters/?format=json&satellite__norad_cat_id=${norad}`;
+          },
+        },
+        // AMSAT satellite status proxy (dev only) - fetches operational status by name
+        "/api/satellites/status": {
+          target: "https://amsat.org",
+          changeOrigin: true,
+          rewrite: (pathStr) => {
+            const url = new URL(pathStr, "http://localhost");
+            const name = url.searchParams.get("name") || "";
+            return `/status/api/v1/sat_info.php?name=${encodeURIComponent(name)}&hours=24`;
+          },
+        },
+        // Callsign lookup proxy (dev only) - mirrors Vercel `/api/callsign/lookup`
+        "/api/callsign/lookup": {
+          target: "https://callook.info",
+          changeOrigin: true,
+          rewrite: (pathStr) => {
+            try {
+              const url = new URL(`http://local${pathStr}`);
+              const callsign = url.searchParams.get("callsign");
+              if (callsign) return `/${callsign}/json`;
+            } catch {
+              // ignore
+            }
+            return "/INVALID/json";
+          },
         },
       },
     },
-  },
+  };
 });

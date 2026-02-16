@@ -160,14 +160,16 @@ function AlertMarker({
   const headMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const glowRingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [cameraDistance, setCameraDistance] = useState(3.0);
+  const lastDistRef = useRef(3.0);
 
   const { camera, size: canvasSize } = useThree();
 
   const color = severityColor(alert.severity);
   const emoji = getWeatherEmoji(alert.event);
 
-  // Apply occlusion to materials
-  useFrame(() => {
+  // Apply occlusion to materials + track camera distance for emoji scaling
+  useFrame(({ camera: cam }) => {
     if (stemMaterialRef.current) {
       stemMaterialRef.current.opacity = 0.7 * occlusionOpacity;
     }
@@ -178,6 +180,13 @@ function AlertMarker({
     if (glowRingMaterialRef.current) {
       glowRingMaterialRef.current.opacity =
         (isHovered ? 0.5 : 0.3) * occlusionOpacity;
+    }
+
+    // Only update state when distance changes meaningfully (avoid re-renders every frame)
+    const dist = cam.position.length();
+    if (Math.abs(dist - lastDistRef.current) > 0.05) {
+      lastDistRef.current = dist;
+      setCameraDistance(dist);
     }
   });
 
@@ -279,29 +288,72 @@ function AlertMarker({
         />
       </mesh>
 
-      {/* Weather emoji using Html overlay */}
+      {/* Weather emoji using Html overlay — scales with zoom */}
       <Html
         position={[0, STEM_HEIGHT + SIZE * 3, 0]}
         center
         zIndexRange={[1, 0]}
         style={{
           pointerEvents: "none",
-          transition: "all 0.2s ease",
-          transform: isHovered ? "scale(1.3)" : "scale(1)",
           opacity: occlusionOpacity,
         }}
       >
-        <div
-          className="flex items-center justify-center"
-          style={{
-            width: "20px",
-            height: "20px",
-            fontSize: "14px",
-            filter: `drop-shadow(0 0 4px ${color})`,
-          }}
-        >
-          {emoji}
-        </div>
+        {(() => {
+          // Scale emoji based on camera distance so it stays readable at all zoom levels
+          // Reference distance ~3.0 (default zoom). Closer = larger, farther = smaller.
+          const REFERENCE_DISTANCE = 3.0;
+          const BASE_FONT_SIZE = 24;
+          const MIN_FONT_SIZE = 16;
+          const MAX_FONT_SIZE = 48;
+          const scaleFactor = REFERENCE_DISTANCE / cameraDistance;
+          const fontSize = Math.min(
+            MAX_FONT_SIZE,
+            Math.max(MIN_FONT_SIZE, Math.round(BASE_FONT_SIZE * scaleFactor)),
+          );
+          const boxSize = fontSize + 8;
+          // Show alert type label when zoomed in close enough
+          const showLabel = cameraDistance < 2.0;
+
+          return (
+            <div
+              className="flex flex-col items-center"
+              style={{
+                transition: "transform 0.15s ease-out",
+                transform: isHovered ? "scale(1.2)" : "scale(1)",
+              }}
+            >
+              <div
+                className="flex items-center justify-center"
+                style={{
+                  width: `${boxSize}px`,
+                  height: `${boxSize}px`,
+                  fontSize: `${fontSize}px`,
+                  lineHeight: 1,
+                  filter: `drop-shadow(0 0 ${Math.max(4, fontSize / 4)}px ${color})`,
+                }}
+              >
+                {emoji}
+              </div>
+              {showLabel && (
+                <div
+                  className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap text-center"
+                  style={{
+                    backgroundColor: "rgba(10, 10, 26, 0.85)",
+                    color,
+                    border: `1px solid ${color}50`,
+                    maxWidth: "140px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    opacity: Math.min(1, (2.0 - cameraDistance) / 0.5),
+                    transition: "opacity 0.2s ease",
+                  }}
+                >
+                  {alert.event}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Html>
     </group>
   );

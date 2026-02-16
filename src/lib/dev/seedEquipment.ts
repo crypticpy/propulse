@@ -435,7 +435,6 @@ export function seedTestEquipment(): {
     if (id) counts.inlineComponents++;
   }
 
-  // eslint-disable-next-line no-console
   console.log(
     `[seedTestEquipment] Added: ${counts.radios} radios, ` +
       `${counts.antennas} antennas, ${counts.feedlines} feedlines, ` +
@@ -493,6 +492,5 @@ export function clearTestEquipment(): void {
     useShackStore.getState().removeInlineComponent(component.id);
   }
 
-  // eslint-disable-next-line no-console
   console.log("[clearTestEquipment] All equipment removed from shack store.");
 }

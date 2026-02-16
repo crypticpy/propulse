@@ -313,9 +313,12 @@ export function TimeControl({ className = "" }: TimeControlProps) {
   } = useMapStore();
 
   const activeLocation = useActiveLocation();
-  const station = activeLocation
-    ? { lat: activeLocation.lat, lon: activeLocation.lon }
-    : null;
+  const stationLat = activeLocation?.lat;
+  const stationLon = activeLocation?.lon;
+  const station = useMemo(
+    () => (stationLat != null && stationLon != null ? { lat: stationLat, lon: stationLon } : null),
+    [stationLat, stationLon],
+  );
 
   const [showHelp, setShowHelp] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);

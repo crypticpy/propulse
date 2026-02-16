@@ -8,7 +8,7 @@
  * Higher foEs values produce brighter, more opaque patches. A subtle
  * pulse animation on high-probability zones creates a "living" feel.
  *
- * Only regions with probability > 0.15 are rendered.
+ * Only regions with probability > 0.05 are rendered.
  */
 
 import React, { useRef, useMemo, useEffect } from "react";
@@ -31,8 +31,9 @@ interface SporadicEOverlay3DProps {
 /** E-layer altitude — floats visibly above the globe surface */
 const GLOBE_RADIUS = 1.025;
 
-/** Minimum probability to render */
-const MIN_PROBABILITY = 0.15;
+/** Minimum probability to render — low threshold ensures winter Es is
+ *  visible (dark green) while summer mid-lat peaks are bright green. */
+const MIN_PROBABILITY = 0.05;
 
 /** Hard cap on rendered instances */
 const MAX_INSTANCES = 2000;
@@ -111,8 +112,10 @@ export const SporadicEOverlay3D = React.memo(
         dummy.quaternion.setFromUnitVectors(up, normal);
 
         // Scale: larger discs for higher probability — creates cloud-like blobs
-        const baseScale = 0.03;
-        const probScale = 1 + region.probability * 0.5;
+        // Base scale 0.08 produces visible patches on a radius-1.0 globe;
+        // probability further expands them up to 1.6x for strong regions.
+        const baseScale = 0.08;
+        const probScale = 1 + region.probability * 0.6;
         dummy.scale.setScalar(baseScale * probScale);
         dummy.updateMatrix();
 

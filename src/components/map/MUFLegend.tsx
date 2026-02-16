@@ -1,8 +1,18 @@
 /**
  * MUFLegend Component
  *
- * Displays a compact legend explaining MUF color coding.
- * Shows frequency ranges and corresponding band allocations.
+ * Displays a compact legend explaining MUF 8-band color coding.
+ * Shows frequency ranges and corresponding ham band allocations.
+ *
+ * Color stops match the GLSL shader in MUFOverlay.tsx:
+ *   <3 MHz   deep maroon     (nighttime, no HF)
+ *   3-5 MHz  red/orange      (80m/60m)
+ *   5-7 MHz  orange          (40m)
+ *   7-10 MHz amber           (40m-30m)
+ *   10-14 MHz yellow-green   (30m-20m)
+ *   14-21 MHz green          (20m-15m)
+ *   21-28 MHz cyan           (15m-10m)
+ *   >28 MHz  blue-violet     (10m+)
  */
 
 interface MUFLegendProps {
@@ -11,10 +21,14 @@ interface MUFLegendProps {
 }
 
 const MUF_BANDS = [
-  { color: "#ef4444", label: "< 7 MHz", bands: "80m-160m" },
-  { color: "#eab308", label: "7-14 MHz", bands: "40m-20m" },
-  { color: "#22c55e", label: "14-21 MHz", bands: "20m-15m" },
-  { color: "#3b82f6", label: "> 21 MHz", bands: "15m-10m" },
+  { color: "rgb(115,20,31)", label: "< 3", bands: "No HF" },
+  { color: "rgb(217,46,38)", label: "3-5", bands: "80m" },
+  { color: "rgb(242,128,26)", label: "5-7", bands: "40m" },
+  { color: "rgb(242,184,26)", label: "7-10", bands: "30m" },
+  { color: "rgb(191,224,51)", label: "10-14", bands: "20m" },
+  { color: "rgb(38,199,102)", label: "14-21", bands: "15m" },
+  { color: "rgb(26,184,217)", label: "21-28", bands: "10m" },
+  { color: "rgb(77,89,235)", label: "> 28", bands: "6m+" },
 ];
 
 export function MUFLegend({ className = "" }: MUFLegendProps) {
@@ -25,43 +39,32 @@ export function MUFLegend({ className = "" }: MUFLegendProps) {
         <div key={band.label} className="flex items-center gap-1.5">
           <div
             className="w-3 h-3 rounded-sm"
-            style={{ backgroundColor: band.color, opacity: 0.8 }}
+            style={{ backgroundColor: band.color, opacity: 0.85 }}
           />
           <span className="text-gray-400">{band.label}</span>
         </div>
       ))}
+      <span className="text-gray-500">MHz</span>
     </div>
   );
 }
 
 /**
- * Compact inline legend for space-constrained areas
+ * Compact inline legend for space-constrained areas (gradient bar)
  */
 export function MUFLegendCompact({ className = "" }: MUFLegendProps) {
   return (
     <div className={`flex items-center gap-2 text-[10px] ${className}`}>
       <span className="text-gray-500">MUF:</span>
       <div className="flex items-center gap-0.5">
-        <div
-          className="w-2.5 h-2.5 rounded-sm"
-          style={{ backgroundColor: "#ef4444", opacity: 0.8 }}
-          title="< 7 MHz (80m-160m)"
-        />
-        <div
-          className="w-2.5 h-2.5 rounded-sm"
-          style={{ backgroundColor: "#eab308", opacity: 0.8 }}
-          title="7-14 MHz (40m-20m)"
-        />
-        <div
-          className="w-2.5 h-2.5 rounded-sm"
-          style={{ backgroundColor: "#22c55e", opacity: 0.8 }}
-          title="14-21 MHz (20m-15m)"
-        />
-        <div
-          className="w-2.5 h-2.5 rounded-sm"
-          style={{ backgroundColor: "#3b82f6", opacity: 0.8 }}
-          title="> 21 MHz (15m-10m)"
-        />
+        {MUF_BANDS.map((band) => (
+          <div
+            key={band.label}
+            className="w-2.5 h-2.5 rounded-sm"
+            style={{ backgroundColor: band.color, opacity: 0.85 }}
+            title={`${band.label} MHz (${band.bands})`}
+          />
+        ))}
       </div>
       <span className="text-gray-500">Low-High</span>
     </div>

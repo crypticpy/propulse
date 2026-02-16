@@ -338,8 +338,6 @@ const WeekTimeline = memo(function WeekTimeline({
     [contests, startOfWindow, endOfWindow],
   );
 
-  if (overlapping.length === 0) return null;
-
   // Day labels
   const dayLabels = useMemo(() => {
     const labels: string[] = [];
@@ -351,6 +349,8 @@ const WeekTimeline = memo(function WeekTimeline({
     }
     return labels;
   }, [startOfWindow]);
+
+  if (overlapping.length === 0) return null;
 
   return (
     <div className="rounded-lg border border-white/10 bg-void-black/40 p-3 mb-4">

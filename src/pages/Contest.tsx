@@ -137,7 +137,7 @@ export function Contest() {
       setCurrentBand(rigBand);
       setCurrentMode(rigModeToContestMode(rigMode));
     }
-  }, [catActive, rigBand, rigMode]);
+  }, [catActive, rigBand, rigMode, setCurrentBand, setCurrentMode]);
 
   // Get contest name
   const contestName = useMemo(() => {

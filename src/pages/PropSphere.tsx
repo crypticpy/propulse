@@ -631,13 +631,69 @@ export function PropSphere() {
         ) : (
           // Default Mode Top Row - full cards (animates out when DX Console expanded)
           <div
-            className={`grid grid-cols-2 lg:grid-cols-[200px_220px_1fr] xl:grid-cols-[200px_220px_minmax(300px,1fr)_280px] gap-2 md:gap-3 transition-all duration-300 ease-in-out ${
+            className={`grid grid-cols-2 lg:grid-cols-[220px_1fr_200px] xl:grid-cols-[220px_280px_minmax(300px,1fr)_200px] gap-2 md:gap-3 transition-all duration-300 ease-in-out ${
               isDXConsoleExpanded
                 ? "max-h-0 opacity-0 overflow-hidden mb-0"
                 : "max-h-[500px] opacity-100"
             }`}
           >
-            {/* Layout Mode + Share + Time Machine */}
+            {/* Operator Profile — top-left, primary attention zone */}
+            <Card
+              className="p-2 col-span-1 flex flex-col !rounded-lg"
+              data-tour="operator-profile"
+            >
+              <OperatorProfile className="h-full" />
+              {/* S-meter reading when rig is connected via CAT */}
+              {catActive && (
+                <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-white/5 border border-white/10">
+                  <div className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">
+                    S-Meter
+                  </span>
+                  <span className="text-xs font-mono font-medium text-white ml-auto">
+                    {getSMeterText()}
+                  </span>
+                </div>
+              )}
+            </Card>
+
+            {/* Solar Snapshot (xl+ only) */}
+            <Card className="hidden xl:flex xl:flex-col col-span-1 p-2 !rounded-lg">
+              {station && target ? (
+                <SolarSnapshot
+                  homeLat={station.lat}
+                  homeLon={station.lon}
+                  targetLat={target.lat}
+                  targetLon={target.lon}
+                  displayTime={displayTime}
+                  className="h-full"
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+                  {station
+                    ? "Select a target on the map"
+                    : "Set QTH in settings"}
+                </div>
+              )}
+            </Card>
+
+            {/* 24h Propagation Forecast (hidden on mobile, shown on lg+) */}
+            <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
+              <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
+                24h Propagation Forecast
+                <span className="text-gray-500 normal-case ml-1">
+                  (hover for details)
+                </span>
+              </div>
+              <div className="flex-1 min-h-0">
+                <PropagationForecastMini
+                  displayTime={displayTime}
+                  className="h-full"
+                />
+              </div>
+            </Card>
+
+            {/* Time Machine + Layout + Share — top-right */}
             <div className="col-span-1 flex flex-col gap-2">
               {/* Layout Mode Dropdown + Share */}
               <div className="hidden lg:flex gap-2">
@@ -670,62 +726,6 @@ export function PropSphere() {
                 <TimeControl className="h-full" />
               </Card>
             </div>
-
-            {/* Operator Profile - fixed width */}
-            <Card
-              className="p-2 col-span-1 flex flex-col !rounded-lg"
-              data-tour="operator-profile"
-            >
-              <OperatorProfile className="h-full" />
-              {/* S-meter reading when rig is connected via CAT */}
-              {catActive && (
-                <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-white/5 border border-white/10">
-                  <div className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">
-                    S-Meter
-                  </span>
-                  <span className="text-xs font-mono font-medium text-white ml-auto">
-                    {getSMeterText()}
-                  </span>
-                </div>
-              )}
-            </Card>
-
-            {/* 24h Forecast (hidden on mobile, shown on lg+) */}
-            <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
-              <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
-                24h Propagation Forecast
-                <span className="text-gray-500 normal-case ml-1">
-                  (hover for details)
-                </span>
-              </div>
-              <div className="flex-1 min-h-0">
-                <PropagationForecastMini
-                  displayTime={displayTime}
-                  className="h-full"
-                />
-              </div>
-            </Card>
-
-            {/* Solar Snapshot (xl+ only) */}
-            <Card className="hidden xl:flex xl:flex-col col-span-1 p-2 !rounded-lg">
-              {station && target ? (
-                <SolarSnapshot
-                  homeLat={station.lat}
-                  homeLon={station.lon}
-                  targetLat={target.lat}
-                  targetLon={target.lon}
-                  displayTime={displayTime}
-                  className="h-full"
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-500 text-xs">
-                  {station
-                    ? "Select a target on the map"
-                    : "Set QTH in settings"}
-                </div>
-              )}
-            </Card>
           </div>
         )}
 

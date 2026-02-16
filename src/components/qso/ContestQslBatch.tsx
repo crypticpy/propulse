@@ -41,14 +41,14 @@ const SERVICES: ServiceOption[] = [
   {
     id: "eqsl",
     label: "eQSL",
-    available: false,
-    description: "Coming soon",
+    available: true,
+    description: "Upload contest QSOs directly to eQSL.cc",
   },
   {
     id: "qrz",
     label: "QRZ",
-    available: false,
-    description: "Coming soon",
+    available: true,
+    description: "Upload contest QSOs directly to QRZ Logbook",
   },
 ];
 

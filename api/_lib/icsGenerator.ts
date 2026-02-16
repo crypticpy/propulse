@@ -172,7 +172,7 @@ export function computeNextSession(schedule: NetScheduleRow): Date | null {
       const targetDay = schedule.dayOfWeek ?? 0;
       const currentDay = now.getUTCDay();
 
-      let daysUntil = (targetDay - currentDay + 7) % 7;
+      const daysUntil = (targetDay - currentDay + 7) % 7;
       const candidate = addDays(todayAtUtcTime(hours, minutes), daysUntil);
 
       if (candidate.getTime() <= now.getTime()) {
@@ -185,7 +185,7 @@ export function computeNextSession(schedule: NetScheduleRow): Date | null {
       const targetDay = schedule.dayOfWeek ?? 0;
       const currentDay = now.getUTCDay();
 
-      let daysUntil = (targetDay - currentDay + 7) % 7;
+      const daysUntil = (targetDay - currentDay + 7) % 7;
       const candidate = addDays(todayAtUtcTime(hours, minutes), daysUntil);
 
       if (candidate.getTime() <= now.getTime()) {

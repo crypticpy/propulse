@@ -53,26 +53,44 @@ const HEIGHT_EXAGGERATION = 5;
 const SPHERE_SEGMENTS = 48;
 const D_LAYER_HEIGHT_KM = 85;
 
+/** Ionospheric layer color palette — used by bounce point markers */
+export const IONOSPHERE_LAYER_COLORS = {
+  D: "#f23020", // red — absorption
+  E: "#33d966", // green — sporadic E
+  F1: "#4da6f2", // blue — minor refraction
+  F2: "#b34dfa", // purple — primary refraction
+} as const;
+
+/** Layer name for display labels */
+export const IONOSPHERE_LAYER_NAMES = {
+  D: "D absorb",
+  E: "E skip",
+  F1: "F1 refract",
+  F2: "F2 bounce",
+} as const;
+
 const LAYER_CONFIGS: LayerConfig[] = [
   {
     type: LayerType.D,
-    color: new THREE.Vector3(0.9, 0.35, 0.2),
-    baseOpacity: 0.18,
+    // Warmer red tint — signals "absorption zone"
+    color: new THREE.Vector3(0.95, 0.2, 0.12),
+    baseOpacity: 0.14,
   },
   {
     type: LayerType.E,
     color: new THREE.Vector3(0.2, 0.85, 0.4),
-    baseOpacity: 0.15,
+    baseOpacity: 0.11,
   },
   {
     type: LayerType.F1,
     color: new THREE.Vector3(0.3, 0.65, 0.95),
-    baseOpacity: 0.13,
+    baseOpacity: 0.1,
   },
   {
     type: LayerType.F2,
-    color: new THREE.Vector3(0.65, 0.3, 0.95),
-    baseOpacity: 0.16,
+    // Slightly brighter purple — primary refraction layer, most prominent
+    color: new THREE.Vector3(0.7, 0.3, 0.98),
+    baseOpacity: 0.18,
   },
 ];
 
@@ -112,52 +130,58 @@ const fragmentShader = /* glsl */ `
     float sfiFactor = clamp((sfi - 60.0) / 120.0, 0.25, 1.0);
 
     if (layerType == 0) {
-      // D layer: daytime absorption, warm glow — faint twilight remnant
-      if (zenithDeg < 90.0) {
-        density = pow(max(cos(zenithAngle), 0.0), 1.3);
-      } else if (zenithDeg < 100.0) {
-        density = 0.08 * (1.0 - (zenithDeg - 90.0) / 10.0);
+      // D layer: daytime absorption zone — hard cutoff at terminator
+      // Steeper exponent = sharper day/night contrast for the absorption indicator
+      if (zenithDeg < 85.0) {
+        density = pow(max(cos(zenithAngle), 0.0), 1.8) * (0.85 + 0.15 * sfiFactor);
+      } else if (zenithDeg < 95.0) {
+        // Very sharp twilight fade — D layer recombines rapidly at sunset
+        float fade = 1.0 - (zenithDeg - 85.0) / 10.0;
+        density = 0.06 * fade * fade;
       }
+      // Night: effectively zero (D layer is absent)
     } else if (layerType == 1) {
-      // E layer: extends into twilight, sporadic E persists at night
-      if (zenithDeg < 98.0) {
-        density = pow(max(cos(zenithAngle), 0.0), 0.6);
-        if (zenithDeg > 90.0) {
-          density *= 1.0 - (zenithDeg - 90.0) / 8.0;
-        }
-      }
-      // Sporadic E: faint at night
-      density = max(density, 0.06 * sfiFactor);
-    } else if (layerType == 2) {
-      // F1: merges with F2 at night, visible in sunset/sunrise transition
-      if (zenithDeg < 80.0) {
-        density = pow(max(cos(zenithAngle), 0.0), 0.5) * sfiFactor;
+      // E layer: extends into twilight, sporadic E persists faintly at night
+      if (zenithDeg < 90.0) {
+        density = pow(max(cos(zenithAngle), 0.0), 0.7);
       } else if (zenithDeg < 100.0) {
-        float fade = 1.0 - (zenithDeg - 80.0) / 20.0;
-        density = pow(max(cos(zenithAngle * 0.9), 0.0), 0.5) * sfiFactor * max(fade, 0.0);
+        // Gradual twilight decay
+        float fade = 1.0 - (zenithDeg - 90.0) / 10.0;
+        density = 0.15 * fade * fade;
       }
-      // Faint residual at night (F1 merges into F2)
+      // Sporadic E: faint persistent glow at night
       density = max(density, 0.04 * sfiFactor);
+    } else if (layerType == 2) {
+      // F1: daytime only — disappears cleanly at twilight as it merges into F2
+      if (zenithDeg < 75.0) {
+        density = pow(max(cos(zenithAngle), 0.0), 0.5) * sfiFactor;
+      } else if (zenithDeg < 95.0) {
+        float fade = 1.0 - (zenithDeg - 75.0) / 20.0;
+        density = pow(max(cos(zenithAngle * 0.85), 0.0), 0.5) * sfiFactor * max(fade * fade, 0.0);
+      }
+      // Night: negligible — F1 has fully merged into F2
+      density = max(density, 0.02 * sfiFactor);
     } else {
-      // F2: always present — dominant nighttime layer
-      float baseDensity = 0.35;
+      // F2: always present — dominant nighttime layer, brightest overall
+      float baseDensity = 0.30;
 
-      // Diurnal: peaks around local noon
-      float diurnal = 0.55 + 0.45 * max(sunDot, -0.15);
+      // Diurnal: clear difference between day (bright) and night (dimmer)
+      // Wider swing: 0.40–1.0 range so day side is visibly brighter
+      float diurnal = 0.40 + 0.60 * max(sunDot, -0.10);
       density = baseDensity + (1.0 - baseDensity) * diurnal * sfiFactor;
 
       // Equatorial anomaly: boost near magnetic equator
       float lat = asin(vPosition.y) * 57.29578;
-      float anomaly = 1.0 + 0.25 * exp(-pow(abs(lat) - 15.0, 2.0) / 200.0);
+      float anomaly = 1.0 + 0.30 * exp(-pow(abs(lat) - 15.0, 2.0) / 180.0);
       density *= anomaly;
 
-      // Night side: visible floor — F2 persists as the key nighttime layer
-      float nightFloor = 0.20 + 0.10 * sfiFactor;
+      // Night side: visible floor — F2 persists but noticeably dimmer than day
+      float nightFloor = 0.18 + 0.08 * sfiFactor;
       density = max(density, nightFloor);
     }
 
     // Subtle shimmer
-    float shimmer = 1.0 + 0.04 * sin(time * 0.5 + vPosition.x * 10.0 + vPosition.z * 10.0);
+    float shimmer = 1.0 + 0.03 * sin(time * 0.5 + vPosition.x * 10.0 + vPosition.z * 10.0);
     density *= shimmer;
 
     // Fresnel-like edge glow (limb brightening for translucent shells)
@@ -190,8 +214,9 @@ function sunDirectionVector(date: Date): [number, number, number] {
 
 /**
  * Convert a height in km to a globe-space radius with exaggeration.
+ * Exported for use by RayPathArc bounce-point markers.
  */
-function heightToRadius(heightKm: number): number {
+export function heightToRadius(heightKm: number): number {
   return 1.0 + (heightKm / EARTH_RADIUS_KM) * HEIGHT_EXAGGERATION;
 }
 

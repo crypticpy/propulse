@@ -26,7 +26,7 @@ const NOAA_URL =
 interface ForecastDay {
   date: string;
   predicted_flux: number | null;
-  predicted_kp: number | null;
+  predicted_a_index: number | null;
   probabilities?: {
     m_class: number | null;
     x_class: number | null;
@@ -65,7 +65,7 @@ function parseForecast(text: string): ForecastDay[] {
     days.push({
       date: dateHeaders[d] || `Day ${d + 1}`,
       predicted_flux: null,
-      predicted_kp: null,
+      predicted_a_index: null,
       probabilities: { m_class: null, x_class: null, proton: null },
     });
   }
@@ -111,7 +111,7 @@ function parseForecast(text: string): ForecastDay[] {
     if (/^A_Planetary\b/i.test(line)) {
       const vals = extract3Numbers(line.replace(/^A_Planetary\s*/i, ""));
       for (let d = 0; d < Math.min(vals.length, 3); d++) {
-        days[d].predicted_kp = vals[d]; // Actually A-index, but reusing field
+        days[d].predicted_a_index = vals[d];
       }
     }
   }

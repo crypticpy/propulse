@@ -748,7 +748,7 @@ export function LayersPopover() {
       total: 1,
     };
     return counts;
-  }, [categories, uiPrefs.bandHeightArcs, labelOptions.gridLabels]);
+  }, [categories, uiPrefs.bandHeightArcs]);
 
   // ── Position calculation ──
   useEffect(() => {

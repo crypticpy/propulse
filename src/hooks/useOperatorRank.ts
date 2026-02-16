@@ -269,10 +269,10 @@ export function useOperatorRank(): OperatorRankState {
       updateRankData({ rankPoints });
     }
   }, [
+    isAuthenticated,
     isLoading,
-    computed.rank,
-    computed.rankPoints,
-    computed.unlockedBackgrounds,
+    rankOverride,
+    computed,
     operatorRank.currentRank,
     operatorRank.rankPoints,
     operatorRank.rankHistory,

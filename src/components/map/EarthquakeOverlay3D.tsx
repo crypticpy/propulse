@@ -75,10 +75,7 @@ function getEqSize(magnitude: number): number {
 
 export const EarthquakeOverlay3D = React.memo(
   function EarthquakeOverlay3D({ earthquakes }: EarthquakeOverlay3DProps) {
-    // Early return for empty data
-    if (earthquakes.length === 0) {
-      return null;
-    }
+    const hasEarthquakes = earthquakes.length > 0;
 
     // Shared geometries — created once, reused across all earthquake meshes
     const circleGeo = useMemo(() => new THREE.CircleGeometry(1, 32), []);
@@ -86,6 +83,8 @@ export const EarthquakeOverlay3D = React.memo(
 
     // Mutable refs array for glow ring meshes (for pulse animation)
     const glowRefs = useRef<(THREE.Mesh | null)[]>([]);
+    // Base scale for each glow ring (set during render, read in useFrame)
+    const glowBaseScales = useRef<number[]>([]);
 
     // Single useFrame loop for all glow ring pulse animations
     useFrame(({ clock }) => {
@@ -93,11 +92,18 @@ export const EarthquakeOverlay3D = React.memo(
       for (let i = 0; i < glowRefs.current.length; i++) {
         const mesh = glowRefs.current[i];
         if (mesh) {
-          const scale = 1 + 0.15 * Math.sin(t * 2 + i * 0.5);
-          mesh.scale.setScalar(scale);
+          const base = glowBaseScales.current[i] ?? 0.01;
+          const pulse = 1 + 0.15 * Math.sin(t * 2 + i * 0.5);
+          const s = base * pulse;
+          mesh.scale.set(s, s, s);
         }
       }
     });
+
+    // Early return for empty data
+    if (!hasEarthquakes) {
+      return null;
+    }
 
     return (
       <group>
@@ -130,9 +136,10 @@ export const EarthquakeOverlay3D = React.memo(
               <mesh
                 ref={(el: THREE.Mesh | null) => {
                   glowRefs.current[i] = el;
+                  glowBaseScales.current[i] = size * 1.5;
                 }}
                 geometry={ringGeo}
-                scale={[size * 2, size * 2, size * 2]}
+                scale={[size * 1.5, size * 1.5, size * 1.5]}
               >
                 <meshBasicMaterial
                   color={color}

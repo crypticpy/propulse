@@ -231,7 +231,6 @@ export function useSolarAlerts(
     recordAlertFired,
     getActiveAlerts,
     hasActiveAlertOfType,
-    alerts,
     alertHistory,
     setLastCheckTime,
     cleanupExpiredHistory,
@@ -252,11 +251,10 @@ export function useSolarAlerts(
    * Returns null if no data is available
    */
   const latestKp = useMemo(() => {
-    const { data } = kIndexQuery;
-    if (!data || data.length === 0) {
+    if (!kIndexQuery.data || kIndexQuery.data.length === 0) {
       return null;
     }
-    return data[data.length - 1];
+    return kIndexQuery.data[kIndexQuery.data.length - 1];
   }, [kIndexQuery.data]);
 
   /**
@@ -264,15 +262,14 @@ export function useSolarAlerts(
    * Bz can sometimes be null in the feed, so we search backward for a valid reading
    */
   const latestBz = useMemo(() => {
-    const { data } = magnetometerQuery;
-    if (!data || data.length === 0) {
+    if (!magnetometerQuery.data || magnetometerQuery.data.length === 0) {
       return null;
     }
 
     // Find most recent entry with a valid Bz reading
-    for (let i = data.length - 1; i >= 0; i--) {
-      if (data[i].bz_gsm !== null) {
-        return data[i];
+    for (let i = magnetometerQuery.data.length - 1; i >= 0; i--) {
+      if (magnetometerQuery.data[i].bz_gsm !== null) {
+        return magnetometerQuery.data[i];
       }
     }
     return null;
@@ -287,27 +284,24 @@ export function useSolarAlerts(
    * Extract the most recent X-ray flux value
    */
   const latestXray = useMemo(() => {
-    const { data } = xrayFluxQuery;
-    if (!data || data.length === 0) return null;
-    return data[data.length - 1];
+    if (!xrayFluxQuery.data || xrayFluxQuery.data.length === 0) return null;
+    return xrayFluxQuery.data[xrayFluxQuery.data.length - 1];
   }, [xrayFluxQuery.data]);
 
   /**
    * Extract the most recent proton flux value (>= 10 MeV)
    */
   const latestProton = useMemo(() => {
-    const { data } = protonFluxQuery;
-    if (!data || data.length === 0) return null;
-    return data[data.length - 1];
+    if (!protonFluxQuery.data || protonFluxQuery.data.length === 0) return null;
+    return protonFluxQuery.data[protonFluxQuery.data.length - 1];
   }, [protonFluxQuery.data]);
 
   /**
    * Extract the most recent Dst index value
    */
   const latestDst = useMemo(() => {
-    const { data } = dstIndexQuery;
-    if (!data || data.length === 0) return null;
-    return data[data.length - 1];
+    if (!dstIndexQuery.data || dstIndexQuery.data.length === 0) return null;
+    return dstIndexQuery.data[dstIndexQuery.data.length - 1];
   }, [dstIndexQuery.data]);
 
   // =========================================================================
@@ -639,6 +633,9 @@ export function useSolarAlerts(
     enabled,
     latestKp,
     latestBz,
+    latestXray,
+    latestProton,
+    latestDst,
     probabilities,
     isLiveData,
     notificationPrefs,
@@ -1182,9 +1179,9 @@ export function useSolarAlerts(
 
   /**
    * Get current active alerts
-   * Re-computed when the alerts array changes
+   * Re-computed when store alerts change
    */
-  const activeAlerts = useMemo(() => getActiveAlerts(), [alerts]);
+  const activeAlerts = useMemo(() => getActiveAlerts(), [getActiveAlerts]);
 
   // =========================================================================
   // RETURN VALUE

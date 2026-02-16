@@ -778,7 +778,24 @@ function GlobeScene({
   const { activeShowers } = useMeteorShowers();
   const { grid: noiseFloorGrid } = useNoiseFloor(14); // 14 MHz (20m band default)
   const { data: drapData } = useDRAPOverlay();
-  const { spots: wsprSpots } = useWSPRSpots();
+  const { spots: wsprSpotsRaw } = useWSPRSpots("all");
+  const wsprSpots = useMemo(
+    () =>
+      wsprSpotsRaw.map((s) => ({
+        txCallsign: s.callsign,
+        txGrid: s.grid,
+        rxCallsign: s.rxCallsign,
+        rxGrid: s.rxGrid,
+        txLat: s.txLat,
+        txLon: s.txLon,
+        rxLat: s.rxLat,
+        rxLon: s.rxLon,
+        frequencyMHz: s.frequency,
+        snr: s.snr,
+        distanceKm: s.distance,
+      })),
+    [wsprSpotsRaw],
+  );
   const { regions: sporadicERegions } = useSporadicE();
   const { regions: ductingRegions } = useDuctingForecast();
   const { satellites: satelliteData } = useSatellites();
@@ -823,7 +840,7 @@ function GlobeScene({
       if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, colorMode);
-      const staggerOffset = isInitialLoad ? Math.random() * 6000 : 0;
+      const staggerOffset = isInitialLoad ? Math.random() * 1000 : 0;
       const ts = Date.now() - staggerOffset;
 
       // Derive 2-char grid field from resolved lat/lon so glow matches dot position
@@ -955,6 +972,8 @@ function GlobeScene({
       radiusKm: result.radiusKm,
       usableBands: result.usableBands,
       quality: result.quality,
+      criticalFreqMHz: result.criticalFreqMHz,
+      maxUsableFreqMHz: result.maxUsableFreqMHz,
     };
   }, [layers.nvis, station, currentSFI, currentKp, displayTime]);
 
@@ -1142,7 +1161,12 @@ function GlobeScene({
 
         {/* MUF overlay */}
         {layers.muf && currentSFI && (
-          <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
+          <MUFOverlay
+            date={displayTime}
+            sfi={currentSFI}
+            kp={currentKp}
+            opacity={0.45}
+          />
         )}
 
         {/* Satellite overlay */}
@@ -1175,6 +1199,8 @@ function GlobeScene({
             radiusKm={nvisData.radiusKm}
             usableBands={nvisData.usableBands}
             quality={nvisData.quality}
+            criticalFreqMHz={nvisData.criticalFreqMHz}
+            maxUsableFreqMHz={nvisData.maxUsableFreqMHz}
           />
         )}
 
@@ -1206,22 +1232,8 @@ function GlobeScene({
         )}
 
         {/* === Activity Layers === */}
-        {layers.wspr && wsprSpots && wsprSpots.length > 0 && (
-          <WSPROverlay3D
-            spots={wsprSpots.map((s) => ({
-              txCallsign: s.callsign,
-              txGrid: s.grid,
-              rxCallsign: s.rxCallsign,
-              rxGrid: s.rxGrid,
-              txLat: s.txLat,
-              txLon: s.txLon,
-              rxLat: s.rxLat,
-              rxLon: s.rxLon,
-              frequencyMHz: s.frequency,
-              snr: s.snr,
-              distanceKm: s.distance,
-            }))}
-          />
+        {layers.wspr && wsprSpots.length > 0 && (
+          <WSPROverlay3D spots={wsprSpots} />
         )}
 
         {layers.beacons && beacons && beacons.length > 0 && (
@@ -1385,6 +1397,8 @@ function GlobeScene({
                   endLat={target.lat}
                   endLon={target.lon}
                   pathMode={pathMode}
+                  showIonosphereHighlights={layers.ionosphere}
+                  displayTime={displayTime}
                 />
               ) : (
                 <PathArc

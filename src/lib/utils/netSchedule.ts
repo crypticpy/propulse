@@ -99,7 +99,7 @@ export function getNextSessionTime(schedule: NetSchedule): Date | null {
       const currentDay = now.getUTCDay();
 
       // Days until next occurrence of the target day
-      let daysUntil = (targetDay - currentDay + 7) % 7;
+      const daysUntil = (targetDay - currentDay + 7) % 7;
 
       // Build candidate at target day + time
       const candidate = addDays(todayAtUtcTime(hours, minutes), daysUntil);
@@ -115,7 +115,7 @@ export function getNextSessionTime(schedule: NetSchedule): Date | null {
       const targetDay = schedule.dayOfWeek ?? 0;
       const currentDay = now.getUTCDay();
 
-      let daysUntil = (targetDay - currentDay + 7) % 7;
+      const daysUntil = (targetDay - currentDay + 7) % 7;
       const candidate = addDays(todayAtUtcTime(hours, minutes), daysUntil);
 
       if (candidate.getTime() <= now.getTime()) {

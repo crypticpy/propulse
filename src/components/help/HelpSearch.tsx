@@ -5,7 +5,7 @@
  * Visual: subtle focus glow ring, entrance animation for dropdown.
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { HELP_SECTIONS, SEARCH_INDEX, HelpIcons } from "./helpData";
 
@@ -22,16 +22,19 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
   const navigate = useNavigate();
 
   // Filter results
-  const results =
-    query.trim().length < 2
-      ? []
-      : SEARCH_INDEX.filter((entry) => {
-          const q = query.toLowerCase();
-          return (
-            entry.heading.toLowerCase().includes(q) ||
-            entry.keywords.some((kw) => kw.includes(q))
-          );
-        }).slice(0, 8);
+  const results = useMemo(() => {
+    if (query.trim().length < 2) {
+      return [];
+    }
+
+    const q = query.toLowerCase();
+    return SEARCH_INDEX.filter((entry) => {
+      return (
+        entry.heading.toLowerCase().includes(q) ||
+        entry.keywords.some((kw) => kw.includes(q))
+      );
+    }).slice(0, 8);
+  }, [query]);
 
   // Click-outside handler
   useEffect(() => {

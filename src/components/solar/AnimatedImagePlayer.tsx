@@ -69,41 +69,6 @@ export const AnimatedImagePlayer: React.FC<AnimatedImagePlayerProps> = ({
   // Preload buffer size (frames ahead of current position)
   const PRELOAD_BUFFER = 20;
 
-  // Fetch animation manifest
-  const loadAnimation = useCallback(async () => {
-    setState("loading");
-    setLoadProgress(0);
-    setErrorMessage("");
-
-    try {
-      const response = await fetch(animationJsonUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to load animation: ${response.status}`);
-      }
-
-      const data: AnimationFrame[] = await response.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error("Invalid animation data");
-      }
-
-      setFrames(data);
-      setLoadProgress(10);
-
-      // Preload first few frames before starting
-      await preloadFrames(data, 0, Math.min(PRELOAD_BUFFER, data.length));
-      setLoadProgress(100);
-
-      setState("playing");
-      setCurrentFrameIndex(0);
-    } catch (err) {
-      console.error("Animation load error:", err);
-      setErrorMessage(
-        err instanceof Error ? err.message : "Failed to load animation",
-      );
-      setState("error");
-    }
-  }, [animationJsonUrl]);
-
   // Preload a range of frames
   const preloadFrames = useCallback(
     async (frameList: AnimationFrame[], start: number, count: number) => {
@@ -147,6 +112,41 @@ export const AnimatedImagePlayer: React.FC<AnimatedImagePlayerProps> = ({
     },
     [baseUrl, preloadedFrames],
   );
+
+  // Fetch animation manifest
+  const loadAnimation = useCallback(async () => {
+    setState("loading");
+    setLoadProgress(0);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(animationJsonUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to load animation: ${response.status}`);
+      }
+
+      const data: AnimationFrame[] = await response.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error("Invalid animation data");
+      }
+
+      setFrames(data);
+      setLoadProgress(10);
+
+      // Preload first few frames before starting
+      await preloadFrames(data, 0, Math.min(PRELOAD_BUFFER, data.length));
+      setLoadProgress(100);
+
+      setState("playing");
+      setCurrentFrameIndex(0);
+    } catch (err) {
+      console.error("Animation load error:", err);
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to load animation",
+      );
+      setState("error");
+    }
+  }, [animationJsonUrl, preloadFrames]);
 
   // Animation loop
   useEffect(() => {
@@ -198,11 +198,12 @@ export const AnimatedImagePlayer: React.FC<AnimatedImagePlayerProps> = ({
 
   // Cleanup on unmount
   useEffect(() => {
+    const cache = imageCache.current;
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      imageCache.current.clear();
+      cache.clear();
     };
   }, []);
 

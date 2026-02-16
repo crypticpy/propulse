@@ -6,14 +6,18 @@
  * at altitude, ground track on the surface, visibility footprint circle, and a
  * vertical drop-line connector from the ISS to the sub-satellite point.
  *
+ * Clicking the ISS model opens an info card with real-time orbital data and
+ * ham radio frequency reference (voice, APRS, packet, cross-band repeater).
+ *
  * Rendered inside the globe's tilt group alongside SatelliteOverlay.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useISSTracker } from "@/hooks/useISSTracker";
+import type { UseISSTrackerResult } from "@/hooks/useISSTracker";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 // ---------------------------------------------------------------------------
@@ -77,6 +81,343 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
 }
 
 // ---------------------------------------------------------------------------
+// ISS Ham Radio Constants
+// ---------------------------------------------------------------------------
+
+/** Well-known ISS amateur radio frequencies and modes */
+const ISS_FREQUENCIES = [
+  {
+    label: "Voice Downlink",
+    freq: "145.800 MHz",
+    mode: "FM",
+    note: "Worldwide",
+  },
+  {
+    label: "Voice Uplink",
+    freq: "144.490 MHz",
+    mode: "FM",
+    note: "Region 2/3",
+  },
+  {
+    label: "APRS Digipeater",
+    freq: "145.825 MHz",
+    mode: "AFSK 1200 baud",
+    note: "Worldwide",
+  },
+  {
+    label: "Packet",
+    freq: "145.825 MHz",
+    mode: "1200 baud AFSK",
+    note: "Mailbox / BBS",
+  },
+  {
+    label: "Cross-band DN",
+    freq: "437.800 MHz",
+    mode: "FM",
+    note: "When active",
+  },
+  {
+    label: "Cross-band UP",
+    freq: "145.990 MHz",
+    mode: "FM",
+    note: "When active",
+  },
+] as const;
+
+/** ISS orbital velocity in km/s (approximate) */
+const ISS_VELOCITY_KMS = 7.66;
+
+/** ISS orbital period in minutes (approximate) */
+const ISS_ORBITAL_PERIOD_MIN = 92.65;
+
+// ---------------------------------------------------------------------------
+// Time Formatting Helpers
+// ---------------------------------------------------------------------------
+
+/** Format seconds into a human-readable countdown string */
+function formatCountdown(totalSeconds: number): string {
+  if (totalSeconds <= 0) return "NOW";
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+/** Format elevation with degree symbol */
+function formatDegrees(deg: number): string {
+  return `${deg.toFixed(1)}\u00B0`;
+}
+
+// ---------------------------------------------------------------------------
+// ISSInfoCard — Clickable Info Popup
+// ---------------------------------------------------------------------------
+
+interface ISSInfoCardProps {
+  tracker: UseISSTrackerResult;
+  occlusionOpacity: number;
+}
+
+function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
+  const {
+    iss,
+    elevation,
+    azimuth,
+    isAboveHorizon,
+    currentPass,
+    nextPass,
+    footprintRadiusKm,
+  } = tracker;
+  if (!iss) return null;
+
+  const { lat, lon, alt } = iss.position;
+
+  const relevantPass = currentPass ?? nextPass;
+
+  return (
+    <Html
+      position={[0, 0.06, 0]}
+      center
+      zIndexRange={[10, 5]}
+      style={{
+        pointerEvents: "auto",
+        opacity: Math.max(occlusionOpacity, 0.85),
+      }}
+    >
+      <div
+        className="flex flex-col gap-1 rounded-lg px-3 py-2.5 text-[10px] font-mono select-none"
+        style={{
+          backgroundColor: "rgba(8, 8, 24, 0.95)",
+          border: "1px solid rgba(100, 180, 255, 0.4)",
+          boxShadow:
+            "0 0 20px rgba(100, 180, 255, 0.2), inset 0 0 30px rgba(100, 180, 255, 0.03)",
+          minWidth: "240px",
+          maxWidth: "280px",
+          color: "#e0e0e8",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2 mb-0.5">
+          <span
+            className="text-[13px] font-bold tracking-wider"
+            style={{ color: "#64B4FF" }}
+          >
+            ISS (ZARYA)
+          </span>
+          <span
+            className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase"
+            style={{
+              backgroundColor: isAboveHorizon
+                ? "rgba(0, 255, 136, 0.15)"
+                : "rgba(255, 255, 255, 0.06)",
+              color: isAboveHorizon ? "#00ff88" : "#888",
+              border: `1px solid ${isAboveHorizon ? "rgba(0, 255, 136, 0.4)" : "rgba(136, 136, 136, 0.3)"}`,
+            }}
+          >
+            {isAboveHorizon ? "IN VIEW" : "BELOW HORIZON"}
+          </span>
+        </div>
+
+        {/* NORAD ID */}
+        <div className="text-[9px]" style={{ color: "#777" }}>
+          NORAD 25544 &bull; Inclination 51.6&deg;
+        </div>
+
+        {/* Divider */}
+        <div
+          className="my-1"
+          style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
+        />
+
+        {/* Section: Orbital Data */}
+        <div
+          className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+          style={{ color: "#64B4FF" }}
+        >
+          Position
+        </div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          <div className="flex justify-between">
+            <span style={{ color: "#888" }}>Lat:</span>
+            <span style={{ color: "#ccc" }}>
+              {Math.abs(lat).toFixed(2)}&deg;{lat >= 0 ? "N" : "S"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "#888" }}>Lon:</span>
+            <span style={{ color: "#ccc" }}>
+              {Math.abs(lon).toFixed(2)}&deg;{lon >= 0 ? "E" : "W"}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "#888" }}>Alt:</span>
+            <span style={{ color: "#ccc" }}>{alt.toFixed(1)} km</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "#888" }}>Speed:</span>
+            <span style={{ color: "#ccc" }}>{ISS_VELOCITY_KMS} km/s</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "#888" }}>Period:</span>
+            <span style={{ color: "#ccc" }}>{ISS_ORBITAL_PERIOD_MIN} min</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "#888" }}>Footprint:</span>
+            <span style={{ color: "#ccc" }}>
+              {footprintRadiusKm.toFixed(0)} km
+            </span>
+          </div>
+        </div>
+
+        {/* Observer section (only when station is configured) */}
+        {elevation !== null && azimuth !== null && (
+          <>
+            <div
+              className="my-1"
+              style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
+            />
+            <div
+              className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+              style={{ color: "#64B4FF" }}
+            >
+              From Your QTH
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <div className="flex justify-between">
+                <span style={{ color: "#888" }}>Elev:</span>
+                <span style={{ color: isAboveHorizon ? "#00ff88" : "#ccc" }}>
+                  {formatDegrees(elevation)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span style={{ color: "#888" }}>Azim:</span>
+                <span style={{ color: "#ccc" }}>{formatDegrees(azimuth)}</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Pass prediction section */}
+        {relevantPass && (
+          <>
+            <div
+              className="my-1"
+              style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
+            />
+            <div
+              className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+              style={{ color: "#64B4FF" }}
+            >
+              {currentPass ? "Current Pass" : "Next Pass"}
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              {currentPass ? (
+                <>
+                  <div className="flex justify-between">
+                    <span style={{ color: "#888" }}>LOS in:</span>
+                    <span style={{ color: "#ffcc00" }}>
+                      {currentPass.timeToLos !== null
+                        ? formatCountdown(currentPass.timeToLos)
+                        : "--"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: "#888" }}>Max El:</span>
+                    <span style={{ color: "#ccc" }}>
+                      {formatDegrees(currentPass.maxEl)}
+                    </span>
+                  </div>
+                  <div className="col-span-2 flex justify-between">
+                    <span style={{ color: "#888" }}>Direction:</span>
+                    <span style={{ color: "#ccc" }}>
+                      {currentPass.direction}
+                    </span>
+                  </div>
+                </>
+              ) : nextPass ? (
+                <>
+                  <div className="flex justify-between">
+                    <span style={{ color: "#888" }}>AOS in:</span>
+                    <span style={{ color: "#ffcc00" }}>
+                      {nextPass.timeToAos !== null
+                        ? formatCountdown(nextPass.timeToAos)
+                        : "--"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: "#888" }}>Max El:</span>
+                    <span style={{ color: "#ccc" }}>
+                      {formatDegrees(nextPass.maxEl)}
+                    </span>
+                  </div>
+                  <div className="col-span-2 flex justify-between">
+                    <span style={{ color: "#888" }}>Direction:</span>
+                    <span style={{ color: "#ccc" }}>{nextPass.direction}</span>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </>
+        )}
+
+        {/* Divider */}
+        <div
+          className="my-1"
+          style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
+        />
+
+        {/* Ham Radio Frequencies */}
+        <div
+          className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+          style={{ color: "#64B4FF" }}
+        >
+          Ham Radio Frequencies
+        </div>
+        <div className="flex flex-col gap-0.5">
+          {ISS_FREQUENCIES.map((f) => (
+            <div
+              key={f.label}
+              className="flex items-baseline justify-between gap-1"
+            >
+              <span
+                className="text-[9px] truncate"
+                style={{ color: "#999", maxWidth: "90px" }}
+              >
+                {f.label}
+              </span>
+              <span
+                className="text-[9px] font-semibold"
+                style={{ color: "#e0e0e8" }}
+              >
+                {f.freq}
+              </span>
+              <span className="text-[8px]" style={{ color: "#666" }}>
+                {f.note}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* SSTV note */}
+        <div
+          className="mt-1 px-1.5 py-1 rounded text-[8px]"
+          style={{
+            backgroundColor: "rgba(100, 180, 255, 0.06)",
+            border: "1px solid rgba(100, 180, 255, 0.12)",
+            color: "#999",
+          }}
+        >
+          ISS occasionally transmits SSTV images on 145.800 MHz during special
+          events.
+        </div>
+      </div>
+    </Html>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ISSModel — Procedural ISS 3D Icon (Billboarded)
 // ---------------------------------------------------------------------------
 
@@ -84,9 +425,12 @@ interface ISSModelProps {
   iss: {
     position: { lat: number; lon: number; alt: number };
   };
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  tracker: UseISSTrackerResult;
 }
 
-function ISSModel({ iss }: ISSModelProps) {
+function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.MeshBasicMaterial>(null);
   const bodyRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -128,9 +472,32 @@ function ISSModel({ iss }: ISSModelProps) {
     }
   });
 
+  // Click handler for the ISS model meshes
+  const handleClick = useCallback(
+    (e: THREE.Event) => {
+      if ("stopPropagation" in e && typeof e.stopPropagation === "function") {
+        e.stopPropagation();
+      }
+      onToggleSelect();
+    },
+    [onToggleSelect],
+  );
+
   return (
     <group position={position}>
       <group ref={groupRef}>
+        {/* Invisible click target — larger hitbox for easier clicking */}
+        <mesh onClick={handleClick} renderOrder={0}>
+          <planeGeometry args={[0.06, 0.04]} />
+          <meshBasicMaterial
+            transparent
+            opacity={0}
+            side={THREE.DoubleSide}
+            depthTest={false}
+            depthWrite={false}
+          />
+        </mesh>
+
         {/* Glow circle behind model */}
         <mesh renderOrder={0}>
           <circleGeometry args={[0.03, 32]} />
@@ -147,7 +514,7 @@ function ISSModel({ iss }: ISSModelProps) {
         </mesh>
 
         {/* Central body module */}
-        <mesh renderOrder={2}>
+        <mesh onClick={handleClick} renderOrder={2}>
           <boxGeometry args={[0.012, 0.006, 0.003]} />
           <meshBasicMaterial
             ref={bodyRef}
@@ -159,7 +526,7 @@ function ISSModel({ iss }: ISSModelProps) {
         </mesh>
 
         {/* Left solar array */}
-        <mesh position={[-0.018, 0, 0]} renderOrder={1}>
+        <mesh position={[-0.018, 0, 0]} onClick={handleClick} renderOrder={1}>
           <planeGeometry args={[0.018, 0.008]} />
           <meshBasicMaterial
             ref={leftPanelRef}
@@ -172,7 +539,7 @@ function ISSModel({ iss }: ISSModelProps) {
         </mesh>
 
         {/* Right solar array */}
-        <mesh position={[0.018, 0, 0]} renderOrder={1}>
+        <mesh position={[0.018, 0, 0]} onClick={handleClick} renderOrder={1}>
           <planeGeometry args={[0.018, 0.008]} />
           <meshBasicMaterial
             ref={rightPanelRef}
@@ -220,9 +587,10 @@ function ISSModel({ iss }: ISSModelProps) {
           center
           zIndexRange={[1, 0]}
           style={{
-            pointerEvents: "none",
+            pointerEvents: "auto",
             transition: "opacity 0.2s ease",
             opacity: occlusionOpacity,
+            cursor: "pointer",
           }}
         >
           <div
@@ -230,14 +598,25 @@ function ISSModel({ iss }: ISSModelProps) {
             style={{
               backgroundColor: "rgba(10, 10, 26, 0.9)",
               color: "#ffffff",
-              border: "1px solid rgba(100, 180, 255, 0.5)",
-              boxShadow: "0 0 12px rgba(100, 180, 255, 0.3)",
+              border: `1px solid ${isSelected ? "rgba(100, 180, 255, 0.8)" : "rgba(100, 180, 255, 0.5)"}`,
+              boxShadow: isSelected
+                ? "0 0 16px rgba(100, 180, 255, 0.5)"
+                : "0 0 12px rgba(100, 180, 255, 0.3)",
               textShadow: "0 0 8px rgba(100, 180, 255, 0.5)",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect();
             }}
           >
             ISS
           </div>
         </Html>
+
+        {/* Info card popup when selected */}
+        {isSelected && (
+          <ISSInfoCard tracker={tracker} occlusionOpacity={occlusionOpacity} />
+        )}
       </group>
     </group>
   );
@@ -558,12 +937,22 @@ function ISSConnector({ iss }: ISSConnectorProps) {
  */
 export function ISSTrackerOverlay() {
   const tracker = useISSTracker();
+  const [isSelected, setIsSelected] = useState(false);
+
+  const handleToggleSelect = useCallback(() => {
+    setIsSelected((prev) => !prev);
+  }, []);
 
   if (!tracker.iss) return null;
 
   return (
     <group>
-      <ISSModel iss={tracker.iss} />
+      <ISSModel
+        iss={tracker.iss}
+        isSelected={isSelected}
+        onToggleSelect={handleToggleSelect}
+        tracker={tracker}
+      />
       <ISSOrbitRing
         orbitTrack={tracker.orbitTrack}
         alt={tracker.iss.position.alt}

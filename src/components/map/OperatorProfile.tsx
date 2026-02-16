@@ -6,11 +6,9 @@
  * active radio equipment, and band/mode selector. Designed for the PropSphere
  * view's top row.
  *
- * Information is tailored for different user types:
- * - Electrical engineers: Technical specs, measurements
- * - Solar weather enthusiasts: Solar data, indices
- * - Experienced hams: Advanced propagation data
- * - New hams: Explanations, guidance
+ * The operating VFO panel is the hero element — recessed hardware-display
+ * aesthetic with breathing glow, hover lift, chevron affordance, and on-hover
+ * CTA to make its interactivity unmissable.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,8 +23,8 @@ import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 import { useActiveBandMode } from "@/hooks/useActiveBandMode";
 import { BandModeModal } from "@/components/operating/BandModeModal";
-import { BAND_COLORS } from "@/lib/utils/spotColors";
-import { useOperatingStore } from "@/stores/operatingStore";
+import { BAND_COLORS, MODE_COLORS } from "@/lib/utils/spotColors";
+import { useOperatingStore, SOURCE_DISPLAY } from "@/stores/operatingStore";
 import type { BandId } from "@/types/user";
 
 interface OperatorProfileProps {
@@ -49,10 +47,21 @@ function formatCompactTime(date: Date, use24h: boolean = true): string {
   return `${displayHours}:${minutes} ${period}`;
 }
 
+/**
+ * Format frequency in Hz to display like "14.150.00" for a VFO readout feel
+ */
+function formatFrequency(hz: number): string {
+  const mhz = hz / 1_000_000;
+  const str = mhz.toFixed(5);
+  const [whole, dec] = str.split(".");
+  return `${whole}.${dec.slice(0, 3)}.${dec.slice(3)}`;
+}
+
 export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const { use24h } = useTimeFormat();
   const [showHelp, setShowHelp] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const station = useUserStore((state) => state.station);
   const preferences = useUserStore((state) => state.preferences);
   const activeRadio = useActiveRadio();
@@ -63,10 +72,12 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const licenseStatus = useLicenseStatus();
 
   // Band/mode state
-  const { activeBand, activeMode, activeSource } = useActiveBandMode();
+  const { activeBand, activeMode, activeSource, activeFrequency } =
+    useActiveBandMode();
   const catOverridden = useOperatingStore((s) => s.catOverridden);
   const catConnected = useOperatingStore((s) => s._catConnected);
   const bandSessionStart = useOperatingStore((s) => s.bandSessionStart);
+  const bandModeHistory = useOperatingStore((s) => s.bandModeHistory);
   const contestLocked = useOperatingStore((s) => s.contestLocked);
   const watchedBands = useOperatingStore((s) => s.watchedBands);
   const subBandSegment = useOperatingStore((s) => s.subBandSegment);
@@ -139,16 +150,14 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
   const operatorStatus =
     stationConfigured && operatorGrid ? "ready" : "incomplete";
 
-  // Source dot color for band/mode widget
-  const getSourceDotColor = (): string | null => {
-    if (activeSource === "cat") return "bg-green-400";
-    if (activeSource === "wsjtx") return "bg-cyan-400";
-    if (activeSource === "contest") return "bg-amber-400";
-    return null;
-  };
-
-  const sourceDotColor = getSourceDotColor();
   const bandColor = BAND_COLORS[activeBand] ?? BAND_COLORS.default;
+  const modeColor = MODE_COLORS[activeMode] ?? MODE_COLORS.default;
+  const sourceInfo = SOURCE_DISPLAY[activeSource];
+  const sourceLabel = sourceInfo?.label ?? null;
+  const sourceStyles = sourceInfo?.badge ?? "";
+
+  // Derived hover/flash states for VFO panel
+  const isLifted = isHovered && !contestLocked && !isFlashing;
 
   // Empty state
   if (!stationConfigured) {
@@ -341,25 +350,77 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
         </div>
       )}
 
-      {/* Band/Mode selector widget */}
+      {/* ── Active Band section label ──────────────────────────────── */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-[3px] h-3 rounded-full bg-plasma-orange" />
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+          Active Band
+        </span>
+        {activeSource === "default" && (
+          <span
+            className="w-1.5 h-1.5 rounded-full bg-plasma-orange animate-pulse"
+            title="No band selected yet"
+          />
+        )}
+      </div>
+
+      {/* ── Start Here CTA — shown only when no selection has ever been made */}
+      {activeSource === "default" && bandModeHistory.length === 0 && (
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="w-full rounded-lg bg-plasma-orange/10 border border-plasma-orange/30 px-3 py-2.5 mb-2 text-left animate-pulse cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-plasma-orange flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
+              />
+            </svg>
+            <div>
+              <div className="text-sm font-medium text-plasma-orange">
+                Start here &mdash; set your operating band
+              </div>
+              <div className="text-[10px] text-gray-400 mt-0.5">
+                This controls what propagation data you see
+              </div>
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* ── VFO Panel — Interactive Operating Console ──────────────── */}
       <button
         onClick={() => {
           if (!contestLocked) setIsModalOpen(true);
         }}
-        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/5 border-l-2 transition-all duration-150 mb-1 w-full text-left ${
-          contestLocked
-            ? "opacity-60 cursor-not-allowed"
-            : "hover:bg-white/[0.08]"
-        } ${isFlashing ? "ring-2" : ""}`}
+        onMouseEnter={() => !contestLocked && setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`
+          relative w-full rounded-xl overflow-hidden text-left group mb-1.5
+          ${contestLocked ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}
+        `}
         style={{
-          borderLeftColor: bandColor,
-          ...(isFlashing
-            ? {
-                ringColor: bandColor,
-                boxShadow: `0 0 0 2px ${bandColor}`,
-                transform: "scale(1.02)",
-              }
-            : { transform: "scale(1)" }),
+          background: `linear-gradient(145deg, ${bandColor}${isLifted ? "18" : "10"} 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.55) 100%)`,
+          border: `1px solid ${bandColor}${isFlashing ? "60" : isLifted ? "50" : "25"}`,
+          boxShadow: isFlashing
+            ? `inset 0 1px 4px rgba(0,0,0,0.3), 0 0 30px ${bandColor}20`
+            : isLifted
+              ? `inset 0 2px 6px rgba(0,0,0,0.3), 0 0 30px ${bandColor}15, 0 6px 24px rgba(0,0,0,0.25)`
+              : `inset 0 2px 8px rgba(0,0,0,0.4), 0 0 12px ${bandColor}06`,
+          transform: isFlashing
+            ? "scale(1.015)"
+            : isLifted
+              ? "translateY(-2px)"
+              : "none",
+          transition: "all 0.3s ease-out",
         }}
         aria-label={
           contestLocked
@@ -368,126 +429,27 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
         }
         aria-disabled={contestLocked}
       >
-        {sourceDotColor && (
-          <span
-            className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${sourceDotColor}`}
-          />
-        )}
-        <span className="text-sm font-bold text-white font-mono">
-          {activeBand}
-        </span>
-        <span className="text-xs text-gray-400">&middot;</span>
-        <span className="text-sm text-gray-300">{activeMode}</span>
-        {contestLocked && (
-          <svg
-            className="w-3.5 h-3.5 text-amber-400 ml-auto flex-shrink-0"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-            aria-hidden="true"
+        {/* Thick left accent bar — band color identity */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+          style={{
+            background: `linear-gradient(180deg, ${bandColor} 0%, ${bandColor}50 100%)`,
+          }}
+        />
+
+        {/* Expand chevron — top right affordance */}
+        {!contestLocked && (
+          <div
+            className="absolute top-3 right-3 transition-all duration-300"
+            style={{
+              color: isHovered
+                ? "rgba(255,255,255,0.8)"
+                : "rgba(255,255,255,0.15)",
+              transform: isHovered ? "translateY(1px)" : "none",
+            }}
           >
-            <path
-              fillRule="evenodd"
-              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        )}
-        {!contestLocked && catOverridden && catConnected && (
-          <span className="ml-auto text-[10px] text-gray-500">
-            Resume &#8617;
-          </span>
-        )}
-      </button>
-
-      {/* Session timer + sub-band segment + contest lock label */}
-      {(sessionElapsed != null || contestLocked) && (
-        <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-1 px-0.5">
-          {sessionElapsed != null && (
-            <span>
-              on {activeBand} for {sessionElapsed}
-            </span>
-          )}
-          {sessionElapsed != null && subBandSegment && (
-            <span className="text-gray-600">&middot;</span>
-          )}
-          {subBandSegment && <span>{subBandSegment}</span>}
-          {contestLocked && (
-            <>
-              {(sessionElapsed != null || subBandSegment) && (
-                <span className="text-gray-600">&middot;</span>
-              )}
-              <span className="text-amber-500">Locked for contest</span>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Multi-band monitoring dots */}
-      {watchedBands.length > 0 && (
-        <div className="flex items-center gap-1 mb-1 px-0.5">
-          <span className="text-[10px] text-gray-500">Watching</span>
-          <div className="flex items-center gap-1">
-            {watchedBands.map((band) => (
-              <span
-                key={band}
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{
-                  backgroundColor: BAND_COLORS[band] ?? BAND_COLORS.default,
-                }}
-                title={band}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Band/Mode selection modal */}
-      <BandModeModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
-
-      {/* Radio profile - expanded details */}
-      <div className="pt-2 border-t border-white/10">
-        {activeRadio ? (
-          <div className="space-y-1.5">
-            {/* Radio name */}
-            <div className="flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-plasma-orange flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-              <span className="text-sm font-medium text-white">
-                {activeRadio.manufacturer} {activeRadio.model}
-              </span>
-            </div>
-            {/* Radio specs row */}
-            <div className="flex items-center gap-2 flex-wrap text-[10px]">
-              <span className="px-1.5 py-0.5 rounded bg-plasma-orange/20 text-plasma-orange font-mono font-medium">
-                {activeRadio.maxPower}W
-              </span>
-              {activeRadio.bands && activeRadio.bands.length > 0 && (
-                <span className="text-gray-400">
-                  {activeRadio.bands.slice(0, 4).join(" · ")}
-                  {activeRadio.bands.length > 4 &&
-                    ` +${activeRadio.bands.length - 4}`}
-                </span>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 italic">
             <svg
-              className="w-3.5 h-3.5 flex-shrink-0"
+              className="w-3.5 h-3.5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -495,14 +457,172 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                strokeWidth={2.5}
+                d="M19 9l-7 7-7-7"
               />
             </svg>
-            No radio selected
           </div>
         )}
-      </div>
+
+        {/* Contest lock icon — top right */}
+        {contestLocked && (
+          <div className="absolute top-3 right-3">
+            <svg
+              className="w-3.5 h-3.5 text-amber-400"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        )}
+
+        {/* Pulsing glow ring — draws attention at rest */}
+        {!contestLocked && (
+          <div
+            className="absolute inset-[-1px] rounded-xl pointer-events-none animate-live-pulse"
+            style={{
+              boxShadow: `0 0 10px ${bandColor}10, 0 0 20px ${bandColor}05`,
+            }}
+          />
+        )}
+
+        <div className="relative pl-4 pr-8 py-3">
+          {/* Primary row: Pulse dot + Band (large) + Mode badge + Source */}
+          <div className="flex items-center gap-2">
+            <span
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse"
+              style={{ backgroundColor: bandColor }}
+            />
+            <span
+              className="text-xl font-black font-mono leading-none tracking-tight"
+              style={{ color: bandColor }}
+            >
+              {activeBand}
+            </span>
+            <span
+              className="px-1.5 py-0.5 rounded-md text-[11px] font-bold border"
+              style={{
+                backgroundColor: `${modeColor}15`,
+                color: modeColor,
+                borderColor: `${modeColor}25`,
+              }}
+            >
+              {activeMode}
+            </span>
+
+            {/* Source badge */}
+            {sourceLabel && (
+              <span
+                className={`ml-auto mr-4 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${sourceStyles}`}
+              >
+                {sourceLabel}
+              </span>
+            )}
+          </div>
+
+          {/* Secondary row: Frequency + Segment + Session */}
+          <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono text-gray-500">
+            {(activeSource === "cat" || activeSource === "wsjtx") &&
+              activeFrequency > 0 && (
+                <span className="text-gray-400 tracking-wider">
+                  {formatFrequency(activeFrequency)}
+                </span>
+              )}
+            {subBandSegment && (
+              <>
+                {(activeSource === "cat" || activeSource === "wsjtx") &&
+                  activeFrequency > 0 && (
+                    <span className="text-gray-600">&middot;</span>
+                  )}
+                <span>{subBandSegment}</span>
+              </>
+            )}
+            {sessionElapsed != null && (
+              <span className="ml-auto text-gray-600 tabular-nums">
+                {sessionElapsed}
+              </span>
+            )}
+          </div>
+
+          {/* Tertiary row: Radio info (integrated into VFO panel) */}
+          {activeRadio && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
+              <svg
+                className="w-3 h-3 flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <polyline points="17 2 12 7 7 2" />
+              </svg>
+              <span>
+                {activeRadio.manufacturer} {activeRadio.model}
+              </span>
+              <span className="font-mono" style={{ color: `${bandColor}90` }}>
+                {activeRadio.maxPower}W
+              </span>
+            </div>
+          )}
+
+          {/* Watched bands strip */}
+          {watchedBands.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-[9px] text-gray-600 uppercase tracking-wider">
+                Watch
+              </span>
+              <div className="flex items-center gap-1">
+                {watchedBands.map((band) => (
+                  <span
+                    key={band}
+                    className="w-2 h-1 rounded-full flex-shrink-0"
+                    style={{
+                      backgroundColor: BAND_COLORS[band] ?? BAND_COLORS.default,
+                    }}
+                    title={band}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* CAT override hint — visible on hover */}
+        {!contestLocked && catOverridden && catConnected && (
+          <div
+            className="px-4 pb-2 -mt-1 text-[10px] transition-colors duration-300"
+            style={{
+              color: isHovered ? "#22c55e" : "rgba(255,255,255,0.2)",
+            }}
+          >
+            &#8617; Resume CAT follow
+          </div>
+        )}
+
+        {/* Hover CTA — for manual/default source, fades in on hover */}
+        {!contestLocked &&
+          !catOverridden &&
+          (activeSource === "manual" || activeSource === "default") && (
+            <div
+              className="px-4 pb-2 -mt-1 text-[10px] text-gray-500 transition-opacity duration-300"
+              style={{ opacity: isHovered ? 1 : 0 }}
+            >
+              Click to change band &amp; mode
+            </div>
+          )}
+      </button>
+
+      {/* Band/Mode selection modal */}
+      <BandModeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
 
       {/* Help Modal */}
       <HelpModal

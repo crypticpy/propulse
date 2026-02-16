@@ -19,7 +19,6 @@ import { LogStatsDetailModal } from "./modals/LogStatsDetailModal";
 import { HistoryDetailModal } from "./modals/HistoryDetailModal";
 import { ClusterPulseDetailModal } from "./modals/ClusterPulseDetailModal";
 import { BandConditionsModal } from "@/components/solar/modals/BandConditionsModal";
-import type { DXSpot } from "@/types/dxcluster";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -35,15 +34,6 @@ export interface InsightsBarProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getSpotAgeMinutes(spot: DXSpot): number {
-  const nowMs = Date.now();
-  const spotMs =
-    spot.time instanceof Date
-      ? spot.time.getTime()
-      : new Date(spot.time).getTime();
-  return Math.max(0, (nowMs - spotMs) / 60_000);
-}
 
 function isMatchingMonthDay(entryDate: string, today: Date): boolean {
   const entryMonth = parseInt(entryDate.slice(5, 7), 10);
@@ -98,10 +88,10 @@ export function InsightsBar({
     "logStats" | "bandConditions" | "history" | "clusterPulse" | null
   >(null);
 
-  // Tick counter to keep time-sensitive computations (rate, age) fresh
-  const [tick, setTick] = useState(0);
+  // Timestamp tick to keep time-sensitive computations (rate, age) fresh
+  const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -124,7 +114,7 @@ export function InsightsBar({
       .size;
 
     // Rate: spots in last 5 minutes / 5
-    const fiveMinAgo = Date.now() - 5 * 60_000;
+    const fiveMinAgo = nowTick - 5 * 60_000;
     const recentCount = spots.filter((s) => {
       const t =
         s.time instanceof Date ? s.time.getTime() : new Date(s.time).getTime();
@@ -135,7 +125,13 @@ export function InsightsBar({
     // Median age
     let medianAge = 0;
     if (total > 0) {
-      const ages = spots.map(getSpotAgeMinutes).sort((a, b) => a - b);
+      const ages = spots
+        .map((s) => {
+          const t =
+            s.time instanceof Date ? s.time.getTime() : new Date(s.time).getTime();
+          return Math.max(0, (nowTick - t) / 60_000);
+        })
+        .sort((a, b) => a - b);
       const mid = Math.floor(ages.length / 2);
       medianAge =
         ages.length % 2 === 0 ? (ages[mid - 1] + ages[mid]) / 2 : ages[mid];
@@ -159,7 +155,7 @@ export function InsightsBar({
     }
 
     return { total, uniqueCalls, uniqueGrids, rate, medianAge, peakBand };
-  }, [spots, tick]);
+  }, [spots, nowTick]);
 
   // Rate color
   const rateColor =

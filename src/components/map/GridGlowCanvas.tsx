@@ -43,10 +43,10 @@ interface ActiveGlow {
 const MAX_ACTIVE_GLOWS = 80;
 
 /** Rise phase duration (ms) — intensity climbs from 0 → peak */
-const RISE_DURATION_MS = 1200;
+const RISE_DURATION_MS = 300;
 
 /** Fade phase duration (ms) — intensity decays from peak → 0 */
-const FADE_DURATION_MS = 3000;
+const FADE_DURATION_MS = 700;
 
 /** Total glow lifecycle (ms) */
 const TOTAL_DURATION_MS = RISE_DURATION_MS + FADE_DURATION_MS;

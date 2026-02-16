@@ -289,7 +289,7 @@ export function useContestWatch(): ContestWatchResult {
   // ─── Contest definition ─────────────────────────────────────────────
   const contestDef = useMemo(
     () => (isActive ? getContestById(activeSession!.contestId) : undefined),
-    [isActive, activeSession?.contestId],
+    [isActive, activeSession],
   );
 
   const contestName = useMemo(() => contestDef?.name ?? null, [contestDef]);
@@ -319,7 +319,7 @@ export function useContestWatch(): ContestWatchResult {
   const workedKeys = useMemo(() => {
     if (!isActive || !activeSession) return new Set<string>();
     return buildWorkedKeySet(activeSession.multipliers);
-  }, [isActive, activeSession?.multipliers]);
+  }, [isActive, activeSession]);
 
   // ─── New multiplier spots ──────────────────────────────────────────
   const newMultiplierSpots = useMemo(() => {
@@ -355,7 +355,7 @@ export function useContestWatch(): ContestWatchResult {
       return { ratePerHour: 0, rateByBand: EMPTY_RATE_BY_BAND };
     }
     return computeQSORates(activeSession);
-  }, [isActive, activeSession?.qsos]);
+  }, [isActive, activeSession]);
 
   // ─── Assemble result ───────────────────────────────────────────────
   return useMemo(() => {

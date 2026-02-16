@@ -13,6 +13,30 @@ import type { BandId } from "@/types/user";
 import type { UIMode } from "@/lib/utils/modeNormalize";
 import { BAND_CENTER_FREQUENCIES } from "@/lib/data/feedlines";
 
+// ─── Source Display Constants ────────────────────────────────────────────────
+
+/** Display metadata for each operating source (used by OperatorProfile + BandModeModal) */
+export const SOURCE_DISPLAY: Record<
+  string,
+  { color: string; label: string; badge: string }
+> = {
+  cat: {
+    color: "#22c55e",
+    label: "CAT",
+    badge: "bg-green-500/15 text-green-400 border border-green-500/20",
+  },
+  wsjtx: {
+    color: "#44DDFF",
+    label: "WSJT-X",
+    badge: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/20",
+  },
+  contest: {
+    color: "#eab308",
+    label: "CONTEST",
+    badge: "bg-amber-500/15 text-amber-400 border border-amber-500/20",
+  },
+};
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /**

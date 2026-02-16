@@ -296,9 +296,7 @@ export const MeteorShowerOverlay3D = React.memo(function MeteorShowerOverlay3D({
 }: MeteorShowerOverlay3DProps) {
   // Refs for all drifting particles (PARTICLE_COUNT per shower)
   const particleRefs = useRef<(THREE.Mesh | null)[]>([]);
-
-  // Early-out
-  if (!showers || showers.length === 0) return null;
+  const hasShowers = showers.length > 0;
 
   // Shared geometries
   const starburstGeo = useMemo(() => {
@@ -376,6 +374,8 @@ export const MeteorShowerOverlay3D = React.memo(function MeteorShowerOverlay3D({
       }
     }
   });
+
+  if (!hasShowers) return null;
 
   return (
     <group>

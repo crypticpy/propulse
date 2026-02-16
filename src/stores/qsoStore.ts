@@ -31,6 +31,7 @@ import {
   getLogEntriesByCallsign,
   getLogEntriesPaginated,
 } from "@/lib/db/logStore";
+import { getDB } from "@/lib/db/index";
 import { getDeviceId } from "@/lib/sync/deviceId";
 import { getRSTDefault } from "@/lib/utils/rstDefaults";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
@@ -519,7 +520,6 @@ export const useQSOStore = create<QSOStoreState>()(
 
         try {
           // Re-insert with original ID preserved via direct put
-          const { getDB } = await import("@/lib/db/index");
           const db = await getDB();
           await db.put("logEntries", _deletedEntry);
 

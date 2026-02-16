@@ -3372,9 +3372,17 @@ export function FlatMapView({
       dxLon === undefined
     ) {
       // Try resolving via resolveSpotLocations (cast to LiveSpot-like)
-      const resolved = resolveSpotLocations([selectedSpot as any]);
+      const selectedSpotSource =
+        (selectedSpot as unknown as { source?: LiveSpot["source"] }).source ??
+        "Cluster";
+      const resolved = resolveSpotLocations([
+        { ...selectedSpot, source: selectedSpotSource },
+      ]);
       return resolved.length > 0 ? resolved[0] : null;
     }
+    const selectedSpotSource =
+      (selectedSpot as unknown as { source?: LiveSpot["source"] }).source ??
+      "Cluster";
     return {
       id: selectedSpot.id,
       spotterLat,
@@ -3386,7 +3394,7 @@ export function FlatMapView({
       time: selectedSpot.time,
       callsign: selectedSpot.dx,
       spotter: selectedSpot.spotter,
-      source: (selectedSpot as any).source ?? "Cluster",
+      source: selectedSpotSource,
     };
   }, [selectedSpot]);
 
@@ -3406,9 +3414,9 @@ export function FlatMapView({
 
       const color = getSpotColor(spot, spotColorMode);
 
-      // On initial page load, stagger glows over ~6 seconds so they ripple in
+      // On initial page load, stagger glows over ~1 second so they ripple in
       // instead of all popping at once. Subsequent refetch batches fire immediately.
-      const staggerOffset = isInitialLoad ? Math.random() * 6000 : 0;
+      const staggerOffset = isInitialLoad ? Math.random() * 1000 : 0;
       const timestamp = now - staggerOffset;
 
       try {
@@ -4141,7 +4149,6 @@ export function FlatMapView({
       cancelAnimationFrame(rafId);
       observer.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fillContainer, mapAspectRatio]);
 
   // Smooth pan-to-preset animation (500ms ease-out)
@@ -4250,11 +4257,10 @@ export function FlatMapView({
   // Spot highlight pulsing ring animation via overlay canvas
   // Draws directly to a transparent overlay canvas at 60fps without triggering React re-renders
   useEffect(() => {
-    if (
-      !isFocusing ||
-      focusedSpot?.dxLat == null ||
-      focusedSpot?.dxLon == null
-    ) {
+    const focusedDxLat = focusedSpot?.dxLat;
+    const focusedDxLon = focusedSpot?.dxLon;
+
+    if (!isFocusing || focusedDxLat == null || focusedDxLon == null) {
       // Clear overlay canvas when not focusing
       const hCanvas = highlightCanvasRef.current;
       if (hCanvas) {
@@ -4270,8 +4276,6 @@ export function FlatMapView({
       return;
     }
 
-    const { dxLat } = focusedSpot;
-    const { dxLon } = focusedSpot;
     let running = true;
 
     const animate = () => {
@@ -4307,7 +4311,7 @@ export function FlatMapView({
       hCtx.translate(z.offsetX, z.offsetY);
       hCtx.scale(z.scale, z.scale);
 
-      drawSpotHighlight(hCtx, dxLat, dxLon, rw, rh);
+      drawSpotHighlight(hCtx, focusedDxLat, focusedDxLon, rw, rh);
 
       hCtx.restore();
       spotHighlightRafRef.current = requestAnimationFrame(animate);
@@ -5009,6 +5013,7 @@ export function FlatMapView({
     wsprSpots,
     contestQsoData,
     loggedQsoData,
+    gridLabelDetail,
   ]);
 
   // Compute bearing and distance from user's home QTH to hovered point

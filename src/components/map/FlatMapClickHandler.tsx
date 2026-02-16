@@ -542,6 +542,5 @@ export function useFlatMapClickHandler(
     };
     // Only re-attach when the canvas ref identity changes.
     // All other values are accessed via refs to avoid stale closures.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasRef]);
 }

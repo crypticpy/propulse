@@ -6,7 +6,7 @@
  * array of { callsign, dayOfWeek } entries.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,10 +49,13 @@ export function NCSRotationCalendar({
   const [editValue, setEditValue] = useState("");
 
   // Build a quick lookup: dayOfWeek → callsign
-  const dayMap = new Map<number, string>();
-  for (const entry of rotation) {
-    dayMap.set(entry.dayOfWeek, entry.callsign);
-  }
+  const dayMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const entry of rotation) {
+      map.set(entry.dayOfWeek, entry.callsign);
+    }
+    return map;
+  }, [rotation]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 

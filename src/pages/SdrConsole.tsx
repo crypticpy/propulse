@@ -305,11 +305,16 @@ export function SdrConsole() {
     if (!dev?.capabilities.can_stream_fft) return;
     if (autoFftStartRef.current[connectedDeviceId]) return;
     autoFftStartRef.current[connectedDeviceId] = true;
+    const storedCivPort = parseInt(
+      localStorage.getItem("propulse-civ-port") || "4580",
+      10,
+    );
     daemonSendCommand("stream:fft:start", {
       device_id: connectedDeviceId,
       fft_size: 4096,
       fps: 20,
       averaging: 4,
+      civ_port: storedCivPort > 0 ? storedCivPort : 4580,
     });
     setFftEnabled(true);
   }, [
@@ -454,11 +459,16 @@ export function SdrConsole() {
       daemonSendCommand("stream:fft:stop", { device_id: connectedDeviceId });
       setFftEnabled(false);
     } else {
+      const storedPort = parseInt(
+        localStorage.getItem("propulse-civ-port") || "4580",
+        10,
+      );
       daemonSendCommand("stream:fft:start", {
         device_id: connectedDeviceId,
         fft_size: 4096,
         fps: 20,
         averaging: 4,
+        civ_port: storedPort > 0 ? storedPort : 4580,
       });
       setFftEnabled(true);
     }

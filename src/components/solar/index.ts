@@ -47,10 +47,7 @@ export {
 } from "./BzChart";
 
 // CME Analysis Panel
-export {
-  CMEAnalysisPanel,
-  type CMEAnalysisPanelProps,
-} from "./CMEAnalysisPanel";
+export { CMEAnalysisPanel } from "./CMEAnalysisPanel";
 
 // Propagation Index
 export {

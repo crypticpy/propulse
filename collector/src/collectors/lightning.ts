@@ -1,20 +1,20 @@
 /**
- * Blitzortung Lightning Strike Collector
+ * Lightning Strike Collector via LightningMaps.org WebSocket
  *
- * Connects to the Blitzortung WebSocket server and buffers recent
- * lightning strikes in memory. Strikes older than MAX_AGE_MS are
- * pruned on each incoming message and every PRUNE_INTERVAL_MS.
+ * Connects to the LightningMaps.org WebSocket server (which relays
+ * Blitzortung data) and buffers recent lightning strikes in memory.
+ * Strikes older than MAX_AGE_MS are pruned periodically.
  *
  * The buffer is served via the collector's HTTP server at GET /lightning.
  *
- * Blitzortung WebSocket protocol:
- * - Connect to wss://wsN.blitzortung.org:3000/ (N = 1,5,6,7)
- * - Send initialization message: {"time": 0} to start receiving data
- * - Server streams JSON messages per strike: { time, lat, lon, alt, pol, mds, mcg, sig }
- * - `time` is nanosecond timestamp since epoch
- * - `sig` is an array of detecting stations (length correlates with strength)
+ * WebSocket protocol:
+ * - Connect to wss://live.lightningmaps.org:443/
+ * - Send subscription JSON with viewport bounds for global coverage
+ * - Server sends challenge (k field) — respond with computed value
+ * - Server streams batches of strikes in { strokes: [...] } messages
+ * - Strike format: { time (ms), lat, lon, src, srv, id, del, dev }
  *
- * Compliant with Blitzortung terms: server-side proxy, non-commercial use.
+ * Compliant with server-side proxy pattern for non-commercial use.
  */
 
 import WebSocket from "ws";
@@ -25,16 +25,28 @@ import { reportHealth } from "../health.js";
 // Types
 // =============================================================================
 
-/** Blitzortung raw WebSocket message */
-interface BlitzortungMessage {
-  time: number; // nanoseconds since epoch
+/** Strike as received from the LightningMaps.org WebSocket */
+interface LMStroke {
+  time: number; // milliseconds since epoch
   lat: number;
   lon: number;
-  alt?: number;
-  pol?: number; // polarity: -1 (CG-) or +1 (CG+)
-  mds?: number;
-  mcg?: number;
-  sig?: unknown[]; // array of detecting station signals
+  src?: number; // source network
+  srv?: number; // server ID
+  id?: number; // strike ID
+  del?: number; // delay in ms
+  dev?: number; // deviation
+}
+
+/** Server message from LightningMaps.org */
+interface LMMessage {
+  strokes?: LMStroke[];
+  k?: number; // challenge value
+  time?: number; // server time
+  reload?: number; // reload request
+  cid?: number;
+  con?: number;
+  port?: string;
+  flags?: unknown;
 }
 
 /** Normalized strike in the buffer */
@@ -42,19 +54,17 @@ export interface BufferedStrike {
   lat: number;
   lon: number;
   time: number; // milliseconds since epoch
-  current_kA: number; // estimated from station count
+  current_kA: number; // estimated intensity
 }
 
 // =============================================================================
 // Constants
 // =============================================================================
 
-/** WebSocket server URLs — cycle through on reconnect (trailing slash required) */
+/** WebSocket server URLs — cycle through on reconnect */
 const WS_SERVERS = [
-  "wss://ws1.blitzortung.org:3000/",
-  "wss://ws5.blitzortung.org:3000/",
-  "wss://ws6.blitzortung.org:3000/",
-  "wss://ws7.blitzortung.org:3000/",
+  "wss://live.lightningmaps.org:443/",
+  "wss://live2.lightningmaps.org:443/",
 ];
 
 /** Maximum age of strikes to keep in buffer (10 minutes) */
@@ -67,11 +77,17 @@ const MAX_BUFFER_SIZE = 5000;
 const PRUNE_INTERVAL_MS = 30_000;
 
 /** Base reconnect delay (doubles on each consecutive failure, max 60s) */
-const BASE_RECONNECT_MS = 2_000;
+const BASE_RECONNECT_MS = 3_000;
 const MAX_RECONNECT_MS = 60_000;
 
 /** Ping interval to keep connection alive */
-const PING_INTERVAL_MS = 30_000;
+const PING_INTERVAL_MS = 25_000;
+
+/** Re-subscribe interval to maintain data flow */
+const RESUBSCRIBE_INTERVAL_MS = 60_000;
+
+/** Protocol version expected by LightningMaps.org */
+const LM_VERSION = 24;
 
 // =============================================================================
 // State
@@ -84,23 +100,24 @@ let reconnectAttempts = 0;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
 let pruneTimer: ReturnType<typeof setInterval> | null = null;
+let resubscribeTimer: ReturnType<typeof setInterval> | null = null;
 let strikesReceived = 0;
 let running = false;
+const lastIds: Record<string, number> = {};
+let serverTime = 0;
 
 // =============================================================================
 // Helpers
 // =============================================================================
 
 /**
- * Estimate peak current (kA) from the number of detecting stations.
- * More stations detecting a strike generally correlates with stronger
- * peak current. This is a rough approximation — Blitzortung doesn't
- * provide direct current measurements via WebSocket.
- *
- * Maps station count to ~20-200 kA range.
+ * Estimate peak current (kA) from deviation value.
+ * Higher deviation values roughly correlate with stronger strikes.
+ * Maps deviation (typically 500-5000) to ~20-200 kA range.
  */
-function estimateCurrentKA(stationCount: number): number {
-  return Math.min(200, Math.max(10, stationCount * 12));
+function estimateCurrentKA(dev: number | undefined): number {
+  if (!dev || dev <= 0) return 30;
+  return Math.min(200, Math.max(15, Math.round(dev / 25)));
 }
 
 /** Remove strikes older than MAX_AGE_MS and enforce buffer cap */
@@ -112,6 +129,27 @@ function pruneBuffer(): void {
   if (buffer.length > MAX_BUFFER_SIZE) {
     buffer = buffer.slice(buffer.length - MAX_BUFFER_SIZE);
   }
+}
+
+/** Build subscription message for global coverage */
+function buildSubscription(): string {
+  return JSON.stringify({
+    v: LM_VERSION,
+    i: lastIds,
+    s: false,
+    x: 0,
+    w: 0,
+    tx: 0,
+    tw: 1,
+    a: 4, // source mask (all networks)
+    z: 3, // zoom level (low = global)
+    b: true, // visible
+    h: "",
+    l: 0,
+    t: serverTime,
+    from_lightningmaps_org: true,
+    p: [90, 180, -90, -180], // global viewport bounds [NE_lat, NE_lng, SW_lat, SW_lng]
+  });
 }
 
 // =============================================================================
@@ -127,7 +165,9 @@ function connect(): void {
   try {
     ws = new WebSocket(url, {
       headers: {
-        "User-Agent": "Propulse/1.0 (Ham Radio Propagation Dashboard)",
+        Origin: "https://www.lightningmaps.org",
+        "User-Agent":
+          "Mozilla/5.0 (compatible; Propulse/1.0; Ham Radio Propagation)",
       },
       handshakeTimeout: 10_000,
     });
@@ -142,11 +182,10 @@ function connect(): void {
   ws.on("open", () => {
     log("info", "Lightning: connected", { server: url });
     reconnectAttempts = 0;
-    strikesReceived = 0;
     reportHealth("lightning", "ok", 0);
 
-    // Send initialization message — Blitzortung requires this to start streaming
-    ws!.send(JSON.stringify({ time: 0 }));
+    // Send initial subscription for global coverage
+    ws!.send(buildSubscription());
 
     // Start ping keepalive
     if (pingTimer) clearInterval(pingTimer);
@@ -155,43 +194,64 @@ function connect(): void {
         ws.ping();
       }
     }, PING_INTERVAL_MS);
+
+    // Re-subscribe periodically to maintain data flow
+    if (resubscribeTimer) clearInterval(resubscribeTimer);
+    resubscribeTimer = setInterval(() => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(buildSubscription());
+      }
+    }, RESUBSCRIBE_INTERVAL_MS);
   });
 
   ws.on("message", (data) => {
     try {
-      const msg: BlitzortungMessage = JSON.parse(data.toString());
+      const msg: LMMessage = JSON.parse(data.toString());
 
-      // Validate required fields
-      if (
-        typeof msg.lat !== "number" ||
-        typeof msg.lon !== "number" ||
-        typeof msg.time !== "number"
-      ) {
-        return;
+      // Handle challenge-response (k field)
+      if (msg.k !== undefined && ws?.readyState === WebSocket.OPEN) {
+        const response = ((msg.k * 3604) % 7081) * (Date.now() / 100);
+        ws.send(JSON.stringify({ k: response }));
       }
 
-      // Convert nanosecond timestamp to milliseconds
-      const timeMs =
-        msg.time > 1e15
-          ? Math.floor(msg.time / 1e6) // nanoseconds → ms
-          : msg.time > 1e12
-            ? msg.time // already ms
-            : msg.time * 1000; // seconds → ms
+      // Track server time
+      if (msg.time !== undefined) {
+        serverTime = msg.time;
+      }
 
-      const stationCount = Array.isArray(msg.sig) ? msg.sig.length : 1;
+      // Process strike data
+      if (msg.strokes && Array.isArray(msg.strokes)) {
+        for (const stroke of msg.strokes) {
+          if (
+            typeof stroke.lat !== "number" ||
+            typeof stroke.lon !== "number" ||
+            typeof stroke.time !== "number"
+          ) {
+            continue;
+          }
 
-      buffer.push({
-        lat: msg.lat,
-        lon: msg.lon,
-        time: timeMs,
-        current_kA: estimateCurrentKA(stationCount),
-      });
+          buffer.push({
+            lat: stroke.lat,
+            lon: stroke.lon,
+            time: stroke.time,
+            current_kA: estimateCurrentKA(stroke.dev),
+          });
 
-      strikesReceived++;
+          strikesReceived++;
 
-      // Inline prune every 500 strikes to prevent unbounded growth
-      if (strikesReceived % 500 === 0) {
-        pruneBuffer();
+          // Track last ID per server
+          if (stroke.srv !== undefined && stroke.id !== undefined) {
+            lastIds[String(stroke.srv)] = stroke.id;
+          }
+        }
+
+        // Update health on each batch
+        reportHealth("lightning", "ok", strikesReceived);
+
+        // Inline prune every 500 strikes to prevent unbounded growth
+        if (strikesReceived % 500 === 0) {
+          pruneBuffer();
+        }
       }
     } catch {
       // Skip unparseable messages silently
@@ -217,6 +277,10 @@ function cleanup(): void {
   if (pingTimer) {
     clearInterval(pingTimer);
     pingTimer = null;
+  }
+  if (resubscribeTimer) {
+    clearInterval(resubscribeTimer);
+    resubscribeTimer = null;
   }
   ws = null;
 }
@@ -246,7 +310,7 @@ function scheduleReconnect(): void {
 // Public API
 // =============================================================================
 
-/** Start the Blitzortung WebSocket consumer */
+/** Start the lightning WebSocket consumer */
 export function startLightning(): void {
   if (running) return;
   running = true;
@@ -259,7 +323,7 @@ export function startLightning(): void {
   connect();
 }
 
-/** Stop the Blitzortung WebSocket consumer */
+/** Stop the lightning WebSocket consumer */
 export function stopLightning(): void {
   running = false;
 
@@ -274,6 +338,10 @@ export function stopLightning(): void {
   if (pingTimer) {
     clearInterval(pingTimer);
     pingTimer = null;
+  }
+  if (resubscribeTimer) {
+    clearInterval(resubscribeTimer);
+    resubscribeTimer = null;
   }
   if (ws) {
     ws.close(1000, "shutdown");

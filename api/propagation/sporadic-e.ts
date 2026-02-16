@@ -98,9 +98,11 @@ function calculateEsProbability(
   const monthDiff = Math.abs(month - peakMonth);
   const normalizedMonthDiff = monthDiff > 6 ? 12 - monthDiff : monthDiff;
   // Strong seasonal variation: summer probability ~3x winter
+  // Floor of 0.08 ensures some Es activity year-round (real Es
+  // can occur in any month, just at much lower rates in winter)
   const seasonFactor =
     0.2 + 0.8 * Math.cos((normalizedMonthDiff / 6) * Math.PI);
-  const clampedSeason = Math.max(0, seasonFactor);
+  const clampedSeason = Math.max(0.08, seasonFactor);
 
   // 3. Diurnal factor: primary peak at local noon, secondary nighttime peak
   const localSolarHour = (((utcHour + lon / 15) % 24) + 24) % 24;

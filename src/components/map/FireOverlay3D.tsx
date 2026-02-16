@@ -84,7 +84,9 @@ export const FireOverlay3D = React.memo(
         const hotspot = hotspots[i];
 
         // Skip low-confidence detections
-        if (hotspot.confidence === "low") continue;
+        // FIRMS returns single-letter codes: "l" (low), "n" (nominal), "h" (high)
+        if (hotspot.confidence === "low" || hotspot.confidence === "l")
+          continue;
 
         const [x, y, z] = latLonTo3D(hotspot.lat, hotspot.lon);
 

@@ -227,24 +227,44 @@ export class WSJTXListener {
   // Event Registration
   // --------------------------------------------------------------------------
 
-  onStatus(handler: StatusHandler): void {
+  onStatus(handler: StatusHandler): () => void {
     this.statusHandlers.push(handler);
+    return () => {
+      const idx = this.statusHandlers.indexOf(handler);
+      if (idx >= 0) this.statusHandlers.splice(idx, 1);
+    };
   }
 
-  onDecode(handler: DecodeHandler): void {
+  onDecode(handler: DecodeHandler): () => void {
     this.decodeHandlers.push(handler);
+    return () => {
+      const idx = this.decodeHandlers.indexOf(handler);
+      if (idx >= 0) this.decodeHandlers.splice(idx, 1);
+    };
   }
 
-  onQSOLogged(handler: QSOLoggedHandler): void {
+  onQSOLogged(handler: QSOLoggedHandler): () => void {
     this.qsoLoggedHandlers.push(handler);
+    return () => {
+      const idx = this.qsoLoggedHandlers.indexOf(handler);
+      if (idx >= 0) this.qsoLoggedHandlers.splice(idx, 1);
+    };
   }
 
-  onClear(handler: ClearHandler): void {
+  onClear(handler: ClearHandler): () => void {
     this.clearHandlers.push(handler);
+    return () => {
+      const idx = this.clearHandlers.indexOf(handler);
+      if (idx >= 0) this.clearHandlers.splice(idx, 1);
+    };
   }
 
-  onError(handler: ErrorHandler): void {
+  onError(handler: ErrorHandler): () => void {
     this.errorHandlers.push(handler);
+    return () => {
+      const idx = this.errorHandlers.indexOf(handler);
+      if (idx >= 0) this.errorHandlers.splice(idx, 1);
+    };
   }
 
   // --------------------------------------------------------------------------
@@ -319,7 +339,14 @@ export class WSJTXListener {
 
     // Schema version
     const schema = reader.readUInt32();
-    if (schema > WSJTX_SCHEMA_VERSION + 1) return; // allow minor future versions
+    if (schema > WSJTX_SCHEMA_VERSION) {
+      this.emitError(
+        new Error(
+          `WSJT-X schema version ${schema} exceeds expected ${WSJTX_SCHEMA_VERSION}; parsing may be unreliable`,
+        ),
+      );
+      if (schema > WSJTX_SCHEMA_VERSION + 1) return;
+    }
 
     // Message type
     const msgType = reader.readUInt32();
@@ -363,7 +390,7 @@ export class WSJTXListener {
   // --------------------------------------------------------------------------
 
   private parseStatus(reader: QDataStreamReader, instanceId: string): void {
-    const dialFrequency = Number(this.readUInt64(reader)); // QDataStream encodes as uint64
+    const dialFrequency = this.readUInt64(reader); // QDataStream encodes as uint64
     const mode = reader.readUtf8() ?? "";
     const dxCall = reader.readUtf8();
     reader.readUtf8(); // report — skip
@@ -465,7 +492,7 @@ export class WSJTXListener {
   }
 
   private parseQSOLogged(reader: QDataStreamReader, instanceId: string): void {
-    this.readQDateTime(reader); // dateTimeOff — skip
+    const dateTimeOff = this.readQDateTime(reader);
     const callsign = reader.readUtf8() ?? "";
     const grid = reader.readUtf8();
     const dialFrequency = Number(this.readUInt64(reader));
@@ -486,7 +513,7 @@ export class WSJTXListener {
       reportReceived,
       txPower,
       comments,
-      timestamp: new Date().toISOString(),
+      timestamp: dateTimeOff.toISOString(),
     };
 
     for (const handler of this.qsoLoggedHandlers) {
@@ -508,10 +535,19 @@ export class WSJTXListener {
     const freqStr = extractAdifField(adifRecord, "FREQ");
     const mode = extractAdifField(adifRecord, "MODE") ?? "";
 
+    const frequency = freqStr ? parseFloat(freqStr) * 1_000_000 : undefined;
+    if (frequency === undefined || isNaN(frequency)) {
+      this.emitError(
+        new Error(
+          `LoggedADIF: missing or invalid FREQ field for callsign '${callsign}'`,
+        ),
+      );
+    }
+
     const qso: WSJTXQSOLogged = {
       callsign,
       grid: grid ?? undefined,
-      frequency: freqStr ? parseFloat(freqStr) * 1_000_000 : 0, // MHz to Hz
+      frequency: frequency !== undefined && !isNaN(frequency) ? frequency : 0,
       mode,
       reportSent: extractAdifField(adifRecord, "RST_SENT") ?? "",
       reportReceived: extractAdifField(adifRecord, "RST_RCVD") ?? "",
@@ -556,8 +592,8 @@ export class WSJTXListener {
     const msFromMidnight = reader.readUInt32();
     reader.readUInt8(); // timeSpec — skip
 
-    // Convert Julian Day to Unix timestamp
-    // Julian Day 2440587.5 = Unix epoch (1970-01-01T00:00:00Z)
+    // Convert Julian Day Number to Unix timestamp
+    // JDN 2440588 = January 1, 1970 (the integer JDN for the Unix epoch date)
     const unixDays = julianDay - 2440588;
     const ms = unixDays * 86400000 + msFromMidnight;
     return new Date(ms);

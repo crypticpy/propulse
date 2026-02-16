@@ -2,7 +2,7 @@
  * ProPulse Bridge — CAT (Computer Aided Transceiver) Control
  *
  * Supports two backends:
- *   1. Hamlib rigctld  — TCP text protocol on port 4532
+ *   1. Hamlib rigctld  — TCP text protocol on port 4533
  *   2. Flrig           — XML-RPC over HTTP on port 12345
  *
  * Auto-detects which backend is available at startup, then polls
@@ -22,7 +22,7 @@ export type RigBackend = "hamlib" | "flrig" | "none";
 export interface RigControllerConfig {
   /** Hamlib rigctld host (default 127.0.0.1) */
   hamlibHost?: string;
-  /** Hamlib rigctld port (default 4532) */
+  /** Hamlib rigctld port (default 4533 — matches WFView's default) */
   hamlibPort?: number;
   /** Flrig host (default 127.0.0.1) */
   flrigHost?: string;
@@ -34,6 +34,45 @@ export interface RigControllerConfig {
 
 type RigStatusHandler = (status: RigStatus) => void;
 type RigErrorHandler = (error: Error) => void;
+
+// ============================================================================
+// Input Sanitization & Response Parsing
+// ============================================================================
+
+/**
+ * Strip control characters from a string before sending to rigctld.
+ * Prevents command injection via newline (\n, \r) or other control chars.
+ */
+function sanitizeCommandParam(param: string): string {
+  let sanitized = "";
+  for (const ch of param) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0x20 && code !== 0x7f) {
+      sanitized += ch;
+    }
+  }
+  return sanitized.trim();
+}
+
+/**
+ * Parse a rigctld numeric response, detecting error codes.
+ * rigctld returns "RPRT <code>" for errors (code < 0 = error).
+ * Throws on any non-numeric or error response instead of returning NaN.
+ */
+function parseRigctldNumber(resp: string, label: string): number {
+  const trimmed = resp.trim();
+  if (trimmed.startsWith("RPRT")) {
+    const code = parseInt(trimmed.split(/\s+/)[1] ?? "", 10);
+    throw new Error(`rigctld ${label} error: RPRT ${isNaN(code) ? "?" : code}`);
+  }
+  const n = parseInt(trimmed, 10);
+  if (isNaN(n)) {
+    throw new Error(
+      `rigctld ${label}: invalid response ${JSON.stringify(trimmed)}`,
+    );
+  }
+  return n;
+}
 
 // ============================================================================
 // Hamlib rigctld Backend
@@ -59,10 +98,10 @@ class HamlibBackend {
   async probe(): Promise<boolean> {
     try {
       await this.connect();
-      // Send a simple frequency query to validate
       const resp = await this.sendCommand("f");
-      const freq = parseInt(resp.trim(), 10);
-      return !isNaN(freq);
+      const freq = parseRigctldNumber(resp, "probe");
+      // Frequency 0 means no radio attached or uninitialized state
+      return freq > 0;
     } catch {
       this.disconnect();
       return false;
@@ -76,8 +115,10 @@ class HamlibBackend {
       const sock = new Socket();
       sock.setEncoding("utf-8");
       sock.setTimeout(5000);
+      let connected = false;
 
       sock.on("connect", () => {
+        connected = true;
         this.socket = sock;
         resolve();
       });
@@ -124,7 +165,11 @@ class HamlibBackend {
           this.pendingReject = null;
           rejector(err);
         }
-        reject(err);
+        // Only reject the connect promise if we haven't connected yet.
+        // Post-connect socket errors are handled by pendingReject above.
+        if (!connected) {
+          reject(err);
+        }
       });
 
       sock.on("timeout", () => {
@@ -170,7 +215,7 @@ class HamlibBackend {
     return this.socket !== null;
   }
 
-  /** Send a rigctld command and wait for the response line */
+  /** Send a rigctld command and wait for the response line(s) */
   sendCommand(cmd: string, expectedLines = 1): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       if (!this.socket) {
@@ -186,6 +231,8 @@ class HamlibBackend {
 
       this.pendingResolve = resolve;
       this.pendingReject = reject;
+      // Clear response buffer: any data received between commands is
+      // unsolicited rigctld output and must not be part of the new response.
       this.responseBuffer = "";
       this.pendingLines = [];
       this.pendingExpectedLines = Math.max(1, Math.floor(expectedLines));
@@ -208,34 +255,46 @@ class HamlibBackend {
 
   async getFrequency(): Promise<number> {
     const resp = await this.sendCommand("f");
-    return parseInt(resp.trim(), 10);
+    return parseRigctldNumber(resp, "getFrequency");
   }
 
   async getMode(): Promise<{ mode: string; passband: number }> {
     const resp = await this.sendCommand("m", 2);
     const lines = resp.trim().split("\n");
-    return {
-      mode: lines[0] ?? "UNKNOWN",
-      passband: parseInt(lines[1] ?? "0", 10),
-    };
+    const mode = lines[0]?.trim();
+    if (!mode || mode.startsWith("RPRT")) {
+      throw new Error(
+        `rigctld getMode: invalid response ${JSON.stringify(resp)}`,
+      );
+    }
+    const passband = lines[1] ? parseInt(lines[1].trim(), 10) : 0;
+    return { mode, passband: isNaN(passband) ? 0 : passband };
   }
 
   async getPTT(): Promise<boolean> {
     const resp = await this.sendCommand("t");
-    return resp.trim() !== "0";
+    const val = parseRigctldNumber(resp, "getPTT");
+    return val !== 0;
   }
 
   async getSMeter(): Promise<number> {
     const resp = await this.sendCommand("l STRENGTH");
-    return parseInt(resp.trim(), 10);
+    return parseRigctldNumber(resp, "getSMeter");
   }
 
   async setFrequency(hz: number): Promise<void> {
+    if (!Number.isFinite(hz) || hz < 0) {
+      throw new Error(`Invalid frequency: ${hz}`);
+    }
     await this.sendCommand(`F ${Math.round(hz)}`);
   }
 
   async setMode(mode: string, passband = 0): Promise<void> {
-    await this.sendCommand(`M ${mode} ${passband}`);
+    const safe = sanitizeCommandParam(mode);
+    if (!safe) {
+      throw new Error("Mode string is empty after sanitization");
+    }
+    await this.sendCommand(`M ${safe} ${passband}`);
   }
 
   async setPTT(on: boolean): Promise<void> {
@@ -305,9 +364,13 @@ class FlrigBackend {
             data += chunk;
           });
           res.on("end", () => {
-            // Extract value from XML-RPC response
-            const value = extractXmlRpcValue(data);
-            resolve(value);
+            try {
+              // extractXmlRpcValue throws on fault responses
+              const value = extractXmlRpcValue(data);
+              resolve(value);
+            } catch (err) {
+              reject(err);
+            }
           });
         },
       );
@@ -328,30 +391,61 @@ class FlrigBackend {
 
   async getFrequency(): Promise<number> {
     const resp = await this.xmlRpcCall("rig.get_frequency");
-    return parseInt(resp ?? "0", 10);
+    if (resp === null) {
+      throw new Error("Flrig: empty response for get_frequency");
+    }
+    const freq = parseInt(resp, 10);
+    if (isNaN(freq)) {
+      throw new Error(
+        `Flrig: invalid frequency response ${JSON.stringify(resp)}`,
+      );
+    }
+    return freq;
   }
 
   async getMode(): Promise<string> {
     const resp = await this.xmlRpcCall("rig.get_mode");
-    return resp ?? "UNKNOWN";
+    if (resp === null) {
+      throw new Error("Flrig: empty response for get_mode");
+    }
+    return resp;
   }
 
   async getVFO(): Promise<string> {
     const resp = await this.xmlRpcCall("rig.get_vfo");
-    return resp ?? "A";
+    if (resp === null) {
+      throw new Error("Flrig: empty response for get_vfo");
+    }
+    return resp;
   }
 
   async getSMeter(): Promise<number> {
     const resp = await this.xmlRpcCall("rig.get_smeter");
-    return parseInt(resp ?? "0", 10);
+    if (resp === null) {
+      throw new Error("Flrig: empty response for get_smeter");
+    }
+    const val = parseInt(resp, 10);
+    if (isNaN(val)) {
+      throw new Error(
+        `Flrig: invalid S-meter response ${JSON.stringify(resp)}`,
+      );
+    }
+    return val;
   }
 
   async setFrequency(hz: number): Promise<void> {
+    if (!Number.isFinite(hz) || hz < 0) {
+      throw new Error(`Invalid frequency: ${hz}`);
+    }
     await this.xmlRpcCall("rig.set_frequency", [Math.round(hz).toString()]);
   }
 
   async setMode(mode: string): Promise<void> {
-    await this.xmlRpcCall("rig.set_mode", [mode]);
+    const safe = sanitizeCommandParam(mode);
+    if (!safe) {
+      throw new Error("Mode string is empty after sanitization");
+    }
+    await this.xmlRpcCall("rig.set_mode", [safe]);
   }
 
   async setVFO(vfo: string): Promise<void> {
@@ -372,12 +466,29 @@ function escapeXml(s: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
+/**
+ * Extract the value from an XML-RPC response.
+ * Throws on fault responses instead of silently returning null.
+ */
 function extractXmlRpcValue(xml: string): string | null {
-  // Simple extraction: find the innermost <value> content
-  // Handles <value><string>...</string></value> and <value>...</value>
+  // Detect XML-RPC fault responses
+  if (xml.includes("<fault>")) {
+    const faultCode = xml.match(
+      /<name>faultCode<\/name>\s*<value>\s*<int>(\d+)/,
+    );
+    const faultString = xml.match(
+      /<name>faultString<\/name>\s*<value>\s*(?:<string>)?([^<]*)/,
+    );
+    throw new Error(
+      `XML-RPC fault ${faultCode?.[1] ?? "?"}: ${faultString?.[1]?.trim() ?? "unknown error"}`,
+    );
+  }
+
+  // Extract value: handles <value><string>...</string></value> and <value>...</value>
   const valueMatch = xml.match(/<value>(?:<[^>]+>)?([^<]*)/);
   return valueMatch ? valueMatch[1].trim() : null;
 }
@@ -393,6 +504,7 @@ export class RigController {
   private flrig: FlrigBackend | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private polling = false;
+  private stopped = false;
   private startPromise: Promise<RigBackend> | null = null;
   private reconnectProbeTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly reconnectProbeDelayMs = 5000;
@@ -412,7 +524,7 @@ export class RigController {
   constructor(config?: RigControllerConfig) {
     this.config = {
       hamlibHost: config?.hamlibHost ?? "127.0.0.1",
-      hamlibPort: config?.hamlibPort ?? 4532,
+      hamlibPort: config?.hamlibPort ?? 4533,
       flrigHost: config?.flrigHost ?? "127.0.0.1",
       flrigPort: config?.flrigPort ?? 12345,
       pollInterval: config?.pollInterval ?? 200,
@@ -420,15 +532,23 @@ export class RigController {
   }
 
   // --------------------------------------------------------------------------
-  // Event Registration
+  // Event Registration (returns disposer to prevent handler accumulation)
   // --------------------------------------------------------------------------
 
-  onStatus(handler: RigStatusHandler): void {
+  onStatus(handler: RigStatusHandler): () => void {
     this.statusHandlers.push(handler);
+    return () => {
+      const idx = this.statusHandlers.indexOf(handler);
+      if (idx >= 0) this.statusHandlers.splice(idx, 1);
+    };
   }
 
-  onError(handler: RigErrorHandler): void {
+  onError(handler: RigErrorHandler): () => void {
     this.errorHandlers.push(handler);
+    return () => {
+      const idx = this.errorHandlers.indexOf(handler);
+      if (idx >= 0) this.errorHandlers.splice(idx, 1);
+    };
   }
 
   // --------------------------------------------------------------------------
@@ -437,6 +557,8 @@ export class RigController {
 
   /** Auto-detect backend and start polling */
   async start(): Promise<RigBackend> {
+    this.stopped = false;
+
     if (this.startPromise) {
       return this.startPromise;
     }
@@ -497,6 +619,7 @@ export class RigController {
 
   /** Stop polling and disconnect */
   stop(): void {
+    this.stopped = true;
     this.stopPolling();
     this.clearReconnectProbe();
 
@@ -624,7 +747,7 @@ export class RigController {
         connected: true,
         frequency: freq,
         mode: modeInfo.mode,
-        power: ptt ? 1 : 0,
+        ptt,
       };
     } else if (this.backend === "flrig" && this.flrig) {
       const freq = await this.flrig.getFrequency();
@@ -680,18 +803,19 @@ export class RigController {
   }
 
   private scheduleReconnectProbe(): void {
-    if (this.reconnectProbeTimer || this.backend !== "none") return;
+    if (this.reconnectProbeTimer || this.backend !== "none" || this.stopped)
+      return;
 
     this.reconnectProbeTimer = setTimeout(() => {
       this.reconnectProbeTimer = null;
-      if (this.backend !== "none") return;
+      if (this.backend !== "none" || this.stopped) return;
 
       this.start()
         .catch(() => {
           // Keep probing in the background until a backend comes online.
         })
         .finally(() => {
-          if (this.backend === "none") {
+          if (this.backend === "none" && !this.stopped) {
             this.scheduleReconnectProbe();
           }
         });
@@ -712,6 +836,7 @@ export class RigController {
       a.frequency === b.frequency &&
       a.mode === b.mode &&
       a.power === b.power &&
+      a.ptt === b.ptt &&
       a.vfo === b.vfo &&
       a.split === b.split
     );
@@ -726,7 +851,7 @@ export class RigController {
       try {
         handler(status);
       } catch {
-        /* swallow */
+        /* swallow handler errors to prevent cascade failures */
       }
     }
   }
@@ -736,7 +861,7 @@ export class RigController {
       try {
         handler(error);
       } catch {
-        /* swallow */
+        /* swallow handler errors to prevent cascade failures */
       }
     }
   }

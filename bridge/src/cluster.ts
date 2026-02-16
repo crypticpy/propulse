@@ -50,7 +50,7 @@ interface DedupeEntry {
 const DEDUPE_WINDOW_MS = 60_000;
 
 function spotDedupeHash(dx: string, frequency: number): string {
-  const freqRounded = Math.round(frequency / 1) * 1; // round to 1 kHz
+  const freqRounded = Math.round(frequency);
   return `${dx.toUpperCase()}_${freqRounded}`;
 }
 
@@ -177,16 +177,28 @@ export class DXClusterClient {
   // Event Registration
   // --------------------------------------------------------------------------
 
-  onSpot(handler: SpotHandler): void {
+  onSpot(handler: SpotHandler): () => void {
     this.spotHandlers.push(handler);
+    return () => {
+      const idx = this.spotHandlers.indexOf(handler);
+      if (idx >= 0) this.spotHandlers.splice(idx, 1);
+    };
   }
 
-  onStatus(handler: StatusHandler): void {
+  onStatus(handler: StatusHandler): () => void {
     this.statusHandlers.push(handler);
+    return () => {
+      const idx = this.statusHandlers.indexOf(handler);
+      if (idx >= 0) this.statusHandlers.splice(idx, 1);
+    };
   }
 
-  onError(handler: ErrorHandler): void {
+  onError(handler: ErrorHandler): () => void {
     this.errorHandlers.push(handler);
+    return () => {
+      const idx = this.errorHandlers.indexOf(handler);
+      if (idx >= 0) this.errorHandlers.splice(idx, 1);
+    };
   }
 
   // --------------------------------------------------------------------------
@@ -251,7 +263,7 @@ export class DXClusterClient {
     this.loginComplete = false;
 
     this.socket.setEncoding("utf-8");
-    this.socket.setTimeout(30_000);
+    this.socket.setTimeout(300_000);
 
     this.socket.on("connect", () => {
       this.reconnectAttempt = 0;

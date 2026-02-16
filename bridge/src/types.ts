@@ -31,7 +31,10 @@ export interface RigStatus {
   connected: boolean;
   frequency?: number;
   mode?: string;
+  /** Transmit power in watts (if available from the backend) */
   power?: number;
+  /** Push-to-talk state */
+  ptt?: boolean;
   vfo?: "A" | "B";
   split?: boolean;
 }
@@ -298,8 +301,9 @@ export function isMessageEnvelope(obj: unknown): obj is MessageEnvelope {
   const hasLegacyTs = typeof envelope.timestamp === "number";
   return (
     typeof envelope.type === "string" &&
+    envelope.type.length > 0 &&
     (hasIsoTs || hasLegacyTs) &&
-    "payload" in envelope
+    envelope.payload !== undefined
   );
 }
 

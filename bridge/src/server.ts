@@ -9,6 +9,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import http from "http";
 import fs from "fs";
+import { readFile } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import {
@@ -21,12 +22,12 @@ import type {
   ClusterConfig,
   ClusterNodeConfig,
   RigStatus,
-  RigUpdateRequest,
   WSJTXConfig,
 } from "./types.js";
 import { DXClusterClient } from "./cluster.js";
 import { WSJTXListener } from "./wsjtx.js";
 import { RigController, type RigControllerConfig } from "./rig.js";
+import { CivSpectrumClient, pixelToDb, type CivSpectrumLine } from "./civ.js";
 
 // ============================================================================
 // Configuration
@@ -63,6 +64,12 @@ function loadConfig(): ServerConfig {
 // ============================================================================
 
 const STATIC_PORT = parseInt(process.env.BRIDGE_STATIC_PORT ?? "3173", 10);
+if (isNaN(STATIC_PORT) || STATIC_PORT < 1 || STATIC_PORT > 65535) {
+  throw new Error(
+    `Invalid static port number: ${process.env.BRIDGE_STATIC_PORT}`,
+  );
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Resolve frontend dist: monorepo layout (../../dist) or standalone (../frontend-dist)
 const DIST_DIR = fs.existsSync(path.resolve(__dirname, "../../dist"))
@@ -70,6 +77,80 @@ const DIST_DIR = fs.existsSync(path.resolve(__dirname, "../../dist"))
   : path.resolve(__dirname, "../frontend-dist");
 
 let staticServer: http.Server | null = null;
+
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+};
+
+/**
+ * Handle a single static file request asynchronously.
+ * Uses fs/promises to avoid blocking the event loop during file reads.
+ */
+async function handleStaticRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+  const filePath = path.join(
+    DIST_DIR,
+    url.pathname === "/" ? "index.html" : url.pathname,
+  );
+
+  // Prevent path traversal
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(DIST_DIR)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] || "application/octet-stream";
+  const cacheControl =
+    ext === ".html" || ext === ".webmanifest"
+      ? "no-cache"
+      : "public, max-age=31536000, immutable";
+
+  try {
+    const content = await readFile(resolved);
+    res.writeHead(200, {
+      "Content-Type": contentType,
+      "Cache-Control": cacheControl,
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.end(content);
+  } catch {
+    // SPA fallback: if file doesn't exist and has no extension, serve index.html
+    if (!ext) {
+      try {
+        const indexContent = await readFile(path.join(DIST_DIR, "index.html"));
+        res.writeHead(200, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache",
+          "X-Content-Type-Options": "nosniff",
+        });
+        res.end(indexContent);
+        return;
+      } catch {
+        // fall through to 404
+      }
+    }
+    res.writeHead(404);
+    res.end("Not Found");
+  }
+}
 
 function startStaticServer(): void {
   if (!fs.existsSync(DIST_DIR)) {
@@ -79,63 +160,16 @@ function startStaticServer(): void {
     return;
   }
 
-  const mimeTypes: Record<string, string> = {
-    ".html": "text/html; charset=utf-8",
-    ".js": "application/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".ico": "image/x-icon",
-    ".woff": "font/woff",
-    ".woff2": "font/woff2",
-    ".json": "application/json; charset=utf-8",
-    ".webmanifest": "application/manifest+json; charset=utf-8",
-  };
-
   const server = http.createServer((req, res) => {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
-    let filePath = path.join(
-      DIST_DIR,
-      url.pathname === "/" ? "index.html" : url.pathname,
-    );
-
-    // Prevent path traversal
-    const resolved = path.resolve(filePath);
-    if (!resolved.startsWith(DIST_DIR)) {
-      res.writeHead(403);
-      res.end("Forbidden");
-      return;
-    }
-
-    // SPA fallback: if file doesn't exist and has no extension, serve index.html
-    if (!fs.existsSync(resolved) && !path.extname(resolved)) {
-      filePath = path.join(DIST_DIR, "index.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-
-    // Cache: HTML gets no-cache (for SPA updates), hashed assets are immutable
-    const cacheControl =
-      ext === ".html" || ext === ".webmanifest"
-        ? "no-cache"
-        : "public, max-age=31536000, immutable";
-
-    try {
-      const content = fs.readFileSync(filePath);
-      res.writeHead(200, {
-        "Content-Type": contentType,
-        "Cache-Control": cacheControl,
-        "X-Content-Type-Options": "nosniff",
+    handleStaticRequest(req, res).catch((err: unknown) => {
+      logger.error("Static file server request error", {
+        error: err instanceof Error ? err.message : String(err),
       });
-      res.end(content);
-    } catch {
-      res.writeHead(404);
-      res.end("Not Found");
-    }
+      if (!res.headersSent) {
+        res.writeHead(500);
+        res.end("Internal Server Error");
+      }
+    });
   });
 
   server.listen(STATIC_PORT, "127.0.0.1", () => {
@@ -244,6 +278,25 @@ let clusterClient: DXClusterClient | null = null;
 let wsjtxListener: WSJTXListener | null = null;
 let rigController: RigController | null = null;
 
+// Event handler disposers (prevent accumulation on reconnect cycles)
+let rigStatusDispose: (() => void) | null = null;
+let rigErrorDispose: (() => void) | null = null;
+let clusterSpotDispose: (() => void) | null = null;
+let clusterStatusDispose: (() => void) | null = null;
+let clusterErrorDispose: (() => void) | null = null;
+let wsjtxStatusDispose: (() => void) | null = null;
+let wsjtxDecodeDispose: (() => void) | null = null;
+let wsjtxQsoDispose: (() => void) | null = null;
+let wsjtxClearDispose: (() => void) | null = null;
+let wsjtxErrorDispose: (() => void) | null = null;
+
+// CI-V spectrum streaming state
+let civClient: CivSpectrumClient | null = null;
+let civSpectrumDispose: (() => void) | null = null;
+let civStatusDispose: (() => void) | null = null;
+let civErrorDispose: (() => void) | null = null;
+const fftSubscribers = new Set<string>();
+
 // --------------------------------------------------------------------------
 // DX Cluster Integration
 // --------------------------------------------------------------------------
@@ -258,6 +311,13 @@ function startCluster(config: ClusterConfig): void {
     return;
   }
 
+  if (config.nodes.length > 1) {
+    logger.warn(
+      "Multiple cluster nodes provided but only the first will be used; multi-node failover is not yet implemented",
+      { nodeCount: config.nodes.length, activeNode: node.name },
+    );
+  }
+
   clusterClient = new DXClusterClient({
     host: node.host,
     port: node.port,
@@ -266,15 +326,15 @@ function startCluster(config: ClusterConfig): void {
     filters: config.filters,
   });
 
-  clusterClient.onSpot((spot) => {
+  clusterSpotDispose = clusterClient.onSpot((spot) => {
     broadcast(createMessage(MessageTypes.CLUSTER_SPOT, spot));
   });
 
-  clusterClient.onStatus((status) => {
+  clusterStatusDispose = clusterClient.onStatus((status) => {
     broadcast(createMessage(MessageTypes.CLUSTER_STATUS, status));
   });
 
-  clusterClient.onError((error) => {
+  clusterErrorDispose = clusterClient.onError((error) => {
     logger.error("DX Cluster error", { error: error.message });
   });
 
@@ -288,6 +348,13 @@ function startCluster(config: ClusterConfig): void {
 }
 
 function stopCluster(): void {
+  clusterSpotDispose?.();
+  clusterSpotDispose = null;
+  clusterStatusDispose?.();
+  clusterStatusDispose = null;
+  clusterErrorDispose?.();
+  clusterErrorDispose = null;
+
   if (clusterClient) {
     clusterClient.disconnect();
     clusterClient = null;
@@ -306,29 +373,29 @@ function startWSJTX(config: WSJTXConfig): void {
 
   wsjtxListener = new WSJTXListener(config.port);
 
-  wsjtxListener.onStatus((status, instanceId) => {
+  wsjtxStatusDispose = wsjtxListener.onStatus((status, instanceId) => {
     broadcast(
       createMessage(MessageTypes.WSJTX_STATUS, { ...status, instanceId }),
     );
   });
 
-  wsjtxListener.onDecode((decode, instanceId) => {
+  wsjtxDecodeDispose = wsjtxListener.onDecode((decode, instanceId) => {
     broadcast(
       createMessage(MessageTypes.WSJTX_DECODE, { ...decode, instanceId }),
     );
   });
 
-  wsjtxListener.onQSOLogged((qso, instanceId) => {
+  wsjtxQsoDispose = wsjtxListener.onQSOLogged((qso, instanceId) => {
     broadcast(
       createMessage(MessageTypes.WSJTX_QSO_LOGGED, { ...qso, instanceId }),
     );
   });
 
-  wsjtxListener.onClear((window, instanceId) => {
+  wsjtxClearDispose = wsjtxListener.onClear((window, instanceId) => {
     broadcast(createMessage(MessageTypes.WSJTX_CLEAR, { window, instanceId }));
   });
 
-  wsjtxListener.onError((error) => {
+  wsjtxErrorDispose = wsjtxListener.onError((error) => {
     logger.error("WSJT-X listener error", { error: error.message });
   });
 
@@ -338,6 +405,17 @@ function startWSJTX(config: WSJTXConfig): void {
 }
 
 function stopWSJTX(): void {
+  wsjtxStatusDispose?.();
+  wsjtxStatusDispose = null;
+  wsjtxDecodeDispose?.();
+  wsjtxDecodeDispose = null;
+  wsjtxQsoDispose?.();
+  wsjtxQsoDispose = null;
+  wsjtxClearDispose?.();
+  wsjtxClearDispose = null;
+  wsjtxErrorDispose?.();
+  wsjtxErrorDispose = null;
+
   if (wsjtxListener) {
     wsjtxListener.stop();
     wsjtxListener = null;
@@ -356,13 +434,17 @@ async function startRig(
 
   rigController = new RigController(config);
 
-  rigController.onStatus((status) => {
+  rigStatusDispose = rigController.onStatus((status) => {
+    // Bridge-protocol broadcast (envelope format)
     broadcast(createMessage(MessageTypes.RIG_STATUS, status));
     // Compatibility: some frontend code still listens for rig.update.
     broadcast(createMessage(MessageTypes.RIG_UPDATE, status));
+
+    // Daemon-protocol broadcast (flat format for SDR Console)
+    broadcastDaemonRadioState(status);
   });
 
-  rigController.onError((error) => {
+  rigErrorDispose = rigController.onError((error) => {
     logger.error("Rig controller error", { error: error.message });
   });
 
@@ -372,6 +454,11 @@ async function startRig(
 }
 
 function stopRig(): void {
+  rigStatusDispose?.();
+  rigStatusDispose = null;
+  rigErrorDispose?.();
+  rigErrorDispose = null;
+
   if (rigController) {
     rigController.stop();
     rigController = null;
@@ -380,7 +467,7 @@ function stopRig(): void {
 }
 
 // ============================================================================
-// Payload Normalizers
+// Payload Normalizers & Validators
 // ============================================================================
 
 function toNumber(value: unknown): number | undefined {
@@ -390,6 +477,14 @@ function toNumber(value: unknown): number | undefined {
     if (Number.isFinite(n)) return n;
   }
   return undefined;
+}
+
+function toPortNumber(value: unknown): number | undefined {
+  const port = toNumber(value);
+  if (typeof port !== "number") return undefined;
+  const normalized = Math.trunc(port);
+  if (normalized < 1 || normalized > 65535) return undefined;
+  return normalized;
 }
 
 function toBandNumber(value: unknown): number | undefined {
@@ -404,6 +499,27 @@ function toBandNumber(value: unknown): number | undefined {
     }
   }
   return undefined;
+}
+
+/** Validate and coerce a frequency value from untrusted input */
+function validateFrequency(value: unknown): number {
+  const freq = toNumber(value);
+  if (freq === undefined || freq < 0 || freq > 1e12) {
+    throw new Error(`Invalid frequency: ${JSON.stringify(value)}`);
+  }
+  return freq;
+}
+
+/** Validate a mode string from untrusted input (alphanumeric + hyphen only) */
+function validateMode(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Invalid mode: ${JSON.stringify(value)}`);
+  }
+  const mode = value.trim().toUpperCase();
+  if (!/^[A-Z0-9-]+$/.test(mode)) {
+    throw new Error(`Invalid mode characters: ${JSON.stringify(value)}`);
+  }
+  return mode;
 }
 
 function normalizeClusterConfig(payload: unknown): ClusterConfig | null {
@@ -494,7 +610,7 @@ function parseRigControllerConfig(payload: unknown): {
   const backendRaw =
     typeof p.backend === "string" ? p.backend.toLowerCase() : "auto";
   const host = typeof p.host === "string" ? p.host.trim() : undefined;
-  const port = toNumber(p.port);
+  const port = toPortNumber(p.port);
 
   if (backendRaw === "none") {
     return { backend: "none" };
@@ -505,7 +621,7 @@ function parseRigControllerConfig(payload: unknown): {
       backend: "hamlib",
       config: {
         hamlibHost: host || "127.0.0.1",
-        hamlibPort: port ?? 4532,
+        hamlibPort: port ?? 4533,
       },
     };
   }
@@ -525,6 +641,440 @@ function parseRigControllerConfig(payload: unknown): {
 
 function getRigStatusSnapshot(): RigStatus {
   return rigController?.getStatusSnapshot() ?? { connected: false };
+}
+
+// ============================================================================
+// Daemon Protocol Support (flat JSON for SDR Console / useRadioDaemon)
+// ============================================================================
+
+const DAEMON_DEVICE_ID = "rig-0";
+
+/**
+ * Detect flat daemon-protocol commands.
+ * These have a `type` string but NO `payload` key and NO `ts`/`timestamp`.
+ * The type always contains a colon (e.g., "devices:enumerate", "radio:tune").
+ */
+function isDaemonCommand(
+  obj: Record<string, unknown>,
+): obj is { type: string; id?: string; [k: string]: unknown } {
+  if (typeof obj.type !== "string") return false;
+  // Daemon commands never have payload/ts/timestamp (bridge envelope fields)
+  if (
+    obj.payload !== undefined ||
+    obj.ts !== undefined ||
+    obj.timestamp !== undefined
+  ) {
+    return false;
+  }
+  // Daemon commands use colon-namespaced types OR "hello"
+  return obj.type.includes(":") || obj.type === "hello";
+}
+
+/** Send a flat daemon-protocol JSON message to a client. */
+function sendDaemonMessage(
+  client: ConnectedClient,
+  msg: Record<string, unknown>,
+): void {
+  if (client.socket.readyState === WebSocket.OPEN) {
+    client.socket.send(JSON.stringify(msg));
+  }
+}
+
+/** Send a daemon-protocol command response. */
+function sendDaemonResponse(
+  client: ConnectedClient,
+  id: string | undefined,
+  success: boolean,
+  error?: string,
+): void {
+  if (!id) return;
+  sendDaemonMessage(client, { type: "response", id, success, error });
+}
+
+/** Build a DeviceInfo object from the current rig state. */
+function buildDaemonDeviceInfo(): {
+  device_id: string;
+  name: string;
+  driver: string;
+  type: "transceiver";
+  available: boolean;
+  capabilities: {
+    can_transmit: boolean;
+    can_stream_iq: boolean;
+    can_stream_fft: boolean;
+    can_stream_audio: boolean;
+    antennas: string[];
+    modes: string[];
+    frequency_range: [number, number];
+    sample_rates: number[];
+    gain_stages: never[];
+  };
+} {
+  const backend = rigController?.getBackend() ?? "none";
+  return {
+    device_id: DAEMON_DEVICE_ID,
+    name:
+      backend === "hamlib"
+        ? "Hamlib Rig (via WFView)"
+        : backend === "flrig"
+          ? "Flrig Rig"
+          : "No Rig Detected",
+    driver: backend,
+    type: "transceiver",
+    available: backend !== "none",
+    capabilities: {
+      can_transmit: true,
+      can_stream_iq: false,
+      can_stream_fft: true,
+      can_stream_audio: false,
+      antennas: ["ANT1"],
+      modes: [
+        "LSB",
+        "USB",
+        "CW",
+        "CW-R",
+        "RTTY",
+        "RTTY-R",
+        "AM",
+        "FM",
+        "WFM",
+        "DV",
+        "FT8",
+        "FT4",
+        "PSK",
+        "SSB",
+      ],
+      frequency_range: [30000, 470000000],
+      sample_rates: [],
+      gain_stages: [],
+    },
+  };
+}
+
+/** Convert a bridge RigStatus into a daemon-protocol RadioState. */
+function rigStatusToDaemonState(status: RigStatus): {
+  connected: boolean;
+  freq: number;
+  mode: string;
+  antenna: string;
+  gains: Record<string, number>;
+  agc: boolean;
+  ptt: boolean;
+  signal_dbm?: number;
+} {
+  return {
+    connected: status.connected,
+    freq: status.frequency ?? 0,
+    mode: status.mode ?? "USB",
+    antenna: "ANT1",
+    gains: {},
+    agc: false,
+    ptt: status.ptt ?? false,
+    signal_dbm: undefined,
+  };
+}
+
+/** Broadcast daemon-protocol radio:state to all connected clients. */
+function broadcastDaemonRadioState(status: RigStatus): void {
+  const msg = {
+    type: "radio:state",
+    device_id: DAEMON_DEVICE_ID,
+    state: rigStatusToDaemonState(status),
+  };
+  const serialized = JSON.stringify(msg);
+  for (const client of clients.values()) {
+    if (client.socket.readyState === WebSocket.OPEN) {
+      client.socket.send(serialized);
+    }
+  }
+}
+
+/**
+ * Broadcast a binary FFT frame to all clients subscribed to FFT streaming.
+ * Frame layout (little-endian):
+ *   [0x01 type] [0x00 devIdx] [f64 centerHz] [f64 spanHz] [...f32 dBm bins]
+ */
+function broadcastBinaryFftFrame(line: CivSpectrumLine): void {
+  if (fftSubscribers.size === 0) return;
+
+  const binCount = line.pixels.length;
+  const byteLength = 1 + 1 + 8 + 8 + binCount * 4; // 18 + bins*4
+  const buffer = Buffer.alloc(byteLength);
+
+  // Header
+  buffer[0] = 0x01; // FRAME_TYPE_FFT
+  buffer[1] = 0x00; // devIdx = 0 (rig-0)
+
+  // Center frequency and span as float64 LE
+  buffer.writeDoubleLE(line.centerHz, 2);
+  buffer.writeDoubleLE(line.spanHz, 10);
+
+  // Convert pixels (0-200) to dBm float32 values
+  for (let i = 0; i < binCount; i++) {
+    const dBm = pixelToDb(line.pixels[i]);
+    buffer.writeFloatLE(dBm, 18 + i * 4);
+  }
+
+  // Send binary to all FFT subscribers
+  for (const clientId of fftSubscribers) {
+    const client = clients.get(clientId);
+    if (client && client.socket.readyState === WebSocket.OPEN) {
+      client.socket.send(buffer);
+    }
+  }
+}
+
+/** Stop the CI-V spectrum client and clean up all resources. */
+function stopCiv(): void {
+  civSpectrumDispose?.();
+  civSpectrumDispose = null;
+  civStatusDispose?.();
+  civStatusDispose = null;
+  civErrorDispose?.();
+  civErrorDispose = null;
+
+  if (civClient) {
+    civClient.disconnect();
+    civClient = null;
+    logger.info("CI-V spectrum client stopped");
+  }
+  fftSubscribers.clear();
+}
+
+/** Handle a daemon-protocol command from the SDR Console. */
+function handleDaemonCommand(
+  client: ConnectedClient,
+  cmd: { type: string; id?: string; [k: string]: unknown },
+): void {
+  const { type, id } = cmd;
+
+  switch (type) {
+    // ----------------------------------------------------------------
+    // Device enumeration
+    // ----------------------------------------------------------------
+    case "devices:enumerate": {
+      const backend = rigController?.getBackend() ?? "none";
+      const devices = backend !== "none" ? [buildDaemonDeviceInfo()] : [];
+      sendDaemonMessage(client, { type: "devices:list", devices });
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Radio connect
+    // ----------------------------------------------------------------
+    case "radio:connect": {
+      (async () => {
+        try {
+          const controller = await ensureRigController();
+          const status = controller.getStatusSnapshot();
+          sendDaemonResponse(client, id, true);
+          // Send initial state
+          sendDaemonMessage(client, {
+            type: "radio:state",
+            device_id: DAEMON_DEVICE_ID,
+            state: rigStatusToDaemonState(status),
+          });
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Radio disconnect
+    // ----------------------------------------------------------------
+    case "radio:disconnect": {
+      sendDaemonResponse(client, id, true);
+      sendDaemonMessage(client, {
+        type: "radio:state",
+        device_id: DAEMON_DEVICE_ID,
+        state: rigStatusToDaemonState({ connected: false }),
+      });
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Tune (set frequency)
+    // ----------------------------------------------------------------
+    case "radio:tune": {
+      const freq = toNumber(cmd.freq);
+      if (freq === undefined || freq < 0) {
+        sendDaemonResponse(client, id, false, "Invalid frequency");
+        break;
+      }
+      (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setFrequency(freq);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Set mode
+    // ----------------------------------------------------------------
+    case "radio:mode": {
+      const mode =
+        typeof cmd.mode === "string" ? cmd.mode.trim().toUpperCase() : "";
+      if (!mode) {
+        sendDaemonResponse(client, id, false, "Invalid mode");
+        break;
+      }
+      (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setMode(mode);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // PTT
+    // ----------------------------------------------------------------
+    case "radio:ptt": {
+      const active =
+        typeof cmd.active === "boolean"
+          ? cmd.active
+          : cmd.active === "true" || cmd.active === 1;
+      (async () => {
+        try {
+          const controller = await ensureRigController();
+          await controller.setPTT(active);
+          sendDaemonResponse(client, id, true);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // AGC, Gain, Filter, NR, NB, Antenna — acknowledge but no-op
+    // (WFView handles these via its own connection)
+    // ----------------------------------------------------------------
+    case "radio:agc":
+    case "radio:gain":
+    case "radio:filter":
+    case "radio:nr":
+    case "radio:nb":
+    case "radio:antenna":
+    case "radio:squelch": {
+      sendDaemonResponse(client, id, true);
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // FFT stream control — connects to WFView CI-V TCP server
+    // ----------------------------------------------------------------
+    case "stream:fft:start": {
+      const civHost =
+        typeof cmd.civ_host === "string" ? cmd.civ_host : "127.0.0.1";
+      const civPort =
+        typeof cmd.civ_port === "number" && cmd.civ_port > 0
+          ? cmd.civ_port
+          : 4580;
+
+      // Track this client as an FFT subscriber
+      fftSubscribers.add(client.id);
+
+      // Start CIV client if not already running
+      if (!civClient) {
+        civClient = new CivSpectrumClient({
+          host: civHost,
+          port: civPort,
+        });
+
+        civSpectrumDispose = civClient.onSpectrum((line) => {
+          broadcastBinaryFftFrame(line);
+        });
+
+        civErrorDispose = civClient.onError((error) => {
+          logger.error("CI-V spectrum error", { error: error.message });
+        });
+
+        civStatusDispose = civClient.onStatus((connected) => {
+          logger.info("CI-V spectrum connection", { connected });
+        });
+
+        civClient.connect();
+        logger.info("CI-V spectrum client started", {
+          host: civHost,
+          port: civPort,
+        });
+      }
+
+      sendDaemonResponse(client, id, true);
+      break;
+    }
+
+    case "stream:fft:stop": {
+      fftSubscribers.delete(client.id);
+
+      // If no more subscribers, disconnect CI-V client
+      if (fftSubscribers.size === 0 && civClient) {
+        stopCiv();
+      }
+
+      sendDaemonResponse(client, id, true);
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Audio stream control — not yet supported
+    // ----------------------------------------------------------------
+    case "stream:audio:start":
+    case "stream:audio:stop": {
+      sendDaemonResponse(
+        client,
+        id,
+        false,
+        "Audio streaming not available — use WFView for audio output",
+      );
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // mDNS discovery — return empty (single-daemon mode)
+    // ----------------------------------------------------------------
+    case "discovery:mdns:browse": {
+      sendDaemonMessage(client, { type: "discovery:daemons", daemons: [] });
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Hello / auth — acknowledge
+    // ----------------------------------------------------------------
+    case "hello": {
+      sendDaemonMessage(client, {
+        type: "hello",
+        version: "0.3.0",
+        daemon_id: "propulse-bridge",
+      });
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Default: acknowledge unknown daemon commands
+    // ----------------------------------------------------------------
+    default: {
+      logger.debug("Unhandled daemon command", { type });
+      sendDaemonResponse(client, id, false, `Unknown command: ${type}`);
+      break;
+    }
+  }
 }
 
 // ============================================================================
@@ -552,6 +1102,22 @@ function handleMessage(client: ConnectedClient, rawMessage: string): void {
     return;
   }
 
+  // Check for daemon-protocol commands (flat JSON from SDR Console)
+  // before applying the bridge envelope check.
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    isDaemonCommand(parsed as Record<string, unknown>)
+  ) {
+    const cmd = parsed as { type: string; id?: string; [k: string]: unknown };
+    logger.debug("Received daemon command", {
+      clientId: client.id,
+      commandType: cmd.type,
+    });
+    handleDaemonCommand(client, cmd);
+    return;
+  }
+
   if (!isMessageEnvelope(parsed)) {
     logger.warn("Received message with invalid envelope", {
       clientId: client.id,
@@ -562,7 +1128,7 @@ function handleMessage(client: ConnectedClient, rawMessage: string): void {
       createMessage("error", {
         code: "INVALID_ENVELOPE",
         message:
-          "Message must have type, payload, and a timestamp field (ts or timestamp)",
+          "Message must have a non-empty type, a defined payload, and a timestamp field (ts or timestamp)",
       }),
     );
     return;
@@ -661,8 +1227,45 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
     // WSJT-X
     // ------------------------------------------------------------------
     case MessageTypes.WSJTX_CONFIGURE: {
-      const config = message.payload as WSJTXConfig;
-      startWSJTX(config);
+      const p =
+        typeof message.payload === "object" && message.payload !== null
+          ? (message.payload as Record<string, unknown>)
+          : null;
+
+      if (!p) {
+        sendToClient(
+          client,
+          createMessage(
+            "error",
+            {
+              code: "INVALID_WSJTX_CONFIG",
+              message: "wsjtx.configure requires an object payload",
+            },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      const port = toPortNumber(p.port);
+      const enabled = typeof p.enabled === "boolean" ? p.enabled : false;
+
+      if (port === undefined) {
+        sendToClient(
+          client,
+          createMessage(
+            "error",
+            {
+              code: "INVALID_WSJTX_CONFIG",
+              message: "wsjtx.configure requires a valid port number (1-65535)",
+            },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      startWSJTX({ port, enabled });
       sendToClient(
         client,
         createMessage(`${message.type}.ack`, { configured: true }, message.id),
@@ -675,19 +1278,9 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
     // ------------------------------------------------------------------
     case MessageTypes.RIG_STATUS:
     case MessageTypes.RIG_UPDATE: {
-      if (!rigController || rigController.getBackend() === "none") {
-        startRig()
-          .catch((err: unknown) => {
-            logger.warn("Rig status request: backend probe failed", {
-              error: err instanceof Error ? err.message : String(err),
-            });
-          })
-          .finally(() => {
-            respondWithRigSnapshot(message.type);
-          });
-      } else {
-        respondWithRigSnapshot(message.type);
-      }
+      // Pure read: return current snapshot without side effects.
+      // If no rig is connected, the snapshot shows { connected: false }.
+      respondWithRigSnapshot(message.type);
       break;
     }
 
@@ -797,30 +1390,22 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
     }
 
     case MessageTypes.RIG_SET: {
-      const update = message.payload as RigUpdateRequest;
-      handleRigSet(client, message, update);
+      handleRigSet(client, message);
       break;
     }
 
     case MessageTypes.RIG_SET_FREQUENCY: {
-      const payload = message.payload as { frequency: number };
-      handleRigSetFrequency(client, message, payload.frequency);
+      handleRigSetFrequency(client, message);
       break;
     }
 
     case MessageTypes.RIG_SET_MODE: {
-      const payload = message.payload as { mode: string };
-      handleRigSetMode(client, message, payload.mode);
+      handleRigSetMode(client, message);
       break;
     }
 
     case MessageTypes.RIG_SET_PTT: {
-      const payload = message.payload as { enabled?: boolean; ptt?: boolean };
-      const enabled =
-        typeof payload.enabled === "boolean"
-          ? payload.enabled
-          : Boolean(payload.ptt);
-      handleRigSetPTT(client, message, enabled);
+      handleRigSetPTT(client, message);
       break;
     }
 
@@ -833,11 +1418,7 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
       });
       sendToClient(
         client,
-        createMessage(
-          `${message.type}.ack`,
-          { received: true, originalPayload: message.payload },
-          message.id,
-        ),
+        createMessage(`${message.type}.ack`, { received: true }, message.id),
       );
       break;
     }
@@ -848,217 +1429,199 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
 // Rig Command Handlers
 // --------------------------------------------------------------------------
 
-function ensureRigController(
-  onReady: (controller: RigController) => void,
-  onUnavailable: (errorMessage?: string) => void,
-): void {
+/**
+ * Get the active rig controller, or throw if unavailable.
+ * Unlike the previous callback-based ensureRigController, this is a simple
+ * async function that either returns a controller or throws.
+ */
+async function ensureRigController(): Promise<RigController> {
   if (rigController && rigController.getBackend() !== "none") {
-    onReady(rigController);
-    return;
+    return rigController;
   }
 
-  startRig()
-    .then((backend) => {
-      if (backend === "none" || !rigController) {
-        onUnavailable("No rig backend available");
-        return;
-      }
-      onReady(rigController);
-    })
-    .catch((err: unknown) => {
-      onUnavailable(err instanceof Error ? err.message : String(err));
-    });
+  const backend = await startRig();
+  if (backend === "none" || !rigController) {
+    throw new Error("No rig backend available");
+  }
+  return rigController;
 }
 
-function handleRigSet(
-  client: ConnectedClient,
-  message: MessageEnvelope,
-  update: RigUpdateRequest,
-): void {
-  ensureRigController(
-    (controller) => {
-      const promises: Promise<void>[] = [];
-      if (update.frequency !== undefined) {
-        promises.push(controller.setFrequency(update.frequency));
+/**
+ * Handle rig.set: set frequency and/or mode.
+ * Commands are executed sequentially (not in parallel) because Hamlib's
+ * rigctld protocol only supports one command in flight at a time.
+ */
+function handleRigSet(client: ConnectedClient, message: MessageEnvelope): void {
+  const p =
+    typeof message.payload === "object" && message.payload !== null
+      ? (message.payload as Record<string, unknown>)
+      : {};
+
+  (async () => {
+    try {
+      const controller = await ensureRigController();
+
+      // Validate before executing any commands
+      const frequency =
+        p.frequency !== undefined ? validateFrequency(p.frequency) : undefined;
+      const mode = p.mode !== undefined ? validateMode(p.mode) : undefined;
+
+      // Execute sequentially to respect Hamlib's single-command constraint
+      if (frequency !== undefined) {
+        await controller.setFrequency(frequency);
       }
-      if (update.mode !== undefined) {
-        promises.push(controller.setMode(update.mode));
+      if (mode !== undefined) {
+        await controller.setMode(mode);
       }
 
-      Promise.all(promises)
-        .then(() => {
-          sendToClient(
-            client,
-            createMessage(`${message.type}.ack`, { success: true }, message.id),
-          );
-        })
-        .catch((err: unknown) => {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          sendToClient(
-            client,
-            createMessage(
-              "error",
-              { code: "RIG_COMMAND_FAILED", message: errMsg },
-              message.id,
-            ),
-          );
-        });
-    },
-    (errorMessage) => {
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { success: true }, message.id),
+      );
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       sendToClient(
         client,
         createMessage(
           "error",
-          {
-            code: "RIG_NOT_CONNECTED",
-            message: errorMessage ?? "No rig backend available",
-          },
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
           message.id,
         ),
       );
-    },
-  );
+    }
+  })();
 }
 
 function handleRigSetFrequency(
   client: ConnectedClient,
   message: MessageEnvelope,
-  frequency: number,
 ): void {
-  ensureRigController(
-    (controller) => {
-      controller
-        .setFrequency(frequency)
-        .then(() => {
-          sendToClient(
-            client,
-            createMessage(
-              `${message.type}.ack`,
-              { success: true, frequency },
-              message.id,
-            ),
-          );
-        })
-        .catch((err: unknown) => {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          sendToClient(
-            client,
-            createMessage(
-              "error",
-              { code: "RIG_COMMAND_FAILED", message: errMsg },
-              message.id,
-            ),
-          );
-        });
-    },
-    (errorMessage) => {
+  const p =
+    typeof message.payload === "object" && message.payload !== null
+      ? (message.payload as Record<string, unknown>)
+      : {};
+
+  (async () => {
+    try {
+      const frequency = validateFrequency(p.frequency);
+      const controller = await ensureRigController();
+      await controller.setFrequency(frequency);
+
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, frequency },
+          message.id,
+        ),
+      );
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       sendToClient(
         client,
         createMessage(
           "error",
-          {
-            code: "RIG_NOT_CONNECTED",
-            message: errorMessage ?? "No rig backend available",
-          },
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
           message.id,
         ),
       );
-    },
-  );
+    }
+  })();
 }
 
 function handleRigSetMode(
   client: ConnectedClient,
   message: MessageEnvelope,
-  mode: string,
 ): void {
-  ensureRigController(
-    (controller) => {
-      controller
-        .setMode(mode)
-        .then(() => {
-          sendToClient(
-            client,
-            createMessage(
-              `${message.type}.ack`,
-              { success: true, mode },
-              message.id,
-            ),
-          );
-        })
-        .catch((err: unknown) => {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          sendToClient(
-            client,
-            createMessage(
-              "error",
-              { code: "RIG_COMMAND_FAILED", message: errMsg },
-              message.id,
-            ),
-          );
-        });
-    },
-    (errorMessage) => {
+  const p =
+    typeof message.payload === "object" && message.payload !== null
+      ? (message.payload as Record<string, unknown>)
+      : {};
+
+  (async () => {
+    try {
+      const mode = validateMode(p.mode);
+      const controller = await ensureRigController();
+      await controller.setMode(mode);
+
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, mode },
+          message.id,
+        ),
+      );
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       sendToClient(
         client,
         createMessage(
           "error",
-          {
-            code: "RIG_NOT_CONNECTED",
-            message: errorMessage ?? "No rig backend available",
-          },
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
           message.id,
         ),
       );
-    },
-  );
+    }
+  })();
 }
 
 function handleRigSetPTT(
   client: ConnectedClient,
   message: MessageEnvelope,
-  enabled: boolean,
 ): void {
-  ensureRigController(
-    (controller) => {
-      controller
-        .setPTT(enabled)
-        .then(() => {
-          sendToClient(
-            client,
-            createMessage(
-              `${message.type}.ack`,
-              { success: true, ptt: enabled },
-              message.id,
-            ),
-          );
-        })
-        .catch((err: unknown) => {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          sendToClient(
-            client,
-            createMessage(
-              "error",
-              { code: "RIG_COMMAND_FAILED", message: errMsg },
-              message.id,
-            ),
-          );
-        });
-    },
-    (errorMessage) => {
+  const p =
+    typeof message.payload === "object" && message.payload !== null
+      ? (message.payload as Record<string, unknown>)
+      : {};
+
+  const enabled =
+    typeof p.enabled === "boolean"
+      ? p.enabled
+      : typeof p.ptt === "boolean"
+        ? p.ptt
+        : undefined;
+
+  if (enabled === undefined) {
+    sendToClient(
+      client,
+      createMessage(
+        "error",
+        {
+          code: "INVALID_PAYLOAD",
+          message: "rig.setPTT requires a boolean 'enabled' or 'ptt' field",
+        },
+        message.id,
+      ),
+    );
+    return;
+  }
+
+  (async () => {
+    try {
+      const controller = await ensureRigController();
+      await controller.setPTT(enabled);
+
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, ptt: enabled },
+          message.id,
+        ),
+      );
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       sendToClient(
         client,
         createMessage(
           "error",
-          {
-            code: "RIG_NOT_CONNECTED",
-            message: errorMessage ?? "No rig backend available",
-          },
+          { code: "RIG_COMMAND_FAILED", message: errMsg },
           message.id,
         ),
       );
-    },
-  );
+    }
+  })();
 }
 
 // ============================================================================
@@ -1149,6 +1712,12 @@ function startServer(): void {
     socket.on("close", (code, reason) => {
       clients.delete(clientId);
 
+      // Clean up FFT subscription for this client
+      fftSubscribers.delete(clientId);
+      if (fftSubscribers.size === 0 && civClient) {
+        stopCiv();
+      }
+
       logger.info("Client disconnected", {
         clientId,
         code,
@@ -1179,6 +1748,7 @@ function startServer(): void {
     stopCluster();
     stopWSJTX();
     stopRig();
+    stopCiv();
 
     // Close static file server
     if (staticServer) {
@@ -1186,14 +1756,15 @@ function startServer(): void {
       logger.info("Static file server closed");
     }
 
-    // Close all client connections
+    // Close all client connections (with readyState check)
     for (const client of clients.values()) {
-      const shutdownMessage = createMessage("bridge.shutdown", {
-        reason: "Server shutting down",
-      });
-
-      client.socket.send(JSON.stringify(shutdownMessage));
-      client.socket.close(1001, "Server shutting down");
+      if (client.socket.readyState === WebSocket.OPEN) {
+        const shutdownMessage = createMessage("bridge.shutdown", {
+          reason: "Server shutting down",
+        });
+        client.socket.send(JSON.stringify(shutdownMessage));
+        client.socket.close(1001, "Server shutting down");
+      }
     }
 
     wss.close(() => {

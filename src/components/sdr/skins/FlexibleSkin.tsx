@@ -14,12 +14,9 @@
  */
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { SpectrumScope } from "@/components/sdr/SpectrumScope";
 import { Waterfall } from "@/components/sdr/Waterfall";
 import { BandScope } from "@/components/sdr/BandScope";
-import { SkinSwitcher } from "./SkinSwitcher";
 import { FlexVfoDisplay } from "./flexible/FlexVfoDisplay";
 import { FlexFreqAxis } from "./flexible/FlexFreqAxis";
 import { FlexBottomBar } from "./flexible/FlexBottomBar";
@@ -34,17 +31,10 @@ import type { SdrSkinProps } from "./types";
 export function FlexibleSkin(props: SdrSkinProps) {
   const {
     daemonConnected,
-    daemonConnecting,
     daemonError,
-    daemonUrl,
     lastResponseError,
     lastDaemonStatus,
     effectiveState,
-    activeSkin,
-    onSkinChange,
-    isMobile,
-    onOpenDevicePicker,
-    onOpenSdrSettings,
 
     // FFT / Spectrum
     canStreamFft,
@@ -176,7 +166,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
   ]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] bg-[#0a0a0f] overflow-hidden">
+    <div className="flex flex-col h-full bg-[#0a0a0f] overflow-hidden">
       {/* ── Top header bar ───────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b border-white/10 bg-[#0d0d14]">
         <div className="flex items-center gap-2">

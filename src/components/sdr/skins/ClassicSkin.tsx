@@ -5,53 +5,29 @@
  */
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { HelpTooltip } from "@/components/help/HelpTooltip";
 import {
-  RadioDeviceCard,
   RadioControlsCard,
   RadioStatusCard,
   WaterfallPanel,
   DecodesPanel,
 } from "@/components/sdr/shared";
 import { Ft8DecoderPanel } from "@/components/sdr/Ft8DecoderPanel";
-import { SkinSwitcher } from "./SkinSwitcher";
 import type { SdrSkinProps } from "./types";
 import { formatHz } from "./types";
 
 export function ClassicSkin(props: SdrSkinProps) {
   const {
     daemonConnected,
-    daemonConnecting,
     daemonError,
-    daemonUrl,
     lastResponseError,
-    lastDaemonStatus,
     effectiveState,
     isMobile,
-    activeSkin,
-    onSkinChange,
-    onOpenDevicePicker,
-    onOpenSdrSettings,
   } = props;
 
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
 
   const leftControls = (
     <div className="space-y-6">
-      <RadioDeviceCard
-        devices={props.devices}
-        selectedDeviceId={props.selectedDeviceId}
-        selectedDevice={props.selectedDevice}
-        connectedDeviceId={props.connectedDeviceId}
-        daemonConnected={daemonConnected}
-        canControlDevice={props.canControlDevice}
-        canControlConnected={props.canControlConnected}
-        onDeviceSelect={props.onDeviceSelect}
-        onConnectRadio={props.onConnectRadio}
-        onDisconnectRadio={props.onDisconnectRadio}
-      />
-
       <RadioControlsCard
         effectiveState={effectiveState}
         selectedDevice={props.selectedDevice}

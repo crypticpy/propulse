@@ -114,6 +114,8 @@ class SpectralNrProcessor extends AudioWorkletProcessor {
 
     // Noise floor estimate (magnitude spectrum, half-spectrum + DC)
     this._noiseFloor = new Float64Array(this._fftSize / 2 + 1);
+    this._magnitudes = new Float64Array(this._fftSize / 2 + 1);
+    this._phases = new Float64Array(this._fftSize / 2 + 1);
     this._noiseFloorInitialised = false;
     this._noiseFrameCount = 0;
     this._noiseInitFrames = 8; // number of initial frames used for noise estimation
@@ -181,8 +183,8 @@ SpectralNrProcessor.prototype.process = function (inputs, outputs, parameters) {
       fft(this._fftReal, this._fftImag, false);
 
       // --- Compute magnitudes and phases ---
-      var magnitudes = new Float64Array(halfSpectrum);
-      var phases = new Float64Array(halfSpectrum);
+      var magnitudes = this._magnitudes;
+      var phases = this._phases;
 
       for (var i = 0; i < halfSpectrum; i++) {
         var re = this._fftReal[i];

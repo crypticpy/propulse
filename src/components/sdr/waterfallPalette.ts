@@ -210,6 +210,43 @@ export function getWaterfallPaletteLut(name: WaterfallPaletteName): Uint8Array {
   return lut;
 }
 
+/** Cache for gamma-baked LUTs keyed by `${palette}_${gamma}` */
+const GAMMA_LUT_CACHE = new Map<string, Uint8Array>();
+
+/**
+ * Returns a 256×3 Uint8Array LUT with gamma pre-applied.
+ * Index `i` maps to the color for a linear value of `i/255` after gamma correction.
+ * This eliminates per-pixel `Math.pow()` calls in the waterfall render loop.
+ */
+export function getWaterfallPaletteLutWithGamma(
+  name: WaterfallPaletteName,
+  gamma: number,
+): Uint8Array {
+  // For gamma=1.0, delegate to the regular LUT (already cached)
+  if (gamma === 1.0) return getWaterfallPaletteLut(name);
+
+  const key = `${name}_${gamma.toFixed(3)}`;
+  const cached = GAMMA_LUT_CACHE.get(key);
+  if (cached) return cached;
+
+  const stops = PALETTES[name] ?? PALETTES.classic;
+  const lut = new Uint8Array(256 * 3);
+  const invGamma = 1 / gamma;
+
+  for (let i = 0; i < 256; i++) {
+    // Apply gamma: map linear index to gamma-corrected position
+    const tLinear = i / 255;
+    const t = Math.pow(tLinear, invGamma);
+    const [r, g, b] = sampleStops(stops, t);
+    lut[i * 3] = r;
+    lut[i * 3 + 1] = g;
+    lut[i * 3 + 2] = b;
+  }
+
+  GAMMA_LUT_CACHE.set(key, lut);
+  return lut;
+}
+
 /** Human-readable display names */
 export function getPaletteDisplayName(name: WaterfallPaletteName): string {
   return name

@@ -36,6 +36,34 @@ export interface WaterfallPanelProps {
   waterfallSpeed: number;
   spectrumPeakHold: boolean;
   spectrumGradientFill: boolean;
+  spectrumBgColor: string;
+  spectrumGridLines: number;
+  spectrumVerticalGridLines: number;
+  spectrumGridOpacity: number;
+  spectrumSmoothing: number;
+  spectrumLineColor: string;
+  spectrumLineWidth: number;
+  spectrumFillOpacity: number;
+  spectrumLineShadow: boolean;
+  spectrumLineShadowBlur: number;
+  tuningLineColor?: string;
+  tuningArrowColor?: string;
+  notchFilters?: Array<{
+    id: string;
+    freqHz: number;
+    q: number;
+    enabled: boolean;
+  }>;
+  onFilterChange?: (low: number, high: number) => void;
+  onAddNotch?: (freqHz: number, q: number) => void;
+  onUpdateNotch?: (id: string, freqHz: number, q: number) => void;
+  onRemoveNotch?: (id: string) => void;
+  passbandBlendMode: string;
+  passbandOpacity: number;
+
+  waterfallInterpolation: "nearest" | "linear";
+  waterfallGamma: number;
+  waterfallRowHeight: number;
 
   clusterSpots: ClusterSpotMessage[];
 
@@ -58,6 +86,28 @@ export function WaterfallPanel({
   waterfallSpeed,
   spectrumPeakHold,
   spectrumGradientFill,
+  spectrumBgColor,
+  spectrumGridLines,
+  spectrumVerticalGridLines,
+  spectrumGridOpacity,
+  spectrumSmoothing,
+  spectrumLineColor,
+  spectrumLineWidth,
+  spectrumFillOpacity,
+  spectrumLineShadow,
+  spectrumLineShadowBlur,
+  tuningLineColor,
+  tuningArrowColor,
+  notchFilters,
+  onFilterChange,
+  onAddNotch,
+  onUpdateNotch,
+  onRemoveNotch,
+  passbandBlendMode,
+  passbandOpacity,
+  waterfallInterpolation,
+  waterfallGamma,
+  waterfallRowHeight,
   clusterSpots,
   onWaterfallViewChange,
   onPickFrequencyHz,
@@ -87,6 +137,23 @@ export function WaterfallPanel({
               showPeakHold={spectrumPeakHold}
               showGradientFill={spectrumGradientFill}
               overlays={waterfallOverlays}
+              bgColor={spectrumBgColor}
+              gridLines={spectrumGridLines}
+              verticalGridLines={spectrumVerticalGridLines}
+              gridOpacity={spectrumGridOpacity}
+              smoothing={spectrumSmoothing}
+              lineColor={spectrumLineColor}
+              lineWidth={spectrumLineWidth}
+              fillOpacity={spectrumFillOpacity}
+              lineShadow={spectrumLineShadow}
+              lineShadowBlur={spectrumLineShadowBlur}
+              tuningLineColor={tuningLineColor}
+              tuningArrowColor={tuningArrowColor}
+              notchFilters={notchFilters}
+              onFilterChange={onFilterChange}
+              onAddNotch={onAddNotch}
+              onUpdateNotch={onUpdateNotch}
+              onRemoveNotch={onRemoveNotch}
             />
           </div>
         ) : null}
@@ -104,6 +171,19 @@ export function WaterfallPanel({
                 maxDb={waterfallMaxDb}
                 speed={waterfallSpeed}
                 overlays={waterfallOverlays}
+                passbandBlendMode={
+                  passbandBlendMode as
+                    | "screen"
+                    | "overlay"
+                    | "color-dodge"
+                    | "color-burn"
+                    | "soft-light"
+                    | "none"
+                }
+                passbandOpacity={passbandOpacity}
+                interpolation={waterfallInterpolation}
+                gamma={waterfallGamma}
+                rowHeight={waterfallRowHeight}
                 onPickFrequencyHz={onPickFrequencyHz}
                 onSelectRangeHz={onSelectRangeHz}
               />

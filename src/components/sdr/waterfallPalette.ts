@@ -245,6 +245,42 @@ export interface TuningOverlay {
   mode: string;
 }
 
+/**
+ * Convert an RF frequency (absolute Hz) to audio offset Hz relative to carrier.
+ * USB/CW: rfHz - carrierHz (positive = above carrier)
+ * LSB/CWR: carrierHz - rfHz (positive = below carrier)
+ * AM/FM/WFM: |rfHz - carrierHz| (absolute distance)
+ */
+export function rfHzToAudioHz(
+  rfHz: number,
+  carrierHz: number,
+  mode: string,
+): number {
+  const m = mode.toUpperCase();
+  if (m === "LSB" || m === "CWR") return carrierHz - rfHz;
+  if (m === "AM" || m === "FM" || m === "WFM")
+    return Math.abs(rfHz - carrierHz);
+  // USB, CW, default
+  return rfHz - carrierHz;
+}
+
+/**
+ * Convert audio offset Hz back to absolute RF frequency.
+ * Inverse of rfHzToAudioHz (except AM/FM always returns the upper sideband).
+ */
+export function audioHzToRfHz(
+  audioHz: number,
+  carrierHz: number,
+  mode: string,
+): number {
+  const m = mode.toUpperCase();
+  if (m === "LSB" || m === "CWR") return carrierHz - audioHz;
+  if (m === "AM" || m === "FM" || m === "WFM")
+    return carrierHz + Math.abs(audioHz);
+  // USB, CW, default
+  return carrierHz + audioHz;
+}
+
 export function computePassbandHz(tuning: TuningOverlay): {
   startHz: number;
   endHz: number;

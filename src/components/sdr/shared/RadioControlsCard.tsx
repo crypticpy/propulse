@@ -199,9 +199,13 @@ export function RadioControlsCard({
                 return (
                   <div key={st.name} className="space-y-1">
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{st.name}</span>
+                      <span>{st.label ?? st.name}</span>
                       <span className="text-gray-200 font-mono">
-                        {Number.isFinite(value) ? value : "\u2014"}
+                        {Number.isFinite(value)
+                          ? st.max <= 1
+                            ? Math.round(value * 100) + "%"
+                            : value
+                          : "\u2014"}
                       </span>
                     </div>
                     <input

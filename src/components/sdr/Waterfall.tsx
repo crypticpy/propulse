@@ -26,10 +26,35 @@ interface WaterfallProps {
   tuning?: TuningOverlay | null;
   /** Speed multiplier — rows appended per frame (default 1) */
   speed?: number;
+  /** Texture filtering: "nearest" = sharp pixels, "linear" = smooth interpolation */
+  interpolation?: "nearest" | "linear";
+  /** Gamma curve for palette mapping (1.0 = linear, >1 = brighter weak signals, <1 = more contrast). Range 0.3-3.0 */
+  gamma?: number;
+  /** Pixels per FFT row (1 = normal, 2-4 = stretched). Range 1-4 */
+  rowHeight?: number;
+  /** CSS mix-blend-mode for passband overlay */
+  passbandBlendMode?:
+    | "screen"
+    | "overlay"
+    | "color-dodge"
+    | "color-burn"
+    | "soft-light"
+    | "none";
+  /** Passband overlay opacity (0-0.3) */
+  passbandOpacity?: number;
   /** Click-to-tune handler (Hz) */
   onPickFrequencyHz?: (hz: number) => void;
   /** Drag-select handler (Hz) */
   onSelectRangeHz?: (range: { startHz: number; endHz: number }) => void;
+  /** Wheel-tune handler: +1 = freq up, -1 = freq down */
+  onWheelTune?: (direction: number) => void;
+  /** Optional high-resolution audio FFT frame (~11.7 Hz/bin). When provided,
+   *  pixels within its frequency range are sampled from this frame. */
+  audioFrame?: FftFrame | null;
+  /** dB floor for the audio frame (default -120). */
+  audioMinDb?: number;
+  /** dB ceiling for the audio frame (default -20). */
+  audioMaxDb?: number;
   overlays?: Array<{
     hz: number;
     label?: string;
@@ -98,9 +123,18 @@ export function Waterfall({
   palette = "classic",
   onPickFrequencyHz,
   onSelectRangeHz,
+  onWheelTune,
   tuning,
   speed = 1,
+  interpolation = "nearest",
+  gamma = 1.0,
+  rowHeight = 1,
+  passbandBlendMode = "screen",
+  passbandOpacity = 0.08,
   overlays = [],
+  audioFrame = null,
+  audioMinDb: audioMinDbVal = -120,
+  audioMaxDb: audioMaxDbVal = -20,
 }: WaterfallProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -264,8 +298,9 @@ export function Waterfall({
         const tex = gl.createTexture();
         texRef.current = tex;
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        const glFilter = interpolation === "linear" ? gl.LINEAR : gl.NEAREST;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -329,7 +364,8 @@ export function Waterfall({
       texRef.current = null;
       glRef.current = null;
     };
-  }, []);
+    // Re-init WebGL when interpolation changes (texture filter parameters).
+  }, [interpolation]);
 
   // Clear the waterfall when view span changes (zoom).
   useEffect(() => {
@@ -380,16 +416,73 @@ export function Waterfall({
       const gl = glRef.current;
       const tex = texRef.current;
 
+      // Pre-compute audio FFT boundaries, clipped to passband
+      const audioBins = audioFrame?.bins;
+      const audioFullStart = audioFrame
+        ? audioFrame.centerHz - audioFrame.spanHz / 2
+        : 0;
+      const audioRange = Math.max(1, audioMaxDbVal - audioMinDbVal);
+
+      // Clip to passband + cross-fade zone
+      const pb = tuning && audioBins ? computePassbandHz(tuning) : null;
+      const audioRegionStart = pb ? pb.startHz : 0;
+      const audioRegionEnd = pb ? pb.endHz : 0;
+      const fadeHz = 200;
+
       const row = new Uint8Array(width * 4);
       for (let x = 0; x < width; x++) {
         const hz = viewStart + (x / (width - 1)) * viewSpan;
-        const idx = clamp(
-          Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
-          0,
-          bins.length - 1,
-        );
-        const db = bins[idx] ?? minDb;
-        const t = clamp((db - minDb) / range, 0, 1);
+
+        const inFadeRegion =
+          pb &&
+          audioBins &&
+          hz >= audioRegionStart - fadeHz &&
+          hz < audioRegionEnd + fadeHz;
+
+        let tLinear: number;
+        if (inFadeRegion) {
+          // High-res audio FFT with linear interpolation
+          const aFrac =
+            ((hz - audioFullStart) / audioFrame!.spanHz) * audioBins.length;
+          const aCl = clamp(aFrac, 0, audioBins.length - 1.001);
+          const aLo = Math.floor(aCl);
+          const aHi = Math.min(aLo + 1, audioBins.length - 1);
+          const af = aCl - aLo;
+          const aDb =
+            (audioBins[aLo] ?? audioMinDbVal) * (1 - af) +
+            (audioBins[aHi] ?? audioMinDbVal) * af;
+          const audioVal = clamp((aDb - audioMinDbVal) / audioRange, 0, 1);
+
+          // CI-V for crossfade
+          const cIdx = clamp(
+            Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
+            0,
+            bins.length - 1,
+          );
+          const civVal = clamp(((bins[cIdx] ?? minDb) - minDb) / range, 0, 1);
+
+          // Cross-fade: 1 = full audio, 0 = full CI-V
+          let blend = 1;
+          if (hz < audioRegionStart) {
+            blend = (hz - (audioRegionStart - fadeHz)) / fadeHz;
+          } else if (hz >= audioRegionEnd) {
+            blend = (audioRegionEnd + fadeHz - hz) / fadeHz;
+          }
+          blend = clamp(blend, 0, 1);
+
+          tLinear = audioVal * blend + civVal * (1 - blend);
+        } else {
+          // CI-V wideband scope (nearest neighbor)
+          const idx = clamp(
+            Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
+            0,
+            bins.length - 1,
+          );
+          const db = bins[idx] ?? minDb;
+          tLinear = clamp((db - minDb) / range, 0, 1);
+        }
+
+        const t = gamma === 1.0 ? tLinear : Math.pow(tLinear, 1 / gamma);
         const lutIdx = clamp(Math.round(t * 255), 0, 255);
         const i = x * 4;
         row[i] = lut[lutIdx * 3] ?? 0;
@@ -398,7 +491,8 @@ export function Waterfall({
         row[i + 3] = 255;
       }
 
-      const lines = Math.max(1, Math.round(speed));
+      const lines =
+        Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
       gl.bindTexture(gl.TEXTURE_2D, tex);
       for (let n = 0; n < lines; n++) {
         const head = headRef.current % height;
@@ -429,19 +523,72 @@ export function Waterfall({
     if (!ctx) return;
 
     // Canvas2D fallback: scroll and paint the newest row.
-    const lines = Math.max(1, Math.round(speed));
+    const lines =
+      Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
     ctx.drawImage(canvas, 0, lines);
+    // Pre-compute audio FFT boundaries, clipped to passband (Canvas2D path)
+    const audioBinsC = audioFrame?.bins;
+    const audioFullStartC = audioFrame
+      ? audioFrame.centerHz - audioFrame.spanHz / 2
+      : 0;
+    const audioRangeC = Math.max(1, audioMaxDbVal - audioMinDbVal);
+
+    const pbC = tuning && audioBinsC ? computePassbandHz(tuning) : null;
+    const audioRegionStartC = pbC ? pbC.startHz : 0;
+    const audioRegionEndC = pbC ? pbC.endHz : 0;
+    const fadeHzC = 200;
+
     const row = ctx.createImageData(width, 1);
     const data = row.data;
     for (let x = 0; x < width; x++) {
       const hz = viewStart + (x / (width - 1)) * viewSpan;
-      const idx = clamp(
-        Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
-        0,
-        bins.length - 1,
-      );
-      const db = bins[idx] ?? minDb;
-      const t = clamp((db - minDb) / range, 0, 1);
+
+      const inFadeC =
+        pbC &&
+        audioBinsC &&
+        hz >= audioRegionStartC - fadeHzC &&
+        hz < audioRegionEndC + fadeHzC;
+
+      let tLinear: number;
+      if (inFadeC) {
+        const aFrac =
+          ((hz - audioFullStartC) / audioFrame!.spanHz) * audioBinsC.length;
+        const aCl = clamp(aFrac, 0, audioBinsC.length - 1.001);
+        const aLo = Math.floor(aCl);
+        const aHi = Math.min(aLo + 1, audioBinsC.length - 1);
+        const af = aCl - aLo;
+        const aDb =
+          (audioBinsC[aLo] ?? audioMinDbVal) * (1 - af) +
+          (audioBinsC[aHi] ?? audioMinDbVal) * af;
+        const audioVal = clamp((aDb - audioMinDbVal) / audioRangeC, 0, 1);
+
+        const cIdx = clamp(
+          Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
+          0,
+          bins.length - 1,
+        );
+        const civVal = clamp(((bins[cIdx] ?? minDb) - minDb) / range, 0, 1);
+
+        let blend = 1;
+        if (hz < audioRegionStartC) {
+          blend = (hz - (audioRegionStartC - fadeHzC)) / fadeHzC;
+        } else if (hz >= audioRegionEndC) {
+          blend = (audioRegionEndC + fadeHzC - hz) / fadeHzC;
+        }
+        blend = clamp(blend, 0, 1);
+
+        tLinear = audioVal * blend + civVal * (1 - blend);
+      } else {
+        const idx = clamp(
+          Math.floor(((hz - startFrame) / frame.spanHz) * bins.length),
+          0,
+          bins.length - 1,
+        );
+        const db = bins[idx] ?? minDb;
+        tLinear = clamp((db - minDb) / range, 0, 1);
+      }
+
+      const t = gamma === 1.0 ? tLinear : Math.pow(tLinear, 1 / gamma);
       const lutIdx = clamp(Math.round(t * 255), 0, 255);
       const i = x * 4;
       data[i] = lut[lutIdx * 3] ?? 0;
@@ -452,7 +599,20 @@ export function Waterfall({
     for (let n = 0; n < lines; n++) {
       ctx.putImageData(row, 0, n);
     }
-  }, [effectiveView, frame, lut, minDb, range, speed]);
+  }, [
+    effectiveView,
+    frame,
+    gamma,
+    lut,
+    minDb,
+    range,
+    rowHeight,
+    speed,
+    audioFrame,
+    audioMinDbVal,
+    audioMaxDbVal,
+    tuning,
+  ]);
 
   const tuningPositions = useMemo(() => {
     if (!tuning || !effectiveView) return null;
@@ -500,17 +660,38 @@ export function Waterfall({
     };
   }, [effectiveView]);
 
-  const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Native wheel handler with { passive: false } so preventDefault() works.
+  // React attaches wheel listeners as passive by default (Chrome 73+), which
+  // silently ignores preventDefault and spams console warnings.
+  const wheelHandlerRef = useRef<((e: WheelEvent) => void) | null>(null);
+
+  wheelHandlerRef.current = useCallback(
+    (e: WheelEvent) => {
       if (!frame) return;
       e.preventDefault();
-      const delta = Math.sign(e.deltaY) * Math.min(1, Math.abs(e.deltaY) / 500);
-      const factor = 1 + delta * 0.25; // 0.75..1.25-ish
-      const currentSpan = effectiveView?.spanHz ?? frame.spanHz;
-      setSpanHz(currentSpan * factor);
+
+      // Ctrl/Cmd+wheel → zoom; plain wheel → tune
+      if (e.ctrlKey || e.metaKey) {
+        const delta =
+          Math.sign(e.deltaY) * Math.min(1, Math.abs(e.deltaY) / 500);
+        const factor = 1 + delta * 0.25;
+        const currentSpan = effectiveView?.spanHz ?? frame.spanHz;
+        setSpanHz(currentSpan * factor);
+      } else if (onWheelTune) {
+        const direction = e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0;
+        if (direction !== 0) onWheelTune(direction);
+      }
     },
-    [effectiveView?.spanHz, frame, setSpanHz],
+    [effectiveView?.spanHz, frame, onWheelTune, setSpanHz],
   );
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => wheelHandlerRef.current?.(e);
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, []);
 
   const updatePointer = (id: number, x: number, y: number) => {
     const m = pointersRef.current;
@@ -648,7 +829,6 @@ export function Waterfall({
       ref={containerRef}
       className={`w-full h-full relative select-none ${className}`}
       style={{ touchAction: "none" }}
-      onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endSelection}
@@ -675,19 +855,21 @@ export function Waterfall({
             width: `${tuningPositions.pbWidthPercent}%`,
           }}
         >
-          <div className="w-full h-full bg-cosmic-cyan/[0.06] border-x border-cosmic-cyan/20" />
-        </div>
-      ) : null}
-
-      {tuningPositions?.visible ? (
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{ left: `${tuningPositions.vfoPercent}%` }}
-        >
-          <div
-            className="w-[2px] h-full -translate-x-[1px] bg-white/80"
-            style={{ boxShadow: "0 0 4px rgba(255,255,255,0.5)" }}
-          />
+          {/* Blend-mode passband emphasis */}
+          {passbandBlendMode !== "none" && (
+            <div
+              className="absolute inset-0"
+              style={{
+                mixBlendMode:
+                  passbandBlendMode as React.CSSProperties["mixBlendMode"],
+                backgroundColor: `rgba(255, 255, 255, ${passbandOpacity})`,
+              }}
+            />
+          )}
+          {/* Thin left edge line */}
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-white/25" />
+          {/* Thin right edge line */}
+          <div className="absolute right-0 top-0 bottom-0 w-px bg-white/25" />
         </div>
       ) : null}
 

@@ -1,15 +1,76 @@
 import { useEffect, useRef } from "react";
 
+import type {
+  AudioProcessingChain,
+  NotchFilterConfig,
+} from "@/lib/audio/audioProcessingChain";
+
 type AudioFrame = { sampleRate: number; samples: Int16Array };
 
-export function useAudioStreamPlayer(enabled: boolean, frame: AudioFrame | null) {
+interface AudioStreamPlayerOptions {
+  /** Whether playback is active. */
+  enabled: boolean;
+  /** The current PCM audio frame to play. */
+  frame: AudioFrame | null;
+  /** Optional externally-managed DSP chain to route audio through. */
+  processingChain?: AudioProcessingChain | null;
+  /** Notch filter configs to sync to the processing chain each render. */
+  notchFilters?: NotchFilterConfig[];
+}
+
+export function useAudioStreamPlayer(options: AudioStreamPlayerOptions): void;
+/**
+ * @deprecated Use the options-object overload instead.
+ */
+export function useAudioStreamPlayer(
+  enabled: boolean,
+  frame: AudioFrame | null,
+): void;
+export function useAudioStreamPlayer(
+  enabledOrOptions: boolean | AudioStreamPlayerOptions,
+  frameLegacy?: AudioFrame | null,
+): void {
+  // Normalise the two call signatures into a single options shape.
+  const opts: AudioStreamPlayerOptions =
+    typeof enabledOrOptions === "boolean"
+      ? { enabled: enabledOrOptions, frame: frameLegacy ?? null }
+      : enabledOrOptions;
+
+  const { enabled, frame, processingChain = null, notchFilters } = opts;
+
   const ctxRef = useRef<AudioContext | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const nextTimeRef = useRef<number>(0);
+  /** Track whether we have wired the chain into the audio graph. */
+  const chainConnectedRef = useRef(false);
 
+  // ---------------------------------------------------------------------------
+  // Sync notch filters to the processing chain whenever they change.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (processingChain && notchFilters) {
+      processingChain.syncNotchFilters(notchFilters);
+    }
+  }, [processingChain, notchFilters]);
+
+  // ---------------------------------------------------------------------------
+  // Audio context lifecycle — create / tear-down based on `enabled`.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!enabled) {
-      if (ctxRef.current) {
+      // Disconnect chain output (if connected) before closing context.
+      if (chainConnectedRef.current && processingChain) {
+        try {
+          processingChain.getOutputNode().disconnect();
+        } catch {
+          // Already disconnected — safe to ignore.
+        }
+        chainConnectedRef.current = false;
+      }
+
+      // Only close the AudioContext if we created it (no chain).
+      // When a chain is present, it owns the context — SdrConsole disposes it.
+      if (ctxRef.current && !processingChain) {
         ctxRef.current.close().catch(() => undefined);
       }
       ctxRef.current = null;
@@ -19,16 +80,33 @@ export function useAudioStreamPlayer(enabled: boolean, frame: AudioFrame | null)
     }
 
     if (!ctxRef.current) {
-      const ctx = new AudioContext();
+      // Use the chain's AudioContext if available to avoid cross-context errors,
+      // otherwise create a new one.
+      const ctx = processingChain
+        ? processingChain.getAudioContext()
+        : new AudioContext();
       const gain = ctx.createGain();
       gain.gain.value = 0.8;
-      gain.connect(ctx.destination);
+
+      if (processingChain) {
+        // Route: gain → chain input … chain output → destination
+        gain.connect(processingChain.getInputNode());
+        processingChain.getOutputNode().connect(ctx.destination);
+        chainConnectedRef.current = true;
+      } else {
+        // Direct path: gain → destination
+        gain.connect(ctx.destination);
+      }
+
       ctxRef.current = ctx;
       gainRef.current = gain;
       nextTimeRef.current = ctx.currentTime;
     }
-  }, [enabled]);
+  }, [enabled, processingChain]);
 
+  // ---------------------------------------------------------------------------
+  // Schedule PCM frames for playback.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!enabled) return;
     const ctx = ctxRef.current;
@@ -59,4 +137,3 @@ export function useAudioStreamPlayer(enabled: boolean, frame: AudioFrame | null)
     nextTimeRef.current = startAt + buf.duration;
   }, [enabled, frame]);
 }
-

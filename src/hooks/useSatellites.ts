@@ -17,6 +17,7 @@ import {
   categoriseSatellite,
   getSimplePassPrediction,
   getTLEAge,
+  getLastTLEMeta,
 } from "@/lib/api/satellites";
 import { useCustomTLEStore } from "@/stores/customTLEStore";
 import { useSatelliteGroupStore } from "@/stores/satelliteGroupStore";
@@ -62,6 +63,10 @@ interface UseSatellitesResult {
   isAvailable: boolean;
   /** Refetch TLE data manually */
   refetch: () => void;
+  /** When the TLE data was last collected (ISO string from collector or direct fetch) */
+  collectedAt: string | null;
+  /** Whether data came from the collector cache or a direct Celestrak fetch */
+  dataSource: "collector" | "direct" | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +222,8 @@ export function useSatellites(): UseSatellitesResult {
   // Result
   // -------------------------------------------------------------------------
 
+  const tleMeta = getLastTLEMeta();
+
   return {
     satellites,
     selectedSatellite,
@@ -226,6 +233,8 @@ export function useSatellites(): UseSatellitesResult {
     nextPasses,
     isAvailable: satellites.length > 0,
     refetch: () => refetch(),
+    collectedAt: tleMeta?.collectedAt ?? null,
+    dataSource: tleMeta?.source ?? null,
   };
 }
 

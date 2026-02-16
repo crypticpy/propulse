@@ -31,7 +31,8 @@ export type DataSourceId =
   | "swpc-alerts"
   | "swpc-xray-latest"
   | "swpc-solar-wind-mag"
-  | "swpc-solar-wind-plasma";
+  | "swpc-solar-wind-plasma"
+  | "celestrak-tle";
 
 /** Metadata for a single external data source. */
 export interface DataSourceEntry {
@@ -277,6 +278,25 @@ export const DATA_SOURCE_REGISTRY: Record<DataSourceId, DataSourceEntry> = {
     affectedFeatures: ["CMEAnalysisPanel"],
     directFetch: false,
     statusUrl: "https://kauai.ccmc.gsfc.nasa.gov/DONKI/",
+  },
+
+  // ---------------------------------------------------------------------------
+  // Satellite TLE (fetched via /api/satellites/tle → TanStack Query)
+  // ---------------------------------------------------------------------------
+
+  "celestrak-tle": {
+    id: "celestrak-tle",
+    label: "Satellite TLE",
+    provider: "Celestrak / NORAD",
+    description:
+      "Two-Line Element sets for satellite orbital prediction. Collector-cached with Celestrak fallback.",
+    queryKeys: [["satellites", "tle"]],
+    endpoint: "/api/satellites/tle",
+    expectedFreshnessMs: 3 * HOUR,
+    criticalStalenessMs: 12 * HOUR,
+    affectedFeatures: ["SatelliteTracker", "PassPredictions", "SatelliteMap"],
+    directFetch: false,
+    statusUrl: "https://celestrak.org/NORAD/elements/",
   },
 
   // ---------------------------------------------------------------------------

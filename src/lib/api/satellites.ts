@@ -713,6 +713,22 @@ let _tleCache: TLEData[] | null = null;
 let _tleCacheTime = 0;
 const TLE_CACHE_MIN_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — matches Celestrak update cadence
 
+// ---------------------------------------------------------------------------
+// TLE Meta (collector staleness tracking)
+// ---------------------------------------------------------------------------
+
+interface TLEMeta {
+  collectedAt: string;
+  source: "collector" | "direct";
+}
+
+let _lastTLEMeta: TLEMeta | null = null;
+
+/** Get the most recent _meta returned by the edge function. */
+export function getLastTLEMeta(): TLEMeta | null {
+  return _lastTLEMeta;
+}
+
 /**
  * Fetch TLE data from multiple sources with graceful fallback.
  *
@@ -780,6 +796,9 @@ async function _fetchTLEFromSources(): Promise<TLEData[]> {
       const contentType = response.headers.get("content-type");
       if (contentType?.includes("application/json")) {
         const data = await response.json();
+        if (data._meta) {
+          _lastTLEMeta = data._meta;
+        }
         if (data.tle && typeof data.tle === "string") {
           return parseTLEText(data.tle);
         }
@@ -862,6 +881,9 @@ export async function fetchTLEForGroup(group: string): Promise<TLEData[]> {
     let result: TLEData[];
     if (contentType?.includes("application/json")) {
       const json = await res.json();
+      if (json._meta) {
+        _lastTLEMeta = json._meta;
+      }
       result = parseTLEText(json.tle ?? "");
     } else {
       result = parseTLEText(await res.text());

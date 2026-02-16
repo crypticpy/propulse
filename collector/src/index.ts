@@ -10,6 +10,7 @@ import { collectSolar } from "./collectors/solar.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
 import { startLightning, stopLightning } from "./collectors/lightning.js";
+import { collectSatellites } from "./collectors/satellites.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -41,6 +42,11 @@ async function main(): Promise<void> {
   // Lightning WebSocket consumer (always-on, not poll-based)
   if (config.enabledSources.has("lightning")) {
     startLightning();
+  }
+
+  // Satellite TLE collector (every 2 hours)
+  if (config.enabledSources.has("satellites")) {
+    register("satellites", 2 * 60 * 60_000, () => collectSatellites(db));
   }
 
   // Hourly aggregator (checks every 5 min, only runs on new hour boundary)

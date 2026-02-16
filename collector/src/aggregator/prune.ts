@@ -4,6 +4,7 @@ import { log } from "../logger.js";
 const SPOT_RETENTION_DAYS = 14;
 const HEALTH_RETENTION_DAYS = 7;
 const SOLAR_RETENTION_DAYS = 90;
+const TLE_RETENTION_DAYS = 30;
 
 let lastPruneDate: string | null = null;
 
@@ -52,11 +53,20 @@ export async function pruneOldData(db: SupabaseClient): Promise<void> {
       .delete({ count: "exact" })
       .lt("captured_at", solarCutoff);
 
+    const tleCutoff = new Date(
+      Date.now() - TLE_RETENTION_DAYS * 86_400_000,
+    ).toISOString();
+    const { count: tleDeleted } = await db
+      .from("satellite_tle")
+      .delete({ count: "exact" })
+      .lt("collected_at", tleCutoff);
+
     lastPruneDate = today;
     log("info", "Prune complete", {
       spotsDeleted: totalSpots,
       healthDeleted: healthDeleted ?? 0,
       solarDeleted: solarDeleted ?? 0,
+      tleDeleted: tleDeleted ?? 0,
       spotCutoff,
     });
   } catch (err) {

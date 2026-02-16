@@ -72,6 +72,13 @@ const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 
 const MONITORED_SERVICES: ServiceConfig[] = [
+  // --- Satellite TLE ---
+  {
+    name: "Satellite TLE",
+    queryKey: ["satellites", "tle"],
+    staleThreshold: 3 * HOUR,
+    sourceId: "celestrak-tle",
+  },
   // --- Core solar hooks (useSolarData) ---
   {
     name: "K-Index",
@@ -177,7 +184,14 @@ export function useHealthMonitor(): HealthSnapshot {
     // ------ Evaluate each service from the query cache ------
     const queryCacheServices: ServiceHealth[] = MONITORED_SERVICES.map(
       (svc) => {
-        const queryState = queryClient.getQueryState(svc.queryKey);
+        // Exact match first, then prefix match (needed for satellite TLE
+        // whose key includes variable enabledGroups array)
+        const queryState =
+          queryClient.getQueryState(svc.queryKey) ??
+          queryClient
+            .getQueryCache()
+            .findAll({ queryKey: svc.queryKey as string[] })[0]?.state ??
+          null;
         const sourceStatus = dataSourceStatuses[svc.sourceId];
         const registryEntry = DATA_SOURCE_REGISTRY[svc.sourceId];
 

@@ -33,6 +33,13 @@ export type { AlertToastProps } from "./AlertToast";
 export type { AlertToastContainerProps } from "./AlertToastContainer";
 export type { AlertHistoryModalProps } from "./AlertHistoryModal";
 
+// Space Weather Alert Intelligence
+export { SwpcAlertDetailModal } from "./SwpcAlertDetailModal";
+export { AlertDetailModal } from "./AlertDetailModal";
+export { EmergencyTickerBar } from "./EmergencyTickerBar";
+export { AlertGlowOverlay } from "./AlertGlowOverlay";
+export { StormImpactPanel } from "./StormImpactPanel";
+
 // Spot alert components
 export { SpotAlertToastContainer } from "./SpotAlertToast";
 export type { SpotAlertToastContainerProps } from "./SpotAlertToast";

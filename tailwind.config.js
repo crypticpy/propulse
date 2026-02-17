@@ -59,8 +59,13 @@ export default {
         "rank-pulse-glow": "rankPulseGlow 3s ease-in-out infinite",
         "rank-golden-ring": "rankGoldenRing 4s ease-in-out infinite",
         "rank-chromatic-ring": "rankChromaticRing 12s linear infinite",
+        "alert-glow-pulse": "alertGlowPulse 4s ease-in-out infinite",
       },
       keyframes: {
+        alertGlowPulse: {
+          "0%, 100%": { opacity: "0.05" },
+          "50%": { opacity: "0.15" },
+        },
         pulseGlow: {
           "0%, 100%": { opacity: "1", filter: "brightness(1)" },
           "50%": { opacity: "0.8", filter: "brightness(1.2)" },

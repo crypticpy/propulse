@@ -30,6 +30,8 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { BandSuggestToast } from "@/components/operating/BandSuggestToast";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
+import { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
 
 // Matches BottomTabBar's visible tab order (Tools drawer sub-pages excluded)
 const MOBILE_ROUTES = [
@@ -136,6 +138,9 @@ export function MobileLayout() {
       {/* Offline connectivity banner (below header, flow-positioned) */}
       <OfflineIndicator className="w-full bg-caution-amber/90 text-void-black text-xs py-1 text-center font-medium flex-shrink-0" />
 
+      {/* Emergency ticker for critical space weather */}
+      <EmergencyTickerBar />
+
       {/* Alert banner (below header, above content) */}
       {(alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
         <AlertBanner
@@ -215,6 +220,9 @@ export function MobileLayout() {
 
       {/* Band opening suggest toast — bottom-center */}
       <BandSuggestToast />
+
+      {/* Visual alert glow overlay (accessibility — opt-in) */}
+      <AlertGlowOverlay />
     </div>
   );
 }

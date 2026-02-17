@@ -5,30 +5,24 @@
  * parses ICOM CI-V spectrum data (command 0x27 0x00), and emits
  * typed spectrum line events for waterfall display.
  *
- * CI-V frame format: FE FE <to> <from> <cmd> [<sub>] [<data>] FD
- * Spectrum data: cmd=0x27, sub=0x00, multi-sequence with BCD fields.
+ * Refactored to use the shared CI-V protocol library (civ/) for frame
+ * parsing, while keeping the same public API for backward compatibility.
  */
 
 import { Socket } from "node:net";
+import {
+  CivFrameParser,
+  decodeBcdFrequency,
+  decodeBcdByte,
+} from "./civ/codec.js";
+import { CivCmd, CIV_SCOPE_SUB, ScopeMode, pixelToDb } from "./civ/types.js";
+
+// Re-export types that consumers depend on
+export { ScopeMode, pixelToDb };
 
 // ============================================================================
 // Constants
 // ============================================================================
-
-/** CI-V preamble byte */
-const CIV_PREAMBLE = 0xfe;
-
-/** CI-V end-of-message delimiter */
-const CIV_EOM = 0xfd;
-
-/** CI-V scope wave data command */
-const CIV_CMD_SCOPE = 0x27;
-
-/** CI-V scope wave data sub-command */
-const CIV_SUB_SCOPE_DATA = 0x00;
-
-/** Maximum buffer size before truncation (64 KB) */
-const MAX_BUFFER_SIZE = 65_536;
 
 /** Stale assembly timeout — discard incomplete lines after this (ms) */
 const ASSEMBLY_TIMEOUT_MS = 500;
@@ -38,15 +32,6 @@ const MAX_RECONNECT_DELAY_MS = 30_000;
 
 /** Base reconnect delay (ms) */
 const BASE_RECONNECT_DELAY_MS = 1_000;
-
-/** dB floor for pixel-to-dB mapping */
-const DB_FLOOR = -125;
-
-/** dB range for pixel-to-dB mapping (ceiling - floor) */
-const DB_RANGE = 85; // -125 to -40
-
-/** Maximum pixel value from CI-V spectrum */
-const MAX_PIXEL_VALUE = 200;
 
 // ============================================================================
 // Types
@@ -59,14 +44,6 @@ export interface CivClientConfig {
   port: number;
   /** CI-V address of the target radio (optional — accept any if omitted) */
   civAddress?: number;
-}
-
-/** Scope display mode from CI-V header */
-export enum ScopeMode {
-  Center = 0x00,
-  Fixed = 0x01,
-  ScrollCenter = 0x02,
-  ScrollFixed = 0x03,
 }
 
 /** A completed spectrum line ready for conversion to FFT frame */
@@ -86,50 +63,6 @@ export interface CivSpectrumLine {
 type SpectrumHandler = (line: CivSpectrumLine) => void;
 type StatusHandler = (connected: boolean) => void;
 type ErrorHandler = (error: Error) => void;
-
-// ============================================================================
-// BCD Helpers
-// ============================================================================
-
-/**
- * Parse a 5-byte BCD-encoded frequency (little-endian, 10 digits).
- * CI-V encodes frequencies as BCD with the least significant byte first.
- *
- * Example: 14.074.000 Hz = bytes [00, 40, 07, 14, 00] → 14074000
- */
-function parseBcdFrequency(buf: Buffer, offset: number): number {
-  let freq = 0;
-  let multiplier = 1;
-  for (let i = 0; i < 5; i++) {
-    const byte = buf[offset + i];
-    const lo = byte & 0x0f;
-    const hi = (byte >> 4) & 0x0f;
-    freq += lo * multiplier;
-    multiplier *= 10;
-    freq += hi * multiplier;
-    multiplier *= 10;
-  }
-  return freq;
-}
-
-/**
- * Parse a BCD sequence number.
- * Sequence numbers are 2 BCD digits packed into bytes.
- * Examples: 0x01 = 1, 0x11 = 11, 0x02 = 2
- */
-function parseBcdByte(byte: number): number {
-  const lo = byte & 0x0f;
-  const hi = (byte >> 4) & 0x0f;
-  return hi * 10 + lo;
-}
-
-/**
- * Convert a CI-V pixel amplitude (0-200) to a dBm value.
- * Maps linearly: 0 → -125 dBm, 200 → -40 dBm.
- */
-export function pixelToDb(pixel: number): number {
-  return DB_FLOOR + (pixel / MAX_PIXEL_VALUE) * DB_RANGE;
-}
 
 // ============================================================================
 // Line Assembler State
@@ -153,7 +86,7 @@ interface LineAssembly {
 export class CivSpectrumClient {
   private readonly config: Required<CivClientConfig>;
   private socket: Socket | null = null;
-  private buffer: Buffer = Buffer.alloc(0);
+  private frameParser = new CivFrameParser();
   private intentionalDisconnect = false;
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -236,7 +169,7 @@ export class CivSpectrumClient {
       this.socket = null;
     }
 
-    this.buffer = Buffer.alloc(0);
+    this.frameParser.reset();
     this.assembly = null;
 
     this.emitStatus(false);
@@ -261,10 +194,10 @@ export class CivSpectrumClient {
     if (this.intentionalDisconnect) return;
 
     this.socket = new Socket();
-    this.buffer = Buffer.alloc(0);
+    this.frameParser.reset();
     this.assembly = null;
 
-    // Binary mode — do NOT call setEncoding (unlike DXClusterClient)
+    // Binary mode — do NOT call setEncoding
     this.socket.setTimeout(30_000);
 
     this.socket.on("connect", () => {
@@ -273,7 +206,7 @@ export class CivSpectrumClient {
     });
 
     this.socket.on("data", (data: Buffer) => {
-      this.appendAndParse(data);
+      this.handleData(data);
     });
 
     this.socket.on("timeout", () => {
@@ -298,112 +231,36 @@ export class CivSpectrumClient {
   }
 
   // --------------------------------------------------------------------------
-  // CI-V Frame Parser
+  // Frame Processing (using shared CivFrameParser)
   // --------------------------------------------------------------------------
 
-  /**
-   * Append incoming bytes to the buffer and extract complete CI-V frames.
-   *
-   * CI-V frames are delimited by:
-   *   Start: FE FE (two consecutive 0xFE bytes)
-   *   End:   FD (single 0xFD byte)
-   *
-   * The payload between the preamble and EOM contains:
-   *   [to_addr] [from_addr] [command] [sub_command?] [data...?]
-   */
-  private appendAndParse(data: Buffer): void {
-    this.buffer = Buffer.concat([this.buffer, data]);
+  private handleData(data: Buffer): void {
+    const frames = this.frameParser.append(data);
 
-    // Guard against unbounded buffer growth
-    if (this.buffer.length > MAX_BUFFER_SIZE) {
-      // Truncate from front, keeping the most recent data
-      this.buffer = this.buffer.subarray(
-        this.buffer.length - MAX_BUFFER_SIZE / 2,
-      );
-      this.framesDropped++;
-    }
-
-    // Extract all complete CI-V frames from the buffer
-    let searchStart = 0;
-
-    while (searchStart < this.buffer.length - 3) {
-      // Find FE FE preamble
-      const preambleIdx = this.findPreamble(searchStart);
-      if (preambleIdx < 0) break;
-
-      // Find FD terminator after preamble
-      const eomIdx = this.buffer.indexOf(CIV_EOM, preambleIdx + 2);
-      if (eomIdx < 0) {
-        // No terminator yet — keep buffered data from preamble onward
-        if (preambleIdx > 0) {
-          this.buffer = this.buffer.subarray(preambleIdx);
-        }
-        return;
-      }
-
-      // Extract frame payload (between FE FE and FD, exclusive)
-      const payload = this.buffer.subarray(preambleIdx + 2, eomIdx);
-      searchStart = eomIdx + 1;
-
-      // Process the CI-V frame
-      if (payload.length >= 4) {
-        this.processCivFrame(payload);
-      }
-    }
-
-    // Remove consumed bytes
-    if (searchStart > 0) {
-      this.buffer = this.buffer.subarray(searchStart);
-    }
-  }
-
-  /** Find two consecutive 0xFE bytes starting from the given offset. */
-  private findPreamble(start: number): number {
-    for (let i = start; i < this.buffer.length - 1; i++) {
+    for (const frame of frames) {
+      // Only process scope wave data (cmd 0x27, sub 0x00)
       if (
-        this.buffer[i] === CIV_PREAMBLE &&
-        this.buffer[i + 1] === CIV_PREAMBLE
+        frame.command === CivCmd.SCOPE_DATA &&
+        frame.subCommand === CIV_SCOPE_SUB.WAVE_DATA
       ) {
-        return i;
+        // Scope data is in frame.data starting from sub-command onward
+        // We need the raw scope payload: [mainSub] [seq] [seqMax] [...]
+        // frame.data includes [sub(0x00)] [mainSub] [seq] [seqMax] [...]
+        const scopeData = frame.data.subarray(1); // skip sub-command byte
+        if (scopeData.length < 3) continue;
+
+        const scopeIndex = scopeData[0];
+        const seq = decodeBcdByte(scopeData[1]);
+        const seqMax = decodeBcdByte(scopeData[2]);
+
+        if (seq < 1 || seqMax < 1) continue;
+
+        if (seq === 1) {
+          this.handleSequenceHeader(scopeData, scopeIndex, seqMax);
+        } else {
+          this.handleSequencePixels(scopeData, seq, seqMax);
+        }
       }
-    }
-    return -1;
-  }
-
-  /**
-   * Process a single CI-V frame payload.
-   *
-   * Payload layout: [to_addr] [from_addr] [command] [sub_command] [data...]
-   * We only care about command 0x27 sub 0x00 (scope wave data).
-   */
-  private processCivFrame(payload: Buffer): void {
-    // payload[0] = to address (0xE0 = computer, or broadcast 0x00)
-    // payload[1] = from address (e.g. 0x94 = IC-7300)
-    const command = payload[2];
-    const subCommand = payload[3];
-
-    // Only process scope wave data
-    if (command !== CIV_CMD_SCOPE || subCommand !== CIV_SUB_SCOPE_DATA) {
-      return;
-    }
-
-    // Scope data starts at payload[4]
-    // Layout: [mainSub] [seq BCD] [seqMax BCD] [data...]
-    const scopeData = payload.subarray(4);
-    if (scopeData.length < 3) return;
-
-    const scopeIndex = scopeData[0]; // 0 = main, 1 = sub
-    const seq = parseBcdByte(scopeData[1]);
-    const seqMax = parseBcdByte(scopeData[2]);
-
-    if (seq < 1 || seqMax < 1) return;
-
-    if (seq === 1) {
-      // First sequence: contains header, no pixel data
-      this.handleSequenceHeader(scopeData, scopeIndex, seqMax);
-    } else {
-      // Subsequent sequences: pixel data
-      this.handleSequencePixels(scopeData, seq, seqMax);
     }
   }
 
@@ -412,9 +269,6 @@ export class CivSpectrumClient {
    *
    * Header layout (after mainSub, seq, seqMax):
    *   [scopeMode] [startFreq 5B BCD] [endFreq 5B BCD] [oorFlag]
-   *
-   * For LAN connections with seq==seqMax==1, pixels follow immediately
-   * after the header (no separate pixel sequences).
    */
   private handleSequenceHeader(
     scopeData: Buffer,
@@ -425,11 +279,9 @@ export class CivSpectrumClient {
     if (scopeData.length < 15) return;
 
     const scopeMode = scopeData[3] as ScopeMode;
-    const startFreqHz = parseBcdFrequency(scopeData, 4);
-    const endFreqHz = parseBcdFrequency(scopeData, 9);
-    // oorFlag = scopeData[14] — out of range, we note but don't filter
+    const startFreqHz = decodeBcdFrequency(scopeData, 4);
+    const endFreqHz = decodeBcdFrequency(scopeData, 9);
 
-    // Reset the line assembler
     this.assembly = {
       scopeMode,
       scopeIndex,
@@ -441,10 +293,8 @@ export class CivSpectrumClient {
       lastUpdateMs: Date.now(),
     };
 
-    // For LAN connections: seq==1 and seqMax==1 means all data in one packet
-    // Pixels start after the header (offset 15)
+    // LAN mode: seq==1 and seqMax==1 means all data in one packet
     if (seqMax === 1) {
-      // All pixels in this single packet
       for (let i = 15; i < scopeData.length; i++) {
         this.assembly.pixels.push(scopeData[i]);
       }
@@ -452,13 +302,11 @@ export class CivSpectrumClient {
       return;
     }
 
-    // Multi-sequence: start the assembly timeout
     this.resetAssemblyTimeout();
   }
 
   /**
-   * Handle sequences 2..N (pixel data) of a spectrum line.
-   *
+   * Handle sequences 2..N (pixel data).
    * Pixel data starts at offset 3 (after mainSub, seq, seqMax).
    */
   private handleSequencePixels(
@@ -468,9 +316,7 @@ export class CivSpectrumClient {
   ): void {
     if (!this.assembly) return;
 
-    // Validate sequence continuity
     if (seq !== this.assembly.lastSeq + 1) {
-      // Out of sequence — discard the partial assembly
       this.assembly = null;
       this.framesDropped++;
       return;
@@ -479,12 +325,10 @@ export class CivSpectrumClient {
     this.assembly.lastSeq = seq;
     this.assembly.lastUpdateMs = Date.now();
 
-    // Append pixel bytes (offset 3 = after mainSub, seq, seqMax)
     for (let i = 3; i < scopeData.length; i++) {
       this.assembly.pixels.push(scopeData[i]);
     }
 
-    // Check if this is the last sequence
     if (seq === seqMax) {
       this.emitCompleteLine();
     } else {
@@ -507,21 +351,17 @@ export class CivSpectrumClient {
     const { scopeMode, scopeIndex, startFreqHz, endFreqHz, pixels } =
       this.assembly;
 
-    // Compute center and span
     let centerHz: number;
     let spanHz: number;
 
     if (scopeMode === ScopeMode.Center) {
-      // In center mode: startFreq = center, endFreq = half-span
       centerHz = startFreqHz;
       spanHz = endFreqHz * 2;
     } else {
-      // Fixed/Scroll modes: startFreq = lower edge, endFreq = upper edge
       centerHz = (startFreqHz + endFreqHz) / 2;
       spanHz = endFreqHz - startFreqHz;
     }
 
-    // Guard against zero or negative span
     if (spanHz <= 0) {
       this.assembly = null;
       this.framesDropped++;

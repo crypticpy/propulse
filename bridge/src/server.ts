@@ -29,6 +29,9 @@ import { WSJTXListener } from "./wsjtx.js";
 import { RigController, type RigControllerConfig } from "./rig.js";
 import { CivSpectrumClient, pixelToDb, type CivSpectrumLine } from "./civ.js";
 import { AudioCapture } from "./audioCapture.js";
+import { scanForIcomRadios } from "./discovery.js";
+import { resolveAudioDevice } from "./audioResolver.js";
+import { IcomSerialBackend, type IcomSerialConfig } from "./icomSerial.js";
 
 // ============================================================================
 // Configuration
@@ -278,6 +281,8 @@ function sendToClient(
 let clusterClient: DXClusterClient | null = null;
 let wsjtxListener: WSJTXListener | null = null;
 let rigController: RigController | null = null;
+let lastRigConfig: RigControllerConfig | undefined;
+let rigStartingPromise: Promise<import("./rig.js").RigBackend> | null = null;
 
 // Event handler disposers (prevent accumulation on reconnect cycles)
 let rigStatusDispose: (() => void) | null = null;
@@ -303,6 +308,12 @@ const fftSubscribers = new Set<string>();
 let audioCapture: AudioCapture | null = null;
 let audioPcmDispose: (() => void) | null = null;
 const audioSubscribers = new Set<string>();
+
+// ICOM built-in spectrum state (when using icom-serial or icom-network backend)
+let icomSpectrumDispose: (() => void) | null = null;
+
+// ICOM network audio state (when using icom-network backend)
+let icomAudioDispose: (() => void) | null = null;
 
 // --------------------------------------------------------------------------
 // DX Cluster Integration
@@ -436,8 +447,13 @@ function stopWSJTX(): void {
 
 async function startRig(
   config?: RigControllerConfig,
-): Promise<"hamlib" | "flrig" | "none"> {
+): Promise<import("./rig.js").RigBackend> {
+  // Cancel any in-flight startup before tearing down
+  rigStartingPromise = null;
   stopRig();
+
+  // Remember config so ensureRigController can reuse it
+  if (config) lastRigConfig = config;
 
   rigController = new RigController(config);
 
@@ -459,9 +475,19 @@ async function startRig(
     broadcastSmeter(dbm);
   });
 
-  const backend = await rigController.start();
-  logger.info("Rig controller started", { backend });
-  return backend;
+  const startPromise = rigController.start();
+  rigStartingPromise = startPromise;
+
+  try {
+    const backend = await startPromise;
+    logger.info("Rig controller started", { backend });
+    return backend;
+  } finally {
+    // Only clear if this is still the active startup
+    if (rigStartingPromise === startPromise) {
+      rigStartingPromise = null;
+    }
+  }
 }
 
 function stopRig(): void {
@@ -612,7 +638,13 @@ function normalizeClusterConfig(payload: unknown): ClusterConfig | null {
 }
 
 function parseRigControllerConfig(payload: unknown): {
-  backend: "auto" | "hamlib" | "flrig" | "none";
+  backend:
+    | "auto"
+    | "hamlib"
+    | "flrig"
+    | "icom-serial"
+    | "icom-network"
+    | "none";
   config?: RigControllerConfig;
 } {
   if (typeof payload !== "object" || payload === null) {
@@ -645,6 +677,76 @@ function parseRigControllerConfig(payload: unknown): {
       config: {
         flrigHost: host || "127.0.0.1",
         flrigPort: port ?? 12345,
+      },
+    };
+  }
+
+  if (backendRaw === "icom-serial") {
+    const serialPort =
+      typeof p.serialPort === "string" ? p.serialPort.trim() : undefined;
+    const baudRate = toNumber(p.baudRate) ?? 19200;
+    const radioAddress = toNumber(p.radioAddress) ?? 0x94;
+
+    if (!serialPort) {
+      return { backend: "auto" };
+    }
+
+    return {
+      backend: "icom-serial",
+      config: {
+        icomSerial: {
+          port: serialPort,
+          baudRate,
+          radioAddress,
+        },
+      },
+    };
+  }
+
+  if (backendRaw === "icom-network") {
+    const networkHost = typeof p.host === "string" ? p.host.trim() : undefined;
+    const username =
+      typeof p.username === "string" ? p.username.trim() : undefined;
+    const password = typeof p.password === "string" ? p.password : undefined;
+    const radioAddress = toNumber(p.radioAddress) ?? 0x94;
+
+    if (!networkHost || !username || !password) {
+      return { backend: "auto" };
+    }
+
+    return {
+      backend: "icom-network",
+      config: {
+        icomNetwork: {
+          host: networkHost,
+          username,
+          password,
+          radioAddress,
+          controlPort: toPortNumber(p.controlPort) ?? undefined,
+          civPort: toPortNumber(p.civPort) ?? undefined,
+          audioPort: toPortNumber(p.audioPort) ?? undefined,
+        },
+      },
+    };
+  }
+
+  if (backendRaw === "icom-network") {
+    const networkHost = typeof p.host === "string" ? p.host.trim() : undefined;
+    const username = typeof p.username === "string" ? p.username : "";
+    const password = typeof p.password === "string" ? p.password : "";
+
+    if (!networkHost) {
+      return { backend: "auto" };
+    }
+
+    return {
+      backend: "icom-network",
+      config: {
+        icomNetwork: {
+          host: networkHost,
+          username,
+          password,
+        },
       },
     };
   }
@@ -747,11 +849,15 @@ function buildDaemonDeviceInfo(): {
   return {
     device_id: DAEMON_DEVICE_ID,
     name:
-      backend === "hamlib"
-        ? "Hamlib Rig (via WFView)"
-        : backend === "flrig"
-          ? "Flrig Rig"
-          : "No Rig Detected",
+      backend === "icom-serial"
+        ? `${rigController?.getIcomModelName() ?? "ICOM"} (Direct CI-V)`
+        : backend === "icom-network"
+          ? `${rigController?.getIcomModelName() ?? "ICOM"} (RS-BA1 Network)`
+          : backend === "hamlib"
+            ? "Hamlib Rig (via WFView)"
+            : backend === "flrig"
+              ? "Flrig Rig"
+              : "No Rig Detected",
     driver: backend,
     type: "transceiver",
     available: backend !== "none",
@@ -938,6 +1044,77 @@ function broadcastBinaryAudioFrame(
   }
 }
 
+/** Start ffmpeg audio capture as fallback when ICOM built-in audio is unavailable. */
+function startFfmpegAudioCapture(
+  client: ConnectedClient,
+  id: string | undefined,
+  cmd: Record<string, unknown>,
+): void {
+  const audioSampleRate =
+    typeof cmd.sample_rate === "number" ? cmd.sample_rate : 48000;
+
+  // Use explicit device from command, fall back to auto-resolution
+  void (async () => {
+    let audioDevice =
+      typeof cmd.audio_device === "string" && cmd.audio_device
+        ? cmd.audio_device
+        : null;
+
+    // Auto-resolve audio device if not explicitly provided
+    if (!audioDevice) {
+      try {
+        const backend = rigController?.getBackend();
+        const serialPort =
+          backend === "icom-serial"
+            ? (lastRigConfig as Record<string, unknown>)?.serialPort
+            : undefined;
+        if (typeof serialPort === "string") {
+          const resolved = await resolveAudioDevice(serialPort, "ICOM");
+          if (resolved) {
+            audioDevice = resolved.deviceId;
+            logger.info("Auto-resolved audio device for ffmpeg", {
+              device: resolved.deviceName,
+              deviceId: resolved.deviceId,
+              method: resolved.matchMethod,
+            });
+          }
+        }
+      } catch (err: unknown) {
+        logger.warn("Audio device auto-resolution failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // Final fallback to device index "2"
+    if (!audioDevice) {
+      audioDevice = "2";
+      logger.warn(
+        "No audio device resolved or configured, using default index 2",
+      );
+    }
+
+    if (!audioCapture) {
+      audioCapture = new AudioCapture({
+        device: audioDevice,
+        sampleRate: audioSampleRate,
+      });
+
+      audioPcmDispose = audioCapture.onPcm((samples, sr) => {
+        broadcastBinaryAudioFrame(samples, sr);
+      });
+
+      audioCapture.start();
+      logger.info("Audio capture started (ffmpeg)", {
+        device: audioDevice,
+        sampleRate: audioSampleRate,
+      });
+    }
+
+    sendDaemonResponse(client, id, true);
+  })();
+}
+
 /** Stop audio capture and clean up resources. */
 function stopAudioCapture(): void {
   audioPcmDispose?.();
@@ -952,6 +1129,12 @@ function stopAudioCapture(): void {
 
 /** Stop the CI-V spectrum client and clean up all resources. */
 function stopCiv(): void {
+  // Clean up ICOM built-in spectrum
+  if (icomSpectrumDispose) {
+    icomSpectrumDispose();
+    icomSpectrumDispose = null;
+  }
+
   civSpectrumDispose?.();
   civSpectrumDispose = null;
   civStatusDispose?.();
@@ -991,7 +1174,28 @@ function handleDaemonCommand(
     case "radio:connect": {
       (async () => {
         try {
-          const controller = await ensureRigController();
+          // If the client provides backend config, parse and use it
+          // to start the rig controller (same logic as envelope RIG_CONNECT)
+          let controller: RigController | null = null;
+          const hasConfig =
+            typeof cmd.backend === "string" && cmd.backend !== "auto";
+          if (hasConfig) {
+            const { config: rigConfig } = parseRigControllerConfig(cmd);
+            if (rigConfig) {
+              logger.info("radio:connect with config", {
+                backend: cmd.backend,
+              });
+              const backend = await startRig(rigConfig);
+              // If startRig succeeded with a real backend, use it directly
+              if (backend !== "none" && rigController) {
+                controller = rigController;
+              }
+            }
+          }
+
+          if (!controller) {
+            controller = await ensureRigController();
+          }
           const status = controller.getStatusSnapshot();
           sendDaemonResponse(client, id, true);
           // Send initial state
@@ -1000,6 +1204,10 @@ function handleDaemonCommand(
             device_id: DAEMON_DEVICE_ID,
             state: rigStatusToDaemonState(status),
           });
+          // Re-enumerate so the client sees the device
+          const backend = controller.getBackend();
+          const devices = backend !== "none" ? [buildDaemonDeviceInfo()] : [];
+          sendDaemonMessage(client, { type: "devices:list", devices });
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);
           sendDaemonResponse(client, id, false, errMsg);
@@ -1433,7 +1641,33 @@ function handleDaemonCommand(
       // Track this client as an FFT subscriber
       fftSubscribers.add(client.id);
 
-      // Start CIV client if not already running
+      logger.info("stream:fft:start", {
+        hasBuiltinSpectrum: rigController?.hasBuiltinSpectrum ?? false,
+        backend: rigController?.getBackend() ?? "none",
+        icomSpectrumActive: !!icomSpectrumDispose,
+      });
+
+      // If ICOM serial backend is active, use its built-in spectrum
+      if (rigController?.hasBuiltinSpectrum && !icomSpectrumDispose) {
+        icomSpectrumDispose = rigController.onSpectrum((line) => {
+          broadcastBinaryFftFrame(line);
+        });
+        void rigController.startSpectrum().catch((err: unknown) => {
+          logger.error("ICOM spectrum start error", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+        sendDaemonResponse(client, id, true);
+        break;
+      }
+
+      // If ICOM spectrum already running, just ack (subscriber already added)
+      if (icomSpectrumDispose) {
+        sendDaemonResponse(client, id, true);
+        break;
+      }
+
+      // Start CIV client if not already running (WFView TCP fallback)
       if (!civClient) {
         civClient = new CivSpectrumClient({
           host: civHost,
@@ -1466,9 +1700,18 @@ function handleDaemonCommand(
     case "stream:fft:stop": {
       fftSubscribers.delete(client.id);
 
-      // If no more subscribers, disconnect CI-V client
-      if (fftSubscribers.size === 0 && civClient) {
-        stopCiv();
+      // If no more subscribers, clean up spectrum sources
+      if (fftSubscribers.size === 0) {
+        // Clean up ICOM built-in spectrum
+        if (icomSpectrumDispose) {
+          icomSpectrumDispose();
+          icomSpectrumDispose = null;
+          void rigController?.stopSpectrum().catch(() => {});
+        }
+        // Clean up WFView CI-V client
+        if (civClient) {
+          stopCiv();
+        }
       }
 
       sendDaemonResponse(client, id, true);
@@ -1479,44 +1722,243 @@ function handleDaemonCommand(
     // Audio stream control — captures from USB audio device via ffmpeg
     // ----------------------------------------------------------------
     case "stream:audio:start": {
-      // Default to device "2" (USB Audio Device = IC-7300)
-      // Can be overridden via command params
-      const audioDevice =
-        typeof cmd.audio_device === "string" ? cmd.audio_device : "2";
-      const audioSampleRate =
-        typeof cmd.sample_rate === "number" ? cmd.sample_rate : 48000;
-
       audioSubscribers.add(client.id);
 
-      if (!audioCapture) {
-        audioCapture = new AudioCapture({
-          device: audioDevice,
-          sampleRate: audioSampleRate,
-        });
-
-        audioPcmDispose = audioCapture.onPcm((samples, sr) => {
-          broadcastBinaryAudioFrame(samples, sr);
-        });
-
-        audioCapture.start();
-        logger.info("Audio capture started", {
-          device: audioDevice,
-          sampleRate: audioSampleRate,
-        });
+      // If ICOM audio already running, just ack (subscriber already added)
+      if (icomAudioDispose) {
+        sendDaemonResponse(client, id, true);
+        break;
       }
 
-      sendDaemonResponse(client, id, true);
+      // If ICOM backend is active, try its built-in audio stream
+      if (rigController?.hasBuiltinAudio) {
+        void (async () => {
+          try {
+            const started = await rigController!.startAudio();
+            if (started) {
+              icomAudioDispose = rigController!.onAudio((samples, sr) => {
+                broadcastBinaryAudioFrame(samples, sr);
+              });
+              logger.info("ICOM built-in audio started");
+              sendDaemonResponse(client, id, true);
+            } else {
+              // Built-in audio failed (no audio device found) — fall back to ffmpeg
+              logger.warn(
+                "ICOM built-in audio device not found, falling back to ffmpeg",
+              );
+              startFfmpegAudioCapture(client, id, cmd);
+            }
+          } catch (err: unknown) {
+            logger.error("ICOM audio start error", {
+              error: err instanceof Error ? err.message : String(err),
+            });
+            // Fall back to ffmpeg
+            startFfmpegAudioCapture(client, id, cmd);
+          }
+        })();
+        break;
+      }
+
+      // Fallback: USB audio device via ffmpeg
+      startFfmpegAudioCapture(client, id, cmd);
       break;
     }
 
     case "stream:audio:stop": {
       audioSubscribers.delete(client.id);
 
-      if (audioSubscribers.size === 0 && audioCapture) {
-        stopAudioCapture();
+      if (audioSubscribers.size === 0) {
+        // Clean up ICOM network audio
+        if (icomAudioDispose) {
+          icomAudioDispose();
+          icomAudioDispose = null;
+          rigController?.stopAudio();
+        }
+        // Clean up USB audio capture
+        if (audioCapture) {
+          stopAudioCapture();
+        }
       }
 
       sendDaemonResponse(client, id, true);
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // Radio connection test — probe a radio and return its state
+    // ----------------------------------------------------------------
+    case "rig:test": {
+      void (async () => {
+        try {
+          const backend =
+            typeof cmd.backend === "string" ? cmd.backend : "auto";
+          logger.info("[rig:test] handler entered", { backend, cmd });
+
+          if (backend === "icom-serial" || backend === "auto") {
+            const serialPort =
+              typeof cmd.serialPort === "string" ? cmd.serialPort : "";
+            let baudRate = typeof cmd.baudRate === "number" ? cmd.baudRate : 0;
+            let radioAddr =
+              typeof cmd.radioAddress === "number" ? cmd.radioAddress : 0;
+
+            let portPath = serialPort;
+
+            if (!portPath) {
+              logger.info("[rig:test] No port specified, scanning...");
+              const radios = await scanForIcomRadios();
+              logger.info("[rig:test] Scan found", {
+                count: radios.length,
+                radios: radios.map((r) => ({
+                  port: r.port,
+                  addr: r.radioAddress,
+                  baud: r.baudRate,
+                })),
+              });
+              if (radios.length > 0) {
+                const found = radios[0];
+                portPath = found.port;
+                // Use discovered values if not explicitly specified
+                if (!baudRate) baudRate = found.baudRate;
+                if (!radioAddr) radioAddr = found.radioAddress;
+              }
+            }
+
+            // Fall back to safe defaults
+            if (!baudRate) baudRate = 19200;
+            if (!radioAddr) radioAddr = 0x94;
+
+            if (!portPath) {
+              logger.warn("[rig:test] No radio found on USB");
+              sendDaemonMessage(client, {
+                type: "rig:test:error",
+                payload: {
+                  errorMessage: "No ICOM radio found on USB",
+                },
+              });
+              return;
+            }
+
+            logger.info("[rig:test] Probing radio", {
+              portPath,
+              baudRate,
+              radioAddr: `0x${radioAddr.toString(16)}`,
+            });
+
+            const testConfig: IcomSerialConfig = {
+              port: portPath,
+              baudRate,
+              radioAddress: radioAddr,
+            };
+
+            const probe = new IcomSerialBackend(testConfig);
+            try {
+              // Subscribe BEFORE start() so we catch the first poll emission
+              let frequency: number | undefined;
+              let mode: string | undefined;
+              const statusPromise = new Promise<void>((resolve) => {
+                const unsub = probe.onStatus((status) => {
+                  frequency = status.frequency;
+                  mode = status.mode;
+                  logger.info("[rig:test] Got status", { frequency, mode });
+                  unsub();
+                  resolve();
+                });
+                // Timeout after 4s if radio doesn't respond
+                setTimeout(() => {
+                  logger.info("[rig:test] Status timeout — using defaults");
+                  unsub();
+                  resolve();
+                }, 4000);
+              });
+
+              await probe.start();
+              logger.info("[rig:test] Probe started, waiting for status...");
+
+              await statusPromise;
+
+              const rigModel = probe.modelName;
+              const hasSpectrum = true;
+
+              logger.info("[rig:test] Resolving audio device...");
+              const audioDevice = await resolveAudioDevice(portPath, "ICOM");
+              logger.info("[rig:test] Audio resolve result", { audioDevice });
+
+              probe.stop();
+
+              sendDaemonMessage(client, {
+                type: "rig:test:ack",
+                payload: {
+                  rigModel,
+                  frequency,
+                  mode,
+                  hasSpectrum,
+                  hasAudio: audioDevice !== null,
+                  audioDeviceName: audioDevice?.deviceName,
+                },
+              });
+              logger.info("[rig:test] Sent rig:test:ack");
+            } catch (err: unknown) {
+              logger.error("[rig:test] Probe error", {
+                error: err instanceof Error ? err.message : String(err),
+              });
+              probe.stop();
+              sendDaemonMessage(client, {
+                type: "rig:test:error",
+                payload: {
+                  errorMessage:
+                    err instanceof Error ? err.message : String(err),
+                },
+              });
+            }
+          } else {
+            sendDaemonMessage(client, {
+              type: "rig:test:ack",
+              payload: {
+                rigModel: "Unknown",
+                hasSpectrum: false,
+              },
+            });
+          }
+        } catch (err: unknown) {
+          logger.error("[rig:test] Outer error", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          sendDaemonMessage(client, {
+            type: "rig:test:error",
+            payload: {
+              errorMessage: err instanceof Error ? err.message : String(err),
+            },
+          });
+        }
+      })();
+      break;
+    }
+
+    // ----------------------------------------------------------------
+    // ICOM radio scanning — discover connected ICOM radios via USB
+    // ----------------------------------------------------------------
+    case "devices:scan": {
+      void (async () => {
+        try {
+          const radios = await scanForIcomRadios();
+
+          // Resolve audio device for each discovered radio
+          const radiosWithAudio = await Promise.all(
+            radios.map(async (radio) => {
+              const audioDevice = await resolveAudioDevice(radio.port, "ICOM");
+              return { ...radio, audioDevice };
+            }),
+          );
+
+          sendDaemonMessage(client, {
+            type: "devices:scan:result",
+            radios: radiosWithAudio,
+          });
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          sendDaemonResponse(client, id, false, errMsg);
+        }
+      })();
       break;
     }
 
@@ -1905,15 +2347,30 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
 
 /**
  * Get the active rig controller, or throw if unavailable.
- * Unlike the previous callback-based ensureRigController, this is a simple
- * async function that either returns a controller or throws.
+ * If a startup is already in progress (from a concurrent radio:connect),
+ * wait for it instead of starting a new one — prevents the race condition
+ * where two concurrent startRig() calls kill each other's serial port.
  */
 async function ensureRigController(): Promise<RigController> {
+  // Fast path: already running with a real backend
   if (rigController && rigController.getBackend() !== "none") {
     return rigController;
   }
 
-  const backend = await startRig();
+  // If another call to startRig() is already in flight, wait for it
+  if (rigStartingPromise) {
+    try {
+      await rigStartingPromise;
+    } catch {
+      // Startup failed — fall through to try ourselves
+    }
+    if (rigController && rigController.getBackend() !== "none") {
+      return rigController;
+    }
+  }
+
+  // Reuse the last successful config (e.g. icom-serial from radio:connect)
+  const backend = await startRig(lastRigConfig);
   if (backend === "none" || !rigController) {
     throw new Error("No rig backend available");
   }
@@ -2188,14 +2645,28 @@ function startServer(): void {
 
       // Clean up FFT subscription for this client
       fftSubscribers.delete(clientId);
-      if (fftSubscribers.size === 0 && civClient) {
-        stopCiv();
+      if (fftSubscribers.size === 0) {
+        if (icomSpectrumDispose) {
+          icomSpectrumDispose();
+          icomSpectrumDispose = null;
+          void rigController?.stopSpectrum().catch(() => {});
+        }
+        if (civClient) {
+          stopCiv();
+        }
       }
 
       // Clean up audio subscription for this client
       audioSubscribers.delete(clientId);
-      if (audioSubscribers.size === 0 && audioCapture) {
-        stopAudioCapture();
+      if (audioSubscribers.size === 0) {
+        if (icomAudioDispose) {
+          icomAudioDispose();
+          icomAudioDispose = null;
+          rigController?.stopAudio();
+        }
+        if (audioCapture) {
+          stopAudioCapture();
+        }
       }
 
       logger.info("Client disconnected", {
@@ -2229,6 +2700,14 @@ function startServer(): void {
     stopWSJTX();
     stopRig();
     stopCiv();
+    if (icomSpectrumDispose) {
+      icomSpectrumDispose();
+      icomSpectrumDispose = null;
+    }
+    if (icomAudioDispose) {
+      icomAudioDispose();
+      icomAudioDispose = null;
+    }
 
     // Close static file server
     if (staticServer) {

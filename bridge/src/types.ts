@@ -288,7 +288,7 @@ export const MessageTypes = {
   RIG_SET_CW_SPEED: "rig.setCWSpeed",
   RIG_CONNECT: "rig.connect",
   RIG_DISCONNECT: "rig.disconnect",
-  RIG_TEST: "rig.test",
+  RIG_TEST: "rig:test",
 
   // Contest session management
   CONTEST_SESSION_CREATE: "contest.session.create",

@@ -11,7 +11,7 @@
  * - Filter bandwidth display
  */
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   getModeTextClass,
   getModeBgClass,
@@ -22,6 +22,8 @@ import { SmeterBar } from "@/components/sdr/primitives/SmeterBar";
 import { DspBadge } from "@/components/sdr/primitives/DspBadge";
 import { RadioBadge } from "@/components/sdr/primitives/RadioBadge";
 import { SlicePanelTabs, type SlicePanelControlProps } from "./SlicePanelTabs";
+
+export type SliceFlagSize = "min" | "normal" | "max";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -142,6 +144,12 @@ export function FlexVfoDisplay({
   onLockToggle,
   slicePanels,
 }: FlexVfoDisplayProps) {
+  const [size, setSize] = useState<SliceFlagSize>("normal");
+
+  const cycleSize = useCallback(() => {
+    setSize((s) => (s === "min" ? "normal" : s === "normal" ? "max" : "min"));
+  }, []);
+
   const bandwidth = useMemo(
     () => formatBandwidth(filterLow, filterHigh),
     [filterLow, filterHigh],
@@ -153,6 +161,42 @@ export function FlexVfoDisplay({
   const ritActive = rit?.enabled && rit.offsetHz !== 0;
   const xitActive = xit?.enabled && xit.offsetHz !== 0;
   const showTxAntenna = txAntenna && txAntenna !== antenna;
+  const isMin = size === "min";
+  const isMax = size === "max";
+
+  // ── Min mode: compact single-line display ─────────────────────────
+  if (isMin) {
+    return (
+      <div
+        className="backdrop-blur-sm rounded-lg px-2 py-1 select-none border border-white/10 cursor-pointer"
+        style={{
+          backgroundColor: bgColor,
+          boxShadow: `inset 3px 0 0 ${accentColor}, 0 2px 12px rgba(0,0,0,0.5)`,
+        }}
+        onClick={cycleSize}
+        title="Click to expand slice flag"
+      >
+        <div className="flex items-center gap-2">
+          <FrequencyDisplay freqHz={freqHz} size="sm" glow />
+          {modeUpper && (
+            <span
+              className={`
+                px-1.5 py-0.5 rounded text-[10px] font-bold font-mono border
+                ${getModeTextClass(modeUpper)} ${getModeBgClass(modeUpper)}
+              `}
+            >
+              {modeUpper}
+            </span>
+          )}
+          {ptt ? (
+            <RadioBadge label="TX" variant="danger" pulse size="xs" />
+          ) : (
+            <SmeterBar dbm={smeterDbm} size="compact" className="w-20" />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -213,6 +257,15 @@ export function FlexVfoDisplay({
             }
           />
         )}
+
+        {/* Size toggle button */}
+        <button
+          onClick={cycleSize}
+          className="text-[8px] font-bold text-gray-500 hover:text-gray-300 transition-colors px-0.5"
+          title={isMax ? "Collapse to normal" : "Expand to max"}
+        >
+          {isMax ? "\u25B4" : "\u25BE"}
+        </button>
 
         {/* TX / RX indicator */}
         {ptt ? (
@@ -301,6 +354,7 @@ export function FlexVfoDisplay({
       )}
 
       {/* ── Slice panel tabs (SmartSDR-style expandable controls) ──── */}
+      {/* Max mode: panels always visible; Normal mode: still available */}
       {slicePanels && <SlicePanelTabs controls={slicePanels} />}
     </div>
   );

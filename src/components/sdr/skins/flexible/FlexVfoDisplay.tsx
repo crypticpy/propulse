@@ -168,7 +168,7 @@ export function FlexVfoDisplay({
   if (isMin) {
     return (
       <div
-        className="backdrop-blur-sm rounded-lg px-2 py-1 select-none border border-white/10 cursor-pointer"
+        className="backdrop-blur-sm rounded-lg px-2 py-1 select-none border border-white/10 cursor-pointer pointer-events-auto"
         style={{
           backgroundColor: bgColor,
           boxShadow: `inset 3px 0 0 ${accentColor}, 0 2px 12px rgba(0,0,0,0.5)`,
@@ -200,7 +200,7 @@ export function FlexVfoDisplay({
 
   return (
     <div
-      className="backdrop-blur-sm rounded-lg px-3 py-1.5 select-none min-w-[280px] border border-white/10"
+      className="backdrop-blur-sm rounded-lg px-3 py-1.5 select-none min-w-[280px] border border-white/10 pointer-events-auto"
       style={{
         backgroundColor: bgColor,
         boxShadow: `inset 3px 0 0 ${accentColor}, 0 4px 24px rgba(0,0,0,0.6), 0 1px 6px rgba(0,0,0,0.4)`,

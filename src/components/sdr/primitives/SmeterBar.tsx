@@ -194,7 +194,9 @@ export function SmeterBar({
           {hasReading ? (
             <>
               <span className="text-white">{smeterText}</span>
-              {showDbm && <span className="text-gray-500 ml-1">{dbm}</span>}
+              {showDbm && (
+                <span className="text-gray-500 ml-1">{dbm.toFixed(0)}</span>
+              )}
             </>
           ) : (
             <span className="text-gray-600">---</span>

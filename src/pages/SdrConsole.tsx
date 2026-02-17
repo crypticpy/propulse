@@ -100,6 +100,7 @@ export function SdrConsole() {
     ),
   });
   const autoConnectAttemptedRef = useRef(false);
+  const autoConfigAttemptedRef = useRef(false);
   const autoFftStartRef = useRef<Record<string, boolean>>({});
   const [waterfallSpanHz, setWaterfallSpanHz] = useState<number | null>(null);
 
@@ -145,6 +146,42 @@ export function SdrConsole() {
     ) => {
       if (isDevicesListMessage(msg)) {
         setDevices(msg.devices);
+
+        // If the bridge reports no devices but we have a configured backend
+        // in settingsStore, send radio:connect with the stored config so
+        // the bridge starts the right rig controller.
+        if (msg.devices.length === 0 && !autoConfigAttemptedRef.current) {
+          autoConfigAttemptedRef.current = true;
+          const s = useSettingsStore.getState();
+          if (
+            s.catBackend &&
+            s.catBackend !== "auto" &&
+            s.catBackend !== "disabled"
+          ) {
+            const configPayload: Record<string, unknown> = {
+              backend: s.catBackend,
+            };
+            if (s.catBackend === "icom-serial" && s.catIcomSerialPort) {
+              configPayload.serialPort = s.catIcomSerialPort;
+              configPayload.baudRate = s.catIcomBaudRate;
+              configPayload.radioAddress = s.catIcomRadioAddress;
+            } else if (
+              s.catBackend === "icom-network" &&
+              s.catIcomNetworkHost
+            ) {
+              configPayload.host = s.catIcomNetworkHost;
+              configPayload.username = s.catIcomNetworkUsername;
+              configPayload.password = s.catIcomNetworkPassword;
+            } else if (s.catBackend === "hamlib") {
+              configPayload.host = s.catHamlibHost;
+              configPayload.port = s.catHamlibPort;
+            } else if (s.catBackend === "flrig") {
+              configPayload.host = s.catFlrigHost;
+              configPayload.port = s.catFlrigPort;
+            }
+            api.sendCommand("radio:connect", configPayload);
+          }
+        }
         return;
       }
       if (isDevicesAddedMessage(msg) || isDevicesRemovedMessage(msg)) {
@@ -296,6 +333,7 @@ export function SdrConsole() {
     handleUpdateEqBandType,
     handleToggleEqBand,
     handleEqBandQChange,
+    handleUpdateEqBandSlope,
   } = useEqBands();
 
   // Hook 4: Client-side DSP controls
@@ -335,10 +373,12 @@ export function SdrConsole() {
       daemonSendCommand("stream:audio:stop", { device_id: connectedDeviceId });
       setAudioEnabled(false);
     } else {
+      const storedAudioDevice = useSettingsStore.getState().audioDevice;
       daemonSendCommand("stream:audio:start", {
         device_id: connectedDeviceId,
         sample_rate: 48000,
         format: "pcm_i16",
+        ...(storedAudioDevice ? { audio_device: storedAudioDevice } : {}),
       });
       setAudioEnabled(true);
     }
@@ -390,6 +430,7 @@ export function SdrConsole() {
     setFftEnabled(false);
     setAudioEnabled(false);
     autoConnectAttemptedRef.current = false;
+    autoConfigAttemptedRef.current = false;
     setDiscoveredDaemons([]);
     setWsjtxStatus(null);
     ft8ClearDecodes();
@@ -422,6 +463,8 @@ export function SdrConsole() {
   useEffect(() => {
     if (!daemonConnected) return;
     autoConnectAttemptedRef.current = false;
+    autoConfigAttemptedRef.current = false;
+    autoFftStartRef.current = {};
   }, [daemonConnected, daemonUrl]);
 
   // Auto-reconnect to last selected radio (best-effort).
@@ -759,6 +802,7 @@ export function SdrConsole() {
         onUpdateEqBandType: handleUpdateEqBandType,
         onToggleEqBand: handleToggleEqBand,
         onEqBandQChange: handleEqBandQChange,
+        onUpdateEqBandSlope: handleUpdateEqBandSlope,
         tuningStepHz: sdrSettings.tuningStepHz,
         onTuningStepChange: handleTuningStepChange,
         isRecording: recorderState.isRecording,
@@ -844,6 +888,7 @@ export function SdrConsole() {
       handleUpdateEqBandType,
       handleToggleEqBand,
       handleEqBandQChange,
+      handleUpdateEqBandSlope,
       handleTuningStepChange,
       handlePickFrequencyHz,
       handleSelectRangeHz,

@@ -18,6 +18,9 @@ export type { RadioBadgeProps } from "./RadioBadge";
 export { GainSlider } from "./GainSlider";
 export type { GainSliderProps } from "./GainSlider";
 
+export { RotaryKnob } from "./RotaryKnob";
+export type { RotaryKnobProps } from "./RotaryKnob";
+
 // Utilities
 export {
   getModeGroup,

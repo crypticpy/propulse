@@ -177,8 +177,11 @@ export function computeEqResponse(
     node.getFrequencyResponse(safeFreqs, _magResponse, _phaseResponse);
 
     // Multiply per-band magnitude into combined result (linear domain)
+    // Cascaded stages: slope / 12 identical BiquadFilterNodes per band
+    const stages = (enabledBands[b].slope ?? 12) / 12;
     for (let i = 0; i < len; i++) {
-      _combinedMag[i] *= _magResponse[i];
+      _combinedMag[i] *=
+        stages === 1 ? _magResponse[i] : _magResponse[i] ** stages;
     }
   }
 
@@ -221,10 +224,12 @@ export function computeSingleBandResponse(
   configureBiquadNode(node, band);
   node.getFrequencyResponse(safeFreqs, _magResponse, _phaseResponse);
 
+  const stages = (band.slope ?? 12) / 12;
   const result = new Float32Array(len);
   for (let i = 0; i < len; i++) {
     const mag = _magResponse[i];
-    result[i] = mag > 0 ? 20 * Math.log10(mag) : -120;
+    const magStaged = stages === 1 ? mag : mag ** stages;
+    result[i] = magStaged > 0 ? 20 * Math.log10(magStaged) : -120;
   }
 
   return result;

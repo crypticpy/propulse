@@ -36,7 +36,7 @@ interface InternalNotchFilter {
 
 interface InternalEqBand {
   config: EqBand;
-  node: BiquadFilterNode;
+  nodes: BiquadFilterNode[];
 }
 
 const MAX_NOTCH_FILTERS = 8;
@@ -215,23 +215,48 @@ export class AudioProcessingChain {
 
     // Remove bands not in incoming
     const toRemove = this.eqBands.filter((f) => !incomingIds.has(f.config.id));
-    for (const entry of toRemove) entry.node.disconnect();
+    for (const entry of toRemove) {
+      for (const node of entry.nodes) node.disconnect();
+    }
     this.eqBands = this.eqBands.filter((f) => incomingIds.has(f.config.id));
 
     let needsRebuild = toRemove.length > 0;
 
     for (const cfg of configs) {
+      const stageCount = Math.max(1, Math.min(4, (cfg.slope ?? 12) / 12));
+
       if (currentIds.has(cfg.id)) {
         // Update existing
         const entry = this.eqBands.find((f) => f.config.id === cfg.id)!;
+        const oldStageCount = entry.nodes.length;
+
+        if (oldStageCount !== stageCount) {
+          // Slope changed — recreate nodes
+          for (const node of entry.nodes) node.disconnect();
+          entry.nodes = [];
+          for (let i = 0; i < stageCount; i++) {
+            const node = this.ctx.createBiquadFilter();
+            this.configureBiquadNode(node, cfg);
+            entry.nodes.push(node);
+          }
+          needsRebuild = true;
+        } else {
+          // Same slope — just reconfigure each node
+          for (const node of entry.nodes) {
+            this.configureBiquadNode(node, cfg);
+          }
+        }
         entry.config = { ...cfg };
-        this.configureBiquadNode(entry.node, cfg);
       } else {
         // Add new (with MAX_EQ_BANDS limit)
         if (this.eqBands.length >= MAX_EQ_BANDS) continue;
-        const node = this.ctx.createBiquadFilter();
-        this.configureBiquadNode(node, cfg);
-        this.eqBands.push({ config: { ...cfg }, node });
+        const nodes: BiquadFilterNode[] = [];
+        for (let i = 0; i < stageCount; i++) {
+          const node = this.ctx.createBiquadFilter();
+          this.configureBiquadNode(node, cfg);
+          nodes.push(node);
+        }
+        this.eqBands.push({ config: { ...cfg }, nodes });
         needsRebuild = true;
       }
     }
@@ -361,7 +386,7 @@ export class AudioProcessingChain {
     }
     this.notchFilters = [];
     for (const entry of this.eqBands) {
-      entry.node.disconnect();
+      for (const node of entry.nodes) node.disconnect();
     }
     this.eqBands = [];
     if (this.noiseGateNode) {
@@ -435,7 +460,7 @@ export class AudioProcessingChain {
       entry.node.disconnect();
     }
     for (const entry of this.eqBands) {
-      entry.node.disconnect();
+      for (const node of entry.nodes) node.disconnect();
     }
     if (this.noiseGateNode) this.noiseGateNode.disconnect();
     if (this.spectralNrNode) this.spectralNrNode.disconnect();
@@ -444,7 +469,7 @@ export class AudioProcessingChain {
     // Build the ordered list of nodes between inputGain and outputGain
     const chain: AudioNode[] = [
       ...this.notchFilters.map((f) => f.node),
-      ...this.eqBands.map((f) => f.node),
+      ...this.eqBands.flatMap((f) => f.nodes),
       ...(this.noiseGateNode ? [this.noiseGateNode] : []),
       ...(this.spectralNrNode ? [this.spectralNrNode] : []),
     ];

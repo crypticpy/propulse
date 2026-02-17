@@ -14,9 +14,10 @@
  */
 
 import type { WatchAlertType } from "@/types/user";
-import type { AlertPriority } from "@/types/alerts";
+import type { AlertPriority, AlertType } from "@/types/alerts";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isQuietHours } from "@/lib/utils/time";
+import { playAlertTone } from "@/lib/audio/alertSynthesizer";
 
 // =============================================================================
 // SOUND FILE MAPPING
@@ -213,13 +214,32 @@ export async function playAlertSound(type: WatchAlertType): Promise<boolean> {
 }
 
 /**
- * Play a solar/propagation alert sound based on priority level
+ * Play a solar/propagation alert sound based on priority level.
+ *
+ * When `useEnhancedAlertSounds` is enabled in settings (default: true),
+ * uses the Web Audio API synthesizer for distinct tones per severity
+ * and event type. Falls back to MP3 playback otherwise.
+ *
+ * @param priority - Alert severity level
+ * @param alertType - Optional event type for sound modifiers
  */
 export async function playSolarAlertSound(
   priority: AlertPriority,
+  alertType?: AlertType,
 ): Promise<boolean> {
   if (!shouldPlay()) return false;
 
+  // Check if enhanced synthesized sounds are enabled (default: true)
+  const settings = useSettingsStore.getState();
+  const useEnhanced = settings.notifications?.useEnhancedAlertSounds !== false;
+
+  if (useEnhanced) {
+    const volume = Math.round(currentVolume * 100);
+    playAlertTone(priority, alertType, volume);
+    return true;
+  }
+
+  // Fallback to MP3 file playback
   const path = SOLAR_SOUND_FILES[priority];
   if (!path) return false;
 

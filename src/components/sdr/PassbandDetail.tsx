@@ -68,6 +68,15 @@ interface PassbandDetailProps {
   onRemoveEqBand?: (id: string) => void;
   onEqBandHover?: (id: string | null) => void;
   onEqBandQChange?: (id: string, q: number) => void;
+  /** Called when right-click triggers context menu */
+  onEqContextMenu?: (e: {
+    screenX: number;
+    screenY: number;
+    audioHz: number;
+    band?: EqBand;
+  }) => void;
+  /** Called when a band dot is clicked or right-clicked to open the control panel */
+  onEqBandSelect?: (band: EqBand, screenX: number, screenY: number) => void;
 }
 
 export function PassbandDetail({
@@ -91,6 +100,8 @@ export function PassbandDetail({
   onRemoveEqBand,
   onEqBandHover,
   onEqBandQChange,
+  onEqContextMenu,
+  onEqBandSelect,
 }: PassbandDetailProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wfCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -116,6 +127,8 @@ export function PassbandDetail({
     onRemoveEqBand,
     onEqBandHover,
     onEqBandQChange,
+    onEqContextMenu,
+    onEqBandSelect,
   });
   callbacksRef.current = {
     onPickFrequencyHz,
@@ -129,6 +142,8 @@ export function PassbandDetail({
     onRemoveEqBand,
     onEqBandHover,
     onEqBandQChange,
+    onEqContextMenu,
+    onEqBandSelect,
   };
 
   const lut = useMemo(

@@ -13,6 +13,9 @@ export type EqFilterType =
   | "lowpass"
   | "highpass";
 
+/** Filter slope in dB/octave — determines number of cascaded BiquadFilterNodes */
+export type EqSlope = 12 | 24 | 36 | 48;
+
 /** Category determines default behaviors, color coding, and sidebar grouping */
 export type EqBandCategory = "notch" | "eq";
 
@@ -25,6 +28,7 @@ export interface EqBand {
   filterType: EqFilterType;
   category: EqBandCategory;
   enabled: boolean;
+  slope: EqSlope; // dB/octave — cascaded stages = slope / 12
 }
 
 // -- Constants --------------------------------------------------------------
@@ -40,6 +44,17 @@ export const EQ_FILTER_TO_BIQUAD: Record<EqFilterType, BiquadFilterType> = {
   highshelf: "highshelf",
   lowpass: "lowpass",
   highpass: "highpass",
+};
+
+/** Available slope options */
+export const EQ_SLOPES: EqSlope[] = [12, 24, 36, 48];
+
+/** Human-readable labels for each slope */
+export const EQ_SLOPE_LABELS: Record<EqSlope, string> = {
+  12: "12 dB/oct",
+  24: "24 dB/oct",
+  36: "36 dB/oct",
+  48: "48 dB/oct",
 };
 
 /** All available filter types for UI display */
@@ -83,5 +98,6 @@ export function createDefaultBand(
     filterType: category === "notch" ? "notch" : "bell",
     category,
     enabled: true,
+    slope: 12,
   };
 }

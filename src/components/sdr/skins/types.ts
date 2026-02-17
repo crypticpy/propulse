@@ -17,7 +17,12 @@ import type {
   WaterfallView,
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
-import type { EqBand, EqFilterType, EqBandCategory } from "@/lib/audio/eqTypes";
+import type {
+  EqBand,
+  EqFilterType,
+  EqBandCategory,
+  EqSlope,
+} from "@/lib/audio/eqTypes";
 
 // ─── Skin name type ─────────────────────────────────────────────────────────
 
@@ -195,6 +200,7 @@ export interface SdrDspProps {
   onUpdateEqBandType: (id: string, filterType: EqFilterType) => void;
   onToggleEqBand: (id: string, enabled: boolean) => void;
   onEqBandQChange: (id: string, q: number) => void;
+  onUpdateEqBandSlope: (id: string, slope: EqSlope) => void;
   /** Tuning step size in Hz */
   tuningStepHz: number;
   onTuningStepChange: (stepHz: number) => void;

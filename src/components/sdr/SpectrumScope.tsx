@@ -86,6 +86,15 @@ interface SpectrumScopeProps {
   onEqBandHover?: (id: string | null) => void;
   /** Called when mouse wheel adjusts Q on an EQ band */
   onEqBandQChange?: (id: string, q: number) => void;
+  /** Called when right-click triggers context menu on spectrum */
+  onEqContextMenu?: (e: {
+    screenX: number;
+    screenY: number;
+    audioHz: number;
+    band?: EqBand;
+  }) => void;
+  /** Called when a band dot is clicked or right-clicked to open the control panel */
+  onEqBandSelect?: (band: EqBand, screenX: number, screenY: number) => void;
   /** Optional high-resolution audio FFT frame (~11.7 Hz/bin). When provided,
    *  pixels within its frequency range are sampled from this frame. */
   audioFrame?: FftFrame | null;
@@ -145,6 +154,8 @@ export function SpectrumScope({
   onRemoveEqBand,
   onEqBandHover,
   onEqBandQChange,
+  onEqContextMenu,
+  onEqBandSelect,
   audioFrame = null,
   audioMinDb: audioMinDbVal = -120,
   audioMaxDb: audioMaxDbVal = -20,
@@ -183,6 +194,8 @@ export function SpectrumScope({
     onRemoveEqBand,
     onEqBandHover,
     onEqBandQChange,
+    onEqContextMenu,
+    onEqBandSelect,
   });
   callbacksRef.current = {
     onPickFrequencyHz,
@@ -196,6 +209,8 @@ export function SpectrumScope({
     onRemoveEqBand,
     onEqBandHover,
     onEqBandQChange,
+    onEqContextMenu,
+    onEqBandSelect,
   };
 
   // ── Shared interaction hook (replaces all inline pointer/wheel code) ──

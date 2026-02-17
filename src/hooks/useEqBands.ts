@@ -10,7 +10,12 @@
 
 import { useCallback } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
-import type { EqBand, EqFilterType, EqBandCategory } from "@/lib/audio/eqTypes";
+import type {
+  EqBand,
+  EqFilterType,
+  EqBandCategory,
+  EqSlope,
+} from "@/lib/audio/eqTypes";
 import {
   MAX_EQ_BANDS,
   createDefaultBand,
@@ -35,6 +40,7 @@ export interface EqBandHandlers {
   handleUpdateEqBandType: (id: string, filterType: EqFilterType) => void;
   handleToggleEqBand: (id: string, enabled: boolean) => void;
   handleEqBandQChange: (id: string, q: number) => void;
+  handleUpdateEqBandSlope: (id: string, slope: EqSlope) => void;
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -107,6 +113,15 @@ export function useEqBands(): EqBandHandlers {
     });
   }, []);
 
+  const handleUpdateEqBandSlope = useCallback((id: string, slope: EqSlope) => {
+    const current = useSettingsStore.getState().sdrEqBands;
+    useSettingsStore.getState().updatePreferences({
+      sdrEqBands: current.map((b: EqBand) =>
+        b.id === id ? { ...b, slope } : b,
+      ),
+    });
+  }, []);
+
   return {
     handleAddEqBand,
     handleRemoveEqBand,
@@ -114,5 +129,6 @@ export function useEqBands(): EqBandHandlers {
     handleUpdateEqBandType,
     handleToggleEqBand,
     handleEqBandQChange,
+    handleUpdateEqBandSlope,
   };
 }

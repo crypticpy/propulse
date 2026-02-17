@@ -66,6 +66,13 @@ export interface WaterfallPanelProps {
   onEqBandHover?: (id: string | null) => void;
   onEqBandQChange?: (id: string, q: number) => void;
   hoveredEqBandId?: string | null;
+  onEqContextMenu?: (e: {
+    screenX: number;
+    screenY: number;
+    audioHz: number;
+    band?: EqBand;
+  }) => void;
+  onEqBandSelect?: (band: EqBand, screenX: number, screenY: number) => void;
   onWheelTune?: (direction: number) => void;
   passbandBlendMode: string;
   passbandOpacity: number;
@@ -115,6 +122,8 @@ export function WaterfallPanel({
   onEqBandHover,
   onEqBandQChange,
   hoveredEqBandId,
+  onEqContextMenu,
+  onEqBandSelect,
   onWheelTune,
   passbandBlendMode,
   passbandOpacity,
@@ -170,6 +179,8 @@ export function WaterfallPanel({
               onEqBandHover={onEqBandHover}
               onEqBandQChange={onEqBandQChange}
               hoveredEqBandId={hoveredEqBandId}
+              onEqContextMenu={onEqContextMenu}
+              onEqBandSelect={onEqBandSelect}
               onWheelTune={onWheelTune}
             />
           </div>

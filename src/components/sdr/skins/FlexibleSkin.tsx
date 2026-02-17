@@ -26,7 +26,11 @@ import { FlexDbScale } from "./flexible/FlexDbScale";
 import { FlexTimeAxis } from "./flexible/FlexTimeAxis";
 import { FlexInfoTabs } from "./flexible/FlexInfoTabs";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
+import { rfHzToAudioHz } from "@/components/sdr/waterfallPalette";
 import { BandPlanOverlay, SpotTagOverlay } from "@/components/sdr/overlays";
+import { EqBandContextMenu } from "@/components/sdr/EqBandContextMenu";
+import { EqBandPanel } from "@/components/sdr/EqBandPanel";
+import type { EqBand } from "@/lib/audio/eqTypes";
 import type { SdrSkinProps } from "./types";
 
 /** RX gain stage names — constant, lives outside the component to avoid re-creation. */
@@ -184,6 +188,73 @@ export function FlexibleSkin(props: SdrSkinProps) {
   // EQ band hover state (shared between SpectrumScope and PassbandDetail)
   const [hoveredEqBandId, setHoveredEqBandId] = useState<string | null>(null);
 
+  // EQ band context menu state
+  const [eqMenu, setEqMenu] = useState<{
+    x: number;
+    y: number;
+    audioHz: number;
+    band?: EqBand;
+  } | null>(null);
+
+  const handleEqContextMenu = useCallback(
+    (e: {
+      screenX: number;
+      screenY: number;
+      audioHz: number;
+      band?: EqBand;
+    }) => {
+      setEqPanel(null); // close panel if open
+      setEqMenu({
+        x: e.screenX,
+        y: e.screenY,
+        audioHz: e.audioHz,
+        band: e.band,
+      });
+    },
+    [],
+  );
+
+  const handleEqMenuClose = useCallback(() => setEqMenu(null), []);
+
+  // EQ band floating control panel state (opened by click/right-click on a dot)
+  const [eqPanel, setEqPanel] = useState<{
+    bandId: string;
+    anchorX: number;
+    anchorY: number;
+  } | null>(null);
+
+  const handleEqBandSelect = useCallback(
+    (band: EqBand, screenX: number, screenY: number) => {
+      setEqMenu(null); // close context menu if open
+      setEqPanel({ bandId: band.id, anchorX: screenX, anchorY: screenY });
+    },
+    [],
+  );
+
+  // Catch right-clicks on non-canvas areas (VFO overlay, waterfall, freq axis)
+  // to prevent the browser's default context menu and show our EQ menu instead.
+  const handleCenterContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setEqPanel(null); // close panel if open
+      if (!waterfallView || !tuningOverlay) return;
+      const el = centerColRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const frac = (e.clientX - rect.left) / rect.width;
+      const viewStart = waterfallView.centerHz - waterfallView.spanHz / 2;
+      const rfHz = viewStart + frac * waterfallView.spanHz;
+      const audioHz = rfHzToAudioHz(
+        rfHz,
+        tuningOverlay.freqHz,
+        tuningOverlay.mode,
+      );
+      const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
+      setEqMenu({ x: e.clientX, y: e.clientY, audioHz: clamped });
+    },
+    [waterfallView, tuningOverlay],
+  );
+
   // Track waterfall container height for FlexTimeAxis
   const waterfallContainerRef = useRef<HTMLDivElement>(null);
   const [waterfallHeight, setWaterfallHeight] = useState(400);
@@ -290,10 +361,14 @@ export function FlexibleSkin(props: SdrSkinProps) {
       {/* ── Main content area ────────────────────────────────────────── */}
       <div className="flex-1 grid grid-cols-[1fr_280px] grid-rows-[1fr] min-h-0">
         {/* ── Center: Spectrum + Zoom + Freq axis + Waterfall ──────── */}
-        <div ref={centerColRef} className="relative flex flex-col min-h-0">
+        <div
+          ref={centerColRef}
+          className="relative flex flex-col min-h-0"
+          onContextMenu={handleCenterContextMenu}
+        >
           {/* VFO overlay — floating slice flag, anchored to passband position */}
           <div
-            className="absolute top-3 z-10 transition-[left] duration-100 ease-out"
+            className="absolute top-3 z-10 transition-[left] duration-100 ease-out pointer-events-none"
             style={{ left: sliceFlagLeft }}
           >
             <FlexVfoDisplay
@@ -393,6 +468,8 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   onRemoveEqBand={dsp.onRemoveEqBand}
                   onEqBandHover={setHoveredEqBandId}
                   onEqBandQChange={dsp.onEqBandQChange}
+                  onEqContextMenu={handleEqContextMenu}
+                  onEqBandSelect={handleEqBandSelect}
                   onPickFrequencyHz={onPickFrequencyHz}
                   onWheelTune={interaction.onWheelTune}
                   className="rounded-none border-0"
@@ -426,6 +503,8 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 onRemoveEqBand={dsp.onRemoveEqBand}
                 onEqBandHover={setHoveredEqBandId}
                 onEqBandQChange={dsp.onEqBandQChange}
+                onEqContextMenu={handleEqContextMenu}
+                onEqBandSelect={handleEqBandSelect}
                 onPickFrequencyHz={onPickFrequencyHz}
                 onWheelTune={interaction.onWheelTune}
               />
@@ -545,15 +624,8 @@ export function FlexibleSkin(props: SdrSkinProps) {
             audioEnabled={radio.audioEnabled}
             freqInput={controls.freqInput}
             freqUnit={controls.freqUnit}
-            eqBands={dsp.eqBands}
             tuningStepHz={dsp.tuningStepHz}
             onTuningStepChange={dsp.onTuningStepChange}
-            onAddEqBand={dsp.onAddEqBand}
-            onRemoveEqBand={dsp.onRemoveEqBand}
-            onUpdateEqBand={dsp.onUpdateEqBand}
-            onUpdateEqBandType={dsp.onUpdateEqBandType}
-            onToggleEqBand={dsp.onToggleEqBand}
-            onEqBandQChange={dsp.onEqBandQChange}
             onTune={controls.onTune}
             onFreqInputChange={controls.onFreqInputChange}
             onFreqUnitChange={controls.onFreqUnitChange}
@@ -608,6 +680,40 @@ export function FlexibleSkin(props: SdrSkinProps) {
           effectiveState?.freq ? bandFromFreq(effectiveState.freq / 1000) : null
         }
       />
+
+      {eqMenu && (
+        <EqBandContextMenu
+          x={eqMenu.x}
+          y={eqMenu.y}
+          onClose={handleEqMenuClose}
+          onAddBand={(category) => {
+            dsp.onAddEqBand(eqMenu.audioHz, 0, category);
+            handleEqMenuClose();
+          }}
+        />
+      )}
+
+      {eqPanel &&
+        (() => {
+          const band = dsp.eqBands.find((b) => b.id === eqPanel.bandId);
+          if (!band) return null;
+          return (
+            <EqBandPanel
+              band={band}
+              anchorX={eqPanel.anchorX}
+              anchorY={eqPanel.anchorY}
+              onClose={() => setEqPanel(null)}
+              onUpdateBand={dsp.onUpdateEqBand}
+              onChangeType={dsp.onUpdateEqBandType}
+              onChangeSlope={dsp.onUpdateEqBandSlope}
+              onToggle={dsp.onToggleEqBand}
+              onRemove={(id) => {
+                dsp.onRemoveEqBand(id);
+                setEqPanel(null);
+              }}
+            />
+          );
+        })()}
     </div>
   );
 }

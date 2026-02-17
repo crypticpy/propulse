@@ -126,7 +126,7 @@ export type BridgeMessageType =
   | "rig.status"
   | "rig.connect"
   | "rig.disconnect"
-  | "rig.test"
+  | "rig:test"
   | "bridge.ping"
   | "bridge.pong"
   | "bridge.subscribe"

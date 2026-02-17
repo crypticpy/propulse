@@ -483,7 +483,7 @@ export function useSolarAlerts(
               const completeAlert = buildCompleteAlert(partialAlert);
               addAlert(completeAlert);
               recordAlertFired("GEOMAGNETIC_STORM");
-              playSolarAlertSound(completeAlert.priority);
+              playSolarAlertSound(completeAlert.priority, completeAlert.type);
             }
           }
         } else {
@@ -543,7 +543,7 @@ export function useSolarAlerts(
               const completeAlert = buildCompleteAlert(partialAlert);
               addAlert(completeAlert);
               recordAlertFired("IMF_SOUTHWARD");
-              playSolarAlertSound(completeAlert.priority);
+              playSolarAlertSound(completeAlert.priority, completeAlert.type);
             }
           }
         } else {
@@ -604,7 +604,7 @@ export function useSolarAlerts(
             const completeAlert = buildCompleteAlert(partialAlert);
             addAlert(completeAlert);
             recordAlertFired("SOLAR_FLARE");
-            playSolarAlertSound(completeAlert.priority);
+            playSolarAlertSound(completeAlert.priority, completeAlert.type);
           }
         }
       } else {
@@ -750,7 +750,7 @@ export function useSolarAlerts(
         const alert = buildCompleteAlert(partial);
         addAlert(alert);
         recordAlertFired("RADIO_BLACKOUT");
-        playSolarAlertSound(alert.priority);
+        playSolarAlertSound(alert.priority, alert.type);
       }
     } else {
       // Value below info threshold — check for resolution
@@ -880,7 +880,7 @@ export function useSolarAlerts(
         const alert = buildCompleteAlert(partial);
         addAlert(alert);
         recordAlertFired("PROTON_EVENT");
-        playSolarAlertSound(alert.priority);
+        playSolarAlertSound(alert.priority, alert.type);
       }
     } else {
       // Value below info threshold — check for resolution
@@ -1008,7 +1008,7 @@ export function useSolarAlerts(
         const alert = buildCompleteAlert(partial);
         addAlert(alert);
         recordAlertFired("DST_STORM");
-        playSolarAlertSound(alert.priority);
+        playSolarAlertSound(alert.priority, alert.type);
       }
     } else {
       // Value above threshold (less negative) — check for resolution
@@ -1095,7 +1095,7 @@ export function useSolarAlerts(
           const alert = buildCompleteAlert(partial);
           addAlert(alert);
           recordAlertFired("GREYLINE_APPROACHING");
-          playSolarAlertSound(alert.priority);
+          playSolarAlertSound(alert.priority, alert.type);
         }
       }
 
@@ -1157,7 +1157,7 @@ export function useSolarAlerts(
         const alert = buildCompleteAlert(partial);
         addAlert(alert);
         recordAlertFired(cooldownKey);
-        playSolarAlertSound(alert.priority);
+        playSolarAlertSound(alert.priority, alert.type);
       }
     });
 

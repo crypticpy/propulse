@@ -4,7 +4,7 @@
  * All panel content is delegated to shared components in `../shared/`.
  */
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   RadioControlsCard,
   RadioStatusCard,
@@ -12,6 +12,10 @@ import {
   DecodesPanel,
 } from "@/components/sdr/shared";
 import { Ft8DecoderPanel } from "@/components/sdr/Ft8DecoderPanel";
+import { EqBandContextMenu } from "@/components/sdr/EqBandContextMenu";
+import { EqBandPanel } from "@/components/sdr/EqBandPanel";
+import { rfHzToAudioHz } from "@/components/sdr/waterfallPalette";
+import type { EqBand } from "@/lib/audio/eqTypes";
 import type { SdrSkinProps } from "./types";
 import { formatHz } from "./types";
 
@@ -32,6 +36,69 @@ export function ClassicSkin(props: SdrSkinProps) {
     radio;
 
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
+  const [hoveredEqBandId, setHoveredEqBandId] = useState<string | null>(null);
+
+  const [eqMenu, setEqMenu] = useState<{
+    x: number;
+    y: number;
+    audioHz: number;
+    band?: EqBand;
+  } | null>(null);
+
+  const handleEqContextMenu = useCallback(
+    (e: {
+      screenX: number;
+      screenY: number;
+      audioHz: number;
+      band?: EqBand;
+    }) => {
+      setEqPanel(null); // close panel if open
+      setEqMenu({
+        x: e.screenX,
+        y: e.screenY,
+        audioHz: e.audioHz,
+        band: e.band,
+      });
+    },
+    [],
+  );
+
+  const handleEqMenuClose = useCallback(() => setEqMenu(null), []);
+
+  // EQ band floating control panel state (opened by click/right-click on a dot)
+  const [eqPanel, setEqPanel] = useState<{
+    bandId: string;
+    anchorX: number;
+    anchorY: number;
+  } | null>(null);
+
+  const handleEqBandSelect = useCallback(
+    (band: EqBand, screenX: number, screenY: number) => {
+      setEqMenu(null); // close context menu if open
+      setEqPanel({ bandId: band.id, anchorX: screenX, anchorY: screenY });
+    },
+    [],
+  );
+
+  // Catch right-clicks on non-canvas areas to prevent the browser's default
+  // context menu and show the EQ menu instead.
+  const handlePanelContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setEqPanel(null); // close panel if open
+      const view = fft.waterfallView;
+      const tuning = fft.tuningOverlay;
+      if (!view || !tuning) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const frac = (e.clientX - rect.left) / rect.width;
+      const viewStart = view.centerHz - view.spanHz / 2;
+      const rfHz = viewStart + frac * view.spanHz;
+      const audioHz = rfHzToAudioHz(rfHz, tuning.freqHz, tuning.mode);
+      const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
+      setEqMenu({ x: e.clientX, y: e.clientY, audioHz: clamped });
+    },
+    [fft.waterfallView, fft.tuningOverlay],
+  );
 
   const leftControls = (
     <div className="space-y-6">
@@ -66,7 +133,7 @@ export function ClassicSkin(props: SdrSkinProps) {
   );
 
   const rightPanels = (
-    <div className="space-y-6">
+    <div className="space-y-6" onContextMenu={handlePanelContextMenu}>
       <WaterfallPanel
         effectiveState={effectiveState}
         canStreamFft={radio.canStreamFft}
@@ -93,11 +160,17 @@ export function ClassicSkin(props: SdrSkinProps) {
         spectrumLineShadowBlur={spectrum.spectrumLineShadowBlur}
         tuningLineColor={spectrum.tuningLineColor}
         tuningArrowColor={spectrum.tuningArrowColor}
-        notchFilters={dsp.notchFilters}
+        eqBands={dsp.eqBands}
         onFilterChange={controls.onFilterChange}
-        onAddNotch={dsp.onAddNotch}
-        onUpdateNotch={dsp.onUpdateNotch}
-        onRemoveNotch={dsp.onRemoveNotch}
+        onAddEqBand={dsp.onAddEqBand}
+        onUpdateEqBand={dsp.onUpdateEqBand}
+        onRemoveEqBand={dsp.onRemoveEqBand}
+        onEqBandHover={setHoveredEqBandId}
+        onEqBandQChange={dsp.onEqBandQChange}
+        hoveredEqBandId={hoveredEqBandId}
+        onEqContextMenu={handleEqContextMenu}
+        onEqBandSelect={handleEqBandSelect}
+        onWheelTune={interaction.onWheelTune}
         passbandBlendMode={waterfall.passbandBlendMode}
         passbandOpacity={waterfall.passbandOpacity}
         waterfallInterpolation={waterfall.waterfallInterpolation}
@@ -209,6 +282,40 @@ export function ClassicSkin(props: SdrSkinProps) {
           {rightPanels}
         </div>
       )}
+
+      {eqMenu && (
+        <EqBandContextMenu
+          x={eqMenu.x}
+          y={eqMenu.y}
+          onClose={handleEqMenuClose}
+          onAddBand={(category) => {
+            dsp.onAddEqBand(eqMenu.audioHz, 0, category);
+            handleEqMenuClose();
+          }}
+        />
+      )}
+
+      {eqPanel &&
+        (() => {
+          const band = dsp.eqBands.find((b) => b.id === eqPanel.bandId);
+          if (!band) return null;
+          return (
+            <EqBandPanel
+              band={band}
+              anchorX={eqPanel.anchorX}
+              anchorY={eqPanel.anchorY}
+              onClose={() => setEqPanel(null)}
+              onUpdateBand={dsp.onUpdateEqBand}
+              onChangeType={dsp.onUpdateEqBandType}
+              onChangeSlope={dsp.onUpdateEqBandSlope}
+              onToggle={dsp.onToggleEqBand}
+              onRemove={(id) => {
+                dsp.onRemoveEqBand(id);
+                setEqPanel(null);
+              }}
+            />
+          );
+        })()}
     </div>
   );
 }

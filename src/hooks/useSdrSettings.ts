@@ -7,6 +7,7 @@
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShallow } from "zustand/react/shallow";
 import type { WaterfallPaletteName } from "@/components/sdr/waterfallPalette";
+import type { EqBand } from "@/lib/audio/eqTypes";
 
 // ─── Exported type ───────────────────────────────────────────────────────────
 
@@ -43,12 +44,7 @@ export interface SdrSettings {
   sdrNoiseGateThreshold: number;
   sdrNrEnabled: boolean;
   sdrNrLevel: number;
-  sdrNotchFilters: Array<{
-    id: string;
-    freqHz: number;
-    q: number;
-    enabled: boolean;
-  }>;
+  sdrEqBands: EqBand[];
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -88,7 +84,7 @@ export function useSdrSettings(): SdrSettings {
       sdrNoiseGateThreshold: s.sdrNoiseGateThreshold,
       sdrNrEnabled: s.sdrNrEnabled,
       sdrNrLevel: s.sdrNrLevel,
-      sdrNotchFilters: s.sdrNotchFilters,
+      sdrEqBands: s.sdrEqBands,
     })),
   );
 }

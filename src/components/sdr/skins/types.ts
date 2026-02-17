@@ -17,6 +17,12 @@ import type {
   WaterfallView,
   TuningOverlay,
 } from "@/components/sdr/waterfallPalette";
+import type {
+  EqBand,
+  EqFilterType,
+  EqBandCategory,
+  EqSlope,
+} from "@/lib/audio/eqTypes";
 
 // ─── Skin name type ─────────────────────────────────────────────────────────
 
@@ -57,6 +63,18 @@ export interface SdrRadioStateProps {
   daemonConnected: boolean;
   daemonError: string | null;
   lastResponseError: string | null;
+  rit?: { enabled: boolean; offsetHz: number };
+  xit?: { enabled: boolean; offsetHz: number };
+  split?: boolean;
+  anf?: boolean;
+  qsk?: boolean;
+  vox?: boolean;
+  lock?: boolean;
+  txAntenna?: string;
+  txMeter?: { powerW?: number; swr?: number; alc?: number };
+  cwSpeed?: number;
+  ifShift?: number;
+  agcMode?: number;
 }
 
 export interface SdrFftDataProps {
@@ -135,6 +153,7 @@ export interface SdrControlProps {
   onModeChange: (mode: string) => void;
   onGainChange: (stage: string, value: number) => void;
   onAgcToggle: (enabled: boolean) => void;
+  onAgcModeChange: (mode: number) => void;
   onAntennaChange: (port: string) => void;
   onFilterChange: (low: number, high: number) => void;
   onNrChange: (enabled: boolean, level: number) => void;
@@ -143,6 +162,17 @@ export interface SdrControlProps {
   onPttChange: (active: boolean) => void;
   onToggleFft: () => void;
   onToggleAudio: () => void;
+  onRitToggle: (enabled: boolean) => void;
+  onRitOffset: (offsetHz: number) => void;
+  onXitToggle: (enabled: boolean) => void;
+  onXitOffset: (offsetHz: number) => void;
+  onSplitToggle: (enabled: boolean) => void;
+  onAnfToggle: () => void;
+  onQskToggle: () => void;
+  onVoxToggle: () => void;
+  onIfShift: (hz: number) => void;
+  onCwSpeed: (wpm: number) => void;
+  onLockToggle: () => void;
 }
 
 export interface SdrDspProps {
@@ -154,19 +184,36 @@ export interface SdrDspProps {
   clientNrLevel: number;
   onClientNrToggle: (enabled: boolean) => void;
   onClientNrLevelChange: (level: number) => void;
-  notchFilters: Array<{
-    id: string;
-    freqHz: number;
-    q: number;
-    enabled: boolean;
-  }>;
-  onAddNotch: (freqHz: number, q: number) => void;
-  onRemoveNotch: (id: string) => void;
-  onUpdateNotch: (id: string, freqHz: number, q: number) => void;
-  onToggleNotch: (id: string, enabled: boolean) => void;
+  eqBands: EqBand[];
+  onAddEqBand: (
+    freqHz: number,
+    gainDb: number,
+    category: EqBandCategory,
+  ) => void;
+  onRemoveEqBand: (id: string) => void;
+  onUpdateEqBand: (
+    id: string,
+    freqHz: number,
+    q: number,
+    gainDb: number,
+  ) => void;
+  onUpdateEqBandType: (id: string, filterType: EqFilterType) => void;
+  onToggleEqBand: (id: string, enabled: boolean) => void;
+  onEqBandQChange: (id: string, q: number) => void;
+  onUpdateEqBandSlope: (id: string, slope: EqSlope) => void;
   /** Tuning step size in Hz */
   tuningStepHz: number;
   onTuningStepChange: (stepHz: number) => void;
+
+  // Recording
+  isRecording: boolean;
+  recordingDurationSec: number;
+  recordingEstimatedBytes: number;
+  hasRecording: boolean;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onExportRecording: () => void;
+  onDiscardRecording: () => void;
 }
 
 export interface SdrInteractionProps {

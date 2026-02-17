@@ -466,7 +466,14 @@ export function useBridge(
       connectingRef.current = false;
       clearTimers();
       if (wsRef.current) {
-        wsRef.current.close(1000, "Component unmount");
+        // Close if OPEN or still CONNECTING to prevent orphaned sockets
+        // (especially under React StrictMode double-mounts)
+        if (
+          wsRef.current.readyState === WebSocket.OPEN ||
+          wsRef.current.readyState === WebSocket.CONNECTING
+        ) {
+          wsRef.current.close(1000, "Component unmount");
+        }
         wsRef.current = null;
       }
     };

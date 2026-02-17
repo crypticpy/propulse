@@ -12,12 +12,20 @@
 import { Socket } from "node:net";
 import { request as httpRequest } from "node:http";
 import type { RigStatus } from "./types.js";
+import { IcomSerialBackend, type IcomSerialConfig } from "./icomSerial.js";
+import { IcomNetworkBackend, type IcomNetworkConfig } from "./icomNetwork.js";
+import type { CivSpectrumLine } from "./civ.js";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type RigBackend = "hamlib" | "flrig" | "none";
+export type RigBackend =
+  | "hamlib"
+  | "flrig"
+  | "icom-serial"
+  | "icom-network"
+  | "none";
 
 export interface RigControllerConfig {
   /** Hamlib rigctld host (default 127.0.0.1) */
@@ -30,6 +38,10 @@ export interface RigControllerConfig {
   flrigPort?: number;
   /** Polling interval in ms (default 200) */
   pollInterval?: number;
+  /** ICOM direct serial CI-V configuration */
+  icomSerial?: IcomSerialConfig;
+  /** ICOM network (RS-BA1 UDP) configuration */
+  icomNetwork?: IcomNetworkConfig;
 }
 
 type RigStatusHandler = (status: RigStatus) => void;
@@ -544,10 +556,23 @@ function extractXmlRpcValue(xml: string): string | null {
 // ============================================================================
 
 export class RigController {
-  private readonly config: Required<RigControllerConfig>;
+  private readonly config: {
+    hamlibHost: string;
+    hamlibPort: number;
+    flrigHost: string;
+    flrigPort: number;
+    pollInterval: number;
+    icomSerial?: IcomSerialConfig;
+    icomNetwork?: IcomNetworkConfig;
+  };
   private backend: RigBackend = "none";
   private hamlib: HamlibBackend | null = null;
   private flrig: FlrigBackend | null = null;
+  private icomSerial: IcomSerialBackend | null = null;
+  private icomNetwork: IcomNetworkBackend | null = null;
+  private icomStatusDispose: (() => void) | null = null;
+  private icomSmeterDispose: (() => void) | null = null;
+  private icomErrorDispose: (() => void) | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private polling = false;
   private stopped = false;
@@ -564,6 +589,15 @@ export class RigController {
   private lastStatus: RigStatus | null = null;
   private smeterWarned = false;
   private vfoWarned = false;
+  private ritWarned = false;
+  private xitWarned = false;
+  private splitWarned = false;
+  private anfWarned = false;
+  private qskWarned = false;
+  private voxWarned = false;
+  private cwSpeedWarned = false;
+  private ifShiftWarned = false;
+  private txMeterWarned = false;
 
   // Event handlers
   private statusHandlers: RigStatusHandler[] = [];
@@ -577,6 +611,8 @@ export class RigController {
       flrigHost: config?.flrigHost ?? "127.0.0.1",
       flrigPort: config?.flrigPort ?? 12345,
       pollInterval: config?.pollInterval ?? 200,
+      icomSerial: config?.icomSerial,
+      icomNetwork: config?.icomNetwork,
     };
   }
 
@@ -630,6 +666,8 @@ export class RigController {
   private async startInternal(): Promise<RigBackend> {
     this.stopPolling();
     this.clearReconnectProbe();
+    this.disposeIcomSerial();
+    this.disposeIcomNetwork();
 
     if (this.hamlib) {
       this.hamlib.disconnect();
@@ -641,7 +679,47 @@ export class RigController {
       this.flrig = null;
     }
 
-    // Try Hamlib first
+    // Try ICOM serial first (direct USB CI-V, best latency)
+    if (this.config.icomSerial) {
+      try {
+        this.icomSerial = new IcomSerialBackend(this.config.icomSerial);
+        if (await this.icomSerial.probe()) {
+          await this.icomSerial.start();
+          this.backend = "icom-serial";
+          this.lastStatus = null;
+          this.wireIcomSerialEvents();
+          return "icom-serial";
+        }
+      } catch {
+        // ICOM serial probe failed, try next backend
+      }
+      if (this.icomSerial) {
+        this.icomSerial.stop();
+        this.icomSerial = null;
+      }
+    }
+
+    // Try ICOM network (RS-BA1 UDP, second priority)
+    if (this.config.icomNetwork) {
+      try {
+        this.icomNetwork = new IcomNetworkBackend(this.config.icomNetwork);
+        if (await this.icomNetwork.probe()) {
+          await this.icomNetwork.start();
+          this.backend = "icom-network";
+          this.lastStatus = null;
+          this.wireIcomNetworkEvents();
+          return "icom-network";
+        }
+      } catch {
+        // ICOM network probe failed, try next backend
+      }
+      if (this.icomNetwork) {
+        this.icomNetwork.stop();
+        this.icomNetwork = null;
+      }
+    }
+
+    // Try Hamlib
     this.hamlib = new HamlibBackend(
       this.config.hamlibHost,
       this.config.hamlibPort,
@@ -679,6 +757,8 @@ export class RigController {
     this.stopped = true;
     this.stopPolling();
     this.clearReconnectProbe();
+    this.disposeIcomSerial();
+    this.disposeIcomNetwork();
 
     if (this.hamlib) {
       this.hamlib.disconnect();
@@ -693,6 +773,97 @@ export class RigController {
     this.backend = "none";
     this.lastStatus = null;
     this.consecutiveErrors = 0;
+  }
+
+  /** Wire up event forwarding from IcomSerialBackend */
+  private wireIcomSerialEvents(): void {
+    if (!this.icomSerial) return;
+
+    this.icomStatusDispose = this.icomSerial.onStatus((status) => {
+      if (!this.statusEquals(status, this.lastStatus)) {
+        this.lastStatus = status;
+        this.emitStatus(status);
+      }
+      // Emit S-meter separately
+      if (status.smeter != null) {
+        this.emitSmeter(status.smeter);
+      }
+    });
+
+    this.icomSmeterDispose = this.icomSerial.onSmeter((dbm) => {
+      this.emitSmeter(dbm);
+    });
+
+    this.icomErrorDispose = this.icomSerial.onError((msg) => {
+      this.emitError(new Error(msg));
+      // Backend reported fatal error — clean up and reconnect
+      this.disposeIcomSerial();
+      this.backend = "none";
+      this.lastStatus = null;
+      this.emitStatus({ connected: false });
+      this.scheduleReconnectProbe();
+    });
+  }
+
+  /** Clean up ICOM serial backend and event handlers */
+  private disposeIcomSerial(): void {
+    this.icomStatusDispose?.();
+    this.icomStatusDispose = null;
+    this.icomSmeterDispose?.();
+    this.icomSmeterDispose = null;
+    this.icomErrorDispose?.();
+    this.icomErrorDispose = null;
+
+    if (this.icomSerial) {
+      this.icomSerial.stop();
+      this.icomSerial = null;
+    }
+  }
+
+  /** Wire up event forwarding from IcomNetworkBackend */
+  private wireIcomNetworkEvents(): void {
+    if (!this.icomNetwork) return;
+
+    this.icomStatusDispose = this.icomNetwork.onStatus((status) => {
+      if (!this.statusEquals(status, this.lastStatus)) {
+        this.lastStatus = status;
+        this.emitStatus(status);
+      }
+      // Emit S-meter separately
+      if (status.smeter != null) {
+        this.emitSmeter(status.smeter);
+      }
+    });
+
+    this.icomSmeterDispose = this.icomNetwork.onSmeter((dbm) => {
+      this.emitSmeter(dbm);
+    });
+
+    this.icomErrorDispose = this.icomNetwork.onError((msg) => {
+      this.emitError(new Error(msg));
+      // Backend reported fatal error — clean up and reconnect
+      this.disposeIcomNetwork();
+      this.backend = "none";
+      this.lastStatus = null;
+      this.emitStatus({ connected: false });
+      this.scheduleReconnectProbe();
+    });
+  }
+
+  /** Clean up ICOM network backend and event handlers */
+  private disposeIcomNetwork(): void {
+    // Re-use the same dispose slots (only one ICOM backend active at a time)
+    if (this.icomNetwork) {
+      this.icomStatusDispose?.();
+      this.icomStatusDispose = null;
+      this.icomSmeterDispose?.();
+      this.icomSmeterDispose = null;
+      this.icomErrorDispose?.();
+      this.icomErrorDispose = null;
+
+      this.icomNetwork.stop();
+      this.icomNetwork = null;
+    }
   }
 
   getBackend(): RigBackend {
@@ -718,12 +889,106 @@ export class RigController {
     };
   }
 
+  /** Whether the active backend provides built-in spectrum data */
+  get hasBuiltinSpectrum(): boolean {
+    return (
+      (this.backend === "icom-serial" && this.icomSerial !== null) ||
+      (this.backend === "icom-network" && this.icomNetwork !== null)
+    );
+  }
+
+  /** Whether the active backend provides built-in audio streaming */
+  get hasBuiltinAudio(): boolean {
+    return (
+      (this.backend === "icom-network" && this.icomNetwork !== null) ||
+      (this.backend === "icom-serial" && this.icomSerial !== null)
+    );
+  }
+
+  /** Subscribe to spectrum data (works with icom-serial and icom-network backends) */
+  onSpectrum(handler: (line: CivSpectrumLine) => void): (() => void) | null {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      return this.icomSerial.onSpectrum(handler);
+    }
+    if (this.backend === "icom-network" && this.icomNetwork) {
+      return this.icomNetwork.onSpectrum(handler);
+    }
+    return null;
+  }
+
+  /** Subscribe to audio data (works with icom-network and icom-serial backends) */
+  onAudio(
+    handler: (samples: Int16Array, sampleRate: number) => void,
+  ): (() => void) | null {
+    if (this.backend === "icom-network" && this.icomNetwork) {
+      return this.icomNetwork.onAudio(handler);
+    }
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      return this.icomSerial.onAudio(handler);
+    }
+    return null;
+  }
+
+  /** Start spectrum/scope data from the radio */
+  async startSpectrum(): Promise<boolean> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.startSpectrum();
+      return true;
+    }
+    if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.startSpectrum();
+      return true;
+    }
+    return false;
+  }
+
+  /** Stop spectrum/scope data */
+  async stopSpectrum(): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.stopSpectrum();
+    }
+    if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.stopSpectrum();
+    }
+  }
+
+  /** Start audio stream from the active backend */
+  async startAudio(): Promise<boolean> {
+    if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.startAudioStream();
+      return true;
+    }
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      return this.icomSerial.startAudio();
+    }
+    return false;
+  }
+
+  /** Stop audio stream from the active backend */
+  stopAudio(): void {
+    if (this.backend === "icom-network" && this.icomNetwork) {
+      this.icomNetwork.stopAudioStream();
+    }
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      this.icomSerial.stopAudio();
+    }
+  }
+
+  /** Get the ICOM model name (when using icom-serial or icom-network backend) */
+  getIcomModelName(): string | null {
+    return this.icomSerial?.modelName ?? this.icomNetwork?.modelName ?? null;
+  }
+
   // --------------------------------------------------------------------------
   // Set Commands
   // --------------------------------------------------------------------------
 
   async setFrequency(hz: number): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setFrequency(hz);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setFrequency(hz);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setFrequency(hz);
     } else if (this.backend === "flrig" && this.flrig) {
       await this.flrig.setFrequency(hz);
@@ -733,7 +998,11 @@ export class RigController {
   }
 
   async setMode(mode: string): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setMode(mode);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setMode(mode);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setMode(mode);
     } else if (this.backend === "flrig" && this.flrig) {
       await this.flrig.setMode(mode);
@@ -743,35 +1012,55 @@ export class RigController {
   }
 
   async setPTT(on: boolean): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setPTT(on);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setPTT(on);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setPTT(on);
     } else {
-      throw new Error("PTT control requires Hamlib backend");
+      throw new Error("PTT control requires Hamlib or ICOM backend");
     }
   }
 
   async setNb(enabled: boolean): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setFunc("NB", enabled);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setFunc("NB", enabled);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setFunc("NB", enabled);
     } else {
-      throw new Error("NB control requires Hamlib backend");
+      throw new Error("NB control requires Hamlib or ICOM backend");
     }
   }
 
   async setNr(enabled: boolean): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setFunc("NR", enabled);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setFunc("NR", enabled);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setFunc("NR", enabled);
     } else {
-      throw new Error("NR control requires Hamlib backend");
+      throw new Error("NR control requires Hamlib or ICOM backend");
     }
   }
 
-  async setAgc(enabled: boolean): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
-      // AGC is a level: 0 = off, 3 = slow (default when enabled)
-      await this.hamlib.setLevel("AGC", enabled ? 3 : 0);
+  /**
+   * Set AGC (Automatic Gain Control) mode.
+   * @param mode 0=OFF, 1=FAST, 2=MED, 3=SLOW
+   */
+  async setAgc(mode: number): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setAgc(mode);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setAgc(mode);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      // AGC is a Hamlib level: 0 = off, 1 = fast, 2 = medium, 3 = slow
+      await this.hamlib.setLevel("AGC", mode);
     } else {
-      throw new Error("AGC control requires Hamlib backend");
+      throw new Error("AGC control requires Hamlib or ICOM backend");
     }
   }
 
@@ -781,10 +1070,14 @@ export class RigController {
    * levels, or specific dB values for PREAMP/ATT.
    */
   async setGainLevel(level: string, value: number): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setLevel(level, value);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setLevel(level, value);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setLevel(level, value);
     } else {
-      throw new Error("Gain control requires Hamlib backend");
+      throw new Error("Gain control requires Hamlib or ICOM backend");
     }
   }
 
@@ -792,10 +1085,14 @@ export class RigController {
    * Toggle a named Hamlib function (e.g., "VOX", "COMP", "TUNER").
    */
   async setFunction(func: string, enabled: boolean): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setFunc(func, enabled);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setFunc(func, enabled);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setFunc(func, enabled);
     } else {
-      throw new Error("Function control requires Hamlib backend");
+      throw new Error("Function control requires Hamlib or ICOM backend");
     }
   }
 
@@ -804,11 +1101,15 @@ export class RigController {
    * with the current mode and the given passband in Hz.
    */
   async setPassband(passbandHz: number): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setPassband(passbandHz);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setPassband(passbandHz);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       const modeInfo = await this.hamlib.getMode();
       await this.hamlib.setMode(modeInfo.mode, passbandHz);
     } else {
-      throw new Error("Filter control requires Hamlib backend");
+      throw new Error("Filter control requires Hamlib or ICOM backend");
     }
   }
 
@@ -816,20 +1117,147 @@ export class RigController {
    * Set the antenna port. Maps the 1-indexed antenna number to Hamlib `Y <ant>`.
    */
   async setAntenna(antIndex: number): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setAntenna(String(antIndex));
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setAntenna(String(antIndex));
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setAntenna(antIndex);
     } else {
-      throw new Error("Antenna control requires Hamlib backend");
+      throw new Error("Antenna control requires Hamlib or ICOM backend");
     }
   }
 
   async setVFO(vfo: "A" | "B"): Promise<void> {
-    if (this.backend === "hamlib" && this.hamlib) {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setVFO(vfo);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setVFO(vfo);
+    } else if (this.backend === "hamlib" && this.hamlib) {
       await this.hamlib.setVFO(vfo);
     } else if (this.backend === "flrig" && this.flrig) {
       await this.flrig.setVFO(vfo);
     } else {
       throw new Error("VFO control requires an active backend");
+    }
+  }
+
+  /**
+   * Set RIT (Receiver Incremental Tuning).
+   * Enables/disables the function and optionally sets the offset in Hz.
+   */
+  async setRit(enabled: boolean, offsetHz?: number): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setRit(enabled, offsetHz);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setRit(enabled, offsetHz);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("RIT", enabled);
+      if (offsetHz !== undefined) {
+        await this.hamlib.setLevel("RIT", offsetHz);
+      }
+    } else {
+      throw new Error("RIT control requires Hamlib or ICOM backend");
+    }
+  }
+
+  /**
+   * Set XIT (Transmitter Incremental Tuning).
+   * Enables/disables the function and optionally sets the offset in Hz.
+   */
+  async setXit(enabled: boolean, offsetHz?: number): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setXit(enabled, offsetHz);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setXit(enabled, offsetHz);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("XIT", enabled);
+      if (offsetHz !== undefined) {
+        await this.hamlib.setLevel("XIT", offsetHz);
+      }
+    } else {
+      throw new Error("XIT control requires Hamlib or ICOM backend");
+    }
+  }
+
+  /**
+   * Set split operation (TX on VFO-B, RX on VFO-A).
+   * Uses the rigctld `S` command.
+   */
+  async setSplit(enabled: boolean): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setSplit(enabled);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setSplit(enabled);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.sendCommand(`S ${enabled ? 1 : 0} VFOB`);
+    } else {
+      throw new Error("Split control requires Hamlib or ICOM backend");
+    }
+  }
+
+  /** Set ANF (Auto Notch Filter) on/off. */
+  async setAnf(enabled: boolean): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setAnf(enabled);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setAnf(enabled);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("ANF", enabled);
+    } else {
+      throw new Error("ANF control requires Hamlib or ICOM backend");
+    }
+  }
+
+  /** Set QSK (full break-in CW) on/off. Uses Hamlib FBKIN function. */
+  async setQsk(enabled: boolean): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setQsk(enabled);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setQsk(enabled);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("FBKIN", enabled);
+    } else {
+      throw new Error("QSK control requires Hamlib or ICOM backend");
+    }
+  }
+
+  /** Set VOX (voice-operated transmit) on/off. */
+  async setVox(enabled: boolean): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setVox(enabled);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setVox(enabled);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setFunc("VOX", enabled);
+    } else {
+      throw new Error("VOX control requires Hamlib or ICOM backend");
+    }
+  }
+
+  /** Set IF shift in Hz. */
+  async setIfShift(hz: number): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setIfShift(hz);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setIfShift(hz);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setLevel("IF", hz);
+    } else {
+      throw new Error("IF shift control requires Hamlib or ICOM backend");
+    }
+  }
+
+  /** Set CW keyer speed in WPM. */
+  async setCwSpeed(wpm: number): Promise<void> {
+    if (this.backend === "icom-serial" && this.icomSerial) {
+      await this.icomSerial.setCwSpeed(wpm);
+    } else if (this.backend === "icom-network" && this.icomNetwork) {
+      await this.icomNetwork.setCwSpeed(wpm);
+    } else if (this.backend === "hamlib" && this.hamlib) {
+      await this.hamlib.setLevel("KEYSPD", wpm);
+    } else {
+      throw new Error("CW speed control requires Hamlib or ICOM backend");
     }
   }
 
@@ -910,6 +1338,150 @@ export class RigController {
         }
       }
 
+      // RIT — non-fatal
+      let rit: { enabled: boolean; offsetHz: number } | undefined;
+      try {
+        const ritEnabled = await this.hamlib.getFunc("RIT");
+        const ritOffset = await this.hamlib.getLevel("RIT");
+        rit = { enabled: ritEnabled, offsetHz: ritOffset };
+      } catch (err) {
+        if (!this.ritWarned) {
+          this.ritWarned = true;
+          console.warn(
+            `[rig] RIT not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // XIT — non-fatal
+      let xit: { enabled: boolean; offsetHz: number } | undefined;
+      try {
+        const xitEnabled = await this.hamlib.getFunc("XIT");
+        const xitOffset = await this.hamlib.getLevel("XIT");
+        xit = { enabled: xitEnabled, offsetHz: xitOffset };
+      } catch (err) {
+        if (!this.xitWarned) {
+          this.xitWarned = true;
+          console.warn(
+            `[rig] XIT not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // Split — non-fatal
+      let split: boolean | undefined;
+      try {
+        const splitResp = await this.hamlib.sendCommand("s");
+        const splitVal = parseInt(splitResp.trim(), 10);
+        split = splitVal !== 0;
+      } catch (err) {
+        if (!this.splitWarned) {
+          this.splitWarned = true;
+          console.warn(
+            `[rig] Split query not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // ANF — non-fatal
+      let anf: boolean | undefined;
+      try {
+        anf = await this.hamlib.getFunc("ANF");
+      } catch (err) {
+        if (!this.anfWarned) {
+          this.anfWarned = true;
+          console.warn(
+            `[rig] ANF not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // QSK (FBKIN) — non-fatal
+      let qsk: boolean | undefined;
+      try {
+        qsk = await this.hamlib.getFunc("FBKIN");
+      } catch (err) {
+        if (!this.qskWarned) {
+          this.qskWarned = true;
+          console.warn(
+            `[rig] QSK/FBKIN not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // VOX — non-fatal
+      let vox: boolean | undefined;
+      try {
+        vox = await this.hamlib.getFunc("VOX");
+      } catch (err) {
+        if (!this.voxWarned) {
+          this.voxWarned = true;
+          console.warn(
+            `[rig] VOX not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // CW speed — non-fatal
+      let cwSpeed: number | undefined;
+      try {
+        cwSpeed = await this.hamlib.getLevel("KEYSPD");
+      } catch (err) {
+        if (!this.cwSpeedWarned) {
+          this.cwSpeedWarned = true;
+          console.warn(
+            `[rig] CW speed not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // IF shift — non-fatal
+      let ifShift: number | undefined;
+      try {
+        ifShift = await this.hamlib.getLevel("IF");
+      } catch (err) {
+        if (!this.ifShiftWarned) {
+          this.ifShiftWarned = true;
+          console.warn(
+            `[rig] IF shift not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      // AGC mode — non-fatal
+      let agcMode: number | undefined;
+      try {
+        agcMode = await this.hamlib.getLevel("AGC");
+      } catch {
+        // AGC not available
+      }
+
+      // TX metering (power, SWR, ALC) — non-fatal
+      let txMeter: { powerW?: number; swr?: number; alc?: number } | undefined;
+      try {
+        const powerW = await this.hamlib.getLevel("RFPOWER_METER_WATTS");
+        txMeter = { powerW };
+      } catch {
+        // powerW not available, try individual meters
+      }
+      try {
+        const swr = await this.hamlib.getLevel("SWR");
+        txMeter = { ...txMeter, swr };
+      } catch {
+        // SWR not available
+      }
+      try {
+        const alc = await this.hamlib.getLevel("ALC");
+        txMeter = { ...txMeter, alc };
+      } catch (err) {
+        if (!this.txMeterWarned && !txMeter) {
+          this.txMeterWarned = true;
+          console.warn(
+            `[rig] TX metering not available via Hamlib: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
       status = {
         connected: true,
         frequency: freq,
@@ -917,6 +1489,16 @@ export class RigController {
         ptt,
         smeter,
         vfo,
+        rit,
+        xit,
+        split,
+        anf,
+        qsk,
+        vox,
+        cwSpeed,
+        ifShift,
+        txMeter,
+        agcMode,
       };
     } else if (this.backend === "flrig" && this.flrig) {
       const freq = await this.flrig.getFrequency();
@@ -976,6 +1558,8 @@ export class RigController {
       this.stopPolling();
       this.backend = "none";
 
+      this.disposeIcomSerial();
+      this.disposeIcomNetwork();
       if (this.hamlib) {
         this.hamlib.disconnect();
         this.hamlib = null;
@@ -1025,7 +1609,19 @@ export class RigController {
       a.power === b.power &&
       a.ptt === b.ptt &&
       a.vfo === b.vfo &&
-      a.split === b.split
+      a.split === b.split &&
+      a.rit?.enabled === b.rit?.enabled &&
+      a.rit?.offsetHz === b.rit?.offsetHz &&
+      a.xit?.enabled === b.xit?.enabled &&
+      a.xit?.offsetHz === b.xit?.offsetHz &&
+      a.anf === b.anf &&
+      a.qsk === b.qsk &&
+      a.vox === b.vox &&
+      a.cwSpeed === b.cwSpeed &&
+      a.ifShift === b.ifShift &&
+      a.txMeter?.powerW === b.txMeter?.powerW &&
+      a.txMeter?.swr === b.txMeter?.swr &&
+      a.txMeter?.alc === b.txMeter?.alc
     );
   }
 

@@ -29,6 +29,8 @@ import {
   rfHzToAudioHz,
   audioHzToRfHz,
 } from "@/components/sdr/waterfallPalette";
+import type { EqBand, EqBandCategory } from "@/lib/audio/eqTypes";
+import { filterTypeUsesGain } from "@/lib/audio/eqTypes";
 
 /**
  * A ref whose `.current` is guaranteed to be populated (non-null).
@@ -44,6 +46,7 @@ export type HitTarget =
   | { kind: "filterLow" }
   | { kind: "filterHigh" }
   | { kind: "notch"; id: string; freqHz: number; q: number }
+  | { kind: "eqBand"; id: string; band: EqBand }
   | { kind: "none" };
 
 export type DragState =
@@ -64,6 +67,28 @@ export interface SpectrumInteractionCallbacks {
   onUpdateNotch?: (id: string, freqHz: number, q: number) => void;
   onRemoveNotch?: (id: string) => void;
   onWheelTune?: (direction: number) => void;
+  // EQ band callbacks
+  onAddEqBand?: (
+    freqHz: number,
+    gainDb: number,
+    category: EqBandCategory,
+  ) => void;
+  onUpdateEqBand?: (
+    id: string,
+    freqHz: number,
+    q: number,
+    gainDb: number,
+  ) => void;
+  onRemoveEqBand?: (id: string) => void;
+  onEqBandHover?: (id: string | null) => void;
+  onEqBandQChange?: (id: string, q: number) => void;
+  onEqContextMenu?: (e: {
+    screenX: number;
+    screenY: number;
+    audioHz: number;
+    band?: EqBand;
+  }) => void;
+  onEqBandSelect?: (band: EqBand, screenX: number, screenY: number) => void;
 }
 
 export interface SpectrumInteractionOptions {
@@ -94,6 +119,13 @@ export interface SpectrumInteractionOptions {
    * PassbandDetail sets this to true; SpectrumScope leaves it false.
    */
   skipDisabledNotches?: boolean;
+  /** EQ bands for hit detection and 2D drag. */
+  eqBandsRef?: LiveRef<EqBand[]>;
+  /**
+   * Gain-to-pixel mapping range in dB. Default: 24 (maps -24 to +24 dB to canvas height).
+   * The center of the canvas is 0 dB.
+   */
+  gainDbRange?: number;
 }
 
 // -- Hook implementation -----------------------------------------------------
@@ -108,6 +140,7 @@ export function useSpectrumInteraction(
     callbacksRef,
     hitThreshold = { minPx: 3, maxPx: 6, divisor: 4 },
     skipDisabledNotches = false,
+    eqBandsRef,
   } = opts;
 
   // Stable refs for config values so the setup closure never goes stale
@@ -115,6 +148,8 @@ export function useSpectrumInteraction(
   hitThresholdRef.current = hitThreshold;
   const skipDisabledRef = useRef(skipDisabledNotches);
   skipDisabledRef.current = skipDisabledNotches;
+  const gainDbRangeRef = useRef(opts.gainDbRange ?? 24);
+  gainDbRangeRef.current = opts.gainDbRange ?? 24;
 
   const dragRef = useRef<DragState>({ active: false });
   const cursorRef = useRef<string>("crosshair");
@@ -142,14 +177,16 @@ export function useSpectrumInteraction(
       return viewStart + Math.max(0, Math.min(1, frac)) * v.spanHz;
     };
 
-    const hitDetect = (clientX: number): HitTarget => {
+    const hitDetect = (clientX: number, clientY: number): HitTarget => {
       const v = viewRef.current;
       const t = tuningRef.current;
       if (!v || !t) return { kind: "none" };
 
       const rect = canvas.getBoundingClientRect();
       const cssX = clientX - rect.left;
+      const cssY = clientY - rect.top;
       const cssW = rect.width;
+      const cssH = rect.height;
       if (cssW <= 0) return { kind: "none" };
 
       const viewStart = v.centerHz - v.spanHz / 2;
@@ -167,7 +204,28 @@ export function useSpectrumInteraction(
         Math.min(th.maxPx, pbWidthPx / th.divisor),
       );
 
-      // Check notch markers first (highest priority)
+      // Check EQ band dots first (highest priority — 2D circular hit test)
+      const eqBands = eqBandsRef?.current ?? [];
+      const gainRange = gainDbRangeRef.current;
+
+      for (const band of eqBands) {
+        if (skipDisabledRef.current && !band.enabled) continue;
+        const bandRfHz = audioHzToRfHz(band.freqHz, t.freqHz, t.mode);
+        const bandPx = (bandRfHz - viewStart) / hzPerPx;
+
+        // Y position: gain-using types map gainDb to Y, others at vertical center
+        const bandY = filterTypeUsesGain(band.filterType)
+          ? cssH / 2 - (band.gainDb / gainRange) * (cssH / 2)
+          : cssH / 2;
+
+        const dist = Math.sqrt((cssX - bandPx) ** 2 + (cssY - bandY) ** 2);
+        if (dist <= 8) {
+          // 8px hit radius for dots
+          return { kind: "eqBand", id: band.id, band };
+        }
+      }
+
+      // Check notch markers (high priority)
       const notches = notchRef.current;
       for (const n of notches) {
         if (skipDisabledRef.current && !n.enabled) continue;
@@ -189,11 +247,13 @@ export function useSpectrumInteraction(
 
     const handlePointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return; // only primary button
-      const hit = hitDetect(e.clientX);
+      const hit = hitDetect(e.clientX, e.clientY);
       if (
         hit.kind !== "none" &&
         (callbacksRef.current.onFilterChange ||
-          callbacksRef.current.onUpdateNotch)
+          callbacksRef.current.onUpdateNotch ||
+          callbacksRef.current.onUpdateEqBand ||
+          callbacksRef.current.onEqBandSelect)
       ) {
         canvas.setPointerCapture(e.pointerId);
         dragRef.current = {
@@ -236,21 +296,50 @@ export function useSpectrumInteraction(
             clamped,
             drag.target.q,
           );
+        } else if (drag.target.kind === "eqBand") {
+          const clampedFreq = Math.max(
+            20,
+            Math.min(20000, Math.round(audioHz)),
+          );
+
+          // Map Y to gain (only for types that use gain)
+          let gainDb = drag.target.band.gainDb;
+          if (filterTypeUsesGain(drag.target.band.filterType)) {
+            const rect = canvas.getBoundingClientRect();
+            const cssY = e.clientY - rect.top;
+            const cssH = rect.height;
+            const gainRange = gainDbRangeRef.current;
+            gainDb = ((cssH / 2 - cssY) / (cssH / 2)) * gainRange;
+            gainDb = Math.max(-24, Math.min(24, Math.round(gainDb * 10) / 10));
+          }
+
+          callbacksRef.current.onUpdateEqBand?.(
+            drag.target.id,
+            clampedFreq,
+            drag.target.band.q,
+            gainDb,
+          );
         }
         return;
       }
 
       // Hover cursor feedback
       if (!drag.active || drag.target.kind === "none") {
-        const hit = hitDetect(e.clientX);
-        if (hit.kind === "filterLow" || hit.kind === "filterHigh") {
-          setCursor("ew-resize");
-        } else if (hit.kind === "notch") {
+        const hit = hitDetect(e.clientX, e.clientY);
+        if (hit.kind === "eqBand") {
           setCursor("grab");
+          callbacksRef.current.onEqBandHover?.(hit.id);
         } else {
-          setCursor(
-            callbacksRef.current.onPickFrequencyHz ? "crosshair" : "default",
-          );
+          callbacksRef.current.onEqBandHover?.(null);
+          if (hit.kind === "filterLow" || hit.kind === "filterHigh") {
+            setCursor("ew-resize");
+          } else if (hit.kind === "notch") {
+            setCursor("grab");
+          } else {
+            setCursor(
+              callbacksRef.current.onPickFrequencyHz ? "crosshair" : "default",
+            );
+          }
         }
       }
     };
@@ -275,6 +364,19 @@ export function useSpectrumInteraction(
         }
       }
 
+      if (drag.target.kind === "eqBand") {
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        if (Math.sqrt(dx * dx + dy * dy) < 4) {
+          // Click (not drag) on a band dot -> open panel
+          callbacksRef.current.onEqBandSelect?.(
+            drag.target.band,
+            e.clientX,
+            e.clientY,
+          );
+        }
+      }
+
       dragRef.current = { active: false };
     };
 
@@ -285,22 +387,71 @@ export function useSpectrumInteraction(
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
+      e.stopPropagation(); // prevent parent React handler from double-firing
       const t = tuningRef.current;
       const v = viewRef.current;
       if (!t || !v) return;
 
-      const hit = hitDetect(e.clientX);
-      if (hit.kind === "notch") {
+      const hit = hitDetect(e.clientX, e.clientY);
+      const rfHz = pxToRfHz(e.clientX);
+      const audioHz = rfHzToAudioHz(rfHz, t.freqHz, t.mode);
+      const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
+
+      if (hit.kind === "eqBand") {
+        callbacksRef.current.onEqBandSelect?.(hit.band, e.clientX, e.clientY);
+      } else if (hit.kind === "notch") {
         callbacksRef.current.onRemoveNotch?.(hit.id);
       } else {
-        const rfHz = pxToRfHz(e.clientX);
-        const audioHz = rfHzToAudioHz(rfHz, t.freqHz, t.mode);
-        const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
-        callbacksRef.current.onAddNotch?.(clamped, 10);
+        callbacksRef.current.onEqContextMenu?.({
+          screenX: e.clientX,
+          screenY: e.clientY,
+          audioHz: clamped,
+        });
       }
     };
 
+    const handleDblClick = (e: MouseEvent) => {
+      const t = tuningRef.current;
+      const v = viewRef.current;
+      if (!t || !v) return;
+
+      const hit = hitDetect(e.clientX, e.clientY);
+      if (hit.kind !== "none") return; // don't add on existing targets
+
+      const rfHz = pxToRfHz(e.clientX);
+      const audioHz = rfHzToAudioHz(rfHz, t.freqHz, t.mode);
+      const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
+
+      // Map Y to gain
+      const rect = canvas.getBoundingClientRect();
+      const cssY = e.clientY - rect.top;
+      const cssH = rect.height;
+      const gainRange = gainDbRangeRef.current;
+      let gainDb = ((cssH / 2 - cssY) / (cssH / 2)) * gainRange;
+      gainDb = Math.max(-24, Math.min(24, Math.round(gainDb * 10) / 10));
+
+      callbacksRef.current.onAddEqBand?.(clamped, gainDb, "eq");
+    };
+
     const handleWheel = (e: WheelEvent) => {
+      // Check if hovering over an EQ band dot
+      const hit = hitDetect(e.clientX, e.clientY);
+      if (hit.kind === "eqBand" && callbacksRef.current.onEqBandQChange) {
+        e.preventDefault();
+        const direction = e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0;
+        if (direction !== 0) {
+          // Logarithmic Q adjustment: multiply by 1.15 per tick
+          const newQ = hit.band.q * (direction > 0 ? 1.15 : 1 / 1.15);
+          const clamped = Math.max(
+            0.1,
+            Math.min(50, Math.round(newQ * 100) / 100),
+          );
+          callbacksRef.current.onEqBandQChange(hit.id, clamped);
+        }
+        return;
+      }
+
+      // Existing wheel-tune behavior
       if (!callbacksRef.current.onWheelTune) return;
       e.preventDefault();
       const direction = e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0;
@@ -315,6 +466,7 @@ export function useSpectrumInteraction(
     canvas.addEventListener("pointercancel", handlePointerCancel);
     canvas.addEventListener("contextmenu", handleContextMenu);
     canvas.addEventListener("wheel", handleWheel, { passive: false });
+    canvas.addEventListener("dblclick", handleDblClick);
 
     // Set initial cursor
     setCursor(callbacksRef.current.onPickFrequencyHz ? "crosshair" : "default");
@@ -326,6 +478,7 @@ export function useSpectrumInteraction(
       canvas.removeEventListener("pointercancel", handlePointerCancel);
       canvas.removeEventListener("contextmenu", handleContextMenu);
       canvas.removeEventListener("wheel", handleWheel);
+      canvas.removeEventListener("dblclick", handleDblClick);
     };
   };
 

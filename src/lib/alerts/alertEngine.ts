@@ -14,6 +14,7 @@ import {
   applyContestThrottle,
   type ThrottleContext,
 } from "@/lib/alerts/contestAlertLogic";
+import { playAlertTone } from "@/lib/audio/alertSynthesizer";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -308,9 +309,25 @@ export function dispatchAlert(match: AlertMatch): void {
 /**
  * Play a short alert tone using the Web Audio API.
  * Volume: 0-100 (maps to 0.0-1.0 gain).
+ *
+ * When `useEnhancedAlertSounds` is enabled in settings (default: true),
+ * uses the synthesizer for a richer INFO-priority chime. Falls back to
+ * the original 880Hz sine blip otherwise.
  */
 function playAlertSound(volume: number): void {
   try {
+    // Check if enhanced synthesized sounds are enabled (default: true)
+    const settings = useSettingsStore.getState();
+    const useEnhanced =
+      settings.notifications?.useEnhancedAlertSounds !== false;
+
+    if (useEnhanced) {
+      // Spot alerts use INFO priority (non-solar, no specific AlertType)
+      playAlertTone("INFO", undefined, volume);
+      return;
+    }
+
+    // Legacy fallback: single 880Hz sine blip
     const ctx = new AudioContext();
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();

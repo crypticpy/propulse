@@ -36,6 +36,7 @@ import type { AntennaType } from "@/lib/data/antennas";
 import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
 import type { WaterfallPaletteName } from "@/components/sdr/waterfallPalette";
 import type { SdrSkinName } from "@/components/sdr/skins/types";
+import type { EqBand } from "@/lib/audio/eqTypes";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -135,13 +136,8 @@ export interface SettingsState {
   autoSwitchContestProfile?: boolean;
   /** Contest alert throttle multiplier (default 4 = alert once per 20min instead of 5min) */
   contestAlertThrottleMultiplier?: number;
-  /** SDR notch filters (persisted, max 8) */
-  sdrNotchFilters: Array<{
-    id: string;
-    freqHz: number;
-    q: number;
-    enabled: boolean;
-  }>;
+  /** SDR parametric EQ bands (persisted, max 16) — replaces old sdrNotchFilters */
+  sdrEqBands: EqBand[];
   /** Client-side noise gate enabled */
   sdrNoiseGateEnabled: boolean;
   /** Client-side noise gate threshold in dBFS (range -80 to -20) */
@@ -162,6 +158,43 @@ export interface SettingsState {
   sdrFt8AudioDeviceId: string | null;
   /** FT8/FT4 mode selection */
   sdrFt8Mode: "FT8" | "FT4";
+
+  // ─── Radio Setup / CAT Connection (persisted) ───────────────────────────────
+
+  /** Whether the radio setup wizard has been completed */
+  radioSetupCompleted: boolean;
+  /** CAT backend choice */
+  catBackend:
+    | "auto"
+    | "hamlib"
+    | "flrig"
+    | "icom-serial"
+    | "icom-network"
+    | "disabled";
+  /** Hamlib/rigctld host */
+  catHamlibHost: string;
+  /** Hamlib/rigctld port */
+  catHamlibPort: number;
+  /** CI-V spectrum port (WFView TCP pass-through) */
+  catCivPort: number;
+  /** Flrig host */
+  catFlrigHost: string;
+  /** Flrig port */
+  catFlrigPort: number;
+  /** ICOM Direct: serial port path */
+  catIcomSerialPort: string;
+  /** ICOM Direct: baud rate */
+  catIcomBaudRate: number;
+  /** ICOM radio CI-V address (e.g. 0x94 for IC-7300) */
+  catIcomRadioAddress: number;
+  /** ICOM Network: RS-BA1 host */
+  catIcomNetworkHost: string;
+  /** ICOM Network: RS-BA1 username */
+  catIcomNetworkUsername: string;
+  /** ICOM Network: RS-BA1 password (stored locally only) */
+  catIcomNetworkPassword: string;
+  /** Audio device identifier — '' = auto-resolve, or explicit ffmpeg device ID */
+  audioDevice: string;
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -257,7 +290,7 @@ const defaultSettings: SettingsState = {
   contestAlertProfileId: "normal",
   autoSwitchContestProfile: true,
   contestAlertThrottleMultiplier: 4,
-  sdrNotchFilters: [],
+  sdrEqBands: [],
   sdrNoiseGateEnabled: false,
   sdrNoiseGateThreshold: -40,
   sdrNrEnabled: false,
@@ -268,6 +301,22 @@ const defaultSettings: SettingsState = {
   sdrFt8AudioSource: "getUserMedia" as const,
   sdrFt8AudioDeviceId: null,
   sdrFt8Mode: "FT8" as const,
+
+  // Radio Setup / CAT Connection
+  radioSetupCompleted: false,
+  catBackend: "auto" as const,
+  catHamlibHost: "localhost",
+  catHamlibPort: 4533,
+  catCivPort: 4580,
+  catFlrigHost: "localhost",
+  catFlrigPort: 12345,
+  catIcomSerialPort: "",
+  catIcomBaudRate: 19200,
+  catIcomRadioAddress: 0x94,
+  catIcomNetworkHost: "",
+  catIcomNetworkUsername: "",
+  catIcomNetworkPassword: "",
+  audioDevice: "",
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -507,7 +556,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 20,
+      version: 25,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -669,6 +718,84 @@ export const useSettingsStore = create<SettingsStore>()(
             state.sdrFt8AudioDeviceId = null;
           if (state.sdrFt8Mode === undefined) state.sdrFt8Mode = "FT8";
         }
+        if (version < 21) {
+          // Migrate sdrNotchFilters to sdrEqBands
+          const oldNotches = (state as Record<string, unknown>)
+            .sdrNotchFilters as
+            | Array<{ id: string; freqHz: number; q: number; enabled: boolean }>
+            | undefined;
+          if (oldNotches && oldNotches.length > 0) {
+            (state as Record<string, unknown>).sdrEqBands = oldNotches.map(
+              (n) => ({
+                id: n.id,
+                freqHz: n.freqHz,
+                q: n.q,
+                gainDb: 0,
+                filterType: "notch" as const,
+                category: "notch" as const,
+                enabled: n.enabled,
+              }),
+            );
+          } else {
+            (state as Record<string, unknown>).sdrEqBands = [];
+          }
+          delete (state as Record<string, unknown>).sdrNotchFilters;
+        }
+        if (version < 22) {
+          // Add slope field to existing EQ bands
+          if (Array.isArray(state.sdrEqBands)) {
+            state.sdrEqBands = (
+              state.sdrEqBands as Array<Record<string, unknown>>
+            ).map((b) => ({
+              ...b,
+              slope: b.slope ?? 12,
+            }));
+          }
+        }
+        if (version < 23) {
+          // Add enhanced alert sound + visual glow accessibility settings
+          const notifs = state.notifications as
+            | Record<string, unknown>
+            | undefined;
+          if (notifs) {
+            if (notifs.useEnhancedAlertSounds === undefined)
+              notifs.useEnhancedAlertSounds = true;
+            if (notifs.visualAlertGlow === undefined)
+              notifs.visualAlertGlow = false;
+          }
+        }
+        if (version < 24) {
+          // Radio setup / CAT connection config (persisted)
+          if (state.radioSetupCompleted === undefined)
+            state.radioSetupCompleted = false;
+          if (state.catBackend === undefined) state.catBackend = "auto";
+          if (state.catHamlibHost === undefined)
+            state.catHamlibHost = "localhost";
+          if (state.catHamlibPort === undefined) state.catHamlibPort = 4533;
+          if (state.catCivPort === undefined) state.catCivPort = 4580;
+          if (state.catFlrigHost === undefined)
+            state.catFlrigHost = "localhost";
+          if (state.catFlrigPort === undefined) state.catFlrigPort = 12345;
+          if (state.catIcomSerialPort === undefined)
+            state.catIcomSerialPort = "";
+          if (state.catIcomBaudRate === undefined)
+            state.catIcomBaudRate = 19200;
+          if (state.catIcomRadioAddress === undefined)
+            state.catIcomRadioAddress = 0x94;
+          if (state.catIcomNetworkHost === undefined)
+            state.catIcomNetworkHost = "";
+          if (state.catIcomNetworkUsername === undefined)
+            state.catIcomNetworkUsername = "";
+          if (state.catIcomNetworkPassword === undefined)
+            state.catIcomNetworkPassword = "";
+          // Migrate existing scattered localStorage value
+          const savedCivPort = localStorage.getItem("propulse-civ-port");
+          if (savedCivPort) {
+            state.catCivPort = parseInt(savedCivPort, 10) || 4580;
+          }
+        }
+        // v25: audio device field
+        if (state.audioDevice === undefined) state.audioDevice = "";
         return state as unknown as SettingsState & SettingsStore;
       },
     },

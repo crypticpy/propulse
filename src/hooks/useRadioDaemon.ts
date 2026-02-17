@@ -394,7 +394,12 @@ export function useRadioDaemon(
       mountedRef.current = false;
       clearTimers();
       if (wsRef.current) {
-        wsRef.current.close(1000, "Component unmount");
+        // Only close if the WebSocket has finished connecting (avoids
+        // "WebSocket is closed before the connection is established"
+        // warnings from React StrictMode double-mount in dev).
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close(1000, "Component unmount");
+        }
         wsRef.current = null;
       }
     };

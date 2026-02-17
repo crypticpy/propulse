@@ -48,6 +48,9 @@ import { HelpTooltip } from "@/components/help/HelpTooltip";
 import { DataSourceError } from "@/components/ui/DataSourceError";
 import { useDataSourceStatus } from "@/stores/dataSourceStatusStore";
 import { classifyError } from "@/lib/errors/classifyError";
+import { useSwpcAlerts } from "@/hooks/useSwpcAlerts";
+import type { SwpcAlertParsed } from "@/types/swpcAlerts";
+import { SwpcAlertDetailModal } from "@/components/alerts/SwpcAlertDetailModal";
 
 // --- SWPC live ops add-ons (images + alerts + scales) ---
 
@@ -73,12 +76,6 @@ type NoaaScalesResponse = Record<
     };
   }
 >;
-
-type SwpcAlertItem = {
-  product_id: string;
-  issue_datetime: string; // e.g. "2026-02-02 11:43:12.050" (UTC)
-  message: string;
-};
 
 type XrayFlareLatestItem = {
   time_tag: string;
@@ -113,7 +110,6 @@ type SolarWindPlasma5mRow = {
 
 const SWPC_ENDPOINTS = {
   noaaScales: "https://services.swpc.noaa.gov/products/noaa-scales.json",
-  alerts: "https://services.swpc.noaa.gov/products/alerts.json",
   xrayLatest:
     "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json",
   swMag5m:
@@ -160,64 +156,6 @@ function parseSwpcMatrixLatestRow(
     obj[String(h)] = last[i];
   });
   return obj;
-}
-
-function parseIssueDatetimeUtc(issueDatetime: string): Date {
-  // SWPC alerts.json uses "YYYY-MM-DD HH:MM:SS.sss" and is issued in UTC.
-  const iso = `${issueDatetime.replace(" ", "T")}Z`;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? new Date(0) : d;
-}
-
-function isHamRelevantAlert(a: SwpcAlertItem): boolean {
-  const m = a.message;
-  return (
-    /NOAA Scale:\s*[RSG]\d/i.test(m) ||
-    /HF\b/i.test(m) ||
-    /radio\b/i.test(m) ||
-    /Geomagnetic Storm/i.test(m) ||
-    /Solar Radiation Storm/i.test(m)
-  );
-}
-
-function alertSummaryLine(message: string): string {
-  const lines = message
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const firstKeyLine = lines.find((l) =>
-    /^(SUMMARY:|ALERT:|WATCH:|WARNING:)/i.test(l),
-  );
-  return firstKeyLine ?? lines[0] ?? "";
-}
-
-function parseNoaaScaleCode(message: string): string | null {
-  // Example: "NOAA Scale: R2 - Moderate"
-  const m = message.match(/NOAA Scale:\s*([RSG]\d)\s*-/i);
-  return m?.[1]?.toUpperCase() ?? null;
-}
-
-function severityFromNoaaScaleCode(
-  code: string | null,
-): "minor" | "moderate" | "major" | "extreme" {
-  if (!code) {
-    return "minor";
-  }
-  const n = Number(code.slice(1));
-  if (!Number.isFinite(n)) {
-    return "minor";
-  }
-  if (n <= 1) {
-    return "minor";
-  }
-  if (n === 2) {
-    return "moderate";
-  }
-  if (n === 3) {
-    return "major";
-  }
-  return "extreme";
 }
 
 async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
@@ -274,9 +212,13 @@ export function SolarPulse() {
   const { data: fluxForecastData, isLoading: forecastLoading } =
     useFluxForecast();
 
-  // --- Live SWPC additions (scales, alerts, x-ray, 5-min solar wind) ---
+  // --- Shared SWPC alerts via React Query hook ---
+  const { data: hamAlerts } = useSwpcAlerts();
+  const [selectedSwpcAlert, setSelectedSwpcAlert] =
+    useState<SwpcAlertParsed | null>(null);
+
+  // --- Live SWPC additions (scales, x-ray, 5-min solar wind) ---
   const [noaaScales, setNoaaScales] = useState<NoaaScalesResponse | null>(null);
-  const [alerts, setAlerts] = useState<SwpcAlertItem[] | null>(null);
   const [xrayLatest, setXrayLatest] = useState<XrayFlareLatestItem | null>(
     null,
   );
@@ -309,37 +251,6 @@ export function SolarPulse() {
     };
     load();
     const id = window.setInterval(load, 5 * 60_000);
-    return () => {
-      ac.abort();
-      window.clearInterval(id);
-    };
-  }, []);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    const load = async () => {
-      try {
-        const data = await fetchJson<SwpcAlertItem[]>(
-          SWPC_ENDPOINTS.alerts,
-          ac.signal,
-        );
-        // newest first
-        const sorted = data
-          .slice()
-          .sort(
-            (a, b) =>
-              parseIssueDatetimeUtc(b.issue_datetime).getTime() -
-              parseIssueDatetimeUtc(a.issue_datetime).getTime(),
-          );
-        setAlerts(sorted);
-        useDataSourceStatus.getState().reportSuccess("swpc-alerts");
-      } catch (err) {
-        const c1 = classifyError(err, "swpc-alerts");
-        useDataSourceStatus.getState().reportError("swpc-alerts", c1);
-      }
-    };
-    load();
-    const id = window.setInterval(load, 60_000);
     return () => {
       ac.abort();
       window.clearInterval(id);
@@ -626,13 +537,10 @@ export function SolarPulse() {
   }
 
   // --- Derived: ops banner + cards ---
-  const latestHamAlert = (alerts ?? []).find(isHamRelevantAlert) ?? null;
-  const latestHamAlertScale = latestHamAlert
-    ? parseNoaaScaleCode(latestHamAlert.message)
-    : null;
-  const latestHamAlertSeverity = severityFromNoaaScaleCode(latestHamAlertScale);
+  const latestHamAlert = hamAlerts[0] ?? null;
+  const latestHamAlertSeverity = latestHamAlert?.severity ?? "minor";
   const latestHamAlertText = latestHamAlert
-    ? `${alertSummaryLine(latestHamAlert.message)}${latestHamAlertScale ? ` (${latestHamAlertScale})` : ""}`
+    ? `${latestHamAlert.summaryLine}${latestHamAlert.noaaScaleCode ? ` (${latestHamAlert.noaaScaleCode})` : ""}`
     : "";
 
   const scalesNow = noaaScales?.["0"] ?? null;
@@ -664,7 +572,7 @@ export function SolarPulse() {
   const auroraUrl = `${SWPC_IMAGES.auroraNorth}${imgQs}`;
   const synopticUrl = `${SWPC_IMAGES.synopticMap}${imgQs}`;
 
-  const recentHamAlerts = (alerts ?? []).filter(isHamRelevantAlert).slice(0, 5);
+  const recentHamAlerts = hamAlerts.slice(0, 5);
 
   // --- Proton flux derived ---
   const latestProton = protonFluxData?.[protonFluxData.length - 1] ?? null;
@@ -1465,9 +1373,6 @@ export function SolarPulse() {
           {recentHamAlerts.length ? (
             <div className="space-y-2">
               {recentHamAlerts.map((a) => {
-                const code = parseNoaaScaleCode(a.message);
-                const severity = severityFromNoaaScaleCode(code);
-                const line = alertSummaryLine(a.message);
                 const severityColors = {
                   minor: {
                     border: "border-signal-green/30",
@@ -1494,11 +1399,17 @@ export function SolarPulse() {
                     dot: "bg-alert-red",
                   },
                 };
-                const colors = severityColors[severity];
+                const colors = severityColors[a.severity];
                 return (
                   <div
                     key={`${a.product_id}-${a.issue_datetime}`}
-                    className={`rounded-xl ${colors.border} ${colors.bg} border p-3 transition-colors hover:bg-white/5`}
+                    className={`rounded-xl ${colors.border} ${colors.bg} border p-3 cursor-pointer hover:border-white/20 transition-colors`}
+                    onClick={() => setSelectedSwpcAlert(a)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && setSelectedSwpcAlert(a)
+                    }
                   >
                     <div className="flex items-start gap-3">
                       <div
@@ -1507,12 +1418,12 @@ export function SolarPulse() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3">
                           <p className="text-sm font-medium text-gray-200 leading-snug">
-                            {line}
-                            {code && (
+                            {a.summaryLine}
+                            {a.noaaScaleCode && (
                               <span
                                 className={`ml-2 text-xs font-mono ${colors.text}`}
                               >
-                                {code}
+                                {a.noaaScaleCode}
                               </span>
                             )}
                           </p>
@@ -1521,9 +1432,7 @@ export function SolarPulse() {
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(
-                            a.issue_datetime.replace(" ", "T") + "Z",
-                          ).toLocaleDateString("en-US", {
+                          {a.parsedDate.toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                             year: "numeric",
@@ -1883,6 +1792,13 @@ export function SolarPulse() {
         caption="Shows active regions (sunspots) and coronal holes on the sun. Coronal holes can produce high-speed solar wind streams affecting propagation."
         sourceUrl="https://www.swpc.noaa.gov/products/solar-synoptic-map"
         sourceLabel="View at NOAA"
+      />
+
+      {/* SWPC Alert Detail Modal */}
+      <SwpcAlertDetailModal
+        isOpen={!!selectedSwpcAlert}
+        onClose={() => setSelectedSwpcAlert(null)}
+        alert={selectedSwpcAlert}
       />
 
       {/* Help Modals for solar sections */}

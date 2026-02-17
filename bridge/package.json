@@ -12,6 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "serialport": "^13.0.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

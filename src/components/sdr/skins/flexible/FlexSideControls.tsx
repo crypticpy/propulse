@@ -5,10 +5,11 @@
  * DSP, filter, mode, RX gain, and audio controls have migrated to the
  * slice flag's expandable panels (SlicePanelTabs). This sidebar now
  * handles band/frequency tuning, TX controls, streams, FT8 decoder,
- * and notch filters.
+ * and audio recording. EQ interaction happens on the spectrum canvas
+ * via the right-click context menu.
  */
 
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useMemo, type KeyboardEvent } from "react";
 import type { RadioState, DeviceInfo } from "@/lib/radio/protocol";
 import { ALL_BANDS } from "@/types/user";
 import type { BandId } from "@/types/user";
@@ -16,15 +17,10 @@ import { BAND_CENTER_FREQUENCIES } from "@/lib/data/feedlines";
 import { BAND_COLORS } from "@/lib/utils/spotColors";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import { SidebarAccordion } from "./SidebarAccordion";
+import { MemoryPanel } from "@/components/sdr/MemoryPanel";
+import { useMemoryStore } from "@/stores/memoryStore";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
-
-export interface NotchFilter {
-  id: string;
-  freqHz: number;
-  q: number;
-  enabled: boolean;
-}
 
 export interface FlexSideControlsProps {
   effectiveState: RadioState | null;
@@ -38,13 +34,6 @@ export interface FlexSideControlsProps {
 
   freqInput: string;
   freqUnit: "MHz" | "kHz" | "Hz";
-
-  // Notch filters
-  notchFilters: NotchFilter[];
-  onAddNotch: (freqHz: number, q: number) => void;
-  onRemoveNotch: (id: string) => void;
-  onUpdateNotch: (id: string, freqHz: number, q: number) => void;
-  onToggleNotch: (id: string, enabled: boolean) => void;
 
   onTune: () => void;
   onFreqInputChange: (value: string) => void;
@@ -83,6 +72,16 @@ export interface FlexSideControlsProps {
   ft8Error: string | null;
   onFt8Toggle: () => void;
   onFt8ModeChange: (mode: "FT8" | "FT4") => void;
+
+  // Audio recording
+  isRecording: boolean;
+  recordingDurationSec: number;
+  recordingEstimatedBytes: number;
+  hasRecording: boolean;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onExportRecording: () => void;
+  onDiscardRecording: () => void;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -98,8 +97,6 @@ const STEP_OPTIONS = [
   { label: "25K", value: 25000 },
 ] as const;
 
-const MAX_NOTCH_FILTERS = 8;
-
 const TX_STAGE_NAMES = ["RFPOWER", "MICGAIN", "COMP", "VOXGAIN"] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -112,112 +109,16 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-function NotchFilterRow({
-  notch,
-  onUpdate,
-  onToggle,
-  onRemove,
-}: {
-  notch: NotchFilter;
-  onUpdate: (freqHz: number, q: number) => void;
-  onToggle: (enabled: boolean) => void;
-  onRemove: () => void;
-}) {
-  const [localFreq, setLocalFreq] = useState(String(notch.freqHz));
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
-  const commitFreq = () => {
-    const parsed = parseInt(localFreq, 10);
-    if (Number.isFinite(parsed) && parsed >= 20 && parsed <= 20000) {
-      onUpdate(parsed, notch.q);
-    } else {
-      setLocalFreq(String(notch.freqHz));
-    }
-  };
-
-  const handleFreqKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitFreq();
-    }
-  };
-
-  return (
-    <div
-      className={`rounded border p-1.5 space-y-1 transition-opacity ${
-        notch.enabled
-          ? "border-plasma-orange/25 bg-plasma-orange/5"
-          : "border-white/5 bg-white/[0.02] opacity-50"
-      }`}
-    >
-      {/* Row 1: Freq label + toggle + remove */}
-      <div className="flex items-center justify-between gap-1">
-        <span className="text-[10px] font-mono text-gray-300 truncate">
-          {notch.freqHz} Hz
-        </span>
-        <span className="text-[10px] text-gray-500">Q: {notch.q}</span>
-        <div className="flex items-center gap-1 ml-auto shrink-0">
-          <button
-            onClick={() => onToggle(!notch.enabled)}
-            className={`px-1 py-0.5 text-[9px] font-semibold rounded border transition-colors ${
-              notch.enabled
-                ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                : "bg-white/5 border-white/10 text-gray-500"
-            }`}
-            title={notch.enabled ? "Disable notch" : "Enable notch"}
-          >
-            {notch.enabled ? "On" : "Off"}
-          </button>
-          <button
-            onClick={onRemove}
-            className="px-1 py-0.5 text-[9px] font-semibold rounded border
-              bg-alert-red/10 border-alert-red/25 text-alert-red/70
-              hover:bg-alert-red/20 hover:text-alert-red transition-colors"
-            title="Remove notch filter"
-          >
-            &times;
-          </button>
-        </div>
-      </div>
-
-      {/* Row 2: Freq input */}
-      <div className="flex items-center gap-1">
-        <label className="text-[9px] text-gray-500 shrink-0 w-7">Freq</label>
-        <input
-          type="number"
-          min={20}
-          max={20000}
-          step={1}
-          value={localFreq}
-          onChange={(e) => setLocalFreq(e.target.value)}
-          onBlur={commitFreq}
-          onKeyDown={handleFreqKeyDown}
-          className="flex-1 min-w-0 px-1.5 py-0.5 text-[10px] font-mono text-white
-            bg-black/40 border border-white/10 rounded
-            focus:border-cosmic-cyan/50 focus:outline-none
-            [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none
-            [&::-webkit-outer-spin-button]:appearance-none"
-        />
-        <span className="text-[9px] text-gray-500 shrink-0">Hz</span>
-      </div>
-
-      {/* Row 3: Q slider */}
-      <div className="flex items-center gap-1">
-        <label className="text-[9px] text-gray-500 shrink-0 w-7">Q</label>
-        <input
-          type="range"
-          min={1}
-          max={50}
-          step={1}
-          value={notch.q}
-          onChange={(e) => onUpdate(notch.freqHz, Number(e.target.value))}
-          className="flex-1 h-1 accent-plasma-orange"
-        />
-        <span className="text-[10px] font-mono text-gray-400 shrink-0 w-5 text-right">
-          {notch.q}
-        </span>
-      </div>
-    </div>
-  );
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -232,11 +133,6 @@ export function FlexSideControls({
   audioEnabled,
   freqInput,
   freqUnit,
-  notchFilters,
-  onAddNotch,
-  onRemoveNotch,
-  onUpdateNotch,
-  onToggleNotch,
   onTune,
   onFreqInputChange,
   onFreqUnitChange,
@@ -259,7 +155,17 @@ export function FlexSideControls({
   ft8Error,
   onFt8Toggle,
   onFt8ModeChange,
+  isRecording,
+  recordingDurationSec,
+  recordingEstimatedBytes,
+  hasRecording,
+  onStartRecording,
+  onStopRecording,
+  onExportRecording,
+  onDiscardRecording,
 }: FlexSideControlsProps) {
+  const memoryCount = useMemoryStore((s) => s.sdrMemories.length);
+
   const handleFreqKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -636,45 +542,6 @@ export function FlexSideControls({
     </div>
   );
 
-  // ─── Section: Notch Filters ──────────────────────────────────────────────
-
-  const notchSection = (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-400">
-          {notchFilters.length}/{MAX_NOTCH_FILTERS}
-        </span>
-        <button
-          onClick={() => onAddNotch(1000, 10)}
-          disabled={notchFilters.length >= MAX_NOTCH_FILTERS}
-          className="px-1.5 py-0.5 text-[10px] font-semibold rounded border transition-colors
-            bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan
-            hover:bg-cosmic-cyan/20
-            disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Add notch filter"
-        >
-          + Add
-        </button>
-      </div>
-
-      {notchFilters.length === 0 && (
-        <div className="text-[9px] text-gray-600 leading-tight">
-          Right-click spectrum to place a notch, or use + Add.
-        </div>
-      )}
-
-      {notchFilters.map((notch) => (
-        <NotchFilterRow
-          key={notch.id}
-          notch={notch}
-          onUpdate={(fHz, q) => onUpdateNotch(notch.id, fHz, q)}
-          onToggle={(enabled) => onToggleNotch(notch.id, enabled)}
-          onRemove={() => onRemoveNotch(notch.id)}
-        />
-      ))}
-    </div>
-  );
-
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -698,6 +565,18 @@ export function FlexSideControls({
           </div>
         </SidebarAccordion>
 
+        <SidebarAccordion
+          title="Memories"
+          defaultOpen={false}
+          badge={memoryCount > 0 ? `${memoryCount}` : undefined}
+        >
+          <MemoryPanel
+            effectiveState={effectiveState}
+            onRecallFrequency={onBandSelect}
+            canControl={canControlConnected}
+          />
+        </SidebarAccordion>
+
         {/* Separator */}
         <div className="border-t border-white/5" />
 
@@ -713,15 +592,82 @@ export function FlexSideControls({
         )}
 
         <SidebarAccordion
-          title="Notch Filters"
+          title="Recording"
           defaultOpen={false}
-          badge={
-            notchFilters.length > 0
-              ? `${notchFilters.length}/${MAX_NOTCH_FILTERS}`
-              : undefined
-          }
+          badge={isRecording ? "REC" : undefined}
         >
-          {notchSection}
+          <div className="space-y-2">
+            {/* Record / Stop button */}
+            <button
+              onClick={isRecording ? onStopRecording : onStartRecording}
+              disabled={!audioEnabled}
+              className={`w-full px-3 py-2 text-xs font-bold uppercase tracking-wider rounded border transition-all
+                disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isRecording
+                    ? "bg-alert-red/20 border-alert-red/40 text-alert-red ring-1 ring-alert-red/20"
+                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                }`}
+            >
+              {isRecording ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-alert-red animate-pulse" />
+                  Stop Recording
+                </span>
+              ) : (
+                "Start Recording"
+              )}
+            </button>
+
+            {!audioEnabled && !isRecording && (
+              <div className="text-[9px] text-gray-600 leading-tight">
+                Start audio streaming to enable recording.
+              </div>
+            )}
+
+            {/* Duration + size display — visible during and after recording */}
+            {(isRecording || hasRecording) && (
+              <div className="grid grid-cols-2 gap-1">
+                <div className="rounded bg-white/[0.03] px-1.5 py-1 text-center">
+                  <div className="text-sm font-mono font-semibold tabular-nums text-white/80">
+                    {formatDuration(recordingDurationSec)}
+                  </div>
+                  <div className="text-[8px] uppercase tracking-wider text-white/30">
+                    Duration
+                  </div>
+                </div>
+                <div className="rounded bg-white/[0.03] px-1.5 py-1 text-center">
+                  <div className="text-sm font-mono font-semibold tabular-nums text-white/80">
+                    {formatBytes(recordingEstimatedBytes)}
+                  </div>
+                  <div className="text-[8px] uppercase tracking-wider text-white/30">
+                    Size
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Export / Discard — only when stopped with recording available */}
+            {!isRecording && hasRecording && (
+              <div className="flex gap-1">
+                <button
+                  onClick={onExportRecording}
+                  className="flex-1 px-2 py-1.5 text-[10px] font-semibold rounded border transition-colors
+                    bg-signal-green/10 border-signal-green/30 text-signal-green
+                    hover:bg-signal-green/20"
+                >
+                  Export WAV
+                </button>
+                <button
+                  onClick={onDiscardRecording}
+                  className="flex-1 px-2 py-1.5 text-[10px] font-semibold rounded border transition-colors
+                    bg-alert-red/10 border-alert-red/25 text-alert-red/70
+                    hover:bg-alert-red/20 hover:text-alert-red"
+                >
+                  Discard
+                </button>
+              </div>
+            )}
+          </div>
         </SidebarAccordion>
       </div>
     </div>

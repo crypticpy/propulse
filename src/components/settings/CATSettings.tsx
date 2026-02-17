@@ -2,7 +2,7 @@
  * CATSettings Component
  *
  * CAT Control (rig integration) settings panel.
- * - Backend selection: Auto / Hamlib (rigctld) / Flrig / Disabled
+ * - Backend selection: Auto / Hamlib / Flrig / ICOM Direct / ICOM Network / Disabled
  * - Host/port inputs for each backend
  * - Connection status indicator
  * - Test Connection button
@@ -11,14 +11,29 @@
  * - S-meter visualization
  */
 
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useEffect, memo } from "react";
 import { useRigStore } from "@/stores/rigStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { formatFrequency } from "@/types/bridge";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type CATBackend = "auto" | "hamlib" | "flrig" | "none";
+type CATBackend =
+  | "auto"
+  | "hamlib"
+  | "flrig"
+  | "icom-serial"
+  | "icom-network"
+  | "none";
+
+/** Discovered serial port from bridge `devices:scan` */
+interface DiscoveredPort {
+  port: string;
+  radioAddress: number;
+  modelName: string;
+  baudRate: number;
+}
 
 // ─── S-Meter constants ───────────────────────────────────────────────────────
 
@@ -58,7 +73,7 @@ function sMeterColor(dB: number): string {
 
 interface CATSettingsProps {
   className?: string;
-  /** Optional bridge send function for rig.test / rig.connect */
+  /** Optional bridge send function for rig:test / rig.connect */
   bridgeSend?: <T>(type: string, payload: T) => boolean;
   /** Optional bridge connection state */
   bridgeConnected?: boolean;
@@ -66,6 +81,8 @@ interface CATSettingsProps {
   bridgeEnabled?: boolean;
   /** Callback to toggle bridge enabled state */
   onBridgeEnabledChange?: (enabled: boolean) => void;
+  /** Last message from bridge (for device scan results) */
+  lastMessage?: { type: string; payload?: unknown } | null;
 }
 
 export const CATSettings = memo(function CATSettings({
@@ -74,11 +91,11 @@ export const CATSettings = memo(function CATSettings({
   bridgeConnected = false,
   bridgeEnabled = false,
   onBridgeEnabledChange,
+  lastMessage,
 }: CATSettingsProps) {
   const {
     connected,
     catEnabled,
-    backend,
     rigModel,
     frequency,
     mode,
@@ -90,21 +107,76 @@ export const CATSettings = memo(function CATSettings({
     getSMeterText,
   } = useRigStore();
 
-  // Local form state
-  const [selectedBackend, setSelectedBackend] = useState<CATBackend>(
-    backend === "none" ? "none" : (backend as CATBackend),
+  // Read persisted config from settingsStore as initial values
+  const savedConfig = useSettingsStore((s) => ({
+    catBackend: s.catBackend,
+    hamlibHost: s.catHamlibHost,
+    hamlibPort: s.catHamlibPort,
+    civPort: s.catCivPort,
+    flrigHost: s.catFlrigHost,
+    flrigPort: s.catFlrigPort,
+    icomSerialPort: s.catIcomSerialPort,
+    icomBaudRate: s.catIcomBaudRate,
+    icomNetworkHost: s.catIcomNetworkHost,
+    icomNetworkUsername: s.catIcomNetworkUsername,
+    icomNetworkPassword: s.catIcomNetworkPassword,
+  }));
+  const updatePreferences = useSettingsStore((s) => s.updatePreferences);
+
+  // Local form state (initialized from persisted store)
+  const [selectedBackend, setSelectedBackend] = useState<CATBackend>(() =>
+    savedConfig.catBackend === "disabled"
+      ? "none"
+      : (savedConfig.catBackend as CATBackend),
   );
-  const [hamlibHost, setHamlibHost] = useState("localhost");
-  const [hamlibPort, setHamlibPort] = useState("4533");
-  const [civPort, setCivPort] = useState(
-    () => localStorage.getItem("propulse-civ-port") || "4580",
-  );
-  const [flrigHost, setFlrigHost] = useState("localhost");
-  const [flrigPort, setFlrigPort] = useState("12345");
+  const [hamlibHost, setHamlibHost] = useState(savedConfig.hamlibHost);
+  const [hamlibPort, setHamlibPort] = useState(String(savedConfig.hamlibPort));
+  const [civPort, setCivPort] = useState(String(savedConfig.civPort));
+  const [flrigHost, setFlrigHost] = useState(savedConfig.flrigHost);
+  const [flrigPort, setFlrigPort] = useState(String(savedConfig.flrigPort));
   const [pttLockout, setPttLockout] = useState(false);
   const [testStatus, setTestStatus] = useState<
     "idle" | "testing" | "success" | "error"
   >("idle");
+
+  // ICOM Direct (serial) state
+  const [icomSerialPorts, setIcomSerialPorts] = useState<DiscoveredPort[]>([]);
+  const [icomSerialPort, setIcomSerialPort] = useState(
+    savedConfig.icomSerialPort,
+  );
+  const [icomBaudRate, setIcomBaudRate] = useState(
+    String(savedConfig.icomBaudRate),
+  );
+  const [icomModelDisplay, setIcomModelDisplay] = useState("");
+  const [scanning, setScanning] = useState(false);
+
+  // ICOM Network (RS-BA1) state
+  const [icomNetHost, setIcomNetHost] = useState(savedConfig.icomNetworkHost);
+  const [icomNetUser, setIcomNetUser] = useState(
+    savedConfig.icomNetworkUsername,
+  );
+  const [icomNetPass, setIcomNetPass] = useState(
+    savedConfig.icomNetworkPassword,
+  );
+
+  // Handle devices:scan:result from bridge (daemon protocol = flat JSON, no payload wrapper)
+  useEffect(() => {
+    if (!lastMessage) return;
+    const msg = lastMessage as Record<string, unknown>;
+    if (msg.type === "devices:scan:result") {
+      const radios = (
+        Array.isArray(msg.radios) ? msg.radios : []
+      ) as DiscoveredPort[];
+      setIcomSerialPorts(radios);
+      setScanning(false);
+      // Auto-select first radio if none selected
+      if (radios.length > 0 && !icomSerialPort) {
+        setIcomSerialPort(radios[0].port);
+        setIcomBaudRate(String(radios[0].baudRate));
+        setIcomModelDisplay(radios[0].modelName);
+      }
+    }
+  }, [lastMessage, icomSerialPort]);
 
   // Connection status
   const connectionStatus = connected
@@ -127,7 +199,19 @@ export const CATSettings = memo(function CATSettings({
         ? "Connecting..."
         : "Disconnected";
 
-  // Backend change handler
+  // Scan for ICOM serial devices when backend is icom-serial
+  const handleScanPorts = useCallback(() => {
+    if (!bridgeSend) return;
+    setScanning(true);
+    bridgeSend("devices:scan", {});
+
+    // The result comes back asynchronously via the bridge protocol.
+    // We listen for it via a one-time handler on the bridge message bus.
+    // For now, set a timeout to reset the scanning state.
+    setTimeout(() => setScanning(false), 5000);
+  }, [bridgeSend]);
+
+  // Backend change handler — also persist to settingsStore
   const handleBackendChange = useCallback(
     (newBackend: CATBackend) => {
       setSelectedBackend(newBackend);
@@ -137,26 +221,64 @@ export const CATSettings = memo(function CATSettings({
         setBackend("hamlib");
       } else if (newBackend === "flrig") {
         setBackend("flrig");
+      } else if (newBackend === "icom-serial") {
+        setBackend("icom-serial");
+      } else if (newBackend === "icom-network") {
+        setBackend("icom-network");
       }
-      // auto = we let the bridge decide
+      // Persist to settings store
+      updatePreferences({
+        catBackend: newBackend === "none" ? "disabled" : newBackend,
+      });
       setTestStatus("idle");
     },
-    [setBackend],
+    [setBackend, updatePreferences],
   );
+
+  // Auto-scan when switching to ICOM Direct
+  useEffect(() => {
+    if (selectedBackend === "icom-serial" && bridgeSend && bridgeConnected) {
+      handleScanPorts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBackend, bridgeConnected]);
 
   // Toggle CAT enabled
   const handleCATToggle = useCallback(
     (enabled: boolean) => {
       setCATEnabled(enabled);
       if (enabled && bridgeSend) {
-        const config =
-          selectedBackend === "hamlib"
-            ? { backend: "hamlib", host: hamlibHost, port: Number(hamlibPort) }
-            : selectedBackend === "flrig"
-              ? { backend: "flrig", host: flrigHost, port: Number(flrigPort) }
-              : selectedBackend === "auto"
-                ? { backend: "auto" }
-                : { backend: "none" };
+        let config: Record<string, unknown>;
+        if (selectedBackend === "hamlib") {
+          config = {
+            backend: "hamlib",
+            host: hamlibHost,
+            port: Number(hamlibPort),
+          };
+        } else if (selectedBackend === "flrig") {
+          config = {
+            backend: "flrig",
+            host: flrigHost,
+            port: Number(flrigPort),
+          };
+        } else if (selectedBackend === "icom-serial") {
+          config = {
+            backend: "icom-serial",
+            serialPort: icomSerialPort,
+            baudRate: Number(icomBaudRate),
+          };
+        } else if (selectedBackend === "icom-network") {
+          config = {
+            backend: "icom-network",
+            host: icomNetHost,
+            username: icomNetUser,
+            password: icomNetPass,
+          };
+        } else if (selectedBackend === "auto") {
+          config = { backend: "auto" };
+        } else {
+          config = { backend: "none" };
+        }
         bridgeSend("rig.connect", config);
       } else if (!enabled && bridgeSend) {
         bridgeSend("rig.disconnect", {});
@@ -170,6 +292,11 @@ export const CATSettings = memo(function CATSettings({
       hamlibPort,
       flrigHost,
       flrigPort,
+      icomSerialPort,
+      icomBaudRate,
+      icomNetHost,
+      icomNetUser,
+      icomNetPass,
     ],
   );
 
@@ -178,14 +305,33 @@ export const CATSettings = memo(function CATSettings({
     if (!bridgeSend) return;
     setTestStatus("testing");
 
-    const config =
-      selectedBackend === "hamlib"
-        ? { backend: "hamlib", host: hamlibHost, port: Number(hamlibPort) }
-        : selectedBackend === "flrig"
-          ? { backend: "flrig", host: flrigHost, port: Number(flrigPort) }
-          : { backend: "auto" };
+    let config: Record<string, unknown>;
+    if (selectedBackend === "hamlib") {
+      config = {
+        backend: "hamlib",
+        host: hamlibHost,
+        port: Number(hamlibPort),
+      };
+    } else if (selectedBackend === "flrig") {
+      config = { backend: "flrig", host: flrigHost, port: Number(flrigPort) };
+    } else if (selectedBackend === "icom-serial") {
+      config = {
+        backend: "icom-serial",
+        serialPort: icomSerialPort,
+        baudRate: Number(icomBaudRate),
+      };
+    } else if (selectedBackend === "icom-network") {
+      config = {
+        backend: "icom-network",
+        host: icomNetHost,
+        username: icomNetUser,
+        password: icomNetPass,
+      };
+    } else {
+      config = { backend: "auto" };
+    }
 
-    const success = bridgeSend("rig.test", config);
+    const success = bridgeSend("rig:test", config);
     // Simulate test result since we don't have real response handling here
     setTimeout(() => {
       setTestStatus(success && bridgeConnected ? "success" : "error");
@@ -199,6 +345,11 @@ export const CATSettings = memo(function CATSettings({
     hamlibPort,
     flrigHost,
     flrigPort,
+    icomSerialPort,
+    icomBaudRate,
+    icomNetHost,
+    icomNetUser,
+    icomNetPass,
   ]);
 
   const sMeterPercent = sMeterToPercent(sMeter);
@@ -253,12 +404,14 @@ export const CATSettings = memo(function CATSettings({
         <label className="block text-sm font-medium text-gray-300">
           CAT Backend
         </label>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {(
             [
               { id: "auto", label: "Auto" },
               { id: "hamlib", label: "Hamlib" },
               { id: "flrig", label: "Flrig" },
+              { id: "icom-serial", label: "ICOM Direct" },
+              { id: "icom-network", label: "ICOM Network" },
               { id: "none", label: "Disabled" },
             ] as const
           ).map(({ id, label }) => (
@@ -343,7 +496,9 @@ export const CATSettings = memo(function CATSettings({
               value={civPort}
               onChange={(e) => {
                 setCivPort(e.target.value);
-                localStorage.setItem("propulse-civ-port", e.target.value);
+                updatePreferences({
+                  catCivPort: Number(e.target.value) || 4580,
+                });
               }}
               placeholder="4580"
               disabled={connected}
@@ -402,6 +557,178 @@ export const CATSettings = memo(function CATSettings({
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
+        </div>
+      )}
+
+      {/* ICOM Direct (USB Serial CI-V) */}
+      {selectedBackend === "icom-serial" && (
+        <div className="space-y-2">
+          {/* Serial port dropdown + scan button */}
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label
+                htmlFor="icom-serial-port"
+                className="block text-xs text-gray-400 mb-1"
+              >
+                Serial Port
+              </label>
+              <select
+                id="icom-serial-port"
+                value={icomSerialPort}
+                onChange={(e) => {
+                  setIcomSerialPort(e.target.value);
+                  // Auto-fill model name and baud rate from discovery
+                  const match = icomSerialPorts.find(
+                    (p) => p.port === e.target.value,
+                  );
+                  if (match) {
+                    setIcomBaudRate(String(match.baudRate));
+                    setIcomModelDisplay(match.modelName);
+                  }
+                }}
+                disabled={connected}
+                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white text-sm font-mono
+                           focus:outline-none focus:border-plasma-orange/50
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {scanning ? "Scanning..." : "Select a port"}
+                </option>
+                {icomSerialPorts.map((p) => (
+                  <option key={p.port} value={p.port}>
+                    {p.port} - {p.modelName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={handleScanPorts}
+              disabled={connected || scanning || !bridgeSend}
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10
+                         text-gray-300 hover:bg-white/10 transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {scanning ? "Scanning..." : "Scan"}
+            </button>
+          </div>
+
+          {/* Baud rate selector */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label
+                htmlFor="icom-baud"
+                className="block text-xs text-gray-400 mb-1"
+              >
+                Baud Rate
+              </label>
+              <select
+                id="icom-baud"
+                value={icomBaudRate}
+                onChange={(e) => setIcomBaudRate(e.target.value)}
+                disabled={connected}
+                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white text-sm font-mono
+                           focus:outline-none focus:border-plasma-orange/50
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="9600">9600</option>
+                <option value="19200">19200</option>
+                <option value="115200">115200</option>
+              </select>
+            </div>
+
+            {/* Radio model display (auto-detected) */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">
+                Radio Model
+              </label>
+              <div
+                className="px-3 py-2 bg-deep-space/50 border border-white/5 rounded-lg
+                              text-sm font-mono text-gray-400 min-h-[38px] flex items-center"
+              >
+                {icomModelDisplay || "Auto-detect"}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-gray-500">
+            Direct USB serial connection via CI-V protocol. Spectrum data flows
+            through the same connection.
+          </p>
+        </div>
+      )}
+
+      {/* ICOM Network (RS-BA1) */}
+      {selectedBackend === "icom-network" && (
+        <div className="space-y-2">
+          <div>
+            <label
+              htmlFor="icom-net-host"
+              className="block text-xs text-gray-400 mb-1"
+            >
+              Host IP
+            </label>
+            <input
+              type="text"
+              id="icom-net-host"
+              value={icomNetHost}
+              onChange={(e) => setIcomNetHost(e.target.value)}
+              placeholder="192.168.1.100"
+              disabled={connected}
+              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                         text-white text-sm font-mono placeholder-gray-500
+                         focus:outline-none focus:border-plasma-orange/50
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label
+                htmlFor="icom-net-user"
+                className="block text-xs text-gray-400 mb-1"
+              >
+                Username
+              </label>
+              <input
+                type="text"
+                id="icom-net-user"
+                value={icomNetUser}
+                onChange={(e) => setIcomNetUser(e.target.value)}
+                placeholder="admin"
+                disabled={connected}
+                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white text-sm font-mono placeholder-gray-500
+                           focus:outline-none focus:border-plasma-orange/50
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="icom-net-pass"
+                className="block text-xs text-gray-400 mb-1"
+              >
+                Password
+              </label>
+              <input
+                type="password"
+                id="icom-net-pass"
+                value={icomNetPass}
+                onChange={(e) => setIcomNetPass(e.target.value)}
+                placeholder="password"
+                disabled={connected}
+                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white text-sm font-mono placeholder-gray-500
+                           focus:outline-none focus:border-plasma-orange/50
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-500">
+            RS-BA1 network connection. Requires ICOM RS-BA1 IP Remote Control
+            Software running on the radio or gateway.
+          </p>
         </div>
       )}
 
@@ -584,11 +911,26 @@ export const CATSettings = memo(function CATSettings({
           />
         </svg>
         <p className="text-xs text-gray-500">
-          Enable the ProPulse Bridge above, then CAT control requires{" "}
-          <strong className="text-gray-400">rigctld</strong> (Hamlib) or{" "}
-          <strong className="text-gray-400">Flrig</strong> running on your
-          machine. Auto-detect will try both backends automatically.
+          Enable the ProPulse Bridge above, then choose a CAT backend.{" "}
+          <strong className="text-gray-400">ICOM Direct</strong> connects via
+          USB serial (CI-V) for best latency and built-in spectrum.{" "}
+          <strong className="text-gray-400">ICOM Network</strong> uses RS-BA1
+          for remote operation.{" "}
+          <strong className="text-gray-400">Hamlib</strong> and{" "}
+          <strong className="text-gray-400">Flrig</strong> support most other
+          radios. Auto-detect tries all available backends.
         </p>
+      </div>
+
+      {/* Re-run wizard */}
+      <div className="pt-1 text-center">
+        <button
+          type="button"
+          onClick={() => updatePreferences({ radioSetupCompleted: false })}
+          className="text-xs text-plasma-orange/70 hover:text-plasma-orange transition-colors"
+        >
+          Re-run Radio Setup Wizard
+        </button>
       </div>
     </div>
   );

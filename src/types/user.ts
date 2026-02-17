@@ -218,6 +218,10 @@ export interface NotificationPreferences {
   soundEnabled: boolean;
   /** How to display alerts: banner (top), toast (bottom-right), or both */
   alertDisplayStyle: AlertDisplayStyle;
+  /** Use Web Audio synthesized alert tones (richer than MP3 fallback) */
+  useEnhancedAlertSounds: boolean;
+  /** Screen border glow for critical alerts (accessibility, opt-in) */
+  visualAlertGlow: boolean;
   /** Quiet hours start (UTC hour 0-23, undefined = disabled) */
   quietHoursStart?: number;
   /** Quiet hours end (UTC hour 0-23, undefined = disabled) */
@@ -558,6 +562,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   bandOpeningBands: [],
   soundEnabled: true,
   alertDisplayStyle: "toast",
+  useEnhancedAlertSounds: true,
+  visualAlertGlow: false,
 };
 
 /**

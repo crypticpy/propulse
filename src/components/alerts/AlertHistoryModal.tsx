@@ -16,6 +16,7 @@ import { DetailModal } from "@/components/ui/DetailModal";
 import { useAlertsStore } from "@/stores/alertsStore";
 import type { SolarAlert, AlertStatus, AlertPriority } from "@/types/alerts";
 import { ALERT_ICONS, ALERT_COLORS } from "@/constants/alertThresholds";
+import { StormImpactPanel } from "@/components/alerts/StormImpactPanel";
 
 // =============================================================================
 // TYPES
@@ -258,6 +259,11 @@ function AlertItem({
           </button>
         )}
       </div>
+
+      {/* Storm impact analysis for active alerts */}
+      {alert.status === "ACTIVE" && (
+        <StormImpactPanel alert={alert} className="mt-3" />
+      )}
     </div>
   );
 }

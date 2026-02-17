@@ -48,10 +48,11 @@ import type { SdrSkinProps, SdrSkinName } from "@/components/sdr/skins/types";
 import { useSdrSettings } from "@/hooks/useSdrSettings";
 import { useRadioCommands } from "@/hooks/useRadioCommands";
 import { useSmartTuning } from "@/hooks/useSmartTuning";
-import { useNotchFilters } from "@/hooks/useNotchFilters";
+import { useEqBands } from "@/hooks/useEqBands";
 import { useClientDsp } from "@/hooks/useClientDsp";
 import { useFt8AutoConfig } from "@/hooks/useFt8AutoConfig";
 import { useAudioDspChain } from "@/hooks/useAudioDspChain";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
@@ -99,6 +100,7 @@ export function SdrConsole() {
     ),
   });
   const autoConnectAttemptedRef = useRef(false);
+  const autoConfigAttemptedRef = useRef(false);
   const autoFftStartRef = useRef<Record<string, boolean>>({});
   const [waterfallSpanHz, setWaterfallSpanHz] = useState<number | null>(null);
 
@@ -144,6 +146,42 @@ export function SdrConsole() {
     ) => {
       if (isDevicesListMessage(msg)) {
         setDevices(msg.devices);
+
+        // If the bridge reports no devices but we have a configured backend
+        // in settingsStore, send radio:connect with the stored config so
+        // the bridge starts the right rig controller.
+        if (msg.devices.length === 0 && !autoConfigAttemptedRef.current) {
+          autoConfigAttemptedRef.current = true;
+          const s = useSettingsStore.getState();
+          if (
+            s.catBackend &&
+            s.catBackend !== "auto" &&
+            s.catBackend !== "disabled"
+          ) {
+            const configPayload: Record<string, unknown> = {
+              backend: s.catBackend,
+            };
+            if (s.catBackend === "icom-serial" && s.catIcomSerialPort) {
+              configPayload.serialPort = s.catIcomSerialPort;
+              configPayload.baudRate = s.catIcomBaudRate;
+              configPayload.radioAddress = s.catIcomRadioAddress;
+            } else if (
+              s.catBackend === "icom-network" &&
+              s.catIcomNetworkHost
+            ) {
+              configPayload.host = s.catIcomNetworkHost;
+              configPayload.username = s.catIcomNetworkUsername;
+              configPayload.password = s.catIcomNetworkPassword;
+            } else if (s.catBackend === "hamlib") {
+              configPayload.host = s.catHamlibHost;
+              configPayload.port = s.catHamlibPort;
+            } else if (s.catBackend === "flrig") {
+              configPayload.host = s.catFlrigHost;
+              configPayload.port = s.catFlrigPort;
+            }
+            api.sendCommand("radio:connect", configPayload);
+          }
+        }
         return;
       }
       if (isDevicesAddedMessage(msg) || isDevicesRemovedMessage(msg)) {
@@ -240,12 +278,24 @@ export function SdrConsole() {
     handleModeChange,
     handleGainChange,
     handleAgcToggle,
+    handleAgcModeChange,
     handleAntennaChange,
     handleFilterChange,
     handleNrChange,
     handleNbChange,
     handlePttChange,
     handleVfoChange,
+    handleRitToggle,
+    handleRitOffset,
+    handleXitToggle,
+    handleXitOffset,
+    handleSplitToggle,
+    handleAnfToggle,
+    handleQskToggle,
+    handleVoxToggle,
+    handleIfShift,
+    handleCwSpeed,
+    handleLockToggle,
   } = useRadioCommands({
     connectedDeviceId,
     selectedDeviceId,
@@ -275,13 +325,16 @@ export function SdrConsole() {
       setFreqInput,
     });
 
-  // Hook 3: Notch filter CRUD
+  // Hook 3: EQ band CRUD (replaces old notch filter hook)
   const {
-    handleAddNotch,
-    handleRemoveNotch,
-    handleUpdateNotch,
-    handleToggleNotch,
-  } = useNotchFilters();
+    handleAddEqBand,
+    handleRemoveEqBand,
+    handleUpdateEqBand,
+    handleUpdateEqBandType,
+    handleToggleEqBand,
+    handleEqBandQChange,
+    handleUpdateEqBandSlope,
+  } = useEqBands();
 
   // Hook 4: Client-side DSP controls
   const {
@@ -320,10 +373,12 @@ export function SdrConsole() {
       daemonSendCommand("stream:audio:stop", { device_id: connectedDeviceId });
       setAudioEnabled(false);
     } else {
+      const storedAudioDevice = useSettingsStore.getState().audioDevice;
       daemonSendCommand("stream:audio:start", {
         device_id: connectedDeviceId,
         sample_rate: 48000,
         format: "pcm_i16",
+        ...(storedAudioDevice ? { audio_device: storedAudioDevice } : {}),
       });
       setAudioEnabled(true);
     }
@@ -351,6 +406,12 @@ export function SdrConsole() {
     clientNrLevel: sdrSettings.sdrNrLevel,
   });
 
+  // Hook 7: Audio recording
+  const [recorderState, recorderActions] = useAudioRecorder();
+  const handleStartRecording = useCallback(() => {
+    if (processingChain) recorderActions.startRecording(processingChain);
+  }, [processingChain, recorderActions]);
+
   // ── Side effects ────────────────────────────────────────────
 
   // Sync draftState from connectedState
@@ -369,6 +430,7 @@ export function SdrConsole() {
     setFftEnabled(false);
     setAudioEnabled(false);
     autoConnectAttemptedRef.current = false;
+    autoConfigAttemptedRef.current = false;
     setDiscoveredDaemons([]);
     setWsjtxStatus(null);
     ft8ClearDecodes();
@@ -401,6 +463,8 @@ export function SdrConsole() {
   useEffect(() => {
     if (!daemonConnected) return;
     autoConnectAttemptedRef.current = false;
+    autoConfigAttemptedRef.current = false;
+    autoFftStartRef.current = {};
   }, [daemonConnected, daemonUrl]);
 
   // Auto-reconnect to last selected radio (best-effort).
@@ -503,7 +567,7 @@ export function SdrConsole() {
         }
       : null,
     processingChain,
-    notchFilters: sdrSettings.sdrNotchFilters,
+    eqBands: sdrSettings.sdrEqBands,
   });
 
   // ── Remaining handlers ──────────────────────────────────────
@@ -630,6 +694,18 @@ export function SdrConsole() {
         daemonConnected,
         daemonError,
         lastResponseError,
+        rit: effectiveState?.rit,
+        xit: effectiveState?.xit,
+        split: effectiveState?.split,
+        anf: effectiveState?.anf,
+        qsk: effectiveState?.qsk,
+        vox: effectiveState?.vox,
+        lock: effectiveState?.lock,
+        txAntenna: effectiveState?.txAntenna,
+        txMeter: effectiveState?.txMeter,
+        cwSpeed: effectiveState?.cwSpeed,
+        ifShift: effectiveState?.ifShift,
+        agcMode: effectiveState?.agcMode,
       },
       fft: {
         lastFftFrame,
@@ -689,6 +765,7 @@ export function SdrConsole() {
         onModeChange: handleModeChange,
         onGainChange: handleGainChange,
         onAgcToggle: handleAgcToggle,
+        onAgcModeChange: handleAgcModeChange,
         onAntennaChange: handleAntennaChange,
         onFilterChange: handleFilterChange,
         onNrChange: handleNrChange,
@@ -697,6 +774,17 @@ export function SdrConsole() {
         onPttChange: handlePttChange,
         onToggleFft: handleToggleFft,
         onToggleAudio: handleToggleAudio,
+        onRitToggle: handleRitToggle,
+        onRitOffset: handleRitOffset,
+        onXitToggle: handleXitToggle,
+        onXitOffset: handleXitOffset,
+        onSplitToggle: handleSplitToggle,
+        onAnfToggle: handleAnfToggle,
+        onQskToggle: handleQskToggle,
+        onVoxToggle: handleVoxToggle,
+        onIfShift: handleIfShift,
+        onCwSpeed: handleCwSpeed,
+        onLockToggle: handleLockToggle,
       },
       dsp: {
         noiseGateEnabled: sdrSettings.sdrNoiseGateEnabled,
@@ -707,13 +795,24 @@ export function SdrConsole() {
         clientNrLevel: sdrSettings.sdrNrLevel,
         onClientNrToggle: handleClientNrToggle,
         onClientNrLevelChange: handleClientNrLevelChange,
-        notchFilters: sdrSettings.sdrNotchFilters,
-        onAddNotch: handleAddNotch,
-        onRemoveNotch: handleRemoveNotch,
-        onUpdateNotch: handleUpdateNotch,
-        onToggleNotch: handleToggleNotch,
+        eqBands: sdrSettings.sdrEqBands,
+        onAddEqBand: handleAddEqBand,
+        onRemoveEqBand: handleRemoveEqBand,
+        onUpdateEqBand: handleUpdateEqBand,
+        onUpdateEqBandType: handleUpdateEqBandType,
+        onToggleEqBand: handleToggleEqBand,
+        onEqBandQChange: handleEqBandQChange,
+        onUpdateEqBandSlope: handleUpdateEqBandSlope,
         tuningStepHz: sdrSettings.tuningStepHz,
         onTuningStepChange: handleTuningStepChange,
+        isRecording: recorderState.isRecording,
+        recordingDurationSec: recorderState.durationSec,
+        recordingEstimatedBytes: recorderState.estimatedBytes,
+        hasRecording: recorderState.hasRecording,
+        onStartRecording: handleStartRecording,
+        onStopRecording: recorderActions.stopRecording,
+        onExportRecording: recorderActions.exportWav,
+        onDiscardRecording: recorderActions.discardRecording,
       },
       interaction: {
         onPickFrequencyHz: handlePickFrequencyHz,
@@ -759,6 +858,7 @@ export function SdrConsole() {
       handleModeChange,
       handleGainChange,
       handleAgcToggle,
+      handleAgcModeChange,
       handleAntennaChange,
       handleFilterChange,
       handleNrChange,
@@ -767,19 +867,41 @@ export function SdrConsole() {
       handlePttChange,
       handleToggleFft,
       handleToggleAudio,
+      handleRitToggle,
+      handleRitOffset,
+      handleXitToggle,
+      handleXitOffset,
+      handleSplitToggle,
+      handleAnfToggle,
+      handleQskToggle,
+      handleVoxToggle,
+      handleIfShift,
+      handleCwSpeed,
+      handleLockToggle,
       handleNoiseGateToggle,
       handleNoiseGateThresholdChange,
       handleClientNrToggle,
       handleClientNrLevelChange,
-      handleAddNotch,
-      handleRemoveNotch,
-      handleUpdateNotch,
-      handleToggleNotch,
+      handleAddEqBand,
+      handleRemoveEqBand,
+      handleUpdateEqBand,
+      handleUpdateEqBandType,
+      handleToggleEqBand,
+      handleEqBandQChange,
+      handleUpdateEqBandSlope,
       handleTuningStepChange,
       handlePickFrequencyHz,
       handleSelectRangeHz,
       handleWheelTune,
       handleWaterfallViewChange,
+      recorderState.isRecording,
+      recorderState.durationSec,
+      recorderState.estimatedBytes,
+      recorderState.hasRecording,
+      handleStartRecording,
+      recorderActions.stopRecording,
+      recorderActions.exportWav,
+      recorderActions.discardRecording,
       isMobile,
       lastStatus,
     ],

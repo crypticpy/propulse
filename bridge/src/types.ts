@@ -39,6 +39,26 @@ export interface RigStatus {
   split?: boolean;
   /** S-meter reading in dBm (relative to S9 in Hamlib convention) */
   smeter?: number;
+  /** RIT (Receiver Incremental Tuning) state and offset in Hz */
+  rit?: { enabled: boolean; offsetHz: number };
+  /** XIT (Transmitter Incremental Tuning) state and offset in Hz */
+  xit?: { enabled: boolean; offsetHz: number };
+  /** Auto Notch Filter enabled */
+  anf?: boolean;
+  /** QSK (full break-in CW) enabled */
+  qsk?: boolean;
+  /** VOX (voice-operated transmit) enabled */
+  vox?: boolean;
+  /** TX antenna port name */
+  txAntenna?: string;
+  /** TX metering: power (watts), SWR, and ALC */
+  txMeter?: { powerW?: number; swr?: number; alc?: number };
+  /** CW keyer speed in WPM */
+  cwSpeed?: number;
+  /** IF shift in Hz */
+  ifShift?: number;
+  /** AGC mode: 0=OFF, 1=FAST, 2=MED, 3=SLOW */
+  agcMode?: number;
 }
 
 /** Request to update rig settings */
@@ -257,9 +277,18 @@ export const MessageTypes = {
   RIG_SET_FREQUENCY: "rig.setFrequency",
   RIG_SET_MODE: "rig.setMode",
   RIG_SET_PTT: "rig.setPTT",
+  RIG_SET_RIT: "rig.setRIT",
+  RIG_SET_XIT: "rig.setXIT",
+  RIG_SET_SPLIT: "rig.setSplit",
+  RIG_SET_ANF: "rig.setANF",
+  RIG_SET_QSK: "rig.setQSK",
+  RIG_SET_VOX: "rig.setVOX",
+  RIG_SET_FUNC: "rig.setFunc",
+  RIG_SET_IF_SHIFT: "rig.setIFShift",
+  RIG_SET_CW_SPEED: "rig.setCWSpeed",
   RIG_CONNECT: "rig.connect",
   RIG_DISCONNECT: "rig.disconnect",
-  RIG_TEST: "rig.test",
+  RIG_TEST: "rig:test",
 
   // Contest session management
   CONTEST_SESSION_CREATE: "contest.session.create",

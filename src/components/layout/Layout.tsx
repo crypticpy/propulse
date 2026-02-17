@@ -27,6 +27,8 @@ import { useSyncQueue } from "@/hooks/useSyncQueue";
 import { useRigBridgeSync } from "@/hooks/useRigBridgeSync";
 import { useOperatingSync } from "@/hooks/useOperatingSync";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
+import { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
 
 /**
  * Layout - Root layout component with header and background effects
@@ -110,6 +112,9 @@ export function Layout() {
           onAlertClick={() => setShowAlertHistory(true)}
         />
 
+        {/* Emergency ticker for critical space weather */}
+        <EmergencyTickerBar />
+
         {/* Alert Banner - appears below header when alerts are active */}
         {(alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
           <AlertBanner
@@ -176,6 +181,9 @@ export function Layout() {
 
       {/* Band opening suggest toast — bottom-center */}
       <BandSuggestToast />
+
+      {/* Visual alert glow overlay (accessibility — opt-in) */}
+      <AlertGlowOverlay />
     </div>
   );
 }

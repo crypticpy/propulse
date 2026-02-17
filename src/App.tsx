@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState, useCallback } from "react";
+import { lazy, Suspense, useEffect, useState, useCallback } from "react";
 import { Routes, Route, Link, Navigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -13,6 +13,12 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { RankUpCelebration } from "@/components/rank/RankUpCelebration";
 import { WelcomeOverlay } from "@/components/onboarding";
+
+const RadioSetupWizard = lazy(() =>
+  import("@/components/onboarding/RadioSetupWizard").then((m) => ({
+    default: m.RadioSetupWizard,
+  })),
+);
 import type { RankTier } from "@/types/rank";
 // Import the theme store so its initializer runs and applies persisted accent/theme
 import "@/stores/themeStore";
@@ -228,6 +234,9 @@ function App() {
         />
       )}
       <WelcomeOverlay />
+      <Suspense fallback={null}>
+        <RadioSetupWizard />
+      </Suspense>
       {upgradeToast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[600] px-5 py-3 rounded-xl bg-signal-green/20 border border-signal-green/30 backdrop-blur-lg text-signal-green text-sm font-medium shadow-lg animate-fade-in">
           Welcome to Pro! All features unlocked.

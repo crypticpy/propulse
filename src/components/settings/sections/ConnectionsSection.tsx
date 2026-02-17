@@ -16,7 +16,11 @@ export function ConnectionsSection() {
   const bridgeEnabled = useSettingsStore((s) => s.bridgeEnabled);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
-  const { send: bridgeSend, connected: bridgeConnected } = useBridge({
+  const {
+    send: bridgeSend,
+    connected: bridgeConnected,
+    lastMessage,
+  } = useBridge({
     enabled: bridgeEnabled,
   });
 
@@ -52,6 +56,7 @@ export function ConnectionsSection() {
           onBridgeEnabledChange={(enabled) =>
             updatePreferences({ bridgeEnabled: enabled })
           }
+          lastMessage={lastMessage}
         />
       </div>
     </div>

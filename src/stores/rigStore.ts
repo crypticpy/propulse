@@ -44,7 +44,7 @@ export interface RigState {
   /** Whether CAT control is enabled in settings */
   catEnabled: boolean;
   /** CAT backend in use */
-  backend: "hamlib" | "flrig" | "none";
+  backend: "hamlib" | "flrig" | "icom-serial" | "icom-network" | "none";
   /** Rig model identifier string */
   rigModel: string;
   /** Timestamp of last status update */
@@ -58,7 +58,9 @@ export interface RigState {
   /** Enable or disable CAT control */
   setCATEnabled: (enabled: boolean) => void;
   /** Set the CAT backend */
-  setBackend: (backend: "hamlib" | "flrig" | "none") => void;
+  setBackend: (
+    backend: "hamlib" | "flrig" | "icom-serial" | "icom-network" | "none",
+  ) => void;
 
   /**
    * Directly set VFO-A frequency (e.g., from band map click-to-tune).

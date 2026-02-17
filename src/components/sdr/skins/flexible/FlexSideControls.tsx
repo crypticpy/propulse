@@ -5,10 +5,11 @@
  * DSP, filter, mode, RX gain, and audio controls have migrated to the
  * slice flag's expandable panels (SlicePanelTabs). This sidebar now
  * handles band/frequency tuning, TX controls, streams, FT8 decoder,
- * notch filters, and parametric EQ bands.
+ * and audio recording. EQ interaction happens on the spectrum canvas
+ * via the right-click context menu.
  */
 
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useMemo, type KeyboardEvent } from "react";
 import type { RadioState, DeviceInfo } from "@/lib/radio/protocol";
 import { ALL_BANDS } from "@/types/user";
 import type { BandId } from "@/types/user";
@@ -16,13 +17,8 @@ import { BAND_CENTER_FREQUENCIES } from "@/lib/data/feedlines";
 import { BAND_COLORS } from "@/lib/utils/spotColors";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import { SidebarAccordion } from "./SidebarAccordion";
-import type { EqBand, EqFilterType, EqBandCategory } from "@/lib/audio/eqTypes";
-import {
-  MAX_EQ_BANDS,
-  EQ_FILTER_TYPES,
-  EQ_FILTER_LABELS,
-  filterTypeUsesGain,
-} from "@/lib/audio/eqTypes";
+import { MemoryPanel } from "@/components/sdr/MemoryPanel";
+import { useMemoryStore } from "@/stores/memoryStore";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -38,24 +34,6 @@ export interface FlexSideControlsProps {
 
   freqInput: string;
   freqUnit: "MHz" | "kHz" | "Hz";
-
-  // EQ bands (unified: notch + parametric EQ)
-  eqBands: EqBand[];
-  onAddEqBand: (
-    freqHz: number,
-    gainDb: number,
-    category: EqBandCategory,
-  ) => void;
-  onRemoveEqBand: (id: string) => void;
-  onUpdateEqBand: (
-    id: string,
-    freqHz: number,
-    q: number,
-    gainDb: number,
-  ) => void;
-  onUpdateEqBandType: (id: string, filterType: EqFilterType) => void;
-  onToggleEqBand: (id: string, enabled: boolean) => void;
-  onEqBandQChange: (id: string, q: number) => void;
 
   onTune: () => void;
   onFreqInputChange: (value: string) => void;
@@ -121,193 +99,12 @@ const STEP_OPTIONS = [
 
 const TX_STAGE_NAMES = ["RFPOWER", "MICGAIN", "COMP", "VOXGAIN"] as const;
 
-// Abbreviated labels for compact filter type button grid
-const FILTER_TYPE_SHORT: Record<EqFilterType, string> = {
-  bell: "Bell",
-  notch: "Notch",
-  lowshelf: "LoSh",
-  highshelf: "HiSh",
-  lowpass: "LPF",
-  highpass: "HPF",
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
       {children}
-    </div>
-  );
-}
-
-function EqBandRow({
-  band,
-  onUpdate,
-  onUpdateType,
-  onToggle,
-  onRemove,
-}: {
-  band: EqBand;
-  onUpdate: (freqHz: number, q: number, gainDb: number) => void;
-  onUpdateType: (filterType: EqFilterType) => void;
-  onToggle: (enabled: boolean) => void;
-  onRemove: () => void;
-}) {
-  const [localFreq, setLocalFreq] = useState(String(band.freqHz));
-
-  useEffect(() => {
-    setLocalFreq(String(band.freqHz));
-  }, [band.freqHz]);
-
-  const isNotch = band.category === "notch";
-  const showGain = filterTypeUsesGain(band.filterType);
-
-  const commitFreq = () => {
-    const parsed = parseInt(localFreq, 10);
-    if (Number.isFinite(parsed) && parsed >= 20 && parsed <= 20000) {
-      onUpdate(parsed, band.q, band.gainDb);
-    } else {
-      setLocalFreq(String(band.freqHz));
-    }
-  };
-
-  const handleFreqKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitFreq();
-    }
-  };
-
-  return (
-    <div
-      className={`rounded border p-1.5 space-y-1 transition-opacity ${
-        band.enabled
-          ? isNotch
-            ? "border-plasma-orange/25 bg-plasma-orange/5"
-            : "border-cosmic-cyan/25 bg-cosmic-cyan/5"
-          : "border-white/5 bg-white/[0.02] opacity-50"
-      }`}
-    >
-      {/* Row 1: Freq label + filter type badge + toggle + remove */}
-      <div className="flex items-center justify-between gap-1">
-        <span className="text-[10px] font-mono text-gray-300 truncate">
-          {band.freqHz} Hz
-        </span>
-        <span
-          className={`text-[9px] font-semibold px-1 py-0.5 rounded ${
-            isNotch
-              ? "bg-plasma-orange/15 text-plasma-orange"
-              : "bg-cosmic-cyan/15 text-cosmic-cyan"
-          }`}
-        >
-          {EQ_FILTER_LABELS[band.filterType]}
-        </span>
-        <div className="flex items-center gap-1 ml-auto shrink-0">
-          <button
-            onClick={() => onToggle(!band.enabled)}
-            className={`px-1 py-0.5 text-[9px] font-semibold rounded border transition-colors ${
-              band.enabled
-                ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                : "bg-white/5 border-white/10 text-gray-500"
-            }`}
-            title={band.enabled ? "Disable" : "Enable"}
-          >
-            {band.enabled ? "On" : "Off"}
-          </button>
-          <button
-            onClick={onRemove}
-            className="px-1 py-0.5 text-[9px] font-semibold rounded border
-              bg-alert-red/10 border-alert-red/25 text-alert-red/70
-              hover:bg-alert-red/20 hover:text-alert-red transition-colors"
-            title="Remove"
-          >
-            &times;
-          </button>
-        </div>
-      </div>
-
-      {/* Row 2: Freq input */}
-      <div className="flex items-center gap-1">
-        <label className="text-[9px] text-gray-500 shrink-0 w-7">Freq</label>
-        <input
-          type="number"
-          min={20}
-          max={20000}
-          step={1}
-          value={localFreq}
-          onChange={(e) => setLocalFreq(e.target.value)}
-          onBlur={commitFreq}
-          onKeyDown={handleFreqKeyDown}
-          className="flex-1 min-w-0 px-1.5 py-0.5 text-[10px] font-mono text-white
-            bg-black/40 border border-white/10 rounded
-            focus:border-cosmic-cyan/50 focus:outline-none
-            [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none
-            [&::-webkit-outer-spin-button]:appearance-none"
-        />
-        <span className="text-[9px] text-gray-500 shrink-0">Hz</span>
-      </div>
-
-      {/* Row 3: Q slider */}
-      <div className="flex items-center gap-1">
-        <label className="text-[9px] text-gray-500 shrink-0 w-7">Q</label>
-        <input
-          type="range"
-          min={1}
-          max={500}
-          step={1}
-          value={Math.round(band.q * 10)}
-          onChange={(e) =>
-            onUpdate(band.freqHz, Number(e.target.value) / 10, band.gainDb)
-          }
-          className={`flex-1 h-1 ${band.category === "notch" ? "accent-plasma-orange" : "accent-cosmic-cyan"}`}
-        />
-        <span className="text-[10px] font-mono text-gray-400 shrink-0 w-7 text-right">
-          {band.q.toFixed(1)}
-        </span>
-      </div>
-
-      {/* Row 4: Gain slider — only for filter types that use gain */}
-      {showGain && (
-        <div className="flex items-center gap-1">
-          <label className="text-[9px] text-gray-500 shrink-0 w-7">Gain</label>
-          <input
-            type="range"
-            min={-24}
-            max={24}
-            step={0.5}
-            value={band.gainDb}
-            onChange={(e) =>
-              onUpdate(band.freqHz, band.q, Number(e.target.value))
-            }
-            className="flex-1 h-1 accent-cosmic-cyan"
-          />
-          <span className="text-[10px] font-mono text-gray-400 shrink-0 w-10 text-right">
-            {band.gainDb > 0 ? "+" : ""}
-            {band.gainDb.toFixed(1)}
-          </span>
-        </div>
-      )}
-
-      {/* Row 5: Filter type selector — compact 3x2 grid */}
-      <div className="grid grid-cols-3 gap-0.5">
-        {EQ_FILTER_TYPES.map((ft) => (
-          <button
-            key={ft}
-            onClick={() => onUpdateType(ft)}
-            className={`px-1 py-0.5 text-[8px] font-semibold rounded border transition-colors ${
-              band.filterType === ft
-                ? isNotch
-                  ? "bg-plasma-orange/20 border-plasma-orange/40 text-plasma-orange"
-                  : "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan"
-                : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
-            }`}
-            title={EQ_FILTER_LABELS[ft]}
-          >
-            {FILTER_TYPE_SHORT[ft]}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -336,13 +133,6 @@ export function FlexSideControls({
   audioEnabled,
   freqInput,
   freqUnit,
-  eqBands,
-  onAddEqBand,
-  onRemoveEqBand,
-  onUpdateEqBand,
-  onUpdateEqBandType,
-  onToggleEqBand,
-  onEqBandQChange: _onEqBandQChange,
   onTune,
   onFreqInputChange,
   onFreqUnitChange,
@@ -374,24 +164,14 @@ export function FlexSideControls({
   onExportRecording,
   onDiscardRecording,
 }: FlexSideControlsProps) {
+  const memoryCount = useMemoryStore((s) => s.sdrMemories.length);
+
   const handleFreqKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       onTune();
     }
   };
-
-  // ─── Filtered band lists ─────────────────────────────────────────────────
-  const notchBands = useMemo(
-    () => eqBands.filter((b) => b.category === "notch"),
-    [eqBands],
-  );
-  const eqCategoryBands = useMemo(
-    () => eqBands.filter((b) => b.category === "eq"),
-    [eqBands],
-  );
-  const totalBands = eqBands.length;
-  const poolFull = totalBands >= MAX_EQ_BANDS;
 
   // ─── Section: Antenna ────────────────────────────────────────────────────
 
@@ -762,86 +542,6 @@ export function FlexSideControls({
     </div>
   );
 
-  // ─── Section: Notch Filters (category === "notch") ────────────────────
-
-  const notchSection = (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-400">
-          {totalBands}/{MAX_EQ_BANDS}
-        </span>
-        <button
-          onClick={() => onAddEqBand(1000, 0, "notch")}
-          disabled={poolFull}
-          className="px-1.5 py-0.5 text-[10px] font-semibold rounded border transition-colors
-            bg-plasma-orange/10 border-plasma-orange/30 text-plasma-orange
-            hover:bg-plasma-orange/20
-            disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Add notch filter"
-        >
-          + Add
-        </button>
-      </div>
-
-      {notchBands.length === 0 && (
-        <div className="text-[9px] text-gray-600 leading-tight">
-          Right-click spectrum to place, or use + Add.
-        </div>
-      )}
-
-      {notchBands.map((band) => (
-        <EqBandRow
-          key={band.id}
-          band={band}
-          onUpdate={(fHz, q, gainDb) => onUpdateEqBand(band.id, fHz, q, gainDb)}
-          onUpdateType={(ft) => onUpdateEqBandType(band.id, ft)}
-          onToggle={(enabled) => onToggleEqBand(band.id, enabled)}
-          onRemove={() => onRemoveEqBand(band.id)}
-        />
-      ))}
-    </div>
-  );
-
-  // ─── Section: Parametric EQ (category === "eq") ───────────────────────
-
-  const eqSection = (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-400">
-          {totalBands}/{MAX_EQ_BANDS}
-        </span>
-        <button
-          onClick={() => onAddEqBand(1000, 0, "eq")}
-          disabled={poolFull}
-          className="px-1.5 py-0.5 text-[10px] font-semibold rounded border transition-colors
-            bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan
-            hover:bg-cosmic-cyan/20
-            disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Add EQ band"
-        >
-          + Add
-        </button>
-      </div>
-
-      {eqCategoryBands.length === 0 && (
-        <div className="text-[9px] text-gray-600 leading-tight">
-          Right-click spectrum to place, or use + Add.
-        </div>
-      )}
-
-      {eqCategoryBands.map((band) => (
-        <EqBandRow
-          key={band.id}
-          band={band}
-          onUpdate={(fHz, q, gainDb) => onUpdateEqBand(band.id, fHz, q, gainDb)}
-          onUpdateType={(ft) => onUpdateEqBandType(band.id, ft)}
-          onToggle={(enabled) => onToggleEqBand(band.id, enabled)}
-          onRemove={() => onRemoveEqBand(band.id)}
-        />
-      ))}
-    </div>
-  );
-
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -865,6 +565,18 @@ export function FlexSideControls({
           </div>
         </SidebarAccordion>
 
+        <SidebarAccordion
+          title="Memories"
+          defaultOpen={false}
+          badge={memoryCount > 0 ? `${memoryCount}` : undefined}
+        >
+          <MemoryPanel
+            effectiveState={effectiveState}
+            onRecallFrequency={onBandSelect}
+            canControl={canControlConnected}
+          />
+        </SidebarAccordion>
+
         {/* Separator */}
         <div className="border-t border-white/5" />
 
@@ -878,24 +590,6 @@ export function FlexSideControls({
             {txSection}
           </SidebarAccordion>
         )}
-
-        <SidebarAccordion
-          title="Notch Filters"
-          defaultOpen={false}
-          badge={notchBands.length > 0 ? `${notchBands.length}` : undefined}
-        >
-          {notchSection}
-        </SidebarAccordion>
-
-        <SidebarAccordion
-          title="Parametric EQ"
-          defaultOpen={false}
-          badge={
-            eqCategoryBands.length > 0 ? `${eqCategoryBands.length}` : undefined
-          }
-        >
-          {eqSection}
-        </SidebarAccordion>
 
         <SidebarAccordion
           title="Recording"

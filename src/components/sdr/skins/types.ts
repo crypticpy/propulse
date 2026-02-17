@@ -69,6 +69,7 @@ export interface SdrRadioStateProps {
   txMeter?: { powerW?: number; swr?: number; alc?: number };
   cwSpeed?: number;
   ifShift?: number;
+  agcMode?: number;
 }
 
 export interface SdrFftDataProps {
@@ -147,6 +148,7 @@ export interface SdrControlProps {
   onModeChange: (mode: string) => void;
   onGainChange: (stage: string, value: number) => void;
   onAgcToggle: (enabled: boolean) => void;
+  onAgcModeChange: (mode: number) => void;
   onAntennaChange: (port: string) => void;
   onFilterChange: (low: number, high: number) => void;
   onNrChange: (enabled: boolean, level: number) => void;

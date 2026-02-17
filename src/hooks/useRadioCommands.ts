@@ -32,6 +32,7 @@ export interface RadioCommands {
   handleModeChange: (mode: string) => void;
   handleGainChange: (stage: string, value: number) => void;
   handleAgcToggle: (enabled: boolean) => void;
+  handleAgcModeChange: (mode: number) => void;
   handleAntennaChange: (port: string) => void;
   handleFilterChange: (low: number, high: number) => void;
   handleNrChange: (enabled: boolean, level: number) => void;
@@ -143,11 +144,25 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
 
   const handleAgcToggle = useCallback(
     (enabled: boolean) => {
-      setDraftState((s) => (s ? { ...s, agc: enabled } : s));
+      const mode = enabled ? 3 : 0; // Default: enabled → SLOW (3), disabled → OFF (0)
+      setDraftState((s) => (s ? { ...s, agc: enabled, agcMode: mode } : s));
       if (!connectedDeviceId) return;
       daemonSendCommand("radio:agc", {
         device_id: connectedDeviceId,
-        enabled,
+        mode,
+      });
+    },
+    [connectedDeviceId, daemonSendCommand],
+  );
+
+  const handleAgcModeChange = useCallback(
+    (mode: number) => {
+      const enabled = mode > 0;
+      setDraftState((s) => (s ? { ...s, agc: enabled, agcMode: mode } : s));
+      if (!connectedDeviceId) return;
+      daemonSendCommand("radio:agc", {
+        device_id: connectedDeviceId,
+        mode,
       });
     },
     [connectedDeviceId, daemonSendCommand],
@@ -375,6 +390,7 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
     handleModeChange,
     handleGainChange,
     handleAgcToggle,
+    handleAgcModeChange,
     handleAntennaChange,
     handleFilterChange,
     handleNrChange,

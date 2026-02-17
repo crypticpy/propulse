@@ -775,10 +775,14 @@ export class RigController {
     }
   }
 
-  async setAgc(enabled: boolean): Promise<void> {
+  /**
+   * Set AGC (Automatic Gain Control) mode.
+   * @param mode 0=OFF, 1=FAST, 2=MED, 3=SLOW
+   */
+  async setAgc(mode: number): Promise<void> {
     if (this.backend === "hamlib" && this.hamlib) {
-      // AGC is a level: 0 = off, 3 = slow (default when enabled)
-      await this.hamlib.setLevel("AGC", enabled ? 3 : 0);
+      // AGC is a Hamlib level: 0 = off, 1 = fast, 2 = medium, 3 = slow
+      await this.hamlib.setLevel("AGC", mode);
     } else {
       throw new Error("AGC control requires Hamlib backend");
     }
@@ -1116,6 +1120,14 @@ export class RigController {
         }
       }
 
+      // AGC mode — non-fatal
+      let agcMode: number | undefined;
+      try {
+        agcMode = await this.hamlib.getLevel("AGC");
+      } catch {
+        // AGC not available
+      }
+
       // TX metering (power, SWR, ALC) — non-fatal
       let txMeter: { powerW?: number; swr?: number; alc?: number } | undefined;
       try {
@@ -1158,6 +1170,7 @@ export class RigController {
         cwSpeed,
         ifShift,
         txMeter,
+        agcMode,
       };
     } else if (this.backend === "flrig" && this.flrig) {
       const freq = await this.flrig.getFrequency();

@@ -793,6 +793,7 @@ function rigStatusToDaemonState(status: RigStatus): {
   antenna: string;
   gains: Record<string, number>;
   agc: boolean;
+  agcMode?: number;
   ptt: boolean;
   signal_dbm?: number;
   split?: boolean;
@@ -813,7 +814,8 @@ function rigStatusToDaemonState(status: RigStatus): {
     vfo: status.vfo ?? "A",
     antenna: "ANT1",
     gains: {},
-    agc: false,
+    agc: (status.agcMode ?? 0) > 0, // Derive boolean from mode
+    agcMode: status.agcMode,
     ptt: status.ptt ?? false,
     signal_dbm: status.smeter,
     split: status.split,
@@ -1117,7 +1119,15 @@ function handleDaemonCommand(
       void (async () => {
         try {
           const controller = await ensureRigController();
-          await controller.setAgc(!!cmd.enabled);
+          // Accept mode (number 0-3) or enabled (boolean for backwards compat)
+          let mode: number;
+          if (typeof cmd.mode === "number") {
+            mode = Math.max(0, Math.min(3, Math.floor(cmd.mode)));
+          } else {
+            // Backwards compatibility: enabled boolean → mode 3 (SLOW) or 0 (OFF)
+            mode = cmd.enabled ? 3 : 0;
+          }
+          await controller.setAgc(mode);
           sendDaemonResponse(client, id, true);
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);

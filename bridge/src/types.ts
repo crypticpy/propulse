@@ -57,6 +57,8 @@ export interface RigStatus {
   cwSpeed?: number;
   /** IF shift in Hz */
   ifShift?: number;
+  /** AGC mode: 0=OFF, 1=FAST, 2=MED, 3=SLOW */
+  agcMode?: number;
 }
 
 /** Request to update rig settings */

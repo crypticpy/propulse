@@ -29,11 +29,15 @@ export interface SlicePanelControlProps {
   nbEnabled: boolean;
   nrEnabled: boolean;
   agcEnabled: boolean;
+  agcMode: number;
   anfEnabled: boolean;
+  squelchLevel: number;
   onNbToggle: () => void;
   onNrToggle: () => void;
   onAgcToggle: () => void;
+  onAgcModeChange: (mode: number) => void;
   onAnfToggle: () => void;
+  onSquelchChange: (level: number) => void;
 
   // Filter / Mode
   availableModes: string[];
@@ -140,11 +144,15 @@ export function SlicePanelTabs({
         nbEnabled={controls.nbEnabled}
         nrEnabled={controls.nrEnabled}
         agcEnabled={controls.agcEnabled}
+        agcMode={controls.agcMode}
         anfEnabled={controls.anfEnabled}
+        squelchLevel={controls.squelchLevel}
         onNbToggle={controls.onNbToggle}
         onNrToggle={controls.onNrToggle}
         onAgcToggle={controls.onAgcToggle}
+        onAgcModeChange={controls.onAgcModeChange}
         onAnfToggle={controls.onAnfToggle}
+        onSquelchChange={controls.onSquelchChange}
         canControl={controls.canControl}
       />
     );

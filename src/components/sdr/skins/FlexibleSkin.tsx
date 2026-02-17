@@ -94,6 +94,11 @@ export function FlexibleSkin(props: SdrSkinProps) {
           nrEnabled: !!effectiveState?.nr?.enabled,
           agcEnabled: !!effectiveState?.agc,
           anfEnabled: !!effectiveState?.anf,
+          agcMode: effectiveState?.agcMode ?? 0,
+          squelchLevel: gains["SQL"] ?? 0,
+          onAgcModeChange: controls.onAgcModeChange,
+          onSquelchChange: (level: number) =>
+            controls.onGainChange("SQL", level),
           onNbToggle: () =>
             controls.onNbChange(
               !effectiveState?.nb?.enabled,
@@ -155,6 +160,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
     effectiveState?.nr?.level,
     effectiveState?.agc,
     effectiveState?.anf,
+    effectiveState?.agcMode,
     effectiveState?.gains,
     effectiveState?.mode,
     effectiveState?.filter?.low,

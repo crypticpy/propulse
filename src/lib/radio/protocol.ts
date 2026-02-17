@@ -57,6 +57,7 @@ export interface RadioState {
   vfo?: "A" | "B";
   gains: Record<string, number>;
   agc: boolean;
+  agcMode?: number;
   ptt?: boolean;
   filter?: RadioFilter;
   nr?: RadioNr;

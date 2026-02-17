@@ -94,6 +94,16 @@ export interface FlexSideControlsProps {
   ft8Error: string | null;
   onFt8Toggle: () => void;
   onFt8ModeChange: (mode: "FT8" | "FT4") => void;
+
+  // Audio recording
+  isRecording: boolean;
+  recordingDurationSec: number;
+  recordingEstimatedBytes: number;
+  hasRecording: boolean;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onExportRecording: () => void;
+  onDiscardRecording: () => void;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -302,6 +312,18 @@ function EqBandRow({
   );
 }
 
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function FlexSideControls({
@@ -343,6 +365,14 @@ export function FlexSideControls({
   ft8Error,
   onFt8Toggle,
   onFt8ModeChange,
+  isRecording,
+  recordingDurationSec,
+  recordingEstimatedBytes,
+  hasRecording,
+  onStartRecording,
+  onStopRecording,
+  onExportRecording,
+  onDiscardRecording,
 }: FlexSideControlsProps) {
   const handleFreqKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -865,6 +895,85 @@ export function FlexSideControls({
           }
         >
           {eqSection}
+        </SidebarAccordion>
+
+        <SidebarAccordion
+          title="Recording"
+          defaultOpen={false}
+          badge={isRecording ? "REC" : undefined}
+        >
+          <div className="space-y-2">
+            {/* Record / Stop button */}
+            <button
+              onClick={isRecording ? onStopRecording : onStartRecording}
+              disabled={!audioEnabled}
+              className={`w-full px-3 py-2 text-xs font-bold uppercase tracking-wider rounded border transition-all
+                disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isRecording
+                    ? "bg-alert-red/20 border-alert-red/40 text-alert-red ring-1 ring-alert-red/20"
+                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                }`}
+            >
+              {isRecording ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-alert-red animate-pulse" />
+                  Stop Recording
+                </span>
+              ) : (
+                "Start Recording"
+              )}
+            </button>
+
+            {!audioEnabled && !isRecording && (
+              <div className="text-[9px] text-gray-600 leading-tight">
+                Start audio streaming to enable recording.
+              </div>
+            )}
+
+            {/* Duration + size display — visible during and after recording */}
+            {(isRecording || hasRecording) && (
+              <div className="grid grid-cols-2 gap-1">
+                <div className="rounded bg-white/[0.03] px-1.5 py-1 text-center">
+                  <div className="text-sm font-mono font-semibold tabular-nums text-white/80">
+                    {formatDuration(recordingDurationSec)}
+                  </div>
+                  <div className="text-[8px] uppercase tracking-wider text-white/30">
+                    Duration
+                  </div>
+                </div>
+                <div className="rounded bg-white/[0.03] px-1.5 py-1 text-center">
+                  <div className="text-sm font-mono font-semibold tabular-nums text-white/80">
+                    {formatBytes(recordingEstimatedBytes)}
+                  </div>
+                  <div className="text-[8px] uppercase tracking-wider text-white/30">
+                    Size
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Export / Discard — only when stopped with recording available */}
+            {!isRecording && hasRecording && (
+              <div className="flex gap-1">
+                <button
+                  onClick={onExportRecording}
+                  className="flex-1 px-2 py-1.5 text-[10px] font-semibold rounded border transition-colors
+                    bg-signal-green/10 border-signal-green/30 text-signal-green
+                    hover:bg-signal-green/20"
+                >
+                  Export WAV
+                </button>
+                <button
+                  onClick={onDiscardRecording}
+                  className="flex-1 px-2 py-1.5 text-[10px] font-semibold rounded border transition-colors
+                    bg-alert-red/10 border-alert-red/25 text-alert-red/70
+                    hover:bg-alert-red/20 hover:text-alert-red"
+                >
+                  Discard
+                </button>
+              </div>
+            )}
+          </div>
         </SidebarAccordion>
       </div>
     </div>

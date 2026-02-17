@@ -570,6 +570,14 @@ export function FlexibleSkin(props: SdrSkinProps) {
             ft8Error={ft8.ft8Error}
             onFt8Toggle={ft8.onFt8Toggle}
             onFt8ModeChange={ft8.onFt8ModeChange}
+            isRecording={dsp.isRecording}
+            recordingDurationSec={dsp.recordingDurationSec}
+            recordingEstimatedBytes={dsp.recordingEstimatedBytes}
+            hasRecording={dsp.hasRecording}
+            onStartRecording={dsp.onStartRecording}
+            onStopRecording={dsp.onStopRecording}
+            onExportRecording={dsp.onExportRecording}
+            onDiscardRecording={dsp.onDiscardRecording}
           />
           <FlexInfoTabs
             wsjtxStatus={decodes.wsjtxStatus}

@@ -196,6 +196,16 @@ export interface SdrDspProps {
   /** Tuning step size in Hz */
   tuningStepHz: number;
   onTuningStepChange: (stepHz: number) => void;
+
+  // Recording
+  isRecording: boolean;
+  recordingDurationSec: number;
+  recordingEstimatedBytes: number;
+  hasRecording: boolean;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onExportRecording: () => void;
+  onDiscardRecording: () => void;
 }
 
 export interface SdrInteractionProps {

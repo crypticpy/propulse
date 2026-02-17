@@ -52,6 +52,7 @@ import { useEqBands } from "@/hooks/useEqBands";
 import { useClientDsp } from "@/hooks/useClientDsp";
 import { useFt8AutoConfig } from "@/hooks/useFt8AutoConfig";
 import { useAudioDspChain } from "@/hooks/useAudioDspChain";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
@@ -363,6 +364,12 @@ export function SdrConsole() {
     clientNrEnabled: sdrSettings.sdrNrEnabled,
     clientNrLevel: sdrSettings.sdrNrLevel,
   });
+
+  // Hook 7: Audio recording
+  const [recorderState, recorderActions] = useAudioRecorder();
+  const handleStartRecording = useCallback(() => {
+    if (processingChain) recorderActions.startRecording(processingChain);
+  }, [processingChain, recorderActions]);
 
   // ── Side effects ────────────────────────────────────────────
 
@@ -751,6 +758,14 @@ export function SdrConsole() {
         onEqBandQChange: handleEqBandQChange,
         tuningStepHz: sdrSettings.tuningStepHz,
         onTuningStepChange: handleTuningStepChange,
+        isRecording: recorderState.isRecording,
+        recordingDurationSec: recorderState.durationSec,
+        recordingEstimatedBytes: recorderState.estimatedBytes,
+        hasRecording: recorderState.hasRecording,
+        onStartRecording: handleStartRecording,
+        onStopRecording: recorderActions.stopRecording,
+        onExportRecording: recorderActions.exportWav,
+        onDiscardRecording: recorderActions.discardRecording,
       },
       interaction: {
         onPickFrequencyHz: handlePickFrequencyHz,
@@ -830,6 +845,14 @@ export function SdrConsole() {
       handleSelectRangeHz,
       handleWheelTune,
       handleWaterfallViewChange,
+      recorderState.isRecording,
+      recorderState.durationSec,
+      recorderState.estimatedBytes,
+      recorderState.hasRecording,
+      handleStartRecording,
+      recorderActions.stopRecording,
+      recorderActions.exportWav,
+      recorderActions.discardRecording,
       isMobile,
       lastStatus,
     ],

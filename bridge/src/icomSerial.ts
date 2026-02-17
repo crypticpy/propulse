@@ -670,11 +670,15 @@ export class IcomSerialBackend {
     // S-meter
     const smeterFrame = await this.sendCommand(readSmeter(this.addr));
     if (smeterFrame) {
-      // Debug: log raw frame bytes to diagnose MK2 meter format
       if (smeterFrame.data.length >= 3) {
         const hexBytes = Buffer.from(smeterFrame.data).toString("hex");
         const raw = parseMeterResponse(smeterFrame);
         if (raw !== null) {
+          if (this.pollCount <= 5) {
+            console.log(
+              `[icom-serial] S-meter frame=${hexBytes} raw=${raw} dBm=${rawSmeterToDbm(raw).toFixed(1)}`,
+            );
+          }
           if (raw > 241 && !this.warnedUnsupported.has("SMETER_RANGE")) {
             this.warnedUnsupported.add("SMETER_RANGE");
             console.warn(

@@ -114,7 +114,7 @@ async function handleStaticRequest(
 
   // Prevent path traversal
   const resolved = path.resolve(filePath);
-  if (!resolved.startsWith(DIST_DIR)) {
+  if (!resolved.startsWith(DIST_DIR + path.sep) && resolved !== DIST_DIR) {
     res.writeHead(403);
     res.end("Forbidden");
     return;

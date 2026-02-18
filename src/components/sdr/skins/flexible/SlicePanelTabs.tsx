@@ -7,6 +7,7 @@
  */
 
 import {
+  memo,
   useState,
   useEffect,
   useCallback,
@@ -17,6 +18,7 @@ import type { GainStage } from "@/lib/radio/protocol";
 import { GainSlider } from "@/components/sdr/primitives/GainSlider";
 import { SlicePanelDsp } from "./SlicePanelDsp";
 import { SlicePanelFilter } from "./SlicePanelFilter";
+import { SlicePanelAud } from "./SlicePanelAud";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,12 +33,16 @@ export interface SlicePanelControlProps {
   agcEnabled: boolean;
   agcMode: number;
   anfEnabled: boolean;
+  qskEnabled: boolean;
+  voxEnabled: boolean;
   squelchLevel: number;
   onNbToggle: () => void;
   onNrToggle: () => void;
   onAgcToggle: () => void;
   onAgcModeChange: (mode: number) => void;
   onAnfToggle: () => void;
+  onQskToggle: () => void;
+  onVoxToggle: () => void;
   onSquelchChange: (level: number) => void;
 
   // Filter / Mode
@@ -49,6 +55,9 @@ export interface SlicePanelControlProps {
 
   // RX gains
   rxGainStages: GainStage[];
+  antennas: string[];
+  currentAntenna: string | null;
+  onAntennaChange: (port: string) => void;
   gains: Record<string, number>;
   onGainChange: (stage: string, value: number) => void;
 
@@ -63,6 +72,55 @@ export interface SlicePanelControlProps {
   onNoiseGateThresholdChange: (threshold: number) => void;
   onClientNrToggle: (enabled: boolean) => void;
   onClientNrLevelChange: (level: number) => void;
+  sweetenEnabled: boolean;
+  sweetenAmount: number;
+  onSweetenToggle: (enabled: boolean) => void;
+  onSweetenAmountChange: (amount: number) => void;
+  expanderEnabled: boolean;
+  expanderThreshold: number;
+  expanderRatio: number;
+  expanderAttackMs: number;
+  expanderReleaseMs: number;
+  expanderRangeDb: number;
+  onExpanderToggle: (enabled: boolean) => void;
+  onExpanderThresholdChange: (threshold: number) => void;
+  onExpanderRatioChange: (ratio: number) => void;
+  onExpanderAttackMsChange: (attackMs: number) => void;
+  onExpanderReleaseMsChange: (releaseMs: number) => void;
+  onExpanderRangeDbChange: (rangeDb: number) => void;
+  compressorEnabled: boolean;
+  compressorThreshold: number;
+  compressorRatio: number;
+  compressorAttackMs: number;
+  compressorReleaseMs: number;
+  compressorKnee: number;
+  compressorMakeupDb: number;
+  onCompressorToggle: (enabled: boolean) => void;
+  onCompressorThresholdChange: (threshold: number) => void;
+  onCompressorRatioChange: (ratio: number) => void;
+  onCompressorAttackMsChange: (attackMs: number) => void;
+  onCompressorReleaseMsChange: (releaseMs: number) => void;
+  onCompressorKneeChange: (knee: number) => void;
+  onCompressorMakeupDbChange: (makeupDb: number) => void;
+
+  // Spectral Taming
+  spectralTamingEnabled: boolean;
+  spectralTamingTameAmount: number;
+  spectralTamingRecoverAmount: number;
+  spectralTamingSpeed: number;
+  onSpectralTamingToggle: (enabled: boolean) => void;
+  onSpectralTamingTameAmountChange: (amount: number) => void;
+  onSpectralTamingRecoverAmountChange: (amount: number) => void;
+  onSpectralTamingSpeedChange: (speed: number) => void;
+  // Psychoacoustic Leveler
+  levelerEnabled: boolean;
+  levelerTargetLevel: number;
+  levelerSpeed: number;
+  levelerMaxGainDb: number;
+  onLevelerToggle: (enabled: boolean) => void;
+  onLevelerTargetLevelChange: (level: number) => void;
+  onLevelerSpeedChange: (speed: number) => void;
+  onLevelerMaxGainDbChange: (maxGainDb: number) => void;
 
   // X/RIT
   rit: { enabled: boolean; offsetHz: number } | undefined;
@@ -92,7 +150,7 @@ const TABS: { id: SlicePanelId; label: string }[] = [
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function SlicePanelTabs({
+export const SlicePanelTabs = memo(function SlicePanelTabs({
   controls,
 }: {
   controls: SlicePanelControlProps;
@@ -105,7 +163,7 @@ export function SlicePanelTabs({
     [],
   );
 
-  // Escape closes the active panel; 1-4 keys toggle panels when
+  // Escape closes the active panel; 1-5 keys toggle panels when
   // the slice flag is focused (or a child element has focus).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -122,7 +180,7 @@ export function SlicePanelTabs({
         return;
       }
 
-      // Number keys 1-4 toggle the tabs (only when no input is focused)
+      // Number keys 1-5 toggle the tabs (only when no input is focused)
       const tag = (document.activeElement as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
@@ -146,12 +204,16 @@ export function SlicePanelTabs({
         agcEnabled={controls.agcEnabled}
         agcMode={controls.agcMode}
         anfEnabled={controls.anfEnabled}
+        qskEnabled={controls.qskEnabled}
+        voxEnabled={controls.voxEnabled}
         squelchLevel={controls.squelchLevel}
         onNbToggle={controls.onNbToggle}
         onNrToggle={controls.onNrToggle}
         onAgcToggle={controls.onAgcToggle}
         onAgcModeChange={controls.onAgcModeChange}
         onAnfToggle={controls.onAnfToggle}
+        onQskToggle={controls.onQskToggle}
+        onVoxToggle={controls.onVoxToggle}
         onSquelchChange={controls.onSquelchChange}
         canControl={controls.canControl}
       />
@@ -172,6 +234,9 @@ export function SlicePanelTabs({
     panelContent = (
       <SlicePanelRxInline
         stages={controls.rxGainStages}
+        antennas={controls.antennas}
+        currentAntenna={controls.currentAntenna}
+        onAntennaChange={controls.onAntennaChange}
         gains={controls.gains}
         onGainChange={controls.onGainChange}
         canControl={controls.canControl}
@@ -198,19 +263,69 @@ export function SlicePanelTabs({
     );
   } else if (activePanel === "audio") {
     panelContent = (
-      <SlicePanelAudioInline
+      <SlicePanelAud
         afGainStage={controls.afGainStage}
         gains={controls.gains}
         onGainChange={controls.onGainChange}
         audioEnabled={controls.audioEnabled}
         noiseGateEnabled={controls.noiseGateEnabled}
         noiseGateThreshold={controls.noiseGateThreshold}
-        clientNrEnabled={controls.clientNrEnabled}
-        clientNrLevel={controls.clientNrLevel}
         onNoiseGateToggle={controls.onNoiseGateToggle}
         onNoiseGateThresholdChange={controls.onNoiseGateThresholdChange}
+        clientNrEnabled={controls.clientNrEnabled}
+        clientNrLevel={controls.clientNrLevel}
         onClientNrToggle={controls.onClientNrToggle}
         onClientNrLevelChange={controls.onClientNrLevelChange}
+        sweetenEnabled={controls.sweetenEnabled}
+        sweetenAmount={controls.sweetenAmount}
+        onSweetenToggle={controls.onSweetenToggle}
+        onSweetenAmountChange={controls.onSweetenAmountChange}
+        expanderEnabled={controls.expanderEnabled}
+        expanderThreshold={controls.expanderThreshold}
+        expanderRatio={controls.expanderRatio}
+        expanderAttackMs={controls.expanderAttackMs}
+        expanderReleaseMs={controls.expanderReleaseMs}
+        expanderRangeDb={controls.expanderRangeDb}
+        onExpanderToggle={controls.onExpanderToggle}
+        onExpanderThresholdChange={controls.onExpanderThresholdChange}
+        onExpanderRatioChange={controls.onExpanderRatioChange}
+        onExpanderAttackMsChange={controls.onExpanderAttackMsChange}
+        onExpanderReleaseMsChange={controls.onExpanderReleaseMsChange}
+        onExpanderRangeDbChange={controls.onExpanderRangeDbChange}
+        compressorEnabled={controls.compressorEnabled}
+        compressorThreshold={controls.compressorThreshold}
+        compressorRatio={controls.compressorRatio}
+        compressorAttackMs={controls.compressorAttackMs}
+        compressorReleaseMs={controls.compressorReleaseMs}
+        compressorKnee={controls.compressorKnee}
+        compressorMakeupDb={controls.compressorMakeupDb}
+        onCompressorToggle={controls.onCompressorToggle}
+        onCompressorThresholdChange={controls.onCompressorThresholdChange}
+        onCompressorRatioChange={controls.onCompressorRatioChange}
+        onCompressorAttackMsChange={controls.onCompressorAttackMsChange}
+        onCompressorReleaseMsChange={controls.onCompressorReleaseMsChange}
+        onCompressorKneeChange={controls.onCompressorKneeChange}
+        onCompressorMakeupDbChange={controls.onCompressorMakeupDbChange}
+        spectralTamingEnabled={controls.spectralTamingEnabled}
+        spectralTamingTameAmount={controls.spectralTamingTameAmount}
+        spectralTamingRecoverAmount={controls.spectralTamingRecoverAmount}
+        spectralTamingSpeed={controls.spectralTamingSpeed}
+        onSpectralTamingToggle={controls.onSpectralTamingToggle}
+        onSpectralTamingTameAmountChange={
+          controls.onSpectralTamingTameAmountChange
+        }
+        onSpectralTamingRecoverAmountChange={
+          controls.onSpectralTamingRecoverAmountChange
+        }
+        onSpectralTamingSpeedChange={controls.onSpectralTamingSpeedChange}
+        levelerEnabled={controls.levelerEnabled}
+        levelerTargetLevel={controls.levelerTargetLevel}
+        levelerSpeed={controls.levelerSpeed}
+        levelerMaxGainDb={controls.levelerMaxGainDb}
+        onLevelerToggle={controls.onLevelerToggle}
+        onLevelerTargetLevelChange={controls.onLevelerTargetLevelChange}
+        onLevelerSpeedChange={controls.onLevelerSpeedChange}
+        onLevelerMaxGainDbChange={controls.onLevelerMaxGainDbChange}
         canControl={controls.canControl}
       />
     );
@@ -242,7 +357,11 @@ export function SlicePanelTabs({
       {/* Expandable panel */}
       <div
         className={`overflow-hidden transition-all duration-200 ease-in-out ${
-          activePanel ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
+          activePanel
+            ? activePanel === "audio"
+              ? "max-h-[520px] opacity-100"
+              : "max-h-[300px] opacity-100"
+            : "max-h-0 opacity-0"
         }`}
       >
         {panelContent && (
@@ -253,41 +372,140 @@ export function SlicePanelTabs({
       </div>
     </div>
   );
-}
+});
 
 // ─── Inline RX Panel ─────────────────────────────────────────────────────────
 
 function SlicePanelRxInline({
   stages,
+  antennas,
+  currentAntenna,
+  onAntennaChange,
   gains,
   onGainChange,
   canControl,
 }: {
   stages: GainStage[];
+  antennas: string[];
+  currentAntenna: string | null;
+  onAntennaChange: (port: string) => void;
   gains: Record<string, number>;
   onGainChange: (stage: string, value: number) => void;
   canControl: boolean;
 }) {
-  if (stages.length === 0) {
-    return (
-      <div className="text-[10px] text-gray-600 italic">
-        No RX gain stages available
-      </div>
-    );
-  }
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const classifyToken = (stage: GainStage) =>
+    `${stage.name} ${stage.label ?? ""}`
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+  const preampStage =
+    stages.find((stage) => {
+      const token = classifyToken(stage);
+      return token.includes("PREAMP") || token === "PRE";
+    }) ?? null;
+  const attStage =
+    stages.find((stage) => {
+      const token = classifyToken(stage);
+      return token === "ATT" || token.includes("ATTEN");
+    }) ?? null;
+  const fineStages = stages.filter(
+    (stage) => stage !== preampStage && stage !== attStage,
+  );
+  const hasFineStages = fineStages.length > 0;
 
   return (
     <div className="space-y-2">
-      {stages.map((stage) => (
-        <GainSlider
-          key={stage.name}
-          stage={stage}
-          value={gains[stage.name] ?? stage.min}
-          onChange={(v) => onGainChange(stage.name, v)}
-          disabled={!canControl}
-          size="compact"
-        />
-      ))}
+      {antennas.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[9px] text-gray-500 uppercase tracking-wider">
+            Antenna
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {antennas.map((antenna) => {
+              const isActive = antenna === currentAntenna;
+              return (
+                <button
+                  key={antenna}
+                  type="button"
+                  onClick={() => onAntennaChange(antenna)}
+                  disabled={!canControl}
+                  className={`px-1.5 py-0.5 text-[10px] font-semibold rounded border transition-colors
+                    disabled:opacity-40 disabled:cursor-not-allowed ${
+                      isActive
+                        ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
+                        : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                    }`}
+                >
+                  {antenna}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(preampStage || attStage) && (
+        <div className="space-y-2">
+          <div className="text-[9px] text-gray-500 uppercase tracking-wider">
+            Front End
+          </div>
+          {preampStage && (
+            <GainSlider
+              stage={preampStage}
+              value={gains[preampStage.name] ?? preampStage.min}
+              onChange={(v) => onGainChange(preampStage.name, v)}
+              disabled={!canControl}
+              size="compact"
+            />
+          )}
+          {attStage && (
+            <GainSlider
+              stage={attStage}
+              value={gains[attStage.name] ?? attStage.min}
+              onChange={(v) => onGainChange(attStage.name, v)}
+              disabled={!canControl}
+              size="compact"
+            />
+          )}
+        </div>
+      )}
+
+      {hasFineStages && (
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((open) => !open)}
+            className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded border bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+          >
+            {showAdvanced
+              ? "Hide RX Fine Controls"
+              : `Show RX Fine Controls (${fineStages.length})`}
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-2 pt-0.5">
+              {fineStages.map((stage) => (
+                <GainSlider
+                  key={stage.name}
+                  stage={stage}
+                  value={gains[stage.name] ?? stage.min}
+                  onChange={(v) => onGainChange(stage.name, v)}
+                  disabled={!canControl}
+                  size="compact"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {stages.length === 0 && (
+        <div className="text-[10px] text-gray-600 italic">
+          No RX gain stages available
+        </div>
+      )}
     </div>
   );
 }
@@ -477,133 +695,6 @@ function SlicePanelXRit({
             {cwSpeed}
           </span>
         </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Inline Audio Panel ──────────────────────────────────────────────────────
-
-function nrLevelLabel(level: number): string {
-  if (level === 0) return "Off";
-  if (level <= 3) return "Mild";
-  if (level <= 6) return "Moderate";
-  return "Aggressive";
-}
-
-function SlicePanelAudioInline({
-  afGainStage,
-  gains,
-  onGainChange,
-  audioEnabled,
-  noiseGateEnabled,
-  noiseGateThreshold,
-  clientNrEnabled,
-  clientNrLevel,
-  onNoiseGateToggle,
-  onNoiseGateThresholdChange,
-  onClientNrToggle,
-  onClientNrLevelChange,
-  canControl,
-}: {
-  afGainStage: GainStage | null;
-  gains: Record<string, number>;
-  onGainChange: (stage: string, value: number) => void;
-  audioEnabled: boolean;
-  noiseGateEnabled: boolean;
-  noiseGateThreshold: number;
-  clientNrEnabled: boolean;
-  clientNrLevel: number;
-  onNoiseGateToggle: (enabled: boolean) => void;
-  onNoiseGateThresholdChange: (threshold: number) => void;
-  onClientNrToggle: (enabled: boolean) => void;
-  onClientNrLevelChange: (level: number) => void;
-  canControl: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      {/* AF gain slider */}
-      {afGainStage && (
-        <GainSlider
-          stage={afGainStage}
-          value={gains[afGainStage.name] ?? afGainStage.min}
-          onChange={(v) => onGainChange(afGainStage.name, v)}
-          disabled={!canControl}
-          size="compact"
-        />
-      )}
-
-      {/* Client-side DSP */}
-      {!audioEnabled ? (
-        <div className="text-[10px] text-gray-600 italic">
-          Start audio stream to use DSP
-        </div>
-      ) : (
-        <>
-          {/* Noise Gate */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onNoiseGateToggle(!noiseGateEnabled)}
-              className={`px-1.5 py-0.5 text-[9px] font-semibold rounded border transition-colors ${
-                noiseGateEnabled
-                  ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                  : "bg-white/5 border-white/10 text-gray-500"
-              }`}
-            >
-              Gate {noiseGateEnabled ? "On" : "Off"}
-            </button>
-            {noiseGateEnabled && (
-              <div className="flex items-center gap-1 flex-1">
-                <input
-                  type="range"
-                  min={-80}
-                  max={-20}
-                  step={1}
-                  value={noiseGateThreshold}
-                  onChange={(e) =>
-                    onNoiseGateThresholdChange(Number(e.target.value))
-                  }
-                  className="flex-1 h-1 accent-plasma-orange"
-                />
-                <span className="text-[9px] font-mono text-gray-400 w-8 text-right">
-                  {noiseGateThreshold}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Noise Reduction */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onClientNrToggle(!clientNrEnabled)}
-              className={`px-1.5 py-0.5 text-[9px] font-semibold rounded border transition-colors ${
-                clientNrEnabled
-                  ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                  : "bg-white/5 border-white/10 text-gray-500"
-              }`}
-            >
-              NR {clientNrEnabled ? "On" : "Off"}
-            </button>
-            {clientNrEnabled && (
-              <div className="flex items-center gap-1 flex-1">
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={clientNrLevel}
-                  onChange={(e) =>
-                    onClientNrLevelChange(Number(e.target.value))
-                  }
-                  className="flex-1 h-1 accent-plasma-orange"
-                />
-                <span className="text-[9px] font-mono text-gray-400 w-12 text-right">
-                  {clientNrLevel} {nrLevelLabel(clientNrLevel)}
-                </span>
-              </div>
-            )}
-          </div>
-        </>
       )}
     </div>
   );

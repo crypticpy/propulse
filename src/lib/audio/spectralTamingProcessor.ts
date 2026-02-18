@@ -1,39 +1,13 @@
 // ---------------------------------------------------------------------------
-// SpectralNrProcessor — AudioWorkletProcessor for Wiener-filter NR
+// spectralTamingProcessor — AudioWorkletProcessor source (inlined as a string)
 // ---------------------------------------------------------------------------
-// This file serves as the TypeScript reference implementation for the
-// spectral noise reduction algorithm.  The actual processor code that runs
-// inside the AudioWorklet scope is exported as a plain JavaScript string
-// constant (SPECTRAL_NR_PROCESSOR_CODE) so that the wrapper module
-// (spectralNr.ts) can load it via a Blob URL.
-//
-// Algorithm: overlap-add Wiener filter with minimum-statistics noise floor
-//   1. Accumulate input samples into a 1024-sample FFT frame (50% overlap,
-//      512-sample hop).
-//   2. Apply a Hann window.
-//   3. Forward FFT (radix-2 Cooley-Tukey, in-place).
-//   4. Compute magnitude spectrum.
-//   5. Estimate noise floor via minimum statistics: sliding-window minimum
-//      over recent magnitude frames with bias correction.
-//   6. Wiener filter: gain = max(floor, 1 - factor * noiseFloor^2 / mag^2),
-//      applied per bin to suppress noise while preserving signal.
-//   7. Reconstruct complex spectrum with cleaned magnitudes + original phase.
-//   8. Inverse FFT.
-//   9. Apply Hann window again (synthesis window for overlap-add).
-//  10. Overlap-add into output ring buffer; emit 512 samples per cycle.
-//
-// Parameters (AudioParam, k-rate):
-//   nrLevel   — aggressiveness 0-10 (mapped to 0-3x subtraction factor)
-//   adaptRate — noise floor adaptation speed 0.001-0.1
-//               (also controls minimum-statistics bias: 1 + adaptRate * 50)
-//
-// The FFT is a standard radix-2 decimation-in-time implementation operating
-// on Float64Arrays for numerical precision.  Everything is self-contained
-// with zero imports — a hard requirement for AudioWorklet processors.
+// Gullfoss/DSEEQ-inspired intelligent dynamic EQ that automatically tames
+// spectral resonances and boosts deficient frequencies for ham radio audio.
+// This code is loaded via Blob URL by spectralTaming.ts to avoid
+// bundler/module resolution issues with AudioWorklet addModule().
 // ---------------------------------------------------------------------------
 
-/** Spectral NR processor code (runs in AudioWorklet scope) */
-export const SPECTRAL_NR_PROCESSOR_CODE = `
+export const SPECTRAL_TAMING_PROCESSOR_CODE = /* js */ `
 // ---------------------------------------------------------------------------
 // Radix-2 Cooley-Tukey FFT (in-place, complex)
 // ---------------------------------------------------------------------------
@@ -86,9 +60,9 @@ function fft(real, imag, inverse) {
 }
 
 // ---------------------------------------------------------------------------
-// SpectralNrProcessor
+// SpectralTamingProcessor
 // ---------------------------------------------------------------------------
-class SpectralNrProcessor extends AudioWorkletProcessor {
+class SpectralTamingProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
 
@@ -114,36 +88,90 @@ class SpectralNrProcessor extends AudioWorkletProcessor {
       this._window[n] = 0.5 * (1 - Math.cos(2 * Math.PI * n / (this._fftSize - 1)));
     }
 
-    var halfSpectrum = this._fftSize / 2 + 1; // 513
+    // Half-spectrum + DC
+    var halfSpectrum = this._fftSize / 2 + 1; // 513 bins
 
-    // Noise floor estimate (magnitude spectrum, half-spectrum + DC)
-    this._noiseFloor = new Float64Array(halfSpectrum);
-    this._magnitudes = new Float64Array(halfSpectrum);
-    this._phases = new Float64Array(halfSpectrum);
-    this._noiseFloorInitialised = false;
-    this._noiseFrameCount = 0;
+    // Running spectral envelope (exponential smoothing), init to 0
+    this._envelope = new Float64Array(halfSpectrum);
 
-    // Minimum statistics tracking
-    this._minTrackWindow = 16; // track minimum over 16 frames (~170ms at 48kHz/512 hop)
-    this._minTrackBuffer = []; // circular buffer of recent magnitude snapshots
-    this._minTrackWritePos = 0;
-    this._minTrackBias = 1.5; // default bias correction (overridden by adaptRate)
-    this._localMinimum = new Float64Array(halfSpectrum); // per-bin minimum
+    // Inter-frame gain smoothing, init to 1.0
+    this._smoothedGains = new Float64Array(halfSpectrum);
+    for (var i = 0; i < halfSpectrum; i++) {
+      this._smoothedGains[i] = 1.0;
+    }
+
+    // Speech-weighted target curve (precomputed)
+    this._targetCurve = new Float64Array(halfSpectrum);
+    this._buildTargetCurve();
 
     // Previous overlap frame for overlap-add
     this._overlapBuffer = new Float32Array(this._fftSize);
 
     // Track whether we have accumulated enough input for the first frame
     this._samplesAccumulated = 0;
+
+    // Envelope warmup
+    this._envelopeInitialised = false;
+    this._warmupFrames = 8;
+    this._frameCount = 0;
   }
 }
 
-SpectralNrProcessor.parameterDescriptors = [
-  { name: "nrLevel", defaultValue: 3, minValue: 0, maxValue: 10 },
-  { name: "adaptRate", defaultValue: 0.01, minValue: 0.001, maxValue: 0.1 },
+SpectralTamingProcessor.parameterDescriptors = [
+  { name: "tameAmount", defaultValue: 0.5, minValue: 0, maxValue: 1 },
+  { name: "recoverAmount", defaultValue: 0.3, minValue: 0, maxValue: 1 },
+  { name: "speed", defaultValue: 0.03, minValue: 0.005, maxValue: 0.2 },
 ];
 
-SpectralNrProcessor.prototype.process = function (inputs, outputs, parameters) {
+// ---------------------------------------------------------------------------
+// Build speech-weighted target curve
+// ---------------------------------------------------------------------------
+SpectralTamingProcessor.prototype._buildTargetCurve = function () {
+  var halfSpectrum = this._fftSize / 2 + 1;
+  var maxVal = 0;
+
+  for (var i = 0; i < halfSpectrum; i++) {
+    var freqHz = i * sampleRate / this._fftSize;
+    var val = 1.0;
+
+    if (freqHz < 300) {
+      // Gentle highpass roll-off below 300 Hz
+      val = 0.3 + 0.7 * (freqHz / 300);
+    } else if (freqHz >= 300 && freqHz < 800) {
+      // Flat 300-800 Hz
+      val = 1.0;
+    } else if (freqHz >= 800 && freqHz <= 3500) {
+      // Gentle emphasis 800-3500 Hz, +3dB peak around 2500 Hz
+      // Map 800-3500 to a raised cosine peaking at 2500
+      var center = 2500;
+      var halfWidth = 1350; // 2500-800=1700, 3500-2500=1000; use avg ~1350
+      var dist = Math.abs(freqHz - center) / halfWidth;
+      if (dist > 1) dist = 1;
+      // +3dB ~= 1.413x linear; peak boost of ~0.413 above 1.0
+      val = 1.0 + 0.413 * (0.5 * (1 + Math.cos(Math.PI * dist)));
+    } else {
+      // Roll off above 3500 Hz
+      var rolloff = 3500 / (freqHz + 1);
+      if (rolloff > 1) rolloff = 1;
+      val = rolloff;
+    }
+
+    this._targetCurve[i] = val;
+    if (val > maxVal) maxVal = val;
+  }
+
+  // Normalize so the curve peaks at 1.0
+  if (maxVal > 0) {
+    for (var i = 0; i < halfSpectrum; i++) {
+      this._targetCurve[i] /= maxVal;
+    }
+  }
+};
+
+// ---------------------------------------------------------------------------
+// process() — called every render quantum (128 samples)
+// ---------------------------------------------------------------------------
+SpectralTamingProcessor.prototype.process = function (inputs, outputs, parameters) {
   var input = inputs[0];
   var output = outputs[0];
 
@@ -162,18 +190,9 @@ SpectralNrProcessor.prototype.process = function (inputs, outputs, parameters) {
   var blockSize = inChannel.length; // typically 128
 
   // Read parameters (k-rate — use first sample)
-  var nrLevelRaw = parameters.nrLevel[0];
-  var adaptRate = parameters.adaptRate[0];
-
-  // Map nrLevel 0-10 to subtraction factor 0-3
-  var subtractionFactor = (nrLevelRaw / 10) * 3;
-
-  // Spectral floor prevents musical noise (minimum gain applied to each bin)
-  var spectralFloor = 0.05;
-
-  // Bias correction for minimum statistics: adaptRate controls conservatism
-  // adaptRate 0.01 -> bias 1.5, adaptRate 0.05 -> bias 3.5
-  var biasCorrection = 1.0 + adaptRate * 50;
+  var tameAmount = parameters.tameAmount[0];
+  var recoverAmount = parameters.recoverAmount[0];
+  var speed = parameters.speed[0];
 
   var fftSize = this._fftSize;
   var hopSize = this._hopSize;
@@ -197,8 +216,8 @@ SpectralNrProcessor.prototype.process = function (inputs, outputs, parameters) {
       fft(this._fftReal, this._fftImag, false);
 
       // --- Compute magnitudes and phases ---
-      var magnitudes = this._magnitudes;
-      var phases = this._phases;
+      var magnitudes = new Float64Array(halfSpectrum);
+      var phases = new Float64Array(halfSpectrum);
 
       for (var i = 0; i < halfSpectrum; i++) {
         var re = this._fftReal[i];
@@ -207,70 +226,71 @@ SpectralNrProcessor.prototype.process = function (inputs, outputs, parameters) {
         phases[i] = Math.atan2(im, re);
       }
 
-      // --- Update noise floor via minimum statistics ---
-      this._noiseFrameCount++;
+      // --- Update running spectral envelope ---
+      this._frameCount++;
 
-      // Store magnitude snapshot in circular buffer
-      if (this._minTrackBuffer.length < this._minTrackWindow) {
-        // Still filling the buffer
-        var snap = new Float64Array(halfSpectrum);
-        for (var i = 0; i < halfSpectrum; i++) snap[i] = magnitudes[i];
-        this._minTrackBuffer.push(snap);
-      } else {
-        // Overwrite oldest frame
-        var snap = this._minTrackBuffer[this._minTrackWritePos % this._minTrackWindow];
-        for (var i = 0; i < halfSpectrum; i++) snap[i] = magnitudes[i];
-      }
-      this._minTrackWritePos++;
-
-      // Compute per-bin minimum across window
-      if (this._minTrackBuffer.length >= 4) { // need at least 4 frames
-        for (var i = 0; i < halfSpectrum; i++) {
-          var minVal = 1e30;
-          for (var f = 0; f < this._minTrackBuffer.length; f++) {
-            if (this._minTrackBuffer[f][i] < minVal) {
-              minVal = this._minTrackBuffer[f][i];
-            }
-          }
-          this._localMinimum[i] = minVal;
-        }
-        // Bias-corrected noise floor estimate
-        for (var i = 0; i < halfSpectrum; i++) {
-          this._noiseFloor[i] = this._localMinimum[i] * biasCorrection;
-        }
-        this._noiseFloorInitialised = true;
-      } else if (!this._noiseFloorInitialised) {
-        // During initial frames, use running average
-        if (this._noiseFrameCount === 1) {
+      if (!this._envelopeInitialised) {
+        if (this._frameCount === 1) {
+          // First frame: seed envelope directly
           for (var i = 0; i < halfSpectrum; i++) {
-            this._noiseFloor[i] = magnitudes[i];
+            this._envelope[i] = magnitudes[i];
           }
         } else {
+          // Running average during warmup
           for (var i = 0; i < halfSpectrum; i++) {
-            this._noiseFloor[i] += (magnitudes[i] - this._noiseFloor[i]) / this._noiseFrameCount;
+            this._envelope[i] += (magnitudes[i] - this._envelope[i]) / this._frameCount;
           }
         }
-      }
-
-      // --- Wiener filter ---
-      if (nrLevelRaw > 0 && this._noiseFloorInitialised) {
+        if (this._frameCount >= this._warmupFrames) {
+          this._envelopeInitialised = true;
+        }
+      } else {
+        // Exponential smoothing: envelope[i] = envelope[i] * (1 - speed) + magnitude[i] * speed
         for (var i = 0; i < halfSpectrum; i++) {
-          // Wiener gain: 1 - factor * noiseFloor^2 / (magnitude^2 + epsilon)
-          var noisePower = this._noiseFloor[i] * this._noiseFloor[i];
-          var signalPower = magnitudes[i] * magnitudes[i] + 1e-20;
-          var wienerGain = 1.0 - subtractionFactor * noisePower / signalPower;
-          if (wienerGain < spectralFloor) wienerGain = spectralFloor;
-          if (wienerGain > 1.0) wienerGain = 1.0;
-          magnitudes[i] = magnitudes[i] * wienerGain;
+          this._envelope[i] = this._envelope[i] * (1 - speed) + magnitudes[i] * speed;
         }
       }
 
-      // --- Reconstruct complex spectrum with cleaned magnitudes + original phase ---
-      for (var i = 0; i < halfSpectrum; i++) {
-        this._fftReal[i] = magnitudes[i] * Math.cos(phases[i]);
-        this._fftImag[i] = magnitudes[i] * Math.sin(phases[i]);
+      // --- Compute per-bin corrective gain ---
+      var gains = new Float64Array(halfSpectrum);
+
+      if (this._envelopeInitialised) {
+        for (var i = 0; i < halfSpectrum; i++) {
+          var ratio = this._targetCurve[i] / (this._envelope[i] + 1e-10);
+
+          if (ratio < 1.0) {
+            // Resonance: tame it
+            gains[i] = 1.0 + (ratio - 1.0) * tameAmount; // lerp(1.0, ratio, tameAmount)
+          } else {
+            // Deficiency: boost it (cap ratio at 4.0)
+            var cappedRatio = ratio < 4.0 ? ratio : 4.0;
+            gains[i] = 1.0 + (cappedRatio - 1.0) * recoverAmount; // lerp(1.0, cappedRatio, recoverAmount)
+          }
+
+          // Clamp gain to [0.1, 6.0]
+          if (gains[i] < 0.1) gains[i] = 0.1;
+          if (gains[i] > 6.0) gains[i] = 6.0;
+        }
+      } else {
+        // During warmup, pass through with unity gain
+        for (var i = 0; i < halfSpectrum; i++) {
+          gains[i] = 1.0;
+        }
       }
-      // Mirror conjugate for negative frequencies
+
+      // --- Smooth gains between frames ---
+      for (var i = 0; i < halfSpectrum; i++) {
+        this._smoothedGains[i] = this._smoothedGains[i] * 0.7 + gains[i] * 0.3;
+      }
+
+      // --- Apply smoothed gains to magnitude, preserve phase ---
+      for (var i = 0; i < halfSpectrum; i++) {
+        var newMag = magnitudes[i] * this._smoothedGains[i];
+        this._fftReal[i] = newMag * Math.cos(phases[i]);
+        this._fftImag[i] = newMag * Math.sin(phases[i]);
+      }
+
+      // --- Mirror conjugate for negative frequencies ---
       for (var i = halfSpectrum; i < fftSize; i++) {
         this._fftReal[i] = this._fftReal[fftSize - i];
         this._fftImag[i] = -this._fftImag[fftSize - i];
@@ -287,8 +307,6 @@ SpectralNrProcessor.prototype.process = function (inputs, outputs, parameters) {
       }
 
       // --- Overlap-add into output buffer ---
-      // The overlap region is the first hopSize samples of the new frame,
-      // which overlap with the last hopSize samples of the previous frame.
       for (var i = 0; i < fftSize; i++) {
         this._overlapBuffer[i] += this._fftReal[i];
       }
@@ -341,5 +359,5 @@ SpectralNrProcessor.prototype.process = function (inputs, outputs, parameters) {
   return true;
 };
 
-registerProcessor("spectral-nr", SpectralNrProcessor);
+registerProcessor("spectral-taming", SpectralTamingProcessor);
 `;

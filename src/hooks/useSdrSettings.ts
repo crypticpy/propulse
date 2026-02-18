@@ -45,6 +45,29 @@ export interface SdrSettings {
   sdrNrEnabled: boolean;
   sdrNrLevel: number;
   sdrEqBands: EqBand[];
+  sdrSweetenEnabled: boolean;
+  sdrSweetenAmount: number;
+  sdrExpanderEnabled: boolean;
+  sdrExpanderThreshold: number;
+  sdrExpanderRatio: number;
+  sdrExpanderAttackMs: number;
+  sdrExpanderReleaseMs: number;
+  sdrExpanderRangeDb: number;
+  sdrCompressorEnabled: boolean;
+  sdrCompressorThreshold: number;
+  sdrCompressorRatio: number;
+  sdrCompressorAttackMs: number;
+  sdrCompressorReleaseMs: number;
+  sdrCompressorKnee: number;
+  sdrCompressorMakeupDb: number;
+  sdrSpectralTamingEnabled: boolean;
+  sdrSpectralTamingTameAmount: number;
+  sdrSpectralTamingRecoverAmount: number;
+  sdrSpectralTamingSpeed: number;
+  sdrLevelerEnabled: boolean;
+  sdrLevelerTargetLevel: number;
+  sdrLevelerSpeed: number;
+  sdrLevelerMaxGainDb: number;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -85,6 +108,29 @@ export function useSdrSettings(): SdrSettings {
       sdrNrEnabled: s.sdrNrEnabled,
       sdrNrLevel: s.sdrNrLevel,
       sdrEqBands: s.sdrEqBands,
+      sdrSweetenEnabled: s.sdrSweetenEnabled,
+      sdrSweetenAmount: s.sdrSweetenAmount,
+      sdrExpanderEnabled: s.sdrExpanderEnabled,
+      sdrExpanderThreshold: s.sdrExpanderThreshold,
+      sdrExpanderRatio: s.sdrExpanderRatio,
+      sdrExpanderAttackMs: s.sdrExpanderAttackMs,
+      sdrExpanderReleaseMs: s.sdrExpanderReleaseMs,
+      sdrExpanderRangeDb: s.sdrExpanderRangeDb,
+      sdrCompressorEnabled: s.sdrCompressorEnabled,
+      sdrCompressorThreshold: s.sdrCompressorThreshold,
+      sdrCompressorRatio: s.sdrCompressorRatio,
+      sdrCompressorAttackMs: s.sdrCompressorAttackMs,
+      sdrCompressorReleaseMs: s.sdrCompressorReleaseMs,
+      sdrCompressorKnee: s.sdrCompressorKnee,
+      sdrCompressorMakeupDb: s.sdrCompressorMakeupDb,
+      sdrSpectralTamingEnabled: s.sdrSpectralTamingEnabled,
+      sdrSpectralTamingTameAmount: s.sdrSpectralTamingTameAmount,
+      sdrSpectralTamingRecoverAmount: s.sdrSpectralTamingRecoverAmount,
+      sdrSpectralTamingSpeed: s.sdrSpectralTamingSpeed,
+      sdrLevelerEnabled: s.sdrLevelerEnabled,
+      sdrLevelerTargetLevel: s.sdrLevelerTargetLevel,
+      sdrLevelerSpeed: s.sdrLevelerSpeed,
+      sdrLevelerMaxGainDb: s.sdrLevelerMaxGainDb,
     })),
   );
 }

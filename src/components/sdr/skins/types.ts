@@ -23,6 +23,9 @@ import type {
   EqBandCategory,
   EqSlope,
 } from "@/lib/audio/eqTypes";
+import type { Ft8EnrichedDecode } from "@/lib/ft8/ft8EnrichedDecode";
+import type { Ft8BandPreset } from "@/lib/ft8/ft8BandPresets";
+import type { TimeSyncResult } from "@/lib/ft8/timeSyncCheck";
 
 // ─── Skin name type ─────────────────────────────────────────────────────────
 
@@ -136,6 +139,12 @@ export interface SdrFt8Props {
   ft8Error: string | null;
   onFt8Toggle: () => void;
   onFt8ModeChange: (mode: "FT8" | "FT4") => void;
+  ft8EnrichedDecodes: Ft8EnrichedDecode[];
+  ft8CurrentBand: string | null;
+  ft8TimeSyncResult: TimeSyncResult | null;
+  onFt8BandPresetSelect: (preset: Ft8BandPreset) => void;
+  onFt8CallsignClick?: (callsign: string) => void;
+  onFt8CallsignDoubleClick?: (callsign: string) => void;
 }
 
 export interface SdrDecodeProps {
@@ -184,6 +193,36 @@ export interface SdrDspProps {
   clientNrLevel: number;
   onClientNrToggle: (enabled: boolean) => void;
   onClientNrLevelChange: (level: number) => void;
+  sweetenEnabled: boolean;
+  sweetenAmount: number;
+  onSweetenToggle: (enabled: boolean) => void;
+  onSweetenAmountChange: (amount: number) => void;
+  expanderEnabled: boolean;
+  expanderThreshold: number;
+  expanderRatio: number;
+  expanderAttackMs: number;
+  expanderReleaseMs: number;
+  expanderRangeDb: number;
+  onExpanderToggle: (enabled: boolean) => void;
+  onExpanderThresholdChange: (threshold: number) => void;
+  onExpanderRatioChange: (ratio: number) => void;
+  onExpanderAttackMsChange: (attackMs: number) => void;
+  onExpanderReleaseMsChange: (releaseMs: number) => void;
+  onExpanderRangeDbChange: (rangeDb: number) => void;
+  compressorEnabled: boolean;
+  compressorThreshold: number;
+  compressorRatio: number;
+  compressorAttackMs: number;
+  compressorReleaseMs: number;
+  compressorKnee: number;
+  compressorMakeupDb: number;
+  onCompressorToggle: (enabled: boolean) => void;
+  onCompressorThresholdChange: (threshold: number) => void;
+  onCompressorRatioChange: (ratio: number) => void;
+  onCompressorAttackMsChange: (attackMs: number) => void;
+  onCompressorReleaseMsChange: (releaseMs: number) => void;
+  onCompressorKneeChange: (knee: number) => void;
+  onCompressorMakeupDbChange: (makeupDb: number) => void;
   eqBands: EqBand[];
   onAddEqBand: (
     freqHz: number,
@@ -214,6 +253,24 @@ export interface SdrDspProps {
   onStopRecording: () => void;
   onExportRecording: () => void;
   onDiscardRecording: () => void;
+  // Spectral Taming
+  spectralTamingEnabled: boolean;
+  spectralTamingTameAmount: number;
+  spectralTamingRecoverAmount: number;
+  spectralTamingSpeed: number;
+  onSpectralTamingToggle: (enabled: boolean) => void;
+  onSpectralTamingTameAmountChange: (amount: number) => void;
+  onSpectralTamingRecoverAmountChange: (amount: number) => void;
+  onSpectralTamingSpeedChange: (speed: number) => void;
+  // Psychoacoustic Leveler
+  levelerEnabled: boolean;
+  levelerTargetLevel: number;
+  levelerSpeed: number;
+  levelerMaxGainDb: number;
+  onLevelerToggle: (enabled: boolean) => void;
+  onLevelerTargetLevelChange: (level: number) => void;
+  onLevelerSpeedChange: (speed: number) => void;
+  onLevelerMaxGainDbChange: (maxGainDb: number) => void;
 }
 
 export interface SdrInteractionProps {

@@ -146,6 +146,52 @@ export interface SettingsState {
   sdrNrEnabled: boolean;
   /** Client-side spectral NR level (0-10) */
   sdrNrLevel: number;
+  /** Client-side "sound sweetening" EQ preset enabled */
+  sdrSweetenEnabled: boolean;
+  /** Sweetener intensity (0..1) */
+  sdrSweetenAmount: number;
+  /** Client-side expander enabled */
+  sdrExpanderEnabled: boolean;
+  /** Client-side expander threshold in dBFS */
+  sdrExpanderThreshold: number;
+  /** Client-side expander ratio */
+  sdrExpanderRatio: number;
+  /** Client-side expander attack in ms */
+  sdrExpanderAttackMs: number;
+  /** Client-side expander release in ms */
+  sdrExpanderReleaseMs: number;
+  /** Client-side expander max attenuation in dB */
+  sdrExpanderRangeDb: number;
+  /** Client-side compressor enabled */
+  sdrCompressorEnabled: boolean;
+  /** Client-side compressor threshold in dB */
+  sdrCompressorThreshold: number;
+  /** Client-side compressor ratio */
+  sdrCompressorRatio: number;
+  /** Client-side compressor attack in ms */
+  sdrCompressorAttackMs: number;
+  /** Client-side compressor release in ms */
+  sdrCompressorReleaseMs: number;
+  /** Client-side compressor knee in dB */
+  sdrCompressorKnee: number;
+  /** Client-side compressor makeup gain in dB */
+  sdrCompressorMakeupDb: number;
+  /** Client-side spectral taming (intelligent EQ) enabled */
+  sdrSpectralTamingEnabled: boolean;
+  /** Spectral taming resonance reduction amount (0-1) */
+  sdrSpectralTamingTameAmount: number;
+  /** Spectral taming deficiency recovery amount (0-1) */
+  sdrSpectralTamingRecoverAmount: number;
+  /** Spectral taming envelope tracking speed (0.005-0.2) */
+  sdrSpectralTamingSpeed: number;
+  /** Client-side psychoacoustic leveler enabled */
+  sdrLevelerEnabled: boolean;
+  /** Leveler target perceived loudness in dBFS (-40 to -6) */
+  sdrLevelerTargetLevel: number;
+  /** Leveler gain adjustment speed (0.005-0.2) */
+  sdrLevelerSpeed: number;
+  /** Leveler maximum gain change in dB (0-24) */
+  sdrLevelerMaxGainDb: number;
   /** Tuning indicator line color (CSS hex) */
   sdrTuningLineColor: string;
   /** Tuning indicator arrow color (CSS hex) */
@@ -158,6 +204,32 @@ export interface SettingsState {
   sdrFt8AudioDeviceId: string | null;
   /** FT8/FT4 mode selection */
   sdrFt8Mode: "FT8" | "FT4";
+  /** Emit WSJT-X UDP datagrams for GridTracker/JTAlert interop */
+  sdrFt8WsjtxEmitEnabled: boolean;
+  /** Port to emit WSJT-X UDP datagrams on */
+  sdrFt8WsjtxEmitPort: number;
+  /** Automatically upload decodes to PSK Reporter */
+  sdrFt8PskReporterEnabled: boolean;
+  /** Show country flags in decode list */
+  sdrFt8ShowFlags: boolean;
+  /** Show distance in decode list */
+  sdrFt8ShowDistance: boolean;
+  /** Highlight needed entities/grids in decode list and waterfall */
+  sdrFt8HighlightNeeded: boolean;
+  /** Highlight CQ calls in decode list */
+  sdrFt8HighlightCQ: boolean;
+  /** Auto-log completed FT8 QSOs to the logbook */
+  sdrFt8AutoLogEnabled: boolean;
+  /** Auto-upload logged QSOs to QSL services */
+  sdrFt8QslAutoUpload: boolean;
+  /** Fox/Hound mode */
+  sdrFt8FoxHoundMode: "off" | "hound";
+  /** Contest mode enabled */
+  sdrFt8ContestMode: boolean;
+  /** Active contest template ID */
+  sdrFt8ContestTemplateId: string;
+  /** Decode depth / sensitivity level */
+  sdrFt8DecodeDepth: "normal" | "deep" | "aggressive";
 
   // ─── Radio Setup / CAT Connection (persisted) ───────────────────────────────
 
@@ -295,12 +367,48 @@ const defaultSettings: SettingsState = {
   sdrNoiseGateThreshold: -40,
   sdrNrEnabled: false,
   sdrNrLevel: 3,
+  sdrSweetenEnabled: false,
+  sdrSweetenAmount: 0.5,
+  sdrExpanderEnabled: false,
+  sdrExpanderThreshold: -45,
+  sdrExpanderRatio: 2,
+  sdrExpanderAttackMs: 5,
+  sdrExpanderReleaseMs: 80,
+  sdrExpanderRangeDb: 30,
+  sdrCompressorEnabled: false,
+  sdrCompressorThreshold: -28,
+  sdrCompressorRatio: 4,
+  sdrCompressorAttackMs: 5,
+  sdrCompressorReleaseMs: 120,
+  sdrCompressorKnee: 12,
+  sdrCompressorMakeupDb: 6,
+  sdrSpectralTamingEnabled: false,
+  sdrSpectralTamingTameAmount: 0.5,
+  sdrSpectralTamingRecoverAmount: 0.3,
+  sdrSpectralTamingSpeed: 0.03,
+  sdrLevelerEnabled: false,
+  sdrLevelerTargetLevel: -20,
+  sdrLevelerSpeed: 0.03,
+  sdrLevelerMaxGainDb: 12,
   sdrTuningLineColor: "#00ebff",
   sdrTuningArrowColor: "#00ebff",
   sdrFt8DecoderEnabled: false,
   sdrFt8AudioSource: "getUserMedia" as const,
   sdrFt8AudioDeviceId: null,
   sdrFt8Mode: "FT8" as const,
+  sdrFt8WsjtxEmitEnabled: false,
+  sdrFt8WsjtxEmitPort: 2237,
+  sdrFt8PskReporterEnabled: false,
+  sdrFt8ShowFlags: true,
+  sdrFt8ShowDistance: true,
+  sdrFt8HighlightNeeded: true,
+  sdrFt8HighlightCQ: true,
+  sdrFt8AutoLogEnabled: false,
+  sdrFt8QslAutoUpload: false,
+  sdrFt8FoxHoundMode: "off" as const,
+  sdrFt8ContestMode: false,
+  sdrFt8ContestTemplateId: "",
+  sdrFt8DecodeDepth: "normal" as const,
 
   // Radio Setup / CAT Connection
   radioSetupCompleted: false,
@@ -556,7 +664,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 25,
+      version: 29,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -696,6 +804,57 @@ export const useSettingsStore = create<SettingsStore>()(
           if (state.sdrNrEnabled === undefined) state.sdrNrEnabled = false;
           if (state.sdrNrLevel === undefined) state.sdrNrLevel = 3;
         }
+        if (version < 27) {
+          if (state.sdrExpanderEnabled === undefined)
+            state.sdrExpanderEnabled = false;
+          if (state.sdrExpanderThreshold === undefined)
+            state.sdrExpanderThreshold = -45;
+          if (state.sdrExpanderRatio === undefined) state.sdrExpanderRatio = 2;
+          if (state.sdrExpanderAttackMs === undefined)
+            state.sdrExpanderAttackMs = 5;
+          if (state.sdrExpanderReleaseMs === undefined)
+            state.sdrExpanderReleaseMs = 80;
+          if (state.sdrExpanderRangeDb === undefined)
+            state.sdrExpanderRangeDb = 30;
+
+          if (state.sdrCompressorEnabled === undefined)
+            state.sdrCompressorEnabled = false;
+          if (state.sdrCompressorThreshold === undefined)
+            state.sdrCompressorThreshold = -28;
+          if (state.sdrCompressorRatio === undefined)
+            state.sdrCompressorRatio = 4;
+          if (state.sdrCompressorAttackMs === undefined)
+            state.sdrCompressorAttackMs = 5;
+          if (state.sdrCompressorReleaseMs === undefined)
+            state.sdrCompressorReleaseMs = 120;
+          if (state.sdrCompressorKnee === undefined)
+            state.sdrCompressorKnee = 12;
+          if (state.sdrCompressorMakeupDb === undefined)
+            state.sdrCompressorMakeupDb = 6;
+        }
+        if (version < 28) {
+          if (state.sdrSweetenEnabled === undefined)
+            state.sdrSweetenEnabled = false;
+          if (state.sdrSweetenAmount === undefined)
+            state.sdrSweetenAmount = 0.5;
+        }
+        if (version < 29) {
+          if (state.sdrSpectralTamingEnabled === undefined)
+            state.sdrSpectralTamingEnabled = false;
+          if (state.sdrSpectralTamingTameAmount === undefined)
+            state.sdrSpectralTamingTameAmount = 0.5;
+          if (state.sdrSpectralTamingRecoverAmount === undefined)
+            state.sdrSpectralTamingRecoverAmount = 0.3;
+          if (state.sdrSpectralTamingSpeed === undefined)
+            state.sdrSpectralTamingSpeed = 0.03;
+          if (state.sdrLevelerEnabled === undefined)
+            state.sdrLevelerEnabled = false;
+          if (state.sdrLevelerTargetLevel === undefined)
+            state.sdrLevelerTargetLevel = -20;
+          if (state.sdrLevelerSpeed === undefined) state.sdrLevelerSpeed = 0.03;
+          if (state.sdrLevelerMaxGainDb === undefined)
+            state.sdrLevelerMaxGainDb = 12;
+        }
         if (version < 17) {
           if (state.sdrSpectrumVerticalGridLines === undefined)
             state.sdrSpectrumVerticalGridLines = 6;
@@ -796,6 +955,34 @@ export const useSettingsStore = create<SettingsStore>()(
         }
         // v25: audio device field
         if (state.audioDevice === undefined) state.audioDevice = "";
+        if (version < 26) {
+          // FT8 integration settings
+          if (state.sdrFt8WsjtxEmitEnabled === undefined)
+            state.sdrFt8WsjtxEmitEnabled = false;
+          if (state.sdrFt8WsjtxEmitPort === undefined)
+            state.sdrFt8WsjtxEmitPort = 2237;
+          if (state.sdrFt8PskReporterEnabled === undefined)
+            state.sdrFt8PskReporterEnabled = false;
+          if (state.sdrFt8ShowFlags === undefined) state.sdrFt8ShowFlags = true;
+          if (state.sdrFt8ShowDistance === undefined)
+            state.sdrFt8ShowDistance = true;
+          if (state.sdrFt8HighlightNeeded === undefined)
+            state.sdrFt8HighlightNeeded = true;
+          if (state.sdrFt8HighlightCQ === undefined)
+            state.sdrFt8HighlightCQ = true;
+          if (state.sdrFt8AutoLogEnabled === undefined)
+            state.sdrFt8AutoLogEnabled = false;
+          if (state.sdrFt8QslAutoUpload === undefined)
+            state.sdrFt8QslAutoUpload = false;
+          if (state.sdrFt8FoxHoundMode === undefined)
+            state.sdrFt8FoxHoundMode = "off";
+          if (state.sdrFt8ContestMode === undefined)
+            state.sdrFt8ContestMode = false;
+          if (state.sdrFt8ContestTemplateId === undefined)
+            state.sdrFt8ContestTemplateId = "";
+          if (state.sdrFt8DecodeDepth === undefined)
+            state.sdrFt8DecodeDepth = "normal";
+        }
         return state as unknown as SettingsState & SettingsStore;
       },
     },

@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DevicePicker } from "@/components/sdr/DevicePicker";
 import { useAudioStreamPlayer } from "@/hooks/useAudioStreamPlayer";
-import { useAudioFft } from "@/hooks/useAudioFft";
+import { useAudioFft, type AudioFrameData } from "@/hooks/useAudioFft";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRadioDaemon } from "@/hooks/useRadioDaemon";
 import type {
@@ -51,8 +51,19 @@ import { useSmartTuning } from "@/hooks/useSmartTuning";
 import { useEqBands } from "@/hooks/useEqBands";
 import { useClientDsp } from "@/hooks/useClientDsp";
 import { useFt8AutoConfig } from "@/hooks/useFt8AutoConfig";
-import { useAudioDspChain } from "@/hooks/useAudioDspChain";
+import {
+  useAudioDspChain,
+  getSharedAudioContext,
+  primeAudioContextForPlayback,
+  resetSharedAudioContext,
+} from "@/hooks/useAudioDspChain";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { useFt8DecodeEnricher } from "@/hooks/useFt8DecodeEnricher";
+import { useFt8TimeSync } from "@/hooks/useFt8TimeSync";
+import { useFt8SessionStore } from "@/stores/ft8SessionStore";
+import { freqToBand } from "@/lib/ft8/ft8BandPresets";
+import type { Ft8BandPreset } from "@/lib/ft8/ft8BandPresets";
+import { DEFAULT_FFT_STREAM_FPS } from "@/lib/sdr/fftStreamParams";
 
 const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
@@ -60,6 +71,24 @@ const LS_LAST_DEVICE_KEY = "propulse-radio-daemon-device";
 
 export function SdrConsole() {
   const isMobile = useIsMobile();
+  // Keep daemon FFT stream rate stable; waterfall "speed" is a client-side
+  // scroll multiplier (rows appended per received frame).
+  const showAudioDebug = useMemo(() => {
+    // Allow forcing this on via URL for quick field debugging.
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("audioDebug") === "1") return true;
+    } catch {
+      // ignore
+    }
+
+    if (!import.meta.env.DEV) return false;
+    try {
+      return localStorage.getItem("sdr-audio-debug") === "1";
+    } catch {
+      return false;
+    }
+  }, []);
 
   // ── Skin selection ──────────────────────────────────────────
   const sdrSkinName = useSettingsStore((s) => s.sdrSkinName ?? "classic");
@@ -99,9 +128,21 @@ export function SdrConsole() {
       [ft8AddDecodes],
     ),
   });
+
+  // ── FT8 enriched decodes + time sync + session ───────────────
+  const ft8MyCallsign = useFt8SessionStore((s) => s.myCallsign);
+  const ft8MyGrid = useFt8SessionStore((s) => s.myGrid);
+  const ft8EnrichedDecodes = useFt8DecodeEnricher({
+    myCallsign: ft8MyCallsign || undefined,
+    myGrid: ft8MyGrid || undefined,
+  });
+  const { syncResult: ft8TimeSyncResult } = useFt8TimeSync(ft8Decoder.enabled);
   const autoConnectAttemptedRef = useRef(false);
   const autoConfigAttemptedRef = useRef(false);
   const autoFftStartRef = useRef<Record<string, boolean>>({});
+  const autoAudioStartRef = useRef<Record<string, boolean>>({});
+  const audioRestartAttemptsRef = useRef<Record<string, number>>({});
+  const lastAudioFrameAtRef = useRef(0);
   const [waterfallSpanHz, setWaterfallSpanHz] = useState<number | null>(null);
 
   // ── Radio store ─────────────────────────────────────────────
@@ -123,7 +164,6 @@ export function SdrConsole() {
   const fftEnabled = useSdrStore((s) => s.fftEnabled);
   const audioEnabled = useSdrStore((s) => s.audioEnabled);
   const lastFftFrame = useSdrStore((s) => s.lastFftFrame);
-  const lastAudioFrame = useSdrStore((s) => s.lastAudioFrame);
   const setFftEnabled = useSdrStore((s) => s.setFftEnabled);
   const setAudioEnabled = useSdrStore((s) => s.setAudioEnabled);
   const setFrame = useSdrStore((s) => s.setFrame);
@@ -137,6 +177,74 @@ export function SdrConsole() {
   );
   const [freqInput, setFreqInput] = useState("");
   const [freqUnit, setFreqUnit] = useState<"MHz" | "kHz" | "Hz">("MHz");
+  const pushAudioPlaybackRef = useRef<(frame: AudioFrameData) => void>(() => {
+    // no-op until hooks initialize
+  });
+  const pushAudioFftRef = useRef<(frame: AudioFrameData) => void>(() => {
+    // no-op until hooks initialize
+  });
+  const sharedAudioCtxRef = useRef<AudioContext | null>(null);
+  const playbackPushCountRef = useRef(0);
+  const fftPushCountRef = useRef(0);
+  const audioPeakRef = useRef<number | null>(null);
+  const [beepCount, setBeepCount] = useState(0);
+  const [audioDebug, setAudioDebug] = useState<{
+    ctxState: AudioContextState | null;
+    lastFrameAgeMs: number | null;
+    playbackPushCount: number;
+    fftPushCount: number;
+    peak: number | null;
+    ctxSampleRate: number | null;
+  }>({
+    ctxState: null,
+    lastFrameAgeMs: null,
+    playbackPushCount: 0,
+    fftPushCount: 0,
+    peak: null,
+    ctxSampleRate: null,
+  });
+  const lastBeepAtRef = useRef(0);
+
+  const debugBeep = useCallback(() => {
+    const now = performance.now();
+    if (now - lastBeepAtRef.current < 250) return;
+    lastBeepAtRef.current = now;
+
+    const ctx = sharedAudioCtxRef.current ?? getSharedAudioContext();
+    sharedAudioCtxRef.current = ctx;
+    void ctx.resume().catch(() => undefined);
+
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = "sine";
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+    g.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    osc.frequency.value = 880;
+    osc.connect(g);
+    g.connect(ctx.destination);
+    const t0 = ctx.currentTime + 0.01;
+    osc.start(t0);
+    osc.stop(t0 + 0.45);
+    setBeepCount((c) => c + 1);
+  }, []);
+
+  const debugResetCtx = useCallback(() => {
+    resetSharedAudioContext();
+    sharedAudioCtxRef.current = getSharedAudioContext();
+    primeAudioContextForPlayback();
+  }, []);
+
+  useEffect(() => {
+    if (!showAudioDebug) return;
+    const w = window as unknown as {
+      __sdrAudioDebug?: { beep: () => void; resetCtx: () => void };
+    };
+    w.__sdrAudioDebug = { beep: debugBeep, resetCtx: debugResetCtx };
+    return () => {
+      delete w.__sdrAudioDebug;
+    };
+  }, [debugBeep, debugResetCtx, showAudioDebug]);
 
   // ── Daemon message handler ──────────────────────────────────
   const handleDaemonMessage = useCallback(
@@ -190,6 +298,33 @@ export function SdrConsole() {
       }
       if (isRadioStateMessage(msg)) {
         upsertRadioState(msg.device_id, msg.state);
+
+        // Re-subscribe to streams on reconnect (after radio confirms connected)
+        if (msg.state.connected && needsStreamResyncRef.current) {
+          needsStreamResyncRef.current = false;
+          const { fftEnabled: fft, audioEnabled: audio } =
+            useSdrStore.getState();
+          if (fft) {
+            const civPort = parseInt(
+              localStorage.getItem("propulse-civ-port") || "4580",
+              10,
+            );
+            api.sendCommand("stream:fft:start", {
+              device_id: msg.device_id,
+              fft_size: 4096,
+              fps: DEFAULT_FFT_STREAM_FPS,
+              averaging: 4,
+              civ_port: civPort > 0 ? civPort : 4580,
+            });
+          }
+          if (audio) {
+            api.sendCommand("stream:audio:start", {
+              device_id: msg.device_id,
+              sample_rate: 48000,
+              format: "pcm_i16",
+            });
+          }
+        }
         return;
       }
       if (isRadioSmeterMessage(msg)) {
@@ -240,9 +375,27 @@ export function SdrConsole() {
 
   const handleDaemonFrame = useCallback(
     (frame: RadioBinaryFrame) => {
-      setFrame(frame);
+      if (frame.kind === "fft") {
+        setFrame(frame);
+        return;
+      }
+
+      const audioFrame: AudioFrameData = {
+        sampleRate: frame.sampleRate,
+        samples: frame.samples,
+      };
+      lastAudioFrameAtRef.current = performance.now();
+      if (showAudioDebug) {
+        let peak = 0;
+        const s = audioFrame.samples;
+        for (let i = 0; i < s.length; i++)
+          peak = Math.max(peak, Math.abs(s[i]));
+        audioPeakRef.current = peak;
+      }
+      pushAudioPlaybackRef.current(audioFrame);
+      pushAudioFftRef.current(audioFrame);
     },
-    [setFrame],
+    [setFrame, showAudioDebug],
   );
 
   const daemon = useRadioDaemon({
@@ -250,6 +403,8 @@ export function SdrConsole() {
     url: daemonUrl,
     onMessage: handleDaemonMessage,
     onFrame: handleDaemonFrame,
+    trackLastMessage: false,
+    trackLastFrame: false,
   });
   const daemonConnected = daemon.connected;
   const daemonConnecting = daemon.connecting;
@@ -342,6 +497,29 @@ export function SdrConsole() {
     handleNoiseGateThresholdChange,
     handleClientNrToggle,
     handleClientNrLevelChange,
+    handleSweetenToggle,
+    handleSweetenAmountChange,
+    handleExpanderToggle,
+    handleExpanderThresholdChange,
+    handleExpanderRatioChange,
+    handleExpanderAttackMsChange,
+    handleExpanderReleaseMsChange,
+    handleExpanderRangeDbChange,
+    handleCompressorToggle,
+    handleCompressorThresholdChange,
+    handleCompressorRatioChange,
+    handleCompressorAttackMsChange,
+    handleCompressorReleaseMsChange,
+    handleCompressorKneeChange,
+    handleCompressorMakeupDbChange,
+    handleSpectralTamingToggle,
+    handleSpectralTamingTameAmountChange,
+    handleSpectralTamingRecoverAmountChange,
+    handleSpectralTamingSpeedChange,
+    handleLevelerToggle,
+    handleLevelerTargetLevelChange,
+    handleLevelerSpeedChange,
+    handleLevelerMaxGainDbChange,
   } = useClientDsp();
 
   // ── Stream toggle handlers (inline — used by useFt8AutoConfig) ──
@@ -359,7 +537,7 @@ export function SdrConsole() {
       daemonSendCommand("stream:fft:start", {
         device_id: connectedDeviceId,
         fft_size: 4096,
-        fps: 20,
+        fps: DEFAULT_FFT_STREAM_FPS,
         averaging: 4,
         civ_port: storedPort > 0 ? storedPort : 4580,
       });
@@ -372,13 +550,18 @@ export function SdrConsole() {
     if (audioEnabled) {
       daemonSendCommand("stream:audio:stop", { device_id: connectedDeviceId });
       setAudioEnabled(false);
+      sharedAudioCtxRef.current = null;
+      resetSharedAudioContext();
     } else {
-      const storedAudioDevice = useSettingsStore.getState().audioDevice;
+      // Ensure the shared WebAudio context is unlocked by this user gesture.
+      sharedAudioCtxRef.current = getSharedAudioContext();
+      primeAudioContextForPlayback();
+      audioRestartAttemptsRef.current[connectedDeviceId] = 0;
+      lastAudioFrameAtRef.current = performance.now();
       daemonSendCommand("stream:audio:start", {
         device_id: connectedDeviceId,
         sample_rate: 48000,
         format: "pcm_i16",
-        ...(storedAudioDevice ? { audio_device: storedAudioDevice } : {}),
       });
       setAudioEnabled(true);
     }
@@ -404,7 +587,47 @@ export function SdrConsole() {
     noiseGateThreshold: sdrSettings.sdrNoiseGateThreshold,
     clientNrEnabled: sdrSettings.sdrNrEnabled,
     clientNrLevel: sdrSettings.sdrNrLevel,
+    sweetenEnabled: sdrSettings.sdrSweetenEnabled,
+    sweetenAmount: sdrSettings.sdrSweetenAmount,
+    expanderEnabled: sdrSettings.sdrExpanderEnabled,
+    expanderThreshold: sdrSettings.sdrExpanderThreshold,
+    expanderRatio: sdrSettings.sdrExpanderRatio,
+    expanderAttackMs: sdrSettings.sdrExpanderAttackMs,
+    expanderReleaseMs: sdrSettings.sdrExpanderReleaseMs,
+    expanderRangeDb: sdrSettings.sdrExpanderRangeDb,
+    compressorEnabled: sdrSettings.sdrCompressorEnabled,
+    compressorThreshold: sdrSettings.sdrCompressorThreshold,
+    compressorRatio: sdrSettings.sdrCompressorRatio,
+    compressorAttackMs: sdrSettings.sdrCompressorAttackMs,
+    compressorReleaseMs: sdrSettings.sdrCompressorReleaseMs,
+    compressorKnee: sdrSettings.sdrCompressorKnee,
+    compressorMakeupDb: sdrSettings.sdrCompressorMakeupDb,
+    spectralTamingEnabled: sdrSettings.sdrSpectralTamingEnabled,
+    spectralTamingTameAmount: sdrSettings.sdrSpectralTamingTameAmount,
+    spectralTamingRecoverAmount: sdrSettings.sdrSpectralTamingRecoverAmount,
+    spectralTamingSpeed: sdrSettings.sdrSpectralTamingSpeed,
+    levelerEnabled: sdrSettings.sdrLevelerEnabled,
+    levelerTargetLevel: sdrSettings.sdrLevelerTargetLevel,
+    levelerSpeed: sdrSettings.sdrLevelerSpeed,
+    levelerMaxGainDb: sdrSettings.sdrLevelerMaxGainDb,
   });
+  useEffect(() => {
+    if (!showAudioDebug) return;
+    const timer = window.setInterval(() => {
+      const ctx =
+        sharedAudioCtxRef.current ?? processingChain?.getAudioContext() ?? null;
+      const lastAt = lastAudioFrameAtRef.current;
+      setAudioDebug({
+        ctxState: ctx?.state ?? null,
+        lastFrameAgeMs: lastAt ? performance.now() - lastAt : null,
+        playbackPushCount: playbackPushCountRef.current,
+        fftPushCount: fftPushCountRef.current,
+        peak: audioPeakRef.current,
+        ctxSampleRate: ctx?.sampleRate ?? null,
+      });
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [processingChain, showAudioDebug]);
 
   // Hook 7: Audio recording
   const [recorderState, recorderActions] = useAudioRecorder();
@@ -437,6 +660,9 @@ export function SdrConsole() {
     setClusterSpots([]);
     setWaterfallSpanHz(null);
     autoFftStartRef.current = {};
+    autoAudioStartRef.current = {};
+    audioRestartAttemptsRef.current = {};
+    lastAudioFrameAtRef.current = 0;
   }, [
     daemonUrl,
     ft8ClearDecodes,
@@ -460,11 +686,17 @@ export function SdrConsole() {
     }
   }, [connectedDeviceId]);
 
+  const needsStreamResyncRef = useRef(false);
+
   useEffect(() => {
     if (!daemonConnected) return;
     autoConnectAttemptedRef.current = false;
     autoConfigAttemptedRef.current = false;
     autoFftStartRef.current = {};
+    autoAudioStartRef.current = {};
+    audioRestartAttemptsRef.current = {};
+    lastAudioFrameAtRef.current = 0;
+    needsStreamResyncRef.current = true;
   }, [daemonConnected, daemonUrl]);
 
   // Auto-reconnect to last selected radio (best-effort).
@@ -539,7 +771,7 @@ export function SdrConsole() {
     daemonSendCommand("stream:fft:start", {
       device_id: connectedDeviceId,
       fft_size: 4096,
-      fps: 20,
+      fps: DEFAULT_FFT_STREAM_FPS,
       averaging: 4,
       civ_port: storedCivPort > 0 ? storedCivPort : 4580,
     });
@@ -553,22 +785,110 @@ export function SdrConsole() {
     setFftEnabled,
   ]);
 
+  // Audio start must be user-initiated (browser autoplay policy + explicit UX).
+
+  // Watchdog: if audio is enabled but no PCM frames arrive, retry stream start.
+  useEffect(() => {
+    if (!daemonConnected) return;
+    if (!connectedDeviceId) return;
+    if (!audioEnabled) return;
+    const dev = devices.find((d) => d.device_id === connectedDeviceId);
+    if (!dev?.capabilities.can_stream_audio) return;
+
+    const timer = window.setInterval(() => {
+      const sinceLastFrameMs = performance.now() - lastAudioFrameAtRef.current;
+      if (sinceLastFrameMs < 3000) return;
+
+      const attempts = audioRestartAttemptsRef.current[connectedDeviceId] ?? 0;
+      if (attempts >= 3) return;
+
+      audioRestartAttemptsRef.current[connectedDeviceId] = attempts + 1;
+      lastAudioFrameAtRef.current = performance.now();
+
+      daemonSendCommand("stream:audio:start", {
+        device_id: connectedDeviceId,
+        sample_rate: 48000,
+        format: "pcm_i16",
+      });
+    }, 1500);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [
+    connectedDeviceId,
+    daemonConnected,
+    daemonSendCommand,
+    devices,
+    audioEnabled,
+  ]);
+
   const canControlDevice = daemonConnected && !!selectedDeviceId;
   const canControlConnected = daemonConnected && !!connectedDeviceId;
 
   // ── Audio stream player ─────────────────────────────────────
 
-  useAudioStreamPlayer({
+  const pushAudioPlaybackFrame = useAudioStreamPlayer({
     enabled: audioEnabled,
-    frame: lastAudioFrame
-      ? {
-          sampleRate: lastAudioFrame.sampleRate,
-          samples: lastAudioFrame.samples,
-        }
-      : null,
+    audioContext: sharedAudioCtxRef.current,
     processingChain,
-    eqBands: sdrSettings.sdrEqBands,
   });
+  useEffect(() => {
+    pushAudioPlaybackRef.current = (frame) => {
+      playbackPushCountRef.current += 1;
+      pushAudioPlaybackFrame(frame);
+    };
+  }, [pushAudioPlaybackFrame]);
+
+  // ── FT8 band detection + preset handler ────────────────────
+
+  const ft8CurrentBand = useMemo(() => {
+    const freq = effectiveState?.freq;
+    if (freq == null) return null;
+    return freqToBand(freq) ?? null;
+  }, [effectiveState?.freq]);
+
+  const handleFt8BandPresetSelect = useCallback(
+    (preset: Ft8BandPreset) => {
+      if (!connectedDeviceId) return;
+      // Tune to the dial frequency
+      const mhz = (preset.dialFreqHz / 1_000_000).toFixed(6);
+      setFreqInput(mhz);
+      // Send tune command directly
+      daemonSendCommand("radio:tune", {
+        device_id: connectedDeviceId,
+        freq: preset.dialFreqHz,
+      });
+      // Switch to USB mode (standard for FT8/FT4)
+      handleModeChange("USB");
+      // Set appropriate filter
+      handleFilterChange(preset.audioRangeLow, preset.audioRangeHigh);
+      // Update FT8 decoder mode
+      ft8Decoder.setMode(preset.mode);
+      // Update session store band
+      useFt8SessionStore
+        .getState()
+        .setCurrentBand(preset.band, preset.dialFreqHz);
+    },
+    [
+      connectedDeviceId,
+      daemonSendCommand,
+      handleModeChange,
+      handleFilterChange,
+      ft8Decoder,
+      setFreqInput,
+    ],
+  );
+
+  const handleFt8CallsignClick = useCallback((callsign: string) => {
+    // For now, log to console. Will be extended in Phase 2 for callsign lookup.
+    console.log("[FT8] Callsign clicked:", callsign);
+  }, []);
+
+  const handleFt8CallsignDoubleClick = useCallback((callsign: string) => {
+    // Will start a QSO in Phase 2. For now just log.
+    console.log("[FT8] Callsign double-clicked:", callsign);
+  }, []);
 
   // ── Remaining handlers ──────────────────────────────────────
 
@@ -662,11 +982,17 @@ export function SdrConsole() {
   }, [effectiveState]);
 
   // ── Audio-derived FFT for zoom waterfall (~11.7 Hz/bin) ──
-  const audioFftFrame = useAudioFft({
-    enabled: audioEnabled,
-    audioFrame: lastAudioFrame,
-    tuning: tuningOverlay,
-  });
+  const { frame: audioFftFrame, pushAudioFrame: pushAudioFftFrame } =
+    useAudioFft({
+      enabled: audioEnabled,
+      tuning: tuningOverlay,
+    });
+  useEffect(() => {
+    pushAudioFftRef.current = (frame) => {
+      fftPushCountRef.current += 1;
+      pushAudioFftFrame(frame);
+    };
+  }, [pushAudioFftFrame]);
 
   const handleWaterfallViewChange = useCallback((next: WaterfallView) => {
     setWaterfallSpanHz(next.spanHz);
@@ -750,6 +1076,12 @@ export function SdrConsole() {
         ft8Error: ft8Decoder.error,
         onFt8Toggle: handleFt8Toggle,
         onFt8ModeChange: ft8Decoder.setMode,
+        ft8EnrichedDecodes,
+        ft8CurrentBand,
+        ft8TimeSyncResult,
+        onFt8BandPresetSelect: handleFt8BandPresetSelect,
+        onFt8CallsignClick: handleFt8CallsignClick,
+        onFt8CallsignDoubleClick: handleFt8CallsignDoubleClick,
       },
       decodes: {
         wsjtxStatus,
@@ -795,6 +1127,36 @@ export function SdrConsole() {
         clientNrLevel: sdrSettings.sdrNrLevel,
         onClientNrToggle: handleClientNrToggle,
         onClientNrLevelChange: handleClientNrLevelChange,
+        sweetenEnabled: sdrSettings.sdrSweetenEnabled,
+        sweetenAmount: sdrSettings.sdrSweetenAmount,
+        onSweetenToggle: handleSweetenToggle,
+        onSweetenAmountChange: handleSweetenAmountChange,
+        expanderEnabled: sdrSettings.sdrExpanderEnabled,
+        expanderThreshold: sdrSettings.sdrExpanderThreshold,
+        expanderRatio: sdrSettings.sdrExpanderRatio,
+        expanderAttackMs: sdrSettings.sdrExpanderAttackMs,
+        expanderReleaseMs: sdrSettings.sdrExpanderReleaseMs,
+        expanderRangeDb: sdrSettings.sdrExpanderRangeDb,
+        onExpanderToggle: handleExpanderToggle,
+        onExpanderThresholdChange: handleExpanderThresholdChange,
+        onExpanderRatioChange: handleExpanderRatioChange,
+        onExpanderAttackMsChange: handleExpanderAttackMsChange,
+        onExpanderReleaseMsChange: handleExpanderReleaseMsChange,
+        onExpanderRangeDbChange: handleExpanderRangeDbChange,
+        compressorEnabled: sdrSettings.sdrCompressorEnabled,
+        compressorThreshold: sdrSettings.sdrCompressorThreshold,
+        compressorRatio: sdrSettings.sdrCompressorRatio,
+        compressorAttackMs: sdrSettings.sdrCompressorAttackMs,
+        compressorReleaseMs: sdrSettings.sdrCompressorReleaseMs,
+        compressorKnee: sdrSettings.sdrCompressorKnee,
+        compressorMakeupDb: sdrSettings.sdrCompressorMakeupDb,
+        onCompressorToggle: handleCompressorToggle,
+        onCompressorThresholdChange: handleCompressorThresholdChange,
+        onCompressorRatioChange: handleCompressorRatioChange,
+        onCompressorAttackMsChange: handleCompressorAttackMsChange,
+        onCompressorReleaseMsChange: handleCompressorReleaseMsChange,
+        onCompressorKneeChange: handleCompressorKneeChange,
+        onCompressorMakeupDbChange: handleCompressorMakeupDbChange,
         eqBands: sdrSettings.sdrEqBands,
         onAddEqBand: handleAddEqBand,
         onRemoveEqBand: handleRemoveEqBand,
@@ -813,6 +1175,23 @@ export function SdrConsole() {
         onStopRecording: recorderActions.stopRecording,
         onExportRecording: recorderActions.exportWav,
         onDiscardRecording: recorderActions.discardRecording,
+        spectralTamingEnabled: sdrSettings.sdrSpectralTamingEnabled,
+        spectralTamingTameAmount: sdrSettings.sdrSpectralTamingTameAmount,
+        spectralTamingRecoverAmount: sdrSettings.sdrSpectralTamingRecoverAmount,
+        spectralTamingSpeed: sdrSettings.sdrSpectralTamingSpeed,
+        onSpectralTamingToggle: handleSpectralTamingToggle,
+        onSpectralTamingTameAmountChange: handleSpectralTamingTameAmountChange,
+        onSpectralTamingRecoverAmountChange:
+          handleSpectralTamingRecoverAmountChange,
+        onSpectralTamingSpeedChange: handleSpectralTamingSpeedChange,
+        levelerEnabled: sdrSettings.sdrLevelerEnabled,
+        levelerTargetLevel: sdrSettings.sdrLevelerTargetLevel,
+        levelerSpeed: sdrSettings.sdrLevelerSpeed,
+        levelerMaxGainDb: sdrSettings.sdrLevelerMaxGainDb,
+        onLevelerToggle: handleLevelerToggle,
+        onLevelerTargetLevelChange: handleLevelerTargetLevelChange,
+        onLevelerSpeedChange: handleLevelerSpeedChange,
+        onLevelerMaxGainDbChange: handleLevelerMaxGainDbChange,
       },
       interaction: {
         onPickFrequencyHz: handlePickFrequencyHz,
@@ -849,6 +1228,12 @@ export function SdrConsole() {
       ft8Decoder.error,
       handleFt8Toggle,
       ft8Decoder.setMode,
+      ft8EnrichedDecodes,
+      ft8CurrentBand,
+      ft8TimeSyncResult,
+      handleFt8BandPresetSelect,
+      handleFt8CallsignClick,
+      handleFt8CallsignDoubleClick,
       wsjtxStatus,
       wsjtxDecodes,
       clusterSpots,
@@ -882,6 +1267,21 @@ export function SdrConsole() {
       handleNoiseGateThresholdChange,
       handleClientNrToggle,
       handleClientNrLevelChange,
+      handleSweetenToggle,
+      handleSweetenAmountChange,
+      handleExpanderToggle,
+      handleExpanderThresholdChange,
+      handleExpanderRatioChange,
+      handleExpanderAttackMsChange,
+      handleExpanderReleaseMsChange,
+      handleExpanderRangeDbChange,
+      handleCompressorToggle,
+      handleCompressorThresholdChange,
+      handleCompressorRatioChange,
+      handleCompressorAttackMsChange,
+      handleCompressorReleaseMsChange,
+      handleCompressorKneeChange,
+      handleCompressorMakeupDbChange,
       handleAddEqBand,
       handleRemoveEqBand,
       handleUpdateEqBand,
@@ -902,6 +1302,14 @@ export function SdrConsole() {
       recorderActions.stopRecording,
       recorderActions.exportWav,
       recorderActions.discardRecording,
+      handleSpectralTamingToggle,
+      handleSpectralTamingTameAmountChange,
+      handleSpectralTamingRecoverAmountChange,
+      handleSpectralTamingSpeedChange,
+      handleLevelerToggle,
+      handleLevelerTargetLevelChange,
+      handleLevelerSpeedChange,
+      handleLevelerMaxGainDbChange,
       isMobile,
       lastStatus,
     ],
@@ -918,6 +1326,53 @@ export function SdrConsole() {
 
   return (
     <>
+      {showAudioDebug ? (
+        <div
+          className="fixed bottom-2 right-2 z-[2147483647] rounded bg-black/70 text-white text-[11px] px-2 py-1 pointer-events-auto"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          onWheel={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+        >
+          <div>audioEnabled: {String(audioEnabled)}</div>
+          <div>ctx: {audioDebug.ctxState ?? "n/a"}</div>
+          <div>ctxSampleRate: {audioDebug.ctxSampleRate ?? "n/a"}</div>
+          <div>
+            lastFrameAgeMs:{" "}
+            {audioDebug.lastFrameAgeMs == null
+              ? "n/a"
+              : Math.round(audioDebug.lastFrameAgeMs)}
+          </div>
+          <div>playbackPush: {audioDebug.playbackPushCount ?? 0}</div>
+          <div>fftPush: {audioDebug.fftPushCount ?? 0}</div>
+          <div>peak(i16): {audioDebug.peak ?? "n/a"}</div>
+          <div>beepCount: {beepCount}</div>
+          <button
+            type="button"
+            className="mt-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 border border-white/10"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClickCapture={(e) => e.stopPropagation()}
+            onClick={debugBeep}
+          >
+            Beep
+          </button>
+          <button
+            type="button"
+            className="mt-1 ml-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 border border-white/10"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClickCapture={(e) => e.stopPropagation()}
+            onClick={debugResetCtx}
+          >
+            ResetCtx
+          </button>
+        </div>
+      ) : null}
       <DevicePicker
         isOpen={devicePickerOpen}
         onClose={() => setDevicePickerOpen(false)}

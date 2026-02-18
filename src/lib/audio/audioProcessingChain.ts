@@ -14,13 +14,37 @@ import {
   type NoiseGateParams,
 } from "./noiseGate";
 import {
+  createExpanderNode,
+  updateExpanderParams as updateExpanderParams,
+  type ExpanderParams,
+} from "./expander";
+import {
   createSpectralNrNode,
   updateSpectralNrParams as updateNrParams,
   type SpectralNrParams,
 } from "./spectralNr";
+import {
+  createSweetenerNodes,
+  updateSweetenerNodes,
+  type SweetenerParams,
+} from "./sweetener";
+import {
+  createSpectralTamingNode,
+  updateSpectralTamingParams,
+  type SpectralTamingParams,
+} from "./spectralTaming";
+import {
+  createPsychoacousticLevelerNode,
+  updatePsychoacousticLevelerParams,
+  type PsychoacousticLevelerParams,
+} from "./psychoacousticLeveler";
 
 export type { NoiseGateParams } from "./noiseGate";
+export type { ExpanderParams } from "./expander";
 export type { SpectralNrParams } from "./spectralNr";
+export type { SweetenerParams } from "./sweetener";
+export type { SpectralTamingParams } from "./spectralTaming";
+export type { PsychoacousticLevelerParams } from "./psychoacousticLeveler";
 
 export interface NotchFilterConfig {
   id: string;
@@ -47,8 +71,14 @@ export class AudioProcessingChain {
   private readonly outputGain: GainNode;
   private notchFilters: InternalNotchFilter[] = [];
   private eqBands: InternalEqBand[] = [];
+  private sweetenerNodes: BiquadFilterNode[] | null = null;
+  private expanderNode: AudioWorkletNode | null = null;
   private noiseGateNode: AudioWorkletNode | null = null;
   private spectralNrNode: AudioWorkletNode | null = null;
+  private spectralTamingNode: AudioWorkletNode | null = null;
+  private levelerNode: AudioWorkletNode | null = null;
+  private compressorNode: DynamicsCompressorNode | null = null;
+  private compressorMakeupGain: GainNode | null = null;
   private idCounter = 0;
   private disposed = false;
 
@@ -277,6 +307,68 @@ export class AudioProcessingChain {
   }
 
   // ---------------------------------------------------------------------------
+  // Sweetener
+  // ---------------------------------------------------------------------------
+
+  /** Enable/disable the "sweetener" fixed EQ preset and update its amount. */
+  setSweetener(enabled: boolean, params?: Partial<SweetenerParams>): void {
+    if (this.disposed) return;
+
+    if (enabled) {
+      const amount = params?.amount ?? 0.5;
+      if (!this.sweetenerNodes) {
+        this.sweetenerNodes = createSweetenerNodes(this.ctx, { amount });
+        this.rebuildChain();
+      } else {
+        updateSweetenerNodes(this.sweetenerNodes, { amount });
+      }
+      return;
+    }
+
+    if (this.sweetenerNodes) {
+      for (const node of this.sweetenerNodes) node.disconnect();
+      this.sweetenerNodes = null;
+      this.rebuildChain();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Expander
+  // ---------------------------------------------------------------------------
+
+  /** Enable/disable downward expander and optionally update its parameters. */
+  async setExpander(
+    enabled: boolean,
+    params?: Partial<ExpanderParams>,
+  ): Promise<void> {
+    if (this.disposed) return;
+
+    if (enabled) {
+      if (!this.expanderNode) {
+        const node = await createExpanderNode(this.ctx, params);
+        if (this.disposed) {
+          try {
+            node.disconnect();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        this.expanderNode = node;
+        this.rebuildChain();
+      } else if (params) {
+        updateExpanderParams(this.expanderNode, params);
+      }
+    } else {
+      if (this.expanderNode) {
+        this.expanderNode.disconnect();
+        this.expanderNode = null;
+        this.rebuildChain();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Noise Gate
   // ---------------------------------------------------------------------------
 
@@ -289,7 +381,16 @@ export class AudioProcessingChain {
 
     if (enabled) {
       if (!this.noiseGateNode) {
-        this.noiseGateNode = await createNoiseGateNode(this.ctx, params);
+        const node = await createNoiseGateNode(this.ctx, params);
+        if (this.disposed) {
+          try {
+            node.disconnect();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        this.noiseGateNode = node;
         this.rebuildChain();
       } else if (params) {
         updateGateParams(this.noiseGateNode, params);
@@ -343,6 +444,155 @@ export class AudioProcessingChain {
   }
 
   // ---------------------------------------------------------------------------
+  // Spectral Taming
+  // ---------------------------------------------------------------------------
+
+  /** Enable/disable spectral taming and update its parameters. */
+  async setSpectralTaming(
+    enabled: boolean,
+    params: SpectralTamingParams,
+  ): Promise<void> {
+    if (this.disposed) return;
+
+    if (enabled) {
+      if (!this.spectralTamingNode) {
+        const node = await createSpectralTamingNode(this.ctx, params);
+        if (this.disposed) {
+          try {
+            node.disconnect();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        this.spectralTamingNode = node;
+        this.rebuildChain();
+      } else {
+        updateSpectralTamingParams(this.spectralTamingNode, params);
+      }
+    } else {
+      if (this.spectralTamingNode) {
+        this.spectralTamingNode.disconnect();
+        this.spectralTamingNode = null;
+        this.rebuildChain();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Psychoacoustic Leveler
+  // ---------------------------------------------------------------------------
+
+  /** Enable/disable the psychoacoustic leveler and update its parameters. */
+  async setPsychoacousticLeveler(
+    enabled: boolean,
+    params: PsychoacousticLevelerParams,
+  ): Promise<void> {
+    if (this.disposed) return;
+
+    if (enabled) {
+      if (!this.levelerNode) {
+        const node = await createPsychoacousticLevelerNode(this.ctx, params);
+        if (this.disposed) {
+          try {
+            node.disconnect();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        this.levelerNode = node;
+        this.rebuildChain();
+      } else {
+        updatePsychoacousticLevelerParams(this.levelerNode, params);
+      }
+    } else {
+      if (this.levelerNode) {
+        this.levelerNode.disconnect();
+        this.levelerNode = null;
+        this.rebuildChain();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compressor
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Enable/disable the compressor and optionally update its parameters.
+   *
+   * Uses the built-in DynamicsCompressorNode plus a makeup GainNode.
+   */
+  setCompressor(
+    enabled: boolean,
+    params?: Partial<{
+      threshold: number; // dB
+      ratio: number;
+      attackMs: number;
+      releaseMs: number;
+      knee: number; // dB
+      makeupDb: number;
+    }>,
+  ): void {
+    if (this.disposed) return;
+
+    if (enabled) {
+      if (!this.compressorNode || !this.compressorMakeupGain) {
+        this.compressorNode = this.ctx.createDynamicsCompressor();
+        this.compressorMakeupGain = this.ctx.createGain();
+        this.applyCompressorParams(params);
+        this.rebuildChain();
+      } else {
+        this.applyCompressorParams(params);
+      }
+      return;
+    }
+
+    if (this.compressorNode) {
+      this.compressorNode.disconnect();
+      this.compressorNode = null;
+    }
+    if (this.compressorMakeupGain) {
+      this.compressorMakeupGain.disconnect();
+      this.compressorMakeupGain = null;
+    }
+    this.rebuildChain();
+  }
+
+  private applyCompressorParams(
+    params?: Partial<{
+      threshold: number;
+      ratio: number;
+      attackMs: number;
+      releaseMs: number;
+      knee: number;
+      makeupDb: number;
+    }>,
+  ): void {
+    if (!params || !this.compressorNode) return;
+
+    if (params.threshold !== undefined) {
+      this.compressorNode.threshold.value = params.threshold;
+    }
+    if (params.ratio !== undefined) {
+      this.compressorNode.ratio.value = params.ratio;
+    }
+    if (params.knee !== undefined) {
+      this.compressorNode.knee.value = params.knee;
+    }
+    if (params.attackMs !== undefined) {
+      this.compressorNode.attack.value = Math.max(0, params.attackMs / 1000);
+    }
+    if (params.releaseMs !== undefined) {
+      this.compressorNode.release.value = Math.max(0, params.releaseMs / 1000);
+    }
+    if (params.makeupDb !== undefined && this.compressorMakeupGain) {
+      this.compressorMakeupGain.gain.value = Math.pow(10, params.makeupDb / 20);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Gain
   // ---------------------------------------------------------------------------
 
@@ -389,6 +639,14 @@ export class AudioProcessingChain {
       for (const node of entry.nodes) node.disconnect();
     }
     this.eqBands = [];
+    if (this.sweetenerNodes) {
+      for (const node of this.sweetenerNodes) node.disconnect();
+      this.sweetenerNodes = null;
+    }
+    if (this.expanderNode) {
+      this.expanderNode.disconnect();
+      this.expanderNode = null;
+    }
     if (this.noiseGateNode) {
       this.noiseGateNode.disconnect();
       this.noiseGateNode = null;
@@ -396,6 +654,22 @@ export class AudioProcessingChain {
     if (this.spectralNrNode) {
       this.spectralNrNode.disconnect();
       this.spectralNrNode = null;
+    }
+    if (this.spectralTamingNode) {
+      this.spectralTamingNode.disconnect();
+      this.spectralTamingNode = null;
+    }
+    if (this.levelerNode) {
+      this.levelerNode.disconnect();
+      this.levelerNode = null;
+    }
+    if (this.compressorNode) {
+      this.compressorNode.disconnect();
+      this.compressorNode = null;
+    }
+    if (this.compressorMakeupGain) {
+      this.compressorMakeupGain.disconnect();
+      this.compressorMakeupGain = null;
     }
     this.outputGain.disconnect();
   }
@@ -451,7 +725,7 @@ export class AudioProcessingChain {
 
   /**
    * Disconnect the entire chain and reconnect in order:
-   *   inputGain → notch[0] → ... → eq[0] → ... → noiseGate → spectralNR → outputGain
+   *   inputGain → notch → eq → sweetener → expander → noiseGate → spectralNR → spectralTaming → leveler → compressor → outputGain
    */
   private rebuildChain(): void {
     // Disconnect everything first
@@ -462,16 +736,31 @@ export class AudioProcessingChain {
     for (const entry of this.eqBands) {
       for (const node of entry.nodes) node.disconnect();
     }
+    if (this.sweetenerNodes) {
+      for (const node of this.sweetenerNodes) node.disconnect();
+    }
+    if (this.spectralTamingNode) this.spectralTamingNode.disconnect();
+    if (this.expanderNode) this.expanderNode.disconnect();
     if (this.noiseGateNode) this.noiseGateNode.disconnect();
     if (this.spectralNrNode) this.spectralNrNode.disconnect();
+    if (this.levelerNode) this.levelerNode.disconnect();
+    if (this.compressorNode) this.compressorNode.disconnect();
+    if (this.compressorMakeupGain) this.compressorMakeupGain.disconnect();
     // Note: we do NOT disconnect outputGain — it may be connected to destination
 
     // Build the ordered list of nodes between inputGain and outputGain
     const chain: AudioNode[] = [
       ...this.notchFilters.map((f) => f.node),
       ...this.eqBands.flatMap((f) => f.nodes),
+      ...(this.sweetenerNodes ? this.sweetenerNodes : []),
+      ...(this.expanderNode ? [this.expanderNode] : []),
       ...(this.noiseGateNode ? [this.noiseGateNode] : []),
       ...(this.spectralNrNode ? [this.spectralNrNode] : []),
+      ...(this.spectralTamingNode ? [this.spectralTamingNode] : []),
+      ...(this.levelerNode ? [this.levelerNode] : []),
+      ...(this.compressorNode && this.compressorMakeupGain
+        ? [this.compressorNode, this.compressorMakeupGain]
+        : []),
     ];
 
     if (chain.length === 0) {

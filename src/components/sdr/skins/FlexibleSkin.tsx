@@ -26,15 +26,102 @@ import { FlexDbScale } from "./flexible/FlexDbScale";
 import { FlexTimeAxis } from "./flexible/FlexTimeAxis";
 import { FlexInfoTabs } from "./flexible/FlexInfoTabs";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
-import { rfHzToAudioHz } from "@/components/sdr/waterfallPalette";
 import { BandPlanOverlay, SpotTagOverlay } from "@/components/sdr/overlays";
 import { EqBandContextMenu } from "@/components/sdr/EqBandContextMenu";
 import { EqBandPanel } from "@/components/sdr/EqBandPanel";
 import type { EqBand } from "@/lib/audio/eqTypes";
+import type { GainStage } from "@/lib/radio/protocol";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { DEFAULT_FFT_STREAM_FPS } from "@/lib/sdr/fftStreamParams";
 import type { SdrSkinProps } from "./types";
 
 /** RX gain stage names — constant, lives outside the component to avoid re-creation. */
-const RX_STAGES = ["RF", "SQL", "PREAMP", "ATT"];
+const TX_GAIN_STAGE_KEYS = [
+  "RFPOWER",
+  "MICGAIN",
+  "COMP",
+  "VOXGAIN",
+  "MONITOR",
+] as const;
+const DEFAULT_SLICE_MODES = [
+  "LSB",
+  "USB",
+  "CW",
+  "CW-R",
+  "RTTY",
+  "RTTY-R",
+  "AM",
+  "FM",
+  "WFM",
+  "FT8",
+  "FT4",
+] as const;
+
+function normalizeToken(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function stageToken(stage: GainStage): string {
+  return normalizeToken(`${stage.name} ${stage.label ?? ""}`);
+}
+
+function modeSortRank(mode: string): number {
+  const m = normalizeToken(mode);
+  const ORDER = [
+    "LSB",
+    "USB",
+    "CW",
+    "CWR",
+    "RTTY",
+    "RTTYR",
+    "AM",
+    "FM",
+    "WFM",
+    "FT8",
+    "FT4",
+  ];
+  const idx = ORDER.indexOf(m);
+  return idx === -1 ? ORDER.length : idx;
+}
+
+function isTxGainStage(stage: GainStage): boolean {
+  const token = stageToken(stage);
+  return TX_GAIN_STAGE_KEYS.some((name) =>
+    token.includes(normalizeToken(name)),
+  );
+}
+
+function isRxGainStage(stage: GainStage): boolean {
+  if (isTxGainStage(stage)) return false;
+  const token = stageToken(stage);
+  return (
+    token.includes("RFGAIN") ||
+    token === "RF" ||
+    token.includes("SQL") ||
+    token.includes("SQUELCH") ||
+    token.includes("PREAMP") ||
+    token === "PRE" ||
+    token.includes("ATTEN") ||
+    token === "ATT"
+  );
+}
+
+function buildSliceModes(modes: string[]): string[] {
+  const source = modes.length > 0 ? modes : [...DEFAULT_SLICE_MODES];
+  const deduped = new Map<string, string>();
+
+  for (const mode of source) {
+    const key = normalizeToken(mode);
+    if (!key || deduped.has(key)) continue;
+    deduped.set(key, mode.toUpperCase());
+  }
+
+  return [...deduped.values()].sort((a, b) => {
+    const rankDelta = modeSortRank(a) - modeSortRank(b);
+    if (rankDelta !== 0) return rankDelta;
+    return a.localeCompare(b);
+  });
+}
 
 export function FlexibleSkin(props: SdrSkinProps) {
   const {
@@ -72,12 +159,35 @@ export function FlexibleSkin(props: SdrSkinProps) {
     sliceBgColor,
   } = wf;
 
-  const { spectrumPeakHold, spectrumGradientFill } = spectrum;
-
-  const { onWaterfallViewChange, onPickFrequencyHz, onSelectRangeHz } =
-    interaction;
+  const {
+    onWaterfallViewChange,
+    onPickFrequencyHz,
+    onSelectRangeHz,
+    onWheelTune,
+  } = interaction;
 
   const { clusterSpots } = decodes;
+  const eqBands = dsp.eqBands;
+  const removeEqBand = dsp.onRemoveEqBand;
+  const updatePreferences = useSettingsStore((s) => s.updatePreferences);
+  const onAgcModeChange = controls.onAgcModeChange;
+  const onGainChange = controls.onGainChange;
+  const onNbChange = controls.onNbChange;
+  const onNrChange = controls.onNrChange;
+  const onAgcToggle = controls.onAgcToggle;
+  const onAnfToggle = controls.onAnfToggle;
+  const onQskToggle = controls.onQskToggle;
+  const onVoxToggle = controls.onVoxToggle;
+  const onModeChange = controls.onModeChange;
+  const onFilterChange = controls.onFilterChange;
+  const onAntennaChange = controls.onAntennaChange;
+  const onRitToggle = controls.onRitToggle;
+  const onRitOffset = controls.onRitOffset;
+  const onXitToggle = controls.onXitToggle;
+  const onXitOffset = controls.onXitOffset;
+  const onSplitToggle = controls.onSplitToggle;
+  const onIfShift = controls.onIfShift;
+  const onCwSpeed = controls.onCwSpeed;
 
   const hasRadio = !!radio.connectedDeviceId;
   const hasFft = canStreamFft && fftEnabled && !!lastFftFrame;
@@ -89,6 +199,11 @@ export function FlexibleSkin(props: SdrSkinProps) {
   const slicePanels = useMemo(() => {
     const allStages = radio.selectedDevice?.capabilities.gain_stages ?? [];
     const gains = effectiveState?.gains ?? {};
+    const modes = buildSliceModes(
+      radio.selectedDevice?.capabilities.modes ?? [],
+    );
+    const antennas = radio.selectedDevice?.capabilities.antennas ?? [];
+    const currentAntenna = effectiveState?.antenna ?? antennas[0] ?? null;
 
     return radio.canControlConnected
       ? {
@@ -100,32 +215,38 @@ export function FlexibleSkin(props: SdrSkinProps) {
           anfEnabled: !!effectiveState?.anf,
           agcMode: effectiveState?.agcMode ?? 0,
           squelchLevel: gains["SQL"] ?? 0,
-          onAgcModeChange: controls.onAgcModeChange,
-          onSquelchChange: (level: number) =>
-            controls.onGainChange("SQL", level),
+          onAgcModeChange,
+          onSquelchChange: (level: number) => onGainChange("SQL", level),
           onNbToggle: () =>
-            controls.onNbChange(
+            onNbChange(
               !effectiveState?.nb?.enabled,
               effectiveState?.nb?.threshold ?? 50,
             ),
           onNrToggle: () =>
-            controls.onNrChange(
+            onNrChange(
               !effectiveState?.nr?.enabled,
               effectiveState?.nr?.level ?? 5,
             ),
-          onAgcToggle: () => controls.onAgcToggle(!effectiveState?.agc),
-          onAnfToggle: controls.onAnfToggle,
+          onAgcToggle: () => onAgcToggle(!effectiveState?.agc),
+          onAnfToggle,
+          qskEnabled: !!effectiveState?.qsk,
+          voxEnabled: !!effectiveState?.vox,
+          onQskToggle,
+          onVoxToggle,
           // Filter / Mode
-          availableModes: radio.selectedDevice?.capabilities.modes ?? [],
+          availableModes: modes,
           currentMode: effectiveState?.mode ?? "USB",
           filterLow: effectiveState?.filter?.low ?? 300,
           filterHigh: effectiveState?.filter?.high ?? 2700,
-          onModeChange: controls.onModeChange,
-          onFilterChange: controls.onFilterChange,
+          onModeChange,
+          onFilterChange,
           // RX gains
-          rxGainStages: allStages.filter((s) => RX_STAGES.includes(s.name)),
+          rxGainStages: allStages.filter((s) => isRxGainStage(s)),
+          antennas,
+          currentAntenna,
+          onAntennaChange,
           gains,
-          onGainChange: controls.onGainChange,
+          onGainChange,
           // Audio
           audioEnabled: radio.audioEnabled,
           afGainStage: allStages.find((s) => s.name === "AF") ?? null,
@@ -137,6 +258,56 @@ export function FlexibleSkin(props: SdrSkinProps) {
           onNoiseGateThresholdChange: dsp.onNoiseGateThresholdChange,
           onClientNrToggle: dsp.onClientNrToggle,
           onClientNrLevelChange: dsp.onClientNrLevelChange,
+          sweetenEnabled: dsp.sweetenEnabled,
+          sweetenAmount: dsp.sweetenAmount,
+          onSweetenToggle: dsp.onSweetenToggle,
+          onSweetenAmountChange: dsp.onSweetenAmountChange,
+          expanderEnabled: dsp.expanderEnabled,
+          expanderThreshold: dsp.expanderThreshold,
+          expanderRatio: dsp.expanderRatio,
+          expanderAttackMs: dsp.expanderAttackMs,
+          expanderReleaseMs: dsp.expanderReleaseMs,
+          expanderRangeDb: dsp.expanderRangeDb,
+          onExpanderToggle: dsp.onExpanderToggle,
+          onExpanderThresholdChange: dsp.onExpanderThresholdChange,
+          onExpanderRatioChange: dsp.onExpanderRatioChange,
+          onExpanderAttackMsChange: dsp.onExpanderAttackMsChange,
+          onExpanderReleaseMsChange: dsp.onExpanderReleaseMsChange,
+          onExpanderRangeDbChange: dsp.onExpanderRangeDbChange,
+          compressorEnabled: dsp.compressorEnabled,
+          compressorThreshold: dsp.compressorThreshold,
+          compressorRatio: dsp.compressorRatio,
+          compressorAttackMs: dsp.compressorAttackMs,
+          compressorReleaseMs: dsp.compressorReleaseMs,
+          compressorKnee: dsp.compressorKnee,
+          compressorMakeupDb: dsp.compressorMakeupDb,
+          onCompressorToggle: dsp.onCompressorToggle,
+          onCompressorThresholdChange: dsp.onCompressorThresholdChange,
+          onCompressorRatioChange: dsp.onCompressorRatioChange,
+          onCompressorAttackMsChange: dsp.onCompressorAttackMsChange,
+          onCompressorReleaseMsChange: dsp.onCompressorReleaseMsChange,
+          onCompressorKneeChange: dsp.onCompressorKneeChange,
+          onCompressorMakeupDbChange: dsp.onCompressorMakeupDbChange,
+          // Spectral Taming
+          spectralTamingEnabled: dsp.spectralTamingEnabled,
+          spectralTamingTameAmount: dsp.spectralTamingTameAmount,
+          spectralTamingRecoverAmount: dsp.spectralTamingRecoverAmount,
+          spectralTamingSpeed: dsp.spectralTamingSpeed,
+          onSpectralTamingToggle: dsp.onSpectralTamingToggle,
+          onSpectralTamingTameAmountChange:
+            dsp.onSpectralTamingTameAmountChange,
+          onSpectralTamingRecoverAmountChange:
+            dsp.onSpectralTamingRecoverAmountChange,
+          onSpectralTamingSpeedChange: dsp.onSpectralTamingSpeedChange,
+          // Leveler
+          levelerEnabled: dsp.levelerEnabled,
+          levelerTargetLevel: dsp.levelerTargetLevel,
+          levelerSpeed: dsp.levelerSpeed,
+          levelerMaxGainDb: dsp.levelerMaxGainDb,
+          onLevelerToggle: dsp.onLevelerToggle,
+          onLevelerTargetLevelChange: dsp.onLevelerTargetLevelChange,
+          onLevelerSpeedChange: dsp.onLevelerSpeedChange,
+          onLevelerMaxGainDbChange: dsp.onLevelerMaxGainDbChange,
           // X/RIT
           rit: effectiveState?.rit,
           xit: effectiveState?.xit,
@@ -144,19 +315,20 @@ export function FlexibleSkin(props: SdrSkinProps) {
           ifShift: effectiveState?.ifShift ?? 0,
           cwSpeed: effectiveState?.cwSpeed ?? 20,
           currentMode2: effectiveState?.mode ?? "USB",
-          onRitToggle: controls.onRitToggle,
-          onRitOffset: controls.onRitOffset,
-          onXitToggle: controls.onXitToggle,
-          onXitOffset: controls.onXitOffset,
-          onSplitToggle: controls.onSplitToggle,
-          onIfShift: controls.onIfShift,
-          onCwSpeed: controls.onCwSpeed,
+          onRitToggle,
+          onRitOffset,
+          onXitToggle,
+          onXitOffset,
+          onSplitToggle,
+          onIfShift,
+          onCwSpeed,
         }
       : undefined;
   }, [
     radio.canControlConnected,
-    radio.selectedDevice?.capabilities.modes,
     radio.selectedDevice?.capabilities.gain_stages,
+    radio.selectedDevice?.capabilities.antennas,
+    radio.selectedDevice?.capabilities.modes,
     radio.audioEnabled,
     effectiveState?.nb?.enabled,
     effectiveState?.nb?.threshold,
@@ -174,7 +346,27 @@ export function FlexibleSkin(props: SdrSkinProps) {
     effectiveState?.split,
     effectiveState?.ifShift,
     effectiveState?.cwSpeed,
-    controls,
+    effectiveState?.qsk,
+    effectiveState?.vox,
+    effectiveState?.antenna,
+    onAgcModeChange,
+    onGainChange,
+    onNbChange,
+    onNrChange,
+    onAgcToggle,
+    onAnfToggle,
+    onQskToggle,
+    onVoxToggle,
+    onModeChange,
+    onFilterChange,
+    onAntennaChange,
+    onRitToggle,
+    onRitOffset,
+    onXitToggle,
+    onXitOffset,
+    onSplitToggle,
+    onIfShift,
+    onCwSpeed,
     dsp.noiseGateEnabled,
     dsp.noiseGateThreshold,
     dsp.clientNrEnabled,
@@ -183,10 +375,56 @@ export function FlexibleSkin(props: SdrSkinProps) {
     dsp.onNoiseGateThresholdChange,
     dsp.onClientNrToggle,
     dsp.onClientNrLevelChange,
+    dsp.sweetenEnabled,
+    dsp.sweetenAmount,
+    dsp.onSweetenToggle,
+    dsp.onSweetenAmountChange,
+    dsp.expanderEnabled,
+    dsp.expanderThreshold,
+    dsp.expanderRatio,
+    dsp.expanderAttackMs,
+    dsp.expanderReleaseMs,
+    dsp.expanderRangeDb,
+    dsp.onExpanderToggle,
+    dsp.onExpanderThresholdChange,
+    dsp.onExpanderRatioChange,
+    dsp.onExpanderAttackMsChange,
+    dsp.onExpanderReleaseMsChange,
+    dsp.onExpanderRangeDbChange,
+    dsp.compressorEnabled,
+    dsp.compressorThreshold,
+    dsp.compressorRatio,
+    dsp.compressorAttackMs,
+    dsp.compressorReleaseMs,
+    dsp.compressorKnee,
+    dsp.compressorMakeupDb,
+    dsp.onCompressorToggle,
+    dsp.onCompressorThresholdChange,
+    dsp.onCompressorRatioChange,
+    dsp.onCompressorAttackMsChange,
+    dsp.onCompressorReleaseMsChange,
+    dsp.onCompressorKneeChange,
+    dsp.onCompressorMakeupDbChange,
+    dsp.spectralTamingEnabled,
+    dsp.spectralTamingTameAmount,
+    dsp.spectralTamingRecoverAmount,
+    dsp.spectralTamingSpeed,
+    dsp.onSpectralTamingToggle,
+    dsp.onSpectralTamingTameAmountChange,
+    dsp.onSpectralTamingRecoverAmountChange,
+    dsp.onSpectralTamingSpeedChange,
+    dsp.levelerEnabled,
+    dsp.levelerTargetLevel,
+    dsp.levelerSpeed,
+    dsp.levelerMaxGainDb,
+    dsp.onLevelerToggle,
+    dsp.onLevelerTargetLevelChange,
+    dsp.onLevelerSpeedChange,
+    dsp.onLevelerMaxGainDbChange,
   ]);
 
-  // EQ band hover state (shared between SpectrumScope and PassbandDetail)
-  const [hoveredEqBandId, setHoveredEqBandId] = useState<string | null>(null);
+  // EQ band hover state (used by PassbandDetail interaction + EQ panel)
+  const [, setHoveredEqBandId] = useState<string | null>(null);
 
   // EQ band context menu state
   const [eqMenu, setEqMenu] = useState<{
@@ -231,33 +469,146 @@ export function FlexibleSkin(props: SdrSkinProps) {
     [],
   );
 
-  // Catch right-clicks on non-canvas areas (VFO overlay, waterfall, freq axis)
-  // to prevent the browser's default context menu and show our EQ menu instead.
-  const handleCenterContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      setEqPanel(null); // close panel if open
-      if (!waterfallView || !tuningOverlay) return;
-      const el = centerColRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const frac = (e.clientX - rect.left) / rect.width;
-      const viewStart = waterfallView.centerHz - waterfallView.spanHz / 2;
-      const rfHz = viewStart + frac * waterfallView.spanHz;
-      const audioHz = rfHzToAudioHz(
-        rfHz,
-        tuningOverlay.freqHz,
-        tuningOverlay.mode,
-      );
-      const clamped = Math.max(20, Math.min(20000, Math.round(audioHz)));
-      setEqMenu({ x: e.clientX, y: e.clientY, audioHz: clamped });
-    },
-    [waterfallView, tuningOverlay],
+  const notchBandCount = useMemo(
+    () => eqBands.filter((band) => band.category === "notch").length,
+    [eqBands],
   );
+  const totalEqBandCount = eqBands.length;
+  const passbandHighlightEnabled = wf.passbandBlendMode !== "none";
+  const passbandFillOpacity = passbandHighlightEnabled ? wf.passbandOpacity : 0;
+  const topSpectrumContainerRef = useRef<HTMLDivElement>(null);
+  const topSpectrumPointerRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    pointerId: number | null;
+  }>({ active: false, startX: 0, startY: 0, pointerId: null });
 
   // Track waterfall container height for FlexTimeAxis
   const waterfallContainerRef = useRef<HTMLDivElement>(null);
   const [waterfallHeight, setWaterfallHeight] = useState(400);
+
+  const handleClearEqBands = useCallback(
+    (target: EqBand["category"] | "all") => {
+      const ids = eqBands
+        .filter((band) => target === "all" || band.category === target)
+        .map((band) => band.id);
+      if (ids.length === 0) return;
+
+      setEqMenu(null);
+      setEqPanel((current) =>
+        current && ids.includes(current.bandId) ? null : current,
+      );
+      setHoveredEqBandId((current) =>
+        current && ids.includes(current) ? null : current,
+      );
+
+      for (const id of ids) {
+        removeEqBand(id);
+      }
+    },
+    [eqBands, removeEqBand],
+  );
+
+  const handleTogglePassbandHighlight = useCallback(() => {
+    updatePreferences({
+      sdrPassbandBlendMode: passbandHighlightEnabled ? "none" : "screen",
+    });
+  }, [passbandHighlightEnabled, updatePreferences]);
+
+  const handlePassbandOpacityChange = useCallback(
+    (value: number) => {
+      const clamped = Math.max(0, Math.min(0.3, value));
+      updatePreferences({
+        sdrPassbandOpacity: clamped,
+        ...(wf.passbandBlendMode === "none" && clamped > 0
+          ? { sdrPassbandBlendMode: "screen" }
+          : {}),
+      });
+    },
+    [updatePreferences, wf.passbandBlendMode],
+  );
+
+  const topScopeHzAtX = useCallback(
+    (clientX: number): number | null => {
+      if (!waterfallView) return null;
+      const el = topSpectrumContainerRef.current;
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0) return null;
+      const frac = (clientX - rect.left) / rect.width;
+      const clamped = Math.max(0, Math.min(1, frac));
+      const viewStart = waterfallView.centerHz - waterfallView.spanHz / 2;
+      return viewStart + clamped * waterfallView.spanHz;
+    },
+    [waterfallView],
+  );
+
+  const handleTopSpectrumPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      const el = topSpectrumContainerRef.current;
+      if (!el) return;
+      topSpectrumPointerRef.current = {
+        active: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        pointerId: e.pointerId,
+      };
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        // Ignore capture failures from browsers that reject pointer capture.
+      }
+    },
+    [],
+  );
+
+  const finishTopSpectrumPointer = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const el = topSpectrumContainerRef.current;
+      if (!el) return;
+      try {
+        if (el.hasPointerCapture(e.pointerId)) {
+          el.releasePointerCapture(e.pointerId);
+        }
+      } catch {
+        // Ignore release failures.
+      }
+
+      const state = topSpectrumPointerRef.current;
+      if (!state.active || state.pointerId !== e.pointerId) return;
+      topSpectrumPointerRef.current = {
+        active: false,
+        startX: 0,
+        startY: 0,
+        pointerId: null,
+      };
+
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
+      if (Math.hypot(dx, dy) >= 4) return;
+
+      const hz = topScopeHzAtX(e.clientX);
+      if (hz == null) return;
+      onPickFrequencyHz(Math.round(hz));
+    },
+    [onPickFrequencyHz, topScopeHzAtX],
+  );
+
+  useEffect(() => {
+    const el = topSpectrumContainerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const direction = e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0;
+      if (direction !== 0) {
+        onWheelTune(direction);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onWheelTune]);
 
   const measureWaterfall = useCallback(() => {
     if (waterfallContainerRef.current) {
@@ -361,11 +712,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
       {/* ── Main content area ────────────────────────────────────────── */}
       <div className="flex-1 grid grid-cols-[1fr_280px] grid-rows-[1fr] min-h-0">
         {/* ── Center: Spectrum + Zoom + Freq axis + Waterfall ──────── */}
-        <div
-          ref={centerColRef}
-          className="relative flex flex-col min-h-0"
-          onContextMenu={handleCenterContextMenu}
-        >
+        <div ref={centerColRef} className="relative flex flex-col min-h-0">
           {/* VFO overlay — floating slice flag, anchored to passband position */}
           <div
             className="absolute top-3 z-10 transition-[left] duration-100 ease-out pointer-events-none"
@@ -436,23 +783,32 @@ export function FlexibleSkin(props: SdrSkinProps) {
           {hasFft ? (
             <>
               {/* Spectrum scope — 30% of center height */}
-              <div className="relative h-[30%] min-h-[80px]">
+              <div
+                ref={topSpectrumContainerRef}
+                className="relative h-[30%] min-h-[80px] touch-none cursor-crosshair"
+                onPointerDown={handleTopSpectrumPointerDown}
+                onPointerUp={finishTopSpectrumPointer}
+                onPointerCancel={finishTopSpectrumPointer}
+              >
                 <SpectrumScope
                   frame={lastFftFrame}
-                  audioFrame={fft.audioFftFrame}
                   view={waterfallView}
                   palette={waterfallPalette}
                   tuning={tuningOverlay}
+                  passbandFillOpacity={passbandFillOpacity}
                   minDb={waterfallMinDb}
                   maxDb={waterfallMaxDb}
-                  showPeakHold={spectrumPeakHold}
-                  showGradientFill={spectrumGradientFill}
+                  showPeakHold={spectrum.spectrumPeakHold}
+                  showGradientFill={spectrum.spectrumGradientFill}
                   overlays={waterfallOverlays}
                   bgColor={spectrum.spectrumBgColor}
                   gridLines={spectrum.spectrumGridLines}
                   verticalGridLines={spectrum.spectrumVerticalGridLines}
                   gridOpacity={spectrum.spectrumGridOpacity}
-                  smoothing={spectrum.spectrumSmoothing}
+                  smoothing={Math.max(
+                    0,
+                    Math.min(4, spectrum.spectrumSmoothing),
+                  )}
                   lineColor={spectrum.spectrumLineColor}
                   lineWidth={spectrum.spectrumLineWidth}
                   fillOpacity={spectrum.spectrumFillOpacity}
@@ -460,18 +816,6 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   lineShadowBlur={spectrum.spectrumLineShadowBlur}
                   tuningLineColor={spectrum.tuningLineColor}
                   tuningArrowColor={spectrum.tuningArrowColor}
-                  eqBands={dsp.eqBands}
-                  hoveredEqBandId={hoveredEqBandId}
-                  onFilterChange={controls.onFilterChange}
-                  onAddEqBand={dsp.onAddEqBand}
-                  onUpdateEqBand={dsp.onUpdateEqBand}
-                  onRemoveEqBand={dsp.onRemoveEqBand}
-                  onEqBandHover={setHoveredEqBandId}
-                  onEqBandQChange={dsp.onEqBandQChange}
-                  onEqContextMenu={handleEqContextMenu}
-                  onEqBandSelect={handleEqBandSelect}
-                  onPickFrequencyHz={onPickFrequencyHz}
-                  onWheelTune={interaction.onWheelTune}
                   className="rounded-none border-0"
                 />
                 {/* Band plan segments overlay on spectrum */}
@@ -487,27 +831,50 @@ export function FlexibleSkin(props: SdrSkinProps) {
               </div>
 
               {/* Passband detail zoom scope */}
-              <PassbandDetail
-                frame={lastFftFrame}
-                audioFftFrame={fft.audioFftFrame}
-                tuning={tuningOverlay}
-                minDb={waterfallMinDb}
-                maxDb={waterfallMaxDb}
-                palette={waterfallPalette}
-                gamma={waterfallGamma}
-                notchFilters={[]}
-                eqBands={dsp.eqBands}
-                onFilterChange={controls.onFilterChange}
-                onAddEqBand={dsp.onAddEqBand}
-                onUpdateEqBand={dsp.onUpdateEqBand}
-                onRemoveEqBand={dsp.onRemoveEqBand}
-                onEqBandHover={setHoveredEqBandId}
-                onEqBandQChange={dsp.onEqBandQChange}
-                onEqContextMenu={handleEqContextMenu}
-                onEqBandSelect={handleEqBandSelect}
-                onPickFrequencyHz={onPickFrequencyHz}
-                onWheelTune={interaction.onWheelTune}
-              />
+              <div className="relative">
+                <PassbandDetail
+                  frame={lastFftFrame}
+                  audioFftFrame={fft.audioFftFrame}
+                  tuning={tuningOverlay}
+                  minDb={waterfallMinDb}
+                  maxDb={waterfallMaxDb}
+                  palette={waterfallPalette}
+                  gamma={waterfallGamma}
+                  passbandFillOpacity={passbandFillOpacity}
+                  notchFilters={[]}
+                  eqBands={dsp.eqBands}
+                  onFilterChange={controls.onFilterChange}
+                  onAddEqBand={dsp.onAddEqBand}
+                  onUpdateEqBand={dsp.onUpdateEqBand}
+                  onRemoveEqBand={dsp.onRemoveEqBand}
+                  onEqBandHover={setHoveredEqBandId}
+                  onEqBandQChange={dsp.onEqBandQChange}
+                  onEqContextMenu={handleEqContextMenu}
+                  onEqBandSelect={handleEqBandSelect}
+                  onPickFrequencyHz={onPickFrequencyHz}
+                  onWheelTune={onWheelTune}
+                />
+                <div className="pointer-events-none absolute right-2 top-1 z-20 flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="pointer-events-auto rounded border border-plasma-orange/40 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-plasma-orange disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => handleClearEqBands("notch")}
+                    disabled={notchBandCount === 0}
+                    title="Remove all notch points"
+                  >
+                    Clear Notches ({notchBandCount})
+                  </button>
+                  <button
+                    type="button"
+                    className="pointer-events-auto rounded border border-cosmic-cyan/40 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-cosmic-cyan disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => handleClearEqBands("all")}
+                    disabled={totalEqBandCount === 0}
+                    title="Remove all EQ and notch points"
+                  >
+                    Clear All ({totalEqBandCount})
+                  </button>
+                </div>
+              </div>
 
               {/* Frequency axis — ticks point up toward spectrum */}
               <FlexFreqAxis
@@ -523,7 +890,6 @@ export function FlexibleSkin(props: SdrSkinProps) {
               >
                 <Waterfall
                   frame={lastFftFrame}
-                  audioFrame={fft.audioFftFrame}
                   view={waterfallView}
                   onViewChange={onWaterfallViewChange}
                   palette={waterfallPalette}
@@ -534,7 +900,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   overlays={waterfallOverlays}
                   onPickFrequencyHz={onPickFrequencyHz}
                   onSelectRangeHz={onSelectRangeHz}
-                  onWheelTune={interaction.onWheelTune}
+                  onWheelTune={onWheelTune}
                   passbandBlendMode={
                     wf.passbandBlendMode as
                       | "screen"
@@ -548,8 +914,42 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   interpolation={waterfallInterpolation}
                   gamma={waterfallGamma}
                   rowHeight={waterfallRowHeight}
+                  // Do not crossfade in the high-res audio FFT on the main
+                  // bottom waterfall (it belongs in the zoom view above).
                   className="rounded-none border-0"
                 />
+                <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-2 rounded border border-white/15 bg-black/60 px-2 py-1">
+                  <button
+                    type="button"
+                    className={`pointer-events-auto rounded px-2 py-0.5 text-[10px] font-medium ${
+                      passbandHighlightEnabled
+                        ? "border border-cosmic-cyan/40 text-cosmic-cyan"
+                        : "border border-white/20 text-gray-300"
+                    }`}
+                    onClick={handleTogglePassbandHighlight}
+                    title="Toggle passband highlight in waterfall"
+                  >
+                    Passband {passbandHighlightEnabled ? "On" : "Off"}
+                  </button>
+                  <label className="pointer-events-auto flex items-center gap-1 text-[10px] text-gray-300">
+                    <span>Opacity</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={0.3}
+                      step={0.01}
+                      value={wf.passbandOpacity}
+                      onChange={(e) =>
+                        handlePassbandOpacityChange(Number(e.target.value))
+                      }
+                      disabled={!passbandHighlightEnabled}
+                      className="h-1 w-24 accent-cosmic-cyan disabled:opacity-40"
+                    />
+                    <span className="w-8 text-right font-mono text-[9px] text-gray-400">
+                      {wf.passbandOpacity.toFixed(2)}
+                    </span>
+                  </label>
+                </div>
                 {/* Spot tags overlay on waterfall — click-to-tune */}
                 {waterfallView && (
                   <SpotTagOverlay
@@ -572,6 +972,8 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 )}
                 <FlexTimeAxis
                   speed={waterfallSpeed}
+                  fps={DEFAULT_FFT_STREAM_FPS}
+                  rowHeight={waterfallRowHeight}
                   containerHeight={waterfallHeight}
                 />
               </div>

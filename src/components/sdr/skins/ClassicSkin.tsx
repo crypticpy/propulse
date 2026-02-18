@@ -12,6 +12,7 @@ import {
   DecodesPanel,
 } from "@/components/sdr/shared";
 import { Ft8DecoderPanel } from "@/components/sdr/Ft8DecoderPanel";
+import { Ft8DecodeOverlay } from "@/components/sdr/overlays";
 import { EqBandContextMenu } from "@/components/sdr/EqBandContextMenu";
 import { EqBandPanel } from "@/components/sdr/EqBandPanel";
 import { rfHzToAudioHz } from "@/components/sdr/waterfallPalette";
@@ -180,6 +181,15 @@ export function ClassicSkin(props: SdrSkinProps) {
         onWaterfallViewChange={interaction.onWaterfallViewChange}
         onPickFrequencyHz={interaction.onPickFrequencyHz}
         onSelectRangeHz={interaction.onSelectRangeHz}
+        ft8DecodeOverlay={
+          ft8.ft8DecoderEnabled && ft8.ft8EnrichedDecodes.length > 0 ? (
+            <Ft8DecodeOverlay
+              decodes={ft8.ft8EnrichedDecodes}
+              audioLow={200}
+              audioHigh={3000}
+            />
+          ) : undefined
+        }
       />
 
       <DecodesPanel
@@ -194,8 +204,15 @@ export function ClassicSkin(props: SdrSkinProps) {
         cycleProgress={ft8.ft8CycleProgress}
         stats={ft8.ft8DecoderStats}
         error={ft8.ft8Error}
+        enrichedDecodes={ft8.ft8EnrichedDecodes}
+        currentBand={ft8.ft8CurrentBand}
+        timeSyncResult={ft8.ft8TimeSyncResult}
+        myCallsign={null}
         onToggle={ft8.onFt8Toggle}
         onModeChange={ft8.onFt8ModeChange}
+        onBandPresetSelect={ft8.onFt8BandPresetSelect}
+        onCallsignClick={ft8.onFt8CallsignClick}
+        onCallsignDoubleClick={ft8.onFt8CallsignDoubleClick}
       />
     </div>
   );

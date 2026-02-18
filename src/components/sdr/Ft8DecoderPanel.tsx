@@ -1,23 +1,40 @@
 /**
- * Ft8DecoderPanel — Compact sidebar panel for the native FT8/FT4 decoder.
+ * Ft8DecoderPanel — Sidebar panel for the native FT8/FT4 decoder.
  *
- * Shows ON/OFF toggle, FT8/FT4 mode pills, cycle progress bar, decode stats,
- * and error display. Sized for the Flexible skin right sidebar (280px).
+ * Shows ON/OFF toggle, FT8/FT4 mode pills, band preset bar, cycle progress,
+ * decode stats, session stats dashboard, time sync warning, and a scrollable
+ * enriched decode list.
  */
 
+import { useEffect, useRef } from "react";
 import { Ft8CycleIndicator } from "./Ft8CycleIndicator";
+import { Ft8BandPresetBar } from "./Ft8BandPresetBar";
+import { Ft8DecodeList } from "./Ft8DecodeList";
+import { Ft8StatsDashboard } from "./Ft8StatsDashboard";
 import type { Ft8DecoderStats } from "@/stores/ft8DecoderStore";
+import type { Ft8EnrichedDecode } from "@/lib/ft8/ft8EnrichedDecode";
+import type { Ft8BandPreset } from "@/lib/ft8/ft8BandPresets";
+import type { TimeSyncResult } from "@/lib/ft8/timeSyncCheck";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 interface Ft8DecoderPanelProps {
   enabled: boolean;
   mode: "FT8" | "FT4";
-  cycleProgress: number; // 0-1
+  cycleProgress: number;
   stats: Ft8DecoderStats;
   error: string | null;
+  enrichedDecodes: Ft8EnrichedDecode[];
+  currentBand: string | null;
+  timeSyncResult: TimeSyncResult | null;
+  myCallsign: string | null;
   onToggle: () => void;
   onModeChange: (mode: "FT8" | "FT4") => void;
+  onBandPresetSelect: (preset: Ft8BandPreset) => void;
+  onCallsignClick?: (callsign: string) => void;
+  onCallsignDoubleClick?: (callsign: string) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -28,9 +45,37 @@ export function Ft8DecoderPanel({
   cycleProgress,
   stats,
   error,
+  enrichedDecodes,
+  currentBand,
+  timeSyncResult,
+  myCallsign,
   onToggle,
   onModeChange,
+  onBandPresetSelect,
+  onCallsignClick,
+  onCallsignDoubleClick,
 }: Ft8DecoderPanelProps) {
+  const showFlags = useSettingsStore((s) => s.sdrFt8ShowFlags);
+  const showDistance = useSettingsStore((s) => s.sdrFt8ShowDistance);
+  const highlightNeeded = useSettingsStore((s) => s.sdrFt8HighlightNeeded);
+  const highlightCQ = useSettingsStore((s) => s.sdrFt8HighlightCQ);
+
+  const sessionStats = useFt8SessionStore((s) => s.sessionStats);
+
+  // Track last 20 cycle decode counts for sparkline
+  const cycleCountsRef = useRef<number[]>([]);
+  const prevCyclesRef = useRef(stats.cyclesCompleted);
+
+  useEffect(() => {
+    if (stats.cyclesCompleted > prevCyclesRef.current) {
+      cycleCountsRef.current = [
+        ...cycleCountsRef.current,
+        stats.lastCycleDecodes,
+      ].slice(-20);
+    }
+    prevCyclesRef.current = stats.cyclesCompleted;
+  }, [stats.cyclesCompleted, stats.lastCycleDecodes]);
+
   return (
     <div className="rounded border border-white/10 bg-void-black/60">
       {/* Header row: title + ON/OFF toggle */}
@@ -57,11 +102,11 @@ export function Ft8DecoderPanel({
         mode={mode}
       />
 
-      {/* Mode pills + stats — only visible when enabled */}
+      {/* Content — only visible when enabled */}
       {enabled && (
-        <div className="space-y-2 px-3 py-2">
+        <div className="space-y-1.5">
           {/* Mode toggle pills */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 px-3 pt-2">
             {(["FT8", "FT4"] as const).map((m) => (
               <button
                 key={m}
@@ -77,19 +122,52 @@ export function Ft8DecoderPanel({
             ))}
           </div>
 
+          {/* Band preset bar */}
+          <Ft8BandPresetBar
+            mode={mode}
+            currentBand={currentBand}
+            onSelectPreset={onBandPresetSelect}
+          />
+
           {/* Stats grid */}
-          <div className="grid grid-cols-3 gap-1.5 text-center">
+          <div className="grid grid-cols-3 gap-1.5 px-3 text-center">
             <StatCell label="Total" value={stats.totalDecodes} />
             <StatCell label="Last" value={stats.lastCycleDecodes} />
             <StatCell label="Cycles" value={stats.cyclesCompleted} />
           </div>
 
+          {/* Session stats dashboard */}
+          <Ft8StatsDashboard
+            stats={sessionStats}
+            cycleCounts={cycleCountsRef.current}
+          />
+
+          {/* Time sync warning */}
+          {timeSyncResult && !timeSyncResult.isAcceptable && (
+            <div className="mx-3 rounded bg-caution-amber/10 px-2 py-1.5 text-[10px] leading-tight text-caution-amber/90">
+              Clock drift: {timeSyncResult.offsetMs > 0 ? "+" : ""}
+              {timeSyncResult.offsetMs}ms — FT8 requires &lt;500ms accuracy
+            </div>
+          )}
+
           {/* Error display */}
           {error && (
-            <div className="rounded bg-alert-red/10 px-2 py-1.5 text-[10px] leading-tight text-alert-red/90">
+            <div className="mx-3 rounded bg-alert-red/10 px-2 py-1.5 text-[10px] leading-tight text-alert-red/90">
               {error}
             </div>
           )}
+
+          {/* Decode list */}
+          <Ft8DecodeList
+            decodes={enrichedDecodes}
+            showFlags={showFlags}
+            showDistance={showDistance}
+            highlightNeeded={highlightNeeded}
+            highlightCQ={highlightCQ}
+            myCallsign={myCallsign}
+            onCallsignClick={onCallsignClick}
+            onCallsignDoubleClick={onCallsignDoubleClick}
+          />
         </div>
       )}
     </div>

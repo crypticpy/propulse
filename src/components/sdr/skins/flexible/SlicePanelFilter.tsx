@@ -43,12 +43,57 @@ const DIGI_PRESETS = [
   { label: "4K", low: 0, high: 4000 },
 ];
 
+const MODE_PRIORITY = [
+  "LSB",
+  "USB",
+  "CW",
+  "CW-R",
+  "RTTY",
+  "RTTY-R",
+  "AM",
+  "FM",
+  "WFM",
+  "FT8",
+  "FT4",
+] as const;
+
+function normalizeMode(mode: string): string {
+  const m = mode.toUpperCase().trim().replace(/_/g, "-");
+  if (m === "CWR" || m === "CW R") return "CW-R";
+  if (m === "RTTYR" || m === "RTTY R") return "RTTY-R";
+  return m;
+}
+
+function buildModeButtons(availableModes: string[]): string[] {
+  const source = availableModes.length > 0 ? availableModes : [...MODE_PRIORITY];
+  const dedup = new Map<string, string>();
+
+  for (const mode of source) {
+    const key = normalizeMode(mode);
+    if (!key || dedup.has(key)) continue;
+    dedup.set(key, key);
+  }
+
+  return [...dedup.values()].sort((a, b) => {
+    const aIdx = MODE_PRIORITY.indexOf(a as (typeof MODE_PRIORITY)[number]);
+    const bIdx = MODE_PRIORITY.indexOf(b as (typeof MODE_PRIORITY)[number]);
+    const aRank = aIdx === -1 ? MODE_PRIORITY.length : aIdx;
+    const bRank = bIdx === -1 ? MODE_PRIORITY.length : bIdx;
+    if (aRank !== bRank) return aRank - bRank;
+    return a.localeCompare(b);
+  });
+}
+
 function getPresetsForMode(mode: string) {
-  const m = mode.toUpperCase();
-  if (m === "CW" || m === "CWR") return CW_PRESETS;
+  const m = normalizeMode(mode);
+  if (m === "CW" || m === "CW-R") return CW_PRESETS;
   if (m === "AM" || m === "FM" || m === "NFM" || m === "WFM")
     return AM_FM_PRESETS;
-  if (["RTTY", "DIGI", "FT8", "FT4", "JS8", "PSK", "DIGU", "DIGL"].includes(m))
+  if (
+    ["RTTY", "RTTY-R", "DIGI", "FT8", "FT4", "JS8", "PSK", "DIGU", "DIGL"].includes(
+      m,
+    )
+  )
     return DIGI_PRESETS;
   return SSB_PRESETS;
 }
@@ -76,16 +121,18 @@ export function SlicePanelFilter({
   onFilterChange,
   canControl,
 }: SlicePanelFilterProps) {
+  const modeButtons = buildModeButtons(availableModes);
   const presets = getPresetsForMode(currentMode);
   const currentBw = filterHigh - filterLow;
+  const normalizedCurrentMode = normalizeMode(currentMode);
 
   return (
     <div className="space-y-2">
       {/* Mode grid */}
-      {availableModes.length > 0 && (
+      {modeButtons.length > 0 && (
         <div className="grid grid-cols-4 gap-1">
-          {availableModes.map((m) => {
-            const isActive = m.toUpperCase() === currentMode.toUpperCase();
+          {modeButtons.map((m) => {
+            const isActive = normalizeMode(m) === normalizedCurrentMode;
             const colors = `${getModeBgClass(m)} ${getModeTextClass(m)}`;
 
             return (

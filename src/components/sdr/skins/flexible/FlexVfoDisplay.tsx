@@ -11,7 +11,7 @@
  * - Filter bandwidth display
  */
 
-import { useMemo, useState, useCallback } from "react";
+import { memo, useMemo, useState, useCallback } from "react";
 import {
   getModeTextClass,
   getModeBgClass,
@@ -113,7 +113,7 @@ const DEFAULT_BG_COLOR = "rgba(0, 40, 60, 0.85)";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FlexVfoDisplay({
+export const FlexVfoDisplay = memo(function FlexVfoDisplay({
   freqHz,
   mode,
   ptt,
@@ -200,7 +200,7 @@ export function FlexVfoDisplay({
 
   return (
     <div
-      className="backdrop-blur-sm rounded-lg px-3 py-1.5 select-none min-w-[280px] border border-white/10 pointer-events-auto"
+      className="backdrop-blur-sm rounded-lg px-3 py-1.5 select-none min-w-[280px] border border-white/10 pointer-events-none"
       style={{
         backgroundColor: bgColor,
         boxShadow: `inset 3px 0 0 ${accentColor}, 0 4px 24px rgba(0,0,0,0.6), 0 1px 6px rgba(0,0,0,0.4)`,
@@ -212,7 +212,7 @@ export function FlexVfoDisplay({
         {onVfoSwap ? (
           <button
             onClick={onVfoSwap}
-            className="text-[10px] font-bold tracking-wider hover:brightness-125 active:scale-95 transition-all cursor-pointer"
+            className="pointer-events-auto text-[10px] font-bold tracking-wider hover:brightness-125 active:scale-95 transition-all cursor-pointer"
             style={{ color: accentColor }}
             title="Switch VFO"
           >
@@ -242,26 +242,28 @@ export function FlexVfoDisplay({
 
         {/* LOCK badge */}
         {lock && (
-          <RadioBadge
-            label="LOCK"
-            variant="accent"
-            onClick={onLockToggle}
-            icon={
-              <svg
-                className="w-2.5 h-2.5"
-                viewBox="0 0 16 16"
-                fill="currentColor"
-              >
-                <path d="M8 1a3 3 0 0 0-3 3v2H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1V4a3 3 0 0 0-3-3zm-1.5 3a1.5 1.5 0 1 1 3 0v2h-3V4z" />
-              </svg>
-            }
-          />
+          <span className={onLockToggle ? "pointer-events-auto" : undefined}>
+            <RadioBadge
+              label="LOCK"
+              variant="accent"
+              onClick={onLockToggle}
+              icon={
+                <svg
+                  className="w-2.5 h-2.5"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                >
+                  <path d="M8 1a3 3 0 0 0-3 3v2H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1V4a3 3 0 0 0-3-3zm-1.5 3a1.5 1.5 0 1 1 3 0v2h-3V4z" />
+                </svg>
+              }
+            />
+          </span>
         )}
 
         {/* Size toggle button */}
         <button
           onClick={cycleSize}
-          className="text-[8px] font-bold text-gray-500 hover:text-gray-300 transition-colors px-0.5"
+          className="pointer-events-auto text-[8px] font-bold text-gray-500 hover:text-gray-300 transition-colors px-0.5"
           title={isMax ? "Collapse to normal" : "Expand to max"}
         >
           {isMax ? "\u25B4" : "\u25BE"}
@@ -277,9 +279,15 @@ export function FlexVfoDisplay({
 
       {/* ── Row 2: DSP badges ────────────────────────────────────────── */}
       <div className="flex items-center gap-1 mb-0.5">
-        <DspBadge label="NB" active={nbEnabled} onClick={onNbToggle} />
-        <DspBadge label="NR" active={nrEnabled} onClick={onNrToggle} />
-        <DspBadge label="AGC" active={agcEnabled} onClick={onAgcToggle} />
+        <span className={onNbToggle ? "pointer-events-auto" : undefined}>
+          <DspBadge label="NB" active={nbEnabled} onClick={onNbToggle} />
+        </span>
+        <span className={onNrToggle ? "pointer-events-auto" : undefined}>
+          <DspBadge label="NR" active={nrEnabled} onClick={onNrToggle} />
+        </span>
+        <span className={onAgcToggle ? "pointer-events-auto" : undefined}>
+          <DspBadge label="AGC" active={agcEnabled} onClick={onAgcToggle} />
+        </span>
         <DspBadge label="ANF" active={anf} />
         {qsk && <DspBadge label="QSK" active />}
         {vox && <DspBadge label="VOX" active />}
@@ -355,10 +363,14 @@ export function FlexVfoDisplay({
 
       {/* ── Slice panel tabs (SmartSDR-style expandable controls) ──── */}
       {/* Max mode: panels always visible; Normal mode: still available */}
-      {slicePanels && <SlicePanelTabs controls={slicePanels} />}
+      {slicePanels && (
+        <div className="pointer-events-auto">
+          <SlicePanelTabs controls={slicePanels} />
+        </div>
+      )}
     </div>
   );
-}
+});
 
 // ─── TX Meter Bar ─────────────────────────────────────────────────────────
 

@@ -30,6 +30,10 @@ export interface RadioDaemonConnectionOptions {
     api: Pick<RadioDaemonConnection, "send" | "sendCommand">,
   ) => void;
   onFrame?: (frame: RadioBinaryFrame) => void;
+  /** Keep `lastMessage` updated in React state (disabled to reduce rerender load). */
+  trackLastMessage?: boolean;
+  /** Keep `lastFrame` updated in React state (disabled to reduce rerender load). */
+  trackLastFrame?: boolean;
 }
 
 export interface RadioDaemonConnection {
@@ -57,6 +61,8 @@ const DEFAULT_OPTIONS: Required<
   reconnectDelay: 1000,
   maxReconnectDelay: 30000,
   connectionTimeout: 5000,
+  trackLastMessage: true,
+  trackLastFrame: true,
 };
 
 function calculateBackoff(
@@ -353,7 +359,9 @@ export function useRadioDaemon(
         if (typeof event.data === "string") {
           try {
             const msg = JSON.parse(event.data) as DaemonIncomingMessage;
-            setLastMessage(msg);
+            if (optsRef.current.trackLastMessage) {
+              setLastMessage(msg);
+            }
             try {
               onMessageRef.current?.(msg, { send, sendCommand });
             } catch {
@@ -368,7 +376,9 @@ export function useRadioDaemon(
         if (event.data instanceof ArrayBuffer) {
           const frame = parseBinaryFrame(event.data);
           if (frame) {
-            setLastFrame(frame);
+            if (optsRef.current.trackLastFrame) {
+              setLastFrame(frame);
+            }
             try {
               onFrameRef.current?.(frame);
             } catch {
@@ -482,7 +492,9 @@ export function useRadioDaemon(
       if (msg.type === "message" && typeof msg.text === "string") {
         try {
           const parsed = JSON.parse(msg.text) as DaemonIncomingMessage;
-          setLastMessage(parsed);
+          if (optsRef.current.trackLastMessage) {
+            setLastMessage(parsed);
+          }
           try {
             onMessageRef.current?.(parsed, { send, sendCommand });
           } catch {
@@ -497,7 +509,9 @@ export function useRadioDaemon(
       if (msg.type === "binary" && msg.data instanceof ArrayBuffer) {
         const frame = parseBinaryFrame(msg.data);
         if (frame) {
-          setLastFrame(frame);
+          if (optsRef.current.trackLastFrame) {
+            setLastFrame(frame);
+          }
           try {
             onFrameRef.current?.(frame);
           } catch {

@@ -61,6 +61,9 @@ interface WaterfallProps {
     label?: string;
     color?: "cyan" | "orange" | "red" | "green";
   }>;
+  /** Optional React element rendered as an absolutely positioned overlay on
+   *  top of the waterfall canvas (e.g. FT8 decode markers). */
+  ft8DecodeOverlay?: React.ReactNode;
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -133,6 +136,7 @@ export function Waterfall({
   passbandBlendMode = "screen",
   passbandOpacity = 0.08,
   overlays = [],
+  ft8DecodeOverlay,
   audioFrame = null,
   audioMinDb: audioMinDbVal = -120,
   audioMaxDb: audioMaxDbVal = -20,
@@ -170,6 +174,12 @@ export function Waterfall({
   const vaoRef = useRef<WebGLVertexArrayObject | null>(null);
   const texRef = useRef<WebGLTexture | null>(null);
   const headRef = useRef(0);
+  const displayHeadRef = useRef(0);
+  const lastRenderAtRef = useRef(0);
+  const lastUploadAtRef = useRef(0);
+  const avgUploadDtMsRef = useRef(1000 / 60);
+  const lastUploadLinesRef = useRef(1);
+  const renderLoopRafRef = useRef<number | null>(null);
   const texSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const uniHeadRef = useRef<WebGLUniformLocation | null>(null);
   const uniHeightRef = useRef<WebGLUniformLocation | null>(null);
@@ -219,6 +229,9 @@ export function Waterfall({
         empty,
       );
       headRef.current = 0;
+      displayHeadRef.current = 0;
+      lastRenderAtRef.current = 0;
+      lastUploadAtRef.current = 0;
       return;
     }
 
@@ -278,9 +291,14 @@ export function Waterfall({
           out vec4 outColor;
           void main() {
             float row = floor(v_uv.y * u_height);
-            float sampleY = mod((u_head - 1.0 - row) + u_height, u_height);
-            vec2 uv = vec2(v_uv.x, (sampleY + 0.5) / u_height);
-            outColor = texture(u_tex, uv);
+            // Sample between adjacent rows when u_head is fractional.
+            float y = mod((u_head - 1.0 - row) + u_height, u_height);
+            float y0 = floor(y);
+            float f = fract(y);
+            float y1 = mod(y0 + 1.0, u_height);
+            vec2 uv0 = vec2(v_uv.x, (y0 + 0.5) / u_height);
+            vec2 uv1 = vec2(v_uv.x, (y1 + 0.5) / u_height);
+            outColor = mix(texture(u_tex, uv0), texture(u_tex, uv1), f);
           }`,
         );
         progRef.current = prog;
@@ -323,6 +341,9 @@ export function Waterfall({
       ) {
         texSizeRef.current = { w, h };
         headRef.current = 0;
+        displayHeadRef.current = 0;
+        lastRenderAtRef.current = 0;
+        lastUploadAtRef.current = 0;
         gl.bindTexture(gl.TEXTURE_2D, texRef.current);
         gl.texImage2D(
           gl.TEXTURE_2D,
@@ -368,6 +389,10 @@ export function Waterfall({
 
     return () => {
       ro.disconnect();
+      if (renderLoopRafRef.current !== null) {
+        cancelAnimationFrame(renderLoopRafRef.current);
+        renderLoopRafRef.current = null;
+      }
       const g = glRef.current;
       if (g) {
         if (texRef.current) g.deleteTexture(texRef.current);
@@ -380,6 +405,66 @@ export function Waterfall({
       glRef.current = null;
     };
     // Re-init WebGL when interpolation changes (texture filter parameters).
+  }, [interpolation]);
+
+  // Render loop for WebGL2: draw every vsync and animate head towards new rows.
+  useEffect(() => {
+    if (rendererRef.current !== "webgl2") return;
+
+    const loop = (t: number) => {
+      const gl = glRef.current;
+      const prog = progRef.current;
+      const vao = vaoRef.current;
+      const tex = texRef.current;
+      const uniHead = uniHeadRef.current;
+      const uniHeight = uniHeightRef.current;
+      const height = texSizeRef.current.h;
+
+      if (
+        gl &&
+        prog &&
+        vao &&
+        tex &&
+        uniHead &&
+        uniHeight &&
+        height > 0 &&
+        canvasRef.current
+      ) {
+        const lastRenderAt = lastRenderAtRef.current || t;
+        const dt = Math.max(0, t - lastRenderAt);
+        lastRenderAtRef.current = t;
+
+        const target = headRef.current;
+        const avgDt = Math.max(1, avgUploadDtMsRef.current);
+        const lines = Math.max(1, lastUploadLinesRef.current);
+        const maxStep = (dt / avgDt) * lines;
+
+        const cur = displayHeadRef.current;
+        const next = Math.min(target, cur + maxStep);
+        displayHeadRef.current = next;
+
+        gl.useProgram(prog);
+        gl.bindVertexArray(vao);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.uniform1f(uniHead, next);
+        gl.uniform1f(uniHeight, height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+
+      renderLoopRafRef.current = requestAnimationFrame(loop);
+    };
+
+    if (renderLoopRafRef.current !== null) {
+      cancelAnimationFrame(renderLoopRafRef.current);
+    }
+    renderLoopRafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      if (renderLoopRafRef.current !== null) {
+        cancelAnimationFrame(renderLoopRafRef.current);
+        renderLoopRafRef.current = null;
+      }
+    };
   }, [interpolation]);
 
   // Clear the waterfall when view span changes (zoom).
@@ -418,159 +503,165 @@ export function Waterfall({
     const bins = frame.bins;
     if (bins.length === 0) return;
 
-    const startFrame = frame.centerHz - frame.spanHz / 2;
-    const viewStart = effectiveView.centerHz - effectiveView.spanHz / 2;
-    const viewSpan = effectiveView.spanHz;
+    const rafId = requestAnimationFrame(() => {
+      const startFrame = frame.centerHz - frame.spanHz / 2;
+      const viewStart = effectiveView.centerHz - effectiveView.spanHz / 2;
+      const viewSpan = effectiveView.spanHz;
 
-    // ── Shared crossfade params ──────────────────────────────────────
-    const audioBins = audioFrame?.bins ?? null;
-    const audioFullStart = audioFrame
-      ? audioFrame.centerHz - audioFrame.spanHz / 2
-      : 0;
-    const audioRangeVal = Math.max(1, audioMaxDbVal - audioMinDbVal);
-    const pb = tuning && audioBins ? computePassbandHz(tuning) : null;
+      // ── Shared crossfade params ──────────────────────────────────────
+      const audioBins = audioFrame?.bins ?? null;
+      const audioFullStart = audioFrame
+        ? audioFrame.centerHz - audioFrame.spanHz / 2
+        : 0;
+      const audioRangeVal = Math.max(1, audioMaxDbVal - audioMinDbVal);
+      const pb = tuning && audioBins ? computePassbandHz(tuning) : null;
 
-    const crossfadeParams = {
-      civBins: bins,
-      civStartHz: startFrame,
-      civSpanHz: frame.spanHz,
-      civMinDb: minDb,
-      civRange: range,
-      audioBins: audioBins as Float32Array | null,
-      audioStartHz: audioFullStart,
-      audioSpanHz: audioFrame?.spanHz ?? 1,
-      audioMinDb: audioMinDbVal,
-      audioRange: audioRangeVal,
-      passbandStartHz: pb ? pb.startHz : 0,
-      passbandEndHz: pb ? pb.endHz : 0,
-      fadeHz: 200,
-      civInterpolation: "nearest" as const,
-    };
+      const crossfadeParams = {
+        civBins: bins,
+        civStartHz: startFrame,
+        civSpanHz: frame.spanHz,
+        civMinDb: minDb,
+        civRange: range,
+        audioBins: audioBins as Float32Array | null,
+        audioStartHz: audioFullStart,
+        audioSpanHz: audioFrame?.spanHz ?? 1,
+        audioMinDb: audioMinDbVal,
+        audioRange: audioRangeVal,
+        passbandStartHz: pb ? pb.startHz : 0,
+        passbandEndHz: pb ? pb.endHz : 0,
+        fadeHz: 200,
+        civInterpolation: "nearest" as const,
+      };
 
-    // ── Ensure pre-allocated buffers match current width ─────────
-    if (
-      !normalizedBufRef.current ||
-      normalizedBufRef.current.length !== width
-    ) {
-      normalizedBufRef.current = new Float32Array(width);
-    }
-    if (!rowBufRef.current || rowBufRef.current.length !== width * 4) {
-      rowBufRef.current = new Uint8Array(width * 4);
-    }
-    const normalized = normalizedBufRef.current;
-    const row = rowBufRef.current;
+      // ── Ensure pre-allocated buffers match current width ─────────
+      if (
+        !normalizedBufRef.current ||
+        normalizedBufRef.current.length !== width
+      ) {
+        normalizedBufRef.current = new Float32Array(width);
+      }
+      if (!rowBufRef.current || rowBufRef.current.length !== width * 4) {
+        rowBufRef.current = new Uint8Array(width * 4);
+      }
+      const normalized = normalizedBufRef.current;
+      const row = rowBufRef.current;
 
-    // ── Fill normalized values using shared cross-fade utility ────
-    fillFftCrossfade(normalized, viewStart, viewSpan, crossfadeParams);
+      // ── Fill normalized values using shared cross-fade utility ────
+      fillFftCrossfade(normalized, viewStart, viewSpan, crossfadeParams);
 
-    // ── Map normalized values to RGBA via gamma-baked LUT ────────
-    for (let x = 0; x < width; x++) {
-      const lutIdx = Math.round(normalized[x]! * 255);
-      const i = x * 4;
-      row[i] = lut[lutIdx * 3]!;
-      row[i + 1] = lut[lutIdx * 3 + 1]!;
-      row[i + 2] = lut[lutIdx * 3 + 2]!;
-      row[i + 3] = 255;
-    }
+      // ── Map normalized values to RGBA via gamma-baked LUT ────────
+      for (let x = 0; x < width; x++) {
+        const lutIdx = Math.round(normalized[x]! * 255);
+        const i = x * 4;
+        row[i] = lut[lutIdx * 3]!;
+        row[i + 1] = lut[lutIdx * 3 + 1]!;
+        row[i + 2] = lut[lutIdx * 3 + 2]!;
+        row[i + 3] = 255;
+      }
 
-    if (
-      rendererRef.current === "webgl2" &&
-      glRef.current &&
-      progRef.current &&
-      texRef.current
-    ) {
-      const gl = glRef.current;
-      const tex = texRef.current;
+      if (
+        rendererRef.current === "webgl2" &&
+        glRef.current &&
+        progRef.current &&
+        texRef.current
+      ) {
+        const gl = glRef.current;
+        const tex = texRef.current;
 
-      const lines =
-        Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
+        const lines =
+          Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
 
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-
-      if (lines === 1) {
-        // Single row — upload directly
-        const head = headRef.current % height;
-        gl.texSubImage2D(
-          gl.TEXTURE_2D,
-          0,
-          0,
-          head,
-          width,
-          1,
-          gl.RGBA,
-          gl.UNSIGNED_BYTE,
-          row,
-        );
-        headRef.current = (headRef.current + 1) % height;
-      } else {
-        // Multi-row: build a single buffer with `lines` copies, upload in
-        // contiguous chunks to minimize texSubImage2D calls.
-        const multiSize = width * 4 * lines;
-        if (
-          !multiRowBufRef.current ||
-          multiRowBufRef.current.length !== multiSize
-        ) {
-          multiRowBufRef.current = new Uint8Array(multiSize);
+        const now = performance.now();
+        const lastAt = lastUploadAtRef.current;
+        if (lastAt > 0) {
+          const dt = Math.max(1, now - lastAt);
+          // EMA to handle occasional frame stalls without jittering the estimate.
+          avgUploadDtMsRef.current = avgUploadDtMsRef.current * 0.85 + dt * 0.15;
         }
-        const multi = multiRowBufRef.current;
-        for (let n = 0; n < lines; n++) {
-          multi.set(row, n * width * 4);
-        }
+        lastUploadAtRef.current = now;
+        lastUploadLinesRef.current = lines;
 
-        // Upload contiguous chunks, wrapping around texture height boundary
-        let remaining = lines;
-        while (remaining > 0) {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+
+        if (lines === 1) {
+          // Single row — upload directly
           const head = headRef.current % height;
-          const maxRows = Math.min(remaining, height - head);
           gl.texSubImage2D(
             gl.TEXTURE_2D,
             0,
             0,
             head,
             width,
-            maxRows,
+            1,
             gl.RGBA,
             gl.UNSIGNED_BYTE,
-            new Uint8Array(
-              multi.buffer,
-              (lines - remaining) * width * 4,
-              maxRows * width * 4,
-            ),
+            row,
           );
-          headRef.current = (headRef.current + maxRows) % height;
-          remaining -= maxRows;
+          headRef.current = (headRef.current + 1) % height;
+        } else {
+          // Multi-row: build a single buffer with `lines` copies, upload in
+          // contiguous chunks to minimize texSubImage2D calls.
+          const multiSize = width * 4 * lines;
+          if (
+            !multiRowBufRef.current ||
+            multiRowBufRef.current.length !== multiSize
+          ) {
+            multiRowBufRef.current = new Uint8Array(multiSize);
+          }
+          const multi = multiRowBufRef.current;
+          for (let n = 0; n < lines; n++) {
+            multi.set(row, n * width * 4);
+          }
+
+          // Upload contiguous chunks, wrapping around texture height boundary
+          let remaining = lines;
+          while (remaining > 0) {
+            const head = headRef.current % height;
+            const maxRows = Math.min(remaining, height - head);
+            gl.texSubImage2D(
+              gl.TEXTURE_2D,
+              0,
+              0,
+              head,
+              width,
+              maxRows,
+              gl.RGBA,
+              gl.UNSIGNED_BYTE,
+              new Uint8Array(
+                multi.buffer,
+                (lines - remaining) * width * 4,
+                maxRows * width * 4,
+              ),
+            );
+            headRef.current = (headRef.current + maxRows) % height;
+            remaining -= maxRows;
+          }
         }
+        return; // Draw happens in the render loop (vsync-aligned).
       }
 
-      gl.useProgram(progRef.current);
-      gl.bindVertexArray(vaoRef.current);
-      if (uniHeadRef.current) gl.uniform1f(uniHeadRef.current, headRef.current);
-      if (uniHeightRef.current) gl.uniform1f(uniHeightRef.current, height);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) return;
 
-      return;
-    }
+      // Canvas2D fallback: scroll and paint the newest row(s).
+      const lines =
+        Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
+      ctx.drawImage(canvas, 0, lines);
 
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return;
-
-    // Canvas2D fallback: scroll and paint the newest row(s).
-    const lines =
-      Math.max(1, Math.round(speed)) * Math.max(1, Math.round(rowHeight));
-    ctx.drawImage(canvas, 0, lines);
-
-    const imgData = ctx.createImageData(width, 1);
-    const data = imgData.data;
-    for (let x = 0; x < width; x++) {
-      const i = x * 4;
-      data[i] = row[i]!;
-      data[i + 1] = row[i + 1]!;
-      data[i + 2] = row[i + 2]!;
-      data[i + 3] = 255;
-    }
-    for (let n = 0; n < lines; n++) {
-      ctx.putImageData(imgData, 0, n);
-    }
+      const imgData = ctx.createImageData(width, 1);
+      const data = imgData.data;
+      for (let x = 0; x < width; x++) {
+        const i = x * 4;
+        data[i] = row[i]!;
+        data[i + 1] = row[i + 1]!;
+        data[i + 2] = row[i + 2]!;
+        data[i + 3] = 255;
+      }
+      for (let n = 0; n < lines; n++) {
+        ctx.putImageData(imgData, 0, n);
+      }
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [
     effectiveView,
     frame,
@@ -883,6 +974,8 @@ export function Waterfall({
             </div>
           );
         })}
+
+      {ft8DecodeOverlay ?? null}
     </div>
   );
 }

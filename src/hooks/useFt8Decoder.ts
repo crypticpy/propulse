@@ -2,6 +2,10 @@
  * useFt8Decoder — Orchestrates the native FT8/FT4 decoder pipeline.
  *
  * Settings (settingsStore) → Audio source → Decoder Worker → WsjtxDecode[]
+ *
+ * Optionally uploads decoded reception reports to PSK Reporter when the
+ * `sdrFt8PskReporterEnabled` setting is active and a callsign/grid are
+ * configured in the FT8 session store.
  */
 
 import { useCallback, useEffect, useRef } from "react";
@@ -9,8 +13,11 @@ import type { WsjtxDecode } from "@/lib/radio/protocol";
 import { Ft8DecoderBridge } from "@/lib/ft8/ft8Bridge";
 import { createGetUserMediaSource } from "@/lib/ft8/getUserMediaSource";
 import type { AudioSourceHandle } from "@/lib/ft8/audioSource";
+import { PskReporterUploader } from "@/lib/ft8/pskReporterUploader";
+import type { PskReportEntry } from "@/lib/ft8/pskReporterUploader";
 import { useFt8DecoderStore } from "@/stores/ft8DecoderStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 
 interface UseFt8DecoderOptions {
   /** Called when new decodes arrive from the native decoder. */
@@ -21,9 +28,15 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
   const ft8Enabled = useSettingsStore((s) => s.sdrFt8DecoderEnabled);
   const ft8Mode = useSettingsStore((s) => s.sdrFt8Mode);
   const ft8AudioDeviceId = useSettingsStore((s) => s.sdrFt8AudioDeviceId);
+  const pskReporterEnabled = useSettingsStore(
+    (s) => s.sdrFt8PskReporterEnabled,
+  );
+  const myCallsign = useFt8SessionStore((s) => s.myCallsign);
+  const myGrid = useFt8SessionStore((s) => s.myGrid);
 
   const bridgeRef = useRef<Ft8DecoderBridge | null>(null);
   const audioRef = useRef<AudioSourceHandle | null>(null);
+  const uploaderRef = useRef<PskReporterUploader | null>(null);
   const onDecodesRef = useRef(onDecodes);
   onDecodesRef.current = onDecodes;
 
@@ -35,6 +48,8 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
       audioRef.current = null;
       bridgeRef.current?.stop();
       bridgeRef.current = null;
+      uploaderRef.current?.stop();
+      uploaderRef.current = null;
       useFt8DecoderStore.getState().reset();
       return;
     }
@@ -43,13 +58,33 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
     bridgeRef.current = bridge;
 
     const unsubDecode = bridge.onDecode((decodes) => {
+      // Stats are updated by addDecodes() (called via onDecodesRef) in
+      // ft8DecoderStore — no separate updateStats call here to avoid
+      // double-counting totalDecodes and cyclesCompleted.
       onDecodesRef.current(decodes);
-      const s = useFt8DecoderStore.getState();
-      s.updateStats({
-        totalDecodes: s.stats.totalDecodes + decodes.length,
-        lastCycleDecodes: decodes.length,
-        cyclesCompleted: s.stats.cyclesCompleted + 1,
-      });
+
+      // Feed decodes to PSK Reporter uploader if active
+      const uploader = uploaderRef.current;
+      if (uploader) {
+        const session = useFt8SessionStore.getState();
+        const dialHz = session.currentDialFreqHz ?? 0;
+        const sender = session.myCallsign.toUpperCase();
+        const senderGrid = session.myGrid.toUpperCase();
+        for (const d of decodes) {
+          if (!d.callsign) continue;
+          const entry: PskReportEntry = {
+            senderCallsign: sender,
+            senderGrid,
+            receiverCallsign: d.callsign,
+            receiverGrid: d.grid ?? undefined,
+            frequency: dialHz + d.deltaFrequency,
+            snr: d.snr,
+            mode: d.mode,
+            timestamp: new Date(d.time).toISOString(),
+          };
+          uploader.addDecode(entry);
+        }
+      }
     });
 
     const unsubProgress = bridge.onProgress((progress) => {
@@ -88,9 +123,43 @@ export function useFt8Decoder({ onDecodes }: UseFt8DecoderOptions) {
       bridge.stop();
       bridgeRef.current = null;
       audioRef.current = null;
+      uploaderRef.current?.stop();
+      uploaderRef.current = null;
       useFt8DecoderStore.getState().reset();
     };
   }, [ft8Enabled, ft8Mode, ft8AudioDeviceId]);
+
+  // PSK Reporter uploader lifecycle — separate effect so toggling the
+  // setting or changing callsign/grid does not restart the decoder.
+  useEffect(() => {
+    // Tear down any existing uploader first
+    uploaderRef.current?.stop();
+    uploaderRef.current = null;
+
+    if (!ft8Enabled || !pskReporterEnabled || !myCallsign || !myGrid) {
+      return;
+    }
+
+    try {
+      const uploader = new PskReporterUploader({
+        senderCallsign: myCallsign,
+        senderGrid: myGrid,
+        programName: "Propulse",
+      });
+      uploader.start();
+      uploaderRef.current = uploader;
+    } catch (err) {
+      console.warn(
+        "[useFt8Decoder] Failed to start PSK Reporter uploader:",
+        err,
+      );
+    }
+
+    return () => {
+      uploaderRef.current?.stop();
+      uploaderRef.current = null;
+    };
+  }, [ft8Enabled, pskReporterEnabled, myCallsign, myGrid]);
 
   const toggle = useCallback(() => {
     useSettingsStore.getState().updatePreferences({

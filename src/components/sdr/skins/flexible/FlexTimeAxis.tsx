@@ -17,6 +17,8 @@ export interface FlexTimeAxisProps {
   containerHeight: number;
   /** FFT frames per second (default 20) */
   fps?: number;
+  /** Pixel rows per FFT frame (default 1). */
+  rowHeight?: number;
   className?: string;
 }
 
@@ -51,8 +53,9 @@ function computeLabels(
   speed: number,
   containerHeight: number,
   fps: number,
+  rowHeight: number,
 ): TimeLabel[] {
-  const pixelsPerSecond = speed * fps;
+  const pixelsPerSecond = speed * fps * Math.max(1, Math.round(rowHeight));
   if (
     !Number.isFinite(pixelsPerSecond) ||
     pixelsPerSecond <= 0 ||
@@ -84,11 +87,12 @@ export function FlexTimeAxis({
   speed,
   containerHeight,
   fps = 20,
+  rowHeight = 1,
   className = "",
 }: FlexTimeAxisProps) {
   const labels = useMemo(
-    () => computeLabels(speed, containerHeight, fps),
-    [speed, containerHeight, fps],
+    () => computeLabels(speed, containerHeight, fps, rowHeight),
+    [speed, containerHeight, fps, rowHeight],
   );
 
   return (

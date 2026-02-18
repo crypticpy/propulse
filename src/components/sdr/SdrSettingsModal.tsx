@@ -10,6 +10,10 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  DEFAULT_FFT_STREAM_FPS,
+  computeEffectiveWaterfallRowsPerSecond,
+} from "@/lib/sdr/fftStreamParams";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import {
   PALETTE_NAMES,
@@ -509,7 +513,15 @@ function WaterfallTab() {
           value={speed}
           min={1}
           max={4}
-          format={(v) => `${v}×`}
+          format={(v) => {
+            const rowsPerSec = computeEffectiveWaterfallRowsPerSecond(
+              v,
+              rowHeight,
+              DEFAULT_FFT_STREAM_FPS,
+            );
+            return `${v}× (~${Math.round(rowsPerSec)} rows/s)`;
+          }}
+          description={`Controls how many waterfall rows are appended per received FFT frame (stream is ${DEFAULT_FFT_STREAM_FPS} fps).`}
           onChange={(v) => update({ sdrWaterfallSpeed: v })}
         />
       </div>

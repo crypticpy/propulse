@@ -86,6 +86,9 @@ export interface WaterfallPanelProps {
   onWaterfallViewChange: (view: WaterfallView) => void;
   onPickFrequencyHz: (hz: number) => void;
   onSelectRangeHz: (range: { startHz: number; endHz: number }) => void;
+
+  /** Optional React element rendered as positioned overlay on top of the waterfall */
+  ft8DecodeOverlay?: React.ReactNode;
 }
 
 export function WaterfallPanel({
@@ -134,6 +137,7 @@ export function WaterfallPanel({
   onWaterfallViewChange,
   onPickFrequencyHz,
   onSelectRangeHz,
+  ft8DecodeOverlay,
 }: WaterfallPanelProps) {
   return (
     <Card className="p-4">
@@ -214,6 +218,7 @@ export function WaterfallPanel({
                 rowHeight={waterfallRowHeight}
                 onPickFrequencyHz={onPickFrequencyHz}
                 onSelectRangeHz={onSelectRangeHz}
+                ft8DecodeOverlay={ft8DecodeOverlay}
               />
             ) : (
               <div className="w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500">

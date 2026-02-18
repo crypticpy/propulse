@@ -8,8 +8,8 @@
  * better than the radio's CI-V scope data (~1050 Hz/bin across 500 kHz).
  *
  * FFT computation is offloaded to a Web Worker to keep the main thread free.
- * This hook handles Int16→Float32 conversion, Worker lifecycle, transferable
- * buffer management, and RF coordinate mapping (USB/LSB offset → absolute Hz).
+ * Audio frames are pushed imperatively via `pushAudioFrame`, which avoids
+ * rerendering React at raw audio chunk rate.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -24,9 +24,7 @@ type FftFrame = Extract<RadioBinaryFrame, { kind: "fft" }>;
 
 const HALF = 4096 / 2; // Must match FFT_SIZE / 2 in the worker
 
-// ── Hook ────────────────────────────────────────────────────────────────────
-
-interface AudioFrameData {
+export interface AudioFrameData {
   sampleRate: number;
   samples: Int16Array;
 }
@@ -34,22 +32,31 @@ interface AudioFrameData {
 interface UseAudioFftOptions {
   /** Whether audio streaming is active. */
   enabled: boolean;
-  /** The latest raw PCM audio frame from the radio. */
-  audioFrame: AudioFrameData | null;
   /** Current tuning overlay for RF coordinate mapping. */
   tuning: TuningOverlay | null;
+  /** Max UI update rate for audio FFT output. */
+  maxFps?: number;
+}
+
+interface UseAudioFftResult {
+  frame: FftFrame | null;
+  pushAudioFrame: (audioFrame: AudioFrameData) => void;
 }
 
 export function useAudioFft({
   enabled,
-  audioFrame,
   tuning,
-}: UseAudioFftOptions): FftFrame | null {
+  maxFps = 20,
+}: UseAudioFftOptions): UseAudioFftResult {
   const [frame, setFrame] = useState<FftFrame | null>(null);
 
-  // Keep tuning ref current without re-triggering effects
+  // Keep refs current without re-triggering effects
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
   const tuningRef = useRef(tuning);
   tuningRef.current = tuning;
+  const maxFpsRef = useRef(maxFps);
+  maxFpsRef.current = maxFps;
 
   // Worker ref — managed by lifecycle effect
   const workerRef = useRef<Worker | null>(null);
@@ -58,10 +65,18 @@ export function useAudioFft({
   const convBufRef = useRef<Float32Array | null>(null);
   const convBufLenRef = useRef(0);
 
+  // Throttle UI updates to avoid high-rate rerenders
+  const lastEmitMsRef = useRef(0);
+
   // ── Worker message handler (stable ref) ─────────────────────────────────
   const onWorkerMessage = useCallback((e: MessageEvent) => {
     const msg = e.data;
     if (msg.type !== "fft") return;
+
+    const now = performance.now();
+    const minIntervalMs = 1000 / Math.max(1, maxFpsRef.current);
+    if (now - lastEmitMsRef.current < minIntervalMs) return;
+    lastEmitMsRef.current = now;
 
     const bins: Float32Array = msg.bins; // transferred from Worker
     const sampleRate: number = msg.sampleRate;
@@ -123,9 +138,10 @@ export function useAudioFft({
     };
   }, [enabled, onWorkerMessage]);
 
-  // ── Post audio samples to Worker ────────────────────────────────────────
-  useEffect(() => {
-    if (!enabled || !audioFrame || audioFrame.samples.length === 0) return;
+  // ── Imperative audio frame push (no React state updates) ───────────────
+  const pushAudioFrame = useCallback((audioFrame: AudioFrameData) => {
+    if (!enabledRef.current) return;
+    if (!audioFrame || audioFrame.samples.length === 0) return;
 
     const worker = workerRef.current;
     if (!worker) return;
@@ -152,7 +168,7 @@ export function useAudioFft({
       samples: f32,
       sampleRate: audioFrame.sampleRate,
     });
-  }, [enabled, audioFrame]);
+  }, []);
 
-  return frame;
+  return { frame, pushAudioFrame };
 }

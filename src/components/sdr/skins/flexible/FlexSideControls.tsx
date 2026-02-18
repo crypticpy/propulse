@@ -547,9 +547,7 @@ export function FlexSideControls({
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#0d0d14]">
       <div className="overflow-y-auto flex-1 px-3 py-2 space-y-2">
-        {/* Always visible — compact critical controls */}
-        {antennaSection}
-        {vfoSection}
+        {/* Always visible — keep right-nav focused on stream + tuning */}
         {streamSection}
 
         {/* Separator */}
@@ -564,6 +562,15 @@ export function FlexSideControls({
             {stepSection}
           </div>
         </SidebarAccordion>
+
+        {(antennaSection || vfoSection) && (
+          <SidebarAccordion title="Rig Ops" defaultOpen={false}>
+            <div className="space-y-2">
+              {vfoSection}
+              {antennaSection}
+            </div>
+          </SidebarAccordion>
+        )}
 
         <SidebarAccordion
           title="Memories"

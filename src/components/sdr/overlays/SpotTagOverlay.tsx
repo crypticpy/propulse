@@ -184,7 +184,7 @@ export function SpotTagOverlay({
   const isTop = position === "top";
 
   return (
-    <div className={`absolute inset-0 z-[2] ${className}`}>
+    <div className={`absolute inset-0 z-[2] pointer-events-none ${className}`}>
       {visibleSpots.map((vs) => {
         const color = getSpotColor(vs.mode);
         const spotKey =

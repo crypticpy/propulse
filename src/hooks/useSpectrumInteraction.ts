@@ -177,6 +177,12 @@ export function useSpectrumInteraction(
       return viewStart + Math.max(0, Math.min(1, frac)) * v.spanHz;
     };
 
+    const releaseCaptureIfHeld = (pointerId: number) => {
+      if (canvas.hasPointerCapture(pointerId)) {
+        canvas.releasePointerCapture(pointerId);
+      }
+    };
+
     const hitDetect = (clientX: number, clientY: number): HitTarget => {
       const v = viewRef.current;
       const t = tuningRef.current;
@@ -271,6 +277,11 @@ export function useSpectrumInteraction(
           startX: e.clientX,
           startY: e.clientY,
         };
+        // Capture click-tracking pointers too so pointerup always arrives,
+        // even if the cursor leaves the canvas before release.
+        if (callbacksRef.current.onPickFrequencyHz) {
+          canvas.setPointerCapture(e.pointerId);
+        }
       }
     };
 
@@ -348,7 +359,7 @@ export function useSpectrumInteraction(
       const drag = dragRef.current;
       if (!drag.active) return;
 
-      canvas.releasePointerCapture(e.pointerId);
+      releaseCaptureIfHeld(e.pointerId);
 
       if (drag.target.kind === "none") {
         // Check if this was a click (moved < 4 px)
@@ -381,7 +392,7 @@ export function useSpectrumInteraction(
     };
 
     const handlePointerCancel = (e: PointerEvent) => {
-      canvas.releasePointerCapture(e.pointerId);
+      releaseCaptureIfHeld(e.pointerId);
       dragRef.current = { active: false };
     };
 

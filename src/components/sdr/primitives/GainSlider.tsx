@@ -27,13 +27,44 @@ export interface GainSliderProps {
 
 // ─── Discrete stage detection ────────────────────────────────────────────────
 
-const DISCRETE_STAGES = new Set(["PREAMP", "ATT"]);
+function stageToken(stage: GainStage): string {
+  return `${stage.name} ${stage.label ?? ""}`
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
 
-const DISCRETE_STEPS = [
-  { label: "Off", value: 0 },
-  { label: "10dB", value: 10 },
-  { label: "20dB", value: 20 },
-] as const;
+function isDiscreteStage(stage: GainStage): boolean {
+  const token = stageToken(stage);
+  return (
+    token.includes("PREAMP") ||
+    token === "PRE" ||
+    token === "ATT" ||
+    token.includes("ATTEN")
+  );
+}
+
+function buildDiscreteSteps(stage: GainStage): Array<{ label: string; value: number }> {
+  const values: number[] = [];
+  const step = stage.step > 0 ? stage.step : 1;
+  const maxSteps = 32;
+
+  for (let i = 0; i <= maxSteps; i++) {
+    const v = stage.min + i * step;
+    if (v > stage.max + step * 0.001) break;
+    values.push(Number(v.toFixed(6)));
+  }
+  if (!values.includes(stage.max)) values.push(Number(stage.max.toFixed(6)));
+
+  const uniqueValues = [...new Set(values)].sort((a, b) => a - b);
+  return uniqueValues.map((value) => {
+    if (Math.abs(value) < 0.0001) return { label: "Off", value };
+    const compact =
+      Math.abs(value - Math.round(value)) < 0.001
+        ? String(Math.round(value))
+        : value.toFixed(1);
+    return { label: `${compact}dB`, value };
+  });
+}
 
 // ─── Size mapping ────────────────────────────────────────────────────────────
 
@@ -54,7 +85,8 @@ export function GainSlider({
 }: GainSliderProps) {
   const cfg = SIZE_CONFIG[size];
   const displayLabel = stage.label ?? stage.name;
-  const isDiscrete = DISCRETE_STAGES.has(stage.name);
+  const isDiscrete = isDiscreteStage(stage);
+  const discreteSteps = buildDiscreteSteps(stage);
 
   // ── Discrete: button row ──
   if (isDiscrete) {
@@ -62,7 +94,7 @@ export function GainSlider({
       <div className="space-y-0.5">
         <span className={`${cfg.labelText} text-gray-500`}>{displayLabel}</span>
         <div className="flex gap-1">
-          {DISCRETE_STEPS.map((step) => (
+          {discreteSteps.map((step) => (
             <button
               key={step.value}
               type="button"

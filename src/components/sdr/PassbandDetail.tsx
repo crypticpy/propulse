@@ -39,6 +39,8 @@ interface PassbandDetailProps {
   maxDb: number;
   palette: WaterfallPaletteName;
   gamma?: number;
+  /** Passband fill opacity (0..0.3). Set to 0 to show edges only. */
+  passbandFillOpacity?: number;
   notchFilters: Array<{
     id: string;
     freqHz: number;
@@ -87,6 +89,7 @@ export function PassbandDetail({
   maxDb,
   palette,
   gamma = 1.0,
+  passbandFillOpacity,
   notchFilters,
   onFilterChange,
   onAddNotch,
@@ -379,8 +382,14 @@ export function PassbandDetail({
     const pbX1 = Math.round(hzToX(pb.endHz));
 
     if (pbX1 > pbX0) {
-      ctx.fillStyle = "rgba(0, 180, 255, 0.12)";
-      ctx.fillRect(pbX0, 0, pbX1 - pbX0, h);
+      const alpha =
+        typeof passbandFillOpacity === "number"
+          ? Math.max(0, Math.min(0.3, passbandFillOpacity))
+          : 0.12;
+      if (alpha > 0) {
+        ctx.fillStyle = `rgba(0, 180, 255, ${alpha})`;
+        ctx.fillRect(pbX0, 0, pbX1 - pbX0, h);
+      }
 
       const hasFilterCb = !!onFilterChange;
       const edgeAlpha = hasFilterCb ? 0.5 : 0.25;
@@ -456,7 +465,7 @@ export function PassbandDetail({
       ctx.lineWidth = 1 * dpr;
       ctx.stroke();
     }
-  }, [tuning, zoomView, notchFilters, eqBands, onFilterChange]);
+  }, [tuning, zoomView, notchFilters, eqBands, onFilterChange, passbandFillOpacity]);
 
   if (!zoomView) return null;
 

@@ -124,8 +124,11 @@ import WSPROverlay3D from "./layers/WSPROverlay3D";
 import SpectrumWaterfallRing3D from "./layers/SpectrumWaterfallRing3D";
 import SatelliteFootprint3D from "./layers/SatelliteFootprint3D";
 import { Ft8SpotterOverlay } from "./layers/Ft8SpotterOverlay";
+import { Ft8DecodeLayer3D } from "./layers/Ft8DecodeLayer3D";
 import { Ft8SpotterHUD } from "./Ft8SpotterHUD";
 import { useFt8SpotterData } from "@/hooks/useFt8SpotterData";
+import { useFt8DecodeEnricher } from "@/hooks/useFt8DecodeEnricher";
+import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 
 // New hooks (Wave 8A)
 import { useBeaconNetwork } from "@/hooks/useBeaconNetwork";
@@ -803,6 +806,14 @@ function GlobeScene({
   const { regions: ductingRegions } = useDuctingForecast();
   const { satellites: satelliteData } = useSatellites();
 
+  // FT8 enriched decodes for Ft8DecodeLayer3D (Zustand works in R3F reconciler)
+  const ft8MyCallsign = useFt8SessionStore((s) => s.myCallsign);
+  const ft8MyGrid = useFt8SessionStore((s) => s.myGrid);
+  const ft8EnrichedDecodes = useFt8DecodeEnricher({
+    myCallsign: ft8MyCallsign || undefined,
+    myGrid: ft8MyGrid || undefined,
+  });
+
   const compassRosePrefs = useCompassRosePrefs();
   const holdDurationMs = useSettingsStore(
     (s) => s.uiInteraction?.holdDurationMs ?? 500,
@@ -1299,6 +1310,15 @@ function GlobeScene({
 
         {/* FT8 Spotter — burst traces, grid heatmap, cycle radar */}
         {layers.ft8Spotter && <Ft8SpotterOverlay station={station} />}
+
+        {/* FT8 Decode Layer — instanced markers + great-circle arcs for enriched decodes */}
+        {layers.ft8Spotter && (
+          <Ft8DecodeLayer3D
+            decodes={ft8EnrichedDecodes}
+            myLat={station?.lat}
+            myLon={station?.lon}
+          />
+        )}
 
         {/* Persistent grid activity overlay — density-colored steady glow */}
         {layers.gridActivity && (

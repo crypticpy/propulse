@@ -109,6 +109,9 @@ import {
   type LogQsoOverlayData,
 } from "@/hooks/useLoggedQsoLocations";
 import { AspectRatioSlider } from "./AspectRatioSlider";
+import { Ft8DecodeLayerFlat } from "./layers/Ft8DecodeLayerFlat";
+import { useFt8DecodeEnricher } from "@/hooks/useFt8DecodeEnricher";
+import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 
 interface FlatMapViewProps {
   /** Current display time */
@@ -3276,6 +3279,14 @@ export function FlatMapView({
   const contestQsoData = useContestQsoLocations(layers.contestQsos);
   const loggedQsoData = useLoggedQsoLocations(layers.loggedQsos);
 
+  // FT8 enriched decodes for Ft8DecodeLayerFlat overlay
+  const ft8MyCallsign = useFt8SessionStore((s) => s.myCallsign);
+  const ft8MyGrid = useFt8SessionStore((s) => s.myGrid);
+  const ft8EnrichedDecodes = useFt8DecodeEnricher({
+    myCallsign: ft8MyCallsign || undefined,
+    myGrid: ft8MyGrid || undefined,
+  });
+
   // Watch store v2
   const watchEnabled = useWatchStore((state) => state.enabled);
   const matchedSpotIds = useWatchStore((state) => state.matchedSpotIds);
@@ -5087,6 +5098,16 @@ export function FlatMapView({
             height: displaySize.height,
           }}
         />
+        {/* FT8 Decode overlay — enriched decode markers + great-circle arcs */}
+        {layers.ft8Spotter && (
+          <Ft8DecodeLayerFlat
+            decodes={ft8EnrichedDecodes}
+            myLat={station?.lat}
+            myLon={station?.lon}
+            width={displaySize.width}
+            height={displaySize.height}
+          />
+        )}
       </div>
 
       {/* Aspect ratio slider — only in letterbox mode, hidden in lite mode

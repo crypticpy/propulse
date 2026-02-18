@@ -188,11 +188,24 @@ export enum ScopeMode {
 
 /** Scope sub-commands (within cmd 0x27) */
 export const CIV_SCOPE_SUB = {
+  /** Wave data frames (incoming from radio) */
   WAVE_DATA: 0x00,
+  /** Scope on/off — 0x01=ON, 0x00=OFF (turns scope display on/off) */
   ON: 0x10,
-  OFF: 0x11,
-  READ_MAIN: 0x14,
-  READ_SUB: 0x15,
+  /** Scope data output on/off — 0x01=ON, 0x00=OFF (enables CI-V data streaming) */
+  DATA_OUTPUT: 0x11,
+  /** Scope mode (center/fixed/scroll) */
+  MODE: 0x14,
+  /** Scope span */
+  SPAN: 0x15,
+  /** Scope edge number */
+  EDGE: 0x16,
+  /** Scope hold on/off */
+  HOLD: 0x17,
+  /** Scope reference level */
+  REF: 0x19,
+  /** Scope speed */
+  SPEED: 0x1a,
 } as const;
 
 // ─── S-Meter Conversion ──────────────────────────────────────────────────────
@@ -214,20 +227,20 @@ export const MAX_PIXEL_VALUE = 200;
  * 0 = S0 (-54 dBm), 120 = S9 (0 dBm), 241 = S9+60 (+60 dBm).
  *
  * The scale is approximately linear:
- *   0-120 maps to S0-S9 (-54 to 0 dBm)
- *   121-241 maps to S9+1 to S9+60 (1 to 60 dBm)
+ *   0-120 maps to S0-S9 (-127 to -73 dBm)
+ *   121-241 maps to S9+1 to S9+60 (-72 to -13 dBm)
  */
 export function rawSmeterToDbm(raw: number): number {
   // Clamp to valid CI-V range — BCD decode can produce values > 241
   // if the radio sends non-standard nibbles (e.g. MK2 variants)
   const clamped = Math.max(0, Math.min(SMETER_MAX_RAW, raw));
-  if (clamped <= 0) return -54;
+  if (clamped <= 0) return -127;
   if (clamped <= 120) {
-    // S0 to S9: linear from -54 to 0
-    return -54 + (clamped / 120) * 54;
+    // S0 (-127 dBm) to S9 (-73 dBm): linear 54 dB span
+    return -127 + (clamped / 120) * 54;
   }
-  // S9+ range: linear from 0 to +60
-  return ((clamped - 120) / 121) * 60;
+  // S9+ range: S9 (-73 dBm) to S9+60 (-13 dBm)
+  return -73 + ((clamped - 120) / 121) * 60;
 }
 
 /**

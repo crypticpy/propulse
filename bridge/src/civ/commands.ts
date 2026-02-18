@@ -440,23 +440,47 @@ export function parseIfShiftResponse(raw: number): number {
 
 // ─── Scope / Waterfall ────────────────────────────────────────────────────────
 
-/** Build: Enable scope data output */
+/** Build: Enable scope display (0x27 0x10 0x01) */
 export function startScope(addr: CivAddress): Buffer {
   return buildFrameWithSub(
     addr.radio,
     addr.controller,
     CivCmd.SCOPE_CTRL,
     CIV_SCOPE_SUB.ON,
+    Buffer.from([0x01]),
   );
 }
 
-/** Build: Disable scope data output */
+/** Build: Disable scope display (0x27 0x10 0x00) */
 export function stopScope(addr: CivAddress): Buffer {
   return buildFrameWithSub(
     addr.radio,
     addr.controller,
     CivCmd.SCOPE_CTRL,
-    CIV_SCOPE_SUB.OFF,
+    CIV_SCOPE_SUB.ON,
+    Buffer.from([0x00]),
+  );
+}
+
+/** Build: Enable scope CI-V data output (0x27 0x11 0x01) — streams wave data over serial */
+export function startScopeDataOutput(addr: CivAddress): Buffer {
+  return buildFrameWithSub(
+    addr.radio,
+    addr.controller,
+    CivCmd.SCOPE_CTRL,
+    CIV_SCOPE_SUB.DATA_OUTPUT,
+    Buffer.from([0x01]),
+  );
+}
+
+/** Build: Disable scope CI-V data output (0x27 0x11 0x00) */
+export function stopScopeDataOutput(addr: CivAddress): Buffer {
+  return buildFrameWithSub(
+    addr.radio,
+    addr.controller,
+    CivCmd.SCOPE_CTRL,
+    CIV_SCOPE_SUB.DATA_OUTPUT,
+    Buffer.from([0x00]),
   );
 }
 

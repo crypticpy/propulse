@@ -45,6 +45,8 @@ import {
   setIfShift,
   startScope,
   stopScope,
+  startScopeDataOutput,
+  stopScopeDataOutput,
   setAntenna,
   parseFrequencyResponse,
   parseModeResponse,
@@ -94,6 +96,8 @@ interface PendingCommand {
   expectedCmd: number;
   /** Optional sub-command for more specific matching */
   expectedSub?: number;
+  /** Whether this command expects an ACK/NG or a data response frame */
+  responseKind: "ack" | "data";
   /** Resolve the promise with the response frame */
   resolve: (frame: CivFrame | null) => void;
   /** Timeout handle */
@@ -126,6 +130,7 @@ const DEFAULT_POLL_INTERVAL = 200;
 const COMMAND_TIMEOUT_MS = 500;
 const MAX_CONSECUTIVE_ERRORS = 10;
 const ASSEMBLY_TIMEOUT_MS = 500;
+const OPTIONAL_POLL_INTERVAL_CYCLES = 5;
 
 // ─── IcomSerialBackend ────────────────────────────────────────────────────────
 
@@ -135,9 +140,11 @@ export class IcomSerialBackend {
   private serial: SerialPort | null = null;
   private frameParser = new CivFrameParser();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollInFlight = false;
   private pendingCommand: PendingCommand | null = null;
   private consecutiveErrors = 0;
   private _isConnected = false;
+  private commandQueue: Promise<void> = Promise.resolve();
 
   // Last known state for change detection
   private lastStatus: RigStatus | null = null;
@@ -163,6 +170,7 @@ export class IcomSerialBackend {
   private warnedUnsupported = new Set<string>();
   private scopeFrameCount = 0;
   private spectrumLineCount = 0;
+  private unsolicitedFrameCount = 0;
 
   constructor(config: IcomSerialConfig) {
     this.config = {
@@ -246,6 +254,7 @@ export class IcomSerialBackend {
     this.stopPolling();
     this.stopSpectrumInternal();
     this.stopAudio();
+    this.pollInFlight = false;
 
     if (this.pendingCommand) {
       clearTimeout(this.pendingCommand.timer);
@@ -320,7 +329,11 @@ export class IcomSerialBackend {
    * Uses the modular audioResolver to auto-detect the correct OS device.
    */
   async startAudio(): Promise<boolean> {
-    if (this.audioCapture) return true; // already running
+    if (this.audioCapture) {
+      if (this.audioCapture.isRunning()) return true;
+      // Stale capture object from a prior ffmpeg failure — recreate it.
+      this.stopAudio();
+    }
 
     console.log(
       `[icom-serial] Resolving audio device for serial port ${this.config.port}`,
@@ -371,31 +384,37 @@ export class IcomSerialBackend {
   // ── Rig Control Commands ──────────────────────────────────────────────────
 
   async setFrequency(hz: number): Promise<void> {
-    await this.sendAndWaitOk(setFrequency(this.addr, hz));
+    await this.sendAndWaitOk(setFrequency(this.addr, hz), "Set frequency");
   }
 
   async setMode(mode: string, _passband?: number): Promise<void> {
-    await this.sendAndWaitOk(setMode(this.addr, mode));
+    await this.sendAndWaitOk(setMode(this.addr, mode), "Set mode");
   }
 
   async setPTT(on: boolean): Promise<void> {
-    await this.sendAndWaitOk(setPtt(this.addr, on));
+    await this.sendAndWaitOk(setPtt(this.addr, on), "Set PTT");
   }
 
   async setVFO(vfo: "A" | "B"): Promise<void> {
-    await this.sendAndWaitOk(setVfo(this.addr, vfo));
+    await this.sendAndWaitOk(setVfo(this.addr, vfo), "Set VFO");
   }
 
   async setSplit(on: boolean): Promise<void> {
-    await this.sendAndWaitOk(setSplit(this.addr, on));
+    await this.sendAndWaitOk(setSplit(this.addr, on), "Set split");
   }
 
   async setFunc(func: string, on: boolean): Promise<void> {
-    await this.sendAndWaitOk(setFunction(this.addr, func, on));
+    await this.sendAndWaitOk(
+      setFunction(this.addr, func, on),
+      `Set function ${func}`,
+    );
   }
 
   async setLevel(level: string, value: number): Promise<void> {
-    await this.sendAndWaitOk(setLevel(this.addr, level, value));
+    await this.sendAndWaitOk(
+      setLevel(this.addr, level, value),
+      `Set level ${level}`,
+    );
   }
 
   async getLevel(level: string): Promise<number> {
@@ -411,19 +430,38 @@ export class IcomSerialBackend {
   }
 
   async setAgc(mode: number): Promise<void> {
-    await this.sendAndWaitOk(setAgc(this.addr, mode));
+    await this.sendAndWaitOk(setAgc(this.addr, mode), "Set AGC");
   }
 
   async setPassband(hz: number): Promise<void> {
-    // CI-V doesn't have a direct passband command — set filter width via mode
-    // For now, this is a no-op. Filter width is set implicitly via setMode.
-    void hz;
+    // ICOM radios select filter width via the mode command with a filter number
+    // (1=FIL1 widest, 2=FIL2 medium, 3=FIL3 narrowest).
+    // Re-send the current mode with the appropriate filter selection.
+    const currentMode = this.lastStatus?.mode;
+    if (!currentMode) return;
+
+    const isCw = currentMode === "CW" || currentMode === "CW-R";
+    const isRtty = currentMode === "RTTY" || currentMode === "RTTY-R";
+    let filter: number;
+
+    if (isCw || isRtty) {
+      // CW/RTTY filters: FIL1=500Hz, FIL2=250Hz, FIL3=50-100Hz
+      filter = hz >= 400 ? 1 : hz >= 150 ? 2 : 3;
+    } else {
+      // SSB/AM/FM/DV: FIL1=wide, FIL2=medium, FIL3=narrow
+      filter = hz >= 2000 ? 1 : hz >= 1000 ? 2 : 3;
+    }
+
+    await this.sendAndWaitOk(
+      setMode(this.addr, currentMode, filter),
+      "Set passband",
+    );
   }
 
   async setAntenna(index: string): Promise<void> {
-    const port = parseInt(index, 10);
+      const port = parseInt(index, 10);
     if (!isNaN(port)) {
-      await this.sendAndWaitOk(setAntenna(this.addr, port));
+      await this.sendAndWaitOk(setAntenna(this.addr, port), "Set antenna");
     }
   }
 
@@ -438,23 +476,26 @@ export class IcomSerialBackend {
   }
 
   async setAnf(enabled: boolean): Promise<void> {
-    await this.sendAndWaitOk(setFunction(this.addr, "ANF", enabled));
+    await this.sendAndWaitOk(setFunction(this.addr, "ANF", enabled), "Set ANF");
   }
 
   async setQsk(enabled: boolean): Promise<void> {
-    await this.sendAndWaitOk(setFunction(this.addr, "BKIN", enabled));
+    await this.sendAndWaitOk(
+      setFunction(this.addr, "BKIN", enabled),
+      "Set QSK",
+    );
   }
 
   async setVox(enabled: boolean): Promise<void> {
-    await this.sendAndWaitOk(setFunction(this.addr, "VOX", enabled));
+    await this.sendAndWaitOk(setFunction(this.addr, "VOX", enabled), "Set VOX");
   }
 
   async setCwSpeed(wpm: number): Promise<void> {
-    await this.sendAndWaitOk(setCwSpeed(this.addr, wpm));
+    await this.sendAndWaitOk(setCwSpeed(this.addr, wpm), "Set CW speed");
   }
 
   async setIfShift(hz: number): Promise<void> {
-    await this.sendAndWaitOk(setIfShift(this.addr, hz));
+    await this.sendAndWaitOk(setIfShift(this.addr, hz), "Set IF shift");
   }
 
   // ── Spectrum Control ──────────────────────────────────────────────────────
@@ -462,11 +503,22 @@ export class IcomSerialBackend {
   async startSpectrum(): Promise<void> {
     this.spectrumEnabled = true;
     console.log(
-      `[icom-serial] Starting spectrum (scope enable cmd 0x27 sub 0x10) for addr 0x${this.addr.radio.toString(16)}`,
+      `[icom-serial] Starting spectrum for addr 0x${this.addr.radio.toString(16)}`,
     );
     try {
-      await this.sendAndWaitOk(startScope(this.addr));
-      console.log("[icom-serial] Scope enable OK — waiting for scope frames");
+      // Step 1: Turn scope display ON (0x27 0x10 0x01)
+      await this.sendAndWaitOk(startScope(this.addr), "Enable scope display");
+      console.log("[icom-serial] Scope ON (0x27 0x10 0x01) — OK");
+
+      // Step 2: Enable CI-V scope data output (0x27 0x11 0x01)
+      // Without this, the scope turns on visually but doesn't stream data over CI-V.
+      await this.sendAndWaitOk(
+        startScopeDataOutput(this.addr),
+        "Enable scope data output",
+      );
+      console.log(
+        "[icom-serial] Scope Data Output ON (0x27 0x11 0x01) — OK, waiting for frames",
+      );
     } catch (err: unknown) {
       console.error(
         `[icom-serial] Scope enable FAILED: ${err instanceof Error ? err.message : String(err)}`,
@@ -478,7 +530,12 @@ export class IcomSerialBackend {
   async stopSpectrum(): Promise<void> {
     this.spectrumEnabled = false;
     this.stopSpectrumInternal();
-    await this.sendAndWaitOk(stopScope(this.addr));
+    // Disable data output first, then scope display
+    await this.sendAndWaitOk(
+      stopScopeDataOutput(this.addr),
+      "Disable scope data output",
+    );
+    await this.sendAndWaitOk(stopScope(this.addr), "Disable scope display");
   }
 
   // ── Internal: Incoming Data ───────────────────────────────────────────────
@@ -504,27 +561,48 @@ export class IcomSerialBackend {
   /** Check if a frame matches the pending command */
   private matchesPending(frame: CivFrame): boolean {
     if (!this.pendingCommand) return false;
+    const pending = this.pendingCommand;
 
-    // OK/NG responses always match
-    if (frame.isOk || frame.isNg) return true;
+    if (pending.responseKind === "ack") {
+      // ACK commands expect an explicit OK/NG.
+      if (frame.isOk || frame.isNg) return true;
 
-    // Data response: command must match
-    if (frame.command === this.pendingCommand.expectedCmd) {
-      // If sub-command is specified, it must also match
+      // Some radios echo command responses instead of sending 0xFB.
+      if (frame.command !== pending.expectedCmd) return false;
       if (
-        this.pendingCommand.expectedSub !== undefined &&
-        frame.subCommand !== this.pendingCommand.expectedSub
+        pending.expectedSub !== undefined &&
+        frame.subCommand !== pending.expectedSub
       ) {
         return false;
       }
       return true;
     }
 
-    return false;
+    // Data reads should never resolve from a plain OK (that can be stale).
+    if (frame.isOk) return false;
+    // NG belongs to the current read and should fail fast (no timeout wait).
+    if (frame.isNg) return true;
+
+    if (frame.command !== pending.expectedCmd) return false;
+    if (
+      pending.expectedSub !== undefined &&
+      frame.subCommand !== pending.expectedSub
+    ) {
+      return false;
+    }
+    return true;
   }
 
   /** Handle unsolicited CI-V frames (frequency changes from front panel, scope data) */
   private handleUnsolicitedFrame(frame: CivFrame): void {
+    // Log all unsolicited frames during first 30s for diagnostics
+    this.unsolicitedFrameCount++;
+    if (this.unsolicitedFrameCount <= 20) {
+      console.log(
+        `[icom-serial] Unsolicited frame #${this.unsolicitedFrameCount}: cmd=0x${frame.command.toString(16)} sub=${frame.subCommand !== undefined ? "0x" + frame.subCommand.toString(16) : "none"} data=${frame.data.length}b from=0x${frame.from.toString(16)} spectrumEnabled=${this.spectrumEnabled}`,
+      );
+    }
+
     // Scope wave data
     if (
       frame.command === CivCmd.SCOPE_DATA &&
@@ -582,10 +660,10 @@ export class IcomSerialBackend {
   private startPolling(): void {
     if (this.pollTimer) return;
     this.pollTimer = setInterval(() => {
-      void this.pollCycle();
+      this.triggerPollCycle();
     }, this.config.pollInterval);
     // Run first poll immediately
-    void this.pollCycle();
+    this.triggerPollCycle();
   }
 
   private stopPolling(): void {
@@ -595,23 +673,26 @@ export class IcomSerialBackend {
     }
   }
 
+  private triggerPollCycle(): void {
+    if (this.pollInFlight) return;
+    this.pollInFlight = true;
+    void this.pollCycle().finally(() => {
+      this.pollInFlight = false;
+    });
+  }
+
   private pollCount = 0;
 
   private async pollCycle(): Promise<void> {
     if (!this._isConnected || !this.serial?.isOpen) return;
 
     this.pollCount++;
-    const isDebugPoll = this.pollCount <= 3 || this.pollCount % 50 === 0;
+    const pollOptionalFields =
+      !this.lastStatus || this.pollCount % OPTIONAL_POLL_INTERVAL_CYCLES === 0;
 
     try {
-      const status = await this.readFullStatus();
+      const status = await this.readFullStatus(pollOptionalFields);
       this.consecutiveErrors = 0;
-
-      if (isDebugPoll) {
-        console.log(
-          `[icom-serial] Poll #${this.pollCount}: freq=${status.frequency ?? "?"} mode=${status.mode ?? "?"} smeter=${status.smeter !== undefined ? status.smeter.toFixed(1) : "null"} ptt=${status.ptt ?? "?"}`,
-        );
-      }
 
       // Emit S-meter separately (always changes)
       if (status.smeter !== undefined) {
@@ -629,9 +710,9 @@ export class IcomSerialBackend {
       }
     } catch (err) {
       this.consecutiveErrors++;
-      if (isDebugPoll || this.consecutiveErrors <= 3) {
+      if (this.consecutiveErrors <= 3) {
         console.warn(
-          `[icom-serial] Poll #${this.pollCount} error (${this.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${err instanceof Error ? err.message : String(err)}`,
+          `[icom-serial] Poll error (${this.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${err instanceof Error ? err.message : String(err)}`,
         );
       }
       if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
@@ -643,8 +724,12 @@ export class IcomSerialBackend {
     }
   }
 
-  private async readFullStatus(): Promise<RigStatus> {
-    const status: RigStatus = { connected: true };
+  private async readFullStatus(
+    pollOptionalFields: boolean,
+  ): Promise<RigStatus> {
+    const status: RigStatus = this.lastStatus
+      ? { ...this.lastStatus, connected: true }
+      : { connected: true };
 
     // Frequency (required)
     const freqFrame = await this.sendCommand(readFrequency(this.addr));
@@ -671,16 +756,11 @@ export class IcomSerialBackend {
     const smeterFrame = await this.sendCommand(readSmeter(this.addr));
     if (smeterFrame) {
       if (smeterFrame.data.length >= 3) {
-        const hexBytes = Buffer.from(smeterFrame.data).toString("hex");
         const raw = parseMeterResponse(smeterFrame);
         if (raw !== null) {
-          if (this.pollCount <= 5) {
-            console.log(
-              `[icom-serial] S-meter frame=${hexBytes} raw=${raw} dBm=${rawSmeterToDbm(raw).toFixed(1)}`,
-            );
-          }
           if (raw > 241 && !this.warnedUnsupported.has("SMETER_RANGE")) {
             this.warnedUnsupported.add("SMETER_RANGE");
+            const hexBytes = Buffer.from(smeterFrame.data).toString("hex");
             console.warn(
               `[icom-serial] S-meter raw=${raw} exceeds max 241 (frame: ${hexBytes}), clamping`,
             );
@@ -722,87 +802,119 @@ export class IcomSerialBackend {
       if (split !== null) status.split = split;
     }
 
-    // RIT
-    await this.pollOptional("RIT", async () => {
-      const ritFrame = await this.sendCommand(readRit(this.addr));
-      if (ritFrame) {
+    if (pollOptionalFields) {
+      // RIT
+      await this.pollOptional("RIT", async () => {
+        const ritFrame = this.requireOptionalFrame(
+          "RIT",
+          await this.sendCommand(readRit(this.addr)),
+        );
         const enabled = parseRitXitEnableResponse(ritFrame);
-        if (enabled !== null) {
-          const offsetFrame = await this.sendCommand(
-            readRitXitOffset(this.addr),
-          );
-          const offsetHz = offsetFrame
-            ? (parseRitXitOffsetResponse(offsetFrame) ?? 0)
-            : 0;
-          status.rit = { enabled, offsetHz };
+        if (enabled === null) {
+          throw new Error("RIT parse failed");
         }
-      }
-    });
+        const offsetFrame = this.requireOptionalFrame(
+          "RIT_OFFSET",
+          await this.sendCommand(readRitXitOffset(this.addr)),
+        );
+        const offsetHz = parseRitXitOffsetResponse(offsetFrame);
+        if (offsetHz === null) {
+          throw new Error("RIT offset parse failed");
+        }
+        status.rit = { enabled, offsetHz };
+      });
 
-    // XIT
-    await this.pollOptional("XIT", async () => {
-      const xitFrame = await this.sendCommand(readXit(this.addr));
-      if (xitFrame) {
+      // XIT
+      await this.pollOptional("XIT", async () => {
+        const xitFrame = this.requireOptionalFrame(
+          "XIT",
+          await this.sendCommand(readXit(this.addr)),
+        );
         const enabled = parseRitXitEnableResponse(xitFrame);
-        if (enabled !== null) {
-          status.xit = { enabled, offsetHz: status.rit?.offsetHz ?? 0 };
+        if (enabled === null) {
+          throw new Error("XIT parse failed");
         }
-      }
-    });
+        status.xit = { enabled, offsetHz: status.rit?.offsetHz ?? 0 };
+      });
 
-    // ANF
-    await this.pollOptional("ANF", async () => {
-      const frame = await this.sendCommand(readFunction(this.addr, "ANF"));
-      if (frame) {
+      // ANF
+      await this.pollOptional("ANF", async () => {
+        const frame = this.requireOptionalFrame(
+          "ANF",
+          await this.sendCommand(readFunction(this.addr, "ANF")),
+        );
         const val = parseFunctionResponse(frame);
-        if (val !== null) status.anf = val;
-      }
-    });
+        if (val === null) {
+          throw new Error("ANF parse failed");
+        }
+        status.anf = val;
+      });
 
-    // QSK (BKIN)
-    await this.pollOptional("QSK", async () => {
-      const frame = await this.sendCommand(readFunction(this.addr, "BKIN"));
-      if (frame) {
+      // QSK (BKIN)
+      await this.pollOptional("QSK", async () => {
+        const frame = this.requireOptionalFrame(
+          "QSK",
+          await this.sendCommand(readFunction(this.addr, "BKIN")),
+        );
         const val = parseFunctionResponse(frame);
-        if (val !== null) status.qsk = val;
-      }
-    });
+        if (val === null) {
+          throw new Error("QSK parse failed");
+        }
+        status.qsk = val;
+      });
 
-    // VOX
-    await this.pollOptional("VOX", async () => {
-      const frame = await this.sendCommand(readFunction(this.addr, "VOX"));
-      if (frame) {
+      // VOX
+      await this.pollOptional("VOX", async () => {
+        const frame = this.requireOptionalFrame(
+          "VOX",
+          await this.sendCommand(readFunction(this.addr, "VOX")),
+        );
         const val = parseFunctionResponse(frame);
-        if (val !== null) status.vox = val;
-      }
-    });
+        if (val === null) {
+          throw new Error("VOX parse failed");
+        }
+        status.vox = val;
+      });
 
-    // AGC
-    await this.pollOptional("AGC", async () => {
-      const frame = await this.sendCommand(readFunction(this.addr, "AGC"));
-      if (frame) {
+      // AGC
+      await this.pollOptional("AGC", async () => {
+        const frame = this.requireOptionalFrame(
+          "AGC",
+          await this.sendCommand(readFunction(this.addr, "AGC")),
+        );
         const val = parseAgcResponse(frame);
-        if (val !== null) status.agcMode = val;
-      }
-    });
+        if (val === null) {
+          throw new Error("AGC parse failed");
+        }
+        status.agcMode = val;
+      });
 
-    // CW Speed
-    await this.pollOptional("KEYSPD", async () => {
-      const frame = await this.sendCommand(readLevel(this.addr, "KEYSPD"));
-      if (frame) {
+      // CW Speed
+      await this.pollOptional("KEYSPD", async () => {
+        const frame = this.requireOptionalFrame(
+          "KEYSPD",
+          await this.sendCommand(readLevel(this.addr, "KEYSPD")),
+        );
         const val = parseLevelResponse(frame);
-        if (val !== null) status.cwSpeed = val;
-      }
-    });
+        if (val === null) {
+          throw new Error("KEYSPD parse failed");
+        }
+        status.cwSpeed = val;
+      });
 
-    // IF Shift
-    await this.pollOptional("IF_SHIFT", async () => {
-      const frame = await this.sendCommand(readLevel(this.addr, "IF_SHIFT"));
-      if (frame) {
+      // IF Shift
+      await this.pollOptional("IF_SHIFT", async () => {
+        const frame = this.requireOptionalFrame(
+          "IF_SHIFT",
+          await this.sendCommand(readLevel(this.addr, "IF_SHIFT")),
+        );
         const raw = parseLevelResponse(frame);
-        if (raw !== null) status.ifShift = parseIfShiftResponse(raw);
-      }
-    });
+        if (raw === null) {
+          throw new Error("IF_SHIFT parse failed");
+        }
+        status.ifShift = parseIfShiftResponse(raw);
+      });
+    }
 
     return status;
   }
@@ -815,9 +927,40 @@ export class IcomSerialBackend {
     if (this.warnedUnsupported.has(name)) return;
     try {
       await fn();
-    } catch {
-      this.warnedUnsupported.add(name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const shouldDisable =
+        message.includes("timed out") || message.includes("rejected by radio");
+      if (shouldDisable) {
+        this.warnedUnsupported.add(name);
+        console.warn(
+          `[icom-serial] Disabling optional poll ${name}: ${message}`,
+        );
+      } else {
+        console.warn(`[icom-serial] Optional poll ${name} failed: ${message}`);
+      }
     }
+  }
+
+  private requireOptionalFrame(name: string, frame: CivFrame | null): CivFrame {
+    if (!frame) {
+      throw new Error(`${name} timed out`);
+    }
+    if (frame.isNg) {
+      throw new Error(`${name} rejected by radio`);
+    }
+    return frame;
+  }
+
+  private commandUsesSubCommand(cmd: number): boolean {
+    return (
+      cmd === CivCmd.PTT ||
+      cmd === CivCmd.LEVELS ||
+      cmd === CivCmd.METERS ||
+      cmd === CivCmd.FUNCTIONS ||
+      cmd === CivCmd.RIT_XIT ||
+      cmd === CivCmd.SCOPE_CTRL
+    );
   }
 
   /** Check if status has meaningfully changed (excluding S-meter) */
@@ -848,7 +991,10 @@ export class IcomSerialBackend {
    * Send a CI-V frame and wait for the response.
    * Returns the response frame, or null on timeout/error.
    */
-  private sendCommand(frame: Buffer): Promise<CivFrame | null> {
+  private sendCommand(
+    frame: Buffer,
+    responseKind: "ack" | "data" = "data",
+  ): Promise<CivFrame | null> {
     if (!this._isConnected || !this.serial?.isOpen) {
       return Promise.resolve(null);
     }
@@ -856,59 +1002,95 @@ export class IcomSerialBackend {
     // Extract expected command byte from the frame
     // Frame format: FE FE [to] [from] [cmd] [sub?] ... FD
     const cmd = frame[4]; // command byte
-    const sub = frame.length > 6 ? frame[5] : undefined; // sub-command if present
+    const sub =
+      this.commandUsesSubCommand(cmd) && frame.length > 6
+        ? frame[5]
+        : undefined;
 
-    return new Promise((resolve) => {
-      // If there's already a pending command, reject it
-      if (this.pendingCommand) {
-        clearTimeout(this.pendingCommand.timer);
-        this.pendingCommand.resolve(null);
-      }
+    return this.runInCommandQueue(
+      () =>
+        new Promise((resolve) => {
+          if (!this._isConnected || !this.serial?.isOpen) {
+            resolve(null);
+            return;
+          }
 
-      const timer = setTimeout(() => {
-        if (this.pendingCommand?.timer === timer) {
-          this.pendingCommand = null;
-          resolve(null);
-        }
-      }, COMMAND_TIMEOUT_MS);
-
-      this.pendingCommand = {
-        expectedCmd: cmd,
-        expectedSub: sub,
-        resolve,
-        timer,
-      };
-
-      this.serial!.write(frame, (err) => {
-        if (err) {
-          if (this.pendingCommand?.timer === timer) {
-            clearTimeout(timer);
+          // Should never happen because runInCommandQueue serializes writes.
+          if (this.pendingCommand) {
+            clearTimeout(this.pendingCommand.timer);
+            this.pendingCommand.resolve(null);
             this.pendingCommand = null;
           }
-          resolve(null);
-        }
-      });
-    });
+
+          const timer = setTimeout(() => {
+            if (this.pendingCommand?.timer === timer) {
+              this.pendingCommand = null;
+              resolve(null);
+            }
+          }, COMMAND_TIMEOUT_MS);
+
+          this.pendingCommand = {
+            expectedCmd: cmd,
+            expectedSub: sub,
+            responseKind,
+            resolve,
+            timer,
+          };
+
+          this.serial!.write(frame, (err) => {
+            if (err) {
+              if (this.pendingCommand?.timer === timer) {
+                clearTimeout(timer);
+                this.pendingCommand = null;
+              }
+              resolve(null);
+            }
+          });
+        }),
+    );
   }
 
-  /** Send a command and only wait for OK/NG acknowledgment */
-  private async sendAndWaitOk(frame: Buffer): Promise<boolean> {
-    const response = await this.sendCommand(frame);
-    return response?.isOk ?? false;
+  private runInCommandQueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.commandQueue.then(task, task);
+    this.commandQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  /** Send a command and require an explicit OK acknowledgment. */
+  private async sendAndWaitOk(frame: Buffer, label: string): Promise<void> {
+    const response = await this.sendCommand(frame, "ack");
+    if (!response) {
+      throw new Error(`${label} timed out`);
+    }
+    if (response.isNg) {
+      throw new Error(`${label} rejected by radio`);
+    }
+    if (response.isOk || response.command === frame[4]) {
+      return;
+    }
+    if (!response.isOk) {
+      throw new Error(`${label} got unexpected response`);
+    }
   }
 
   /** Write raw bytes without waiting for response (for multi-frame commands like RIT/XIT) */
   private writeRaw(data: Buffer): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.serial?.isOpen) {
-        reject(new Error("Serial port not open"));
-        return;
-      }
-      this.serial.write(data, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    return this.runInCommandQueue(
+      () =>
+        new Promise((resolve, reject) => {
+          if (!this.serial?.isOpen) {
+            reject(new Error("Serial port not open"));
+            return;
+          }
+          this.serial.write(data, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        }),
+    );
   }
 
   /** Open serial port temporarily to probe for a radio (used by probe()) */

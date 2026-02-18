@@ -254,10 +254,37 @@ export interface WSJTXConfig {
   enabled: boolean;
 }
 
+/** WSJT-X UDP emitter configuration */
+export interface WSJTXEmitConfig {
+  enabled: boolean;
+  port: number;
+}
+
 export type WSJTXStatusMessage = MessageEnvelope<WSJTXStatus>;
 export type WSJTXDecodeMessage = MessageEnvelope<WSJTXDecode>;
 export type WSJTXQSOLoggedMessage = MessageEnvelope<WSJTXQSOLogged>;
 export type WSJTXClearMessage = MessageEnvelope<{ window?: string }>;
+
+// ============================================================================
+// FT8 TX Control Messages
+// ============================================================================
+
+/** Request to begin an FT8 TX cycle (assert PTT for a timed duration) */
+export interface Ft8TxStartPayload {
+  /** Duration of the TX period in milliseconds */
+  durationMs: number;
+  /** Optional: delay before asserting PTT (for timing alignment) */
+  preDelayMs?: number;
+}
+
+/** FT8 TX status update broadcast to clients */
+export interface Ft8TxStatusPayload {
+  active: boolean;
+  timeRemainingMs: number;
+}
+
+export type Ft8TxStartMessage = MessageEnvelope<Ft8TxStartPayload>;
+export type Ft8TxStatusMessage = MessageEnvelope<Ft8TxStatusPayload>;
 
 // ============================================================================
 // Message Type Constants
@@ -314,6 +341,15 @@ export const MessageTypes = {
   WSJTX_QSO_LOGGED: "wsjtx.qso_logged",
   WSJTX_CLEAR: "wsjtx.clear",
   WSJTX_CONFIGURE: "wsjtx.configure",
+
+  // WSJT-X UDP emitter (outbound to external apps)
+  WSJTX_EMIT_CONFIGURE: "wsjtx.emit.configure",
+  WSJTX_EMIT_DECODE: "wsjtx.emit.decode",
+
+  // FT8 TX control
+  FT8_TX_START: "ft8.tx.start",
+  FT8_TX_STOP: "ft8.tx.stop",
+  FT8_TX_STATUS: "ft8.tx.status",
 } as const;
 
 export type MessageType = (typeof MessageTypes)[keyof typeof MessageTypes];

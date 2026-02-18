@@ -21,11 +21,14 @@ import {
 import type {
   ClusterConfig,
   ClusterNodeConfig,
+  Ft8TxStartPayload,
   RigStatus,
   WSJTXConfig,
+  WSJTXEmitConfig,
 } from "./types.js";
 import { DXClusterClient } from "./cluster.js";
 import { WSJTXListener } from "./wsjtx.js";
+import { WSJTXEmitter } from "./wsjtxEmitter.js";
 import { RigController, type RigControllerConfig } from "./rig.js";
 import { CivSpectrumClient, pixelToDb, type CivSpectrumLine } from "./civ.js";
 import { AudioCapture } from "./audioCapture.js";
@@ -296,6 +299,7 @@ let wsjtxDecodeDispose: (() => void) | null = null;
 let wsjtxQsoDispose: (() => void) | null = null;
 let wsjtxClearDispose: (() => void) | null = null;
 let wsjtxErrorDispose: (() => void) | null = null;
+let wsjtxEmitter: WSJTXEmitter | null = null;
 
 // CI-V spectrum streaming state
 let civClient: CivSpectrumClient | null = null;
@@ -309,11 +313,26 @@ let audioCapture: AudioCapture | null = null;
 let audioPcmDispose: (() => void) | null = null;
 const audioSubscribers = new Set<string>();
 
+// Grace-period timers — delay stream cleanup to survive brief reconnects
+// (e.g. React StrictMode double-mount in dev mode)
+let fftCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+let audioCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+const STREAM_CLEANUP_GRACE_MS = 3000;
+
 // ICOM built-in spectrum state (when using icom-serial or icom-network backend)
 let icomSpectrumDispose: (() => void) | null = null;
 
 // ICOM network audio state (when using icom-network backend)
 let icomAudioDispose: (() => void) | null = null;
+
+// FT8 TX state
+let activeTxTimer: ReturnType<typeof setTimeout> | null = null;
+let txActive = false;
+
+/** Maximum TX duration safety limit in milliseconds */
+const FT8_TX_MAX_DURATION_MS = 20_000;
+/** Minimum TX duration in milliseconds */
+const FT8_TX_MIN_DURATION_MS = 1_000;
 
 // --------------------------------------------------------------------------
 // DX Cluster Integration
@@ -438,6 +457,29 @@ function stopWSJTX(): void {
     wsjtxListener.stop();
     wsjtxListener = null;
     logger.info("WSJT-X listener stopped");
+  }
+}
+
+// --------------------------------------------------------------------------
+// WSJT-X Emitter Integration (outbound UDP to external apps)
+// --------------------------------------------------------------------------
+
+function startWSJTXEmitter(config: WSJTXEmitConfig): void {
+  stopWSJTXEmitter();
+
+  if (!config.enabled) return;
+
+  wsjtxEmitter = new WSJTXEmitter(config.port);
+  wsjtxEmitter.start();
+
+  logger.info("WSJT-X emitter started", { port: config.port });
+}
+
+function stopWSJTXEmitter(): void {
+  if (wsjtxEmitter) {
+    wsjtxEmitter.stop();
+    wsjtxEmitter = null;
+    logger.info("WSJT-X emitter stopped");
   }
 }
 
@@ -972,8 +1014,18 @@ function broadcastSmeter(dbm: number): void {
  *   [0x01 type] [0x00 devIdx] [f64 centerHz] [f64 spanHz] [...f32 dBm bins]
  */
 let fftFrameCount = 0;
+const FFT_MAX_BUFFERED_BYTES = 512 * 1024;
 function broadcastBinaryFftFrame(line: CivSpectrumLine): void {
   if (fftSubscribers.size === 0) return;
+
+  const targets: WebSocket[] = [];
+  for (const clientId of fftSubscribers) {
+    const client = clients.get(clientId);
+    if (!client || client.socket.readyState !== WebSocket.OPEN) continue;
+    if (client.socket.bufferedAmount > FFT_MAX_BUFFERED_BYTES) continue;
+    targets.push(client.socket);
+  }
+  if (targets.length === 0) return;
 
   fftFrameCount++;
   if (fftFrameCount <= 5 || fftFrameCount % 100 === 0) {
@@ -1005,11 +1057,8 @@ function broadcastBinaryFftFrame(line: CivSpectrumLine): void {
   }
 
   // Send binary to all FFT subscribers
-  for (const clientId of fftSubscribers) {
-    const client = clients.get(clientId);
-    if (client && client.socket.readyState === WebSocket.OPEN) {
-      client.socket.send(buffer);
-    }
+  for (const socket of targets) {
+    socket.send(buffer);
   }
 }
 
@@ -1018,11 +1067,32 @@ function broadcastBinaryFftFrame(line: CivSpectrumLine): void {
  * Frame layout (little-endian):
  *   [0x02 type] [0x00 devIdx] [u32 sampleRate] [...i16 PCM samples]
  */
+let audioFrameCount = 0;
+const AUDIO_MAX_BUFFERED_BYTES = 1024 * 1024;
 function broadcastBinaryAudioFrame(
   samples: Int16Array,
   sampleRate: number,
 ): void {
   if (audioSubscribers.size === 0) return;
+
+  const targets: WebSocket[] = [];
+  for (const clientId of audioSubscribers) {
+    const client = clients.get(clientId);
+    if (!client || client.socket.readyState !== WebSocket.OPEN) continue;
+    if (client.socket.bufferedAmount > AUDIO_MAX_BUFFERED_BYTES) continue;
+    targets.push(client.socket);
+  }
+  if (targets.length === 0) return;
+
+  audioFrameCount++;
+  if (audioFrameCount <= 5 || audioFrameCount % 500 === 0) {
+    logger.debug("Audio frame broadcast", {
+      frame: audioFrameCount,
+      samples: samples.length,
+      sampleRate,
+      subscribers: audioSubscribers.size,
+    });
+  }
 
   const headerBytes = 6; // type(1) + devIdx(1) + sampleRate(4)
   const byteLength = headerBytes + samples.length * 2;
@@ -1036,11 +1106,8 @@ function broadcastBinaryAudioFrame(
     buffer.writeInt16LE(samples[i], headerBytes + i * 2);
   }
 
-  for (const clientId of audioSubscribers) {
-    const client = clients.get(clientId);
-    if (client && client.socket.readyState === WebSocket.OPEN) {
-      client.socket.send(buffer);
-    }
+  for (const socket of targets) {
+    socket.send(buffer);
   }
 }
 
@@ -1092,6 +1159,15 @@ function startFfmpegAudioCapture(
       logger.warn(
         "No audio device resolved or configured, using default index 2",
       );
+    }
+
+    // Recover from a stale ffmpeg capture instance (process exited but object lingered).
+    if (audioCapture && !audioCapture.isRunning()) {
+      logger.warn("Audio capture was not running; recreating ffmpeg capture");
+      audioPcmDispose?.();
+      audioPcmDispose = null;
+      audioCapture.stop();
+      audioCapture = null;
     }
 
     if (!audioCapture) {
@@ -1641,23 +1717,68 @@ function handleDaemonCommand(
       // Track this client as an FFT subscriber
       fftSubscribers.add(client.id);
 
+      // Cancel any pending grace-period cleanup (reconnect within grace window)
+      if (fftCleanupTimer) {
+        clearTimeout(fftCleanupTimer);
+        fftCleanupTimer = null;
+      }
+
       logger.info("stream:fft:start", {
         hasBuiltinSpectrum: rigController?.hasBuiltinSpectrum ?? false,
         backend: rigController?.getBackend() ?? "none",
         icomSpectrumActive: !!icomSpectrumDispose,
       });
 
-      // If ICOM serial backend is active, use its built-in spectrum
+      // If ICOM serial backend is active, use its built-in spectrum.
+      // Retry the scope enable command periodically if no frames arrive,
+      // since some radios need the scope display active or take time to
+      // start outputting CI-V scope data.
       if (rigController?.hasBuiltinSpectrum && !icomSpectrumDispose) {
-        icomSpectrumDispose = rigController.onSpectrum((line) => {
+        let gotFrame = false;
+        let retryCount = 0;
+        const MAX_RETRIES = 5;
+        const RETRY_INTERVAL_MS = 5_000;
+        const rc = rigController;
+        icomSpectrumDispose = rc.onSpectrum((line) => {
+          if (!gotFrame) {
+            gotFrame = true;
+            logger.info("First ICOM scope frame received — spectrum active");
+          }
           broadcastBinaryFftFrame(line);
         });
-        void rigController.startSpectrum().catch((err: unknown) => {
+        void rc.startSpectrum().catch((err: unknown) => {
           logger.error("ICOM spectrum start error", {
             error: err instanceof Error ? err.message : String(err),
           });
         });
         sendDaemonResponse(client, id, true);
+
+        // Retry scope enable periodically if no frames arrive.
+        // Some radios need the scope display toggled or a second enable.
+        const retryTimer = setInterval(() => {
+          if (gotFrame || retryCount >= MAX_RETRIES) {
+            clearInterval(retryTimer);
+            if (!gotFrame) {
+              logger.warn(
+                `No scope frames after ${MAX_RETRIES} retries — radio scope display may be off. ` +
+                  "Ensure the SCOPE button on the radio is active.",
+              );
+            }
+            return;
+          }
+          retryCount++;
+          logger.info(
+            `No scope frames yet — retrying scope enable (${retryCount}/${MAX_RETRIES})`,
+          );
+          void rc.startSpectrum().catch(() => {});
+        }, RETRY_INTERVAL_MS);
+
+        // Clean up retry timer if spectrum is stopped externally
+        const origDispose = icomSpectrumDispose;
+        icomSpectrumDispose = () => {
+          clearInterval(retryTimer);
+          if (origDispose) origDispose();
+        };
         break;
       }
 
@@ -1723,6 +1844,12 @@ function handleDaemonCommand(
     // ----------------------------------------------------------------
     case "stream:audio:start": {
       audioSubscribers.add(client.id);
+
+      // Cancel any pending grace-period cleanup (reconnect within grace window)
+      if (audioCleanupTimer) {
+        clearTimeout(audioCleanupTimer);
+        audioCleanupTimer = null;
+      }
 
       // If ICOM audio already running, just ack (subscriber already added)
       if (icomAudioDispose) {
@@ -2189,6 +2316,106 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
       break;
     }
 
+    case MessageTypes.WSJTX_EMIT_CONFIGURE: {
+      const p =
+        typeof message.payload === "object" && message.payload !== null
+          ? (message.payload as Record<string, unknown>)
+          : null;
+
+      if (!p) {
+        sendToClient(
+          client,
+          createMessage(
+            "error",
+            {
+              code: "INVALID_WSJTX_EMIT_CONFIG",
+              message: "wsjtx.emit.configure requires an object payload",
+            },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      const port = toPortNumber(p.port);
+      const enabled = typeof p.enabled === "boolean" ? p.enabled : false;
+
+      if (port === undefined) {
+        sendToClient(
+          client,
+          createMessage(
+            "error",
+            {
+              code: "INVALID_WSJTX_EMIT_CONFIG",
+              message:
+                "wsjtx.emit.configure requires a valid port number (1-65535)",
+            },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      startWSJTXEmitter({ port, enabled });
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { configured: true }, message.id),
+      );
+      break;
+    }
+
+    case MessageTypes.WSJTX_EMIT_DECODE: {
+      if (!wsjtxEmitter || !wsjtxEmitter.active) {
+        sendToClient(
+          client,
+          createMessage(
+            "error",
+            {
+              code: "WSJTX_EMITTER_NOT_ACTIVE",
+              message: "WSJT-X emitter is not active; configure it first",
+            },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      const p =
+        typeof message.payload === "object" && message.payload !== null
+          ? (message.payload as Record<string, unknown>)
+          : null;
+
+      if (!p || typeof p.message !== "string") {
+        sendToClient(
+          client,
+          createMessage(
+            "error",
+            {
+              code: "INVALID_WSJTX_EMIT_DECODE",
+              message:
+                "wsjtx.emit.decode requires a payload with at least a message string",
+            },
+            message.id,
+          ),
+        );
+        break;
+      }
+
+      wsjtxEmitter.emitDecode({
+        isNew: typeof p.isNew === "boolean" ? p.isNew : true,
+        time: typeof p.time === "number" ? p.time : 0,
+        snr: typeof p.snr === "number" ? p.snr : 0,
+        deltaTime: typeof p.deltaTime === "number" ? p.deltaTime : 0,
+        deltaFrequency:
+          typeof p.deltaFrequency === "number" ? p.deltaFrequency : 0,
+        mode: typeof p.mode === "string" ? p.mode : "~",
+        message: p.message as string,
+        lowConfidence:
+          typeof p.lowConfidence === "boolean" ? p.lowConfidence : false,
+      });
+      break;
+    }
+
     // ------------------------------------------------------------------
     // Rig Control
     // ------------------------------------------------------------------
@@ -2322,6 +2549,19 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
 
     case MessageTypes.RIG_SET_PTT: {
       handleRigSetPTT(client, message);
+      break;
+    }
+
+    // ------------------------------------------------------------------
+    // FT8 TX Control
+    // ------------------------------------------------------------------
+    case MessageTypes.FT8_TX_START: {
+      handleFt8TxStart(client, message);
+      break;
+    }
+
+    case MessageTypes.FT8_TX_STOP: {
+      handleFt8TxStop(client, message);
       break;
     }
 
@@ -2555,6 +2795,164 @@ function handleRigSetPTT(
   })();
 }
 
+// --------------------------------------------------------------------------
+// FT8 TX Command Handlers
+// --------------------------------------------------------------------------
+
+/**
+ * Cancel any active FT8 TX cycle: clear the timer, release PTT, and broadcast
+ * an inactive status to all connected clients.
+ */
+async function cancelActiveTx(): Promise<void> {
+  if (activeTxTimer) {
+    clearTimeout(activeTxTimer);
+    activeTxTimer = null;
+  }
+  if (txActive) {
+    txActive = false;
+    try {
+      const controller = await ensureRigController();
+      await controller.setPTT(false);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error("Failed to release PTT during TX cancel", { error: errMsg });
+    }
+    broadcast(
+      createMessage(MessageTypes.FT8_TX_STATUS, {
+        active: false,
+        timeRemainingMs: 0,
+      }),
+    );
+  }
+}
+
+function handleFt8TxStart(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+): void {
+  const p =
+    typeof message.payload === "object" && message.payload !== null
+      ? (message.payload as Ft8TxStartPayload)
+      : ({} as Partial<Ft8TxStartPayload>);
+
+  const durationMs = typeof p.durationMs === "number" ? p.durationMs : 0;
+  const preDelayMs =
+    typeof p.preDelayMs === "number" && p.preDelayMs > 0 ? p.preDelayMs : 0;
+
+  // Validate duration within safety bounds
+  if (
+    durationMs < FT8_TX_MIN_DURATION_MS ||
+    durationMs > FT8_TX_MAX_DURATION_MS
+  ) {
+    sendToClient(
+      client,
+      createMessage(
+        "error",
+        {
+          code: "INVALID_PAYLOAD",
+          message: `ft8.tx.start durationMs must be ${FT8_TX_MIN_DURATION_MS}-${FT8_TX_MAX_DURATION_MS}, got ${durationMs}`,
+        },
+        message.id,
+      ),
+    );
+    return;
+  }
+
+  (async () => {
+    try {
+      // If TX is already active, stop the current cycle first
+      await cancelActiveTx();
+
+      const controller = await ensureRigController();
+
+      // Optional pre-delay for timing alignment
+      if (preDelayMs > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, preDelayMs));
+      }
+
+      // Assert PTT
+      await controller.setPTT(true);
+      txActive = true;
+
+      // Broadcast TX active status
+      broadcast(
+        createMessage(MessageTypes.FT8_TX_STATUS, {
+          active: true,
+          timeRemainingMs: durationMs,
+        }),
+      );
+
+      // Acknowledge to the requesting client
+      sendToClient(
+        client,
+        createMessage(
+          `${message.type}.ack`,
+          { success: true, durationMs },
+          message.id,
+        ),
+      );
+
+      // Schedule PTT release after the TX duration
+      activeTxTimer = setTimeout(async () => {
+        activeTxTimer = null;
+        txActive = false;
+        try {
+          await controller.setPTT(false);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          logger.error("Failed to release PTT after TX timer", {
+            error: errMsg,
+          });
+        }
+        broadcast(
+          createMessage(MessageTypes.FT8_TX_STATUS, {
+            active: false,
+            timeRemainingMs: 0,
+          }),
+        );
+      }, durationMs);
+    } catch (err: unknown) {
+      txActive = false;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error("FT8 TX start failed", { error: errMsg });
+      sendToClient(
+        client,
+        createMessage(
+          "error",
+          { code: "FT8_TX_FAILED", message: errMsg },
+          message.id,
+        ),
+      );
+    }
+  })();
+}
+
+function handleFt8TxStop(
+  client: ConnectedClient,
+  message: MessageEnvelope,
+): void {
+  (async () => {
+    try {
+      await cancelActiveTx();
+      sendToClient(
+        client,
+        createMessage(`${message.type}.ack`, { success: true }, message.id),
+      );
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error("FT8 TX stop failed", { error: errMsg });
+      sendToClient(
+        client,
+        createMessage(
+          "error",
+          { code: "FT8_TX_STOP_FAILED", message: errMsg },
+          message.id,
+        ),
+      );
+    }
+  })();
+}
+
 // ============================================================================
 // Server Setup
 // ============================================================================
@@ -2631,6 +3029,7 @@ function startServer(): void {
       rigBackend: rigController?.getBackend() ?? "none",
       clusterConnected: clusterClient?.getStatus().connected ?? false,
       wsjtxListening: wsjtxListener !== null,
+      wsjtxEmitterActive: wsjtxEmitter?.active ?? false,
     });
 
     socket.send(JSON.stringify(welcomeMessage));
@@ -2643,30 +3042,48 @@ function startServer(): void {
     socket.on("close", (code, reason) => {
       clients.delete(clientId);
 
-      // Clean up FFT subscription for this client
+      // Clean up FFT subscription for this client (grace period)
       fftSubscribers.delete(clientId);
-      if (fftSubscribers.size === 0) {
-        if (icomSpectrumDispose) {
-          icomSpectrumDispose();
-          icomSpectrumDispose = null;
-          void rigController?.stopSpectrum().catch(() => {});
-        }
-        if (civClient) {
-          stopCiv();
-        }
+      if (fftSubscribers.size === 0 && (icomSpectrumDispose || civClient)) {
+        if (fftCleanupTimer) clearTimeout(fftCleanupTimer);
+        fftCleanupTimer = setTimeout(() => {
+          fftCleanupTimer = null;
+          if (fftSubscribers.size === 0) {
+            if (icomSpectrumDispose) {
+              icomSpectrumDispose();
+              icomSpectrumDispose = null;
+              void rigController?.stopSpectrum().catch(() => {});
+            }
+            if (civClient) {
+              stopCiv();
+            }
+            logger.info(
+              "FFT stream stopped (no subscribers after grace period)",
+            );
+          }
+        }, STREAM_CLEANUP_GRACE_MS);
       }
 
-      // Clean up audio subscription for this client
+      // Clean up audio subscription for this client (grace period)
       audioSubscribers.delete(clientId);
-      if (audioSubscribers.size === 0) {
-        if (icomAudioDispose) {
-          icomAudioDispose();
-          icomAudioDispose = null;
-          rigController?.stopAudio();
-        }
-        if (audioCapture) {
-          stopAudioCapture();
-        }
+      if (audioSubscribers.size === 0 && (icomAudioDispose || audioCapture)) {
+        if (audioCleanupTimer) clearTimeout(audioCleanupTimer);
+        audioCleanupTimer = setTimeout(() => {
+          audioCleanupTimer = null;
+          if (audioSubscribers.size === 0) {
+            if (icomAudioDispose) {
+              icomAudioDispose();
+              icomAudioDispose = null;
+              rigController?.stopAudio();
+            }
+            if (audioCapture) {
+              stopAudioCapture();
+            }
+            logger.info(
+              "Audio stream stopped (no subscribers after grace period)",
+            );
+          }
+        }, STREAM_CLEANUP_GRACE_MS);
       }
 
       logger.info("Client disconnected", {
@@ -2695,9 +3112,20 @@ function startServer(): void {
   const shutdown = (signal: string) => {
     logger.info("Shutdown signal received", { signal });
 
+    // Cancel any active FT8 TX and release PTT before tearing down rig
+    if (activeTxTimer) {
+      clearTimeout(activeTxTimer);
+      activeTxTimer = null;
+    }
+    if (txActive && rigController) {
+      rigController.setPTT(false).catch(() => {});
+      txActive = false;
+    }
+
     // Clean up integration modules
     stopCluster();
     stopWSJTX();
+    stopWSJTXEmitter();
     stopRig();
     stopCiv();
     if (icomSpectrumDispose) {

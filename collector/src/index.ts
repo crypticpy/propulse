@@ -2,7 +2,7 @@ import { loadConfig } from "./config.js";
 import { setLogLevel, log } from "./logger.js";
 import { getDb } from "./db.js";
 import { register, startAll, stopAll } from "./scheduler.js";
-import { startHealthServer } from "./health.js";
+import { startHealthServer, setActiveConfig } from "./health.js";
 import { collectPskReporter } from "./collectors/pskreporter.js";
 import { collectRbn } from "./collectors/rbn.js";
 import { collectDxCluster } from "./collectors/dxcluster.js";
@@ -19,24 +19,29 @@ async function main(): Promise<void> {
   log("info", "Propulse Collector starting", {
     sources: [...config.enabledSources],
     logLevel: config.logLevel,
+    pollIntervals: config.pollIntervals,
+    retention: config.retention,
   });
 
   const db = getDb(config);
+  const { pollIntervals } = config;
 
-  // Register spot collectors
+  // Register spot collectors (intervals configurable via POLL_* env vars)
   if (config.enabledSources.has("pskreporter")) {
-    register("pskreporter", 3 * 60_000, () => collectPskReporter(db));
+    register("pskreporter", pollIntervals.pskreporter, () =>
+      collectPskReporter(db),
+    );
   }
   if (config.enabledSources.has("rbn")) {
-    register("rbn", 2 * 60_000, () => collectRbn(db));
+    register("rbn", pollIntervals.rbn, () => collectRbn(db));
   }
   if (config.enabledSources.has("dxcluster")) {
-    register("dxcluster", 2 * 60_000, () => collectDxCluster(db));
+    register("dxcluster", pollIntervals.dxcluster, () => collectDxCluster(db));
   }
 
   // Solar collector
   if (config.enabledSources.has("solar")) {
-    register("solar", 5 * 60_000, () => collectSolar(db));
+    register("solar", pollIntervals.solar, () => collectSolar(db));
   }
 
   // Lightning WebSocket consumer (always-on, not poll-based)
@@ -44,22 +49,27 @@ async function main(): Promise<void> {
     startLightning();
   }
 
-  // Satellite TLE collector (every 2 hours)
+  // Satellite TLE collector
   if (config.enabledSources.has("satellites")) {
-    register("satellites", 2 * 60 * 60_000, () => collectSatellites(db));
+    register("satellites", pollIntervals.satellites, () =>
+      collectSatellites(db),
+    );
   }
 
-  // Hourly aggregator (checks every 5 min, only runs on new hour boundary)
-  register("aggregator", 5 * 60_000, () => computeHourlyStats(db));
+  // Hourly aggregator (checks on interval, only runs on new hour boundary)
+  register("aggregator", pollIntervals.aggregator, () =>
+    computeHourlyStats(db, config),
+  );
 
-  // Auto-prune: checks every hour, runs once per day
-  // Keeps 14 days of spots, 90 days of solar, 7 days of health logs
-  register("prune", 60 * 60_000, () => pruneOldData(db));
+  // Auto-prune: retention periods configurable via RETENTION_* env vars
+  // band_hourly_stats is never pruned — aggregates preserved forever for ML
+  register("prune", pollIntervals.prune, () => pruneOldData(db, config));
 
   // Start all scheduled tasks
   startAll();
 
-  // Start health check HTTP server
+  // Start health check HTTP server (exposes active config for ops visibility)
+  setActiveConfig(config);
   startHealthServer(config.healthPort);
 
   // Graceful shutdown

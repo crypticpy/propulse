@@ -1,36 +1,37 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CollectorConfig } from "../types.js";
 import { log } from "../logger.js";
-
-const SPOT_RETENTION_DAYS = 14;
-const HEALTH_RETENTION_DAYS = 7;
-const SOLAR_RETENTION_DAYS = 90;
-const TLE_RETENTION_DAYS = 30;
 
 let lastPruneDate: string | null = null;
 
 /**
- * Prune old data once per day. Keeps:
- * - spot_history: 14 days (band_hourly_stats preserves aggregates forever)
- * - collector_health: 7 days
- * - solar_snapshots: 90 days
+ * Prune old data once per day. Retention periods are configurable
+ * via RETENTION_* env vars. band_hourly_stats is never pruned.
  */
-export async function pruneOldData(db: SupabaseClient): Promise<void> {
+export async function pruneOldData(
+  db: SupabaseClient,
+  config: CollectorConfig,
+): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   if (lastPruneDate === today) return;
 
+  const { retention } = config;
+
   try {
     const spotCutoff = new Date(
-      Date.now() - SPOT_RETENTION_DAYS * 86_400_000,
+      Date.now() - retention.spots * 86_400_000,
     ).toISOString();
     const healthCutoff = new Date(
-      Date.now() - HEALTH_RETENTION_DAYS * 86_400_000,
+      Date.now() - retention.health * 86_400_000,
     ).toISOString();
     const solarCutoff = new Date(
-      Date.now() - SOLAR_RETENTION_DAYS * 86_400_000,
+      Date.now() - retention.solar * 86_400_000,
+    ).toISOString();
+    const tleCutoff = new Date(
+      Date.now() - retention.tle * 86_400_000,
     ).toISOString();
 
     // Batch-delete spot_history in chunks to avoid overwhelming PostgREST
-    // with a single DELETE of potentially 100M+ rows.
     const SPOT_BATCH_SIZE = 50_000;
     let totalSpots = 0;
     while (true) {
@@ -53,9 +54,6 @@ export async function pruneOldData(db: SupabaseClient): Promise<void> {
       .delete({ count: "exact" })
       .lt("captured_at", solarCutoff);
 
-    const tleCutoff = new Date(
-      Date.now() - TLE_RETENTION_DAYS * 86_400_000,
-    ).toISOString();
     const { count: tleDeleted } = await db
       .from("satellite_tle")
       .delete({ count: "exact" })
@@ -63,6 +61,7 @@ export async function pruneOldData(db: SupabaseClient): Promise<void> {
 
     lastPruneDate = today;
     log("info", "Prune complete", {
+      retention,
       spotsDeleted: totalSpots,
       healthDeleted: healthDeleted ?? 0,
       solarDeleted: solarDeleted ?? 0,

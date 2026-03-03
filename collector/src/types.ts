@@ -34,12 +34,31 @@ export interface SolarSnapshot {
   solar_wind_density: number | null;
 }
 
+export interface PollIntervals {
+  pskreporter: number;
+  rbn: number;
+  dxcluster: number;
+  solar: number;
+  satellites: number;
+  aggregator: number;
+  prune: number;
+}
+
+export interface RetentionDays {
+  spots: number;
+  health: number;
+  solar: number;
+  tle: number;
+}
+
 export interface CollectorConfig {
   supabaseUrl: string;
   supabaseServiceKey: string;
   logLevel: LogLevel;
   enabledSources: Set<string>;
   healthPort: number;
+  pollIntervals: PollIntervals;
+  retention: RetentionDays;
 }
 
 export type LogLevel = "debug" | "info" | "warn" | "error";

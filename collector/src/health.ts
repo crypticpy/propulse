@@ -1,4 +1,5 @@
 import http from "node:http";
+import type { CollectorConfig } from "./types.js";
 import { log } from "./logger.js";
 import {
   getBufferedStrikes,
@@ -13,6 +14,8 @@ interface SourceStatus {
 
 const lastRuns: Record<string, SourceStatus> = {};
 const lastSuccessTimes: Record<string, number> = {};
+let activeConfig: Pick<CollectorConfig, "pollIntervals" | "retention"> | null =
+  null;
 
 const SOURCE_STALE_MS = 10 * 60_000; // 10 minutes
 
@@ -25,6 +28,12 @@ export function reportHealth(
   if (status === "ok") {
     lastSuccessTimes[source] = Date.now();
   }
+}
+
+export function setActiveConfig(
+  config: Pick<CollectorConfig, "pollIntervals" | "retention">,
+): void {
+  activeConfig = config;
 }
 
 export function startHealthServer(port: number): http.Server {
@@ -77,6 +86,14 @@ export function startHealthServer(port: number): http.Server {
         uptime: Math.floor(process.uptime()),
         lastRuns,
         ...(isDegraded ? { degraded_sources: degradedSources } : {}),
+        ...(activeConfig
+          ? {
+              config: {
+                pollIntervals: activeConfig.pollIntervals,
+                retention: activeConfig.retention,
+              },
+            }
+          : {}),
       }),
     );
   });

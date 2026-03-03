@@ -1,11 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CollectorConfig } from "../types.js";
 import { log } from "../logger.js";
 import { HF_BANDS } from "../transforms/bands.js";
 
 let lastComputedHour: string | null = null;
-
-/** Maximum catch-up window: 14 days (spot retention period). */
-const MAX_CATCHUP_HOURS = 14 * 24; // 336
 
 /**
  * Compute aggregated band stats for a single hour bucket.
@@ -175,7 +173,13 @@ async function resolveLastComputedHour(
   return resolved;
 }
 
-export async function computeHourlyStats(db: SupabaseClient): Promise<void> {
+export async function computeHourlyStats(
+  db: SupabaseClient,
+  config?: CollectorConfig,
+): Promise<void> {
+  // Catch-up window matches spot retention (default 7 days)
+  const maxCatchupHours = (config?.retention.spots ?? 7) * 24;
+
   const now = new Date();
   const currentHour = new Date(
     Date.UTC(
@@ -211,17 +215,14 @@ export async function computeHourlyStats(db: SupabaseClient): Promise<void> {
       // Walk from (lastComputed + 1h) through prevHour
       let cursor = lastMs + 3_600_000;
 
-      // Bound catch-up to MAX_CATCHUP_HOURS
-      const oldestAllowed = prevMs - MAX_CATCHUP_HOURS * 3_600_000;
+      // Bound catch-up to spot retention window
+      const oldestAllowed = prevMs - maxCatchupHours * 3_600_000;
       if (cursor < oldestAllowed) {
-        log(
-          "warn",
-          "Catch-up window exceeds 14-day retention limit, clamping",
-          {
-            lastComputed: effectiveLast,
-            skippedHours: Math.floor((oldestAllowed - cursor) / 3_600_000),
-          },
-        );
+        log("warn", "Catch-up window exceeds spot retention limit, clamping", {
+          retentionDays: config?.retention.spots ?? 7,
+          lastComputed: effectiveLast,
+          skippedHours: Math.floor((oldestAllowed - cursor) / 3_600_000),
+        });
         cursor = oldestAllowed;
       }
 

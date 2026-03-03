@@ -124,7 +124,7 @@ const SWPC_IMAGES = {
   auroraNorth:
     "https://services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg",
   synopticMap: "https://services.swpc.noaa.gov/images/synoptic-map.jpg",
-  sunspot: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg",
+  sunspot: "/api/solar/sdo-image?type=hmi",
 } as const;
 
 // Animation JSON manifests (contain arrays of frame URLs)

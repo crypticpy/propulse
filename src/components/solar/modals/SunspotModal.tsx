@@ -94,30 +94,12 @@ const SSN_PROPAGATION_INFO = [
 ];
 
 /**
- * NASA SDO image sources - direct URLs that are always current
- * These are updated every few minutes by NASA
- */
-const NASA_SDO_IMAGES = {
-  // AIA 171 Angstrom - shows coronal loops (blue/teal)
-  aia171: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0171.jpg",
-  // AIA 193 Angstrom - shows corona and coronal holes (gold)
-  aia193: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg",
-  // AIA 304 Angstrom - shows chromosphere (red)
-  aia304: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0304.jpg",
-  // HMI Intensitygram - shows sunspots clearly (white light)
-  hmiIntensity:
-    "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg",
-  // HMI Magnetogram - shows magnetic fields
-  hmiMag: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIB.jpg",
-};
-
-/**
- * Get the primary sun image URL
- * Uses NASA SDO direct feed which is always current
+ * Get the primary sun image URL via our edge function proxy.
+ * Proxying through /api/solar/sdo-image avoids cross-origin issues
+ * and ensures reliable delivery.
  */
 function getSunImageUrl(): string {
-  // Use HMI Intensitygram for best sunspot visibility
-  return NASA_SDO_IMAGES.hmiIntensity;
+  return "/api/solar/sdo-image?type=hmi";
 }
 
 /**
@@ -145,8 +127,8 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
     if (isOpen) {
       setImageLoading(true);
       setImageError(false);
-      // Add cache-buster to ensure fresh image
-      setImageUrl(`${getSunImageUrl()}?t=${Date.now()}`);
+      // Cache-buster ensures we get the latest SDO image on each open
+      setImageUrl(`${getSunImageUrl()}&t=${Date.now()}`);
     }
   }, [isOpen]);
 

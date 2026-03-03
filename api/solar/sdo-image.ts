@@ -32,9 +32,15 @@ export default async function handler(request: Request): Promise<Response> {
   const sdoUrl = SDO_IMAGES[type] ?? SDO_IMAGES.hmi;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+
     const res = await fetch(sdoUrl, {
       headers: { "User-Agent": "Propulse/1.0 (SDO Image Proxy)" },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!res.ok) {
       return new Response(null, { status: res.status });
@@ -45,7 +51,10 @@ export default async function handler(request: Request): Promise<Response> {
     return new Response(imageData, {
       headers: {
         "Content-Type": "image/jpeg",
-        "Cache-Control": "s-maxage=300, stale-while-revalidate=60",
+        // Cache 5 min, revalidate in background for 1 min, serve stale on
+        // upstream error for up to 24 h (NASA outages)
+        "Cache-Control":
+          "s-maxage=300, stale-while-revalidate=60, stale-if-error=86400",
         "Access-Control-Allow-Origin": getAllowedOrigin(),
       },
     });

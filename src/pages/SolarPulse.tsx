@@ -567,7 +567,7 @@ export function SolarPulse() {
   const drapF20Url = `${SWPC_IMAGES.drapF20}${imgQs}`;
   const auroraUrl = `${SWPC_IMAGES.auroraNorth}${imgQs}`;
   const synopticUrl = `${SWPC_IMAGES.synopticMap}${imgQs}`;
-  const sunspotImgUrl = `${SWPC_IMAGES.sunspot}${imgQs}`;
+  const sunspotImgUrl = `${SWPC_IMAGES.sunspot}&t=${imageTick}`;
 
   const recentHamAlerts = hamAlerts.slice(0, 5);
 

@@ -25,6 +25,11 @@ import type { RankTier } from "@/types/rank";
 import "@/stores/themeStore";
 import { NetAlertToasts } from "@/components/nets/NetAlertToasts";
 import { clearExpiredCache } from "@/lib/utils/idbCache";
+const SpeedInsights = lazy(() =>
+  import("@vercel/speed-insights/react").then((m) => ({
+    default: m.SpeedInsights,
+  })),
+);
 
 // Prune stale IDB cache entries on app startup (fire-and-forget)
 clearExpiredCache().catch(() => {});
@@ -300,6 +305,9 @@ function App() {
           </Route>
         </Routes>
         <NetAlertToasts />
+        <Suspense fallback={null}>
+          <SpeedInsights />
+        </Suspense>
       </AuthGate>
     </ErrorBoundary>
   );

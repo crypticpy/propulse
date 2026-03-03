@@ -1064,6 +1064,42 @@ export default defineConfig(({ mode }) => {
                 networkTimeoutSeconds: 10,
               },
             },
+            {
+              // NASA GIBS satellite imagery tiles (free tier)
+              urlPattern: /^https:\/\/gibs\.earthdata\.nasa\.gov\/.*/,
+              handler: "CacheFirst",
+              options: {
+                cacheName: "tiles-gibs",
+                expiration: {
+                  maxEntries: 2000,
+                  maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+                },
+              },
+            },
+            {
+              // OpenStreetMap standard tiles (free tier)
+              urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/,
+              handler: "CacheFirst",
+              options: {
+                cacheName: "tiles-osm",
+                expiration: {
+                  maxEntries: 3000,
+                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                },
+              },
+            },
+            {
+              // Mapbox/ESRI proxy tiles (Pro tier)
+              urlPattern: /\/api\/tiles\/proxy/,
+              handler: "CacheFirst",
+              options: {
+                cacheName: "tiles-pro",
+                expiration: {
+                  maxEntries: 3000,
+                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                },
+              },
+            },
           ],
         },
       }),
@@ -1096,6 +1132,9 @@ export default defineConfig(({ mode }) => {
               }
               if (id.includes("/node_modules/three/")) {
                 return "vendor-three-core";
+              }
+              if (id.includes("/node_modules/3d-tiles-renderer/")) {
+                return "vendor-tiles";
               }
               if (id.includes("/node_modules/@tanstack/react-query/")) {
                 return "vendor-tanstack";
@@ -1131,6 +1170,7 @@ export default defineConfig(({ mode }) => {
         "@tanstack/react-query",
         "date-fns",
         "zustand",
+        "3d-tiles-renderer",
       ],
     },
     server: {

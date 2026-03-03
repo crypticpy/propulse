@@ -30,6 +30,8 @@ export interface FeatureFlags {
   customImages: boolean;
   /** Per-user propagation modeling — pro (compute cost) */
   perUserPropModeling: boolean;
+  /** Access to Mapbox/ESRI high-resolution satellite tiles (Pro only) */
+  hdSatellite: boolean;
 }
 
 // ─── Flag Resolution ─────────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ const FREE_FLAGS: FeatureFlags = {
   densityMax: 100,
   customImages: false,
   perUserPropModeling: false,
+  hdSatellite: false,
 };
 
 const PRO_FLAGS: FeatureFlags = {
@@ -56,6 +59,7 @@ const PRO_FLAGS: FeatureFlags = {
   densityMax: 200,
   customImages: true,
   perUserPropModeling: true,
+  hdSatellite: true,
 };
 
 /**

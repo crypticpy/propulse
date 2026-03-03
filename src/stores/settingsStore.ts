@@ -267,6 +267,15 @@ export interface SettingsState {
   catIcomNetworkPassword: string;
   /** Audio device identifier — '' = auto-resolve, or explicit ffmpeg device ID */
   audioDevice: string;
+
+  // ─── Tile Engine Preferences (persisted) ──────────────────────────────────
+
+  /** Tile rendering quality — affects LOD aggressiveness (errorTarget) */
+  tileQuality: "low" | "medium" | "high";
+  /** GPU tile cache cap in MB (default 512) */
+  tileMaxCacheMB: number;
+  /** Whether LOD transitions fade in smoothly (TilesFadePlugin) */
+  tileFadeEnabled: boolean;
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -425,6 +434,9 @@ const defaultSettings: SettingsState = {
   catIcomNetworkUsername: "",
   catIcomNetworkPassword: "",
   audioDevice: "",
+  tileQuality: "medium",
+  tileMaxCacheMB: 512,
+  tileFadeEnabled: true,
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -664,7 +676,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 29,
+      version: 30,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
@@ -982,6 +994,11 @@ export const useSettingsStore = create<SettingsStore>()(
             state.sdrFt8ContestTemplateId = "";
           if (state.sdrFt8DecodeDepth === undefined)
             state.sdrFt8DecodeDepth = "normal";
+        }
+        if (version < 30) {
+          state.tileQuality ??= "medium";
+          state.tileMaxCacheMB ??= 512;
+          state.tileFadeEnabled ??= true;
         }
         return state as unknown as SettingsState & SettingsStore;
       },

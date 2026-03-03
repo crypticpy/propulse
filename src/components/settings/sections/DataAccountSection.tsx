@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   downloadSettingsBackup,
   readBackupFile,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/utils/settingsBackup";
 import { useLogbook } from "@/hooks/useLogbook";
 import { deleteAllDatabases } from "@/lib/db/index";
+import { getTileCacheStats, clearAllTileCaches } from "@/lib/tiles/cacheUtils";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
@@ -42,8 +43,16 @@ export function DataAccountSection() {
   const [isImporting, setIsImporting] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [tileCacheCount, setTileCacheCount] = useState<number | null>(null);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState<string | null>(null);
 
   const { entries, exportADIF } = useLogbook();
+
+  // ── Load tile cache stats on mount ─────────────────────────────
+  useEffect(() => {
+    getTileCacheStats().then((stats) => setTileCacheCount(stats.totalEntries));
+  }, []);
 
   // ── Export settings ──────────────────────────────────────────────
   const handleExport = useCallback(() => {
@@ -170,6 +179,8 @@ export function DataAccountSection() {
       // Delete all IndexedDB databases first (each has a timeout so this
       // won't hang on Safari even if connections are blocked).
       await deleteAllDatabases();
+      // Clear tile caches (Workbox runtime caches for map tiles)
+      await clearAllTileCaches();
       // Clear localStorage (synchronous — always succeeds)
       localStorage.clear();
       setBackupStatus({
@@ -459,6 +470,69 @@ export function DataAccountSection() {
             </svg>
             Export ADIF ({entries.length} QSO{entries.length !== 1 ? "s" : ""})
           </button>
+        </div>
+      </div>
+
+      {/* ── 2b. Map Tile Cache ─────────────────────────────────── */}
+      <div className="border-t border-white/10 pt-6 mt-6">
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            Map Tile Cache
+          </h3>
+          <p className="text-sm text-gray-400">
+            Cached map tiles for offline viewing.
+          </p>
+          <p className="text-sm text-gray-500">
+            {tileCacheCount === null
+              ? "Loading..."
+              : `${tileCacheCount.toLocaleString()} tile${tileCacheCount !== 1 ? "s" : ""} cached`}
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              setIsClearingCache(true);
+              setCacheStatus(null);
+              try {
+                await clearAllTileCaches();
+                const stats = await getTileCacheStats();
+                setTileCacheCount(stats.totalEntries);
+                setCacheStatus("Cache cleared");
+              } catch {
+                setCacheStatus("Failed to clear cache");
+              } finally {
+                setIsClearingCache(false);
+              }
+            }}
+            disabled={isClearingCache || tileCacheCount === 0}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                       ${
+                         tileCacheCount !== 0 && !isClearingCache
+                           ? "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30"
+                           : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                       }`}
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+            {isClearingCache ? "Clearing..." : "Clear Map Cache"}
+          </button>
+          {cacheStatus && (
+            <p
+              className={`text-sm ${cacheStatus.includes("Failed") ? "text-alert-red" : "text-signal-green"}`}
+            >
+              {cacheStatus}
+            </p>
+          )}
         </div>
       </div>
 

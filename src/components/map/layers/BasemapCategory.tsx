@@ -7,6 +7,7 @@
 
 import { useMapStore } from "@/stores/mapStore";
 import type { MapStyle } from "@/stores/mapStore";
+import { useProfileStore } from "@/stores/profileStore";
 import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
@@ -191,20 +192,8 @@ interface BasemapOption {
   id: MapStyle;
   label: string;
   thumbnail: (active: boolean) => ReactNode;
+  subtitle?: string;
 }
-
-const OPTIONS: BasemapOption[] = [
-  {
-    id: "satellite",
-    label: "Satellite",
-    thumbnail: (active) => <SatelliteThumbnail active={active} />,
-  },
-  {
-    id: "standard",
-    label: "Standard",
-    thumbnail: (active) => <StandardThumbnail active={active} />,
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -213,41 +202,72 @@ const OPTIONS: BasemapOption[] = [
 export default function BasemapCategory() {
   const mapStyle = useMapStore((s) => s.mapStyle);
   const setMapStyle = useMapStore((s) => s.setMapStyle);
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+
+  const satelliteSubtitle =
+    subscriptionTier === "pro" ? "HD Satellite" : "NASA GIBS";
+
+  const options: BasemapOption[] = [
+    {
+      id: "satellite",
+      label: "Satellite",
+      thumbnail: (active) => <SatelliteThumbnail active={active} />,
+      subtitle: satelliteSubtitle,
+    },
+    {
+      id: "standard",
+      label: "Standard",
+      thumbnail: (active) => <StandardThumbnail active={active} />,
+      subtitle: "OpenStreetMap",
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {OPTIONS.map((opt) => {
-        const isActive = mapStyle === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => setMapStyle(opt.id)}
-            className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all duration-150 cursor-pointer border ${
-              isActive
-                ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
-                : "border-zinc-700 bg-white/[0.03] hover:bg-white/[0.06] hover:border-zinc-600"
-            }`}
-          >
-            {/* Thumbnail preview */}
-            <div
-              className={`w-full aspect-[4/3] overflow-hidden rounded-md ${
-                isActive ? "ring-1 ring-cyan-500/30" : ""
+    <div>
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((opt) => {
+          const isActive = mapStyle === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setMapStyle(opt.id)}
+              className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all duration-150 cursor-pointer border ${
+                isActive
+                  ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
+                  : "border-zinc-700 bg-white/[0.03] hover:bg-white/[0.06] hover:border-zinc-600"
               }`}
             >
-              {opt.thumbnail(isActive)}
-            </div>
-            {/* Label */}
-            <span
-              className={`text-[11px] font-medium transition-colors ${
-                isActive ? "text-cyan-400" : "text-white/60"
-              }`}
-            >
-              {opt.label}
-            </span>
-          </button>
-        );
-      })}
+              {/* Thumbnail preview */}
+              <div
+                className={`w-full aspect-[4/3] overflow-hidden rounded-md ${
+                  isActive ? "ring-1 ring-cyan-500/30" : ""
+                }`}
+              >
+                {opt.thumbnail(isActive)}
+              </div>
+              {/* Label + subtitle */}
+              <span
+                className={`text-[11px] font-medium transition-colors ${
+                  isActive ? "text-cyan-400" : "text-white/60"
+                }`}
+              >
+                {opt.label}
+              </span>
+              {opt.subtitle && (
+                <span className="text-[9px] text-white/40">{opt.subtitle}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[9px] text-white/30 text-center">
+        {mapStyle === "satellite"
+          ? subscriptionTier === "pro"
+            ? "\u00A9 Mapbox \u00A9 OpenStreetMap"
+            : "NASA EOSDIS GIBS"
+          : "\u00A9 OpenStreetMap contributors"}
+      </p>
     </div>
   );
 }

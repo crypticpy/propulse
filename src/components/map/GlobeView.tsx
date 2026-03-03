@@ -23,6 +23,8 @@ import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getBearing, getDistance } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
+import { TiledGlobe } from "./TiledGlobe";
+import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
 import { Greyline } from "./Greyline";
@@ -770,6 +772,20 @@ function GlobeScene({
 }) {
   const { layers, target, pathMode, mapStyle, rotation } = useMapStore();
   const isStandard = mapStyle === "standard";
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const tileProvider = useMemo(
+    () => selectTileProvider(mapStyle, subscriptionTier),
+    [mapStyle, subscriptionTier],
+  );
+  const [tileFailCount, setTileFailCount] = useState(0);
+  const MAX_TILE_RETRIES = 3;
+  const useTileFallback = tileFailCount >= MAX_TILE_RETRIES;
+
+  // Reset error state when tile provider changes (style switch or tier upgrade)
+  useEffect(() => {
+    setTileFailCount(0);
+  }, [tileProvider.id]);
+
   const { station } = useUserStore();
   const { pins } = usePinStore();
   const { data: auroraData } = useAuroraData();
@@ -1134,8 +1150,17 @@ function GlobeScene({
           onHoverEnd={onHoverEnd}
           holdDurationMs={holdDurationMs}
         >
-          {/* Earth sphere */}
-          <EarthSphere grayscale={isStandard} />
+          {/* Earth sphere — tiled globe with static fallback */}
+          {useTileFallback ? (
+            <EarthSphere grayscale={isStandard} />
+          ) : (
+            <TiledGlobe
+              provider={tileProvider}
+              displayTime={displayTime}
+              requiresAuth={tileProvider.requiresAuth}
+              onError={() => setTileFailCount((c) => c + 1)}
+            />
+          )}
         </GlobeClickHandler>
 
         {/* Night side darkening overlay */}
@@ -1486,8 +1511,14 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
     setFlyoutPosition,
     setTarget,
     setCenterLocation,
+    mapStyle,
   } = useMapStore();
   const { station } = useUserStore();
+  const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
+  const tileAttribution = useMemo(
+    () => selectTileProvider(mapStyle, subscriptionTier).attribution,
+    [mapStyle, subscriptionTier],
+  );
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
   const { addPin, removePin, getPinById } = usePinStore();
@@ -1972,6 +2003,11 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
           </Suspense>
         </Canvas>
       </GlobeErrorBoundary>
+
+      {/* Tile attribution overlay */}
+      <div className="absolute bottom-1 right-1 text-[10px] text-white/40 pointer-events-none select-none">
+        {tileAttribution}
+      </div>
 
       {/* Tooltip overlay - rendered outside Canvas */}
       <MapTooltip

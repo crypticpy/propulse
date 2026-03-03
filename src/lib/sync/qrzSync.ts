@@ -14,7 +14,7 @@
 import type { LogEntry } from "@/lib/db/types";
 import { getCredential, isUnlocked } from "@/lib/db/credentialStore";
 import { exportADIF } from "@/lib/adif/export";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getAccessToken } from "@/lib/api/authFetch";
 
 // -- Types ------------------------------------------------------------------
 
@@ -39,27 +39,11 @@ export interface QrzStatusResult {
 }
 
 async function getAuthAccessToken(): Promise<string> {
-  if (!isSupabaseConfigured) {
-    throw new Error(
-      "Supabase auth is not configured. QRZ sync requires authenticated API access.",
-    );
-  }
-
-  const supabase = getSupabase();
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
-
-  if (error) {
-    throw new Error(`Unable to read authentication session: ${error.message}`);
-  }
-
-  if (!session?.access_token) {
+  const token = await getAccessToken();
+  if (!token) {
     throw new Error("Authentication required. Sign in to use QRZ sync.");
   }
-
-  return session.access_token;
+  return token;
 }
 
 // -- Upload -----------------------------------------------------------------

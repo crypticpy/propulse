@@ -533,9 +533,12 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
               break;
             }
             // Fetch eQSL inbox to check for new confirmations
+            const { authHeaders } = await import("@/lib/api/authFetch");
             const resp = await fetch("/api/log/eqsl-inbox", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: await authHeaders({
+                "Content-Type": "application/json",
+              }),
               body: JSON.stringify({
                 username: creds.username,
                 password: creds.password,

@@ -109,9 +109,10 @@ export async function uploadToEqsl(
       includeActivation: true,
     });
 
+    const { authHeaders } = await import("@/lib/api/authFetch");
     const response = await fetch("/api/log/eqsl", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         adifContent,
         username: cred.username,
@@ -202,9 +203,10 @@ export async function downloadEqslInbox(
       body.since = since;
     }
 
+    const { authHeaders } = await import("@/lib/api/authFetch");
     const response = await fetch("/api/log/eqsl-inbox", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     });
 

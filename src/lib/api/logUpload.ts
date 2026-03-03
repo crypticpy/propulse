@@ -73,11 +73,10 @@ export async function uploadToEqsl(
   }
 
   try {
+    const { authHeaders } = await import("@/lib/api/authFetch");
     const response = await fetch("/api/log/eqsl", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         adifContent,
         username: credentials.username,
@@ -140,11 +139,10 @@ export async function uploadToClublog(
   }
 
   try {
+    const { authHeaders } = await import("@/lib/api/authFetch");
     const response = await fetch("/api/log/clublog", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         adifContent,
         email: credentials.email,

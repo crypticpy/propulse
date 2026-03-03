@@ -82,8 +82,11 @@ export async function fetchHamQTH(
       params.append("sessionId", sessionId);
     }
 
+    const { authHeaders } = await import("@/lib/api/authFetch");
     const url = `/api/callsign/hamqth?${params.toString()}`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: await authHeaders(),
+    });
 
     if (!response.ok) {
       // Try to extract error message from response body

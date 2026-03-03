@@ -10,6 +10,15 @@ import { runStoreDecompositionMigration } from "@/lib/migrations/userStoreMigrat
 // Must execute synchronously before React renders and stores hydrate
 runStoreDecompositionMigration();
 
+// Auto-reload on stale chunk errors after redeployment.
+// When Vercel deploys a new build, chunk hashes change. Users with a cached
+// index.html will reference old chunk filenames that no longer exist, causing
+// "Failed to fetch dynamically imported module" errors. This handler reloads
+// the page once to pick up the new index.html.
+window.addEventListener("vite:preloadError", () => {
+  window.location.reload();
+});
+
 // Development utilities: attach __seedEquipment / __clearEquipment to window
 if (import.meta.env.DEV) {
   import("@/lib/dev");

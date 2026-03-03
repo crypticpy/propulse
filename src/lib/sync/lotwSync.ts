@@ -146,9 +146,10 @@ export async function downloadLotwConfirmations(
       body.since = since;
     }
 
+    const { authHeaders } = await import("@/lib/api/authFetch");
     const response = await fetch("/api/log/lotw", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     });
 

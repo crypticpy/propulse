@@ -324,7 +324,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         return;
       }
 
-      set({ loading: false });
+      set({ loading: false, sessionExpired: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : "Failed to sign out",

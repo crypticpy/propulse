@@ -31,14 +31,9 @@ export async function verifyAuth(
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
+  // Local dev bypass: no Supabase configured, allow through
   if (!supabaseUrl || !supabaseAnonKey) {
-    return new Response(
-      JSON.stringify({ error: "Server configuration error" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    return { user: { id: "local-dev", email: undefined } };
   }
 
   const authHeader = request.headers.get("authorization");

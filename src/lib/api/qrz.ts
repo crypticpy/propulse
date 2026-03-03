@@ -50,12 +50,12 @@ export async function fetchQRZ(
   }
 
   try {
-    const params = new URLSearchParams({
-      callsign: normalized,
-      apiKey,
+    const { authHeaders } = await import("@/lib/api/authFetch");
+    const response = await fetch("/api/callsign/qrz", {
+      method: "POST",
+      headers: await authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ callsign: normalized, apiKey }),
     });
-    const url = `/api/callsign/qrz?${params.toString()}`;
-    const response = await fetch(url);
 
     if (!response.ok) {
       try {

@@ -14,8 +14,8 @@
  *   RESULT=OK or RESULT=FAIL&REASON=...
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { applyRateLimit } from "../_lib/rateLimit";
+import { verifyAuth } from "../_lib/auth";
 
 export const config = {
   runtime: "edge",
@@ -135,32 +135,9 @@ export default async function handler(request: Request): Promise<Response> {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  // Verify JWT — this endpoint handles user credentials (QRZ API keys)
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return jsonResponse({ error: "Authentication required" }, 401);
-  }
-
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return jsonResponse({ error: "Server auth is not configured" }, 500);
-  }
-
-  const token = authHeader.slice("Bearer ".length).trim();
-  if (!token) {
-    return jsonResponse({ error: "Authentication required" }, 401);
-  }
-
-  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data: authData, error: authError } = await authClient.auth.getUser(
-    token,
-  );
-  if (authError || !authData?.user) {
-    return jsonResponse({ error: "Invalid or expired token" }, 401);
-  }
+  // Verify JWT authentication
+  const authResult = await verifyAuth(request);
+  if (authResult instanceof Response) return authResult;
 
   let body: {
     adif?: string;

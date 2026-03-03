@@ -7,7 +7,6 @@ import {
   BzChart,
   FlareProbability,
   SolarFluxChart,
-  EventAlert,
   PropagationIndex,
   AnimationModal,
   KIndexChartModal,
@@ -125,6 +124,7 @@ const SWPC_IMAGES = {
   auroraNorth:
     "https://services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg",
   synopticMap: "https://services.swpc.noaa.gov/images/synoptic-map.jpg",
+  sunspot: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_HMIIC.jpg",
 } as const;
 
 // Animation JSON manifests (contain arrays of frame URLs)
@@ -364,6 +364,7 @@ export function SolarPulse() {
   const [drapF20Open, setDrapF20Open] = useState(false);
   const [auroraOpen, setAuroraOpen] = useState(false);
   const [synopticOpen, setSynopticOpen] = useState(false);
+  const [sunspotImageOpen, setSunspotImageOpen] = useState(false);
 
   // Help modal states
   const [helpModal, setHelpModal] = useState<string | null>(null);
@@ -537,11 +538,6 @@ export function SolarPulse() {
   }
 
   // --- Derived: ops banner + cards ---
-  const latestHamAlert = hamAlerts[0] ?? null;
-  const latestHamAlertSeverity = latestHamAlert?.severity ?? "minor";
-  const latestHamAlertText = latestHamAlert
-    ? `${latestHamAlert.summaryLine}${latestHamAlert.noaaScaleCode ? ` (${latestHamAlert.noaaScaleCode})` : ""}`
-    : "";
 
   const scalesNow = noaaScales?.["0"] ?? null;
   const scalesForecast1 = noaaScales?.["1"] ?? null;
@@ -571,6 +567,7 @@ export function SolarPulse() {
   const drapF20Url = `${SWPC_IMAGES.drapF20}${imgQs}`;
   const auroraUrl = `${SWPC_IMAGES.auroraNorth}${imgQs}`;
   const synopticUrl = `${SWPC_IMAGES.synopticMap}${imgQs}`;
+  const sunspotImgUrl = `${SWPC_IMAGES.sunspot}${imgQs}`;
 
   const recentHamAlerts = hamAlerts.slice(0, 5);
 
@@ -677,15 +674,6 @@ export function SolarPulse() {
             isRefetching={solarIsRefetching}
           />
         </div>
-
-        {/* Event Alert (SWPC alerts feed, ham-relevant only) */}
-        {latestHamAlertText ? (
-          <EventAlert
-            eventType={null}
-            severity={latestHamAlertSeverity}
-            message={latestHamAlertText}
-          />
-        ) : null}
 
         {/* Primary Metrics */}
         <PrimaryMetrics
@@ -1141,8 +1129,8 @@ export function SolarPulse() {
             </a>
           </div>
 
-          {/* 5-item grid: responsive from 2 cols to 5 cols */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {/* 6-item grid: responsive from 2 cols to 6 cols */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {/* D-RAP Global (animated) */}
             <figure
               className="group cursor-pointer"
@@ -1339,6 +1327,44 @@ export function SolarPulse() {
                 Solar Synoptic Map
               </figcaption>
             </figure>
+
+            {/* Sunspot Image (NASA SDO) */}
+            <figure
+              className="group cursor-pointer"
+              onClick={() => setSunspotImageOpen(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && setSunspotImageOpen(true)}
+            >
+              <div className="relative overflow-hidden rounded-xl border border-white/10 group-hover:border-caution-amber/40 transition-all duration-200 aspect-[4/3] bg-black">
+                <img
+                  src={sunspotImgUrl}
+                  alt="NASA SDO sunspot image"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = document.createElement("div");
+                    fallback.className =
+                      "flex items-center justify-center h-full text-gray-500 text-sm";
+                    fallback.textContent = "Image unavailable";
+                    target.parentElement?.appendChild(fallback);
+                  }}
+                />
+                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-caution-amber/80 rounded text-[10px] font-mono text-white uppercase tracking-wider">
+                  Live
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-center pb-3">
+                  <span className="text-xs text-white font-medium">
+                    Enlarge
+                  </span>
+                </div>
+              </div>
+              <figcaption className="text-xs text-gray-500 mt-2 text-center">
+                Sunspots (SDO/HMI)
+              </figcaption>
+            </figure>
           </div>
         </section>
 
@@ -1459,7 +1485,7 @@ export function SolarPulse() {
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              No ham-relevant alerts at this time
+              No ham-relevant alerts in the last 24 hours
             </div>
           )}
         </section>
@@ -1792,6 +1818,17 @@ export function SolarPulse() {
         caption="Shows active regions (sunspots) and coronal holes on the sun. Coronal holes can produce high-speed solar wind streams affecting propagation."
         sourceUrl="https://www.swpc.noaa.gov/products/solar-synoptic-map"
         sourceLabel="View at NOAA"
+      />
+
+      <AnimationModal
+        isOpen={sunspotImageOpen}
+        onClose={() => setSunspotImageOpen(false)}
+        thumbnailUrl={sunspotImgUrl}
+        alt="NASA SDO HMI Intensitygram - Sunspots"
+        title="Live Sunspot Image (NASA SDO)"
+        caption="HMI Intensitygram showing sunspots on the solar surface. Updated every few minutes by NASA's Solar Dynamics Observatory."
+        sourceUrl="https://sdo.gsfc.nasa.gov/"
+        sourceLabel="View at NASA SDO"
       />
 
       {/* SWPC Alert Detail Modal */}

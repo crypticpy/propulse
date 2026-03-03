@@ -28,6 +28,19 @@ const QUERY_KEY = ["swpc", "alerts"] as const;
 
 const ONE_MINUTE = 60_000;
 
+/**
+ * Default TTLs for alerts without explicit "Valid To" lines.
+ * SWPC warnings have explicit validity windows; alerts/summaries don't.
+ * These are conservative defaults based on typical event durations.
+ */
+const DEFAULT_TTL_MS: Record<string, number> = {
+  blackout: 3 * 60 * 60 * 1000, // R-scale: 3 hours (flare HF impact fades)
+  storm: 12 * 60 * 60 * 1000, // G-scale: 12 hours (storm period)
+  radiation: 24 * 60 * 60 * 1000, // S-scale: 24 hours (proton events linger)
+  flare: 3 * 60 * 60 * 1000, // flare summaries: 3 hours
+  other: 6 * 60 * 60 * 1000, // catch-all: 6 hours
+};
+
 // =============================================================================
 // PARSING HELPERS  (moved from SolarPulse.tsx)
 // =============================================================================
@@ -96,6 +109,56 @@ export function severityFromNoaaScaleCode(
 }
 
 /**
+ * Parse "Valid To: YYYY Mon DD HHMM UTC" from SWPC warning messages.
+ * Returns null if the message doesn't contain a valid-to line.
+ * Format example: "Valid To: 2026 Feb 26 0300 UTC"
+ */
+const MONTH_MAP: Record<string, number> = {
+  Jan: 0,
+  Feb: 1,
+  Mar: 2,
+  Apr: 3,
+  May: 4,
+  Jun: 5,
+  Jul: 6,
+  Aug: 7,
+  Sep: 8,
+  Oct: 9,
+  Nov: 10,
+  Dec: 11,
+};
+
+function parseValidTo(message: string): Date | null {
+  const m = message.match(
+    /Valid\s+To:\s*(\d{4})\s+(\w{3})\s+(\d{1,2})\s+(\d{4})\s+UTC/i,
+  );
+  if (!m) return null;
+  const [, year, mon, day, hhmm] = m;
+  const monthIdx = MONTH_MAP[mon];
+  if (monthIdx === undefined) return null;
+  const hh = Number(hhmm.slice(0, 2));
+  const mm = Number(hhmm.slice(2));
+  const d = new Date(Date.UTC(Number(year), monthIdx, Number(day), hh, mm));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Compute when an alert expires:
+ * 1. If message contains "Valid To:" → use that explicit expiration
+ * 2. Otherwise → issue time + category-based default TTL
+ */
+function computeExpiresAt(
+  parsedDate: Date,
+  category: SwpcAlertCategory,
+  message: string,
+): Date {
+  const validTo = parseValidTo(message);
+  if (validTo) return validTo;
+  const ttl = DEFAULT_TTL_MS[category] ?? DEFAULT_TTL_MS.other;
+  return new Date(parsedDate.getTime() + ttl);
+}
+
+/**
  * Derive the alert category from the NOAA scale letter or message keywords.
  */
 function categorizeAlert(
@@ -126,6 +189,7 @@ function parseAlert(raw: SwpcAlertItem): SwpcAlertParsed {
   const summaryLine = alertSummaryLine(raw.message);
   const isHamRelevant = isHamRelevantAlert(raw);
   const category = categorizeAlert(noaaScaleCode, raw.message);
+  const expiresAt = computeExpiresAt(parsedDate, category, raw.message);
 
   return {
     ...raw,
@@ -135,6 +199,7 @@ function parseAlert(raw: SwpcAlertItem): SwpcAlertParsed {
     summaryLine,
     isHamRelevant,
     category,
+    expiresAt,
   };
 }
 
@@ -165,7 +230,12 @@ export function useSwpcAlerts(): UseSwpcAlertsReturn {
         }
         const raw: SwpcAlertItem[] = await res.json();
 
-        const parsed = raw.map(parseAlert);
+        const now = Date.now();
+        const parsed = raw
+          .map(parseAlert)
+          // Drop expired alerts: those past their "Valid To" time or
+          // past their category-based TTL from issue time
+          .filter((a) => a.expiresAt.getTime() > now);
 
         // Sort newest-first by parsedDate
         parsed.sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());

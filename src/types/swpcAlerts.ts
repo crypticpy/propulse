@@ -49,4 +49,6 @@ export interface SwpcAlertParsed extends SwpcAlertItem {
   isHamRelevant: boolean;
   /** Category of the alert based on scale letter or message keywords */
   category: SwpcAlertCategory;
+  /** When this alert expires (parsed from "Valid To" or issue_datetime + TTL) */
+  expiresAt: Date;
 }

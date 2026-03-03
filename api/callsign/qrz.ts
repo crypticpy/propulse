@@ -9,6 +9,7 @@
  */
 
 import { applyRateLimit } from "../_lib/rateLimit";
+import { verifyAuth } from "../_lib/auth";
 
 export const config = {
   runtime: "edge",
@@ -33,7 +34,7 @@ function jsonResponse(
           : "no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, X-Api-Key",
+      "Access-Control-Allow-Headers": "Content-Type, X-Api-Key, Authorization",
       ...extraHeaders,
     },
   });
@@ -280,13 +281,18 @@ export default async function handler(request: Request): Promise<Response> {
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, X-Api-Key",
+        "Access-Control-Allow-Headers":
+          "Content-Type, X-Api-Key, Authorization",
       },
     });
   }
 
   const limited = applyRateLimit(request, "callsign/qrz", 30, 60);
   if (limited) return limited;
+
+  // Verify JWT authentication
+  const authResult = await verifyAuth(request);
+  if (authResult instanceof Response) return authResult;
 
   let callsign: string | null = null;
   let apiKey: string | null = null;
@@ -326,26 +332,26 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   // Authenticate with QRZ
-  const authResult = await authenticate(apiKey);
-  if (authResult.error) {
+  const qrzAuth = await authenticate(apiKey);
+  if (qrzAuth.error) {
     // Distinguish auth errors from network errors
     const isAuthError =
-      authResult.error.toLowerCase().includes("password") ||
-      authResult.error.toLowerCase().includes("username") ||
-      authResult.error.toLowerCase().includes("invalid") ||
-      authResult.error.toLowerCase().includes("not found") ||
-      authResult.error.toLowerCase().includes("denied");
+      qrzAuth.error.toLowerCase().includes("password") ||
+      qrzAuth.error.toLowerCase().includes("username") ||
+      qrzAuth.error.toLowerCase().includes("invalid") ||
+      qrzAuth.error.toLowerCase().includes("not found") ||
+      qrzAuth.error.toLowerCase().includes("denied");
 
     return jsonResponse(
       {
-        error: isAuthError ? "Invalid QRZ API key" : authResult.error,
+        error: isAuthError ? "Invalid QRZ API key" : qrzAuth.error,
         provider: "qrz",
       },
       isAuthError ? 401 : 500,
     );
   }
 
-  let sessionKey = authResult.sessionKey!;
+  let sessionKey = qrzAuth.sessionKey!;
 
   // Attempt lookup
   let lookupResult = await lookupCallsign(sessionKey, callsign);

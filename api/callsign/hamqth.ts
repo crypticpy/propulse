@@ -9,6 +9,7 @@
  */
 
 import { applyRateLimit } from "../_lib/rateLimit";
+import { verifyAuth } from "../_lib/auth";
 
 export const config = {
   runtime: "edge",
@@ -205,13 +206,17 @@ export default async function handler(request: Request): Promise<Response> {
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
         "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
   }
 
   const limited = applyRateLimit(request, "callsign/hamqth", 30, 60);
   if (limited) return limited;
+
+  // Verify JWT authentication
+  const authResult = await verifyAuth(request);
+  if (authResult instanceof Response) return authResult;
 
   const url = new URL(request.url);
   const callsign = normalizeCallsign(url.searchParams.get("callsign"));

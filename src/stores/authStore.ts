@@ -33,6 +33,8 @@ interface AuthState {
   error: string | null;
   /** Whether a password recovery flow is active (user clicked reset link in email) */
   isRecoveryMode: boolean;
+  /** Whether the previous session expired (SIGNED_OUT after being authenticated) */
+  sessionExpired: boolean;
 
   /** Check for existing session and set up auth listener. Call once on app boot. */
   initialize: () => Promise<void>;
@@ -69,6 +71,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   loading: false,
   error: null,
   isRecoveryMode: false,
+  sessionExpired: false,
 
   initialize: () => {
     // Deduplicate concurrent calls — return existing promise if in-flight
@@ -106,6 +109,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange((event, session) => {
+          const prevUser = get().user;
+
           set({
             user: session?.user ?? null,
             session: session ?? null,
@@ -114,6 +119,16 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           // Detect password recovery flow
           if (event === "PASSWORD_RECOVERY") {
             set({ isRecoveryMode: true });
+          }
+
+          // Clear session expired flag on successful sign-in (covers magic link flow)
+          if (event === "SIGNED_IN") {
+            set({ sessionExpired: false });
+          }
+
+          // Detect session expiry (signed out while previously authenticated)
+          if (event === "SIGNED_OUT" && prevUser !== null) {
+            set({ sessionExpired: true });
           }
         });
         authSubscription = subscription;
@@ -221,7 +236,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         return;
       }
 
-      set({ loading: false });
+      set({ loading: false, sessionExpired: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : "Failed to sign in",

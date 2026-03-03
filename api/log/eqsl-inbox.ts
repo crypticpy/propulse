@@ -11,6 +11,7 @@
  */
 
 import { applyRateLimit } from "../_lib/rateLimit";
+import { verifyAuth } from "../_lib/auth";
 
 export const config = {
   runtime: "edge",
@@ -44,7 +45,7 @@ function jsonResponse(
       "Cache-Control": "no-store, no-cache",
       "Access-Control-Allow-Origin": getAllowedOrigin(),
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       ...extraHeaders,
     },
   });
@@ -58,7 +59,7 @@ export default async function handler(request: Request): Promise<Response> {
       headers: {
         "Access-Control-Allow-Origin": getAllowedOrigin(),
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
   }
@@ -68,6 +69,10 @@ export default async function handler(request: Request): Promise<Response> {
 
   const limited = applyRateLimit(request, "log/eqsl-inbox", 10, 60);
   if (limited) return limited;
+
+  // Verify JWT authentication
+  const authResult = await verifyAuth(request);
+  if (authResult instanceof Response) return authResult;
 
   let username: string | null = null;
   let password: string | null = null;

@@ -3,6 +3,7 @@ import { Routes, Route, Link, Navigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthGate } from "@/components/auth/AuthGate";
 import { useTextScale } from "@/hooks/useTextScale";
 import { useHighContrast } from "@/hooks/useHighContrast";
 import { useColorBlindMode } from "@/hooks/useColorBlindMode";
@@ -226,75 +227,80 @@ function App() {
 
   return (
     <ErrorBoundary>
-      {showCelebration && celebrationRanks && (
-        <RankUpCelebration
-          fromRank={celebrationRanks.from}
-          toRank={celebrationRanks.to}
-          onDismiss={handleDismissCelebration}
-        />
-      )}
-      <WelcomeOverlay />
-      <Suspense fallback={null}>
-        <RadioSetupWizard />
-      </Suspense>
-      {upgradeToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[600] px-5 py-3 rounded-xl bg-signal-green/20 border border-signal-green/30 backdrop-blur-lg text-signal-green text-sm font-medium shadow-lg animate-fade-in">
-          Welcome to Pro! All features unlocked.
-        </div>
-      )}
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/solar" element={<SolarPulse />} />
-          <Route path="/dx" element={<DXWizard />} />
-          <Route path="/planner" element={<BandPlanner />} />
-          <Route path="/log" element={<Logbook />} />
-          <Route path="/awards" element={<AwardsPage />} />
-          <Route path="/contest" element={<Contest />} />
-          <Route path="/contests" element={<ContestExplorerPage />} />
-          <Route path="/activation" element={<ActivationPage />} />
-          <Route path="/satellites" element={<SatellitesPage />} />
-          <Route path="/map" element={<MapRoute />} />
-          <Route path="/settings/*" element={<SettingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/profile/:callsign" element={<ProfilePage />} />
-          <Route path="/shack" element={<ShackPage />} />
-          <Route path="/sdr" element={<SdrConsole />} />
-          <Route path="/sdr/setup" element={<RadioDaemonSetup />} />
-          <Route path="/health" element={<SystemHealthPage />} />
-          <Route path="/bridge" element={<BridgeInfoPage />} />
-          <Route path="/setup" element={<SetupGuidePage />} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/help" element={<HelpPage />} />
-          <Route path="/help/:sectionId" element={<HelpArticlePage />} />
-          {/* Net Registry (browse / discover) */}
-          <Route path="/nets" element={<NetsPage />} />
-          <Route path="/nets/:netId" element={<NetDetailPage />} />
+      <AuthGate>
+        {showCelebration && celebrationRanks && (
+          <RankUpCelebration
+            fromRank={celebrationRanks.from}
+            toRank={celebrationRanks.to}
+            onDismiss={handleDismissCelebration}
+          />
+        )}
+        <WelcomeOverlay />
+        <Suspense fallback={null}>
+          <RadioSetupWizard />
+        </Suspense>
+        {upgradeToast && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[600] px-5 py-3 rounded-xl bg-signal-green/20 border border-signal-green/30 backdrop-blur-lg text-signal-green text-sm font-medium shadow-lg animate-fade-in">
+            Welcome to Pro! All features unlocked.
+          </div>
+        )}
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/solar" element={<SolarPulse />} />
+            <Route path="/dx" element={<DXWizard />} />
+            <Route path="/planner" element={<BandPlanner />} />
+            <Route path="/log" element={<Logbook />} />
+            <Route path="/awards" element={<AwardsPage />} />
+            <Route path="/contest" element={<Contest />} />
+            <Route path="/contests" element={<ContestExplorerPage />} />
+            <Route path="/activation" element={<ActivationPage />} />
+            <Route path="/satellites" element={<SatellitesPage />} />
+            <Route path="/map" element={<MapRoute />} />
+            <Route path="/settings/*" element={<SettingsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/:callsign" element={<ProfilePage />} />
+            <Route path="/shack" element={<ShackPage />} />
+            <Route path="/sdr" element={<SdrConsole />} />
+            <Route path="/sdr/setup" element={<RadioDaemonSetup />} />
+            <Route path="/health" element={<SystemHealthPage />} />
+            <Route path="/bridge" element={<BridgeInfoPage />} />
+            <Route path="/setup" element={<SetupGuidePage />} />
+            <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/help" element={<HelpPage />} />
+            <Route path="/help/:sectionId" element={<HelpArticlePage />} />
+            {/* Net Registry (browse / discover) */}
+            <Route path="/nets" element={<NetsPage />} />
+            <Route path="/nets/:netId" element={<NetDetailPage />} />
 
-          {/* Net Controller (manage / operate) */}
-          <Route path="/ncs" element={<NetControllerPage />} />
-          <Route path="/ncs/create" element={<NetCreatePage />} />
-          <Route path="/ncs/:netId" element={<NetControllerDetailPage />} />
-          <Route path="/ncs/:netId/live" element={<NCSLiveDashboard />} />
-          <Route path="/ncs/:netId/analytics" element={<NetAnalyticsPage />} />
+            {/* Net Controller (manage / operate) */}
+            <Route path="/ncs" element={<NetControllerPage />} />
+            <Route path="/ncs/create" element={<NetCreatePage />} />
+            <Route path="/ncs/:netId" element={<NetControllerDetailPage />} />
+            <Route path="/ncs/:netId/live" element={<NCSLiveDashboard />} />
+            <Route
+              path="/ncs/:netId/analytics"
+              element={<NetAnalyticsPage />}
+            />
 
-          {/* Redirects from old /nets/* controller routes */}
-          <Route
-            path="/nets/create"
-            element={<Navigate to="/ncs/create" replace />}
-          />
-          <Route
-            path="/nets/:netId/live"
-            element={<NcsRedirect suffix="/live" />}
-          />
-          <Route
-            path="/nets/:netId/analytics"
-            element={<NcsRedirect suffix="/analytics" />}
-          />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-      <NetAlertToasts />
+            {/* Redirects from old /nets/* controller routes */}
+            <Route
+              path="/nets/create"
+              element={<Navigate to="/ncs/create" replace />}
+            />
+            <Route
+              path="/nets/:netId/live"
+              element={<NcsRedirect suffix="/live" />}
+            />
+            <Route
+              path="/nets/:netId/analytics"
+              element={<NcsRedirect suffix="/analytics" />}
+            />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+        <NetAlertToasts />
+      </AuthGate>
     </ErrorBoundary>
   );
 }

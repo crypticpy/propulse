@@ -116,7 +116,7 @@ export function NightLightsOverlay({
   }, [subsolar, nightLightsTexture, intensity]);
 
   return (
-    <mesh>
+    <mesh renderOrder={11}>
       {/* Slightly larger than Earth sphere to prevent z-fighting */}
       <sphereGeometry args={[1.007, 64, 64]} />
       <primitive object={material} attach="material" />

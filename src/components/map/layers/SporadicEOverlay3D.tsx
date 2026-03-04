@@ -8,7 +8,7 @@
  * Higher foEs values produce brighter, more opaque patches. A subtle
  * pulse animation on high-probability zones creates a "living" feel.
  *
- * Only regions with probability > 0.05 are rendered.
+ * Only regions with probability > 0.02 are rendered.
  */
 
 import React, { useRef, useMemo, useEffect } from "react";
@@ -33,7 +33,7 @@ const GLOBE_RADIUS = 1.025;
 
 /** Minimum probability to render — low threshold ensures winter Es is
  *  visible (dark green) while summer mid-lat peaks are bright green. */
-const MIN_PROBABILITY = 0.05;
+const MIN_PROBABILITY = 0.02;
 
 /** Hard cap on rendered instances */
 const MAX_INSTANCES = 2000;
@@ -47,7 +47,7 @@ const up = new THREE.Vector3(0, 0, 1);
 
 // Sporadic E color palette — ethereal green tones
 const colorWeak = new THREE.Color("#226644"); // dark green — low probability
-const colorStrong = new THREE.Color("#44ff88"); // bright green — high probability/foEs
+const colorStrong = new THREE.Color("#66ff99"); // bright green — high probability/foEs
 
 // =============================================================================
 // HELPERS
@@ -112,9 +112,9 @@ export const SporadicEOverlay3D = React.memo(
         dummy.quaternion.setFromUnitVectors(up, normal);
 
         // Scale: larger discs for higher probability — creates cloud-like blobs
-        // Base scale 0.08 produces visible patches on a radius-1.0 globe;
+        // Base scale 0.12 produces visible patches on a radius-1.0 globe;
         // probability further expands them up to 1.6x for strong regions.
-        const baseScale = 0.08;
+        const baseScale = 0.12;
         const probScale = 1 + region.probability * 0.6;
         dummy.scale.setScalar(baseScale * probScale);
         dummy.updateMatrix();
@@ -154,7 +154,7 @@ export const SporadicEOverlay3D = React.memo(
         const t = clock.getElapsedTime();
         // Layered sine waves for organic, cloud-like pulsing
         const pulse = Math.sin(t * 0.6) * 0.06 + Math.sin(t * 1.3) * 0.03;
-        materialRef.current.opacity = 0.32 + pulse;
+        materialRef.current.opacity = 0.55 + pulse;
       }
     });
 
@@ -172,14 +172,15 @@ export const SporadicEOverlay3D = React.memo(
           ref={meshRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
+          renderOrder={8}
         >
           <circleGeometry args={[1, 20]} />
           <meshBasicMaterial
             ref={materialRef}
             transparent
-            opacity={0.35}
+            opacity={0.55}
             depthWrite={false}
-            blending={THREE.AdditiveBlending}
+            blending={THREE.NormalBlending}
             side={THREE.DoubleSide}
             vertexColors
           />

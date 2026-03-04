@@ -1,19 +1,19 @@
 /**
  * SatelliteFootprint3D
  *
- * Renders translucent radio footprint circles on the 3D globe surface for
+ * Renders translucent radio footprint caps on the 3D globe surface for
  * selected satellites. Each footprint represents the satellite's approximate
  * radio coverage area, calculated from its orbital altitude.
  *
- * The circle is oriented tangent to the globe surface at the sub-satellite
- * point, with a ring-like fade (edges more opaque than center).
+ * Uses spherical cap geometry that conforms to the globe curvature, avoiding
+ * the flat-disc artifact where edges hover above the surface.
  *
  * Performance-limited to 5 simultaneous footprints.
  *
  * Accepts all data as props -- no direct hook imports.
  */
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
 // ---------------------------------------------------------------------------
@@ -45,38 +45,12 @@ const EARTH_RADIUS_KM = 6371;
 /** Maximum simultaneous footprints */
 const MAX_FOOTPRINTS = 5;
 
-/** Circle geometry resolution */
-const CIRCLE_SEGMENTS = 64;
-
 /** Visual scale factor for aesthetics (raw footprint is too large) */
 const VISUAL_SCALE = 0.5;
-
-/** Disc fill opacity (center) */
-const CENTER_OPACITY = 0.1;
-
-/** Edge ring opacity */
-const EDGE_OPACITY = 0.25;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon to a 3D position on the globe.
- */
-function latLonToVector3(
-  lat: number,
-  lon: number,
-  radius: number,
-): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
 
 /**
  * Get the "up" direction (surface normal) at a given lat/lon.
@@ -92,17 +66,81 @@ function getUpDirection(lat: number, lon: number): THREE.Vector3 {
 }
 
 /**
- * Calculate the radio footprint radius on the globe surface.
+ * Calculate the radio footprint angular radius in radians.
  * Based on the geometric horizon: angular radius = arccos(R / (R + h))
- * Returns the radius in globe coordinate units, scaled for visual aesthetics.
+ * Scaled for visual aesthetics.
  */
-function footprintGlobeRadius(altitudeKm: number): number {
+function footprintAngularRadius(altitudeKm: number): number {
   const angularRadiusRad = Math.acos(
     EARTH_RADIUS_KM / (EARTH_RADIUS_KM + altitudeKm),
   );
-  // Convert angular radius to surface distance in globe units
-  const surfaceRadius = angularRadiusRad * SURFACE_RADIUS;
-  return surfaceRadius * VISUAL_SCALE;
+  return angularRadiusRad * VISUAL_SCALE;
+}
+
+/**
+ * Generate a spherical cap geometry that conforms to the globe surface.
+ *
+ * The cap is generated centered at the +Y pole of a sphere with the given
+ * surfaceRadius, spanning the given angularRadius (half-angle from center).
+ * Use a quaternion to rotate the cap to the desired lat/lon position.
+ *
+ * @param angularRadius  Half-angle from center in radians
+ * @param segments       Circumferential divisions
+ * @param rings          Concentric rings from center to edge
+ * @param surfaceRadius  Globe surface radius (cap vertices lie on this sphere)
+ */
+function createSphericalCapGeometry(
+  angularRadius: number,
+  segments: number,
+  rings: number,
+  surfaceRadius: number,
+): THREE.BufferGeometry {
+  const vertices: number[] = [];
+  const indices: number[] = [];
+
+  // Center vertex at the "north pole" of the cap
+  vertices.push(0, surfaceRadius, 0);
+
+  for (let r = 1; r <= rings; r++) {
+    const ringAngle = (r / rings) * angularRadius;
+    const sinR = Math.sin(ringAngle);
+    const cosR = Math.cos(ringAngle);
+
+    for (let s = 0; s < segments; s++) {
+      const segAngle = (s / segments) * Math.PI * 2;
+      vertices.push(
+        surfaceRadius * sinR * Math.cos(segAngle),
+        surfaceRadius * cosR,
+        surfaceRadius * sinR * Math.sin(segAngle),
+      );
+    }
+  }
+
+  // Center fan — connect center vertex to first ring
+  for (let s = 0; s < segments; s++) {
+    indices.push(0, 1 + s, 1 + ((s + 1) % segments));
+  }
+
+  // Ring strips — connect consecutive rings
+  for (let r = 0; r < rings - 1; r++) {
+    for (let s = 0; s < segments; s++) {
+      const curr = 1 + r * segments + s;
+      const next = 1 + r * segments + ((s + 1) % segments);
+      const currOuter = 1 + (r + 1) * segments + s;
+      const nextOuter = 1 + (r + 1) * segments + ((s + 1) % segments);
+      indices.push(curr, currOuter, next);
+      indices.push(next, currOuter, nextOuter);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(vertices, 3),
+  );
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,64 +160,34 @@ const FootprintDisc = React.memo(function FootprintDisc({
   altitudeKm,
   color,
 }: FootprintDiscProps) {
-  const radius = footprintGlobeRadius(altitudeKm);
+  const angularRadius = footprintAngularRadius(altitudeKm);
 
-  // Position on the globe surface
-  const position = useMemo(
-    () => latLonToVector3(lat, lon, SURFACE_RADIUS),
-    [lat, lon],
+  const capGeometry = useMemo(
+    () => createSphericalCapGeometry(angularRadius, 48, 12, SURFACE_RADIUS),
+    [angularRadius],
   );
 
-  // Orientation: circle lies tangent to globe surface
+  useEffect(() => () => capGeometry.dispose(), [capGeometry]);
+
+  // Rotate cap from +Y pole to the correct lat/lon surface normal
   const quaternion = useMemo(() => {
     const up = getUpDirection(lat, lon);
     const q = new THREE.Quaternion();
-    // CircleGeometry lies in the XY plane by default; we want it tangent to the sphere
-    // The default normal is (0, 0, 1), rotate to align with the surface normal (up)
-    q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
+    q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
     return q;
   }, [lat, lon]);
 
-  // Filled disc geometry (semi-transparent center)
-  const discGeometry = useMemo(
-    () => new THREE.CircleGeometry(radius, CIRCLE_SEGMENTS),
-    [radius],
-  );
-
-  // Edge ring geometry (more opaque border)
-  const ringGeometry = useMemo(
-    () => new THREE.RingGeometry(radius * 0.9, radius, CIRCLE_SEGMENTS),
-    [radius],
-  );
-
   return (
-    <group>
-      {/* Filled footprint disc */}
-      <mesh position={position} quaternion={quaternion} renderOrder={0}>
-        <primitive object={discGeometry} attach="geometry" />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={CENTER_OPACITY}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-          blending={THREE.NormalBlending}
-        />
-      </mesh>
-
-      {/* Edge ring -- slightly more opaque */}
-      <mesh position={position} quaternion={quaternion} renderOrder={1}>
-        <primitive object={ringGeometry} attach="geometry" />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={EDGE_OPACITY}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-          blending={THREE.NormalBlending}
-        />
-      </mesh>
-    </group>
+    <mesh quaternion={quaternion} renderOrder={6}>
+      <primitive object={capGeometry} attach="geometry" />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.15}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
   );
 });
 

@@ -131,7 +131,7 @@ function buildMergedBorderGeometry(): THREE.BufferGeometry {
   // Each segment = 2 vertices × 3 floats
   const positions = new Float32Array(totalSegments * 2 * 3);
   let offset = 0;
-  const R = 1.003;
+  const R = 1.008;
 
   for (const country of WORLD_COUNTRIES) {
     for (const ring of country.borders) {
@@ -184,7 +184,7 @@ function buildMergedStateBorderGeometry(): THREE.BufferGeometry {
   // Each segment = 2 vertices × 3 floats
   const positions = new Float32Array(totalSegments * 2 * 3);
   let offset = 0;
-  const R = 1.003;
+  const R = 1.008;
 
   for (const state of US_STATES) {
     for (const ring of state.borders) {
@@ -228,7 +228,7 @@ const GRID_ARC_SEGMENTS = 72;
  * are small circles.
  */
 function buildMaidenheadGridGeometry(): THREE.BufferGeometry {
-  const R = 1.004; // Slightly above borders
+  const R = 1.009; // Slightly above borders
   const lonLines = MAIDENHEAD_LON_LINES;
   const latLines = MAIDENHEAD_LAT_LINES;
 
@@ -577,7 +577,7 @@ export function LabelsOverlay({
     const squares = getMaidenheadSquaresInViewport(viewport);
     return squares.map((sq) => {
       const [nx, ny, nz] = latLonToXYZ(sq.latCenter, sq.lonCenter, 1.0);
-      const [px, py, pz] = latLonToXYZ(sq.latCenter, sq.lonCenter, 1.015);
+      const [px, py, pz] = latLonToXYZ(sq.latCenter, sq.lonCenter, 1.018);
       return {
         key: `sq-${sq.label}`,
         name: sq.label,
@@ -637,7 +637,11 @@ export function LabelsOverlay({
     <group>
       {/* ALL country borders — single draw call */}
       {effectiveOptions.borders && (
-        <lineSegments geometry={borderGeometry} material={borderMaterial} />
+        <lineSegments
+          geometry={borderGeometry}
+          material={borderMaterial}
+          renderOrder={5}
+        />
       )}
 
       {/* ALL US state borders — single draw call */}
@@ -645,6 +649,7 @@ export function LabelsOverlay({
         <lineSegments
           geometry={stateBorderGeometry}
           material={stateBorderMaterial}
+          renderOrder={5}
         />
       )}
 
@@ -672,7 +677,11 @@ export function LabelsOverlay({
 
       {/* Maidenhead grid lines — single draw call */}
       {effectiveOptions.maidenheadGrid && gridGeometry && (
-        <lineSegments geometry={gridGeometry} material={gridMaterial} />
+        <lineSegments
+          geometry={gridGeometry}
+          material={gridMaterial}
+          renderOrder={5}
+        />
       )}
 
       {/* Maidenhead field labels (2-char) — backface culled */}

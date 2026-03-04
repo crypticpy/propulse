@@ -1065,14 +1065,14 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              // NASA GIBS satellite imagery tiles (free tier)
-              urlPattern: /^https:\/\/gibs\.earthdata\.nasa\.gov\/.*/,
+              // ESRI World Imagery satellite tiles (free tier)
+              urlPattern: /^https:\/\/server\.arcgisonline\.com\/.*/,
               handler: "CacheFirst",
               options: {
-                cacheName: "tiles-gibs",
+                cacheName: "tiles-esri",
                 expiration: {
-                  maxEntries: 2000,
-                  maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+                  maxEntries: 3000,
+                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
                 },
               },
             },

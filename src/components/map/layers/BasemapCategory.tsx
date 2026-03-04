@@ -205,7 +205,7 @@ export default function BasemapCategory() {
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
 
   const satelliteSubtitle =
-    subscriptionTier === "pro" ? "HD Satellite" : "NASA GIBS";
+    subscriptionTier === "pro" ? "HD Satellite" : "ESRI World Imagery";
 
   const options: BasemapOption[] = [
     {
@@ -265,7 +265,7 @@ export default function BasemapCategory() {
         {mapStyle === "satellite"
           ? subscriptionTier === "pro"
             ? "\u00A9 Mapbox \u00A9 OpenStreetMap"
-            : "NASA EOSDIS GIBS"
+            : "Powered by Esri"
           : "\u00A9 OpenStreetMap contributors"}
       </p>
     </div>

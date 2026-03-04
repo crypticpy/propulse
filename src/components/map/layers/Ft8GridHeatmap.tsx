@@ -25,7 +25,7 @@ import { gridToLatLon } from "@/lib/utils/grid";
 // ---------------------------------------------------------------------------
 
 /** Globe surface radius for heatmap dots (slightly above surface) */
-const SURFACE_RADIUS = 1.0035;
+const SURFACE_RADIUS = 1.005;
 
 /** Maximum number of grid instances to render */
 const MAX_GRIDS = 200;

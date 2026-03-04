@@ -329,7 +329,7 @@ export function MUFOverlay({
 
   return (
     <mesh>
-      <sphereGeometry args={[1.002, 128, 128]} />
+      <sphereGeometry args={[1.007, 128, 128]} />
       <primitive object={material} attach="material" />
     </mesh>
   );

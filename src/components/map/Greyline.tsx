@@ -41,7 +41,7 @@ interface GreylineProps {
 function latLonToVector3(
   lat: number,
   lon: number,
-  radius: number = 1.001,
+  radius: number = 1.005,
 ): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
@@ -135,7 +135,7 @@ export function Greyline({
 
     // Create smooth pulsing animation
     const time = state.clock.getElapsedTime();
-    const {pulseSpeed} = visualParams;
+    const { pulseSpeed } = visualParams;
     const pulse = Math.sin(time * pulseSpeed * 2) * 0.15 + 1; // Oscillate between 0.85 and 1.15
 
     materialRef.current.opacity = actualOpacity * pulse;

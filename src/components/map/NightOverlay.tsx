@@ -83,7 +83,7 @@ export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
 
   return (
     <mesh>
-      <sphereGeometry args={[1.001, 64, 64]} />
+      <sphereGeometry args={[1.006, 64, 64]} />
       <primitive object={material} attach="material" />
     </mesh>
   );

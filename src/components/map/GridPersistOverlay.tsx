@@ -29,7 +29,7 @@ import type { GridActivity } from "@/hooks/useGridActivityMap";
 const MAX_INSTANCES = 500;
 
 /** Sphere radius — sits between the greyline overlay and glow pulses */
-const PERSIST_RADIUS = 1.0025;
+const PERSIST_RADIUS = 1.005;
 
 /** Subdivisions per axis for the shared quad geometry */
 const SUBDIVISIONS = 3;

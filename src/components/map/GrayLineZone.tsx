@@ -23,7 +23,7 @@ interface GrayLineZoneProps {
 }
 
 /** Globe radius offset to prevent z-fighting with the earth surface */
-const ZONE_RADIUS = 1.002;
+const ZONE_RADIUS = 1.006;
 
 /**
  * Convert lat/lon to a 3D position on a sphere of the given radius.

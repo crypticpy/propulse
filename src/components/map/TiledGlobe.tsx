@@ -8,7 +8,7 @@
  * Replaces EarthSphere when the tile engine is active.
  */
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import {
   TilesRenderer as TilesRendererR3F,
   TilesPlugin,
@@ -31,14 +31,14 @@ import { getAccessToken } from "@/lib/api/authFetch";
 // frame where the north pole is at +Y and lat=0/lon=0 maps to +X.
 //
 // The required rotation from the tiles frame to our frame is:
-//   tiles +X  -->  our (0, 0, -1)
-//   tiles +Y  -->  our (1, 0, 0)
-//   tiles +Z  -->  our (0, 1, 0)
+//   tiles +X (0°N,0°E)   -->  our +X  (no change)
+//   tiles +Y (0°N,90°E)  -->  our -Z
+//   tiles +Z (north pole) -->  our +Y
 //
-// This decomposes to Rx(-PI/2) then Ry(-PI/2) in Three.js Euler 'XYZ' order.
+// This is a single Rx(-PI/2) rotation in Three.js Euler 'XYZ' order.
 // ---------------------------------------------------------------------------
 const ALIGN_ROTATION_X = -Math.PI / 2;
-const ALIGN_ROTATION_Y = -Math.PI / 2;
+const ALIGN_ROTATION_Y = 0;
 
 /** Scale factor to bring WGS84 metre-scale geometry down to unit sphere. */
 const UNIT_SCALE = 1 / WGS84_RADIUS;
@@ -55,7 +55,7 @@ const ERROR_WINDOW_MS = 10_000;
 interface TiledGlobeProps {
   /** Active tile provider configuration. */
   provider: TileProviderConfig;
-  /** Display time (reserved for GIBS date-based URLs in future). */
+  /** Display time (reserved for future time-based tile sources). */
   displayTime: Date;
   /** Whether this provider requires authenticated tile fetches (Pro tier). */
   requiresAuth?: boolean;
@@ -82,8 +82,6 @@ export function TiledGlobe({
   // ---------------------------------------------------------------------------
   // Authenticated fetch options
   // ---------------------------------------------------------------------------
-  // We keep a *stable mutable object* so the ImageFormatPlugin's reference
-  // (set once during init) always sees fresh headers when tiles are fetched.
   const fetchOptionsRef = useRef<RequestInit>({});
   const [authReady, setAuthReady] = useState(!requiresAuth);
 
@@ -101,15 +99,11 @@ export function TiledGlobe({
       if (cancelled) return;
 
       if (token) {
-        // Mutate the existing headers object so the image source's
-        // reference to fetchOptions stays valid.
         const headers =
           (fetchOptionsRef.current.headers as Record<string, string>) ?? {};
         headers["Authorization"] = `Bearer ${token}`;
         fetchOptionsRef.current.headers = headers;
 
-        // Also update the live TilesRenderer instance if already mounted,
-        // since ImageFormatPlugin.init() copies the reference only once.
         if (tilesRef.current) {
           tilesRef.current.fetchOptions.headers =
             fetchOptionsRef.current.headers;
@@ -119,10 +113,7 @@ export function TiledGlobe({
       if (!authReady) setAuthReady(true);
     };
 
-    // Initial token fetch
     refreshToken();
-
-    // Periodic refresh to keep the token valid across long sessions
     const intervalId = setInterval(refreshToken, AUTH_REFRESH_INTERVAL_MS);
 
     return () => {
@@ -132,20 +123,24 @@ export function TiledGlobe({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable refs, intentional
   }, [requiresAuth]);
 
-  // Scale and orient the tile group to match the unit-sphere overlay system.
-  // Runs once after mount — key={provider.id} ensures remount on provider change.
-  useEffect(() => {
-    if (!tilesRef.current) return;
+  // ---------------------------------------------------------------------------
+  // Group transform — applied via R3F `group` prop (not useEffect)
+  // ---------------------------------------------------------------------------
+  const groupProps = useMemo(
+    () => ({
+      scale: [UNIT_SCALE, UNIT_SCALE, UNIT_SCALE] as [number, number, number],
+      rotation: [ALIGN_ROTATION_X, ALIGN_ROTATION_Y, 0] as [
+        number,
+        number,
+        number,
+      ],
+    }),
+    [],
+  );
 
-    const group = tilesRef.current.group;
-    group.scale.setScalar(UNIT_SCALE);
-    group.rotation.set(ALIGN_ROTATION_X, ALIGN_ROTATION_Y, 0);
-    group.updateMatrixWorld(true);
-  }, []);
-
-  // Error handler — debounce per-tile errors and only surface after threshold.
-  // Tile renderers fire load-error per tile; a single slow CDN can cause dozens
-  // of 504s for edge tiles while center tiles load fine.
+  // ---------------------------------------------------------------------------
+  // Error handler
+  // ---------------------------------------------------------------------------
   const errorCountRef = useRef(0);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -159,8 +154,6 @@ export function TiledGlobe({
         );
       }
 
-      // Surface error after threshold within window, then reset counter
-      // so subsequent bursts can also trigger onError (GlobeView owns retry policy)
       if (errorCountRef.current >= ERROR_THRESHOLD) {
         errorCountRef.current = 0;
         const err =
@@ -168,7 +161,6 @@ export function TiledGlobe({
         onError?.(err);
       }
 
-      // Reset counter after quiet period
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
       errorTimerRef.current = setTimeout(() => {
         errorCountRef.current = 0;
@@ -177,44 +169,38 @@ export function TiledGlobe({
     [onError],
   );
 
-  // Clean up timer on unmount
   useEffect(() => {
     return () => {
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
     };
   }, []);
 
-  // Don't render until the auth token is ready — prevents unauthenticated
-  // tile fetches that would 401 and immediately burn through the error budget.
+  // Don't render until the auth token is ready
   if (!authReady) return null;
 
   return (
     <TilesRendererR3F
       key={provider.id}
       ref={tilesRef}
-      errorTarget={6}
+      errorTarget={2}
       fetchOptions={fetchOptionsRef.current}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- R3F spreads partial props onto <primitive>
+      group={groupProps as any}
       onLoadError={handleLoadError}
     >
       <TilesPlugin
         plugin={XYZTilesPlugin}
         args={
-          [
-            {
-              url: provider.url,
-              shape: "ellipsoid",
-              useRecommendedSettings: true,
-            },
-          ] as ConstructorParameters<typeof XYZTilesPlugin>
+          {
+            url: provider.url,
+            shape: "ellipsoid",
+            useRecommendedSettings: true,
+          } as any // eslint-disable-line @typescript-eslint/no-explicit-any -- R3F TilesPlugin accepts object or array
         }
       />
       <TilesPlugin
         plugin={TilesFadePlugin}
-        args={
-          [{ fadeDuration: 250 }] as ConstructorParameters<
-            typeof TilesFadePlugin
-          >
-        }
+        args={{ fadeDuration: 250 } as any} // eslint-disable-line @typescript-eslint/no-explicit-any
       />
       <TilesPlugin plugin={UpdateOnChangePlugin} />
     </TilesRendererR3F>

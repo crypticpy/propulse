@@ -1,8 +1,4 @@
-export type TileProviderId =
-  | "gibs-modis"
-  | "osm"
-  | "mapbox-satellite"
-  | "esri-world";
+export type TileProviderId = "esri-world" | "osm" | "mapbox-satellite";
 
 export interface TileProviderConfig {
   id: TileProviderId;

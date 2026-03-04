@@ -199,7 +199,7 @@ function WeatherRadarOverlayInner({ manifest }: WeatherRadarOverlayProps) {
    * western hemisphere).
    */
   const geometry = useMemo(
-    () => new THREE.SphereGeometry(1.002, 128, 64, Math.PI),
+    () => new THREE.SphereGeometry(1.007, 128, 64, Math.PI),
     [],
   );
 

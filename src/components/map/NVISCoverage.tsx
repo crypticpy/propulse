@@ -132,7 +132,7 @@ export function NVISCoverage3D({
     // Generate points for outer circle
     const outerPoints = generateCirclePoints(centerLat, centerLon, radiusKm);
     const outerPositions = outerPoints.map((p) =>
-      latLonToPosition(p.lat, p.lon, GLOBE_RADIUS + 0.002),
+      latLonToPosition(p.lat, p.lon, GLOBE_RADIUS + 0.005),
     );
 
     // Generate points for optimal circle
@@ -142,7 +142,7 @@ export function NVISCoverage3D({
       actualOptimalRadius,
     );
     const innerPositions = innerPoints.map((p) =>
-      latLonToPosition(p.lat, p.lon, GLOBE_RADIUS + 0.002),
+      latLonToPosition(p.lat, p.lon, GLOBE_RADIUS + 0.005),
     );
 
     // Generate ring markers at 100km intervals
@@ -152,7 +152,7 @@ export function NVISCoverage3D({
     }
     const ringPoints = ringRadii.map((r) =>
       generateCirclePoints(centerLat, centerLon, r).map((p) =>
-        latLonToPosition(p.lat, p.lon, GLOBE_RADIUS + 0.001),
+        latLonToPosition(p.lat, p.lon, GLOBE_RADIUS + 0.005),
       ),
     );
 
@@ -172,7 +172,7 @@ export function NVISCoverage3D({
           bearing,
         );
         discPoints.push(
-          latLonToPosition(point.lat, point.lon, GLOBE_RADIUS + 0.001),
+          latLonToPosition(point.lat, point.lon, GLOBE_RADIUS + 0.005),
         );
       }
     }
@@ -284,7 +284,7 @@ export function NVISCoverage3D({
 
       {/* Center marker */}
       <mesh
-        position={latLonToPosition(centerLat, centerLon, GLOBE_RADIUS + 0.003)}
+        position={latLonToPosition(centerLat, centerLon, GLOBE_RADIUS + 0.006)}
       >
         <sphereGeometry args={[0.008, 16, 16]} />
         <meshBasicMaterial color={NVIS_COLORS.glow} />

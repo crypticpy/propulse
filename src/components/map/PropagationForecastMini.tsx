@@ -225,11 +225,14 @@ export function PropagationForecastMini({
   const getSfiColor = (sfi: number): string => {
     if (sfi >= 150) {
       return "#00ff88";
-    } // Green
+    } // Excellent
     if (sfi >= 100) {
+      return "#44dd66";
+    } // Good
+    if (sfi >= 70) {
       return "#ffaa00";
-    } // Amber
-    return "#ff4455"; // Red
+    } // Fair
+    return "#ff4455"; // Poor
   };
 
   // Helper function to get Bz color and arrow
@@ -486,7 +489,10 @@ export function PropagationForecastMini({
 
   // Generate plain English recommendation
   const getRecommendation = (): string => {
-    if (currentKp !== null && currentKp >= 5) {
+    if (
+      (currentKp !== null && currentKp >= 5) ||
+      (currentBz !== null && currentBz < -5)
+    ) {
       return "Storm conditions - expect degraded HF";
     }
     if (topBandsNow.length === 0) {
@@ -1105,11 +1111,14 @@ export function PropagationForecastMini({
                 </div>
               )}
 
-              {/* Tip - operating recommendation */}
+              {/* Tip - operating recommendation (path-specific) */}
               <div
                 className="flex-1 bg-plasma-orange/10 border-l-2 border-plasma-orange rounded-r px-2 py-1 flex items-center min-w-0 cursor-help"
-                title={`OPERATING TIP\n${getRecommendation()}\n\nBased on current solar conditions:\nSFI: ${Math.round(currentSfi)} (${currentSfi >= 150 ? "excellent" : currentSfi >= 100 ? "good" : "low"})\nKp: ${currentKp.toFixed(1)} (${currentKp <= 2 ? "quiet" : currentKp <= 4 ? "unsettled" : "storm"})`}
+                title={`PATH FORECAST\n${getRecommendation()}\n\nBased on current solar conditions:\nSFI: ${Math.round(currentSfi)} (${currentSfi >= 150 ? "excellent" : currentSfi >= 100 ? "good" : currentSfi >= 70 ? "fair" : "low"})\nKp: ${currentKp.toFixed(1)} (${currentKp <= 2 ? "quiet" : currentKp <= 4 ? "unsettled" : "storm"})`}
               >
+                <span className="text-[10px] text-gray-500 uppercase mr-1.5 flex-shrink-0">
+                  Path:
+                </span>
                 <span className="text-gray-200 truncate">
                   {getRecommendation()}
                 </span>

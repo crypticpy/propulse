@@ -368,7 +368,7 @@ export function DXNewsTicker({
         .join(" | ");
       items.push({
         id: "bands",
-        text: `Active Bands: ${bandSummary}`,
+        text: `Active bands (live): ${bandSummary}`,
         highlight: false,
       });
     }

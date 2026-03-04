@@ -79,7 +79,7 @@ export function getDetailedSummary(kIndex: number, solarFlux: number): string {
 export function getBestBands(kIndex: number, solarFlux: number): string[] {
   const bands = calculateBandConditions(kIndex, solarFlux);
   const now = new Date();
-  const hour = now.getHours();
+  const hour = now.getUTCHours();
   const isDaytime = hour >= 6 && hour < 18;
 
   const goodBands = bands.filter((band) => {

@@ -628,7 +628,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
             {bestBands.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-mono uppercase tracking-wider text-gray-500">
-                  Best bands now
+                  Best bands now (general)
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {bestBands.map((band) => (

@@ -57,6 +57,9 @@ function getSfiColor(sfi: number): string {
     return "#00ff88";
   }
   if (sfi >= 100) {
+    return "#44dd66";
+  }
+  if (sfi >= 70) {
     return "#ffaa00";
   }
   return "#ff4455";
@@ -117,13 +120,21 @@ function getCategoryLabel(
 function getOperatingTip(
   sfi: number,
   kp: number,
+  bz: number | null,
   hour: number,
   score: number,
 ): { tip: string; audience: string } {
-  // For storm conditions
+  // For storm conditions — check both Kp and Bz
   if (kp >= 5) {
     return {
       tip: "Storm active - try 40m/80m NVIS or wait for recovery",
+      audience: "all",
+    };
+  }
+
+  if (bz !== null && bz < -5) {
+    return {
+      tip: "Geomagnetic disturbance - lower bands may be more reliable",
       audience: "all",
     };
   }
@@ -350,6 +361,7 @@ export function SolarSnapshot({
   const operatingTip = getOperatingTip(
     currentSfi,
     currentKp,
+    currentBz,
     currentHour,
     indexResult.score,
   );
@@ -463,7 +475,7 @@ export function SolarSnapshot({
               {/* Best band + mode + SNR */}
               <div className="flex items-baseline gap-2">
                 <span className="text-[10px] text-gray-500 uppercase">
-                  Best
+                  Best for path
                 </span>
                 <span className="text-xl font-bold font-mono text-white leading-none">
                   {optimal.band}
@@ -486,7 +498,7 @@ export function SolarSnapshot({
                 recommendations.alternatives.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] text-gray-500 uppercase">
-                      Also
+                      Also open
                     </span>
                     {recommendations.alternatives.slice(0, 3).map((alt) => (
                       <span

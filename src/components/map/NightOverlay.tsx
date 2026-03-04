@@ -76,8 +76,8 @@ export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
       transparent: true,
       side: THREE.FrontSide,
       depthWrite: false,
+      depthTest: false,
       blending: THREE.MultiplyBlending,
-      premultipliedAlpha: true,
     });
   }, [subsolar, opacity]);
 

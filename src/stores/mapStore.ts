@@ -266,6 +266,7 @@ export interface LabelOptions {
   maidenheadGrid: boolean;
   gridLabels: boolean;
   wasOverlay: boolean;
+  tileLabels: boolean;
 }
 
 interface MapState {
@@ -618,6 +619,7 @@ const DEFAULT_LABEL_OPTIONS: LabelOptions = {
   maidenheadGrid: false,
   gridLabels: false,
   wasOverlay: false,
+  tileLabels: false,
 };
 
 // Load saved label options from localStorage

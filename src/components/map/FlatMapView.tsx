@@ -4671,6 +4671,7 @@ export function FlatMapView({
           maidenheadGrid: false,
           gridLabels: false,
           wasOverlay: false,
+          tileLabels: false,
         },
         isStandard,
       );
@@ -4715,6 +4716,7 @@ export function FlatMapView({
           maidenheadGrid: labelOptions.maidenheadGrid,
           gridLabels: labelOptions.gridLabels,
           wasOverlay: false,
+          tileLabels: false,
         },
         isStandard,
         zoom.scale,

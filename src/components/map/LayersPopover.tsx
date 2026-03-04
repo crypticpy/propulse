@@ -708,6 +708,15 @@ export function LayersPopover() {
             onToggle: () =>
               setLabelOption("gridLabels", !labelOptions.gridLabels),
           },
+          {
+            key: "tileLabels",
+            label: "Map Labels",
+            title:
+              "Zoom-dependent city names, roads, and boundaries from OpenStreetMap",
+            getValue: () => labelOptions.tileLabels,
+            onToggle: () =>
+              setLabelOption("tileLabels", !labelOptions.tileLabels),
+          },
           ...(isGlobeView
             ? [
                 {

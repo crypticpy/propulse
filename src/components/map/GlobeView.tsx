@@ -24,6 +24,7 @@ import { getPathMetrics, getBearing, getDistance } from "@/lib/utils/path";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { TiledGlobe } from "./TiledGlobe";
+import { TiledLabels } from "./TiledLabels";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
@@ -42,7 +43,10 @@ import { WeatherAlertFlyout } from "./WeatherAlertFlyout";
 import { WeatherAlertModal } from "./WeatherAlertModal";
 import { LightningOverlay3D } from "./LightningOverlay3D";
 import { FireOverlay3D } from "./FireOverlay3D";
-import { WeatherRadarOverlay } from "./WeatherRadarOverlay";
+import {
+  WeatherRadarOverlay,
+  type RadarAnimationState,
+} from "./WeatherRadarOverlay";
 import { PathArc } from "./PathArc";
 import {
   LocationMarker,
@@ -725,6 +729,7 @@ function GlobeScene({
   onSpotHoverEnd,
   onClusterClick,
   onAlertClick,
+  onRadarAnimState,
 }: {
   displayTime: Date;
   onLocationClick?: (
@@ -769,8 +774,11 @@ function GlobeScene({
     alert: WeatherAlert,
     screenPos: { x: number; y: number },
   ) => void;
+  /** Called when radar animation state updates (for scrubber UI outside Canvas) */
+  onRadarAnimState?: (state: RadarAnimationState) => void;
 }) {
-  const { layers, target, pathMode, mapStyle, rotation } = useMapStore();
+  const { layers, target, pathMode, mapStyle, rotation, labelOptions } =
+    useMapStore();
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const tileProvider = useMemo(
@@ -1027,8 +1035,10 @@ function GlobeScene({
       }
 
       for (const spot of liveSpots) {
-        const band = spot.band;
-        if (band && band in counts) {
+        let band = spot.band;
+        if (!band) continue;
+        band = band.toLowerCase().trim();
+        if (band in counts) {
           counts[band]++;
         }
       }
@@ -1058,6 +1068,19 @@ function GlobeScene({
 
     // Take an initial sample immediately
     sampleBandCounts();
+
+    // Seed baseline if no spots — makes ring structure visible
+    if (waterfallRowsRef.current.length === 1) {
+      const firstRow = waterfallRowsRef.current[0];
+      const hasData = Object.values(firstRow.bands).some((v) => v > 0);
+      if (!hasData) {
+        firstRow.bands["20m"] = 8;
+        firstRow.bands["40m"] = 5;
+        firstRow.bands["15m"] = 3;
+        firstRow.bands["10m"] = 2;
+        setWaterfallRows([...waterfallRowsRef.current]);
+      }
+    }
 
     const intervalId = setInterval(
       sampleBandCounts,
@@ -1191,6 +1214,9 @@ function GlobeScene({
           <NightLightsOverlay date={displayTime} />
         )}
 
+        {/* Tile-based OSM labels overlay — zoom-dependent boundaries and names */}
+        {labelOptions.tileLabels && !useTileFallback && <TiledLabels />}
+
         {/* Country borders + labels overlay */}
         <LabelsOverlay
           showLabels={layers.labels}
@@ -1228,7 +1254,10 @@ function GlobeScene({
           <FireOverlay3D hotspots={fireHotspots} />
         )}
         {layers.radar && radarManifest && (
-          <WeatherRadarOverlay manifest={radarManifest} />
+          <WeatherRadarOverlay
+            manifest={radarManifest}
+            onAnimationState={onRadarAnimState}
+          />
         )}
 
         {/* === Propagation Layers === */}
@@ -1536,6 +1565,12 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   // cannot be shared across the boundary. The merge logic is cheap (~500 items).
   const ft8SpotterEnabled = useMapStore((s) => s.layers.ft8Spotter);
   const ft8SpotterData = useFt8SpotterData();
+
+  // Radar animation state — lifted from WeatherRadarOverlay (inside Canvas)
+  // to the outer GlobeView so the scrubber UI can render outside the R3F tree.
+  const radarLayerEnabled = useMapStore((s) => s.layers.radar);
+  const [radarAnimState, setRadarAnimState] =
+    useState<RadarAnimationState | null>(null);
 
   // State for AddPinDialog
   const [addPinDialogOpen, setAddPinDialogOpen] = useState(false);
@@ -1999,6 +2034,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
               onSpotHoverEnd={handleSpotHoverEnd}
               onClusterClick={handleClusterClick}
               onAlertClick={handleAlertClick}
+              onRadarAnimState={setRadarAnimState}
             />
           </Suspense>
         </Canvas>
@@ -2008,6 +2044,60 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
       <div className="absolute bottom-1 right-1 text-[10px] text-white/40 pointer-events-none select-none">
         {tileAttribution}
       </div>
+
+      {/* Weather Radar Timeline Scrubber */}
+      {radarLayerEnabled && radarAnimState && radarAnimState.frameCount > 1 && (
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
+          <div className="flex items-center gap-1.5 bg-void-black/85 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
+            {/* Play/Pause */}
+            <button
+              type="button"
+              onClick={radarAnimState.togglePlay}
+              className="text-white/70 hover:text-white transition-colors text-xs w-4 h-4 flex items-center justify-center"
+            >
+              {radarAnimState.isPlaying ? "\u23F8" : "\u25B6"}
+            </button>
+            {/* Frame dots */}
+            <div className="flex gap-0.5 items-center">
+              {radarAnimState.timestamps.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => radarAnimState.setFrame(i)}
+                  className={`rounded-full transition-all ${
+                    i === radarAnimState.activeIndex
+                      ? "w-2 h-2 bg-plasma-orange shadow-[0_0_4px_rgba(255,107,53,0.6)]"
+                      : radarAnimState.isNowcast[i]
+                        ? "w-1.5 h-1.5 bg-blue-400/50 hover:bg-blue-400/80"
+                        : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60"
+                  }`}
+                />
+              ))}
+            </div>
+            {/* Timestamp */}
+            <span className="text-[9px] text-white/50 font-mono ml-1 min-w-[40px] text-right">
+              {radarAnimState.activeIndex >= 0 &&
+              radarAnimState.timestamps[radarAnimState.activeIndex]
+                ? new Date(
+                    radarAnimState.timestamps[radarAnimState.activeIndex] *
+                      1000,
+                  ).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })
+                : "--:--"}
+            </span>
+            {/* Nowcast indicator */}
+            {radarAnimState.activeIndex >= 0 &&
+              radarAnimState.isNowcast[radarAnimState.activeIndex] && (
+                <span className="text-[8px] text-blue-400 font-medium">
+                  FCST
+                </span>
+              )}
+          </div>
+        </div>
+      )}
 
       {/* Tooltip overlay - rendered outside Canvas */}
       <MapTooltip

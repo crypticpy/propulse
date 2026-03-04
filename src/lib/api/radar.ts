@@ -44,3 +44,21 @@ export function getRadarTileUrl(
   if (!latest) return "";
   return `${manifest.host}${latest.path}/256/${z}/${x}/${y}/6/1_1.png`;
 }
+
+/** Get tile URL for a specific frame */
+export function getRadarTileUrlForFrame(
+  manifest: RadarManifest,
+  frame: { time: number; path: string },
+  z: number,
+  x: number,
+  y: number,
+): string {
+  return `${manifest.host}${frame.path}/256/${z}/${x}/${y}/6/1_1.png`;
+}
+
+/** Get all frames in chronological order (past + nowcast) */
+export function getAllRadarFrames(
+  manifest: RadarManifest,
+): { time: number; path: string }[] {
+  return [...manifest.radar.past, ...manifest.radar.nowcast];
+}

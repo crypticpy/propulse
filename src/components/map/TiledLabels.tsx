@@ -8,19 +8,14 @@
  * Uses the same coordinate alignment and scale as TiledGlobe.
  */
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import {
   TilesRenderer as TilesRendererR3F,
   TilesPlugin,
 } from "3d-tiles-renderer/r3f";
-import {
-  XYZTilesPlugin,
-  TilesFadePlugin,
-  UpdateOnChangePlugin,
-} from "3d-tiles-renderer/plugins";
+import { XYZTilesPlugin, TilesFadePlugin } from "3d-tiles-renderer/plugins";
 import { TilesRenderer as TilesRendererImpl } from "3d-tiles-renderer/three";
 import { WGS84_RADIUS } from "3d-tiles-renderer/core";
-import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 const ALIGN_ROTATION_X = -Math.PI / 2;
@@ -41,34 +36,37 @@ export function TiledLabels() {
     [],
   );
 
-  // Force transparency on tile materials as they load.
-  // CartoDB tiles are PNGs with transparent backgrounds but
-  // the tile renderer may not auto-detect this.
-  useFrame(() => {
+  // Patch tile materials once on load via the renderer's event system.
+  // This avoids per-frame traversal which fights with TilesFadePlugin.
+  useEffect(() => {
     const renderer = tilesRef.current;
     if (!renderer) return;
 
-    renderer.group.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const mat = mesh.material as THREE.MeshBasicMaterial;
-        if (mat && !mat.transparent) {
-          mat.transparent = true;
-          mat.depthWrite = false;
-          mat.needsUpdate = true;
-        }
-        // Ensure label tiles render above base tiles (0) but below borders (5)
-        if (mesh.renderOrder !== 4) {
+    const patchScene = (event: { scene: THREE.Object3D }) => {
+      event.scene.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          if (mat) {
+            mat.transparent = true;
+            mat.depthWrite = false;
+            mat.needsUpdate = true;
+          }
           mesh.renderOrder = 4;
         }
-      }
-    });
-  });
+      });
+    };
+
+    renderer.addEventListener("load-model", patchScene);
+    return () => {
+      renderer.removeEventListener("load-model", patchScene);
+    };
+  }, []);
 
   return (
     <TilesRendererR3F
       ref={tilesRef}
-      errorTarget={4}
+      errorTarget={6}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       group={groupProps as any}
     >
@@ -86,7 +84,6 @@ export function TiledLabels() {
         plugin={TilesFadePlugin}
         args={{ fadeDuration: 200 } as any} // eslint-disable-line @typescript-eslint/no-explicit-any
       />
-      <TilesPlugin plugin={UpdateOnChangePlugin} />
     </TilesRendererR3F>
   );
 }

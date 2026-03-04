@@ -111,7 +111,6 @@ export function NightLightsOverlay({
       transparent: true,
       side: THREE.FrontSide,
       depthWrite: false,
-      depthTest: false,
       blending: THREE.AdditiveBlending,
     });
   }, [subsolar, nightLightsTexture, intensity]);
@@ -119,7 +118,7 @@ export function NightLightsOverlay({
   return (
     <mesh renderOrder={11}>
       {/* Slightly larger than Earth sphere to prevent z-fighting */}
-      <sphereGeometry args={[1.007, 64, 64]} />
+      <sphereGeometry args={[1.021, 64, 64]} />
       <primitive object={material} attach="material" />
     </mesh>
   );

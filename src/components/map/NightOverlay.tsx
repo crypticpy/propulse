@@ -38,11 +38,9 @@ export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
         opacity: { value: opacity },
       },
       vertexShader: `
-        varying vec3 vNormal;
         varying vec3 vPosition;
 
         void main() {
-          vNormal = normalize(normalMatrix * normal);
           vPosition = normalize((modelMatrix * vec4(position, 1.0)).xyz);
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
@@ -51,39 +49,28 @@ export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
         uniform vec3 sunPosition;
         uniform float opacity;
 
-        varying vec3 vNormal;
         varying vec3 vPosition;
 
         void main() {
-          // Calculate angle to sun
           float sunDot = dot(vPosition, sunPosition);
 
-          // Night side: sunDot < 0
-          // Twilight: -0.1 < sunDot < 0.1
-          // Day: sunDot > 0
-
+          // Night side: sunDot < 0, Twilight: near 0, Day: sunDot > 0
           float nightAmount = smoothstep(0.1, -0.2, sunDot);
+          float alpha = nightAmount * opacity;
 
-          // Multiply-blended darkening: output white on day side (no change),
-          // and a dark blue tint on night side.
-          vec3 nightColor = vec3(0.18, 0.18, 0.28);
-          float t = clamp(nightAmount * opacity, 0.0, 1.0);
-          vec3 outColor = mix(vec3(1.0), nightColor, t);
-
-          gl_FragColor = vec4(outColor, 1.0);
+          // Dark blue-black tint on night side, fully transparent on day side
+          gl_FragColor = vec4(0.02, 0.02, 0.06, alpha);
         }
       `,
       transparent: true,
       side: THREE.FrontSide,
       depthWrite: false,
-      depthTest: false,
-      blending: THREE.MultiplyBlending,
     });
   }, [subsolar, opacity]);
 
   return (
     <mesh renderOrder={10}>
-      <sphereGeometry args={[1.006, 64, 64]} />
+      <sphereGeometry args={[1.02, 64, 64]} />
       <primitive object={material} attach="material" />
     </mesh>
   );

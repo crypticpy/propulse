@@ -557,15 +557,17 @@ export function BandConditionsPanel({
     };
   }, []);
 
-  // Feed live spots to the band opening detector
+  // Refresh active openings display periodically
+  // (spot feeding is handled by useBandOpeningFeed in Layout)
   useEffect(() => {
     const detector = bandOpeningDetectorRef.current;
-    if (!detector || liveSpots.length === 0) {
-      return;
-    }
-    detector.update(liveSpots);
+    if (!detector) return;
     setActiveOpenings(detector.getCurrentOpenings());
-  }, [liveSpots]);
+    const interval = setInterval(() => {
+      setActiveOpenings(detector.getCurrentOpenings());
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Build a set of bands with active openings for quick lookup
   const openingBands = useMemo((): Set<string> => {

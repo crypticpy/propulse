@@ -140,6 +140,7 @@ const TYPE_LABELS: Partial<Record<AlertType, string>> = {
   IMF_SOUTHWARD: "IMF Southward",
   AURORA_WARNING: "Aurora Warning",
   BAND_OPENING: "Band Opening",
+  BAND_CLOSING: "Band Closing",
   GREYLINE_APPROACHING: "Greyline Approaching",
   BAND_DEGRADATION: "Band Degradation",
 };

@@ -406,6 +406,40 @@ export function evaluateBandOpeningAlert(
   };
 }
 
+/**
+ * Evaluate a band closing and generate alert
+ * @param opening - The band opening that is closing
+ * @param reason - Why the band is closing ("timeout" = no activity, "fading" = signal declining)
+ * @returns Partial SolarAlert for the band closing
+ */
+export function evaluateBandClosingAlert(
+  opening: BandOpening,
+  reason: "timeout" | "fading",
+): Partial<SolarAlert> | null {
+  const title = `${opening.band} Band Closing`;
+  const durationMin = Math.round(opening.duration / 60);
+
+  const reasonText =
+    reason === "fading"
+      ? "Signal strength declining"
+      : `No activity for ${Math.round((Date.now() - (opening.detectedAt + opening.duration * 1000)) / 60000)} minutes`;
+
+  const message =
+    `${opening.band} closing between ${opening.fromRegion} and ${opening.toRegion}. ` +
+    `Was open for ${durationMin} min with ${opening.spotCount} spots. ${reasonText}.`;
+
+  return {
+    type: "BAND_CLOSING",
+    priority: "INFO",
+    title,
+    message,
+    affectedBands: [opening.band],
+    source: "SPOT_DETECTOR",
+    thresholdValue: 0,
+    currentValue: 0,
+  };
+}
+
 // =============================================================================
 // AFFECTED BANDS COMPUTATION
 // =============================================================================
@@ -519,6 +553,9 @@ export function shouldResolveAlert(
 
     case "PROTON_EVENT":
       return currentValue < PROTON_THRESHOLDS.resolveThreshold;
+
+    case "BAND_CLOSING":
+      return true; // Closings are one-shot informational alerts
 
     default:
       // For unknown types, use simple comparison with threshold

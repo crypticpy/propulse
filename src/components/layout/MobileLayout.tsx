@@ -6,6 +6,7 @@ import { MobileHeader } from "./MobileHeader";
 import { BottomTabBar } from "./BottomTabBar";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
+import { useBandOpeningFeed } from "@/hooks/useBandOpeningFeed";
 import {
   AlertBanner,
   AlertToastContainer,
@@ -59,6 +60,9 @@ export function MobileLayout() {
 
   // Initialize solar alert monitoring (mirrors Layout.tsx)
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Feed live spots to the band opening detector (runs on all routes)
+  useBandOpeningFeed();
 
   // Alert display style preference
   const alertDisplayStyle = useSettingsStore(

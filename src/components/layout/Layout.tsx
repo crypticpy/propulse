@@ -18,6 +18,7 @@ import { AuthModal } from "@/components/auth";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useSolarAlerts } from "@/hooks/useSolarAlerts";
 import { useSatelliteAlerts } from "@/hooks/useSatelliteAlerts";
+import { useBandOpeningFeed } from "@/hooks/useBandOpeningFeed";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { ContestVoiceManager } from "@/components/contest/ContestVoiceManager";
@@ -43,6 +44,9 @@ export function Layout() {
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+
+  // Feed live spots to the band opening detector (runs on all routes)
+  useBandOpeningFeed();
 
   // Alert display style preference
   const alertDisplayStyle = useSettingsStore(

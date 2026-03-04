@@ -20,6 +20,7 @@ export type AlertType =
   | "AURORA_WARNING" // High latitude aurora activity
   | "GREYLINE_APPROACHING" // Greyline nearing user's QTH
   | "BAND_OPENING" // Band opening detected on monitored band
+  | "BAND_CLOSING" // Band closing detected (activity fading or timed out)
   | "CME_INCOMING" // Coronal mass ejection heading toward Earth
   | "DST_STORM"; // Dst index indicates geomagnetic storm
 

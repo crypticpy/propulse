@@ -202,6 +202,22 @@ export const BAND_OPENING_THRESHOLDS = {
 };
 
 // =============================================================================
+// BAND CLOSING THRESHOLDS
+// =============================================================================
+
+/**
+ * Band closing alert thresholds
+ * Triggered when an active band opening is detected as closing
+ * (either by timeout or by signal fading)
+ * Cooldown is per-band to avoid spam but allow different bands to alert
+ */
+export const BAND_CLOSING_THRESHOLDS = {
+  type: "BAND_CLOSING" as AlertType,
+  cooldownMs: 30 * MINUTE, // 30-min cooldown per band
+  expiryHours: 1,
+};
+
+// =============================================================================
 // BAND DEGRADATION MAP
 // =============================================================================
 
@@ -265,6 +281,7 @@ export const ALERT_EXPIRY_HOURS: Record<AlertType, number> = {
   AURORA_WARNING: 6, // Aurora can last hours
   GREYLINE_APPROACHING: 1, // Greyline window is brief
   BAND_OPENING: 1, // Band openings can be fleeting
+  BAND_CLOSING: 1, // Closings are informational one-shot alerts
   CME_INCOMING: 24, // CME transit takes 1-3 days
   DST_STORM: 6, // Dst storms can persist for hours
 };
@@ -286,6 +303,7 @@ export const ALERT_ICONS: Record<AlertType, string> = {
   AURORA_WARNING: "\u{1F30C}", // milky way
   GREYLINE_APPROACHING: "\u{1F305}", // sunrise
   BAND_OPENING: "\u{1F4E1}", // satellite antenna (band activity)
+  BAND_CLOSING: "\u{1F4C9}", // chart decreasing (band closing)
   CME_INCOMING: "\u2604\uFE0F", // comet (CME heading toward Earth)
   DST_STORM: "\u{1F30D}", // globe (planetary magnetic disturbance)
 };

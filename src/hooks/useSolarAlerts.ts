@@ -48,6 +48,7 @@ import {
   evaluateFlareAlert,
   evaluateGreylineAlert,
   evaluateBandOpeningAlert,
+  evaluateBandClosingAlert,
   buildCompleteAlert,
   shouldResolveAlert,
   getPriorityForValue,
@@ -58,6 +59,7 @@ import {
   FLARE_THRESHOLDS,
   GREYLINE_THRESHOLDS,
   BAND_OPENING_THRESHOLDS,
+  BAND_CLOSING_THRESHOLDS,
   XRAY_THRESHOLDS,
   ACTUAL_PROTON_THRESHOLDS,
   DST_THRESHOLDS,
@@ -1153,6 +1155,54 @@ export function useSolarAlerts(
       if (isInCooldown(cooldownKey, BAND_OPENING_THRESHOLDS.cooldownMs)) return;
 
       const partial = evaluateBandOpeningAlert(opening);
+      if (partial) {
+        const alert = buildCompleteAlert(partial);
+        addAlert(alert);
+        recordAlertFired(cooldownKey);
+        playSolarAlertSound(alert.priority, alert.type);
+      }
+    });
+
+    return unsub;
+  }, [
+    enabled,
+    notificationPrefs?.bandOpeningAlerts,
+    notificationPrefs?.bandOpeningBands,
+    notificationPrefs?.quietHoursStart,
+    notificationPrefs?.quietHoursEnd,
+    addAlert,
+    isInCooldown,
+    recordAlertFired,
+  ]);
+
+  // =========================================================================
+  // BAND CLOSING MONITORING
+  // =========================================================================
+
+  /**
+   * Subscribes to band closing events from the shared BandOpeningDetector.
+   * Fires BAND_CLOSING alerts when monitored bands close (timeout or fading).
+   */
+  useEffect(() => {
+    if (!enabled || notificationPrefs?.bandOpeningAlerts === false) return;
+    const monitoredBands: BandId[] = notificationPrefs?.bandOpeningBands ?? [];
+    if (monitoredBands.length === 0) return;
+
+    const detector = getBandOpeningDetector();
+
+    const unsub = detector.subscribeToClosings((event) => {
+      const quietStart = notificationPrefs?.quietHoursStart;
+      const quietEnd = notificationPrefs?.quietHoursEnd;
+      if (isQuietHours(quietStart, quietEnd)) return;
+
+      // Only alert for bands the user selected
+      if (!monitoredBands.includes(event.opening.band as BandId)) return;
+
+      // Per-band cooldown
+      const cooldownKey = `BAND_CLOSING_${event.opening.band}`;
+      if (isInCooldown(cooldownKey, BAND_CLOSING_THRESHOLDS.cooldownMs)) return;
+
+      const partial = evaluateBandClosingAlert(event.opening, event.reason);
       if (partial) {
         const alert = buildCompleteAlert(partial);
         addAlert(alert);

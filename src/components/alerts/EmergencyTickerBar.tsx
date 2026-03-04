@@ -165,6 +165,8 @@ function alertTypeLabel(type: AlertType): string {
       return "BAND DEGRADATION";
     case "BAND_OPENING":
       return "BAND OPENING";
+    case "BAND_CLOSING":
+      return "BAND CLOSING";
     case "GREYLINE_APPROACHING":
       return "GREYLINE APPROACHING";
     default:

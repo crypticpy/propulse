@@ -8,13 +8,19 @@
  * Key concepts:
  * - A "band opening" is detected when spot count for a band/region pair
  *   jumps from < 2 to >= 5 spots within a 3-minute window
- * - Openings persist until 10 minutes pass without supporting spots
+ * - Openings persist until an adaptive timeout passes without supporting spots
  * - Region = continent code (NA, EU, AS, AF, SA, OC) derived from callsigns
+ * - Spots with SNR below -22 dB are excluded from opening threshold checks
+ * - Fade detection monitors declining spot rates to flag dying openings
  */
 
 import type { LiveSpot } from "@/types/livespot";
 import { getBandFromFrequency } from "@/lib/api/dxcluster";
-import { getContinent, type Continent } from "@/lib/utils/multipliers";
+import {
+  getContinent,
+  getCQZone,
+  type Continent,
+} from "@/lib/utils/multipliers";
 
 // ============================================================================
 // Types
@@ -42,6 +48,8 @@ export interface BandOpening {
   duration: number;
   /** Whether the opening is still active */
   isActive: boolean;
+  /** Whether the opening is fading (spot rate declining) */
+  isFading: boolean;
 }
 
 /**
@@ -49,6 +57,16 @@ export interface BandOpening {
  * Rarer band openings receive higher priority.
  */
 export type BandOpeningPriority = "critical" | "high" | "normal" | "info";
+
+/** Event emitted when a band opening closes */
+export interface BandClosingEvent {
+  /** The opening that has closed */
+  opening: BandOpening;
+  /** Why it closed */
+  reason: "timeout" | "fading";
+  /** When the closing was detected */
+  closedAt: number;
+}
 
 // ============================================================================
 // Constants
@@ -68,6 +86,9 @@ const CLOSING_TIMEOUT_MS = 10 * 60 * 1000;
 
 /** Maximum number of active openings to track (prevent memory issues) */
 const MAX_ACTIVE_OPENINGS = 50;
+
+/** Minimum SNR for a spot to count toward opening detection (-22 dB) */
+const MIN_SNR_THRESHOLD = -22;
 
 // ============================================================================
 // Internal types
@@ -92,10 +113,19 @@ interface BucketState {
   lastSpotAt: number;
   /** Peak spot count seen in any detection window */
   peakCount: number;
+  /** Spot rates sampled every ~60 seconds for trend detection */
+  rateHistory: number[];
+  /** Timestamp of last rate sample */
+  lastRateSampleAt: number;
+  /** Peak spot rate observed */
+  peakRate: number;
 }
 
 /** Subscriber callback type */
 type BandOpeningCallback = (opening: BandOpening) => void;
+
+/** Closing subscriber callback type */
+type BandClosingCallback = (event: BandClosingEvent) => void;
 
 // ============================================================================
 // Helper functions
@@ -142,6 +172,32 @@ function extractRegions(
   return { from: fromContinent, to: toContinent };
 }
 
+/** VHF bands that use CQ zone granularity instead of continent */
+const VHF_ZONE_BANDS = new Set(["6m", "10m"]);
+
+/**
+ * Extract region identifiers from a spot.
+ * For VHF bands (6m, 10m), uses CQ zone for finer granularity.
+ * For HF bands, uses continent codes.
+ * Returns null if regions can't be determined or are the same.
+ */
+function extractRegionsForBand(
+  spot: LiveSpot,
+  band: string,
+): { from: string; to: string } | null {
+  if (VHF_ZONE_BANDS.has(band)) {
+    const fromZone = getCQZone(spot.spotter);
+    const toZone = getCQZone(spot.dx);
+    if (!fromZone || !toZone) {
+      // Fallback to continent if CQ zone lookup fails
+      return extractRegions(spot);
+    }
+    if (fromZone === toZone) return null;
+    return { from: `CQ${fromZone}`, to: `CQ${toZone}` };
+  }
+  return extractRegions(spot);
+}
+
 // ============================================================================
 // Band Opening Detector Class
 // ============================================================================
@@ -158,6 +214,11 @@ function extractRegions(
  *   console.log(`${opening.band} opened to ${opening.toRegion}!`);
  * });
  *
+ * // Subscribe to closings
+ * const unsubClose = detector.subscribeToClosings((event) => {
+ *   console.log(`${event.opening.band} closed: ${event.reason}`);
+ * });
+ *
  * // Feed spots periodically
  * detector.update(newSpots);
  *
@@ -166,6 +227,7 @@ function extractRegions(
  *
  * // Cleanup
  * unsub();
+ * unsubClose();
  * detector.destroy();
  * ```
  */
@@ -176,6 +238,8 @@ export class BandOpeningDetector {
   private activeOpenings = new Map<BucketKey, BandOpening>();
   /** Subscriber callbacks */
   private subscribers: Set<BandOpeningCallback> = new Set();
+  /** Closing subscriber callbacks */
+  private closingSubscribers: Set<BandClosingCallback> = new Set();
   /** Cleanup interval handle */
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   /**
@@ -184,6 +248,10 @@ export class BandOpeningDetector {
    * During contests, set to 1.5-2.0 to detect openings faster.
    */
   private _sensitivity = 1.0;
+  /** Current solar flux index for plausibility filtering */
+  private solarSfi: number | null = null;
+  /** Current Kp index for plausibility filtering */
+  private solarKp: number | null = null;
 
   constructor() {
     // Periodic cleanup of stale data every 30 seconds
@@ -210,6 +278,15 @@ export class BandOpeningDetector {
   }
 
   /**
+   * Update the solar context used for plausibility filtering.
+   * Call this whenever new solar data is available.
+   */
+  setSolarContext(kp: number, sfi: number): void {
+    this.solarKp = kp;
+    this.solarSfi = sfi;
+  }
+
+  /**
    * Feed new spots into the detector.
    * Call this whenever new spot data arrives.
    */
@@ -217,11 +294,11 @@ export class BandOpeningDetector {
     const now = Date.now();
 
     for (const spot of spots) {
-      const regions = extractRegions(spot);
-      if (!regions) continue;
-
       const band = spot.band || getBandFromFrequency(spot.frequency);
       if (band === "Unknown") continue;
+
+      const regions = extractRegionsForBand(spot, band);
+      if (!regions) continue;
 
       const key = makeBucketKey(band, regions.from, regions.to);
       const spotTime =
@@ -238,6 +315,9 @@ export class BandOpeningDetector {
           openingDetected: false,
           lastSpotAt: 0,
           peakCount: 0,
+          rateHistory: [],
+          lastRateSampleAt: 0,
+          peakRate: 0,
         };
         this.buckets.set(key, bucket);
       }
@@ -286,6 +366,17 @@ export class BandOpeningDetector {
   }
 
   /**
+   * Subscribe to band closing events.
+   * Returns an unsubscribe function.
+   */
+  subscribeToClosings(callback: BandClosingCallback): () => void {
+    this.closingSubscribers.add(callback);
+    return () => {
+      this.closingSubscribers.delete(callback);
+    };
+  }
+
+  /**
    * Clean up resources. Call when the detector is no longer needed.
    */
   destroy(): void {
@@ -294,6 +385,7 @@ export class BandOpeningDetector {
       this.cleanupInterval = null;
     }
     this.subscribers.clear();
+    this.closingSubscribers.clear();
     this.buckets.clear();
     this.activeOpenings.clear();
   }
@@ -312,17 +404,38 @@ export class BandOpeningDetector {
         (e) => now - e.timestamp <= WINDOW_MS,
       );
 
+      // Track peak count using ALL entries (unfiltered)
       const windowCount = bucket.entries.length;
       bucket.peakCount = Math.max(bucket.peakCount, windowCount);
+
+      // Rate sampling for fade detection (~every 60 seconds)
+      if (now - bucket.lastRateSampleAt >= 60_000) {
+        const spotsInLastMinute = bucket.entries.filter(
+          (e) => now - e.timestamp <= 60_000,
+        ).length;
+        bucket.rateHistory.push(spotsInLastMinute);
+        // Keep last 5 samples
+        if (bucket.rateHistory.length > 5) {
+          bucket.rateHistory = bucket.rateHistory.slice(-5);
+        }
+        bucket.lastRateSampleAt = now;
+        bucket.peakRate = Math.max(bucket.peakRate, spotsInLastMinute);
+      }
+
+      // Filter out weak spots for opening detection threshold
+      const qualifiedEntries = bucket.entries.filter(
+        (e) => e.snr === null || e.snr >= MIN_SNR_THRESHOLD,
+      );
+      const qualifiedCount = qualifiedEntries.length;
 
       // Check for opening detection (threshold scaled by sensitivity)
       const effectiveThreshold = Math.max(
         2,
         Math.round(OPENING_THRESHOLD / this._sensitivity),
       );
-      if (!bucket.openingDetected && windowCount >= effectiveThreshold) {
-        // Verify spots arrived within the detection window
-        const recentEntries = bucket.entries.filter(
+      if (!bucket.openingDetected && qualifiedCount >= effectiveThreshold) {
+        // Verify spots arrived within the detection window (also filtered)
+        const recentEntries = qualifiedEntries.filter(
           (e) => now - e.timestamp <= DETECTION_WINDOW_MS,
         );
 
@@ -352,12 +465,107 @@ export class BandOpeningDetector {
               ) / 10;
           }
 
-          // Close if no spots for the timeout period
-          if (now - bucket.lastSpotAt > CLOSING_TIMEOUT_MS) {
+          // Fade detection: check if opening is dying
+          if (bucket.rateHistory.length >= 3 && !existingOpening.isFading) {
+            const last3 = bucket.rateHistory.slice(-3);
+            const isMonotonicallyDeclining =
+              last3[0] > last3[1] && last3[1] > last3[2];
+            const currentRate = last3[2];
+            const isBelowThreshold =
+              bucket.peakRate > 0 && currentRate < 0.3 * bucket.peakRate;
+
+            if (isMonotonicallyDeclining && isBelowThreshold) {
+              existingOpening.isFading = true;
+              existingOpening.isActive = false;
+              bucket.openingDetected = false;
+              this.notifyClosing(existingOpening, "fading");
+              continue;
+            }
+          }
+
+          // Close if no spots for the adaptive timeout period
+          const closingTimeout = this.getClosingTimeout(
+            bucket,
+            existingOpening,
+          );
+          if (now - bucket.lastSpotAt > closingTimeout) {
             existingOpening.isActive = false;
             bucket.openingDetected = false;
+            this.notifyClosing(existingOpening, "timeout");
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Compute adaptive closing timeout based on opening strength and duration.
+   * Stronger/longer openings get more patience before declaring closed.
+   */
+  private getClosingTimeout(bucket: BucketState, opening: BandOpening): number {
+    const MAX_TIMEOUT_MS = 25 * 60 * 1000; // 25 minutes cap
+
+    let timeout = CLOSING_TIMEOUT_MS;
+
+    const durationMs = Date.now() - opening.detectedAt;
+
+    // Longer openings get more patience
+    if (durationMs > 60 * 60 * 1000) {
+      timeout += 10 * 60 * 1000; // +10 min for >1hr openings
+    } else if (durationMs > 30 * 60 * 1000) {
+      timeout += 5 * 60 * 1000; // +5 min for >30min openings
+    }
+
+    // High-traffic openings get more patience
+    if (bucket.peakCount > 20) {
+      timeout += 5 * 60 * 1000; // +5 min for busy openings
+    }
+
+    return Math.min(timeout, MAX_TIMEOUT_MS);
+  }
+
+  /**
+   * Check if a band opening is plausible given current solar conditions.
+   * Only suppresses clearly implausible openings — conservative approach.
+   */
+  private isOpeningPlausible(band: string): boolean {
+    // If no solar data, assume plausible (don't suppress)
+    if (this.solarKp === null || this.solarSfi === null) return true;
+
+    // High Kp suppresses upper HF bands
+    if (this.solarKp >= 7 && ["10m", "12m", "15m"].includes(band)) return false;
+    if (this.solarKp >= 8 && ["17m", "20m"].includes(band)) return false;
+
+    // Low SFI suppresses bands that need ionospheric support
+    if (this.solarSfi < 80 && ["10m", "12m"].includes(band)) return false;
+
+    // 6m needs high SFI for F2, but sporadic E works anytime in season
+    if (this.solarSfi < 90 && band === "6m") {
+      const month = new Date().getMonth(); // 0-indexed
+      const isEsSeason = month >= 4 && month <= 7; // May-Aug (NH)
+      if (!isEsSeason) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Notify closing subscribers of a band opening closure.
+   */
+  private notifyClosing(
+    opening: BandOpening,
+    reason: "timeout" | "fading",
+  ): void {
+    const event: BandClosingEvent = {
+      opening: { ...opening },
+      reason,
+      closedAt: Date.now(),
+    };
+    for (const callback of this.closingSubscribers) {
+      try {
+        callback(event);
+      } catch {
+        // Ignore subscriber errors
       }
     }
   }
@@ -391,6 +599,12 @@ export class BandOpeningDetector {
     if (!regionPair || !regionPair.includes("-")) return;
     const [fromRegion, toRegion] = regionPair.split("-");
 
+    // Plausibility check against current solar conditions
+    if (!this.isOpeningPlausible(band)) {
+      bucket.openingDetected = true; // Prevent re-triggering
+      return;
+    }
+
     // Calculate average SNR
     const snrEntries = bucket.entries.filter((e) => e.snr != null);
     const avgSNR =
@@ -412,6 +626,7 @@ export class BandOpeningDetector {
       averageSNR: avgSNR,
       duration: 0,
       isActive: true,
+      isFading: false,
     };
 
     bucket.openingDetected = true;
@@ -509,6 +724,46 @@ const REGION_NAMES: Record<string, string> = {
   AF: "Africa",
   AS: "Asia",
   OC: "Oceania",
+  CQ1: "NW Atlantic",
+  CQ2: "NE Canada",
+  CQ3: "Eastern NA",
+  CQ4: "Central NA",
+  CQ5: "Western NA",
+  CQ6: "Mexico/Central Am",
+  CQ7: "NW South Am",
+  CQ8: "South Am",
+  CQ9: "SE South Am",
+  CQ10: "SW South Am",
+  CQ11: "NW Africa",
+  CQ12: "Central/East Africa",
+  CQ13: "South Africa",
+  CQ14: "Western Europe",
+  CQ15: "Central Europe",
+  CQ16: "Eastern Europe",
+  CQ17: "Western Siberia",
+  CQ18: "Central Asia",
+  CQ19: "Eastern Siberia",
+  CQ20: "Middle East",
+  CQ21: "SW Asia",
+  CQ22: "SE Asia",
+  CQ23: "Central Asia",
+  CQ24: "India/Sri Lanka",
+  CQ25: "Japan/Korea",
+  CQ26: "E Pacific Islands",
+  CQ27: "Philippines/Pacific",
+  CQ28: "Indonesia",
+  CQ29: "W Australia",
+  CQ30: "E Australia",
+  CQ31: "Central Pacific",
+  CQ32: "New Zealand",
+  CQ33: "NW Africa",
+  CQ34: "NE Africa",
+  CQ35: "Central Africa",
+  CQ36: "E Indian Ocean",
+  CQ37: "S Indian Ocean",
+  CQ38: "NE Asia",
+  CQ39: "N Pacific",
+  CQ40: "Antarctica",
 };
 
 /**

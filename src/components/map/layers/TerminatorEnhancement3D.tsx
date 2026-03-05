@@ -12,9 +12,10 @@
  * Accepts all data as props -- no direct hook imports.
  */
 
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { latLonToVector3 } from "@/components/map/lib/globeCoords";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,23 +56,6 @@ const PARTICLE_SPEED = 0.03;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon to a 3D position on the globe.
- */
-function latLonToVector3(
-  lat: number,
-  lon: number,
-  radius: number,
-): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
 
 /**
  * Offset a lat/lon point perpendicular to a path direction by a given
@@ -210,6 +194,15 @@ export const TerminatorEnhancement3D = React.memo(
       [],
     );
 
+    useEffect(() => {
+      return () => {
+        bandGeometry.dispose();
+        innerBandGeometry.dispose();
+        particleGeometry.dispose();
+        particleMaterial.dispose();
+      };
+    }, [bandGeometry, innerBandGeometry, particleGeometry, particleMaterial]);
+
     // Animation: pulse opacity and advance particles
     useFrame(({ clock }) => {
       if (!hasRenderableData || !terminatorCurve) return;
@@ -251,7 +244,7 @@ export const TerminatorEnhancement3D = React.memo(
     return (
       <group name="terminator-enhancement">
         {/* Outer glow band */}
-        <mesh geometry={bandGeometry}>
+        <mesh geometry={bandGeometry} renderOrder={5}>
           <meshBasicMaterial
             ref={bandMaterialRef}
             color={GLOW_COLOR}
@@ -264,7 +257,7 @@ export const TerminatorEnhancement3D = React.memo(
         </mesh>
 
         {/* Inner brighter band */}
-        <mesh geometry={innerBandGeometry}>
+        <mesh geometry={innerBandGeometry} renderOrder={5}>
           <meshBasicMaterial
             ref={innerBandMaterialRef}
             color={INNER_GLOW_COLOR}
@@ -285,6 +278,7 @@ export const TerminatorEnhancement3D = React.memo(
             }}
             geometry={particleGeometry}
             material={particleMaterial}
+            renderOrder={5}
           />
         ))}
       </group>

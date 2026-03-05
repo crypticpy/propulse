@@ -11,7 +11,7 @@
  *  - Visibility array updated in useFrame, DOM only touched on change
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -65,6 +65,10 @@ const DISTANCE_HYSTERESIS = 0.05;
 // Backface culling threshold: cos(90°) = 0 means exactly on the horizon.
 // Small positive value hides labels just before they reach the edge.
 const BACKFACE_THRESHOLD = 0.1;
+
+// Safety caps to prevent DOM element explosion
+const MAX_SQUARE_LABELS = 200;
+const MAX_TOTAL_LABELS = 300;
 
 const DEG2RAD = Math.PI / 180;
 
@@ -420,8 +424,9 @@ export function LabelsOverlay({
       stateBorders: labelOptions.stateBorders,
       countryNames: showLabels !== false && labelOptions.countryNames,
       cities: showLabels !== false && labelOptions.cities,
-      maidenheadGrid: showLabels !== false && labelOptions.maidenheadGrid,
-      gridLabels: showLabels !== false && labelOptions.gridLabels,
+      // Grid overlays have independent toggles — not gated by master "Labels"
+      maidenheadGrid: labelOptions.maidenheadGrid,
+      gridLabels: labelOptions.gridLabels,
     }),
     [labelOptions, showLabels],
   );
@@ -440,7 +445,7 @@ export function LabelsOverlay({
       buildNightAwareBorderMaterial(
         subsolarLat ?? 0,
         subsolarLon ?? 0,
-        0.35,
+        0.4,
         0.4,
       ),
     [subsolarLat, subsolarLon],
@@ -473,13 +478,32 @@ export function LabelsOverlay({
   const gridMaterial = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: 0x00cccc,
+        color: 0x00dddd,
         transparent: true,
-        opacity: 0.25,
+        opacity: 0.35,
         depthWrite: false,
       }),
     [],
   );
+
+  // Dispose GPU resources when recreated or on unmount
+  useEffect(() => {
+    return () => {
+      borderGeometry.dispose();
+      borderMaterial.dispose();
+      stateBorderGeometry.dispose();
+      stateBorderMaterial.dispose();
+      gridGeometry?.dispose();
+      gridMaterial.dispose();
+    };
+  }, [
+    borderGeometry,
+    borderMaterial,
+    stateBorderGeometry,
+    stateBorderMaterial,
+    gridGeometry,
+    gridMaterial,
+  ]);
 
   // Pre-compute all label data (positions + normals for backface culling)
   const allCountryLabels: LabelData[] = useMemo(() => {
@@ -539,7 +563,20 @@ export function LabelsOverlay({
 
   const maidenheadLabels: LabelData[] = useMemo(() => {
     if (!showFieldLabels) return [];
-    const fields = getMaidenheadFields();
+    // Viewport-cull fields: wider radius at far zoom, tighter when close
+    const angularRadius = zoomTier >= 2 ? 50 : zoomTier >= 1 ? 65 : 80;
+    const lonMin = camCenter.lon - angularRadius;
+    const lonMax = camCenter.lon + angularRadius;
+    const latMin = camCenter.lat - angularRadius / 2;
+    const latMax = camCenter.lat + angularRadius / 2;
+
+    const fields = getMaidenheadFields().filter(
+      (f) =>
+        f.lonCenter >= lonMin &&
+        f.lonCenter <= lonMax &&
+        f.latCenter >= latMin &&
+        f.latCenter <= latMax,
+    );
     return fields.map((field) => {
       const [nx, ny, nz] = latLonToXYZ(field.latCenter, field.lonCenter, 1.0);
       const [px, py, pz] = latLonToXYZ(field.latCenter, field.lonCenter, 1.03);
@@ -555,7 +592,7 @@ export function LabelsOverlay({
         pz,
       };
     });
-  }, [showFieldLabels]);
+  }, [showFieldLabels, camCenter.lat, camCenter.lon, zoomTier]);
 
   // Maidenhead square labels (4-char) — viewport-culled, shown when zoomed in
   // Only compute when gridLabels is on, detail >= 2, and zoom tier >= 1
@@ -565,8 +602,8 @@ export function LabelsOverlay({
   const squareLabels: LabelData[] = useMemo(() => {
     if (!showSquareLabels) return [];
 
-    // Compute viewport bounds from camera center (~60° angular radius)
-    const angularRadius = zoomTier >= 2 ? 30 : 50;
+    // Tighter viewport to limit DOM element count
+    const angularRadius = zoomTier >= 2 ? 20 : 35;
     const viewport: ViewportBounds = {
       lonMin: Math.max(-180, camCenter.lon - angularRadius),
       lonMax: Math.min(180, camCenter.lon + angularRadius),
@@ -574,7 +611,21 @@ export function LabelsOverlay({
       latMax: Math.min(90, camCenter.lat + angularRadius),
     };
 
-    const squares = getMaidenheadSquaresInViewport(viewport);
+    let squares = getMaidenheadSquaresInViewport(viewport);
+
+    // Hard cap: sort by distance to camera center and keep closest
+    if (squares.length > MAX_SQUARE_LABELS) {
+      squares = squares
+        .map((sq) => ({
+          ...sq,
+          dist:
+            (sq.latCenter - camCenter.lat) ** 2 +
+            (sq.lonCenter - camCenter.lon) ** 2,
+        }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, MAX_SQUARE_LABELS);
+    }
+
     return squares.map((sq) => {
       const [nx, ny, nz] = latLonToXYZ(sq.latCenter, sq.lonCenter, 1.0);
       const [px, py, pz] = latLonToXYZ(sq.latCenter, sq.lonCenter, 1.018);
@@ -612,9 +663,9 @@ export function LabelsOverlay({
       setZoomTier(newTier);
     }
 
-    // Update camera center lat/lon for grid label viewport culling
-    // Only update when camera has moved >3° to avoid excessive re-renders
-    if (effectiveOptions.gridLabels && gridLabelDetail >= 2) {
+    // Update camera center lat/lon for viewport culling of grid labels
+    // Needed for both field labels (maidenheadGrid) and square labels (gridLabels)
+    if (effectiveOptions.maidenheadGrid || effectiveOptions.gridLabels) {
       const pos = camera.position;
       const len = pos.length();
       const lat = Math.asin(pos.y / len) * (180 / Math.PI);
@@ -632,6 +683,21 @@ export function LabelsOverlay({
     if (!effectiveOptions.countryNames) return [];
     return allCountryLabels.filter((c) => isCountryVisible(c.area, zoomTier));
   }, [allCountryLabels, effectiveOptions.countryNames, zoomTier]);
+
+  // Global label cap: trim square labels first, then field labels
+  const cappedSquareLabels = useMemo(() => {
+    const fixedCount =
+      visibleCountryLabels.length + cityLabels.length + maidenheadLabels.length;
+    const remaining = Math.max(0, MAX_TOTAL_LABELS - fixedCount);
+    return squareLabels.length > remaining
+      ? squareLabels.slice(0, remaining)
+      : squareLabels;
+  }, [
+    visibleCountryLabels.length,
+    cityLabels.length,
+    maidenheadLabels.length,
+    squareLabels,
+  ]);
 
   return (
     <group>
@@ -695,9 +761,9 @@ export function LabelsOverlay({
           />
         ))}
 
-      {/* Maidenhead square labels (4-char) — viewport-culled + backface culled */}
+      {/* Maidenhead square labels (4-char) — viewport-culled + capped + backface culled */}
       {showSquareLabels &&
-        squareLabels.map((label) => (
+        cappedSquareLabels.map((label) => (
           <BackfaceLabel
             key={label.key}
             label={label}

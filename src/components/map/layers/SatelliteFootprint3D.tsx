@@ -15,6 +15,7 @@
 
 import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
+import { getUpDirection } from "@/components/map/lib/globeCoords";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,19 +52,6 @@ const VISUAL_SCALE = 0.5;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Get the "up" direction (surface normal) at a given lat/lon.
- */
-function getUpDirection(lat: number, lon: number): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -Math.sin(phi) * Math.cos(theta),
-    Math.cos(phi),
-    Math.sin(phi) * Math.sin(theta),
-  ).normalize();
-}
 
 /**
  * Calculate the radio footprint angular radius in radians.
@@ -183,7 +171,7 @@ const FootprintDisc = React.memo(function FootprintDisc({
       <meshBasicMaterial
         color={color}
         transparent
-        opacity={0.15}
+        opacity={0.22}
         side={THREE.DoubleSide}
         depthWrite={false}
       />

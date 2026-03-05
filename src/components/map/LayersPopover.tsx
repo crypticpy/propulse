@@ -700,6 +700,22 @@ export function LayersPopover() {
             onToggle: () => toggleLayer("labels"),
           },
           {
+            key: "stateBorders",
+            label: "State Borders",
+            title: "US state boundary lines",
+            getValue: () => labelOptions.stateBorders,
+            onToggle: () =>
+              setLabelOption("stateBorders", !labelOptions.stateBorders),
+          },
+          {
+            key: "maidenheadGrid",
+            label: "Maidenhead Grid",
+            title: "Grid lines and field labels on the globe",
+            getValue: () => labelOptions.maidenheadGrid,
+            onToggle: () =>
+              setLabelOption("maidenheadGrid", !labelOptions.maidenheadGrid),
+          },
+          {
             key: "gridLabels",
             label: "Grid Labels",
             title:

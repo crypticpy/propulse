@@ -6,9 +6,10 @@
  * NOAA OVATION probability data.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { AuroraData } from "@/lib/api/aurora";
+import { latLonToVector3 } from "@/components/map/lib/globeCoords";
 
 interface AuroraOverlayProps {
   /** Aurora data from NOAA OVATION model */
@@ -38,24 +39,6 @@ function getAuroraColor(probability: number): THREE.Color {
   }
 }
 
-/**
- * Convert lat/lon to 3D position on sphere
- */
-function latLonToVector3(
-  lat: number,
-  lon: number,
-  radius: number,
-): THREE.Vector3 {
-  const phi = ((90 - lat) * Math.PI) / 180;
-  const theta = ((lon + 180) * Math.PI) / 180;
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
 export function AuroraOverlay({
   auroraData,
   minProbability = 10,
@@ -82,7 +65,7 @@ export function AuroraOverlay({
 
       // Size based on probability - higher probability = larger point
       // Increased base size for better visibility
-      const size = 0.025 + (coord.aurora / 100) * 0.04;
+      const size = 0.035 + (coord.aurora / 100) * 0.06;
       sizes.push(size);
     });
 
@@ -132,10 +115,10 @@ export function AuroraOverlay({
           }
 
           // Soft falloff for glow effect - increased alpha for visibility
-          float alpha = (1.0 - dist * 2.0) * vAlpha * 0.8;
+          float alpha = (1.0 - dist * 2.0) * vAlpha * 1.0;
 
           // Add stronger glow around edges
-          float glow = exp(-dist * 3.0) * 0.5;
+          float glow = exp(-dist * 3.0) * 0.7;
 
           gl_FragColor = vec4(vColor, alpha + glow);
         }
@@ -163,9 +146,18 @@ export function AuroraOverlay({
     return geo;
   }, [auroraPoints]);
 
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      shaderMaterial.dispose();
+    };
+  }, [geometry, shaderMaterial]);
+
   if (auroraPoints.count === 0) {
     return null;
   }
 
-  return <points geometry={geometry} material={shaderMaterial} />;
+  return (
+    <points geometry={geometry} material={shaderMaterial} renderOrder={9} />
+  );
 }

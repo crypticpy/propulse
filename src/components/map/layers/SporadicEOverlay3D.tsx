@@ -15,6 +15,7 @@ import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { SporadicERegion } from "@/hooks/useSporadicE";
+import { latLonTo3D } from "@/components/map/lib/globeCoords";
 
 // =============================================================================
 // TYPES
@@ -43,7 +44,7 @@ const MAX_INSTANCES = 2000;
 // =============================================================================
 
 const dummy = new THREE.Object3D();
-const up = new THREE.Vector3(0, 0, 1);
+const up = new THREE.Vector3(0, 1, 0);
 
 // Sporadic E color palette — ethereal green tones
 const colorWeak = new THREE.Color("#226644"); // dark green — low probability
@@ -52,20 +53,6 @@ const colorStrong = new THREE.Color("#66ff99"); // bright green — high probabi
 // =============================================================================
 // HELPERS
 // =============================================================================
-
-function latLonTo3D(
-  lat: number,
-  lon: number,
-  radius: number,
-): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
 
 /**
  * Map probability and foEs to a green intensity color.
@@ -114,7 +101,7 @@ export const SporadicEOverlay3D = React.memo(
         // Scale: larger discs for higher probability — creates cloud-like blobs
         // Base scale 0.12 produces visible patches on a radius-1.0 globe;
         // probability further expands them up to 1.6x for strong regions.
-        const baseScale = 0.12;
+        const baseScale = 0.15;
         const probScale = 1 + region.probability * 0.6;
         dummy.scale.setScalar(baseScale * probScale);
         dummy.updateMatrix();
@@ -154,7 +141,7 @@ export const SporadicEOverlay3D = React.memo(
         const t = clock.getElapsedTime();
         // Layered sine waves for organic, cloud-like pulsing
         const pulse = Math.sin(t * 0.6) * 0.06 + Math.sin(t * 1.3) * 0.03;
-        materialRef.current.opacity = 0.55 + pulse;
+        materialRef.current.opacity = 0.6 + pulse;
       }
     });
 
@@ -174,11 +161,11 @@ export const SporadicEOverlay3D = React.memo(
           frustumCulled={false}
           renderOrder={8}
         >
-          <circleGeometry args={[1, 20]} />
+          <sphereGeometry args={[1, 12, 6, 0, Math.PI * 2, 0, 0.35]} />
           <meshBasicMaterial
             ref={materialRef}
             transparent
-            opacity={0.55}
+            opacity={0.6}
             depthWrite={false}
             blending={THREE.NormalBlending}
             side={THREE.DoubleSide}

@@ -16,7 +16,7 @@
  * with lats[], lons[], and values[][] (total noise in dB).
  */
 
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useActiveFrequency } from "@/hooks/useActiveBandMode";
@@ -40,7 +40,7 @@ interface NoiseFloorOverlay3DProps {
 // =============================================================================
 
 /** Radius just above globe surface to avoid z-fighting */
-const GLOBE_RADIUS = 1.005;
+const GLOBE_RADIUS = 1.012;
 
 // =============================================================================
 // HELPERS
@@ -200,10 +200,18 @@ export const NoiseFloorOverlay3D = React.memo(
         vertexShader,
         fragmentShader,
         transparent: true,
-        side: THREE.FrontSide,
+        side: THREE.DoubleSide,
         depthWrite: false,
       });
     }, [noiseTexture]);
+
+    // Dispose texture and material on unmount or when grid changes
+    useEffect(() => {
+      return () => {
+        noiseTexture.dispose();
+        material.dispose();
+      };
+    }, [noiseTexture, material]);
 
     // Animate time uniform for subtle opacity pulse
     useFrame(({ clock }) => {
@@ -218,7 +226,7 @@ export const NoiseFloorOverlay3D = React.memo(
 
     return (
       <group name="noise-floor-overlay">
-        <mesh>
+        <mesh renderOrder={9}>
           <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
           <primitive object={material} attach="material" ref={materialRef} />
         </mesh>

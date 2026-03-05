@@ -18,10 +18,20 @@
  * Accepts all data as props -- no direct hook imports except mapStore for opacity.
  */
 
-import React, { useRef, useMemo, useState, useCallback } from "react";
+import React, {
+  useRef,
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
+import {
+  latLonToVector3,
+  getUpDirection,
+} from "@/components/map/lib/globeCoords";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useMapStore } from "@/stores/mapStore";
 
@@ -120,36 +130,6 @@ const RING_CONFIG = [
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon to a 3D position on the globe.
- */
-function latLonToVector3(
-  lat: number,
-  lon: number,
-  radius: number,
-): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
-/**
- * Get the "up" direction at a given lat/lon (surface normal).
- */
-function getUpDirection(lat: number, lon: number): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -Math.sin(phi) * Math.cos(theta),
-    Math.cos(phi),
-    Math.sin(phi) * Math.sin(theta),
-  ).normalize();
-}
 
 /**
  * Convert a km radius to globe units.
@@ -394,6 +374,12 @@ function RippleRing({
     return new THREE.RingGeometry(0.98, 1.0, 64);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      ringGeo.dispose();
+    };
+  }, [ringGeo]);
+
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     // Cycle every 4 seconds; ring expands from 0 to maxRadius
@@ -414,7 +400,7 @@ function RippleRing({
       ref={ringRef}
       position={centerPosition}
       quaternion={quaternion}
-      renderOrder={2}
+      renderOrder={12}
     >
       <primitive object={ringGeo} attach="geometry" />
       <meshBasicMaterial
@@ -461,7 +447,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
   const color = activeBandSupportsNVIS ? QUALITY_COLORS[quality] : "#556677";
 
   // Base opacity is driven by user's nvisOpacity setting
-  const baseOpacityMin = nvisOpacity * 0.5;
+  const baseOpacityMin = nvisOpacity * 0.35;
   const baseOpacityMax = nvisOpacity;
   const opacityMin = Math.min(1, baseOpacityMin * opacityScale);
   const opacityMax = Math.min(1, baseOpacityMax * opacityScale);
@@ -507,6 +493,13 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
       fraction,
     }));
   }, [domeRadius]);
+
+  useEffect(() => {
+    return () => {
+      domeGeometry.dispose();
+      ringGeometries.forEach(({ geo }) => geo.dispose());
+    };
+  }, [domeGeometry, ringGeometries]);
 
   // Distance label positions (at the south edge of each ring for visibility)
   const distanceLabelData = useMemo(() => {
@@ -585,7 +578,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
   return (
     <group>
       {/* NVIS dome hemisphere with gradient */}
-      <mesh position={position} quaternion={quaternion}>
+      <mesh position={position} quaternion={quaternion} renderOrder={12}>
         <primitive object={domeGeometry} attach="geometry" />
         <meshBasicMaterial
           ref={domeMaterialRef}
@@ -594,7 +587,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           opacity={opacityMin}
           side={THREE.DoubleSide}
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
+          blending={THREE.NormalBlending}
         />
       </mesh>
 
@@ -604,6 +597,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           key={`ring-${i}`}
           position={ringCenterPosition}
           quaternion={ringQuaternion}
+          renderOrder={12}
         >
           <primitive object={geo} attach="geometry" />
           <meshBasicMaterial

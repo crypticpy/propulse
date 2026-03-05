@@ -21,6 +21,7 @@ import React, { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { LightningStrike } from "@/lib/api/lightning";
+import { latLonTo3D } from "@/components/map/lib/globeCoords";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -61,24 +62,6 @@ const matrix = new THREE.Matrix4();
 /** Clamp a number between min and max */
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-// ---------------------------------------------------------------------------
-// Coordinate conversion (same convention as every other globe component)
-// ---------------------------------------------------------------------------
-
-function latLonTo3D(
-  lat: number,
-  lon: number,
-  radius: number = GLOBE_RADIUS,
-): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +166,7 @@ export const LightningOverlay3D = React.memo(
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
+          renderOrder={3}
         >
           <sphereGeometry args={[1, 8, 8]} />
           <meshBasicMaterial
@@ -199,6 +183,7 @@ export const LightningOverlay3D = React.memo(
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
+          renderOrder={3}
         >
           <sphereGeometry args={[1, 8, 8]} />
           <meshBasicMaterial

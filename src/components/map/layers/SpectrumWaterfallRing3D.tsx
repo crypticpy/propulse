@@ -13,7 +13,7 @@
  * Accepts all data as props -- no direct hook imports.
  */
 
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
@@ -132,6 +132,12 @@ export const SpectrumWaterfallRing3D = React.memo(
       );
     }, [cellAngle, numBands]);
 
+    useEffect(() => {
+      return () => {
+        cellGeometry.dispose();
+      };
+    }, [cellGeometry]);
+
     // Band label positions around the outer edge of the ring
     const bandLabelPositions = useMemo(() => {
       return bandNames.map((_, i) => {
@@ -235,6 +241,7 @@ export const SpectrumWaterfallRing3D = React.memo(
           ref={meshRef}
           args={[cellGeometry, undefined, maxInstances]}
           frustumCulled={false}
+          renderOrder={6}
         >
           <meshBasicMaterial
             transparent

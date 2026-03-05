@@ -14,10 +14,14 @@
  * Accepts all data as props -- no direct hook imports.
  */
 
-import React, { useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
+import {
+  latLonToVector3,
+  getUpDirection,
+} from "@/components/map/lib/globeCoords";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,36 +71,6 @@ const ZHR_SCALE_MAX = 120;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon to a 3D position on the globe.
- */
-function latLonToVector3(
-  lat: number,
-  lon: number,
-  radius: number,
-): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
-/**
- * Get the "up" direction (surface normal) at a lat/lon.
- */
-function getUpDirection(lat: number, lon: number): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -Math.sin(phi) * Math.cos(theta),
-    Math.cos(phi),
-    Math.sin(phi) * Math.sin(theta),
-  ).normalize();
-}
 
 /**
  * Scale ZHR to a visual size factor (0.5 to 1.5).
@@ -187,15 +161,15 @@ function ShowerMarker({
         quaternion={surfaceQuaternion}
         geometry={scatterGeo}
         scale={[scatterScale, scatterScale, 1]}
-        renderOrder={0}
+        renderOrder={6}
       >
         <meshBasicMaterial
           color={color}
           transparent
-          opacity={0.12 * scale}
+          opacity={0.2 * scale}
           side={THREE.DoubleSide}
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
+          blending={THREE.NormalBlending}
         />
       </mesh>
 
@@ -205,7 +179,7 @@ function ShowerMarker({
         quaternion={surfaceQuaternion}
         geometry={starburstGeo}
         scale={[scale, scale, scale]}
-        renderOrder={2}
+        renderOrder={8}
       >
         <lineBasicMaterial
           color={color}
@@ -217,7 +191,7 @@ function ShowerMarker({
       </lineSegments>
 
       {/* Central glow sphere */}
-      <mesh position={position} renderOrder={1}>
+      <mesh position={position} renderOrder={7}>
         <sphereGeometry args={[0.005 * scale, 12, 12]} />
         <meshBasicMaterial
           color={color}
@@ -236,7 +210,7 @@ function ShowerMarker({
             particleRefs.current[particleBaseIndex + pi] = el;
           }}
           geometry={particleGeo}
-          renderOrder={1}
+          renderOrder={7}
         >
           <meshBasicMaterial
             color={color}
@@ -312,6 +286,14 @@ export const MeteorShowerOverlay3D = React.memo(function MeteorShowerOverlay3D({
   const scatterGeo = useMemo(() => new THREE.RingGeometry(0.5, 1, 48), []);
 
   const particleGeo = useMemo(() => new THREE.SphereGeometry(0.002, 6, 6), []);
+
+  useEffect(() => {
+    return () => {
+      starburstGeo.dispose();
+      scatterGeo.dispose();
+      particleGeo.dispose();
+    };
+  }, [starburstGeo, scatterGeo, particleGeo]);
 
   // Ensure particle refs array has correct length
   const totalParticles = showers.length * PARTICLE_COUNT;

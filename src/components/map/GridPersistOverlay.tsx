@@ -327,6 +327,7 @@ export function GridPersistOverlay({ activityMap }: GridPersistOverlayProps) {
       args={[geometry, material, MAX_INSTANCES]}
       frustumCulled={false}
       count={0}
+      renderOrder={3}
     />
   );
 }

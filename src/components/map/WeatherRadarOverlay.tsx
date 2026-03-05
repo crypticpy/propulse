@@ -2,7 +2,7 @@
  * WeatherRadarOverlay Component
  *
  * Renders animated RainViewer precipitation radar data on the 3D globe.
- * Loads all available frames (past + nowcast) as separate CanvasTexture objects,
+ * Loads frames (past + nowcast) as CanvasTexture objects (capped at MAX_LOADED_FRAMES),
  * auto-cycles through them, and exports animation control state for an
  * external scrubber UI rendered outside the R3F Canvas.
  *
@@ -44,16 +44,18 @@ interface WeatherRadarOverlayProps {
   onAnimationState?: (state: RadarAnimationState) => void;
 }
 
-/** Zoom level 4: 2^4 = 16 tiles per axis, 256 total */
-const ZOOM_LEVEL = 4;
-const TILES_PER_AXIS = 2 ** ZOOM_LEVEL; // 16
+/** Zoom level 3: 2^3 = 8 tiles per axis, 64 total */
+const ZOOM_LEVEL = 3;
+const TILES_PER_AXIS = 2 ** ZOOM_LEVEL; // 8
 const TILE_SIZE = 256;
-/** Canvas size — 16 tiles * 256px = 4096px per axis */
-const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 4096
+/** Canvas size — 8 tiles * 256px = 2048px per axis */
+const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 2048
 /** Number of tiles to load concurrently */
 const TILE_BATCH_SIZE = 32;
 /** Number of frames to load concurrently */
 const FRAME_BATCH_SIZE = 3;
+/** Maximum number of loaded frame textures to keep in GPU memory */
+const MAX_LOADED_FRAMES = 8;
 
 /**
  * Load a single image from a URL, returning a promise.
@@ -128,9 +130,9 @@ function boostRadarColors(ctx: CanvasRenderingContext2D, w: number, h: number) {
 }
 
 /**
- * Load all z=4 radar tiles for a specific frame and composite them onto a canvas.
+ * Load all z=3 radar tiles for a specific frame and composite them onto a canvas.
  *
- * Tile layout at z=4: 16x16 grid (x: 0..15, y: 0..15)
+ * Tile layout at z=3: 8x8 grid (x: 0..7, y: 0..7)
  * The canvas represents lon -180..180 left-to-right, lat ~85..-85 top-to-bottom.
  */
 async function compositeRadarTilesForFrame(
@@ -231,6 +233,24 @@ function WeatherRadarOverlayInner({
       tex.needsUpdate = true;
 
       map.set(idx, tex);
+
+      // Evict oldest texture if we exceed the GPU memory cap
+      if (map.size > MAX_LOADED_FRAMES) {
+        const currentActive = activeFrameRef.current;
+        let oldestKey: number | null = null;
+        let oldestIdx = Infinity;
+        for (const key of map.keys()) {
+          if (key !== currentActive && key < oldestIdx) {
+            oldestIdx = key;
+            oldestKey = key;
+          }
+        }
+        if (oldestKey !== null) {
+          map.get(oldestKey)?.dispose();
+          map.delete(oldestKey);
+        }
+      }
+
       setLoadedCount(map.size);
       return tex;
     };
@@ -346,6 +366,13 @@ function WeatherRadarOverlayInner({
     () => new THREE.SphereGeometry(1.007, 128, 64, Math.PI),
     [],
   );
+
+  // Dispose sphere geometry on unmount
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
 
   if (activeFrameIndex < 0 || !framesRef.current.has(activeFrameIndex))
     return null;

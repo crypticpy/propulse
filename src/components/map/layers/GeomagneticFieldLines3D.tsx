@@ -15,9 +15,10 @@
  * Accepts all data as props -- no direct hook imports.
  */
 
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { latLonToVector3 } from "@/components/map/lib/globeCoords";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,23 +75,6 @@ const PARTICLE_SPEED = 0.08;
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Convert lat/lon to a 3D position on the globe.
- */
-function latLonToVector3(
-  lat: number,
-  lon: number,
-  radius: number,
-): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
 /** Clamp a value */
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
@@ -100,7 +84,7 @@ function clamp(v: number, min: number, max: number): number {
  * Get field line color based on Kp index.
  */
 function getKpColor(kp: number): THREE.Color {
-  if (kp <= 3) return new THREE.Color("#22cc44"); // quiet green
+  if (kp <= 3) return new THREE.Color("#33dd55"); // quiet green
   if (kp <= 5) return new THREE.Color("#ddcc00"); // yellow
   if (kp <= 7) return new THREE.Color("#ff8800"); // orange
   return new THREE.Color("#ff2222"); // red
@@ -238,9 +222,8 @@ export const GeomagneticFieldLines3D = React.memo(
       return new THREE.MeshBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.55,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
       });
     }, [kp]);
@@ -251,9 +234,8 @@ export const GeomagneticFieldLines3D = React.memo(
       return new THREE.MeshBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.9,
+        opacity: 1.0,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
       });
     }, [kp]);
 
@@ -262,6 +244,21 @@ export const GeomagneticFieldLines3D = React.memo(
       () => new THREE.SphereGeometry(PARTICLE_RADIUS, 8, 8),
       [],
     );
+
+    // Dispose materials when Kp changes and all resources on unmount
+    useEffect(() => {
+      return () => {
+        tubeMaterial.dispose();
+        particleMaterial.dispose();
+      };
+    }, [tubeMaterial, particleMaterial]);
+
+    useEffect(() => {
+      return () => {
+        fieldLines.forEach((line) => line.geometry.dispose());
+        particleGeometry.dispose();
+      };
+    }, [fieldLines, particleGeometry]);
 
     // Total particle count
     const totalParticles = fieldLines.length * PARTICLES_PER_LINE;
@@ -295,7 +292,7 @@ export const GeomagneticFieldLines3D = React.memo(
     // Don't render in completely quiet conditions with Kp 0
     // Still render at Kp 0 for visual interest but very subtle
     return (
-      <group name="geomagnetic-field-lines">
+      <group name="geomagnetic-field-lines" renderOrder={9}>
         {/* Field line tubes */}
         {fieldLines.map((line, i) => (
           <mesh

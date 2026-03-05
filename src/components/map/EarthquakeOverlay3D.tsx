@@ -12,11 +12,12 @@
  * - Magnitude labels for significant quakes (M5+)
  */
 
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
+import { latLonTo3D } from "@/components/map/lib/globeCoords";
 
 // =============================================================================
 // TYPES
@@ -30,24 +31,6 @@ interface EarthquakeOverlay3DProps {
 // =============================================================================
 // HELPERS
 // =============================================================================
-
-/**
- * Convert lat/lon to 3D position on the globe surface.
- * Uses the same coordinate convention as the rest of the codebase.
- */
-function latLonTo3D(
-  lat: number,
-  lon: number,
-  radius: number = 1.003,
-): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
 
 /**
  * Get marker color based on earthquake magnitude.
@@ -86,6 +69,14 @@ export const EarthquakeOverlay3D = React.memo(
     // Base scale for each glow ring (set during render, read in useFrame)
     const glowBaseScales = useRef<number[]>([]);
 
+    // Dispose shared geometries on unmount
+    useEffect(() => {
+      return () => {
+        circleGeo.dispose();
+        ringGeo.dispose();
+      };
+    }, [circleGeo, ringGeo]);
+
     // Single useFrame loop for all glow ring pulse animations
     useFrame(({ clock }) => {
       const t = clock.getElapsedTime();
@@ -108,7 +99,7 @@ export const EarthquakeOverlay3D = React.memo(
     return (
       <group>
         {earthquakes.map((eq, i) => {
-          const position = latLonTo3D(eq.lat, eq.lon);
+          const position = latLonTo3D(eq.lat, eq.lon, 1.006);
           const size = getEqSize(eq.magnitude);
           const color = getEqColor(eq.magnitude);
 
@@ -122,7 +113,11 @@ export const EarthquakeOverlay3D = React.memo(
           return (
             <group key={eq.id} position={position} quaternion={quaternion}>
               {/* Solid base marker (filled circle) */}
-              <mesh geometry={circleGeo} scale={[size, size, size]}>
+              <mesh
+                geometry={circleGeo}
+                scale={[size, size, size]}
+                renderOrder={3}
+              >
                 <meshBasicMaterial
                   color={color}
                   transparent
@@ -134,6 +129,7 @@ export const EarthquakeOverlay3D = React.memo(
 
               {/* Glow ring with additive blending + pulse animation */}
               <mesh
+                renderOrder={3}
                 ref={(el: THREE.Mesh | null) => {
                   glowRefs.current[i] = el;
                   glowBaseScales.current[i] = size * 1.5;

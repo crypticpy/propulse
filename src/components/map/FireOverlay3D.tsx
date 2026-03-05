@@ -19,6 +19,7 @@ import React, { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { FireHotspot } from "@/lib/api/fires";
+import { latLonTo3D } from "@/components/map/lib/globeCoords";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -28,31 +29,13 @@ import type { FireHotspot } from "@/lib/api/fires";
 const MAX_INSTANCES = 5000;
 
 /** Globe-surface radius for hotspot placement (matches other overlays) */
-const GLOBE_RADIUS = 1.003;
+const GLOBE_RADIUS = 1.006;
 
 // ---------------------------------------------------------------------------
 // Module-level dummy -- reused every frame, never recreated
 // ---------------------------------------------------------------------------
 
 const dummy = new THREE.Object3D();
-
-// ---------------------------------------------------------------------------
-// Coordinate conversion (same convention as every other globe component)
-// ---------------------------------------------------------------------------
-
-function latLonTo3D(
-  lat: number,
-  lon: number,
-  radius: number = GLOBE_RADIUS,
-): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -88,7 +71,7 @@ export const FireOverlay3D = React.memo(
         if (hotspot.confidence === "low" || hotspot.confidence === "l")
           continue;
 
-        const [x, y, z] = latLonTo3D(hotspot.lat, hotspot.lon);
+        const [x, y, z] = latLonTo3D(hotspot.lat, hotspot.lon, GLOBE_RADIUS);
 
         // Scale based on fire radiative power
         const size = Math.max(0.002, Math.min(0.008, hotspot.frp / 500));
@@ -130,6 +113,7 @@ export const FireOverlay3D = React.memo(
           ref={glowRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
+          renderOrder={3}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial
@@ -146,6 +130,7 @@ export const FireOverlay3D = React.memo(
           ref={coreRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
+          renderOrder={3}
         >
           <sphereGeometry args={[1, 6, 6]} />
           <meshBasicMaterial

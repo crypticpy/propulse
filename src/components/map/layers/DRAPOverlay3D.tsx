@@ -159,7 +159,7 @@ export const DRAPOverlay3D = React.memo(
     useFrame(({ clock }) => {
       if (materialRef.current) {
         const t = clock.getElapsedTime();
-        materialRef.current.opacity = 0.6 + 0.08 * Math.sin(t * 0.8);
+        materialRef.current.opacity = 0.7 + 0.08 * Math.sin(t * 0.8);
       }
     });
 
@@ -172,9 +172,9 @@ export const DRAPOverlay3D = React.memo(
           ref={materialRef}
           map={texture}
           transparent
-          opacity={0.65}
+          opacity={0.7}
           depthWrite={false}
-          side={THREE.FrontSide}
+          side={THREE.DoubleSide}
         />
       </mesh>
     );

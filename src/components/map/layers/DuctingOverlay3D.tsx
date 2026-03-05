@@ -20,6 +20,7 @@ import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { DuctingRegion } from "@/hooks/useDuctingForecast";
+import { latLonTo3D } from "@/components/map/lib/globeCoords";
 
 // =============================================================================
 // TYPES
@@ -34,7 +35,7 @@ interface DuctingOverlay3DProps {
 // =============================================================================
 
 /** Ground-level radius — just above surface */
-const GLOBE_RADIUS = 1.003;
+const GLOBE_RADIUS = 1.008;
 
 /** Minimum probability to render */
 const MIN_PROBABILITY = 0.1;
@@ -47,7 +48,7 @@ const MAX_INSTANCES = 2000;
 // =============================================================================
 
 const dummy = new THREE.Object3D();
-const up = new THREE.Vector3(0, 0, 1);
+const up = new THREE.Vector3(0, 1, 0);
 
 // Ducting type colors — dim variants for low probability
 const colorSurfaceDim = new THREE.Color("#0d5528"); // dark green
@@ -62,20 +63,6 @@ const colorEvaporationBright = new THREE.Color("#44eedd"); // bright teal
 // =============================================================================
 // HELPERS
 // =============================================================================
-
-function latLonTo3D(
-  lat: number,
-  lon: number,
-  radius: number,
-): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
 
 /**
  * Map ducting type and probability to a color with intensity proportional
@@ -179,7 +166,7 @@ export const DuctingOverlay3D = React.memo(
         const t = clock.getElapsedTime();
         // Two overlaid sine waves at different frequencies for organic feel
         const pulse = Math.sin(t * 0.7) * 0.06 + Math.sin(t * 1.5) * 0.03;
-        materialRef.current.opacity = 0.32 + pulse;
+        materialRef.current.opacity = 0.45 + pulse;
       }
     });
 
@@ -197,14 +184,15 @@ export const DuctingOverlay3D = React.memo(
           ref={meshRef}
           args={[undefined, undefined, MAX_INSTANCES]}
           frustumCulled={false}
+          renderOrder={8}
         >
-          <circleGeometry args={[1, 20]} />
+          <sphereGeometry args={[1, 12, 6, 0, Math.PI * 2, 0, 0.35]} />
           <meshBasicMaterial
             ref={materialRef}
             transparent
-            opacity={0.32}
+            opacity={0.45}
             depthWrite={false}
-            blending={THREE.AdditiveBlending}
+            blending={THREE.NormalBlending}
             side={THREE.DoubleSide}
             vertexColors
           />

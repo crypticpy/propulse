@@ -510,6 +510,7 @@ export function GridGlowOverlay({ spots }: GridGlowOverlayProps) {
       ref={meshRef}
       args={[geometry, material, POOL_SIZE]}
       frustumCulled={false}
+      renderOrder={3}
     />
   );
 }

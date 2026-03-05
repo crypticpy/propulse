@@ -269,6 +269,7 @@ export const Ft8DecodeLayer3D = React.memo(function Ft8DecodeLayer3D({
       new THREE.MeshBasicMaterial({
         transparent: true,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.AdditiveBlending,
       }),
     [],
@@ -281,6 +282,7 @@ export const Ft8DecodeLayer3D = React.memo(function Ft8DecodeLayer3D({
         transparent: true,
         opacity: 0.6,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.AdditiveBlending,
       }),
     [],

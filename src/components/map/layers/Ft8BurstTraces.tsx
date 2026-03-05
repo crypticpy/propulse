@@ -383,12 +383,17 @@ const BurstTraceAnimation = React.memo(
           opacity={0.8}
           transparent
           depthWrite={false}
+          depthTest={false}
         />
 
         {/* Head -- inner solid sphere */}
         <mesh ref={headRef} visible={false}>
           <sphereGeometry args={[HEAD_RADIUS, 8, 8]} />
-          <meshBasicMaterial color={color} depthWrite={false} />
+          <meshBasicMaterial
+            color={color}
+            depthWrite={false}
+            depthTest={false}
+          />
         </mesh>
 
         {/* Head -- outer glow sphere with additive blending */}
@@ -399,6 +404,7 @@ const BurstTraceAnimation = React.memo(
             transparent
             opacity={0.25}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -413,6 +419,7 @@ const BurstTraceAnimation = React.memo(
             opacity={0.7}
             side={THREE.DoubleSide}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -427,6 +434,7 @@ const BurstTraceAnimation = React.memo(
             opacity={0.5}
             side={THREE.DoubleSide}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

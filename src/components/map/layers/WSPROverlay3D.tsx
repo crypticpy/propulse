@@ -171,6 +171,7 @@ export const WSPROverlay3D = React.memo(function WSPROverlay3D({
         transparent: true,
         opacity: 0.85,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.AdditiveBlending,
       }),
     [],
@@ -275,7 +276,12 @@ export const WSPROverlay3D = React.memo(function WSPROverlay3D({
 
   return (
     <group name="wspr-overlay">
-      <lineSegments ref={lineRef} material={material} frustumCulled={false} />
+      <lineSegments
+        ref={lineRef}
+        material={material}
+        frustumCulled={false}
+        renderOrder={7}
+      />
     </group>
   );
 });

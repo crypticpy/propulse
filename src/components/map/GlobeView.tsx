@@ -779,6 +779,7 @@ function GlobeScene({
 }) {
   const { layers, target, pathMode, mapStyle, rotation, labelOptions } =
     useMapStore();
+  const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const tileProvider = useMemo(
@@ -1340,7 +1341,12 @@ function GlobeScene({
         {layers.satelliteFootprints &&
           satelliteFootprints &&
           satelliteFootprints.length > 0 && (
-            <SatelliteFootprint3D footprints={satelliteFootprints} />
+            <SatelliteFootprint3D
+              footprints={satelliteFootprints}
+              selectedSatelliteId={
+                selectedSatelliteId != null ? String(selectedSatelliteId) : null
+              }
+            />
           )}
 
         {/* Ionospheric shell layers — translucent D/E/F1/F2 spheres */}

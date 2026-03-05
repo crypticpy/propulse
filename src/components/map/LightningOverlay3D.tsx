@@ -1,8 +1,9 @@
 /**
  * LightningOverlay3D
  *
- * Renders lightning strike markers on the 3D globe using two InstancedMesh
- * layers: an outer bright glow and an inner white-hot core. Designed
+ * Renders lightning strike markers on the 3D globe using three InstancedMesh
+ * layers: an outer bright glow, an inner white-hot core, and expanding flash
+ * rings for fresh strikes. Designed
  * for high-count scenarios (1000+ simultaneous strikes) without creating
  * individual mesh objects per strike.
  *
@@ -21,7 +22,7 @@ import React, { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { LightningStrike } from "@/lib/api/lightning";
-import { latLonTo3D } from "@/components/map/lib/globeCoords";
+import { getUpDirection, latLonTo3D } from "@/components/map/lib/globeCoords";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -54,6 +55,7 @@ const tempColor = new THREE.Color();
 const weakColor = new THREE.Color("#66ccff"); // electric blue for weak
 const strongColor = new THREE.Color("#ffffff"); // white-hot for strong
 const matrix = new THREE.Matrix4();
+const tempQuat = new THREE.Quaternion();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,6 +82,7 @@ export const LightningOverlay3D = React.memo(
   function LightningOverlay3D({ strikes }: LightningOverlay3DProps) {
     const glowRef = useRef<THREE.InstancedMesh>(null);
     const coreRef = useRef<THREE.InstancedMesh>(null);
+    const ringRef = useRef<THREE.InstancedMesh>(null);
 
     // Per-frame update — positions, scales, and counts
     useFrame(() => {
@@ -140,6 +143,31 @@ export const LightningOverlay3D = React.memo(
         tempColor.lerpColors(weakColor, strongColor, intensity);
         coreMesh.setColorAt(count, tempColor);
 
+        // Flash ring — expanding ring for fresh strikes
+        const ringMesh = ringRef.current;
+        if (ringMesh) {
+          if (isFlashing) {
+            const t2 = age / FLASH_DURATION_MS;
+            const ringScale = 0.04 * intensity * t2;
+
+            // Orient ring tangent to globe surface
+            const up = getUpDirection(strike.lat, strike.lon);
+            tempQuat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
+
+            dummy.position.set(x, y, z);
+            dummy.quaternion.copy(tempQuat);
+            dummy.scale.set(ringScale, ringScale, ringScale);
+            dummy.updateMatrix();
+            ringMesh.setMatrixAt(count, dummy.matrix);
+          } else {
+            // Non-flashing: scale to 0 so it's invisible
+            dummy.position.set(x, y, z);
+            dummy.scale.set(0, 0, 0);
+            dummy.updateMatrix();
+            ringMesh.setMatrixAt(count, dummy.matrix);
+          }
+        }
+
         count++;
       }
 
@@ -153,6 +181,11 @@ export const LightningOverlay3D = React.memo(
         if (coreMesh.instanceColor) {
           coreMesh.instanceColor.needsUpdate = true;
         }
+      }
+
+      if (ringRef.current) {
+        ringRef.current.count = count;
+        if (count > 0) ringRef.current.instanceMatrix.needsUpdate = true;
       }
     });
 
@@ -168,12 +201,13 @@ export const LightningOverlay3D = React.memo(
           frustumCulled={false}
           renderOrder={3}
         >
-          <sphereGeometry args={[1, 8, 8]} />
+          <sphereGeometry args={[1, 12, 12]} />
           <meshBasicMaterial
             color="#44ddff"
             transparent
             opacity={0.8}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
@@ -185,13 +219,33 @@ export const LightningOverlay3D = React.memo(
           frustumCulled={false}
           renderOrder={3}
         >
-          <sphereGeometry args={[1, 8, 8]} />
+          <sphereGeometry args={[1, 12, 12]} />
           <meshBasicMaterial
             color="#ffffff"
             transparent
             opacity={0.95}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
+          />
+        </instancedMesh>
+
+        {/* Expanding flash ring for fresh strikes */}
+        <instancedMesh
+          ref={ringRef}
+          args={[undefined, undefined, MAX_INSTANCES]}
+          frustumCulled={false}
+          renderOrder={3}
+        >
+          <ringGeometry args={[0.5, 1.0, 24]} />
+          <meshBasicMaterial
+            color="#44ddff"
+            transparent
+            opacity={0.6}
+            depthWrite={false}
+            depthTest={false}
+            blending={THREE.AdditiveBlending}
+            side={THREE.DoubleSide}
           />
         </instancedMesh>
       </group>

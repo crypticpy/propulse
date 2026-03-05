@@ -67,8 +67,6 @@ const COLOR_MODERATE = new THREE.Color("#00aacc");
 const COLOR_ACTIVE = new THREE.Color("#ffee44");
 /** Peak activity color (white) */
 const COLOR_PEAK = new THREE.Color("#ffffff");
-/** Empty/no-data color (very dark, barely visible baseline) */
-const COLOR_EMPTY = new THREE.Color("#040c1a");
 
 /**
  * Map a normalized activity value (0-100) to a color.
@@ -197,7 +195,7 @@ export const SpectrumWaterfallRing3D = React.memo(
           dummy.updateMatrix();
           mesh.setMatrixAt(instanceIdx, dummy.matrix);
 
-          // Color: data rows get activity-based color, empty rows get baseline
+          // Color: data rows with activity get colored, empty rows/bands are skipped
           // recentRows is ordered oldest-first from .slice(), so map row index:
           // row 0 (outermost/newest) = recentRows[rowCount - 1]
           const dataIdx = rowCount - 1 - row;
@@ -205,10 +203,10 @@ export const SpectrumWaterfallRing3D = React.memo(
 
           if (dataRow) {
             const activity = dataRow.bands[bandNames[col]] ?? 0;
+            if (activity <= 0) continue; // Skip empty bands — no black squares
             activityToColor(activity, tempColor);
           } else {
-            // No data for this time slot yet — render a dim baseline
-            tempColor.copy(COLOR_EMPTY);
+            continue; // No data row — skip entirely
           }
 
           // Dim non-active band columns when an active band is set
@@ -247,6 +245,7 @@ export const SpectrumWaterfallRing3D = React.memo(
             transparent
             opacity={0.75}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
             side={THREE.DoubleSide}
             vertexColors

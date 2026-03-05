@@ -111,6 +111,7 @@ export function NightLightsOverlay({
       transparent: true,
       side: THREE.FrontSide,
       depthWrite: false,
+      depthTest: false,
       blending: THREE.AdditiveBlending,
     });
   }, [subsolar, nightLightsTexture, intensity]);

@@ -232,16 +232,15 @@ function WeatherRadarOverlayInner({
       tex.magFilter = THREE.LinearFilter;
       tex.needsUpdate = true;
 
-      map.set(idx, tex);
-
-      // Evict oldest texture if we exceed the GPU memory cap
-      if (map.size > MAX_LOADED_FRAMES) {
-        const currentActive = activeFrameRef.current;
+      // Evict oldest texture BEFORE adding new one to stay within GPU memory cap
+      if (map.size >= MAX_LOADED_FRAMES) {
+        const protectedIndices = new Set([activeFrameRef.current, latestIdx]);
         let oldestKey: number | null = null;
-        let oldestIdx = Infinity;
         for (const key of map.keys()) {
-          if (key !== currentActive && key < oldestIdx) {
-            oldestIdx = key;
+          if (
+            !protectedIndices.has(key) &&
+            (oldestKey === null || key < oldestKey)
+          ) {
             oldestKey = key;
           }
         }
@@ -251,6 +250,7 @@ function WeatherRadarOverlayInner({
         }
       }
 
+      map.set(idx, tex);
       setLoadedCount(map.size);
       return tex;
     };
@@ -384,6 +384,7 @@ function WeatherRadarOverlayInner({
         transparent
         opacity={0.88}
         depthWrite={false}
+        depthTest={false}
         blending={THREE.NormalBlending}
         side={THREE.FrontSide}
         map={framesRef.current.get(activeFrameIndex) ?? null}

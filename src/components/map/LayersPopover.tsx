@@ -787,7 +787,7 @@ export function LayersPopover() {
     if (open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       setPopoverPos({
-        top: rect.bottom + 4,
+        top: rect.bottom + 2,
         left: rect.left,
       });
     }
@@ -850,7 +850,7 @@ export function LayersPopover() {
     if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
     leaveTimeoutRef.current = setTimeout(() => {
       closePopover();
-    }, 200);
+    }, 350);
   }, [closePopover]);
 
   // ── Render submenu content ──
@@ -1055,6 +1055,17 @@ export function LayersPopover() {
         ref={triggerRef}
         type="button"
         onClick={() => (open ? closePopover() : openPopover())}
+        onMouseEnter={() => {
+          if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+        }}
+        onMouseLeave={() => {
+          if (open) {
+            if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+            leaveTimeoutRef.current = setTimeout(() => {
+              closePopover();
+            }, 350);
+          }
+        }}
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
           open
             ? "bg-white/15 text-white"

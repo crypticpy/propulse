@@ -197,8 +197,8 @@ function AlertMarker({
       if (!onAlertClick) return;
 
       // Project 3D position to screen coordinates
-      const worldPos = new THREE.Vector3();
-      groupRef.current?.getWorldPosition(worldPos);
+      const worldPos = new THREE.Vector3(0, STEM_HEIGHT + SIZE * 2, 0);
+      groupRef.current?.localToWorld(worldPos);
       const projected = worldPos.project(camera);
 
       const screenX = ((projected.x + 1) / 2) * canvasSize.width;

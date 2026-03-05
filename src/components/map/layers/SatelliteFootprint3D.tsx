@@ -31,6 +31,7 @@ interface SatelliteFootprintData {
 
 interface SatelliteFootprint3DProps {
   footprints: SatelliteFootprintData[];
+  selectedSatelliteId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +141,7 @@ interface FootprintDiscProps {
   lon: number;
   altitudeKm: number;
   color: string;
+  isSelected?: boolean;
 }
 
 const FootprintDisc = React.memo(function FootprintDisc({
@@ -147,6 +149,7 @@ const FootprintDisc = React.memo(function FootprintDisc({
   lon,
   altitudeKm,
   color,
+  isSelected,
 }: FootprintDiscProps) {
   const angularRadius = footprintAngularRadius(altitudeKm);
 
@@ -171,9 +174,10 @@ const FootprintDisc = React.memo(function FootprintDisc({
       <meshBasicMaterial
         color={color}
         transparent
-        opacity={0.22}
+        opacity={isSelected ? 0.4 : 0.22}
         side={THREE.DoubleSide}
         depthWrite={false}
+        depthTest={false}
       />
     </mesh>
   );
@@ -185,11 +189,25 @@ const FootprintDisc = React.memo(function FootprintDisc({
 
 export const SatelliteFootprint3D = React.memo(function SatelliteFootprint3D({
   footprints,
+  selectedSatelliteId,
 }: SatelliteFootprint3DProps) {
   if (!footprints || footprints.length === 0) return null;
 
   // Limit to MAX_FOOTPRINTS for performance
   const limited = footprints.slice(0, MAX_FOOTPRINTS);
+
+  // Ensure the selected satellite is always visible in the limited set
+  if (
+    selectedSatelliteId &&
+    !limited.some((fp) => fp.satelliteId === selectedSatelliteId)
+  ) {
+    const selected = footprints.find(
+      (fp) => fp.satelliteId === selectedSatelliteId,
+    );
+    if (selected && limited.length > 0) {
+      limited[limited.length - 1] = selected;
+    }
+  }
 
   return (
     <group name="satellite-footprints">
@@ -200,6 +218,7 @@ export const SatelliteFootprint3D = React.memo(function SatelliteFootprint3D({
           lon={fp.lon}
           altitudeKm={fp.altitudeKm}
           color={fp.color}
+          isSelected={fp.satelliteId === selectedSatelliteId}
         />
       ))}
     </group>

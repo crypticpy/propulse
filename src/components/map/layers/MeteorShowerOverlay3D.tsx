@@ -169,6 +169,7 @@ function ShowerMarker({
           opacity={0.2 * scale}
           side={THREE.DoubleSide}
           depthWrite={false}
+          depthTest={false}
           blending={THREE.NormalBlending}
         />
       </mesh>
@@ -198,6 +199,7 @@ function ShowerMarker({
           transparent
           opacity={0.6}
           depthWrite={false}
+          depthTest={false}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -217,6 +219,7 @@ function ShowerMarker({
             transparent
             opacity={0.5}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

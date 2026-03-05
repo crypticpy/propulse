@@ -224,6 +224,7 @@ export const GeomagneticFieldLines3D = React.memo(
         transparent: true,
         opacity: 0.55,
         depthWrite: false,
+        depthTest: false,
         side: THREE.DoubleSide,
       });
     }, [kp]);
@@ -236,6 +237,7 @@ export const GeomagneticFieldLines3D = React.memo(
         transparent: true,
         opacity: 1.0,
         depthWrite: false,
+        depthTest: false,
       });
     }, [kp]);
 

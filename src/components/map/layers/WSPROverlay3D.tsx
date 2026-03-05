@@ -172,7 +172,7 @@ export const WSPROverlay3D = React.memo(function WSPROverlay3D({
         opacity: 0.85,
         depthWrite: false,
         depthTest: false,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
       }),
     [],
   );

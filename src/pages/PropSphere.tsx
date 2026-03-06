@@ -613,415 +613,99 @@ export function PropSphere() {
     <div className="h-[calc(100dvh-4rem)] flex flex-col overflow-y-auto lg:overflow-hidden">
       {isLiteMode && <ContestLiteHUD />}
 
-      {/* Main Content - Framed Layout */}
-      <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
-        {/* Live ticker bar — "top" position (below masthead) */}
-        {!isLiteMode && tickerPosition === "top" && (
-          <DXNewsTicker className="flex-shrink-0 -mx-2 md:-mx-4 -mt-2 md:-mt-4 rounded-none" />
-        )}
+      {/* Main Content - Framed Layout (hidden in pro/hamclock — those render their own fullscreen overlay) */}
+      {layoutMode !== "pro" && layoutMode !== "hamclock" && (
+        <main className="flex-1 flex flex-col p-2 md:p-4 gap-2 md:gap-3 max-w-[1920px] mx-auto w-full min-h-0">
+          {/* Live ticker bar — "top" position (below masthead) */}
+          {!isLiteMode && tickerPosition === "top" && (
+            <DXNewsTicker className="flex-shrink-0 -mx-2 md:-mx-4 -mt-2 md:-mt-4 rounded-none" />
+          )}
 
-        {/* Top Row: Lite Mode is EMPTY (controls move to map overlay), Default mode shows full cards */}
-        {/* When DX Console is expanded, top row slides up and out of view */}
-        {isLiteMode ? (
-          // Lite Mode: No top row - everything is overlaid on the map
-          // This div is intentionally minimal to maximize map space
-          <div className="hidden lg:block h-0" />
-        ) : (
-          // Default Mode Top Row - full cards (animates out when DX Console expanded)
-          <div
-            className={`grid grid-cols-2 lg:grid-cols-[220px_1fr_200px] xl:grid-cols-[220px_280px_minmax(300px,1fr)_200px] gap-2 md:gap-3 transition-all duration-300 ease-in-out ${
-              isDXConsoleExpanded
-                ? "max-h-0 opacity-0 overflow-hidden mb-0"
-                : "max-h-[500px] opacity-100"
-            }`}
-          >
-            {/* Operator Profile — top-left, primary attention zone */}
-            <Card
-              className="p-2 col-span-1 flex flex-col !rounded-lg"
-              data-tour="operator-profile"
+          {/* Top Row: Lite Mode is EMPTY (controls move to map overlay), Default mode shows full cards */}
+          {/* When DX Console is expanded, top row slides up and out of view */}
+          {isLiteMode ? (
+            // Lite Mode: No top row - everything is overlaid on the map
+            // This div is intentionally minimal to maximize map space
+            <div className="hidden lg:block h-0" />
+          ) : (
+            // Default Mode Top Row - full cards (animates out when DX Console expanded)
+            <div
+              className={`grid grid-cols-2 lg:grid-cols-[220px_1fr_200px] xl:grid-cols-[220px_280px_minmax(300px,1fr)_200px] gap-2 md:gap-3 transition-all duration-300 ease-in-out ${
+                isDXConsoleExpanded
+                  ? "max-h-0 opacity-0 overflow-hidden mb-0"
+                  : "max-h-[500px] opacity-100"
+              }`}
             >
-              <OperatorProfile className="h-full" />
-              {/* S-meter reading when rig is connected via CAT */}
-              {catActive && (
-                <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-white/5 border border-white/10">
-                  <div className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wider">
-                    S-Meter
-                  </span>
-                  <span className="text-xs font-mono font-medium text-white ml-auto">
-                    {getSMeterText()}
+              {/* Operator Profile — top-left, primary attention zone */}
+              <Card
+                className="p-2 col-span-1 flex flex-col !rounded-lg"
+                data-tour="operator-profile"
+              >
+                <OperatorProfile className="h-full" />
+                {/* S-meter reading when rig is connected via CAT */}
+                {catActive && (
+                  <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-white/5 border border-white/10">
+                    <div className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+                    <span className="text-[10px] text-gray-400 uppercase tracking-wider">
+                      S-Meter
+                    </span>
+                    <span className="text-xs font-mono font-medium text-white ml-auto">
+                      {getSMeterText()}
+                    </span>
+                  </div>
+                )}
+              </Card>
+
+              {/* Solar Snapshot (xl+ only) */}
+              <Card className="hidden xl:flex xl:flex-col col-span-1 p-2 !rounded-lg">
+                {station && target ? (
+                  <SolarSnapshot
+                    homeLat={station.lat}
+                    homeLon={station.lon}
+                    targetLat={target.lat}
+                    targetLon={target.lon}
+                    displayTime={displayTime}
+                    className="h-full"
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+                    {station
+                      ? "Select a target on the map"
+                      : "Set QTH in settings"}
+                  </div>
+                )}
+              </Card>
+
+              {/* 24h Propagation Forecast (hidden on mobile, shown on lg+) */}
+              <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
+                <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
+                  24h Propagation Forecast
+                  <span className="text-gray-500 normal-case ml-1">
+                    (hover for details)
                   </span>
                 </div>
-              )}
-            </Card>
-
-            {/* Solar Snapshot (xl+ only) */}
-            <Card className="hidden xl:flex xl:flex-col col-span-1 p-2 !rounded-lg">
-              {station && target ? (
-                <SolarSnapshot
-                  homeLat={station.lat}
-                  homeLon={station.lon}
-                  targetLat={target.lat}
-                  targetLon={target.lon}
-                  displayTime={displayTime}
-                  className="h-full"
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-500 text-xs">
-                  {station
-                    ? "Select a target on the map"
-                    : "Set QTH in settings"}
+                <div className="flex-1 min-h-0">
+                  <PropagationForecastMini
+                    displayTime={displayTime}
+                    className="h-full"
+                  />
                 </div>
-              )}
-            </Card>
+              </Card>
 
-            {/* 24h Propagation Forecast (hidden on mobile, shown on lg+) */}
-            <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
-              <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
-                24h Propagation Forecast
-                <span className="text-gray-500 normal-case ml-1">
-                  (hover for details)
-                </span>
-              </div>
-              <div className="flex-1 min-h-0">
-                <PropagationForecastMini
-                  displayTime={displayTime}
-                  className="h-full"
-                />
-              </div>
-            </Card>
-
-            {/* Time Machine + Layout + Share — top-right */}
-            <div className="col-span-1 flex flex-col gap-2">
-              {/* Layout Mode Dropdown + Share */}
-              <div className="hidden lg:flex gap-2">
-                <LayoutModeDropdown className="flex-1" />
-                <button
-                  onClick={() => setShowShareModal(true)}
-                  className="p-2 rounded-lg bg-white/[0.03] border border-white/10
+              {/* Time Machine + Layout + Share — top-right */}
+              <div className="col-span-1 flex flex-col gap-2">
+                {/* Layout Mode Dropdown + Share */}
+                <div className="hidden lg:flex gap-2">
+                  <LayoutModeDropdown className="flex-1" />
+                  <button
+                    onClick={() => setShowShareModal(true)}
+                    className="p-2 rounded-lg bg-white/[0.03] border border-white/10
                              hover:border-cosmic-cyan/50 hover:bg-cosmic-cyan/5
                              transition-all duration-200 group"
-                  title="Share this view"
-                >
-                  <svg
-                    className="w-4 h-4 text-cosmic-cyan"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                    title="Share this view"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Time Machine */}
-              <Card className="p-2 flex-1 !rounded-lg" data-tour="time-control">
-                <TimeControl className="h-full" />
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* Live ticker bar — "above-panels" position */}
-        {!isLiteMode && tickerPosition === "above-panels" && (
-          <DXNewsTicker className="flex-shrink-0" />
-        )}
-
-        {/* Middle Row: Bands | Map | Path - fills available space */}
-        <div className="flex-1 min-h-0 flex gap-0 lg:gap-0">
-          {/* Band Conditions Panel (left) - hidden on mobile, HIDDEN in lite mode */}
-          {!isLiteMode && leftPanelMode === "full" && (
-            <>
-              <div
-                className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
-                style={{ width: leftPanelWidth }}
-                data-tour="band-conditions-panel"
-              >
-                <BandConditionsPanel
-                  displayTime={displayTime}
-                  className="h-full overflow-y-auto"
-                  onMinimize={() => {
-                    setLeftPanelLastWidth(leftPanelWidth);
-                    setLeftPanelMode("mini");
-                  }}
-                  onClose={() => {
-                    setLeftPanelLastWidth(leftPanelWidth);
-                    setLeftPanelMode("hidden");
-                  }}
-                />
-              </div>
-
-              {/* Left Resize Handle */}
-              <div
-                className="hidden lg:flex w-2 flex-shrink-0 cursor-col-resize items-center justify-center group hover:bg-plasma-orange/20 transition-colors"
-                onMouseDown={handleResizeLeft}
-                title="Drag to resize"
-              >
-                <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
-              </div>
-            </>
-          )}
-          {/* Band Conditions Mini Strip (left) */}
-          {!isLiteMode && leftPanelMode === "mini" && (
-            <div className="hidden lg:flex">
-              <PanelMiniStrip
-                side="left"
-                onExpand={() => {
-                  setLeftPanelWidth(leftPanelLastWidth);
-                  setLeftPanelMode("full");
-                }}
-                onHide={() => setLeftPanelMode("hidden")}
-              >
-                {/* Condition indicator */}
-                <div
-                  className={`w-2 h-2 rounded-full ${miniKpColor}`}
-                  title={miniKp !== null ? `K-index: ${miniKp}` : "Loading..."}
-                />
-                {/* K-index */}
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-[8px] text-white/40 leading-none">
-                    K
-                  </span>
-                  <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
-                    {miniKp ?? "–"}
-                  </span>
-                </div>
-                {/* SFI */}
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-[8px] text-white/40 leading-none">
-                    SFI
-                  </span>
-                  <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
-                    {miniSfi ?? "–"}
-                  </span>
-                </div>
-              </PanelMiniStrip>
-            </div>
-          )}
-
-          {/* Map View (center) - takes remaining space */}
-          <Card className="flex-1 min-w-0 !p-0 relative min-h-[280px] flex flex-col">
-            {/* View Mode Tabs - edge-to-edge row */}
-            <div
-              className="flex-shrink-0 flex border-b border-white/10"
-              data-tour="view-mode-tabs"
-            >
-              {(
-                [
-                  { value: "globe", label: "3D Globe" },
-                  { value: "flat", label: "2D Map" },
-                  { value: "azimuthal", label: "Azimuthal" },
-                ] as const
-              ).map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() =>
-                    useMapStore.getState().setViewMode(option.value)
-                  }
-                  className={`flex-1 py-2 text-xs font-medium transition-all border-b-2 ${
-                    viewMode === option.value
-                      ? "bg-plasma-orange/10 text-plasma-orange border-plasma-orange"
-                      : "text-gray-400 hover:text-white hover:bg-white/5 border-transparent"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Quick-access toolbar */}
-            <div
-              role="toolbar"
-              aria-label="Map controls"
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-void-black/50 border-b border-white/5"
-              data-tour="layer-controls"
-            >
-              {/* Help tooltip */}
-              <HelpTooltip
-                section="propsphere"
-                tooltip="Learn more about PropSphere"
-              />
-
-              {/* Layers popover */}
-              <LayersPopover />
-
-              {/* Colors popover */}
-              <ColorsPopover />
-
-              {/* Profile popover */}
-              <ProfilePopover
-                activeProfile={localActiveProfile}
-                onSelectProfile={setLocalActiveProfile}
-              />
-
-              {/* Observatory mode */}
-              <ToolbarDivider />
-              <button
-                type="button"
-                onClick={() => useMapStore.getState().enterObservatory()}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-                title="Observatory Mode — fullscreen auto-rotating globe, zoom only"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <circle cx="12" cy="12" r="3" />
-                  <line x1="12" y1="2" x2="12" y2="6" />
-                  <line x1="12" y1="18" x2="12" y2="22" />
-                  <line x1="2" y1="12" x2="6" y2="12" />
-                  <line x1="18" y1="12" x2="22" y2="12" />
-                </svg>
-                Observatory
-              </button>
-
-              {/* Panel layout cycle: Full → Compact → Focus → Full */}
-              <button
-                type="button"
-                className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                  leftPanelMode !== "full" || rightPanelMode !== "full"
-                    ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
-                    : "text-gray-300 hover:text-white hover:bg-white/10"
-                }`}
-                title={
-                  leftPanelMode === "full" && rightPanelMode === "full"
-                    ? "Compact panels"
-                    : leftPanelMode === "hidden" && rightPanelMode === "hidden"
-                      ? "Reset panels"
-                      : "Cycle panel layout"
-                }
-                onClick={() => {
-                  const bothFull =
-                    leftPanelMode === "full" && rightPanelMode === "full";
-                  const bothMini =
-                    leftPanelMode === "mini" && rightPanelMode === "mini";
-
-                  if (bothFull) {
-                    // Full → Compact
-                    setLeftPanelLastWidth(leftPanelWidth);
-                    setRightPanelLastWidth(rightPanelWidth);
-                    setLeftPanelMode("mini");
-                    setRightPanelMode("mini");
-                  } else if (bothMini) {
-                    // Compact → Focus
-                    setLeftPanelMode("hidden");
-                    setRightPanelMode("hidden");
-                  } else {
-                    // Any mixed or hidden state → Reset to full
-                    setLeftPanelMode("full");
-                    setRightPanelMode("full");
-                    setLeftPanelWidth(leftPanelLastWidth);
-                    setRightPanelWidth(rightPanelLastWidth);
-                  }
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="1" y="1" width="12" height="12" rx="1.5" />
-                  <line x1="4" y1="1" x2="4" y2="13" />
-                  <line x1="10" y1="1" x2="10" y2="13" />
-                </svg>
-                Panels
-              </button>
-
-              {/* Watch popover + inline status pill */}
-              <WatchPopover />
-              <WatchStatusPill />
-
-              {/* Spacer pushes Views to right */}
-              <div className="flex-1" />
-
-              {/* Views popover — far right */}
-              {viewMode !== "azimuthal" && (
-                <ViewsPopover
-                  onOpenManager={() => setShowPresetManager(true)}
-                />
-              )}
-            </div>
-
-            {/* Replay indicator (floating below toolbar) */}
-            <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
-              <ReplayIndicator
-                displayTime={displayTime}
-                playSpeed={1}
-                isReplaying={replayEnabled}
-                onToggle={() => setReplayEnabled(!replayEnabled)}
-              />
-            </div>
-
-            {/* Contest rate panel (floating, right side) */}
-            <div className="absolute top-14 right-3 z-20">
-              <ContestRatePanel />
-            </div>
-
-            {/* MUF Legend (bottom of map when MUF layer active) */}
-            {layers.muf && (
-              <div className="absolute bottom-2 left-2 right-2 z-10">
-                <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2" />
-              </div>
-            )}
-
-            {/* Map View - relative container for floating panels */}
-            <div
-              className="flex-1 min-h-0 relative overflow-hidden"
-              data-tour="globe-container"
-            >
-              {viewMode === "globe" && (
-                <GlobeView
-                  displayTime={displayTime}
-                  onLocationClick={handleLocationClick}
-                />
-              )}
-              {viewMode === "flat" && (
-                <FlatMapView
-                  displayTime={displayTime}
-                  onLocationClick={handleLocationClick}
-                />
-              )}
-              {viewMode === "azimuthal" && (
-                <AzimuthalView
-                  displayTime={displayTime}
-                  onLocationClick={handleLocationClick}
-                />
-              )}
-
-              {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
-              {layers.issTracker && <ISSSkyTracker />}
-
-              {/* Earth tilt slider — globe view only */}
-              {viewMode === "globe" && (
-                <ObservatoryTiltSlider
-                  visible
-                  className="absolute bottom-2 right-2"
-                />
-              )}
-
-              {/* Time Offset Warning - bottom right when viewing simulated time */}
-              {timeOffset !== 0 && (
-                <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-caution-amber/90 backdrop-blur-sm border border-caution-amber shadow-lg">
                     <svg
-                      className="w-4 h-4 text-black flex-shrink-0"
+                      className="w-4 h-4 text-cosmic-cyan"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1030,500 +714,824 @@ export function PropSphere() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                       />
                     </svg>
-                    <div className="text-black">
-                      <div className="text-xs font-semibold">
-                        Simulated Time
-                      </div>
-                      <div className="text-[10px] opacity-80">
-                        Viewing {timeOffset > 0 ? "+" : ""}
-                        {timeOffset}h from now
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setTimeOffset(0)}
-                      className="ml-1 px-2 py-1 text-[10px] font-medium bg-black/20 hover:bg-black/30 rounded transition-colors"
-                      title="Return to live view"
-                    >
-                      Go Live
-                    </button>
-                  </div>
+                  </button>
                 </div>
-              )}
 
-              {/* Optimal Bands Pop-out Panel (inside map container, below control bar) */}
-              {viewMode === "globe" && !isLiteMode && (
-                <OptimalBandsPanel displayTime={displayTime} />
-              )}
-
-              {/* Labels Panel — appears when labels layer is active */}
-              {layers.labels && (
-                <LabelsPanel className="absolute bottom-2 right-2 z-10" />
-              )}
-
-              {/* ═══════════════════════════════════════════════════════════════
-                  LITE MODE HUD OVERLAY
-                  A minimal, professional heads-up display for maximum map visibility
-                  ═══════════════════════════════════════════════════════════════ */}
-              {isLiteMode && (
-                <div className="absolute inset-0 pointer-events-none z-10 hidden lg:block">
-                  {/* ─── TOP HUD BAR ─── */}
-                  <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-4 pointer-events-auto">
-                    {/* Left cluster: Layout mode dropdown + Share */}
-                    <div className="flex items-center gap-2">
-                      <LayoutModeDropdown className="bg-black/60 backdrop-blur-md" />
-                      <button
-                        onClick={() => setShowShareModal(true)}
-                        className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-                                   bg-black/60 backdrop-blur-md border border-white/10
-                                   hover:border-cosmic-cyan/50 hover:bg-black/70
-                                   transition-all duration-200"
-                        title="Share this view"
-                      >
-                        <svg
-                          className="w-3.5 h-3.5 text-cosmic-cyan"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                          />
-                        </svg>
-                        <span className="text-[11px] font-medium text-gray-300 group-hover:text-white">
-                          Share
-                        </span>
-                      </button>
-                    </div>
-
-                    {/* Center: Time offset (compact) */}
-                    <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10">
-                      <span className="text-[10px] uppercase tracking-wider text-gray-500">
-                        Time
-                      </span>
-                      <span className="text-sm font-mono text-white">
-                        {displayTime.toISOString().substring(11, 16)}
-                        <span className="text-gray-500 ml-1">UTC</span>
-                      </span>
-                      {timeOffset !== 0 && (
-                        <span
-                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                            timeOffset > 0
-                              ? "bg-plasma-orange/20 text-plasma-orange"
-                              : "bg-cosmic-cyan/20 text-cosmic-cyan"
-                          }`}
-                        >
-                          {timeOffset > 0 ? "+" : ""}
-                          {timeOffset}h
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Right: Callsign badge + S-meter */}
-                    <div className="flex items-center gap-2">
-                      {catActive && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
-                          <span className="text-[10px] text-gray-500">S</span>
-                          <span className="text-xs font-mono font-medium text-signal-green">
-                            {getSMeterText()}
-                          </span>
-                        </div>
-                      )}
-                      {station && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
-                          <div className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-                          <span className="text-xs font-mono font-medium text-white tracking-wide">
-                            {station.callsign}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ─── BOTTOM LEFT: Band Conditions Summary ─── */}
-                  <div className="absolute bottom-3 left-3 pointer-events-auto">
-                    <div
-                      className={`transition-all duration-300 ease-out ${
-                        leftPanelExpanded ? "w-[300px]" : "w-auto"
-                      }`}
-                    >
-                      <BandConditionsPanel
-                        displayTime={displayTime}
-                        className={
-                          leftPanelExpanded
-                            ? "max-h-[350px] overflow-y-auto bg-black/70 backdrop-blur-md border-white/10"
-                            : "bg-black/60 backdrop-blur-md border-white/10"
-                        }
-                        collapsed={!leftPanelExpanded}
-                        onToggleCollapse={() =>
-                          setLeftPanelExpanded(!leftPanelExpanded)
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* ─── BOTTOM RIGHT: Controls + Path Info (docked together) ─── */}
-                  <div className="absolute bottom-3 right-3 pointer-events-auto flex flex-col items-end gap-1.5">
-                    {/* Aspect ratio slider — flat view only, docked above path box */}
-                    {viewMode === "flat" && (
-                      <AspectRatioSlider className="flex flex-col items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-2" />
-                    )}
-
-                    <div
-                      className={`transition-all duration-300 ease-out ${
-                        rightPanelExpanded ? "w-[320px]" : "w-auto"
-                      }`}
-                    >
-                      <PathAnalysis
-                        displayTime={displayTime}
-                        className={
-                          rightPanelExpanded
-                            ? "max-h-[400px] overflow-y-auto bg-black/70 backdrop-blur-md border-white/10"
-                            : "bg-black/60 backdrop-blur-md border-white/10"
-                        }
-                        collapsed={!rightPanelExpanded}
-                        onToggleCollapse={() =>
-                          setRightPanelExpanded(!rightPanelExpanded)
-                        }
-                        onShare={() => setShowShareModal(true)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* Right Resize Handle and Path Analysis - HIDDEN in lite mode */}
-          {!isLiteMode && rightPanelMode === "full" && (
-            <>
-              {/* Right Resize Handle */}
-              <div
-                className="hidden lg:flex w-2 flex-shrink-0 cursor-col-resize items-center justify-center group hover:bg-plasma-orange/20 transition-colors"
-                onMouseDown={handleResizeRight}
-                title="Drag to resize"
-              >
-                <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
-              </div>
-
-              {/* Path Analysis Panel (right) - hidden on mobile */}
-              <div
-                className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
-                style={{ width: rightPanelWidth }}
-                data-tour="path-analysis-panel"
-              >
-                <PathAnalysis
-                  displayTime={displayTime}
-                  className="h-full overflow-y-auto"
-                  onShare={() => setShowShareModal(true)}
-                  onMinimize={() => {
-                    setRightPanelLastWidth(rightPanelWidth);
-                    setRightPanelMode("mini");
-                  }}
-                  onClose={() => {
-                    setRightPanelLastWidth(rightPanelWidth);
-                    setRightPanelMode("hidden");
-                  }}
-                />
-              </div>
-            </>
-          )}
-          {/* Path Analysis Mini Strip (right) */}
-          {!isLiteMode && rightPanelMode === "mini" && (
-            <div className="hidden lg:flex">
-              <PanelMiniStrip
-                side="right"
-                onExpand={() => {
-                  setRightPanelWidth(rightPanelLastWidth);
-                  setRightPanelMode("full");
-                }}
-                onHide={() => setRightPanelMode("hidden")}
-              >
-                {miniPathMetrics ? (
-                  <>
-                    {/* Bearing arrow */}
-                    <div
-                      className="flex flex-col items-center gap-0.5"
-                      title={`${Math.round(miniPathMetrics.shortPath.bearing)}° ${formatBearing(miniPathMetrics.shortPath.bearing)}`}
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        className="text-white/60"
-                        style={{
-                          transform: `rotate(${miniPathMetrics.shortPath.bearing}deg)`,
-                        }}
-                      >
-                        <path
-                          d="M8 2L8 14M8 2L5 5M8 2L11 5"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                      </svg>
-                      <span className="text-[8px] text-white/40 leading-none">
-                        {formatBearing(miniPathMetrics.shortPath.bearing)}
-                      </span>
-                    </div>
-                    {/* Distance */}
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
-                        {miniPathMetrics.shortPath.distance < 1000
-                          ? `${Math.round(miniPathMetrics.shortPath.distance)}`
-                          : `${(miniPathMetrics.shortPath.distance / 1000).toFixed(1)}k`}
-                      </span>
-                      <span className="text-[8px] text-white/40 leading-none">
-                        km
-                      </span>
-                    </div>
-                    {/* Difficulty dot */}
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        miniPathMetrics.difficulty <= 2
-                          ? "bg-signal-green"
-                          : miniPathMetrics.difficulty <= 3
-                            ? "bg-yellow-400"
-                            : "bg-red-500"
-                      }`}
-                      title={`Difficulty: ${miniPathMetrics.difficulty}/5`}
-                    />
-                  </>
-                ) : (
-                  <span className="text-[9px] text-white/30 [writing-mode:vertical-rl]">
-                    No target
-                  </span>
-                )}
-              </PanelMiniStrip>
-            </div>
-          )}
-        </div>
-
-        {/* Live ticker bar — "bottom" position (default) */}
-        {!isLiteMode && tickerPosition === "bottom" && (
-          <DXNewsTicker className="flex-shrink-0" />
-        )}
-
-        {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
-        {!isLiteMode && (
-          <>
-            {/* Ops Console (when expanded) - takes full bottom area */}
-            {isDXConsoleExpanded && (
-              <div className="hidden lg:block flex-1 min-h-[400px]">
-                <OpsConsole
-                  displayTime={displayTime}
-                  onCollapse={() => setDXConsoleExpanded(false)}
-                  className="h-full"
-                />
-              </div>
-            )}
-
-            {/* Normal Bottom Row: DX Spots (hidden when Console is expanded) */}
-            {/* On lg (not xl): Shows Recommendations + DX Spots side by side */}
-            <div
-              className={`hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px] ${isDXConsoleExpanded ? "!hidden" : ""}`}
-            >
-              {/* Recommendations (lg only - on xl it's in top row) */}
-              {station && target ? (
-                <RecommendationsPanel
-                  homeLat={station.lat}
-                  homeLon={station.lon}
-                  targetLat={target.lat}
-                  targetLon={target.lon}
-                  displayTime={displayTime}
-                  className="h-full overflow-y-auto"
-                />
-              ) : (
-                <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
-                  Select a target for recommendations
+                {/* Time Machine */}
+                <Card
+                  className="p-2 flex-1 !rounded-lg"
+                  data-tour="time-control"
+                >
+                  <TimeControl className="h-full" />
                 </Card>
-              )}
-
-              {/* DX Spots */}
-              <div className="flex flex-col h-full min-h-0">
-                <DXSpotList
-                  maxHeight="100px"
-                  showFilters={true}
-                  showHeader={true}
-                  className="flex-1 min-h-0"
-                  onResearchGrid={handleResearchGrid}
-                />
               </div>
             </div>
+          )}
 
-            {/* WSJT-X Status Panel + BandScope - shown when connected and DX Console not expanded */}
-            {wsjtxConnected && !isDXConsoleExpanded && (
-              <div className="hidden xl:block flex-shrink-0 space-y-2">
-                <WSJTXStatusPanel defaultCollapsed className="" />
-                <BandScope className="h-40" />
+          {/* Live ticker bar — "above-panels" position */}
+          {!isLiteMode && tickerPosition === "above-panels" && (
+            <DXNewsTicker className="flex-shrink-0" />
+          )}
+
+          {/* Middle Row: Bands | Map | Path - fills available space */}
+          <div className="flex-1 min-h-0 flex gap-0 lg:gap-0">
+            {/* Band Conditions Panel (left) - hidden on mobile, HIDDEN in lite mode */}
+            {!isLiteMode && leftPanelMode === "full" && (
+              <>
+                <div
+                  className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
+                  style={{ width: leftPanelWidth }}
+                  data-tour="band-conditions-panel"
+                >
+                  <BandConditionsPanel
+                    displayTime={displayTime}
+                    className="h-full overflow-y-auto"
+                    onMinimize={() => {
+                      setLeftPanelLastWidth(leftPanelWidth);
+                      setLeftPanelMode("mini");
+                    }}
+                    onClose={() => {
+                      setLeftPanelLastWidth(leftPanelWidth);
+                      setLeftPanelMode("hidden");
+                    }}
+                  />
+                </div>
+
+                {/* Left Resize Handle */}
+                <div
+                  className="hidden lg:flex w-2 flex-shrink-0 cursor-col-resize items-center justify-center group hover:bg-plasma-orange/20 transition-colors"
+                  onMouseDown={handleResizeLeft}
+                  title="Drag to resize"
+                >
+                  <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
+                </div>
+              </>
+            )}
+            {/* Band Conditions Mini Strip (left) */}
+            {!isLiteMode && leftPanelMode === "mini" && (
+              <div className="hidden lg:flex">
+                <PanelMiniStrip
+                  side="left"
+                  onExpand={() => {
+                    setLeftPanelWidth(leftPanelLastWidth);
+                    setLeftPanelMode("full");
+                  }}
+                  onHide={() => setLeftPanelMode("hidden")}
+                >
+                  {/* Condition indicator */}
+                  <div
+                    className={`w-2 h-2 rounded-full ${miniKpColor}`}
+                    title={
+                      miniKp !== null ? `K-index: ${miniKp}` : "Loading..."
+                    }
+                  />
+                  {/* K-index */}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[8px] text-white/40 leading-none">
+                      K
+                    </span>
+                    <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                      {miniKp ?? "–"}
+                    </span>
+                  </div>
+                  {/* SFI */}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[8px] text-white/40 leading-none">
+                      SFI
+                    </span>
+                    <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                      {miniSfi ?? "–"}
+                    </span>
+                  </div>
+                </PanelMiniStrip>
               </div>
             )}
 
-            {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
-            {/* Hidden when DX Console is expanded */}
-            <div
-              className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
-              data-tour="dx-spot-list"
-            >
-              <Card className="p-0 overflow-hidden">
-                {/* Drawer Toggle Handle - using div with role="button" to avoid nested button */}
-                <div
-                  onClick={() => setDxClusterExpanded(!dxClusterExpanded)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setDxClusterExpanded(!dxClusterExpanded);
+            {/* Map View (center) - takes remaining space */}
+            <Card className="flex-1 min-w-0 !p-0 relative min-h-[280px] flex flex-col">
+              {/* View Mode Tabs - edge-to-edge row */}
+              <div
+                className="flex-shrink-0 flex border-b border-white/10"
+                data-tour="view-mode-tabs"
+              >
+                {(
+                  [
+                    { value: "globe", label: "3D Globe" },
+                    { value: "flat", label: "2D Map" },
+                    { value: "azimuthal", label: "Azimuthal" },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() =>
+                      useMapStore.getState().setViewMode(option.value)
+                    }
+                    className={`flex-1 py-2 text-xs font-medium transition-all border-b-2 ${
+                      viewMode === option.value
+                        ? "bg-plasma-orange/10 text-plasma-orange border-plasma-orange"
+                        : "text-gray-400 hover:text-white hover:bg-white/5 border-transparent"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick-access toolbar */}
+              <div
+                role="toolbar"
+                aria-label="Map controls"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-void-black/50 border-b border-white/5"
+                data-tour="layer-controls"
+              >
+                {/* Help tooltip */}
+                <HelpTooltip
+                  section="propsphere"
+                  tooltip="Learn more about PropSphere"
+                />
+
+                {/* Layers popover */}
+                <LayersPopover />
+
+                {/* Colors popover */}
+                <ColorsPopover />
+
+                {/* Profile popover */}
+                <ProfilePopover
+                  activeProfile={localActiveProfile}
+                  onSelectProfile={setLocalActiveProfile}
+                />
+
+                {/* Observatory mode */}
+                <ToolbarDivider />
+                <button
+                  type="button"
+                  onClick={() => useMapStore.getState().enterObservatory()}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Observatory Mode — fullscreen auto-rotating globe, zoom only"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="3" />
+                    <line x1="12" y1="2" x2="12" y2="6" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                    <line x1="2" y1="12" x2="6" y2="12" />
+                    <line x1="18" y1="12" x2="22" y2="12" />
+                  </svg>
+                  Observatory
+                </button>
+
+                {/* Panel layout cycle: Full → Compact → Focus → Full */}
+                <button
+                  type="button"
+                  className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                    leftPanelMode !== "full" || rightPanelMode !== "full"
+                      ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
+                      : "text-gray-300 hover:text-white hover:bg-white/10"
+                  }`}
+                  title={
+                    leftPanelMode === "full" && rightPanelMode === "full"
+                      ? "Compact panels"
+                      : leftPanelMode === "hidden" &&
+                          rightPanelMode === "hidden"
+                        ? "Reset panels"
+                        : "Cycle panel layout"
+                  }
+                  onClick={() => {
+                    const bothFull =
+                      leftPanelMode === "full" && rightPanelMode === "full";
+                    const bothMini =
+                      leftPanelMode === "mini" && rightPanelMode === "mini";
+
+                    if (bothFull) {
+                      // Full → Compact
+                      setLeftPanelLastWidth(leftPanelWidth);
+                      setRightPanelLastWidth(rightPanelWidth);
+                      setLeftPanelMode("mini");
+                      setRightPanelMode("mini");
+                    } else if (bothMini) {
+                      // Compact → Focus
+                      setLeftPanelMode("hidden");
+                      setRightPanelMode("hidden");
+                    } else {
+                      // Any mixed or hidden state → Reset to full
+                      setLeftPanelMode("full");
+                      setRightPanelMode("full");
+                      setLeftPanelWidth(leftPanelLastWidth);
+                      setRightPanelWidth(rightPanelLastWidth);
                     }
                   }}
-                  role="button"
-                  tabIndex={0}
-                  className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-white">
-                      DX Cluster
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      Live spots from PSKReporter, RBN, and DX clusters
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* Expand to Console button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDXConsoleExpanded(true);
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
-                      title="Expand to Ops Console"
-                      aria-label="Expand to Ops Console"
-                    >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="1" y="1" width="12" height="12" rx="1.5" />
+                    <line x1="4" y1="1" x2="4" y2="13" />
+                    <line x1="10" y1="1" x2="10" y2="13" />
+                  </svg>
+                  Panels
+                </button>
+
+                {/* Watch popover + inline status pill */}
+                <WatchPopover />
+                <WatchStatusPill />
+
+                {/* Spacer pushes Views to right */}
+                <div className="flex-1" />
+
+                {/* Views popover — far right */}
+                {viewMode !== "azimuthal" && (
+                  <ViewsPopover
+                    onOpenManager={() => setShowPresetManager(true)}
+                  />
+                )}
+              </div>
+
+              {/* Replay indicator (floating below toolbar) */}
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
+                <ReplayIndicator
+                  displayTime={displayTime}
+                  playSpeed={1}
+                  isReplaying={replayEnabled}
+                  onToggle={() => setReplayEnabled(!replayEnabled)}
+                />
+              </div>
+
+              {/* Contest rate panel (floating, right side) */}
+              <div className="absolute top-14 right-3 z-20">
+                <ContestRatePanel />
+              </div>
+
+              {/* MUF Legend (bottom of map when MUF layer active) */}
+              {layers.muf && (
+                <div className="absolute bottom-2 left-2 right-2 z-10">
+                  <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2" />
+                </div>
+              )}
+
+              {/* Map View - relative container for floating panels */}
+              <div
+                className="flex-1 min-h-0 relative overflow-hidden"
+                data-tour="globe-container"
+              >
+                {viewMode === "globe" && (
+                  <GlobeView
+                    displayTime={displayTime}
+                    onLocationClick={handleLocationClick}
+                  />
+                )}
+                {viewMode === "flat" && (
+                  <FlatMapView
+                    displayTime={displayTime}
+                    onLocationClick={handleLocationClick}
+                  />
+                )}
+                {viewMode === "azimuthal" && (
+                  <AzimuthalView
+                    displayTime={displayTime}
+                    onLocationClick={handleLocationClick}
+                  />
+                )}
+
+                {/* ISS Sky Tracker overlay (DOM, outside Canvas) */}
+                {layers.issTracker && <ISSSkyTracker />}
+
+                {/* Earth tilt slider — globe view only */}
+                {viewMode === "globe" && (
+                  <ObservatoryTiltSlider
+                    visible
+                    className="absolute bottom-2 right-2"
+                  />
+                )}
+
+                {/* Time Offset Warning - bottom right when viewing simulated time */}
+                {timeOffset !== 0 && (
+                  <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-caution-amber/90 backdrop-blur-sm border border-caution-amber shadow-lg">
                       <svg
-                        className="w-4 h-4"
+                        className="w-4 h-4 text-black flex-shrink-0"
                         fill="none"
-                        stroke="currentColor"
                         viewBox="0 0 24 24"
+                        stroke="currentColor"
                       >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                    </button>
-                    {/* Collapse/Expand chevron */}
-                    <svg
-                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                        dxClusterExpanded ? "" : "rotate-180"
-                      }`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                      <div className="text-black">
+                        <div className="text-xs font-semibold">
+                          Simulated Time
+                        </div>
+                        <div className="text-[10px] opacity-80">
+                          Viewing {timeOffset > 0 ? "+" : ""}
+                          {timeOffset}h from now
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setTimeOffset(0)}
+                        className="ml-1 px-2 py-1 text-[10px] font-medium bg-black/20 hover:bg-black/30 rounded transition-colors"
+                        title="Return to live view"
+                      >
+                        Go Live
+                      </button>
+                    </div>
                   </div>
-                </div>
-                {/* Collapsible Content */}
+                )}
+
+                {/* Optimal Bands Pop-out Panel (inside map container, below control bar) */}
+                {viewMode === "globe" && !isLiteMode && (
+                  <OptimalBandsPanel displayTime={displayTime} />
+                )}
+
+                {/* Labels Panel — appears when labels layer is active */}
+                {layers.labels && (
+                  <LabelsPanel className="absolute bottom-2 right-2 z-10" />
+                )}
+
+                {/* ═══════════════════════════════════════════════════════════════
+                  LITE MODE HUD OVERLAY
+                  A minimal, professional heads-up display for maximum map visibility
+                  ═══════════════════════════════════════════════════════════════ */}
+                {isLiteMode && (
+                  <div className="absolute inset-0 pointer-events-none z-10 hidden lg:block">
+                    {/* ─── TOP HUD BAR ─── */}
+                    <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-4 pointer-events-auto">
+                      {/* Left cluster: Layout mode dropdown + Share */}
+                      <div className="flex items-center gap-2">
+                        <LayoutModeDropdown className="bg-black/60 backdrop-blur-md" />
+                        <button
+                          onClick={() => setShowShareModal(true)}
+                          className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
+                                   bg-black/60 backdrop-blur-md border border-white/10
+                                   hover:border-cosmic-cyan/50 hover:bg-black/70
+                                   transition-all duration-200"
+                          title="Share this view"
+                        >
+                          <svg
+                            className="w-3.5 h-3.5 text-cosmic-cyan"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                            />
+                          </svg>
+                          <span className="text-[11px] font-medium text-gray-300 group-hover:text-white">
+                            Share
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Center: Time offset (compact) */}
+                      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10">
+                        <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                          Time
+                        </span>
+                        <span className="text-sm font-mono text-white">
+                          {displayTime.toISOString().substring(11, 16)}
+                          <span className="text-gray-500 ml-1">UTC</span>
+                        </span>
+                        {timeOffset !== 0 && (
+                          <span
+                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                              timeOffset > 0
+                                ? "bg-plasma-orange/20 text-plasma-orange"
+                                : "bg-cosmic-cyan/20 text-cosmic-cyan"
+                            }`}
+                          >
+                            {timeOffset > 0 ? "+" : ""}
+                            {timeOffset}h
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Right: Callsign badge + S-meter */}
+                      <div className="flex items-center gap-2">
+                        {catActive && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
+                            <span className="text-[10px] text-gray-500">S</span>
+                            <span className="text-xs font-mono font-medium text-signal-green">
+                              {getSMeterText()}
+                            </span>
+                          </div>
+                        )}
+                        {station && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
+                            <div className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
+                            <span className="text-xs font-mono font-medium text-white tracking-wide">
+                              {station.callsign}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ─── BOTTOM LEFT: Band Conditions Summary ─── */}
+                    <div className="absolute bottom-3 left-3 pointer-events-auto">
+                      <div
+                        className={`transition-all duration-300 ease-out ${
+                          leftPanelExpanded ? "w-[300px]" : "w-auto"
+                        }`}
+                      >
+                        <BandConditionsPanel
+                          displayTime={displayTime}
+                          className={
+                            leftPanelExpanded
+                              ? "max-h-[350px] overflow-y-auto bg-black/70 backdrop-blur-md border-white/10"
+                              : "bg-black/60 backdrop-blur-md border-white/10"
+                          }
+                          collapsed={!leftPanelExpanded}
+                          onToggleCollapse={() =>
+                            setLeftPanelExpanded(!leftPanelExpanded)
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* ─── BOTTOM RIGHT: Controls + Path Info (docked together) ─── */}
+                    <div className="absolute bottom-3 right-3 pointer-events-auto flex flex-col items-end gap-1.5">
+                      {/* Aspect ratio slider — flat view only, docked above path box */}
+                      {viewMode === "flat" && (
+                        <AspectRatioSlider className="flex flex-col items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-2" />
+                      )}
+
+                      <div
+                        className={`transition-all duration-300 ease-out ${
+                          rightPanelExpanded ? "w-[320px]" : "w-auto"
+                        }`}
+                      >
+                        <PathAnalysis
+                          displayTime={displayTime}
+                          className={
+                            rightPanelExpanded
+                              ? "max-h-[400px] overflow-y-auto bg-black/70 backdrop-blur-md border-white/10"
+                              : "bg-black/60 backdrop-blur-md border-white/10"
+                          }
+                          collapsed={!rightPanelExpanded}
+                          onToggleCollapse={() =>
+                            setRightPanelExpanded(!rightPanelExpanded)
+                          }
+                          onShare={() => setShowShareModal(true)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Right Resize Handle and Path Analysis - HIDDEN in lite mode */}
+            {!isLiteMode && rightPanelMode === "full" && (
+              <>
+                {/* Right Resize Handle */}
                 <div
-                  className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                    dxClusterExpanded ? "h-[280px]" : "h-0"
-                  }`}
+                  className="hidden lg:flex w-2 flex-shrink-0 cursor-col-resize items-center justify-center group hover:bg-plasma-orange/20 transition-colors"
+                  onMouseDown={handleResizeRight}
+                  title="Drag to resize"
                 >
+                  <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
+                </div>
+
+                {/* Path Analysis Panel (right) - hidden on mobile */}
+                <div
+                  className="hidden lg:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out"
+                  style={{ width: rightPanelWidth }}
+                  data-tour="path-analysis-panel"
+                >
+                  <PathAnalysis
+                    displayTime={displayTime}
+                    className="h-full overflow-y-auto"
+                    onShare={() => setShowShareModal(true)}
+                    onMinimize={() => {
+                      setRightPanelLastWidth(rightPanelWidth);
+                      setRightPanelMode("mini");
+                    }}
+                    onClose={() => {
+                      setRightPanelLastWidth(rightPanelWidth);
+                      setRightPanelMode("hidden");
+                    }}
+                  />
+                </div>
+              </>
+            )}
+            {/* Path Analysis Mini Strip (right) */}
+            {!isLiteMode && rightPanelMode === "mini" && (
+              <div className="hidden lg:flex">
+                <PanelMiniStrip
+                  side="right"
+                  onExpand={() => {
+                    setRightPanelWidth(rightPanelLastWidth);
+                    setRightPanelMode("full");
+                  }}
+                  onHide={() => setRightPanelMode("hidden")}
+                >
+                  {miniPathMetrics ? (
+                    <>
+                      {/* Bearing arrow */}
+                      <div
+                        className="flex flex-col items-center gap-0.5"
+                        title={`${Math.round(miniPathMetrics.shortPath.bearing)}° ${formatBearing(miniPathMetrics.shortPath.bearing)}`}
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          className="text-white/60"
+                          style={{
+                            transform: `rotate(${miniPathMetrics.shortPath.bearing}deg)`,
+                          }}
+                        >
+                          <path
+                            d="M8 2L8 14M8 2L5 5M8 2L11 5"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill="none"
+                          />
+                        </svg>
+                        <span className="text-[8px] text-white/40 leading-none">
+                          {formatBearing(miniPathMetrics.shortPath.bearing)}
+                        </span>
+                      </div>
+                      {/* Distance */}
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                          {miniPathMetrics.shortPath.distance < 1000
+                            ? `${Math.round(miniPathMetrics.shortPath.distance)}`
+                            : `${(miniPathMetrics.shortPath.distance / 1000).toFixed(1)}k`}
+                        </span>
+                        <span className="text-[8px] text-white/40 leading-none">
+                          km
+                        </span>
+                      </div>
+                      {/* Difficulty dot */}
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          miniPathMetrics.difficulty <= 2
+                            ? "bg-signal-green"
+                            : miniPathMetrics.difficulty <= 3
+                              ? "bg-yellow-400"
+                              : "bg-red-500"
+                        }`}
+                        title={`Difficulty: ${miniPathMetrics.difficulty}/5`}
+                      />
+                    </>
+                  ) : (
+                    <span className="text-[9px] text-white/30 [writing-mode:vertical-rl]">
+                      No target
+                    </span>
+                  )}
+                </PanelMiniStrip>
+              </div>
+            )}
+          </div>
+
+          {/* Live ticker bar — "bottom" position (default) */}
+          {!isLiteMode && tickerPosition === "bottom" && (
+            <DXNewsTicker className="flex-shrink-0" />
+          )}
+
+          {/* Bottom Row - DX Cluster / DX Console (collapses in lite mode) */}
+          {!isLiteMode && (
+            <>
+              {/* Ops Console (when expanded) - takes full bottom area */}
+              {isDXConsoleExpanded && (
+                <div className="hidden lg:block flex-1 min-h-[400px]">
+                  <OpsConsole
+                    displayTime={displayTime}
+                    onCollapse={() => setDXConsoleExpanded(false)}
+                    className="h-full"
+                  />
+                </div>
+              )}
+
+              {/* Normal Bottom Row: DX Spots (hidden when Console is expanded) */}
+              {/* On lg (not xl): Shows Recommendations + DX Spots side by side */}
+              <div
+                className={`hidden lg:grid xl:hidden grid-cols-[1fr_2fr] gap-2 md:gap-3 flex-shrink-0 h-[200px] ${isDXConsoleExpanded ? "!hidden" : ""}`}
+              >
+                {/* Recommendations (lg only - on xl it's in top row) */}
+                {station && target ? (
+                  <RecommendationsPanel
+                    homeLat={station.lat}
+                    homeLon={station.lon}
+                    targetLat={target.lat}
+                    targetLon={target.lon}
+                    displayTime={displayTime}
+                    className="h-full overflow-y-auto"
+                  />
+                ) : (
+                  <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
+                    Select a target for recommendations
+                  </Card>
+                )}
+
+                {/* DX Spots */}
+                <div className="flex flex-col h-full min-h-0">
                   <DXSpotList
-                    maxHeight="268px"
+                    maxHeight="100px"
                     showFilters={true}
-                    showHeader={false}
-                    className="rounded-t-none h-full"
+                    showHeader={true}
+                    className="flex-1 min-h-0"
                     onResearchGrid={handleResearchGrid}
                   />
                 </div>
-              </Card>
-            </div>
-          </>
-        )}
+              </div>
 
-        {/* Mobile/Tablet Bottom Panel (shown on < lg) */}
-        <div className="lg:hidden">
-          {/* Tab Navigation */}
-          <div className="flex border-b border-white/10 mb-2">
-            {(
-              [
-                { id: "path", label: "Path" },
-                { id: "bands", label: "Bands" },
-                { id: "recs", label: "Recs" },
-                { id: "spots", label: "Spots" },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? "text-plasma-orange border-b-2 border-plasma-orange"
-                    : "text-gray-400 hover:text-white"
-                }`}
+              {/* WSJT-X Status Panel + BandScope - shown when connected and DX Console not expanded */}
+              {wsjtxConnected && !isDXConsoleExpanded && (
+                <div className="hidden xl:block flex-shrink-0 space-y-2">
+                  <WSJTXStatusPanel defaultCollapsed className="" />
+                  <BandScope className="h-40" />
+                </div>
+              )}
+
+              {/* Bottom Row: DX Spots only (xl screens - Recommendations in top row) */}
+              {/* Hidden when DX Console is expanded */}
+              <div
+                className={`hidden xl:block flex-shrink-0 ${isDXConsoleExpanded ? "!hidden" : ""}`}
+                data-tour="dx-spot-list"
               >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+                <Card className="p-0 overflow-hidden">
+                  {/* Drawer Toggle Handle - using div with role="button" to avoid nested button */}
+                  <div
+                    onClick={() => setDxClusterExpanded(!dxClusterExpanded)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setDxClusterExpanded(!dxClusterExpanded);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white">
+                        DX Cluster
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        Live spots from PSKReporter, RBN, and DX clusters
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Expand to Console button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDXConsoleExpanded(true);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
+                        title="Expand to Ops Console"
+                        aria-label="Expand to Ops Console"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                          />
+                        </svg>
+                      </button>
+                      {/* Collapse/Expand chevron */}
+                      <svg
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                          dxClusterExpanded ? "" : "rotate-180"
+                        }`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  {/* Collapsible Content */}
+                  <div
+                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                      dxClusterExpanded ? "h-[280px]" : "h-0"
+                    }`}
+                  >
+                    <DXSpotList
+                      maxHeight="268px"
+                      showFilters={true}
+                      showHeader={false}
+                      className="rounded-t-none h-full"
+                      onResearchGrid={handleResearchGrid}
+                    />
+                  </div>
+                </Card>
+              </div>
+            </>
+          )}
 
-          {/* Tab Content */}
-          <div className="h-[250px] overflow-y-auto">
-            {activeTab === "path" && (
-              <PathAnalysis
-                displayTime={displayTime}
-                className="h-full"
-                onShare={() => setShowShareModal(true)}
-              />
-            )}
-            {activeTab === "bands" && (
-              <BandConditionsPanel
-                displayTime={displayTime}
-                className="h-full"
-              />
-            )}
-            {activeTab === "recs" &&
-              (station && target ? (
-                <RecommendationsPanel
-                  homeLat={station.lat}
-                  homeLon={station.lon}
-                  targetLat={target.lat}
-                  targetLon={target.lon}
+          {/* Mobile/Tablet Bottom Panel (shown on < lg) */}
+          <div className="lg:hidden">
+            {/* Tab Navigation */}
+            <div className="flex border-b border-white/10 mb-2">
+              {(
+                [
+                  { id: "path", label: "Path" },
+                  { id: "bands", label: "Bands" },
+                  { id: "recs", label: "Recs" },
+                  { id: "spots", label: "Spots" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "text-plasma-orange border-b-2 border-plasma-orange"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="h-[250px] overflow-y-auto">
+              {activeTab === "path" && (
+                <PathAnalysis
+                  displayTime={displayTime}
+                  className="h-full"
+                  onShare={() => setShowShareModal(true)}
+                />
+              )}
+              {activeTab === "bands" && (
+                <BandConditionsPanel
                   displayTime={displayTime}
                   className="h-full"
                 />
-              ) : (
-                <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
-                  Select a target for recommendations
-                </Card>
-              ))}
-            {activeTab === "spots" && (
-              <DXSpotList
-                maxHeight="218px"
-                showFilters={true}
-                showHeader={true}
-                className="h-full"
-                onResearchGrid={handleResearchGrid}
-              />
-            )}
+              )}
+              {activeTab === "recs" &&
+                (station && target ? (
+                  <RecommendationsPanel
+                    homeLat={station.lat}
+                    homeLon={station.lon}
+                    targetLat={target.lat}
+                    targetLon={target.lon}
+                    displayTime={displayTime}
+                    className="h-full"
+                  />
+                ) : (
+                  <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
+                    Select a target for recommendations
+                  </Card>
+                ))}
+              {activeTab === "spots" && (
+                <DXSpotList
+                  maxHeight="218px"
+                  showFilters={true}
+                  showHeader={true}
+                  className="h-full"
+                  onResearchGrid={handleResearchGrid}
+                />
+              )}
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      )}
 
       {/* Fullscreen Pro mode - lazy loaded for performance */}
       {layoutMode === "pro" && (

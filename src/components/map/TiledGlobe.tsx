@@ -195,6 +195,9 @@ export function TiledGlobe({
             url: provider.url,
             shape: "ellipsoid",
             useRecommendedSettings: true,
+            maxZoom: provider.maxZoom,
+            tileWidth: provider.tileSize,
+            tileHeight: provider.tileSize,
           } as any // eslint-disable-line @typescript-eslint/no-explicit-any -- R3F TilesPlugin accepts object or array
         }
       />

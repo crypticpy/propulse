@@ -86,7 +86,7 @@ export const useAtmosStore = create<AtmosState>()(
     }),
     {
       name: "propulse-atmos",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         viewMode: state.viewMode,
@@ -114,6 +114,14 @@ export const useAtmosStore = create<AtmosState>()(
             if (!("aurora" in layers)) layers.aurora = true;
             if (!("earthquakes" in layers)) layers.earthquakes = false;
             if (!("goesCloud" in layers)) layers.goesCloud = true;
+          }
+        }
+        if (version < 4) {
+          const layers = state.layerVisibility as
+            | Record<string, boolean>
+            | undefined;
+          if (layers) {
+            if (!("tropical" in layers)) layers.tropical = true;
           }
         }
         return state as unknown as Omit<

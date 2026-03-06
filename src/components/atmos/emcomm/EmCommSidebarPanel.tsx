@@ -17,7 +17,10 @@ import { FrequencyPlanEditor } from "./FrequencyPlanEditor";
 import { NVISBriefing } from "./NVISBriefing";
 import { RepeaterAnalysis } from "./RepeaterAnalysis";
 import { NetLinkForecast } from "./NetLinkForecast";
+import { SkywarnBadge } from "./SkywarnBadge";
+import { WinlinkStatus } from "./WinlinkStatus";
 import { exportActivationLog } from "@/lib/atmos/emcommExport";
+import { useProfileStore } from "@/stores/profileStore";
 import type { ActivationLevel } from "@/types/emcomm";
 import type { AtmosLayerId } from "@/types/atmos";
 
@@ -61,6 +64,7 @@ export function EmCommSidebarPanel() {
 
   const layerVisibility = useAtmosStore((s) => s.layerVisibility);
   const toggleLayer = useAtmosStore((s) => s.toggleLayer);
+  const station = useProfileStore((s) => s.station);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sitRepExpanded, setSitRepExpanded] = useState(false);
@@ -87,6 +91,9 @@ export function EmCommSidebarPanel() {
           >
             {activeIncident.level}
           </span>
+        </div>
+        <div className="mt-2">
+          <SkywarnBadge />
         </div>
         <button
           type="button"
@@ -188,6 +195,13 @@ export function EmCommSidebarPanel() {
           Export Log
         </button>
       </div>
+
+      {/* ── Winlink Gateways ──────────────────────────────────────────── */}
+      {station?.lat != null && station?.lon != null && (
+        <div className="p-3 border-b border-white/5">
+          <WinlinkStatus stationLat={station.lat} stationLon={station.lon} />
+        </div>
+      )}
 
       {/* ── Layer Toggles ─────────────────────────────────────────────── */}
       <div className="p-3">

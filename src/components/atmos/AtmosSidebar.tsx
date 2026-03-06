@@ -3,6 +3,8 @@ import { useEmcommStore } from "@/stores/emcommStore";
 import type { AtmosLayerId } from "@/types/atmos";
 import { RIMScoreCard } from "./RIMScoreCard";
 import { LocalWeatherCard } from "./LocalWeatherCard";
+import { SignalChainHealth } from "./SignalChainHealth";
+import { MonitoredRegionManager } from "./MonitoredRegionManager";
 import { EmCommSidebarPanel } from "./emcomm/EmCommSidebarPanel";
 
 /** Layer metadata for display */
@@ -15,10 +17,12 @@ const LAYER_META: { id: AtmosLayerId; label: string; icon: string }[] = [
   { id: "tec", label: "Ionospheric TEC", icon: "\u{1F310}" },
   { id: "repeaters", label: "Repeaters", icon: "\u{1F4E1}" },
   { id: "riverGauges", label: "River Gauges", icon: "\u{1F30A}" },
+  { id: "sst", label: "Sea Surface Temp", icon: "\u{1F321}\u{FE0F}" },
   { id: "aprs", label: "APRS Stations", icon: "\u{1F4CD}" },
   { id: "shadowZones", label: "Coverage Gaps", icon: "\u{1F6AB}" },
   { id: "aurora", label: "Aurora", icon: "\u{1F30C}" },
   { id: "earthquakes", label: "Earthquakes", icon: "\u{1F30D}" },
+  { id: "tropical", label: "Tropical Systems", icon: "\u{1F300}" },
 ];
 
 export function AtmosSidebar() {
@@ -49,6 +53,11 @@ export function AtmosSidebar() {
         <LocalWeatherCard />
       </div>
 
+      {/* Signal Chain Health */}
+      <div className="p-3 border-b border-white/5">
+        <SignalChainHealth />
+      </div>
+
       {/* Layer toggles */}
       <div className="p-3">
         <h2 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
@@ -75,14 +84,12 @@ export function AtmosSidebar() {
         </div>
       </div>
 
-      {/* Monitored Regions placeholder */}
+      {/* Monitored Regions */}
       <div className="p-3 border-t border-white/5">
         <h2 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
           Monitored Regions
         </h2>
-        <div className="flex items-center justify-center h-12 rounded-lg bg-void-black/40 border border-dashed border-white/10">
-          <span className="text-[10px] text-gray-600">+ Add Region</span>
-        </div>
+        <MonitoredRegionManager />
       </div>
     </aside>
   );

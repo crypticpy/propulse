@@ -22,6 +22,8 @@ import { RepeaterLayer2D } from "@/components/atmos/layers/RepeaterLayer2D";
 import { RiverGaugeLayer2D } from "@/components/atmos/layers/RiverGaugeLayer2D";
 import { APRSLayer2D } from "@/components/atmos/layers/APRSLayer2D";
 import { ShadowZoneLayer2D } from "@/components/atmos/layers/ShadowZoneLayer2D";
+import { TropicalCycloneLayer2D } from "@/components/atmos/layers/TropicalCycloneLayer2D";
+import { SSTLayer2D } from "@/components/atmos/layers/SSTLayer2D";
 
 export function AtlasView() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -105,6 +107,10 @@ export function AtlasView() {
           {layerVisibility.shadowZones && (
             <ShadowZoneLayer2D map={mapRef.current} />
           )}
+          {layerVisibility.tropical && (
+            <TropicalCycloneLayer2D map={mapRef.current} />
+          )}
+          {layerVisibility.sst && <SSTLayer2D map={mapRef.current} />}
         </>
       )}
     </div>

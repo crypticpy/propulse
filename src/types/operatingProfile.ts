@@ -65,6 +65,8 @@ export interface OperatingProfile {
     repeaters: boolean;
     riverGauges: boolean;
     aprs: boolean;
+    tropical: boolean;
+    sst: boolean;
   };
 
   // Display preferences

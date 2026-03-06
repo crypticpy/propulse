@@ -52,6 +52,8 @@ export const LAYER_PRESETS = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
   contest: {
     terminator: true,
@@ -91,6 +93,8 @@ export const LAYER_PRESETS = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
   vhf: {
     terminator: true,
@@ -130,6 +134,8 @@ export const LAYER_PRESETS = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
   emergency: {
     terminator: true,
@@ -169,6 +175,8 @@ export const LAYER_PRESETS = {
     repeaters: true,
     riverGauges: true,
     aprs: false,
+    tropical: true,
+    sst: false,
   },
   science: {
     terminator: true,
@@ -208,6 +216,8 @@ export const LAYER_PRESETS = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
 } as const;
 
@@ -390,6 +400,8 @@ interface MapState {
     repeaters: boolean;
     riverGauges: boolean;
     aprs: boolean;
+    tropical: boolean;
+    sst: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -1075,6 +1087,8 @@ const initialState = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

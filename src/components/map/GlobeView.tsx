@@ -46,6 +46,8 @@ import { FireOverlay3D } from "./FireOverlay3D";
 import { RepeaterOverlay3D } from "./RepeaterOverlay3D";
 import { RiverGaugeOverlay3D } from "./RiverGaugeOverlay3D";
 import { APRSOverlay3D } from "./APRSOverlay3D";
+import { TropicalCycloneOverlay3D } from "./TropicalCycloneOverlay3D";
+import { StationMarker3D } from "./StationMarker3D";
 import {
   WeatherRadarOverlay,
   type RadarAnimationState,
@@ -105,6 +107,7 @@ import { useFires } from "@/hooks/useFires";
 import { useRepeaters } from "@/hooks/useRepeaters";
 import { useRiverGauges } from "@/hooks/useRiverGauges";
 import { useAPRSStations } from "@/hooks/useAPRSStations";
+import { useTropicalCyclones } from "@/hooks/useTropicalCyclones";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -135,6 +138,7 @@ import TerminatorEnhancement3D from "./layers/TerminatorEnhancement3D";
 import WSPROverlay3D from "./layers/WSPROverlay3D";
 import GOESCloudOverlay3D from "./layers/GOESCloudOverlay3D";
 import TECOverlay3D from "./layers/TECOverlay3D";
+import SSTOverlay3D from "./layers/SSTOverlay3D";
 import SpectrumWaterfallRing3D from "./layers/SpectrumWaterfallRing3D";
 import SatelliteFootprint3D from "./layers/SatelliteFootprint3D";
 import { Ft8SpotterOverlay } from "./layers/Ft8SpotterOverlay";
@@ -813,6 +817,7 @@ const GlobeScene = React.memo(function GlobeScene({
   const { repeaters } = useRepeaters(layers.repeaters);
   const { gauges: riverGauges } = useRiverGauges(layers.riverGauges);
   const { stations: aprsStations } = useAPRSStations(layers.aprs);
+  const { cyclones: tropicalCyclones } = useTropicalCyclones(layers.tropical);
   const { manifest: radarManifest } = useWeatherRadar(layers.radar);
   // ── New layer data hooks (Wave 8A) ─────────────────────────────────────
   const { beacons, currentBeacon, activeTransmissions } = useBeaconNetwork();
@@ -1292,6 +1297,19 @@ const GlobeScene = React.memo(function GlobeScene({
         {layers.aprs && aprsStations.length > 0 && (
           <APRSOverlay3D stations={aprsStations} />
         )}
+        {layers.tropical && tropicalCyclones.length > 0 && (
+          <TropicalCycloneOverlay3D cyclones={tropicalCyclones} />
+        )}
+
+        {/* Station QTH marker - always visible in AtmosPulse mode */}
+        {station?.lat != null && station?.lon != null && (
+          <StationMarker3D
+            lat={station.lat}
+            lon={station.lon}
+            callsign={station.callsign ?? ""}
+          />
+        )}
+
         {layers.radar && radarManifest && (
           <WeatherRadarOverlay
             manifest={radarManifest}
@@ -1300,6 +1318,7 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
         {layers.goesCloud && <GOESCloudOverlay3D />}
         {layers.tec && <TECOverlay3D />}
+        {layers.sst && <SSTOverlay3D />}
 
         {/* === Propagation Layers === */}
         {layers.nvis && nvisData && (

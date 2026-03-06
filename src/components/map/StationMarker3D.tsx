@@ -1,0 +1,96 @@
+/**
+ * StationMarker3D -- Renders user's station location as a pulsing pin on the globe
+ */
+
+import React, { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Text } from "@react-three/drei";
+import * as THREE from "three";
+import { latLonTo3D } from "@/components/map/lib/globeCoords";
+
+const GLOBE_RADIUS = 1.006;
+
+interface StationMarker3DProps {
+  lat: number;
+  lon: number;
+  callsign: string;
+}
+
+export const StationMarker3D = React.memo(function StationMarker3D({
+  lat,
+  lon,
+  callsign,
+}: StationMarker3DProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const [x, y, z] = latLonTo3D(lat, lon, GLOBE_RADIUS);
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+
+    // Pulse the marker
+    if (meshRef.current) {
+      const scale = 1 + Math.sin(t * 2) * 0.15;
+      meshRef.current.scale.setScalar(scale);
+    }
+
+    // Expand and fade the ring
+    if (ringRef.current) {
+      const phase = (t * 0.8) % 2;
+      const ringScale = 1 + phase * 2;
+      ringRef.current.scale.setScalar(ringScale);
+      (ringRef.current.material as THREE.MeshBasicMaterial).opacity = Math.max(
+        0,
+        0.6 - phase * 0.3,
+      );
+    }
+  });
+
+  return (
+    <group position={[x, y, z]}>
+      {/* Pulsing ring */}
+      <mesh ref={ringRef} renderOrder={10}>
+        <ringGeometry args={[0.003, 0.004, 32]} />
+        <meshBasicMaterial
+          color="#f97316"
+          transparent
+          opacity={0.6}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          depthTest={false}
+        />
+      </mesh>
+
+      {/* Core dot */}
+      <mesh ref={meshRef} renderOrder={10}>
+        <sphereGeometry args={[0.003, 12, 12]} />
+        <meshBasicMaterial
+          color="#f97316"
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          depthTest={false}
+        />
+      </mesh>
+
+      {/* Callsign label */}
+      <Text
+        position={[0, 0.012, 0]}
+        fontSize={0.012}
+        color="#f97316"
+        anchorX="center"
+        anchorY="bottom"
+        outlineWidth={0.001}
+        outlineColor="#000000"
+        renderOrder={11}
+        font={undefined}
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        {...({ "material-depthTest": false } as any)}
+      >
+        {callsign || "QTH"}
+      </Text>
+    </group>
+  );
+});
+
+export default StationMarker3D;

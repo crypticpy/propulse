@@ -59,6 +59,8 @@ const dxHunter: OperatingProfile = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
 
   spotColorMode: "band",
@@ -125,6 +127,8 @@ const contest: OperatingProfile = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
 
   spotColorMode: "mode",
@@ -192,6 +196,8 @@ const vhf: OperatingProfile = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
 
   spotColorMode: "band",
@@ -259,6 +265,8 @@ const emergency: OperatingProfile = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
 
   spotColorMode: "mode",
@@ -326,6 +334,8 @@ const listener: OperatingProfile = {
     repeaters: false,
     riverGauges: false,
     aprs: false,
+    tropical: false,
+    sst: false,
   },
 
   spotColorMode: "band",
@@ -415,6 +425,8 @@ export function getProfileConfig(id: BuiltinProfileId): {
     repeaters: "Repeaters",
     riverGauges: "River Gauges",
     aprs: "APRS",
+    tropical: "Tropical",
+    sst: "SST",
   };
 
   const enabledLayers = (

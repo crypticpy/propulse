@@ -66,6 +66,8 @@ const DATA_LAYERS = [
   "alerts",
   "fires",
   "aurora",
+  "tropical",
+  "sst",
 ] as const;
 
 export function WeatherLegend() {
@@ -114,6 +116,27 @@ export function WeatherLegend() {
 
       {layerVisibility.aurora && (
         <GradientBar label="Kp Activity" from="#22c55e" to="#a855f7" />
+      )}
+
+      {layerVisibility.tropical && (
+        <DotRow
+          label="Tropical Systems"
+          items={[
+            { color: "#3b82f6", text: "TD" },
+            { color: "#eab308", text: "TS" },
+            { color: "#f97316", text: "Cat 1-2" },
+            { color: "#ef4444", text: "Cat 3-5" },
+          ]}
+        />
+      )}
+
+      {layerVisibility.sst && (
+        <GradientBar
+          label="Sea Surface Temp"
+          from="#001a80"
+          via="#22c55e"
+          to="#e60000"
+        />
       )}
     </div>
   );

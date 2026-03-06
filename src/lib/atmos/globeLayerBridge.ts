@@ -26,6 +26,8 @@ const ATMOS_TO_MAP_LAYER: Partial<Record<AtmosLayerId, MapLayerKey>> = {
   repeaters: "repeaters",
   riverGauges: "riverGauges",
   aprs: "aprs",
+  tropical: "tropical",
+  sst: "sst",
 };
 
 /**

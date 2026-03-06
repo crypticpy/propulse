@@ -13,7 +13,8 @@ export type AtmosLayerId =
   | "aprs"
   | "shadowZones"
   | "aurora"
-  | "earthquakes";
+  | "earthquakes"
+  | "tropical";
 
 /** View mode for AtmosPulse */
 export type AtmosViewMode = "2d" | "3d";
@@ -71,6 +72,7 @@ export const DEFAULT_LAYER_VISIBILITY: Record<AtmosLayerId, boolean> = {
   shadowZones: false,
   aurora: true,
   earthquakes: false,
+  tropical: true,
 };
 
 /** Default RIM config */

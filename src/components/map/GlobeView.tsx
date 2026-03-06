@@ -43,6 +43,9 @@ import { WeatherAlertFlyout } from "./WeatherAlertFlyout";
 import { WeatherAlertModal } from "./WeatherAlertModal";
 import { LightningOverlay3D } from "./LightningOverlay3D";
 import { FireOverlay3D } from "./FireOverlay3D";
+import { RepeaterOverlay3D } from "./RepeaterOverlay3D";
+import { RiverGaugeOverlay3D } from "./RiverGaugeOverlay3D";
+import { APRSOverlay3D } from "./APRSOverlay3D";
 import {
   WeatherRadarOverlay,
   type RadarAnimationState,
@@ -99,6 +102,9 @@ import { useWeatherAlerts } from "@/hooks/useWeatherAlerts";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { useLightning } from "@/hooks/useLightning";
 import { useFires } from "@/hooks/useFires";
+import { useRepeaters } from "@/hooks/useRepeaters";
+import { useRiverGauges } from "@/hooks/useRiverGauges";
+import { useAPRSStations } from "@/hooks/useAPRSStations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useSpotFocus } from "@/hooks/useSpotFocus";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -804,6 +810,9 @@ const GlobeScene = React.memo(function GlobeScene({
   const { alerts: weatherAlerts } = useWeatherAlerts(layers.weather);
   const { strikes: lightningStrikes } = useLightning(layers.lightning);
   const { hotspots: fireHotspots } = useFires(layers.fires);
+  const { repeaters } = useRepeaters(layers.repeaters);
+  const { gauges: riverGauges } = useRiverGauges(layers.riverGauges);
+  const { stations: aprsStations } = useAPRSStations(layers.aprs);
   const { manifest: radarManifest } = useWeatherRadar(layers.radar);
   // ── New layer data hooks (Wave 8A) ─────────────────────────────────────
   const { beacons, currentBeacon, activeTransmissions } = useBeaconNetwork();
@@ -1273,6 +1282,15 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
         {layers.fires && fireHotspots.length > 0 && (
           <FireOverlay3D hotspots={fireHotspots} />
+        )}
+        {layers.repeaters && repeaters.length > 0 && (
+          <RepeaterOverlay3D repeaters={repeaters} />
+        )}
+        {layers.riverGauges && riverGauges.length > 0 && (
+          <RiverGaugeOverlay3D gauges={riverGauges} />
+        )}
+        {layers.aprs && aprsStations.length > 0 && (
+          <APRSOverlay3D stations={aprsStations} />
         )}
         {layers.radar && radarManifest && (
           <WeatherRadarOverlay

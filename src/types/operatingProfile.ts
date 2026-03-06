@@ -62,6 +62,9 @@ export interface OperatingProfile {
     ft8Spotter: boolean;
     goesCloud: boolean;
     tec: boolean;
+    repeaters: boolean;
+    riverGauges: boolean;
+    aprs: boolean;
   };
 
   // Display preferences

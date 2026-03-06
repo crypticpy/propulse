@@ -11,7 +11,9 @@ export type AtmosLayerId =
   | "rim"
   | "sst"
   | "aprs"
-  | "shadowZones";
+  | "shadowZones"
+  | "aurora"
+  | "earthquakes";
 
 /** View mode for AtmosPulse */
 export type AtmosViewMode = "2d" | "3d";
@@ -59,7 +61,7 @@ export const DEFAULT_LAYER_VISIBILITY: Record<AtmosLayerId, boolean> = {
   lightning: true,
   alerts: true,
   fires: false,
-  goesCloud: false,
+  goesCloud: true,
   tec: false,
   repeaters: false,
   riverGauges: false,
@@ -67,6 +69,8 @@ export const DEFAULT_LAYER_VISIBILITY: Record<AtmosLayerId, boolean> = {
   sst: false,
   aprs: false,
   shadowZones: false,
+  aurora: true,
+  earthquakes: false,
 };
 
 /** Default RIM config */

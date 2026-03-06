@@ -49,6 +49,9 @@ export const LAYER_PRESETS = {
     ft8Spotter: true,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
   contest: {
     terminator: true,
@@ -85,6 +88,9 @@ export const LAYER_PRESETS = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
   vhf: {
     terminator: true,
@@ -121,6 +127,9 @@ export const LAYER_PRESETS = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
   emergency: {
     terminator: true,
@@ -157,6 +166,9 @@ export const LAYER_PRESETS = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: true,
+    riverGauges: true,
+    aprs: false,
   },
   science: {
     terminator: true,
@@ -193,6 +205,9 @@ export const LAYER_PRESETS = {
     ft8Spotter: false,
     goesCloud: false,
     tec: true,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
 } as const;
 
@@ -372,6 +387,9 @@ interface MapState {
     ft8Spotter: boolean;
     goesCloud: boolean;
     tec: boolean;
+    repeaters: boolean;
+    riverGauges: boolean;
+    aprs: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -1054,6 +1072,9 @@ const initialState = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,

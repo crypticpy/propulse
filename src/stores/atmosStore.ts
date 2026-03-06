@@ -86,7 +86,7 @@ export const useAtmosStore = create<AtmosState>()(
     }),
     {
       name: "propulse-atmos",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         viewMode: state.viewMode,
@@ -104,6 +104,16 @@ export const useAtmosStore = create<AtmosState>()(
           if (layers) {
             if (!("aprs" in layers)) layers.aprs = false;
             if (!("shadowZones" in layers)) layers.shadowZones = false;
+          }
+        }
+        if (version < 3) {
+          const layers = state.layerVisibility as
+            | Record<string, boolean>
+            | undefined;
+          if (layers) {
+            if (!("aurora" in layers)) layers.aurora = true;
+            if (!("earthquakes" in layers)) layers.earthquakes = false;
+            if (!("goesCloud" in layers)) layers.goesCloud = true;
           }
         }
         return state as unknown as Omit<

@@ -17,6 +17,8 @@ const LAYER_META: { id: AtmosLayerId; label: string; icon: string }[] = [
   { id: "riverGauges", label: "River Gauges", icon: "\u{1F30A}" },
   { id: "aprs", label: "APRS Stations", icon: "\u{1F4CD}" },
   { id: "shadowZones", label: "Coverage Gaps", icon: "\u{1F6AB}" },
+  { id: "aurora", label: "Aurora", icon: "\u{1F30C}" },
+  { id: "earthquakes", label: "Earthquakes", icon: "\u{1F30D}" },
 ];
 
 export function AtmosSidebar() {

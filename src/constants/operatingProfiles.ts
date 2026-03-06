@@ -56,6 +56,9 @@ const dxHunter: OperatingProfile = {
     ft8Spotter: true,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
 
   spotColorMode: "band",
@@ -119,6 +122,9 @@ const contest: OperatingProfile = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
 
   spotColorMode: "mode",
@@ -183,6 +189,9 @@ const vhf: OperatingProfile = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
 
   spotColorMode: "band",
@@ -247,6 +256,9 @@ const emergency: OperatingProfile = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
 
   spotColorMode: "mode",
@@ -311,6 +323,9 @@ const listener: OperatingProfile = {
     ft8Spotter: false,
     goesCloud: false,
     tec: false,
+    repeaters: false,
+    riverGauges: false,
+    aprs: false,
   },
 
   spotColorMode: "band",
@@ -397,6 +412,9 @@ export function getProfileConfig(id: BuiltinProfileId): {
     ft8Spotter: "FT8 Spotter",
     goesCloud: "GOES Cloud",
     tec: "TEC",
+    repeaters: "Repeaters",
+    riverGauges: "River Gauges",
+    aprs: "APRS",
   };
 
   const enabledLayers = (

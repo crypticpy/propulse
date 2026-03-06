@@ -4,8 +4,12 @@
  */
 
 import { useRef, useEffect, useState } from "react";
-import maplibregl from "maplibre-gl";
+import maplibregl, { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import cspWorkerUrl from "maplibre-gl/dist/maplibre-gl-csp-worker.js?url";
+
+// Use dedicated CSP worker to avoid blob-based worker breakage in production builds
+setWorkerUrl(cspWorkerUrl);
 import { useAtmosStore } from "@/stores/atmosStore";
 import { DARK_BASEMAP_STYLE } from "@/lib/atmos/mapStyles";
 import { RadarLayer2D } from "@/components/atmos/layers/RadarLayer2D";

@@ -38,6 +38,7 @@ export function LightningLayer2D({ map }: LightningLayer2DProps) {
   const { strikes } = useLightning();
 
   useEffect(() => {
+    if (!map.getStyle()) return;
     const geojson = strikesToGeoJSON(strikes);
 
     const source = map.getSource(SOURCE_ID) as
@@ -74,8 +75,12 @@ export function LightningLayer2D({ map }: LightningLayer2DProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
     };
   }, [map]);
 

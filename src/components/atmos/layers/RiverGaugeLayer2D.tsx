@@ -48,6 +48,7 @@ export function RiverGaugeLayer2D({ map }: RiverGaugeLayer2DProps) {
   const { gauges } = useRiverGauges();
 
   useEffect(() => {
+    if (!map.getStyle()) return;
     const geojson = gaugesToGeoJSON(gauges);
 
     const source = map.getSource(SOURCE_ID) as
@@ -75,8 +76,12 @@ export function RiverGaugeLayer2D({ map }: RiverGaugeLayer2DProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
     };
   }, [map]);
 

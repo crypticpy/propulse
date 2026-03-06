@@ -43,6 +43,7 @@ export function RepeaterLayer2D({ map }: RepeaterLayer2DProps) {
   const { repeaters } = useRepeaters();
 
   useEffect(() => {
+    if (!map.getStyle()) return;
     const geojson = repeatersToGeoJSON(repeaters);
 
     const source = map.getSource(SOURCE_ID) as
@@ -70,8 +71,12 @@ export function RepeaterLayer2D({ map }: RepeaterLayer2DProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
     };
   }, [map]);
 

@@ -19,6 +19,7 @@ export function GOESCloudLayer2D({ map }: GOESCloudLayer2DProps) {
   const currentUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!map.getStyle()) return;
     if (!tileUrl) return;
     if (tileUrl === currentUrlRef.current) return;
     currentUrlRef.current = tileUrl;
@@ -53,8 +54,12 @@ export function GOESCloudLayer2D({ map }: GOESCloudLayer2DProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
       currentUrlRef.current = null;
     };
   }, [map]);

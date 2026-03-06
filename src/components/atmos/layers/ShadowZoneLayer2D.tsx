@@ -27,6 +27,7 @@ export function ShadowZoneLayer2D({ map }: ShadowZoneLayer2DProps) {
 
   // Update source data when shadow zones change
   useEffect(() => {
+    if (!map.getStyle()) return;
     const geojson = shadowZones ?? EMPTY_GEOJSON;
 
     const source = map.getSource(SOURCE_ID) as
@@ -61,9 +62,13 @@ export function ShadowZoneLayer2D({ map }: ShadowZoneLayer2DProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map.getLayer(OUTLINE_LAYER_ID)) map.removeLayer(OUTLINE_LAYER_ID);
-      if (map.getLayer(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(OUTLINE_LAYER_ID)) map.removeLayer(OUTLINE_LAYER_ID);
+        if (map.getLayer(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
     };
   }, [map]);
 

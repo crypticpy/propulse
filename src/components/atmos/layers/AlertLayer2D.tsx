@@ -51,6 +51,7 @@ export function AlertLayer2D({ map }: AlertLayer2DProps) {
 
   // Update data
   useEffect(() => {
+    if (!map.getStyle()) return;
     const geojson = alertsToGeoJSON(alerts);
 
     const source = map.getSource(SOURCE_ID) as
@@ -78,6 +79,7 @@ export function AlertLayer2D({ map }: AlertLayer2DProps) {
 
   // Click handler for popups
   useEffect(() => {
+    if (!map.getStyle()) return;
     const handleClick = (
       e: maplibregl.MapMouseEvent & {
         features?: maplibregl.MapGeoJSONFeature[];
@@ -148,8 +150,12 @@ export function AlertLayer2D({ map }: AlertLayer2DProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
       if (popupRef.current) {
         popupRef.current.remove();
         popupRef.current = null;

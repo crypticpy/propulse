@@ -56,6 +56,7 @@ export function APRSLayer2D({ map }: APRSLayer2DProps) {
 
   // Update source data when stations change
   useEffect(() => {
+    if (!map.getStyle()) return;
     const geojson = stationsToGeoJSON(stations);
 
     const source = map.getSource(SOURCE_ID) as
@@ -82,6 +83,7 @@ export function APRSLayer2D({ map }: APRSLayer2DProps) {
 
   // Click handler for popups
   useEffect(() => {
+    if (!map.getStyle()) return;
     const handleClick = (
       e: maplibregl.MapMouseEvent & {
         features?: maplibregl.MapGeoJSONFeature[];
@@ -163,8 +165,12 @@ export function APRSLayer2D({ map }: APRSLayer2DProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
       if (popupRef.current) {
         popupRef.current.remove();
         popupRef.current = null;

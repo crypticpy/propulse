@@ -25,6 +25,7 @@ export function TECLayer2D({ map }: TECLayer2DProps) {
   const { tecData } = useTEC();
 
   useEffect(() => {
+    if (!map.getStyle()) return;
     if (!tecData.available || tecData.grid.length === 0) {
       // Clean up if no data
       if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
@@ -80,8 +81,12 @@ export function TECLayer2D({ map }: TECLayer2DProps) {
     }
 
     return () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      try {
+        if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {
+        // Map already destroyed
+      }
     };
   }, [map, tecData]);
 

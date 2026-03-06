@@ -81,6 +81,7 @@ CREATE INDEX IF NOT EXISTS sync_conflicts_entry_idx
 
 ALTER TABLE public.sync_conflicts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS sync_conflicts_all_own ON public.sync_conflicts;
 CREATE POLICY sync_conflicts_all_own ON public.sync_conflicts
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS public.user_devices (
 
 ALTER TABLE public.user_devices ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS user_devices_all_own ON public.user_devices;
 CREATE POLICY user_devices_all_own ON public.user_devices
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
@@ -115,6 +117,7 @@ END;
 $$ LANGUAGE plpgsql
 SET search_path = public, pg_temp;
 
+DROP TRIGGER IF EXISTS user_devices_last_seen ON public.user_devices;
 CREATE TRIGGER user_devices_last_seen
   BEFORE UPDATE ON public.user_devices
   FOR EACH ROW EXECUTE FUNCTION public.update_last_seen();

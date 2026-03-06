@@ -21,6 +21,16 @@ export interface WeatherAlert {
   lon: number;
   /** Description of the affected area */
   areaDesc: string;
+  /** Alert urgency */
+  urgency: "Immediate" | "Expected" | "Future" | "Past" | "Unknown";
+  /** Alert certainty */
+  certainty: "Observed" | "Likely" | "Possible" | "Unlikely" | "Unknown";
+  /** Recommended response action */
+  response: string;
+  /** Protective action instructions */
+  instruction: string;
+  /** Raw polygon coordinates for spatial analysis (array of [lon, lat] pairs), null if no polygon */
+  polygon: number[][] | null;
 }
 
 /**
@@ -32,6 +42,10 @@ interface NWSAlertFeature {
     event: string;
     headline: string | null;
     severity: string;
+    urgency: string | null;
+    certainty: string | null;
+    response: string | null;
+    instruction: string | null;
     areaDesc: string;
   };
   geometry: {
@@ -68,6 +82,64 @@ function normalizeSeverity(
   return VALID_SEVERITIES.has(raw)
     ? (raw as WeatherAlert["severity"])
     : "Unknown";
+}
+
+const VALID_URGENCIES = new Set([
+  "Immediate",
+  "Expected",
+  "Future",
+  "Past",
+  "Unknown",
+]);
+
+/**
+ * Normalize urgency string to our union type
+ */
+function normalizeUrgency(raw: string | null): WeatherAlert["urgency"] {
+  if (raw && VALID_URGENCIES.has(raw)) return raw as WeatherAlert["urgency"];
+  return "Unknown";
+}
+
+const VALID_CERTAINTIES = new Set([
+  "Observed",
+  "Likely",
+  "Possible",
+  "Unlikely",
+  "Unknown",
+]);
+
+/**
+ * Normalize certainty string to our union type
+ */
+function normalizeCertainty(raw: string | null): WeatherAlert["certainty"] {
+  if (raw && VALID_CERTAINTIES.has(raw))
+    return raw as WeatherAlert["certainty"];
+  return "Unknown";
+}
+
+/**
+ * Extract first polygon ring as array of [lon, lat] pairs.
+ * Returns null for non-polygon geometries.
+ */
+function extractPolygon(
+  geometry: NWSAlertFeature["geometry"],
+): number[][] | null {
+  if (!geometry) return null;
+
+  if (geometry.type === "Polygon") {
+    const rings = geometry.coordinates as number[][][];
+    if (rings.length > 0 && rings[0].length > 0) {
+      return rings[0];
+    }
+  } else if (geometry.type === "MultiPolygon") {
+    // Return the first polygon's outer ring
+    const polys = geometry.coordinates as number[][][][];
+    if (polys.length > 0 && polys[0].length > 0 && polys[0][0].length > 0) {
+      return polys[0][0];
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -172,6 +244,11 @@ export async function fetchWeatherAlerts(
       lat,
       lon,
       areaDesc: feature.properties.areaDesc,
+      urgency: normalizeUrgency(feature.properties.urgency),
+      certainty: normalizeCertainty(feature.properties.certainty),
+      response: feature.properties.response ?? "",
+      instruction: feature.properties.instruction ?? "",
+      polygon: extractPolygon(feature.geometry),
     });
   }
 

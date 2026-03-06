@@ -54,6 +54,8 @@ const dxHunter: OperatingProfile = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: true,
+    goesCloud: false,
+    tec: false,
   },
 
   spotColorMode: "band",
@@ -115,6 +117,8 @@ const contest: OperatingProfile = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
 
   spotColorMode: "mode",
@@ -177,6 +181,8 @@ const vhf: OperatingProfile = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
 
   spotColorMode: "band",
@@ -239,6 +245,8 @@ const emergency: OperatingProfile = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
 
   spotColorMode: "mode",
@@ -301,6 +309,8 @@ const listener: OperatingProfile = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
 
   spotColorMode: "band",
@@ -385,6 +395,8 @@ export function getProfileConfig(id: BuiltinProfileId): {
     sporadicE: "Sporadic E",
     satelliteFootprints: "Sat Footprints",
     ft8Spotter: "FT8 Spotter",
+    goesCloud: "GOES Cloud",
+    tec: "TEC",
   };
 
   const enabledLayers = (

@@ -1136,6 +1136,9 @@ export default defineConfig(({ mode }) => {
               if (id.includes("/node_modules/3d-tiles-renderer/")) {
                 return "vendor-tiles";
               }
+              if (id.includes("/node_modules/maplibre-gl/")) {
+                return "vendor-maplibre";
+              }
               if (id.includes("/node_modules/@tanstack/react-query/")) {
                 return "vendor-tanstack";
               }
@@ -1171,6 +1174,7 @@ export default defineConfig(({ mode }) => {
         "date-fns",
         "zustand",
         "3d-tiles-renderer",
+        "maplibre-gl",
       ],
     },
     server: {
@@ -1306,6 +1310,60 @@ export default defineConfig(({ mode }) => {
             const url = new URL(pathStr, "http://localhost");
             const name = url.searchParams.get("name") || "";
             return `/status/api/v1/sat_info.php?name=${encodeURIComponent(name)}&hours=24`;
+          },
+        },
+        // AtmosPulse data proxies (dev only)
+        "/api/atmos/tec": {
+          target: "https://services.swpc.noaa.gov",
+          changeOrigin: true,
+          rewrite: () => "/experimental/products/tec/tecmap-latest.json",
+        },
+        "/api/atmos/repeaters": {
+          target: "https://www.repeaterbook.com",
+          changeOrigin: true,
+          rewrite: (pathStr: string) => {
+            try {
+              const url = new URL(`http://local${pathStr}`);
+              const lat = url.searchParams.get("lat") || "0";
+              const lon = url.searchParams.get("lon") || "0";
+              const dist = url.searchParams.get("dist") || "50";
+              return `/api/export.php?callsign=&city=&state=&lat=${lat}&lon=${lon}&dist=${dist}`;
+            } catch {
+              return "/api/export.php?callsign=&city=&state=&lat=0&lon=0&dist=50";
+            }
+          },
+        },
+        "/api/atmos/gauges": {
+          target: "https://waterservices.usgs.gov",
+          changeOrigin: true,
+          rewrite: (pathStr: string) => {
+            try {
+              const url = new URL(`http://local${pathStr}`);
+              const west = url.searchParams.get("west") || "-90";
+              const south = url.searchParams.get("south") || "30";
+              const east = url.searchParams.get("east") || "-80";
+              const north = url.searchParams.get("north") || "40";
+              return `/nwis/iv/?format=json&bBox=${west},${south},${east},${north}&parameterCd=00065&siteStatus=active`;
+            } catch {
+              return "/nwis/iv/?format=json&bBox=-90,30,-80,40&parameterCd=00065&siteStatus=active";
+            }
+          },
+        },
+        // APRS.fi proxy (dev only) - mirrors Vercel `/api/atmos/aprs`
+        "/api/atmos/aprs": {
+          target: "https://api.aprs.fi",
+          changeOrigin: true,
+          rewrite: (pathStr: string) => {
+            try {
+              const url = new URL(`http://local${pathStr}`);
+              const lat = url.searchParams.get("lat") || "0";
+              const lon = url.searchParams.get("lon") || "0";
+              const range = url.searchParams.get("range") || "100";
+              const apiKey = process.env.APRS_FI_API_KEY || "";
+              return `/api/get?what=loc&lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lon)}&range=${encodeURIComponent(range)}&apikey=${encodeURIComponent(apiKey)}&format=json`;
+            } catch {
+              return "/api/get?what=loc&format=json";
+            }
           },
         },
         // Callsign lookup proxy (dev only) - mirrors Vercel `/api/callsign/lookup`

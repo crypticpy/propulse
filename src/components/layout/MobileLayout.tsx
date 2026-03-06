@@ -39,6 +39,7 @@ const MOBILE_ROUTES = [
   "/",
   "/solar",
   "/map",
+  "/atmos",
   "/log",
   "/profile",
   "/shack",

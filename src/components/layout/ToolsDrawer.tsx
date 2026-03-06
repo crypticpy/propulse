@@ -60,6 +60,12 @@ const stationItems = [
 
 const tools = [
   {
+    path: "/atmos",
+    label: "AtmosPulse",
+    description: "Weather intelligence & radio impact analysis",
+    icon: "🌩️",
+  },
+  {
     path: "/dx",
     label: "DX Wizard",
     description: "Propagation advice & path analysis",

@@ -60,6 +60,8 @@ export interface OperatingProfile {
     sporadicE: boolean;
     satelliteFootprints: boolean;
     ft8Spotter: boolean;
+    goesCloud: boolean;
+    tec: boolean;
   };
 
   // Display preferences

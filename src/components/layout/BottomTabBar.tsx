@@ -12,6 +12,7 @@ const tabs = [
 
 /** Paths that should highlight the Tools tab */
 const TOOLS_PATHS = [
+  "/atmos",
   "/dx",
   "/planner",
   "/sdr",

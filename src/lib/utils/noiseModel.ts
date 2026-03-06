@@ -238,6 +238,38 @@ export function getNoiseAssessment(
 }
 
 // ---------------------------------------------------------------------------
+// Real-time Atmospheric QRN
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimate real-time atmospheric QRN increase from nearby lightning/storms.
+ * Returns additional noise figure in dB above the baseline ITU-R P.372 model.
+ *
+ * Lightning QRN falls off roughly as 1/distance:
+ *   At 10km: +20dB, at 50km: +12dB, at 200km: +6dB, at 1000km: +1dB
+ *
+ * @param nearestLightningKm - Distance to nearest lightning strike in km (null = no data)
+ * @param stormIntensity - 0-1 scale (0 = no storms, 1 = extreme convection)
+ */
+export function getRealtimeAtmosphericQRN(
+  nearestLightningKm: number | null,
+  stormIntensity: number,
+): number {
+  if (nearestLightningKm == null) return 0;
+
+  // Lightning QRN falls off roughly as 1/distance
+  const distanceFactor =
+    nearestLightningKm <= 0
+      ? 20
+      : Math.max(0, 20 - 8 * Math.log10(Math.max(nearestLightningKm, 1)));
+
+  // Storm intensity multiplier (heavy convection = more impulsive noise)
+  const intensityMultiplier = 0.3 + 0.7 * stormIntensity;
+
+  return distanceFactor * intensityMultiplier;
+}
+
+// ---------------------------------------------------------------------------
 // Band Lookup
 // ---------------------------------------------------------------------------
 

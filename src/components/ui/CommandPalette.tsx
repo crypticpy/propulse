@@ -375,6 +375,14 @@ export function CommandPalette({
         action: nav("/map"),
       },
       {
+        id: "nav-atmos",
+        label: "Go to AtmosPulse",
+        keywords: ["atmos", "weather", "radar", "lightning", "rim", "impact"],
+        category: "navigation",
+        icon: RadioIcon,
+        action: nav("/atmos"),
+      },
+      {
         id: "nav-dx",
         label: "Go to DX Wizard",
         keywords: ["dx", "spots", "cluster", "wizard", "radio"],

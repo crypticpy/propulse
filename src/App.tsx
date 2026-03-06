@@ -127,6 +127,9 @@ const SatellitesPage = lazy(() =>
     default: m.SatellitesPage,
   })),
 );
+const AtmosPulse = lazy(() =>
+  import("@/pages/AtmosPulse").then((m) => ({ default: m.AtmosPulse })),
+);
 
 /** Redirect helper for old /nets/:netId/* routes that moved to /ncs/:netId/* */
 function NcsRedirect({ suffix }: { suffix: string }) {
@@ -261,6 +264,7 @@ function App() {
             <Route path="/contests" element={<ContestExplorerPage />} />
             <Route path="/activation" element={<ActivationPage />} />
             <Route path="/satellites" element={<SatellitesPage />} />
+            <Route path="/atmos" element={<AtmosPulse />} />
             <Route path="/map" element={<MapRoute />} />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfilePage />} />

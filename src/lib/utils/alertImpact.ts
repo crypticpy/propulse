@@ -219,3 +219,90 @@ function getBandsFromDegradationMap(kpLevel: number): string[] {
   )[0];
   return match?.bands ?? [];
 }
+
+// =============================================================================
+// TERRESTRIAL WEATHER IMPACT
+// =============================================================================
+
+/** Radio impact assessment for terrestrial weather events */
+export interface TerrestrialWeatherImpact {
+  hfEffect: string;
+  vhfEffect: string;
+  infraEffect: string;
+  severity: "low" | "moderate" | "high" | "critical";
+  recommendation: string;
+}
+
+/**
+ * Get radio impact information for a terrestrial weather event type.
+ * Maps NWS event types to practical ham radio consequences.
+ *
+ * @param eventType - NWS event type string (e.g., "Tornado Warning")
+ * @returns Impact assessment or null if no specific mapping exists
+ */
+export function getTerrestrialWeatherImpact(
+  eventType: string,
+): TerrestrialWeatherImpact | null {
+  const type = eventType.toLowerCase();
+
+  if (type.includes("tornado")) {
+    return {
+      hfEffect: "Severe QRN from associated thunderstorms",
+      vhfEffect: "Possible path disruption, antenna damage risk",
+      infraEffect: "Critical antenna/tower damage risk",
+      severity: "critical",
+      recommendation: "Secure equipment, switch to emergency frequencies",
+    };
+  }
+  if (type.includes("hurricane") || type.includes("typhoon")) {
+    return {
+      hfEffect: "Ionospheric disturbance, sustained QRN",
+      vhfEffect: "Prolonged outages along storm track",
+      infraEffect: "Major antenna/tower/power infrastructure risk",
+      severity: "critical",
+      recommendation: "Pre-position backup antennas, verify emergency power",
+    };
+  }
+  if (type.includes("thunderstorm") || type.includes("severe storm")) {
+    return {
+      hfEffect: "Heavy QRN on 40m-80m, skip zone disruption",
+      vhfEffect: "Path attenuation, possible relay failures",
+      infraEffect: "Lightning strike risk to antennas",
+      severity: "high",
+      recommendation: "Monitor conditions, consider higher bands",
+    };
+  }
+  if (
+    type.includes("winter storm") ||
+    type.includes("blizzard") ||
+    type.includes("ice")
+  ) {
+    return {
+      hfEffect: "Minimal direct HF impact",
+      vhfEffect: "Antenna icing degrades VHF performance",
+      infraEffect: "Ice loading on masts/towers, power outage risk",
+      severity: "high",
+      recommendation: "Check antenna ice loading, verify backup power",
+    };
+  }
+  if (type.includes("flood") || type.includes("flash flood")) {
+    return {
+      hfEffect: "Elevated ground conductivity may affect NVIS",
+      vhfEffect: "Ground-level equipment flooding risk",
+      infraEffect: "Feedline/equipment damage from water",
+      severity: "moderate",
+      recommendation: "Elevate ground-level equipment, check drainage",
+    };
+  }
+  if (type.includes("wind") || type.includes("gale")) {
+    return {
+      hfEffect: "Minimal direct HF impact",
+      vhfEffect: "Antenna sway degrades beam accuracy",
+      infraEffect: "Antenna/tower stress, guy wire risk",
+      severity: "moderate",
+      recommendation: "Secure temporary antennas, lower telescoping masts",
+    };
+  }
+
+  return null;
+}

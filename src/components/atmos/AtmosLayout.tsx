@@ -28,7 +28,7 @@ export function AtmosLayout() {
   const activeIncident = useEmcommStore((s) => s.activeIncident);
 
   return (
-    <div className="flex flex-col h-full bg-void-black overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-4rem)] bg-void-black overflow-hidden">
       <AtmosHeader />
       {activeIncident && <ActivationBanner />}
       <div className="flex flex-1 min-h-0">

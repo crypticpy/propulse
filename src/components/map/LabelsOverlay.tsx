@@ -439,17 +439,16 @@ export function LabelsOverlay({
   // Merged border geometry — ONE draw call for all countries
   const borderGeometry = useMemo(() => buildMergedBorderGeometry(), []);
 
-  // Night-aware country border material
-  const borderMaterial = useMemo(
-    () =>
-      buildNightAwareBorderMaterial(
-        subsolarLat ?? 0,
-        subsolarLon ?? 0,
-        0.4,
-        0.4,
-      ),
-    [subsolarLat, subsolarLon],
-  );
+  // Night-aware country border material — created ONCE via useRef to avoid shader recompilation
+  const borderMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
+  if (borderMaterialRef.current === null) {
+    borderMaterialRef.current = buildNightAwareBorderMaterial(
+      subsolarLat ?? 0,
+      subsolarLon ?? 0,
+      0.4,
+      0.4,
+    );
+  }
 
   // Merged state border geometry — ONE draw call for all US states
   const stateBorderGeometry = useMemo(
@@ -457,17 +456,16 @@ export function LabelsOverlay({
     [],
   );
 
-  // Night-aware state border material (lower opacity to distinguish from country borders)
-  const stateBorderMaterial = useMemo(
-    () =>
-      buildNightAwareBorderMaterial(
-        subsolarLat ?? 0,
-        subsolarLon ?? 0,
-        0.2,
-        0.4,
-      ),
-    [subsolarLat, subsolarLon],
-  );
+  // Night-aware state border material — created ONCE via useRef to avoid shader recompilation
+  const stateBorderMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
+  if (stateBorderMaterialRef.current === null) {
+    stateBorderMaterialRef.current = buildNightAwareBorderMaterial(
+      subsolarLat ?? 0,
+      subsolarLon ?? 0,
+      0.2,
+      0.4,
+    );
+  }
 
   // Maidenhead grid geometry — ONE draw call for all grid lines
   const gridGeometry = useMemo(() => {
@@ -486,24 +484,37 @@ export function LabelsOverlay({
     [],
   );
 
-  // Dispose GPU resources when recreated or on unmount
+  // Update sun direction uniforms when subsolar position changes (NO shader recompilation)
+  useEffect(() => {
+    const lat = subsolarLat ?? 0;
+    const lon = subsolarLon ?? 0;
+    const phi = (90 - lat) * DEG2RAD;
+    const theta = (lon + 180) * DEG2RAD;
+    const sunDir = new THREE.Vector3(
+      -Math.sin(phi) * Math.cos(theta),
+      Math.cos(phi),
+      Math.sin(phi) * Math.sin(theta),
+    );
+
+    if (borderMaterialRef.current) {
+      borderMaterialRef.current.uniforms.sunDirection.value.copy(sunDir);
+    }
+    if (stateBorderMaterialRef.current) {
+      stateBorderMaterialRef.current.uniforms.sunDirection.value.copy(sunDir);
+    }
+  }, [subsolarLat, subsolarLon]);
+
+  // Dispose GPU resources on unmount only
   useEffect(() => {
     return () => {
       borderGeometry.dispose();
-      borderMaterial.dispose();
+      borderMaterialRef.current?.dispose();
       stateBorderGeometry.dispose();
-      stateBorderMaterial.dispose();
+      stateBorderMaterialRef.current?.dispose();
       gridGeometry?.dispose();
       gridMaterial.dispose();
     };
-  }, [
-    borderGeometry,
-    borderMaterial,
-    stateBorderGeometry,
-    stateBorderMaterial,
-    gridGeometry,
-    gridMaterial,
-  ]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-compute all label data (positions + normals for backface culling)
   const allCountryLabels: LabelData[] = useMemo(() => {
@@ -702,19 +713,19 @@ export function LabelsOverlay({
   return (
     <group>
       {/* ALL country borders — single draw call */}
-      {effectiveOptions.borders && (
+      {effectiveOptions.borders && borderMaterialRef.current && (
         <lineSegments
           geometry={borderGeometry}
-          material={borderMaterial}
+          material={borderMaterialRef.current}
           renderOrder={5}
         />
       )}
 
       {/* ALL US state borders — single draw call */}
-      {effectiveOptions.stateBorders && (
+      {effectiveOptions.stateBorders && stateBorderMaterialRef.current && (
         <lineSegments
           geometry={stateBorderGeometry}
-          material={stateBorderMaterial}
+          material={stateBorderMaterialRef.current}
           renderOrder={5}
         />
       )}

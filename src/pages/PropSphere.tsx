@@ -134,22 +134,20 @@ type PanelMode = "full" | "mini" | "hidden";
 const ToolbarDivider = () => <div className="w-px h-5 bg-white/10" />;
 
 export function PropSphere() {
-  const {
-    viewMode,
-    timeOffset,
-    setTimeOffset,
-    target,
-    setTarget,
-    layers,
-    activePreset,
-    layoutMode,
-    isLiteMode,
-    isDXConsoleExpanded,
-    setDXConsoleExpanded,
-    pathMode,
-    replayEnabled,
-    setReplayEnabled,
-  } = useMapStore();
+  const viewMode = useMapStore((s) => s.viewMode);
+  const timeOffset = useMapStore((s) => s.timeOffset);
+  const setTimeOffset = useMapStore((s) => s.setTimeOffset);
+  const target = useMapStore((s) => s.target);
+  const setTarget = useMapStore((s) => s.setTarget);
+  const layers = useMapStore((s) => s.layers);
+  const activePreset = useMapStore((s) => s.activePreset);
+  const layoutMode = useMapStore((s) => s.layoutMode);
+  const isLiteMode = useMapStore((s) => s.isLiteMode);
+  const isDXConsoleExpanded = useMapStore((s) => s.isDXConsoleExpanded);
+  const setDXConsoleExpanded = useMapStore((s) => s.setDXConsoleExpanded);
+  const pathMode = useMapStore((s) => s.pathMode);
+  const replayEnabled = useMapStore((s) => s.replayEnabled);
+  const setReplayEnabled = useMapStore((s) => s.setReplayEnabled);
   const station = useUserStore((state) => state.station);
   const tickerPosition = useSettingsStore((s) => s.tickerPosition);
   const spotCount = useDXStore((state) => state.spots.length);

@@ -5,7 +5,7 @@
  * Provides camera controls, lighting, and click-to-select functionality.
  */
 
-import {
+import React, {
   Component,
   Suspense,
   useCallback,
@@ -127,6 +127,8 @@ import SporadicEOverlay3D from "./layers/SporadicEOverlay3D";
 import GeomagneticFieldLines3D from "./layers/GeomagneticFieldLines3D";
 import TerminatorEnhancement3D from "./layers/TerminatorEnhancement3D";
 import WSPROverlay3D from "./layers/WSPROverlay3D";
+import GOESCloudOverlay3D from "./layers/GOESCloudOverlay3D";
+import TECOverlay3D from "./layers/TECOverlay3D";
 import SpectrumWaterfallRing3D from "./layers/SpectrumWaterfallRing3D";
 import SatelliteFootprint3D from "./layers/SatelliteFootprint3D";
 import { Ft8SpotterOverlay } from "./layers/Ft8SpotterOverlay";
@@ -271,8 +273,10 @@ function SceneLighting({ displayTime }: { displayTime: Date }) {
 }
 
 /**
- * Convert lat/lon to camera position at a given distance
+ * Convert lat/lon to camera position at a given distance.
+ * Returns a clone — the internal scratch vector is reused across calls.
  */
+const _camPos = new THREE.Vector3();
 function latLonToCameraPosition(
   lat: number,
   lon: number,
@@ -281,11 +285,12 @@ function latLonToCameraPosition(
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
 
-  return new THREE.Vector3(
+  _camPos.set(
     -distance * Math.sin(phi) * Math.cos(theta),
     distance * Math.cos(phi),
     distance * Math.sin(phi) * Math.sin(theta),
   );
+  return _camPos.clone();
 }
 
 /**
@@ -715,7 +720,45 @@ function CameraController() {
 /**
  * Globe scene content
  */
-function GlobeScene({
+interface GlobeSceneProps {
+  displayTime: Date;
+  onLocationClick?: (
+    lat: number,
+    lon: number,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onDoubleClick?: (
+    lat: number,
+    lon: number,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onLocationHover?: (
+    lat: number,
+    lon: number,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onHoverEnd?: () => void;
+  onPinHover?: (pin: MapPin, screenPos: { x: number; y: number }) => void;
+  onPinLeave?: () => void;
+  onTargetHover?: (screenPos: { x: number; y: number }) => void;
+  onTargetHoverEnd?: () => void;
+  onSpotHover?: (
+    data: SpotDetailsData,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onSpotHoverEnd?: () => void;
+  onClusterClick?: (
+    cluster: SpotClusterData,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onAlertClick?: (
+    alert: WeatherAlert,
+    screenPos: { x: number; y: number },
+  ) => void;
+  onRadarAnimState?: (state: RadarAnimationState) => void;
+}
+
+const GlobeScene = React.memo(function GlobeScene({
   displayTime,
   onLocationClick,
   onDoubleClick,
@@ -730,55 +773,13 @@ function GlobeScene({
   onClusterClick,
   onAlertClick,
   onRadarAnimState,
-}: {
-  displayTime: Date;
-  onLocationClick?: (
-    lat: number,
-    lon: number,
-    screenPos: { x: number; y: number },
-  ) => void;
-  /** Q2: Called when double-clicking - centers view without setting target */
-  onDoubleClick?: (
-    lat: number,
-    lon: number,
-    screenPos: { x: number; y: number },
-  ) => void;
-  onLocationHover?: (
-    lat: number,
-    lon: number,
-    screenPos: { x: number; y: number },
-  ) => void;
-  onHoverEnd?: () => void;
-  /** Called when hovering over a pin - shows pin-specific flyout */
-  onPinHover?: (pin: MapPin, screenPos: { x: number; y: number }) => void;
-  /** Called when leaving a pin hover */
-  onPinLeave?: () => void;
-  /** Called when hovering over the selected target marker */
-  onTargetHover?: (screenPos: { x: number; y: number }) => void;
-  /** Called when leaving the selected target marker */
-  onTargetHoverEnd?: () => void;
-  /** Called when hovering over a spot label or endpoint */
-  onSpotHover?: (
-    data: SpotDetailsData,
-    screenPos: { x: number; y: number },
-  ) => void;
-  /** Called when spot hover ends */
-  onSpotHoverEnd?: () => void;
-  /** Called when a cluster is clicked */
-  onClusterClick?: (
-    cluster: SpotClusterData,
-    screenPos: { x: number; y: number },
-  ) => void;
-  /** Called when a weather alert marker is clicked */
-  onAlertClick?: (
-    alert: WeatherAlert,
-    screenPos: { x: number; y: number },
-  ) => void;
-  /** Called when radar animation state updates (for scrubber UI outside Canvas) */
-  onRadarAnimState?: (state: RadarAnimationState) => void;
-}) {
-  const { layers, target, pathMode, mapStyle, rotation, labelOptions } =
-    useMapStore();
+}: GlobeSceneProps) {
+  const layers = useMapStore((s) => s.layers);
+  const target = useMapStore((s) => s.target);
+  const pathMode = useMapStore((s) => s.pathMode);
+  const mapStyle = useMapStore((s) => s.mapStyle);
+  const rotation = useMapStore((s) => s.rotation);
+  const labelOptions = useMapStore((s) => s.labelOptions);
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
@@ -795,8 +796,8 @@ function GlobeScene({
     setTileFailCount(0);
   }, [tileProvider.id]);
 
-  const { station } = useUserStore();
-  const { pins } = usePinStore();
+  const station = useUserStore((s) => s.station);
+  const pins = usePinStore((s) => s.pins);
   const { data: auroraData } = useAuroraData();
   const currentSFI = useCurrentSFI();
   const { earthquakes: earthquakeData } = useEarthquakes(layers.earthquakes);
@@ -807,6 +808,18 @@ function GlobeScene({
   // ── New layer data hooks (Wave 8A) ─────────────────────────────────────
   const { beacons, currentBeacon, activeTransmissions } = useBeaconNetwork();
   const { activeShowers } = useMeteorShowers();
+  const meteorShowerProps = useMemo(
+    () =>
+      activeShowers?.map((s) => ({
+        name: s.name,
+        lat: s.radiantLat,
+        lon: s.radiantLon,
+        zhr: s.zhr,
+        bestFor6m: s.is6mFavorable,
+        daysUntilPeak: s.daysUntilPeak,
+      })) ?? [],
+    [activeShowers],
+  );
   const { grid: noiseFloorGrid } = useNoiseFloor(14); // 14 MHz (20m band default)
   const { data: drapData } = useDRAPOverlay();
   const { spots: wsprSpotsRaw } = useWSPRSpots("all");
@@ -1027,7 +1040,14 @@ function GlobeScene({
   const waterfallRowsRef = useRef<BandActivityRow[]>([]);
   const [waterfallRows, setWaterfallRows] = useState<BandActivityRow[]>([]);
 
+  // Use ref for liveSpots to avoid restarting the interval on every spot update
+  const liveSpotsRef = useRef(liveSpots);
+  liveSpotsRef.current = liveSpots;
+
   useEffect(() => {
+    // Only run the sampling interval when the spectrum ring layer is active
+    if (!layers.spectrumRing) return;
+
     // Sample function: count spots per band from current liveSpots
     const sampleBandCounts = () => {
       const counts: Record<string, number> = {};
@@ -1035,7 +1055,7 @@ function GlobeScene({
         counts[name] = 0;
       }
 
-      for (const spot of liveSpots) {
+      for (const spot of liveSpotsRef.current) {
         let band = spot.band;
         if (!band) continue;
         band = band.toLowerCase().trim();
@@ -1088,7 +1108,7 @@ function GlobeScene({
       WATERFALL_SAMPLE_INTERVAL_MS,
     );
     return () => clearInterval(intervalId);
-  }, [liveSpots]);
+  }, [layers.spectrumRing]);
 
   // ── Satellite footprints (derived from satellite positions) ───────────
   const satelliteFootprints = useMemo(() => {
@@ -1260,6 +1280,8 @@ function GlobeScene({
             onAnimationState={onRadarAnimState}
           />
         )}
+        {layers.goesCloud && <GOESCloudOverlay3D />}
+        {layers.tec && <TECOverlay3D />}
 
         {/* === Propagation Layers === */}
         {layers.nvis && nvisData && (
@@ -1318,16 +1340,7 @@ function GlobeScene({
         )}
 
         {layers.meteorShowers && activeShowers && activeShowers.length > 0 && (
-          <MeteorShowerOverlay3D
-            showers={activeShowers.map((s) => ({
-              name: s.name,
-              lat: s.radiantLat,
-              lon: s.radiantLon,
-              zhr: s.zhr,
-              bestFor6m: s.is6mFavorable,
-              daysUntilPeak: s.daysUntilPeak,
-            }))}
-          />
+          <MeteorShowerOverlay3D showers={meteorShowerProps} />
         )}
 
         {layers.spectrumRing && (
@@ -1534,21 +1547,19 @@ function GlobeScene({
       <CameraController />
     </>
   );
-}
+});
 
 export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
-  const {
-    zoom,
-    target,
-    tooltipPosition,
-    setTooltipPosition,
-    flyoutPosition,
-    setFlyoutPosition,
-    setTarget,
-    setCenterLocation,
-    mapStyle,
-  } = useMapStore();
-  const { station } = useUserStore();
+  const zoom = useMapStore((s) => s.zoom);
+  const target = useMapStore((s) => s.target);
+  const tooltipPosition = useMapStore((s) => s.tooltipPosition);
+  const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
+  const flyoutPosition = useMapStore((s) => s.flyoutPosition);
+  const setFlyoutPosition = useMapStore((s) => s.setFlyoutPosition);
+  const setTarget = useMapStore((s) => s.setTarget);
+  const setCenterLocation = useMapStore((s) => s.setCenterLocation);
+  const mapStyle = useMapStore((s) => s.mapStyle);
+  const station = useUserStore((s) => s.station);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const tileAttribution = useMemo(
     () => selectTileProvider(mapStyle, subscriptionTier).attribution,
@@ -1556,9 +1567,11 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   );
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);
-  const { addPin, removePin, getPinById } = usePinStore();
+  const addPin = usePinStore((s) => s.addPin);
+  const removePin = usePinStore((s) => s.removePin);
+  const getPinById = usePinStore((s) => s.getPinById);
   const { pushAction } = useUndoStore();
-  const { updateFilter } = useDXStore();
+  const updateFilter = useDXStore((s) => s.updateFilter);
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster();
 
@@ -1632,19 +1645,22 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
 
   // Get spots in the hovered grid for tooltip
   // Matches if either DX or spotter grid starts with the hovered 4-char prefix
+  // Use ref for allSpots to avoid re-filtering on every DX cluster update
+  const allSpotsRef = useRef(allSpots);
+  allSpotsRef.current = allSpots;
   const tooltipSpots = useMemo(() => {
     if (!tooltipPosition?.grid) {
       return [];
     }
     const gridPrefix = tooltipPosition.grid.toUpperCase().slice(0, 4);
-    return allSpots.filter((spot) => {
+    return allSpotsRef.current.filter((spot) => {
       const dxGrid = (spot.dxGrid || "").toUpperCase();
       const spotterGrid = (spot.spotterGrid || "").toUpperCase();
       return (
         dxGrid.startsWith(gridPrefix) || spotterGrid.startsWith(gridPrefix)
       );
     });
-  }, [tooltipPosition?.grid, allSpots]);
+  }, [tooltipPosition?.grid]);
 
   // Fetch solar conditions for optimal-band signal estimate
   const kIndexQuery = useKIndex();
@@ -1675,7 +1691,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   }, [station, target]);
 
   const optimalSignal = useMemo(() => {
-    if (!station || !target) {
+    if (!station || !target || !tooltipPosition) {
       return null;
     }
     try {
@@ -1718,6 +1734,7 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
   }, [
     station,
     target,
+    tooltipPosition,
     currentKp,
     currentSfi,
     displayTime,

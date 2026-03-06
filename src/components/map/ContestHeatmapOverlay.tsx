@@ -12,7 +12,7 @@
  * @module components/map/ContestHeatmapOverlay
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 
 import type { PropagationPath } from "@/lib/contest/contestPropIntel";
@@ -125,7 +125,9 @@ function greatCirclePoints(
 /**
  * Map a path's count to a color on the green -> yellow -> red gradient.
  * Low density = green, medium = yellow, high = red.
+ * Returns a clone of the scratch color since the result is stored in ArcData.
  */
+const _tmpColor = new THREE.Color();
 function densityColor(count: number, maxCount: number): THREE.Color {
   // Normalize count to 0-1 range
   const t = Math.min(count / Math.max(maxCount * 0.5, 1), 1.0);
@@ -133,11 +135,11 @@ function densityColor(count: number, maxCount: number): THREE.Color {
   if (t < 0.5) {
     // Green to Yellow
     const s = t / 0.5;
-    return new THREE.Color(s, 1.0, 0.0);
+    return _tmpColor.setRGB(s, 1.0, 0.0).clone();
   } else {
     // Yellow to Red
     const s = (t - 0.5) / 0.5;
-    return new THREE.Color(1.0, 1.0 - s, 0.0);
+    return _tmpColor.setRGB(1.0, 1.0 - s, 0.0).clone();
   }
 }
 
@@ -192,9 +194,20 @@ export function ContestHeatmapOverlay({
   // Build arc geometries and materials
   const arcs = useMemo(() => buildArcs(paths), [paths]);
 
+  // Track previous meshes for disposal when data refreshes
+  const prevMeshesRef = useRef<
+    { geometry: THREE.TubeGeometry; material: THREE.MeshBasicMaterial }[]
+  >([]);
+
   // Create tube geometries and materials for each arc
   const arcMeshes = useMemo(() => {
-    return arcs.map((arc, index) => {
+    // Dispose previous geometries and materials
+    prevMeshesRef.current.forEach((m) => {
+      m.geometry.dispose();
+      m.material.dispose();
+    });
+
+    const meshes = arcs.map((arc, index) => {
       const geometry = new THREE.TubeGeometry(
         arc.curve,
         ARC_SEGMENTS,
@@ -214,7 +227,21 @@ export function ContestHeatmapOverlay({
 
       return { geometry, material, key: `contest-arc-${index}` };
     });
+
+    prevMeshesRef.current = meshes;
+    return meshes;
   }, [arcs, opacity]);
+
+  // Dispose on unmount
+  useEffect(() => {
+    return () => {
+      prevMeshesRef.current.forEach((m) => {
+        m.geometry.dispose();
+        m.material.dispose();
+      });
+      prevMeshesRef.current = [];
+    };
+  }, []);
 
   if (!visible || arcMeshes.length === 0) {
     return null;

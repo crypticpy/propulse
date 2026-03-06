@@ -3205,19 +3205,17 @@ export function FlatMapView({
   const [glowTick, setGlowTick] = useState(0);
   const glowRafRef = useRef<number>(0);
 
-  const {
-    layers,
-    labelOptions,
-    mapStyle,
-    target,
-    overlayLayers,
-    tooltipPosition,
-    setTooltipPosition,
-    flyoutPosition,
-    setFlyoutPosition,
-    setTarget,
-    setCenterLocation,
-  } = useMapStore();
+  const layers = useMapStore((s) => s.layers);
+  const labelOptions = useMapStore((s) => s.labelOptions);
+  const mapStyle = useMapStore((s) => s.mapStyle);
+  const target = useMapStore((s) => s.target);
+  const overlayLayers = useMapStore((s) => s.overlayLayers);
+  const tooltipPosition = useMapStore((s) => s.tooltipPosition);
+  const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
+  const flyoutPosition = useMapStore((s) => s.flyoutPosition);
+  const setFlyoutPosition = useMapStore((s) => s.setFlyoutPosition);
+  const setTarget = useMapStore((s) => s.setTarget);
+  const setCenterLocation = useMapStore((s) => s.setCenterLocation);
   const gridLabelDetail = useMapStore((s) => s.gridLabelDetail);
   const centerLocation = useMapStore((s) => s.centerLocation);
   const clearCenterLocation = useMapStore((s) => s.clearCenterLocation);

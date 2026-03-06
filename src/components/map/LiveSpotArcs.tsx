@@ -525,51 +525,6 @@ const SpotArc = React.memo(function SpotArc({
   );
 });
 
-/**
- * Endpoint marker for spot arcs (small sphere at each end)
- */
-const SpotEndpoint = React.memo(function SpotEndpoint({
-  lat,
-  lon,
-  color,
-  size = 0.008,
-  opacity = 0.8,
-  scale = 1.0,
-}: {
-  lat: number;
-  lon: number;
-  color: string;
-  size?: number;
-  /** Opacity for age-based decay (0.4 - 1.0) */
-  opacity?: number;
-  /** Scale factor for age-based decay (0.5 - 1.0) */
-  scale?: number;
-}) {
-  // Validate coordinates to prevent NaN errors
-  const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
-  const position = useMemo(
-    () =>
-      hasValidCoords
-        ? latLonTo3D(lat, lon, 1.006)
-        : ([0, 0, 0] as [number, number, number]),
-    [lat, lon, hasValidCoords],
-  );
-
-  if (!hasValidCoords) {
-    return null;
-  }
-
-  // Apply scale to size for age-based visual decay
-  const scaledSize = size * scale;
-
-  return (
-    <mesh position={position}>
-      <sphereGeometry args={[scaledSize, 8, 8]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} />
-    </mesh>
-  );
-});
-
 // ==========================================================================
 // Instanced Endpoint Rendering (batches all spot endpoints into 1 draw call)
 // ==========================================================================
@@ -987,31 +942,43 @@ export function LiveSpotArcs({
       })()}
 
       {/* ── Replay arcs — sepia-toned historical spots ─────────────────── */}
-      {resolvedReplay.slice(0, maxArcs).map((spot) => (
-        <group key={`replay-${spot.id}`}>
-          <SpotArc
-            spot={spot}
-            ageVisualizationEnabled={false}
-            colorMode="mode"
-            sizeScale={uiPrefs.spotDotScale ?? 1.0}
-            filterOpacityMultiplier={0.6}
-          />
-          <SpotEndpoint
-            lat={spot.spotterLat}
-            lon={spot.spotterLon}
-            color="#8B7355"
-            size={0.005}
-            opacity={0.4}
-          />
-          <SpotEndpoint
-            lat={spot.dxLat}
-            lon={spot.dxLon}
-            color="#8B7355"
-            size={0.006}
-            opacity={0.5}
-          />
-        </group>
-      ))}
+      {(() => {
+        const replaySlice = resolvedReplay.slice(0, maxArcs);
+        const replayEndpoints: EndpointData[] = [];
+        const replayArcs = replaySlice.map((spot) => {
+          // Collect endpoints for batched instanced rendering
+          replayEndpoints.push({
+            lat: spot.spotterLat,
+            lon: spot.spotterLon,
+            color: "#8B7355",
+            size: 0.005,
+          });
+          replayEndpoints.push({
+            lat: spot.dxLat,
+            lon: spot.dxLon,
+            color: "#8B7355",
+            size: 0.006,
+          });
+          return (
+            <SpotArc
+              key={`replay-${spot.id}`}
+              spot={spot}
+              ageVisualizationEnabled={false}
+              colorMode="mode"
+              sizeScale={uiPrefs.spotDotScale ?? 1.0}
+              filterOpacityMultiplier={0.6}
+            />
+          );
+        });
+        return (
+          <>
+            {replayArcs}
+            {replayEndpoints.length > 0 && (
+              <SpotEndpointInstances endpoints={replayEndpoints} />
+            )}
+          </>
+        );
+      })()}
     </group>
   );
 }

@@ -4,9 +4,12 @@
  * Renders city lights on the dark side of the globe using NASA Black Marble
  * style imagery. Uses a shader to blend lights based on sun position,
  * creating a realistic day/night terminator effect.
+ *
+ * GPU optimization: ShaderMaterial is created ONCE via useRef and uniforms
+ * are updated via useEffect, avoiding shader recompilation on date changes.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 import { getSubsolarPoint } from "@/lib/utils/sun";
@@ -18,6 +21,9 @@ interface NightLightsOverlayProps {
   intensity?: number;
 }
 
+/** Reusable vector for sun direction updates (avoids allocation per effect) */
+const _sunVec = new THREE.Vector3();
+
 export function NightLightsOverlay({
   date,
   intensity = 1.0,
@@ -28,23 +34,25 @@ export function NightLightsOverlay({
   // Calculate subsolar point (where sun is directly overhead)
   const subsolar = useMemo(() => getSubsolarPoint(date), [date]);
 
-  // Custom shader material for night lights
-  const material = useMemo(() => {
-    // Convert subsolar lat/lon to 3D sun direction vector
-    // Using same coordinate system as globe
+  // Memoize geometry separately (created once, never recreated)
+  const geometry = useMemo(() => new THREE.SphereGeometry(1.021, 64, 64), []);
+
+  // Create ShaderMaterial ONCE via useRef — avoids shader recompilation
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  if (materialRef.current === null) {
     const phi = ((90 - subsolar.lat) * Math.PI) / 180;
     const theta = ((subsolar.lon + 180) * Math.PI) / 180;
 
-    const sunVec = new THREE.Vector3(
-      -Math.sin(phi) * Math.cos(theta),
-      Math.cos(phi),
-      Math.sin(phi) * Math.sin(theta),
-    );
-
-    return new THREE.ShaderMaterial({
+    materialRef.current = new THREE.ShaderMaterial({
       uniforms: {
         nightLightsMap: { value: nightLightsTexture },
-        sunPosition: { value: sunVec },
+        sunPosition: {
+          value: new THREE.Vector3(
+            -Math.sin(phi) * Math.cos(theta),
+            Math.cos(phi),
+            Math.sin(phi) * Math.sin(theta),
+          ),
+        },
         intensity: { value: intensity },
       },
       vertexShader: `
@@ -114,13 +122,44 @@ export function NightLightsOverlay({
       depthTest: false,
       blending: THREE.AdditiveBlending,
     });
-  }, [subsolar, nightLightsTexture, intensity]);
+  }
+
+  // Update uniforms when subsolar point or intensity changes (NO shader recompilation)
+  useEffect(() => {
+    if (!materialRef.current) return;
+
+    const phi = ((90 - subsolar.lat) * Math.PI) / 180;
+    const theta = ((subsolar.lon + 180) * Math.PI) / 180;
+
+    _sunVec.set(
+      -Math.sin(phi) * Math.cos(theta),
+      Math.cos(phi),
+      Math.sin(phi) * Math.sin(theta),
+    );
+
+    materialRef.current.uniforms.sunPosition.value.copy(_sunVec);
+    materialRef.current.uniforms.intensity.value = intensity;
+  }, [subsolar, intensity]);
+
+  // Keep texture uniform in sync if texture reference changes
+  useEffect(() => {
+    if (!materialRef.current) return;
+    materialRef.current.uniforms.nightLightsMap.value = nightLightsTexture;
+  }, [nightLightsTexture]);
+
+  // Dispose GPU resources on unmount
+  useEffect(() => {
+    return () => {
+      materialRef.current?.dispose();
+      geometry.dispose();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <mesh renderOrder={11}>
       {/* Slightly larger than Earth sphere to prevent z-fighting */}
-      <sphereGeometry args={[1.021, 64, 64]} />
-      <primitive object={material} attach="material" />
+      <primitive object={geometry} attach="geometry" />
+      <primitive object={materialRef.current} attach="material" />
     </mesh>
   );
 }

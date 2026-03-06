@@ -11,7 +11,7 @@
  * - Peak: Widest band, highest opacity with pulsing animation (15 min window)
  */
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { getGreylineBand } from "@/lib/utils/sun";
@@ -126,6 +126,13 @@ export function Greyline({
     const { inner, outer } = getGreylineBand(date, actualOffset, 90);
     return createGreylineMesh(inner, outer);
   }, [date, actualOffset]);
+
+  // Dispose old geometry when the memo recalculates
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
 
   // Animate pulsing effect
   useFrame((state) => {

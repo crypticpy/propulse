@@ -64,6 +64,12 @@ export const EarthquakeOverlay3D = React.memo(
     const circleGeo = useMemo(() => new THREE.CircleGeometry(1, 32), []);
     const ringGeo = useMemo(() => new THREE.RingGeometry(0.7, 1, 32), []);
 
+    // Shared materials — created once, reused across all earthquake meshes
+    // Individual colors are set per-marker via material.color below, but we
+    // create one material per visual role (base vs glow) to avoid 100+ instances.
+    // NOTE: Since each earthquake has a different color, we cannot share a single
+    // material. Instead we pre-compute positions/quaternions to avoid per-render allocations.
+
     // Mutable refs array for glow ring meshes (for pulse animation)
     const glowRefs = useRef<(THREE.Mesh | null)[]>([]);
     // Base scale for each glow ring (set during render, read in useFrame)
@@ -76,6 +82,23 @@ export const EarthquakeOverlay3D = React.memo(
         ringGeo.dispose();
       };
     }, [circleGeo, ringGeo]);
+
+    // Pre-compute positions and quaternions to avoid per-render allocations
+    const computed = useMemo(
+      () =>
+        earthquakes.map((eq) => {
+          const pos = latLonTo3D(eq.lat, eq.lon, 1.006);
+          const normal = new THREE.Vector3(...pos).normalize();
+          const quat = new THREE.Quaternion().setFromUnitVectors(
+            new THREE.Vector3(0, 0, 1),
+            normal,
+          );
+          const size = getEqSize(eq.magnitude);
+          const color = getEqColor(eq.magnitude);
+          return { pos, quat, size, color };
+        }),
+      [earthquakes],
+    );
 
     // Single useFrame loop for all glow ring pulse animations
     useFrame(({ clock }) => {
@@ -99,19 +122,10 @@ export const EarthquakeOverlay3D = React.memo(
     return (
       <group>
         {earthquakes.map((eq, i) => {
-          const position = latLonTo3D(eq.lat, eq.lon, 1.006);
-          const size = getEqSize(eq.magnitude);
-          const color = getEqColor(eq.magnitude);
-
-          // Compute outward-facing quaternion from surface normal
-          const normal = new THREE.Vector3(...position).normalize();
-          const quaternion = new THREE.Quaternion().setFromUnitVectors(
-            new THREE.Vector3(0, 0, 1),
-            normal,
-          );
+          const { pos, quat, size, color } = computed[i];
 
           return (
-            <group key={eq.id} position={position} quaternion={quaternion}>
+            <group key={eq.id} position={pos} quaternion={quat}>
               {/* Solid base marker (filled circle) */}
               <mesh
                 geometry={circleGeo}

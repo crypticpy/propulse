@@ -15,7 +15,7 @@
  * unnecessary React reconciliation; all per-frame work happens in useFrame.
  */
 
-import React, { useRef } from "react";
+import React, { useRef, useCallback } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { FireHotspot } from "@/lib/api/fires";
@@ -54,50 +54,92 @@ export const FireOverlay3D = React.memo(
     const glowRef = useRef<THREE.InstancedMesh>(null);
     const coreRef = useRef<THREE.InstancedMesh>(null);
 
+    // Bug 30: Cache positions so latLonTo3D is only recomputed when data changes
+    const lastHotspotsRef = useRef(hotspots);
+    // Stores [x, y, z, size, originalIndex] per visible hotspot
+    const cachedDataRef = useRef<Float32Array | null>(null);
+    const cachedCountRef = useRef(0);
+
+    const recomputeCache = useCallback((hotspotsArr: FireHotspot[]) => {
+      // Count visible hotspots first (skip low-confidence)
+      let visibleCount = 0;
+      for (
+        let i = 0;
+        i < hotspotsArr.length && visibleCount < MAX_INSTANCES;
+        i++
+      ) {
+        const h = hotspotsArr[i];
+        if (h.confidence !== "low" && h.confidence !== "l") visibleCount++;
+      }
+
+      const data = new Float32Array(visibleCount * 5);
+      let slot = 0;
+
+      for (let i = 0; i < hotspotsArr.length && slot < visibleCount; i++) {
+        const hotspot = hotspotsArr[i];
+        if (hotspot.confidence === "low" || hotspot.confidence === "l")
+          continue;
+
+        const [x, y, z] = latLonTo3D(hotspot.lat, hotspot.lon, GLOBE_RADIUS);
+        const size = Math.max(0.002, Math.min(0.008, hotspot.frp / 500));
+
+        const offset = slot * 5;
+        data[offset] = x;
+        data[offset + 1] = y;
+        data[offset + 2] = z;
+        data[offset + 3] = size;
+        data[offset + 4] = i; // original index for flicker phase offset
+        slot++;
+      }
+
+      cachedDataRef.current = data;
+      cachedCountRef.current = slot;
+      lastHotspotsRef.current = hotspotsArr;
+    }, []);
+
     // Per-frame update -- positions, scales, flicker animation, and counts
     useFrame(({ clock }) => {
       const glowMesh = glowRef.current;
       const coreMesh = coreRef.current;
       if (!glowMesh || !coreMesh) return;
 
+      // Recompute positions only when the hotspots array reference changes
+      if (hotspots !== lastHotspotsRef.current || !cachedDataRef.current) {
+        recomputeCache(hotspots);
+      }
+
+      const cachedData = cachedDataRef.current!;
+      const cachedCount = cachedCountRef.current;
       const elapsed = clock.getElapsedTime();
-      let count = 0;
 
-      for (let i = 0; i < hotspots.length && count < MAX_INSTANCES; i++) {
-        const hotspot = hotspots[i];
-
-        // Skip low-confidence detections
-        // FIRMS returns single-letter codes: "l" (low), "n" (nominal), "h" (high)
-        if (hotspot.confidence === "low" || hotspot.confidence === "l")
-          continue;
-
-        const [x, y, z] = latLonTo3D(hotspot.lat, hotspot.lon, GLOBE_RADIUS);
-
-        // Scale based on fire radiative power
-        const size = Math.max(0.002, Math.min(0.008, hotspot.frp / 500));
+      for (let slot = 0; slot < cachedCount; slot++) {
+        const offset = slot * 5;
+        const x = cachedData[offset];
+        const y = cachedData[offset + 1];
+        const z = cachedData[offset + 2];
+        const size = cachedData[offset + 3];
+        const origIdx = cachedData[offset + 4];
 
         // Flicker animation for the outer glow
-        const flicker = 0.9 + 0.2 * Math.sin(elapsed * 8 + i * 3.7);
+        const flicker = 0.9 + 0.2 * Math.sin(elapsed * 8 + origIdx * 3.7);
 
         // --- Outer glow instance ---
         dummy.position.set(x, y, z);
         dummy.scale.setScalar(size * flicker);
         dummy.updateMatrix();
-        glowMesh.setMatrixAt(count, dummy.matrix);
+        glowMesh.setMatrixAt(slot, dummy.matrix);
 
         // --- Inner core instance (no flicker, slightly smaller) ---
         dummy.scale.setScalar(size * 0.5);
         dummy.updateMatrix();
-        coreMesh.setMatrixAt(count, dummy.matrix);
-
-        count++;
+        coreMesh.setMatrixAt(slot, dummy.matrix);
       }
 
       // Update instance counts and flag the buffers dirty
-      glowMesh.count = count;
-      coreMesh.count = count;
+      glowMesh.count = cachedCount;
+      coreMesh.count = cachedCount;
 
-      if (count > 0) {
+      if (cachedCount > 0) {
         glowMesh.instanceMatrix.needsUpdate = true;
         coreMesh.instanceMatrix.needsUpdate = true;
       }

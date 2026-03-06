@@ -6,37 +6,27 @@
  * fullscreen observatory experience.
  */
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { useUTCClock } from "@/hooks/useUTCClock";
 import { useUserStore } from "@/stores/userStore";
 
 export function ObservatoryOverlay() {
   const { station } = useUserStore();
 
   // ── Ticking UTC clock ────────────────────────────────────────
-  const [utcString, setUtcString] = useState(() =>
-    new Date().toLocaleTimeString("en-GB", {
-      timeZone: "UTC",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }),
+  const now = useUTCClock();
+  const utcFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "UTC",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }),
+    [],
   );
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setUtcString(
-        new Date().toLocaleTimeString("en-GB", {
-          timeZone: "UTC",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-        }),
-      );
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
+  const utcString = utcFmt.format(now);
 
   // ── ESC hint fades after 5 s ─────────────────────────────────
   const [showEscHint, setShowEscHint] = useState(true);

@@ -47,6 +47,8 @@ export const LAYER_PRESETS = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: true,
+    goesCloud: false,
+    tec: false,
   },
   contest: {
     terminator: true,
@@ -81,6 +83,8 @@ export const LAYER_PRESETS = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
   vhf: {
     terminator: true,
@@ -115,6 +119,8 @@ export const LAYER_PRESETS = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
   emergency: {
     terminator: true,
@@ -149,6 +155,8 @@ export const LAYER_PRESETS = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
   science: {
     terminator: true,
@@ -183,6 +191,8 @@ export const LAYER_PRESETS = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: true,
   },
 } as const;
 
@@ -360,6 +370,8 @@ interface MapState {
     sporadicE: boolean;
     satelliteFootprints: boolean;
     ft8Spotter: boolean;
+    goesCloud: boolean;
+    tec: boolean;
   };
   toggleLayer: (layer: keyof MapState["layers"]) => void;
 
@@ -1040,6 +1052,8 @@ const initialState = {
     sporadicE: false,
     satelliteFootprints: false,
     ft8Spotter: false,
+    goesCloud: false,
+    tec: false,
   },
   nvisEnabled: false,
   activePreset: null as PresetName | null,
@@ -1200,7 +1214,9 @@ export const useMapStore = create<MapState>((set, get) => ({
       if (state.activePresetId) {
         saveActivePresetId(null);
       }
-      return { rotation, activePresetId: null };
+      const updates: Partial<MapState> = { rotation };
+      if (state.activePresetId !== null) updates.activePresetId = null;
+      return updates;
     }),
 
   setZoom: (zoom) =>
@@ -1263,15 +1279,15 @@ export const useMapStore = create<MapState>((set, get) => ({
       if (state.activeProfile) {
         saveActiveProfile(null);
       }
-      return {
+      const updates: Partial<MapState> = {
         layers: {
           ...state.layers,
           [layer]: !state.layers[layer],
         },
-        // Clear active preset and profile when layers are manually changed
-        activePreset: null,
-        activeProfile: null,
       };
+      if (state.activePreset !== null) updates.activePreset = null;
+      if (state.activeProfile !== null) updates.activeProfile = null;
+      return updates;
     }),
 
   applyPreset: (preset) => {

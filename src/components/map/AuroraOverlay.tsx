@@ -9,7 +9,6 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { AuroraData } from "@/lib/api/aurora";
-import { latLonToVector3 } from "@/components/map/lib/globeCoords";
 
 interface AuroraOverlayProps {
   /** Aurora data from NOAA OVATION model */
@@ -18,24 +17,31 @@ interface AuroraOverlayProps {
   minProbability?: number;
 }
 
+/** Reusable scratch Color to avoid per-point allocation */
+const _tmpColor = new THREE.Color();
+
+/** Degree-to-radian conversion factor */
+const DEG2RAD = Math.PI / 180;
+
 /**
- * Get aurora color based on probability
- * Low: purple glow, Medium: purple-green, High: bright green
+ * Write aurora color into the scratch _tmpColor based on probability.
+ * Low: purple glow, Medium: purple-green, High: bright green.
+ * Returns _tmpColor for chaining — do NOT store the reference.
  */
-function getAuroraColor(probability: number): THREE.Color {
+function setAuroraColor(probability: number): THREE.Color {
   if (probability >= 60) {
     // High aurora: bright green
-    return new THREE.Color(0x00ff88);
+    return _tmpColor.setRGB(0, 1, 0x88 / 255);
   } else if (probability >= 30) {
     // Medium aurora: purple-green blend
     const t = (probability - 30) / 30;
-    const r = Math.floor(102 * (1 - t));
-    const g = Math.floor(255 * t + 68 * (1 - t));
-    const b = Math.floor(136 * (1 - t) + 136 * t);
-    return new THREE.Color(`rgb(${r}, ${g}, ${b})`);
+    const r = (102 * (1 - t)) / 255;
+    const g = (255 * t + 68 * (1 - t)) / 255;
+    const b = (136 * (1 - t) + 136 * t) / 255;
+    return _tmpColor.setRGB(r, g, b);
   } else {
     // Low aurora: subtle purple
-    return new THREE.Color(0x8844ff);
+    return _tmpColor.setRGB(0x88 / 255, 0x44 / 255, 1);
   }
 }
 
@@ -57,11 +63,19 @@ export function AuroraOverlay({
     const radius = 1.015;
 
     filteredCoords.forEach((coord) => {
-      const pos = latLonToVector3(coord.lat, coord.lon, radius);
-      positions.push(pos.x, pos.y, pos.z);
+      // Inline latLonToVector3 math — avoids intermediate Vector3 allocation
+      const phi = (90 - coord.lat) * DEG2RAD;
+      const theta = (coord.lon + 180) * DEG2RAD;
+      const sinPhi = Math.sin(phi);
+      positions.push(
+        -radius * sinPhi * Math.cos(theta),
+        radius * Math.cos(phi),
+        radius * sinPhi * Math.sin(theta),
+      );
 
-      const color = getAuroraColor(coord.aurora);
-      colors.push(color.r, color.g, color.b);
+      // Reuse scratch _tmpColor — avoids per-point Color allocation
+      setAuroraColor(coord.aurora);
+      colors.push(_tmpColor.r, _tmpColor.g, _tmpColor.b);
 
       // Size based on probability - higher probability = larger point
       // Increased base size for better visibility
@@ -80,9 +94,7 @@ export function AuroraOverlay({
   // Custom shader material for glowing aurora points
   const shaderMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-      },
+      uniforms: {},
       vertexShader: `
         attribute float size;
         attribute vec3 customColor;

@@ -1233,8 +1233,11 @@ export function AzimuthalView({
   const prevGlowSpotIdsRef = useRef<Set<string>>(new Set());
   const [glowTick, setGlowTick] = useState(0);
   const glowRafRef = useRef<number>(0);
-  const { layers, target, mapStyle, labelOptions, overlayLayers } =
-    useMapStore();
+  const layers = useMapStore((s) => s.layers);
+  const target = useMapStore((s) => s.target);
+  const mapStyle = useMapStore((s) => s.mapStyle);
+  const labelOptions = useMapStore((s) => s.labelOptions);
+  const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);

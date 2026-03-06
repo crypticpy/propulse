@@ -350,7 +350,10 @@ export function MiniMapNavigator({
   const [isVisible, setIsVisible] = useState(defaultVisible);
   const [isDragging] = useState(false);
 
-  const { viewMode, zoom, target, setTarget } = useMapStore();
+  const viewMode = useMapStore((s) => s.viewMode);
+  const zoom = useMapStore((s) => s.zoom);
+  const target = useMapStore((s) => s.target);
+  const setTarget = useMapStore((s) => s.setTarget);
   const station = useUserStore((state) => state.station);
 
   const viewportBounds = useMemo(() => {

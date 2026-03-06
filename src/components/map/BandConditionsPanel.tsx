@@ -542,32 +542,45 @@ export function BandConditionsPanel({
   const bandOpeningDetectorRef = useRef<BandOpeningDetector | null>(null);
   const [activeOpenings, setActiveOpenings] = useState<BandOpening[]>([]);
 
+  // Shallow-compare openings by id to avoid unnecessary re-renders
+  const updateOpenings = useCallback((newOpenings: BandOpening[]) => {
+    setActiveOpenings((prev) => {
+      if (
+        prev.length === newOpenings.length &&
+        prev.every((o, i) => o.id === newOpenings[i].id)
+      ) {
+        return prev;
+      }
+      return newOpenings;
+    });
+  }, []);
+
   // Initialize the band opening detector (shared singleton)
   useEffect(() => {
     const detector = getBandOpeningDetector();
     bandOpeningDetectorRef.current = detector;
 
     const unsub = detector.subscribe(() => {
-      setActiveOpenings(detector.getCurrentOpenings());
+      updateOpenings(detector.getCurrentOpenings());
     });
 
     return () => {
       unsub();
       // Don't destroy — singleton persists across components
     };
-  }, []);
+  }, [updateOpenings]);
 
   // Refresh active openings display periodically
   // (spot feeding is handled by useBandOpeningFeed in Layout)
   useEffect(() => {
     const detector = bandOpeningDetectorRef.current;
     if (!detector) return;
-    setActiveOpenings(detector.getCurrentOpenings());
+    updateOpenings(detector.getCurrentOpenings());
     const interval = setInterval(() => {
-      setActiveOpenings(detector.getCurrentOpenings());
+      updateOpenings(detector.getCurrentOpenings());
     }, 10_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [updateOpenings]);
 
   // Build a set of bands with active openings for quick lookup
   const openingBands = useMemo((): Set<string> => {

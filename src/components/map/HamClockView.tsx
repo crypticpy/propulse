@@ -12,7 +12,8 @@
  * Escape key or X button returns to normal layout mode.
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback } from "react";
+import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
@@ -109,12 +110,7 @@ function bzColor(bz: number): string {
 // ---------------------------------------------------------------------------
 
 function HamClockTime() {
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useUTCClock();
 
   return (
     <>

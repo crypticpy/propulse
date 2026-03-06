@@ -18,7 +18,7 @@
  * unnecessary React reconciliation; all per-frame work happens in useFrame.
  */
 
-import React, { useRef } from "react";
+import React, { useRef, useCallback } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { LightningStrike } from "@/lib/api/lightning";
@@ -56,6 +56,7 @@ const weakColor = new THREE.Color("#66ccff"); // electric blue for weak
 const strongColor = new THREE.Color("#ffffff"); // white-hot for strong
 const matrix = new THREE.Matrix4();
 const tempQuat = new THREE.Quaternion();
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -84,6 +85,60 @@ export const LightningOverlay3D = React.memo(
     const coreRef = useRef<THREE.InstancedMesh>(null);
     const ringRef = useRef<THREE.InstancedMesh>(null);
 
+    // Bug 30: Cache positions so latLonTo3D is only recomputed when data changes
+    const lastStrikesRef = useRef(strikes);
+    // Stores [x, y, z, intensity, normalizedKA, strikeRadius] per visible strike
+    const cachedDataRef = useRef<Float32Array | null>(null);
+    // Maps from visible strike index back to original strikes array index
+    const cachedIndicesRef = useRef<Uint16Array | null>(null);
+
+    const recomputeCache = useCallback(
+      (strikesArr: LightningStrike[], now: number) => {
+        // Count visible strikes first
+        let visibleCount = 0;
+        for (
+          let i = 0;
+          i < strikesArr.length && visibleCount < MAX_INSTANCES;
+          i++
+        ) {
+          const age = now - strikesArr[i].time;
+          if (age <= FADE_DURATION_MS) visibleCount++;
+        }
+
+        const data = new Float32Array(visibleCount * 6);
+        const indices = new Uint16Array(visibleCount);
+        let slot = 0;
+
+        for (let i = 0; i < strikesArr.length && slot < visibleCount; i++) {
+          const strike = strikesArr[i];
+          const age = now - strike.time;
+          if (age > FADE_DURATION_MS) continue;
+
+          const intensity = clamp(strike.currentKA / MAX_CURRENT_KA, 0.3, 1.0);
+          const normalizedKA = clamp(strike.currentKA / MAX_CURRENT_KA, 0, 1);
+          const strikeRadius = GLOBE_RADIUS + normalizedKA * ALTITUDE_SPREAD;
+          const [x, y, z] = latLonTo3D(strike.lat, strike.lon, strikeRadius);
+
+          const offset = slot * 6;
+          data[offset] = x;
+          data[offset + 1] = y;
+          data[offset + 2] = z;
+          data[offset + 3] = intensity;
+          data[offset + 4] = normalizedKA;
+          data[offset + 5] = strikeRadius;
+          indices[slot] = i;
+          slot++;
+        }
+
+        cachedDataRef.current = data;
+        cachedIndicesRef.current = indices;
+        lastStrikesRef.current = strikesArr;
+
+        return { data, indices, visibleCount: slot };
+      },
+      [],
+    );
+
     // Per-frame update — positions, scales, and counts
     useFrame(() => {
       const glowMesh = glowRef.current;
@@ -91,23 +146,31 @@ export const LightningOverlay3D = React.memo(
       if (!glowMesh || !coreMesh) return;
 
       const now = Date.now();
+
+      // Recompute positions only when the strikes array reference changes
+      if (strikes !== lastStrikesRef.current || !cachedDataRef.current) {
+        recomputeCache(strikes, now);
+      }
+
+      const cachedData = cachedDataRef.current!;
+      const cachedIndices = cachedIndicesRef.current!;
+      const cachedCount = cachedIndices.length;
       let count = 0;
 
-      for (let i = 0; i < strikes.length && count < MAX_INSTANCES; i++) {
-        const strike = strikes[i];
+      for (let slot = 0; slot < cachedCount; slot++) {
+        const strikeIdx = cachedIndices[slot];
+        const strike = strikes[strikeIdx];
         const age = now - strike.time;
 
-        // Skip strikes that have fully faded
+        // Skip strikes that have fully faded since the cache was built
         if (age > FADE_DURATION_MS) continue;
 
-        // Normalise peak current for intensity-based sizing
-        const intensity = clamp(strike.currentKA / MAX_CURRENT_KA, 0.3, 1.0);
+        const offset = slot * 6;
+        const x = cachedData[offset];
+        const y = cachedData[offset + 1];
+        const z = cachedData[offset + 2];
+        const intensity = cachedData[offset + 3];
 
-        // Altitude varies with intensity — stronger strikes sit higher
-        const normalizedKA = clamp(strike.currentKA / MAX_CURRENT_KA, 0, 1);
-        const strikeRadius = GLOBE_RADIUS + normalizedKA * ALTITUDE_SPREAD;
-
-        const [x, y, z] = latLonTo3D(strike.lat, strike.lon, strikeRadius);
         const alpha = Math.max(0.15, 1 - age / FADE_DURATION_MS);
 
         // Flash multiplier: new strikes pulse larger then ease back
@@ -152,7 +215,7 @@ export const LightningOverlay3D = React.memo(
 
             // Orient ring tangent to globe surface
             const up = getUpDirection(strike.lat, strike.lon);
-            tempQuat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up);
+            tempQuat.setFromUnitVectors(Z_AXIS, up);
 
             dummy.position.set(x, y, z);
             dummy.quaternion.copy(tempQuat);

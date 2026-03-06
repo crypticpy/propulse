@@ -167,7 +167,7 @@ export function PropagationForecastMini({
   displayTime,
   className = "",
 }: PropagationForecastMiniProps) {
-  const { target } = useMapStore();
+  const target = useMapStore((s) => s.target);
   const { station } = useUserStore();
   const activeBand = useActiveBand();
   const forecastDisplay = useForecastDisplayPrefs();

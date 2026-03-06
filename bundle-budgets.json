@@ -4,7 +4,7 @@
     {
       "name": "App Entry",
       "pattern": "index-*.js",
-      "maxRawKb": 991,
+      "maxRawKb": 992,
       "maxGzipKb": 275,
       "required": true
     },
@@ -49,6 +49,20 @@
       "maxRawKb": 190,
       "maxGzipKb": 32,
       "required": true
+    },
+    {
+      "name": "AtmosPulse Route",
+      "pattern": "AtmosPulse-*.js",
+      "maxRawKb": 350,
+      "maxGzipKb": 100,
+      "required": false
+    },
+    {
+      "name": "MapLibre Vendor",
+      "pattern": "vendor-maplibre-*.js",
+      "maxRawKb": 1010,
+      "maxGzipKb": 280,
+      "required": false
     }
   ]
 }

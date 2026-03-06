@@ -604,6 +604,28 @@ export function LayersPopover() {
         ],
       },
       {
+        id: "atmospheric",
+        name: "Atmospheric",
+        icon: <IconBasemap />,
+        items: [
+          {
+            key: "goesCloud",
+            label: "GOES Cloud",
+            title: "GOES-East satellite cloud imagery from NASA GIBS",
+            getValue: () => layers.goesCloud,
+            onToggle: () => toggleLayer("goesCloud"),
+          },
+          {
+            key: "tec",
+            label: "Ionospheric TEC",
+            title:
+              "Total Electron Content heatmap \u2014 higher TEC improves HF propagation on higher bands",
+            getValue: () => layers.tec,
+            onToggle: () => toggleLayer("tec"),
+          },
+        ],
+      },
+      {
         id: "propagation",
         name: "Propagation",
         icon: <IconPropagation />,

@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { useUTCClock } from "@/hooks/useUTCClock";
 import { createPortal } from "react-dom";
 import { useMapStore, LAYER_PRESETS, type PresetName } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -269,32 +270,15 @@ export function ProToolbarRibbon({
     return () => observer.disconnect();
   }, []);
 
-  /* ── Collapsed UTC clock (only ticks when collapsed) ─────── */
-  const [utcString, setUtcString] = useState(() =>
-    new Date().toLocaleTimeString("en-GB", {
-      timeZone: "UTC",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }),
-  );
-
-  useEffect(() => {
-    if (proRibbonExpanded) return;
-    const id = setInterval(() => {
-      setUtcString(
-        new Date().toLocaleTimeString("en-GB", {
-          timeZone: "UTC",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-        }),
-      );
-    }, 1000);
-    return () => clearInterval(id);
-  }, [proRibbonExpanded]);
+  /* ── Collapsed UTC clock ─────────────────────────────────── */
+  const utcClockNow = useUTCClock();
+  const utcString = utcClockNow.toLocaleTimeString("en-GB", {
+    timeZone: "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 
   /* ── Ambient-mode opacity wrapper ────────────────────────── */
   const ambientOpacity =

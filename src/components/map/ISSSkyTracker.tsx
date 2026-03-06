@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useUTCClock } from "@/hooks/useUTCClock";
 import { useISSTracker } from "@/hooks/useISSTracker";
 import { useUserStore } from "@/stores/userStore";
 import type { ISSSkyPoint } from "@/hooks/useISSTracker";
@@ -323,7 +324,8 @@ export function ISSSkyTracker() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const [isVisible, setIsVisible] = useState(true);
-  const [now, setNow] = useState(() => Date.now());
+  const utcNow = useUTCClock();
+  const now = utcNow.getTime();
   const glowPhaseRef = useRef(0);
 
   // --- Drag state ---
@@ -437,13 +439,6 @@ export function ISSSkyTracker() {
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging]);
-
-  // --- 1-second timer for countdown ---
-  useEffect(() => {
-    if (!isVisible) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [isVisible]);
 
   // --- Canvas draw helper (called directly from rAF, not via React state) ---
   const drawCanvasDirect = useCallback(

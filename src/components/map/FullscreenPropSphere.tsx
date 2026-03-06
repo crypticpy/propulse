@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
@@ -156,9 +157,8 @@ export function FullscreenPropSphere({
   }, [observatoryMode]);
   const [showTopBar, setShowTopBar] = useState(true);
   const [showCursor, setShowCursor] = useState(true);
-  const lastMouseMoveRef = useRef(Date.now());
 
-  // Timer loop: check elapsed time since last mouse move
+  // Event-driven cursor/top-bar visibility for ambient mode
   useEffect(() => {
     if (!ambientMode) {
       setShowTopBar(true);
@@ -166,57 +166,38 @@ export function FullscreenPropSphere({
       return;
     }
 
-    const tick = () => {
-      const elapsed = Date.now() - lastMouseMoveRef.current;
-      setShowTopBar(elapsed < 3000);
-      setShowCursor(elapsed < 5000);
+    let timeout: ReturnType<typeof setTimeout>;
+    const onMove = () => {
+      setShowTopBar(true);
+      setShowCursor(true);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        setShowTopBar(false);
+        setShowCursor(false);
+      }, 3000);
     };
 
-    // Run immediately on entering ambient mode
-    lastMouseMoveRef.current = Date.now();
-    tick();
-
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [ambientMode]);
-
-  // Mouse move handler for ambient mode
-  const handleMouseMove = useCallback(() => {
-    if (!ambientMode) return;
-    lastMouseMoveRef.current = Date.now();
-    setShowTopBar(true);
-    setShowCursor(true);
+    // Show immediately on entering ambient mode, then start idle timer
+    onMove();
+    window.addEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      clearTimeout(timeout);
+    };
   }, [ambientMode]);
 
   // Ticking UTC clock for ambient overlay
-  const [utcString, setUtcString] = useState(() =>
-    new Date().toLocaleTimeString("en-GB", {
-      timeZone: "UTC",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }),
-  );
+  const utcClockNow = useUTCClock();
+  const utcString = utcClockNow.toLocaleTimeString("en-GB", {
+    timeZone: "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 
   const showAmbientOverlay =
     ambientMode && autoRotate && watchCriteria !== null;
-
-  useEffect(() => {
-    if (!showAmbientOverlay) return;
-    const id = setInterval(() => {
-      setUtcString(
-        new Date().toLocaleTimeString("en-GB", {
-          timeZone: "UTC",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-        }),
-      );
-    }, 1000);
-    return () => clearInterval(id);
-  }, [showAmbientOverlay]);
 
   // Z-index management for floating panels
   const [panelZOrder, setPanelZOrder] = useState<Record<string, number>>({});
@@ -299,7 +280,6 @@ export function FullscreenPropSphere({
 
   return (
     <div
-      onMouseMove={handleMouseMove}
       style={ambientMode && !showCursor ? { cursor: "none" } : undefined}
       className={`fixed inset-0 z-[200] bg-black transition-opacity duration-300
         ${isAnimating ? "opacity-0" : "opacity-100"}`}

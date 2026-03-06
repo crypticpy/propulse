@@ -9,7 +9,13 @@
  * Uses batch occlusion for performance with many simultaneous alerts.
  */
 
-import React, { useRef, useMemo, useState, useCallback } from "react";
+import React, {
+  useRef,
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -145,7 +151,15 @@ interface AlertMarkerProps {
     screenPos: { x: number; y: number },
   ) => void;
   glowRef?: (el: THREE.Mesh | null) => void;
+  sharedStemGeom: THREE.CylinderGeometry;
+  sharedHeadGeom: THREE.SphereGeometry;
 }
+
+// Bug 24: Constants for emoji scaling (extracted to avoid allocations in useFrame)
+const REFERENCE_DISTANCE = 3.0;
+const BASE_FONT_SIZE = 24;
+const MIN_FONT_SIZE = 16;
+const MAX_FONT_SIZE = 48;
 
 function AlertMarker({
   alert,
@@ -154,21 +168,26 @@ function AlertMarker({
   occlusionOpacity,
   onAlertClick,
   glowRef,
+  sharedStemGeom,
+  sharedHeadGeom,
 }: AlertMarkerProps) {
   const groupRef = useRef<THREE.Group>(null);
   const stemMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const headMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const glowRingMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [cameraDistance, setCameraDistance] = useState(3.0);
-  const lastDistRef = useRef(3.0);
+
+  // Bug 24: Use ref instead of state for camera distance to avoid re-renders
+  const cameraDistRef = useRef(3.0);
+  const emojiContainerRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLDivElement>(null);
 
   const { camera, size: canvasSize } = useThree();
 
   const color = severityColor(alert.severity);
   const emoji = getWeatherEmoji(alert.event);
 
-  // Apply occlusion to materials + track camera distance for emoji scaling
+  // Apply occlusion to materials + update emoji size via DOM manipulation
   useFrame(({ camera: cam }) => {
     if (stemMaterialRef.current) {
       stemMaterialRef.current.opacity = 0.7 * occlusionOpacity;
@@ -182,11 +201,37 @@ function AlertMarker({
         (isHovered ? 0.5 : 0.3) * occlusionOpacity;
     }
 
-    // Only update state when distance changes meaningfully (avoid re-renders every frame)
+    // Bug 24: Update ref + directly manipulate DOM instead of triggering React re-renders
     const dist = cam.position.length();
-    if (Math.abs(dist - lastDistRef.current) > 0.05) {
-      lastDistRef.current = dist;
-      setCameraDistance(dist);
+    if (Math.abs(dist - cameraDistRef.current) > 0.05) {
+      cameraDistRef.current = dist;
+
+      // Compute scaled emoji size
+      const scaleFactor = REFERENCE_DISTANCE / dist;
+      const fontSize = Math.min(
+        MAX_FONT_SIZE,
+        Math.max(MIN_FONT_SIZE, Math.round(BASE_FONT_SIZE * scaleFactor)),
+      );
+      const boxSize = fontSize + 8;
+      const showLabel = dist < 2.0;
+
+      // Directly update the emoji container DOM
+      if (emojiContainerRef.current) {
+        emojiContainerRef.current.style.width = `${boxSize}px`;
+        emojiContainerRef.current.style.height = `${boxSize}px`;
+        emojiContainerRef.current.style.fontSize = `${fontSize}px`;
+        emojiContainerRef.current.style.filter = `drop-shadow(0 0 ${Math.max(4, fontSize / 4)}px ${color})`;
+      }
+
+      // Directly update the label DOM
+      if (labelRef.current) {
+        labelRef.current.style.display = showLabel ? "" : "none";
+        if (showLabel) {
+          labelRef.current.style.opacity = String(
+            Math.min(1, (2.0 - dist) / 0.5),
+          );
+        }
+      }
     }
   });
 
@@ -228,20 +273,19 @@ function AlertMarker({
     setIsHovered(false);
   }, []);
 
-  // Shared geometries (memoized per marker to avoid re-creation)
-  const stemGeometry = useMemo(() => {
-    return new THREE.CylinderGeometry(STEM_RADIUS, STEM_RADIUS, STEM_HEIGHT, 8);
-  }, []);
-
-  const headGeometry = useMemo(() => {
-    return new THREE.SphereGeometry(SIZE, 16, 16);
-  }, []);
+  // Compute initial sizes from default distance for SSR/first render
+  const initScaleFactor = REFERENCE_DISTANCE / 3.0;
+  const initFontSize = Math.min(
+    MAX_FONT_SIZE,
+    Math.max(MIN_FONT_SIZE, Math.round(BASE_FONT_SIZE * initScaleFactor)),
+  );
+  const initBoxSize = initFontSize + 8;
 
   return (
     <group ref={groupRef} position={basePosition} rotation={rotation}>
       {/* Pin stem (vertical line from surface) */}
       <mesh position={[0, STEM_HEIGHT / 2, 0]} renderOrder={1}>
-        <primitive object={stemGeometry} attach="geometry" />
+        <primitive object={sharedStemGeom} attach="geometry" />
         <meshBasicMaterial
           ref={stemMaterialRef}
           color={color}
@@ -259,7 +303,7 @@ function AlertMarker({
         onPointerLeave={handlePointerLeave}
         renderOrder={2}
       >
-        <primitive object={headGeometry} attach="geometry" />
+        <primitive object={sharedHeadGeom} attach="geometry" />
         <meshBasicMaterial
           ref={headMaterialRef}
           color={color}
@@ -288,7 +332,7 @@ function AlertMarker({
         />
       </mesh>
 
-      {/* Weather emoji using Html overlay — scales with zoom */}
+      {/* Weather emoji using Html overlay — scales with zoom via direct DOM updates */}
       <Html
         position={[0, STEM_HEIGHT + SIZE * 3, 0]}
         center
@@ -298,62 +342,44 @@ function AlertMarker({
           opacity: occlusionOpacity,
         }}
       >
-        {(() => {
-          // Scale emoji based on camera distance so it stays readable at all zoom levels
-          // Reference distance ~3.0 (default zoom). Closer = larger, farther = smaller.
-          const REFERENCE_DISTANCE = 3.0;
-          const BASE_FONT_SIZE = 24;
-          const MIN_FONT_SIZE = 16;
-          const MAX_FONT_SIZE = 48;
-          const scaleFactor = REFERENCE_DISTANCE / cameraDistance;
-          const fontSize = Math.min(
-            MAX_FONT_SIZE,
-            Math.max(MIN_FONT_SIZE, Math.round(BASE_FONT_SIZE * scaleFactor)),
-          );
-          const boxSize = fontSize + 8;
-          // Show alert type label when zoomed in close enough
-          const showLabel = cameraDistance < 2.0;
-
-          return (
-            <div
-              className="flex flex-col items-center"
-              style={{
-                transition: "transform 0.15s ease-out",
-                transform: isHovered ? "scale(1.2)" : "scale(1)",
-              }}
-            >
-              <div
-                className="flex items-center justify-center"
-                style={{
-                  width: `${boxSize}px`,
-                  height: `${boxSize}px`,
-                  fontSize: `${fontSize}px`,
-                  lineHeight: 1,
-                  filter: `drop-shadow(0 0 ${Math.max(4, fontSize / 4)}px ${color})`,
-                }}
-              >
-                {emoji}
-              </div>
-              {showLabel && (
-                <div
-                  className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap text-center"
-                  style={{
-                    backgroundColor: "rgba(10, 10, 26, 0.85)",
-                    color,
-                    border: `1px solid ${color}50`,
-                    maxWidth: "140px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    opacity: Math.min(1, (2.0 - cameraDistance) / 0.5),
-                    transition: "opacity 0.2s ease",
-                  }}
-                >
-                  {alert.event}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        <div
+          className="flex flex-col items-center"
+          style={{
+            transition: "transform 0.15s ease-out",
+            transform: isHovered ? "scale(1.2)" : "scale(1)",
+          }}
+        >
+          <div
+            ref={emojiContainerRef}
+            className="flex items-center justify-center"
+            style={{
+              width: `${initBoxSize}px`,
+              height: `${initBoxSize}px`,
+              fontSize: `${initFontSize}px`,
+              lineHeight: 1,
+              filter: `drop-shadow(0 0 ${Math.max(4, initFontSize / 4)}px ${color})`,
+            }}
+          >
+            {emoji}
+          </div>
+          <div
+            ref={labelRef}
+            className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap text-center"
+            style={{
+              backgroundColor: "rgba(10, 10, 26, 0.85)",
+              color,
+              border: `1px solid ${color}50`,
+              maxWidth: "140px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "none",
+              opacity: 0,
+              transition: "opacity 0.2s ease",
+            }}
+          >
+            {alert.event}
+          </div>
+        </div>
       </Html>
     </group>
   );
@@ -367,6 +393,24 @@ export const WeatherAlerts3D = React.memo(function WeatherAlerts3D({
   alerts,
   onAlertClick,
 }: WeatherAlerts3DProps) {
+  // Shared geometries — created once in parent, passed to all AlertMarker children
+  const sharedStemGeom = useMemo(
+    () => new THREE.CylinderGeometry(STEM_RADIUS, STEM_RADIUS, STEM_HEIGHT, 8),
+    [],
+  );
+  const sharedHeadGeom = useMemo(
+    () => new THREE.SphereGeometry(SIZE, 16, 16),
+    [],
+  );
+
+  // Dispose shared geometries on unmount
+  useEffect(() => {
+    return () => {
+      sharedStemGeom.dispose();
+      sharedHeadGeom.dispose();
+    };
+  }, [sharedStemGeom, sharedHeadGeom]);
+
   // Refs for glow meshes that need animated opacity (pulse)
   const glowRefs = useRef<(THREE.Mesh | null)[]>([]);
 
@@ -459,6 +503,8 @@ export const WeatherAlerts3D = React.memo(function WeatherAlerts3D({
             occlusionOpacity={getOpacity(alert.lat, alert.lon)}
             onAlertClick={onAlertClick}
             glowRef={refCallback}
+            sharedStemGeom={sharedStemGeom}
+            sharedHeadGeom={sharedHeadGeom}
           />
         );
       })}

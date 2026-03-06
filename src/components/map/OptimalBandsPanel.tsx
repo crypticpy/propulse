@@ -67,7 +67,7 @@ export function OptimalBandsPanel({
   displayTime,
   className = "",
 }: OptimalBandsPanelProps) {
-  const { target } = useMapStore();
+  const target = useMapStore((s) => s.target);
   const { station } = useUserStore();
   const { antennaType } = useActiveStationGain();
   const noiseEnvironment = useSettingsStore((s) => s.noiseEnvironment);

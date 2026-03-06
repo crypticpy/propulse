@@ -59,7 +59,7 @@ export function PropagationForecast({
   displayTime,
   className = "",
 }: PropagationForecastProps) {
-  const { target } = useMapStore();
+  const target = useMapStore((s) => s.target);
   const { station } = useUserStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);

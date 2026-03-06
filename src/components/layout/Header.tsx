@@ -1,5 +1,5 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { formatUTC } from "@/lib/utils/time";
 import { useUserStore } from "@/stores/userStore";
 import { HealthStatusIndicator } from "@/components/ui/HealthStatusIndicator";
@@ -41,16 +41,14 @@ export function Header({
 }: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
   const { station } = useUserStore();
   const activeLocation = useActiveLocation();
   const isTemporaryActive = useIsTemporaryActive();
-
-  // Update time every second
-  useEffect(() => {
-    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Main nav items (always visible)
   const mainNavItems: NavItem[] = [
@@ -61,6 +59,7 @@ export function Header({
 
   // Tools items (in dropdown on desktop, inline on mobile)
   const toolsItems: NavItem[] = [
+    { path: "/atmos", label: "AtmosPulse", icon: "🌩️" },
     { path: "/dx", label: "DX Wizard", icon: "🧙" },
     { path: "/planner", label: "Band Planner", icon: "📡" },
     { path: "/sdr", label: "SDR Console", icon: "📻" },

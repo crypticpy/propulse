@@ -16,6 +16,7 @@ import {
   useRef,
   useLayoutEffect,
 } from "react";
+import { useUTCClock } from "@/hooks/useUTCClock";
 import { createPortal } from "react-dom";
 import {
   useMapStore,
@@ -298,25 +299,26 @@ function PresetIcon({
 
 export function TimeControl({ className = "" }: TimeControlProps) {
   const { use24h } = useTimeFormat();
-  const {
-    timeOffset,
-    setTimeOffset,
-    absoluteTime,
-    setAbsoluteTime,
-    target,
-    timeScenarios,
-    addTimeScenario,
-    removeTimeScenario,
-    applyTimeScenario,
-    replayEnabled,
-    setReplayEnabled,
-  } = useMapStore();
+  const timeOffset = useMapStore((s) => s.timeOffset);
+  const setTimeOffset = useMapStore((s) => s.setTimeOffset);
+  const absoluteTime = useMapStore((s) => s.absoluteTime);
+  const setAbsoluteTime = useMapStore((s) => s.setAbsoluteTime);
+  const target = useMapStore((s) => s.target);
+  const timeScenarios = useMapStore((s) => s.timeScenarios);
+  const addTimeScenario = useMapStore((s) => s.addTimeScenario);
+  const removeTimeScenario = useMapStore((s) => s.removeTimeScenario);
+  const applyTimeScenario = useMapStore((s) => s.applyTimeScenario);
+  const replayEnabled = useMapStore((s) => s.replayEnabled);
+  const setReplayEnabled = useMapStore((s) => s.setReplayEnabled);
 
   const activeLocation = useActiveLocation();
   const stationLat = activeLocation?.lat;
   const stationLon = activeLocation?.lon;
   const station = useMemo(
-    () => (stationLat != null && stationLon != null ? { lat: stationLat, lon: stationLon } : null),
+    () =>
+      stationLat != null && stationLon != null
+        ? { lat: stationLat, lon: stationLon }
+        : null,
     [stationLat, stationLon],
   );
 
@@ -327,7 +329,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1);
   const [newScenarioName, setNewScenarioName] = useState("");
-  const [now, setNow] = useState(new Date());
+  const now = useUTCClock();
 
   // Ref for positioning portal-based popovers
   const headerRef = useRef<HTMLDivElement>(null);
@@ -388,12 +390,6 @@ export function TimeControl({ className = "" }: TimeControlProps) {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [popoverOpen]);
-
-  // Update time every second
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Play/animate time
   useEffect(() => {

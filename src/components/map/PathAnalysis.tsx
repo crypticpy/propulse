@@ -265,14 +265,12 @@ export function PathAnalysis({
   onMinimize: _onMinimize,
   onClose,
 }: PathAnalysisProps) {
-  const {
-    target,
-    pathMode,
-    setPathMode,
-    recentTargets,
-    setTarget,
-    clearRecentTargets,
-  } = useMapStore();
+  const target = useMapStore((s) => s.target);
+  const pathMode = useMapStore((s) => s.pathMode);
+  const setPathMode = useMapStore((s) => s.setPathMode);
+  const recentTargets = useMapStore((s) => s.recentTargets);
+  const setTarget = useMapStore((s) => s.setTarget);
+  const clearRecentTargets = useMapStore((s) => s.clearRecentTargets);
   const { pushAction } = useUndoStore();
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const activeRadio = useActiveRadio();

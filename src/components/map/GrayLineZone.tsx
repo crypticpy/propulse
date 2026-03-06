@@ -11,7 +11,7 @@
  * z-fighting with other overlays.
  */
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { getGrayLineZone } from "@/lib/utils/grayline";
 
@@ -110,6 +110,13 @@ export function GrayLineZone({ date, visible = true }: GrayLineZoneProps) {
     return createZoneGeometry(innerBound, outerBound);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minuteKey]);
+
+  // Dispose old geometry when the memo recalculates
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
 
   if (!visible) {
     return null;

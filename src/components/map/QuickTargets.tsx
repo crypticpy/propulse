@@ -21,7 +21,7 @@ interface QuickTargetsProps {
 }
 
 export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
-  const { setTarget } = useMapStore();
+  const setTarget = useMapStore((s) => s.setTarget);
   const { savedTargets, removeTarget, clearTargets } = useUserStore();
 
   // Active tab: "targets" or "pins"

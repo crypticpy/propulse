@@ -3,9 +3,12 @@
  *
  * Renders a semi-transparent dark overlay on the night side of the globe.
  * Uses a custom shader to calculate day/night based on sun position.
+ *
+ * GPU optimization: ShaderMaterial is created ONCE via useRef and uniforms
+ * are updated via useEffect, avoiding shader recompilation on date changes.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 
@@ -16,25 +19,31 @@ interface NightOverlayProps {
   opacity?: number;
 }
 
+/** Reusable vector for sun direction updates (avoids allocation per effect) */
+const _sunVec = new THREE.Vector3();
+
 export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
   // Calculate subsolar point
   const subsolar = useMemo(() => getSubsolarPoint(date), [date]);
 
-  // Custom shader material for night overlay
-  const material = useMemo(() => {
-    // Convert lat/lon to 3D using same coordinate system as globe
+  // Memoize geometry separately (created once, never recreated)
+  const geometry = useMemo(() => new THREE.SphereGeometry(1.02, 64, 64), []);
+
+  // Create ShaderMaterial ONCE via useRef — avoids shader recompilation
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  if (materialRef.current === null) {
     const phi = ((90 - subsolar.lat) * Math.PI) / 180;
     const theta = ((subsolar.lon + 180) * Math.PI) / 180;
 
-    const sunVec = new THREE.Vector3(
-      -Math.sin(phi) * Math.cos(theta),
-      Math.cos(phi),
-      Math.sin(phi) * Math.sin(theta),
-    );
-
-    return new THREE.ShaderMaterial({
+    materialRef.current = new THREE.ShaderMaterial({
       uniforms: {
-        sunPosition: { value: sunVec },
+        sunPosition: {
+          value: new THREE.Vector3(
+            -Math.sin(phi) * Math.cos(theta),
+            Math.cos(phi),
+            Math.sin(phi) * Math.sin(theta),
+          ),
+        },
         opacity: { value: opacity },
       },
       vertexShader: `
@@ -67,12 +76,37 @@ export function NightOverlay({ date, opacity = 0.5 }: NightOverlayProps) {
       depthWrite: false,
       depthTest: false,
     });
+  }
+
+  // Update uniforms when subsolar point or opacity changes (NO shader recompilation)
+  useEffect(() => {
+    if (!materialRef.current) return;
+
+    const phi = ((90 - subsolar.lat) * Math.PI) / 180;
+    const theta = ((subsolar.lon + 180) * Math.PI) / 180;
+
+    _sunVec.set(
+      -Math.sin(phi) * Math.cos(theta),
+      Math.cos(phi),
+      Math.sin(phi) * Math.sin(theta),
+    );
+
+    materialRef.current.uniforms.sunPosition.value.copy(_sunVec);
+    materialRef.current.uniforms.opacity.value = opacity;
   }, [subsolar, opacity]);
+
+  // Dispose GPU resources on unmount
+  useEffect(() => {
+    return () => {
+      materialRef.current?.dispose();
+      geometry.dispose();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <mesh renderOrder={10}>
-      <sphereGeometry args={[1.02, 64, 64]} />
-      <primitive object={material} attach="material" />
+      <primitive object={geometry} attach="geometry" />
+      <primitive object={materialRef.current} attach="material" />
     </mesh>
   );
 }

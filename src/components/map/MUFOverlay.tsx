@@ -22,9 +22,13 @@
  *   14-21 MHz green (20m-15m)
  *   21-28 MHz cyan (15m-10m)
  *   >28 MHz  blue-violet (10m+, excellent)
+ *
+ * GPU optimization: ShaderMaterial is created ONCE via useRef and uniforms
+ * are updated via useEffect, avoiding shader recompilation on date changes.
+ * The 128x128 sphere geometry (33K vertices) is also memoized separately.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 
@@ -283,6 +287,9 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
+/** Reusable vector for sun direction updates (avoids allocation per effect) */
+const _sunVec = new THREE.Vector3();
+
 export function MUFOverlay({
   date,
   sfi,
@@ -299,21 +306,24 @@ export function MUFOverlay({
     return Math.floor(diff / (1000 * 60 * 60 * 24));
   }, [date]);
 
-  // Custom shader material for MUF visualization
-  const material = useMemo(() => {
-    // Convert lat/lon to 3D using same coordinate system as globe
+  // Memoize the 128x128 sphere geometry separately (33K vertices, created once)
+  const geometry = useMemo(() => new THREE.SphereGeometry(1.007, 128, 128), []);
+
+  // Create ShaderMaterial ONCE via useRef — avoids shader recompilation
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  if (materialRef.current === null) {
     const phi = ((90 - subsolar.lat) * Math.PI) / 180;
     const theta = ((subsolar.lon + 180) * Math.PI) / 180;
 
-    const sunVec = new THREE.Vector3(
-      -Math.sin(phi) * Math.cos(theta),
-      Math.cos(phi),
-      Math.sin(phi) * Math.sin(theta),
-    );
-
-    return new THREE.ShaderMaterial({
+    materialRef.current = new THREE.ShaderMaterial({
       uniforms: {
-        sunPosition: { value: sunVec },
+        sunPosition: {
+          value: new THREE.Vector3(
+            -Math.sin(phi) * Math.cos(theta),
+            Math.cos(phi),
+            Math.sin(phi) * Math.sin(theta),
+          ),
+        },
         sfi: { value: sfi },
         kp: { value: kp },
         dayOfYear: { value: dayOfYear },
@@ -325,12 +335,40 @@ export function MUFOverlay({
       side: THREE.FrontSide,
       depthWrite: false,
     });
+  }
+
+  // Update uniforms when dependencies change (NO shader recompilation)
+  useEffect(() => {
+    if (!materialRef.current) return;
+
+    const phi = ((90 - subsolar.lat) * Math.PI) / 180;
+    const theta = ((subsolar.lon + 180) * Math.PI) / 180;
+
+    _sunVec.set(
+      -Math.sin(phi) * Math.cos(theta),
+      Math.cos(phi),
+      Math.sin(phi) * Math.sin(theta),
+    );
+
+    materialRef.current.uniforms.sunPosition.value.copy(_sunVec);
+    materialRef.current.uniforms.sfi.value = sfi;
+    materialRef.current.uniforms.kp.value = kp;
+    materialRef.current.uniforms.dayOfYear.value = dayOfYear;
+    materialRef.current.uniforms.opacity.value = opacity;
   }, [subsolar, sfi, kp, dayOfYear, opacity]);
+
+  // Dispose GPU resources on unmount
+  useEffect(() => {
+    return () => {
+      materialRef.current?.dispose();
+      geometry.dispose();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <mesh>
-      <sphereGeometry args={[1.007, 128, 128]} />
-      <primitive object={material} attach="material" />
+      <primitive object={geometry} attach="geometry" />
+      <primitive object={materialRef.current} attach="material" />
     </mesh>
   );
 }

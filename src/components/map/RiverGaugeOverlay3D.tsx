@@ -182,6 +182,7 @@ export const RiverGaugeOverlay3D = React.memo(
             transparent
             opacity={0.3}
             depthWrite={false}
+            depthTest={false}
             blending={THREE.AdditiveBlending}
           />
         </instancedMesh>
@@ -200,6 +201,7 @@ export const RiverGaugeOverlay3D = React.memo(
             transparent
             opacity={0.7}
             depthWrite={false}
+            depthTest={false}
           />
         </instancedMesh>
       </group>

@@ -33,6 +33,8 @@ const ATMOS_TO_MAP_LAYER: Partial<Record<AtmosLayerId, MapLayerKey>> = {
  * These will be forced OFF on mount and restored on unmount.
  */
 const RADIO_LAYERS_TO_SUPPRESS: MapLayerKey[] = [
+  "terminator",
+  "greyline",
   "spots",
   "spotTraces",
   "beacons",
@@ -51,6 +53,11 @@ const RADIO_LAYERS_TO_SUPPRESS: MapLayerKey[] = [
   "ducting",
   "sporadicE",
   "nvis",
+  "nightLights",
+  "labels",
+  "satellites",
+  "issTracker",
+  "satelliteFootprints",
 ];
 
 /**

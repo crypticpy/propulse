@@ -1,9 +1,8 @@
 /**
  * RadarLayer2D — Dual-source animated radar layer for the 2D MapLibre map.
  *
- * Strategy: Pre-create all 12 NEXRAD raster sources + layers on mount.
- * Only toggle `raster-opacity` to animate (avoids re-fetching tiles).
- * RainViewer sits underneath at lower opacity for global fill.
+ * Uses a SINGLE raster source per provider, swapping tile URLs on frame change.
+ * This avoids creating 12 simultaneous sources which would each fetch tiles.
  *
  * Animation is driven by `radarFrame` from atmosStore (set by RadarScrubber2D).
  */
@@ -22,51 +21,51 @@ interface RadarLayer2DProps {
   map: maplibregl.Map;
 }
 
-/* ── Source / layer ID helpers ──────────────────────────────────────── */
-
-const NEXRAD_SOURCE_ID = (i: number) => `nexrad-frame-${i}`;
-const NEXRAD_LAYER_ID = (i: number) => `nexrad-frame-${i}-layer`;
-const RV_SOURCE_ID = "rainviewer-global";
-const RV_LAYER_ID = "rainviewer-global-layer";
-
-const NEXRAD_ACTIVE_OPACITY = 0.75;
-const RV_OPACITY = 0.4;
+const NEXRAD_SOURCE = "nexrad-radar";
+const NEXRAD_LAYER = "nexrad-radar-layer";
+const RV_SOURCE = "rainviewer-global";
+const RV_LAYER = "rainviewer-global-layer";
 
 export function RadarLayer2D({ map }: RadarLayer2DProps) {
   const { manifest } = useWeatherRadar();
   const radarFrame = useAtmosStore((s) => s.radarFrame);
-  const nexradMountedRef = useRef(false);
+  const currentProductRef = useRef<string | null>(null);
   const rvPathRef = useRef<string | null>(null);
 
-  /* ── Mount: add NEXRAD sources + layers (manifest-independent) ──── */
+  /* ── NEXRAD: single source, swap URL on frame change ─────────── */
   useEffect(() => {
-    if (!map.getStyle() || nexradMountedRef.current) return;
+    if (!map.getStyle()) return;
 
-    for (let i = 0; i < NEXRAD_FRAME_COUNT; i++) {
-      const srcId = NEXRAD_SOURCE_ID(i);
-      const layId = NEXRAD_LAYER_ID(i);
-      const product = NEXRAD_FRAME_PRODUCTS[i];
-      const template = getNexradTileTemplate(product);
+    const frameIdx = radarFrame < 0 ? NEXRAD_FRAME_COUNT - 1 : radarFrame;
+    const product = NEXRAD_FRAME_PRODUCTS[frameIdx];
+    const template = getNexradTileTemplate(product);
 
-      if (!map.getSource(srcId)) {
-        map.addSource(srcId, {
-          type: "raster",
-          tiles: [template],
-          tileSize: 256,
-        });
-        map.addLayer({
-          id: layId,
-          type: "raster",
-          source: srcId,
-          paint: { "raster-opacity": 0 },
-        });
-      }
+    // Skip if same product already displayed
+    if (template === currentProductRef.current) return;
+    currentProductRef.current = template;
+
+    // Remove old source+layer, add new one with updated URL
+    try {
+      if (map.getLayer(NEXRAD_LAYER)) map.removeLayer(NEXRAD_LAYER);
+      if (map.getSource(NEXRAD_SOURCE)) map.removeSource(NEXRAD_SOURCE);
+
+      map.addSource(NEXRAD_SOURCE, {
+        type: "raster",
+        tiles: [template],
+        tileSize: 256,
+      });
+      map.addLayer({
+        id: NEXRAD_LAYER,
+        type: "raster",
+        source: NEXRAD_SOURCE,
+        paint: { "raster-opacity": 0.75 },
+      });
+    } catch {
+      // Map may be destroyed
     }
+  }, [map, radarFrame]);
 
-    nexradMountedRef.current = true;
-  }, [map]);
-
-  /* ── RainViewer: add/update when manifest arrives or refreshes ──── */
+  /* ── RainViewer: global fallback, update when manifest refreshes ── */
   useEffect(() => {
     if (!map.getStyle() || !manifest) return;
 
@@ -75,69 +74,46 @@ export function RadarLayer2D({ map }: RadarLayer2DProps) {
     const latestFrame = frames[frames.length - 1];
     const rvTemplate = `${manifest.host}${latestFrame.path}/256/{z}/{x}/{y}/6/1_1.png`;
 
-    // Skip if same frame already displayed
     if (rvTemplate === rvPathRef.current) return;
     rvPathRef.current = rvTemplate;
 
-    // Re-create RainViewer source with updated tile URL
     try {
-      if (map.getLayer(RV_LAYER_ID)) map.removeLayer(RV_LAYER_ID);
-      if (map.getSource(RV_SOURCE_ID)) map.removeSource(RV_SOURCE_ID);
+      if (map.getLayer(RV_LAYER)) map.removeLayer(RV_LAYER);
+      if (map.getSource(RV_SOURCE)) map.removeSource(RV_SOURCE);
 
-      map.addSource(RV_SOURCE_ID, {
+      map.addSource(RV_SOURCE, {
         type: "raster",
         tiles: [rvTemplate],
         tileSize: 256,
       });
-      map.addLayer({
-        id: RV_LAYER_ID,
-        type: "raster",
-        source: RV_SOURCE_ID,
-        paint: { "raster-opacity": RV_OPACITY },
-      });
+      // Add BEFORE nexrad layer so it renders underneath
+      const beforeLayer = map.getLayer(NEXRAD_LAYER) ? NEXRAD_LAYER : undefined;
+      map.addLayer(
+        {
+          id: RV_LAYER,
+          type: "raster",
+          source: RV_SOURCE,
+          paint: { "raster-opacity": 0.4 },
+        },
+        beforeLayer,
+      );
     } catch {
       // Map may be destroyed
     }
   }, [map, manifest]);
 
-  /* ── Animate: toggle active NEXRAD frame opacity ────────────────── */
-  useEffect(() => {
-    if (!nexradMountedRef.current || !map.getStyle()) return;
-
-    const activeIdx = radarFrame < 0 ? NEXRAD_FRAME_COUNT - 1 : radarFrame;
-
-    for (let i = 0; i < NEXRAD_FRAME_COUNT; i++) {
-      const layId = NEXRAD_LAYER_ID(i);
-      try {
-        if (map.getLayer(layId)) {
-          map.setPaintProperty(
-            layId,
-            "raster-opacity",
-            i === activeIdx ? NEXRAD_ACTIVE_OPACITY : 0,
-          );
-        }
-      } catch {
-        // Layer may not exist yet during initial render
-      }
-    }
-  }, [map, radarFrame]);
-
   /* ── Cleanup on unmount ─────────────────────────────────────────── */
   useEffect(() => {
     return () => {
       try {
-        for (let i = 0; i < NEXRAD_FRAME_COUNT; i++) {
-          const layId = NEXRAD_LAYER_ID(i);
-          const srcId = NEXRAD_SOURCE_ID(i);
-          if (map.getLayer(layId)) map.removeLayer(layId);
-          if (map.getSource(srcId)) map.removeSource(srcId);
-        }
-        if (map.getLayer(RV_LAYER_ID)) map.removeLayer(RV_LAYER_ID);
-        if (map.getSource(RV_SOURCE_ID)) map.removeSource(RV_SOURCE_ID);
+        if (map.getLayer(NEXRAD_LAYER)) map.removeLayer(NEXRAD_LAYER);
+        if (map.getSource(NEXRAD_SOURCE)) map.removeSource(NEXRAD_SOURCE);
+        if (map.getLayer(RV_LAYER)) map.removeLayer(RV_LAYER);
+        if (map.getSource(RV_SOURCE)) map.removeSource(RV_SOURCE);
       } catch {
         // Map already destroyed
       }
-      nexradMountedRef.current = false;
+      currentProductRef.current = null;
       rvPathRef.current = null;
     };
   }, [map]);

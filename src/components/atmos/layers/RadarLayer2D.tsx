@@ -1,80 +1,75 @@
 /**
- * RadarLayer2D — NEXRAD-only animated radar layer for the 2D MapLibre map.
+ * RadarLayer2D — RainViewer radar layer for the 2D MapLibre map.
  *
- * Uses IEM NEXRAD tiles (1km resolution, no rate limits, free).
- * Single raster source — swaps tile URL template on frame change.
+ * Uses RainViewer tiles (transparent backgrounds, designed for map overlays).
+ * Single raster source showing the LATEST frame only — no animation.
+ * Updates when the manifest refreshes (every ~10 minutes).
  *
- * RainViewer is NOT used in 2D because MapLibre fetches tiles at the
- * viewport zoom level. At zoom 5-6, that's hundreds of tiles per frame,
- * which triggers RainViewer's aggressive 429 rate limits.
+ * NEXRAD tiles cannot be used in 2D because they have opaque white
+ * backgrounds that cover the basemap entirely.
  *
- * Animation is driven by `radarFrame` from atmosStore (set by RadarScrubber2D).
+ * Animation is handled only in the 3D globe view (WeatherRadarOverlay).
  */
 
 import { useEffect, useRef } from "react";
 import type maplibregl from "maplibre-gl";
-import { useAtmosStore } from "@/stores/atmosStore";
-import {
-  NEXRAD_FRAME_PRODUCTS,
-  getNexradTileTemplate,
-  NEXRAD_FRAME_COUNT,
-} from "@/lib/api/nexrad";
+import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 
 interface RadarLayer2DProps {
   map: maplibregl.Map;
 }
 
-const NEXRAD_SOURCE = "nexrad-radar";
-const NEXRAD_LAYER = "nexrad-radar-layer";
+const RV_SOURCE = "rainviewer-radar";
+const RV_LAYER = "rainviewer-radar-layer";
 
 export function RadarLayer2D({ map }: RadarLayer2DProps) {
-  const radarFrame = useAtmosStore((s) => s.radarFrame);
-  const currentProductRef = useRef<string | null>(null);
+  const { manifest } = useWeatherRadar();
+  const currentUrlRef = useRef<string | null>(null);
 
-  /* ── NEXRAD: single source, swap URL on frame change ─────────── */
+  /* ── RainViewer: latest frame, single source ─────────────────────── */
   useEffect(() => {
-    if (!map.getStyle()) return;
+    if (!map.getStyle() || !manifest) return;
 
-    const frameIdx = radarFrame < 0 ? NEXRAD_FRAME_COUNT - 1 : radarFrame;
-    const product = NEXRAD_FRAME_PRODUCTS[frameIdx];
-    if (!product) return;
-    const template = getNexradTileTemplate(product);
+    const frames = manifest.radar.past;
+    if (frames.length === 0) return;
 
-    // Skip if same product already displayed
-    if (template === currentProductRef.current) return;
-    currentProductRef.current = template;
+    const latestFrame = frames[frames.length - 1];
+    const tileUrl = `${manifest.host}${latestFrame.path}/256/{z}/{x}/{y}/6/1_1.png`;
 
-    // Remove old source+layer, add new one with updated URL
+    // Skip if same URL already displayed
+    if (tileUrl === currentUrlRef.current) return;
+    currentUrlRef.current = tileUrl;
+
     try {
-      if (map.getLayer(NEXRAD_LAYER)) map.removeLayer(NEXRAD_LAYER);
-      if (map.getSource(NEXRAD_SOURCE)) map.removeSource(NEXRAD_SOURCE);
+      if (map.getLayer(RV_LAYER)) map.removeLayer(RV_LAYER);
+      if (map.getSource(RV_SOURCE)) map.removeSource(RV_SOURCE);
 
-      map.addSource(NEXRAD_SOURCE, {
+      map.addSource(RV_SOURCE, {
         type: "raster",
-        tiles: [template],
+        tiles: [tileUrl],
         tileSize: 256,
       });
       map.addLayer({
-        id: NEXRAD_LAYER,
+        id: RV_LAYER,
         type: "raster",
-        source: NEXRAD_SOURCE,
-        paint: { "raster-opacity": 0.75 },
+        source: RV_SOURCE,
+        paint: { "raster-opacity": 0.7 },
       });
     } catch {
       // Map may be destroyed
     }
-  }, [map, radarFrame]);
+  }, [map, manifest]);
 
   /* ── Cleanup on unmount ─────────────────────────────────────────── */
   useEffect(() => {
     return () => {
       try {
-        if (map.getLayer(NEXRAD_LAYER)) map.removeLayer(NEXRAD_LAYER);
-        if (map.getSource(NEXRAD_SOURCE)) map.removeSource(NEXRAD_SOURCE);
+        if (map.getLayer(RV_LAYER)) map.removeLayer(RV_LAYER);
+        if (map.getSource(RV_SOURCE)) map.removeSource(RV_SOURCE);
       } catch {
         // Map already destroyed
       }
-      currentProductRef.current = null;
+      currentUrlRef.current = null;
     };
   }, [map]);
 

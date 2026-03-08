@@ -13,7 +13,8 @@ setWorkerUrl(cspWorkerUrl);
 import { useAtmosStore } from "@/stores/atmosStore";
 import { DARK_BASEMAP_STYLE } from "@/lib/atmos/mapStyles";
 import { RadarLayer2D } from "@/components/atmos/layers/RadarLayer2D";
-import { RadarScrubber2D } from "@/components/atmos/RadarScrubber2D";
+// RadarScrubber2D removed — 2D radar shows latest frame only (no animation)
+// Animation is 3D-only (WeatherRadarOverlay handles it)
 import { LightningLayer2D } from "@/components/atmos/layers/LightningLayer2D";
 import { AlertLayer2D } from "@/components/atmos/layers/AlertLayer2D";
 import { FireLayer2D } from "@/components/atmos/layers/FireLayer2D";
@@ -117,7 +118,15 @@ export function AtlasView() {
           {layerVisibility.sst && <SSTLayer2D map={mapRef.current} />}
         </>
       )}
-      {layerVisibility.radar && <RadarScrubber2D />}
+      {/* Radar timestamp badge (latest frame indicator) */}
+      {layerVisibility.radar && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
+          <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
+          <span className="text-[10px] font-mono text-gray-400">
+            RADAR LIVE
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Suspense, useState, useCallback, useEffect } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Header } from "./Header";
 import {
@@ -41,6 +41,8 @@ export function Layout() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAtmos = location.pathname === "/atmos";
 
   // Initialize solar alert monitoring
   const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
@@ -116,17 +118,18 @@ export function Layout() {
           onAlertClick={() => setShowAlertHistory(true)}
         />
 
-        {/* Emergency ticker for critical space weather */}
-        <EmergencyTickerBar />
+        {/* Emergency ticker for critical space weather (not on /atmos — has its own alerts) */}
+        {!isAtmos && <EmergencyTickerBar />}
 
         {/* Alert Banner - appears below header when alerts are active */}
-        {(alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
-          <AlertBanner
-            alerts={activeAlerts}
-            onDismiss={dismissAlert}
-            onViewAll={() => setShowAlertHistory(true)}
-          />
-        )}
+        {!isAtmos &&
+          (alertDisplayStyle === "banner" || alertDisplayStyle === "both") && (
+            <AlertBanner
+              alerts={activeAlerts}
+              onDismiss={dismissAlert}
+              onViewAll={() => setShowAlertHistory(true)}
+            />
+          )}
 
         <Suspense
           fallback={
@@ -139,13 +142,14 @@ export function Layout() {
         </Suspense>
       </div>
 
-      {/* Toast notifications - fixed position bottom-right */}
-      {(alertDisplayStyle === "toast" || alertDisplayStyle === "both") && (
-        <AlertToastContainer
-          onDismiss={dismissAlert}
-          onToastClick={() => setShowAlertHistory(true)}
-        />
-      )}
+      {/* Toast notifications - fixed position bottom-right (not on /atmos) */}
+      {!isAtmos &&
+        (alertDisplayStyle === "toast" || alertDisplayStyle === "both") && (
+          <AlertToastContainer
+            onDismiss={dismissAlert}
+            onToastClick={() => setShowAlertHistory(true)}
+          />
+        )}
 
       {/* Alert History Modal */}
       <AlertHistoryModal
@@ -156,8 +160,10 @@ export function Layout() {
       {/* Undo Toast - fixed position bottom-left */}
       <UndoToast />
 
-      {/* DX Spot Alert Toasts */}
-      <SpotAlertToastContainer alerts={spotAlerts} onDismiss={() => {}} />
+      {/* DX Spot Alert Toasts (not on /atmos) */}
+      {!isAtmos && (
+        <SpotAlertToastContainer alerts={spotAlerts} onDismiss={() => {}} />
+      )}
 
       {/* Command Palette (Ctrl+K) */}
       <CommandPalette
@@ -183,11 +189,11 @@ export function Layout() {
       {/* Auth Modal */}
       <AuthModal />
 
-      {/* Band opening suggest toast — bottom-center */}
-      <BandSuggestToast />
+      {/* Band opening suggest toast — bottom-center (not on /atmos) */}
+      {!isAtmos && <BandSuggestToast />}
 
-      {/* Visual alert glow overlay (accessibility — opt-in) */}
-      <AlertGlowOverlay />
+      {/* Visual alert glow overlay (accessibility — opt-in, not on /atmos) */}
+      {!isAtmos && <AlertGlowOverlay />}
     </div>
   );
 }

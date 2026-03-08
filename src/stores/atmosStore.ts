@@ -21,6 +21,7 @@ export interface AtmosState {
   rimScores: Record<string, RIMResult>;
   selectedAlertId: string | null;
   radarFrame: number;
+  radarPlaying: boolean;
   sidebarOpen: boolean;
 
   // ── Actions ────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ export interface AtmosState {
   setRimScores: (scores: Record<string, RIMResult>) => void;
   setSelectedAlertId: (id: string | null) => void;
   setRadarFrame: (frame: number) => void;
+  toggleRadarPlaying: () => void;
   setSidebarOpen: (open: boolean) => void;
 }
 
@@ -51,6 +53,7 @@ export const useAtmosStore = create<AtmosState>()(
       rimScores: {},
       selectedAlertId: null,
       radarFrame: -1,
+      radarPlaying: true,
       sidebarOpen: true,
 
       // Actions
@@ -82,6 +85,7 @@ export const useAtmosStore = create<AtmosState>()(
       setRimScores: (scores) => set({ rimScores: scores }),
       setSelectedAlertId: (id) => set({ selectedAlertId: id }),
       setRadarFrame: (frame) => set({ radarFrame: frame }),
+      toggleRadarPlaying: () => set((s) => ({ radarPlaying: !s.radarPlaying })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
     }),
     {
@@ -136,6 +140,7 @@ export const useAtmosStore = create<AtmosState>()(
           | "setRimScores"
           | "setSelectedAlertId"
           | "setRadarFrame"
+          | "toggleRadarPlaying"
           | "setSidebarOpen"
         >;
       },

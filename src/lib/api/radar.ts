@@ -1,7 +1,11 @@
 /**
  * RainViewer Weather Radar API client
  * Free global precipitation radar tiles with 10-minute update interval
+ * Used as global fallback when IEM NEXRAD (US-only) is unavailable.
  */
+
+/** Active radar data source */
+export type RadarSource = "nexrad" | "rainviewer";
 
 export interface RadarManifest {
   /** Base host for tile URLs */

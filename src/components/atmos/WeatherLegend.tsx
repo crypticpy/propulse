@@ -79,12 +79,22 @@ export function WeatherLegend() {
   return (
     <div className="absolute bottom-4 left-4 z-10 max-w-[200px] bg-void-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-2 space-y-2">
       {layerVisibility.radar && (
-        <GradientBar
-          label="Precip Intensity"
-          from="#3b82f6"
-          via="#22c55e"
-          to="#ef4444"
-        />
+        <div className="space-y-0.5">
+          <div
+            className="h-1.5 w-full rounded-sm"
+            style={{
+              background:
+                "linear-gradient(to right, #04e9e7, #019ff4, #0300f4, #02fd02, #01c501, #008e00, #fdf802, #e5bc00, #fd9500, #fd0000, #d40000, #bc0000, #f800fd, #9854c6)",
+            }}
+          />
+          <div className="flex justify-between">
+            <span className="text-[8px] font-mono text-gray-500">5 dBZ</span>
+            <span className="text-[8px] font-mono text-gray-500">75 dBZ</span>
+          </div>
+          <span className="text-[9px] font-mono text-gray-400">
+            Radar (NEXRAD + RainViewer)
+          </span>
+        </div>
       )}
 
       {layerVisibility.lightning && (

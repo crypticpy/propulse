@@ -199,6 +199,8 @@ interface GlobeViewProps {
   displayTime: Date;
   /** Callback when a location is clicked */
   onLocationClick?: (lat: number, lon: number) => void;
+  /** Hide the built-in radar scrubber (when host provides its own) */
+  hideRadarScrubber?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -1586,7 +1588,11 @@ const GlobeScene = React.memo(function GlobeScene({
   );
 });
 
-export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
+export function GlobeView({
+  displayTime,
+  onLocationClick,
+  hideRadarScrubber,
+}: GlobeViewProps) {
   const zoom = useMapStore((s) => s.zoom);
   const target = useMapStore((s) => s.target);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
@@ -2105,59 +2111,62 @@ export function GlobeView({ displayTime, onLocationClick }: GlobeViewProps) {
         {tileAttribution}
       </div>
 
-      {/* Weather Radar Timeline Scrubber */}
-      {radarLayerEnabled && radarAnimState && radarAnimState.frameCount > 1 && (
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
-          <div className="flex items-center gap-1.5 bg-void-black/85 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
-            {/* Play/Pause */}
-            <button
-              type="button"
-              onClick={radarAnimState.togglePlay}
-              className="text-white/70 hover:text-white transition-colors text-xs w-4 h-4 flex items-center justify-center"
-            >
-              {radarAnimState.isPlaying ? "\u23F8" : "\u25B6"}
-            </button>
-            {/* Frame dots */}
-            <div className="flex gap-0.5 items-center">
-              {radarAnimState.timestamps.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => radarAnimState.setFrame(i)}
-                  className={`rounded-full transition-all ${
-                    i === radarAnimState.activeIndex
-                      ? "w-2 h-2 bg-plasma-orange shadow-[0_0_4px_rgba(255,107,53,0.6)]"
-                      : radarAnimState.isNowcast[i]
-                        ? "w-1.5 h-1.5 bg-blue-400/50 hover:bg-blue-400/80"
-                        : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60"
-                  }`}
-                />
-              ))}
-            </div>
-            {/* Timestamp */}
-            <span className="text-[9px] text-white/50 font-mono ml-1 min-w-[40px] text-right">
+      {/* Weather Radar Timeline Scrubber (hidden when host provides its own) */}
+      {!hideRadarScrubber &&
+        radarLayerEnabled &&
+        radarAnimState &&
+        radarAnimState.frameCount > 1 && (
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
+            <div className="flex items-center gap-1.5 bg-void-black/85 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
+              {/* Play/Pause */}
+              <button
+                type="button"
+                onClick={radarAnimState.togglePlay}
+                className="text-white/70 hover:text-white transition-colors text-xs w-4 h-4 flex items-center justify-center"
+              >
+                {radarAnimState.isPlaying ? "\u23F8" : "\u25B6"}
+              </button>
+              {/* Frame dots */}
+              <div className="flex gap-0.5 items-center">
+                {radarAnimState.timestamps.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => radarAnimState.setFrame(i)}
+                    className={`rounded-full transition-all ${
+                      i === radarAnimState.activeIndex
+                        ? "w-2 h-2 bg-plasma-orange shadow-[0_0_4px_rgba(255,107,53,0.6)]"
+                        : radarAnimState.isNowcast[i]
+                          ? "w-1.5 h-1.5 bg-blue-400/50 hover:bg-blue-400/80"
+                          : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60"
+                    }`}
+                  />
+                ))}
+              </div>
+              {/* Timestamp */}
+              <span className="text-[9px] text-white/50 font-mono ml-1 min-w-[40px] text-right">
+                {radarAnimState.activeIndex >= 0 &&
+                radarAnimState.timestamps[radarAnimState.activeIndex]
+                  ? new Date(
+                      radarAnimState.timestamps[radarAnimState.activeIndex] *
+                        1000,
+                    ).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })
+                  : "--:--"}
+              </span>
+              {/* Nowcast indicator */}
               {radarAnimState.activeIndex >= 0 &&
-              radarAnimState.timestamps[radarAnimState.activeIndex]
-                ? new Date(
-                    radarAnimState.timestamps[radarAnimState.activeIndex] *
-                      1000,
-                  ).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })
-                : "--:--"}
-            </span>
-            {/* Nowcast indicator */}
-            {radarAnimState.activeIndex >= 0 &&
-              radarAnimState.isNowcast[radarAnimState.activeIndex] && (
-                <span className="text-[8px] text-blue-400 font-medium">
-                  FCST
-                </span>
-              )}
+                radarAnimState.isNowcast[radarAnimState.activeIndex] && (
+                  <span className="text-[8px] text-blue-400 font-medium">
+                    FCST
+                  </span>
+                )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Tooltip overlay - rendered outside Canvas */}
       <MapTooltip

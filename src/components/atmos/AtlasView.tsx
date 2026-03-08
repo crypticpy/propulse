@@ -13,6 +13,7 @@ setWorkerUrl(cspWorkerUrl);
 import { useAtmosStore } from "@/stores/atmosStore";
 import { DARK_BASEMAP_STYLE } from "@/lib/atmos/mapStyles";
 import { RadarLayer2D } from "@/components/atmos/layers/RadarLayer2D";
+import { RadarScrubber2D } from "@/components/atmos/RadarScrubber2D";
 import { LightningLayer2D } from "@/components/atmos/layers/LightningLayer2D";
 import { AlertLayer2D } from "@/components/atmos/layers/AlertLayer2D";
 import { FireLayer2D } from "@/components/atmos/layers/FireLayer2D";
@@ -113,6 +114,7 @@ export function AtlasView() {
           {layerVisibility.sst && <SSTLayer2D map={mapRef.current} />}
         </>
       )}
+      {layerVisibility.radar && <RadarScrubber2D />}
     </div>
   );
 }

@@ -62,7 +62,7 @@ export const DEFAULT_LAYER_VISIBILITY: Record<AtmosLayerId, boolean> = {
   lightning: true,
   alerts: true,
   fires: false,
-  goesCloud: true,
+  goesCloud: false,
   tec: false,
   repeaters: false,
   riverGauges: false,

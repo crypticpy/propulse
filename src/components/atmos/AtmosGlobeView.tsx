@@ -3,6 +3,7 @@ import { addHours } from "date-fns";
 import { useGlobeLayerBridge } from "@/lib/atmos/globeLayerBridge";
 import { useMapStore } from "@/stores/mapStore";
 import { useAtmosStore } from "@/stores/atmosStore";
+import { useNexradAvailable } from "@/hooks/useWeatherRadar";
 import { WeatherLegend } from "@/components/atmos/WeatherLegend";
 import { RadarScrubber3D } from "@/components/atmos/RadarScrubber3D";
 
@@ -16,6 +17,10 @@ const GlobeView = lazy(() =>
  * AtmosGlobeView — Renders the PropSphere GlobeView with AtmosPulse
  * layer flags synced via the globe layer bridge, plus weather-specific
  * HTML overlays (legend, radar scrubber).
+ *
+ * Passes NEXRAD availability to the scrubber so it can display the
+ * source badge even when running its own independent timer (the 3D
+ * overlay inside GlobeView composites NEXRAD tiles onto the same canvas).
  */
 export function AtmosGlobeView() {
   // Sync atmosStore layers -> mapStore layers
@@ -28,6 +33,7 @@ export function AtmosGlobeView() {
   );
 
   const radarOn = useAtmosStore((s) => s.layerVisibility.radar);
+  const nexradAvailable = useNexradAvailable(radarOn);
 
   return (
     <div className="relative w-full h-full">
@@ -40,12 +46,12 @@ export function AtmosGlobeView() {
           </div>
         }
       >
-        <GlobeView displayTime={displayTime} />
+        <GlobeView displayTime={displayTime} hideRadarScrubber />
       </Suspense>
 
       {/* Weather-specific overlays */}
       <WeatherLegend />
-      {radarOn && <RadarScrubber3D />}
+      {radarOn && <RadarScrubber3D showNexradBadge={nexradAvailable} />}
     </div>
   );
 }

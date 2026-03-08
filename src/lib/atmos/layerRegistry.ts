@@ -19,7 +19,7 @@ export const ATMOS_LAYERS: AtmosLayerMeta[] = [
     label: "Weather Radar",
     icon: "radar",
     category: "weather",
-    description: "NEXRAD precipitation radar",
+    description: "IEM NEXRAD 1km (US) + RainViewer global radar",
   },
   {
     id: "lightning",

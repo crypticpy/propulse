@@ -1,10 +1,12 @@
 /**
  * WeatherRadarOverlay Component
  *
- * Renders animated RainViewer precipitation radar data on the 3D globe.
- * Loads frames (past + nowcast) as CanvasTexture objects (capped at MAX_LOADED_FRAMES),
- * auto-cycles through them, and exports animation control state for an
- * external scrubber UI rendered outside the R3F Canvas.
+ * Renders animated dual-source precipitation radar data on the 3D globe:
+ * - RainViewer global base layer at zoom 4 (4096x4096 canvas, 256 tiles)
+ * - IEM NEXRAD US overlay at zoom 5 composited on top (~56 tiles per frame)
+ *
+ * NEXRAD provides 1km resolution for the US, while RainViewer fills globally.
+ * Falls back to RainViewer-only at zoom 3 (2048px) on GPUs with small max texture size.
  *
  * Frame loading strategy:
  * 1. Load the latest past frame first for immediate display
@@ -25,6 +27,13 @@ import React, {
 import * as THREE from "three";
 import type { RadarManifest } from "@/lib/api/radar";
 import { getRadarTileUrlForFrame, getAllRadarFrames } from "@/lib/api/radar";
+import {
+  NEXRAD_FRAME_PRODUCTS,
+  NEXRAD_FRAME_COUNT,
+  NEXRAD_US_BOUNDS_Z5,
+  getNexradTileUrl,
+} from "@/lib/api/nexrad";
+import type { NexradProduct } from "@/lib/api/nexrad";
 
 /** Radar animation control state, exported for scrubber UI */
 export interface RadarAnimationState {
@@ -34,6 +43,8 @@ export interface RadarAnimationState {
   isLoading: boolean;
   timestamps: number[];
   isNowcast: boolean[];
+  /** Whether NEXRAD tiles were composited for this session */
+  hasNexrad: boolean;
   setFrame: (idx: number) => void;
   togglePlay: () => void;
 }
@@ -42,20 +53,48 @@ interface WeatherRadarOverlayProps {
   manifest: RadarManifest;
   /** Called when animation state changes */
   onAnimationState?: (state: RadarAnimationState) => void;
+  /** Whether to load NEXRAD US overlay tiles (default: true) */
+  enableNexrad?: boolean;
 }
 
-/** Zoom level 3: 2^3 = 8 tiles per axis, 64 total */
-const ZOOM_LEVEL = 3;
-const TILES_PER_AXIS = 2 ** ZOOM_LEVEL; // 8
+/* ── Resolution tiers ────────────────────────────────────────────── */
+
+/** Check WebGL max texture size to determine if we can use 4096px canvas */
+function getMaxTextureSize(): number {
+  try {
+    const c = document.createElement("canvas");
+    const gl = c.getContext("webgl");
+    if (!gl) return 2048;
+    const size = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
+    // Lose context immediately to free resources
+    const ext = gl.getExtension("WEBGL_lose_context");
+    ext?.loseContext();
+    return size ?? 2048;
+  } catch {
+    return 2048;
+  }
+}
+
+/** High-res tier (zoom 4, 4096px) — used when GPU supports it */
+const ZOOM_HIGH = 4;
+const TILES_HIGH = 2 ** ZOOM_HIGH; // 16
+const CANVAS_HIGH = TILES_HIGH * 256; // 4096
+
+/** Low-res fallback (zoom 3, 2048px) — for weak GPUs */
+const ZOOM_LOW = 3;
+const TILES_LOW = 2 ** ZOOM_LOW; // 8
+const CANVAS_LOW = TILES_LOW * 256; // 2048
+
+/** NEXRAD zoom level */
+const NEXRAD_ZOOM = 5;
+
 const TILE_SIZE = 256;
-/** Canvas size — 8 tiles * 256px = 2048px per axis */
-const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 2048
 /** Number of tiles to load concurrently */
-const TILE_BATCH_SIZE = 32;
+const TILE_BATCH_SIZE = 48;
 /** Number of frames to load concurrently */
-const FRAME_BATCH_SIZE = 3;
+const FRAME_BATCH_SIZE = 2;
 /** Maximum number of loaded frame textures to keep in GPU memory */
-const MAX_LOADED_FRAMES = 8;
+const MAX_LOADED_FRAMES = 12;
 
 /**
  * Load a single image from a URL, returning a promise.
@@ -88,6 +127,7 @@ async function loadInBatches<T>(
  * Post-process the radar canvas to boost color vibrancy.
  * RainViewer tiles are subtle — we saturate and brighten precipitation pixels
  * so they stand out against the dark globe.
+ * Tuned down slightly for NEXRAD blending (already vivid colors).
  */
 function boostRadarColors(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const imageData = ctx.getImageData(0, 0, w, h);
@@ -104,7 +144,7 @@ function boostRadarColors(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
     // Boost saturation: increase distance from gray
     const gray = (r + g + b) / 3;
-    const satBoost = 1.6;
+    const satBoost = 1.4;
     r = Math.min(255, Math.round(gray + (r - gray) * satBoost));
     g = Math.min(255, Math.round(gray + (g - gray) * satBoost));
     b = Math.min(255, Math.round(gray + (b - gray) * satBoost));
@@ -123,45 +163,95 @@ function boostRadarColors(ctx: CanvasRenderingContext2D, w: number, h: number) {
     data[i + 2] = b;
 
     // Boost alpha so thin precipitation layers are more visible
-    data[i + 3] = Math.min(255, Math.round(a * 1.5));
+    data[i + 3] = Math.min(255, Math.round(a * 1.3));
   }
 
   ctx.putImageData(imageData, 0, 0);
 }
 
-/**
- * Load all z=3 radar tiles for a specific frame and composite them onto a canvas.
- *
- * Tile layout at z=3: 8x8 grid (x: 0..7, y: 0..7)
- * The canvas represents lon -180..180 left-to-right, lat ~85..-85 top-to-bottom.
- */
-async function compositeRadarTilesForFrame(
-  manifest: RadarManifest,
-  frame: { time: number; path: string },
-): Promise<HTMLCanvasElement> {
-  const canvas = document.createElement("canvas");
-  canvas.width = CANVAS_SIZE;
-  canvas.height = CANVAS_SIZE;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("Failed to get 2d context");
+/* ── NEXRAD tile grid ────────────────────────────────────────────── */
 
-  const tiles: { x: number; y: number }[] = [];
-  for (let y = 0; y < TILES_PER_AXIS; y++) {
-    for (let x = 0; x < TILES_PER_AXIS; x++) {
+interface NexradTile {
+  x: number;
+  y: number;
+}
+
+/** Build the list of NEXRAD zoom-5 tiles covering the US bounding box */
+function buildNexradTileList(): NexradTile[] {
+  const { xMin, xMax, yMin, yMax } = NEXRAD_US_BOUNDS_Z5;
+  const tiles: NexradTile[] = [];
+  for (let y = yMin; y <= yMax; y++) {
+    for (let x = xMin; x <= xMax; x++) {
       tiles.push({ x, y });
     }
   }
+  return tiles;
+}
 
-  const tasks = tiles.map((t) => {
-    const url = getRadarTileUrlForFrame(manifest, frame, ZOOM_LEVEL, t.x, t.y);
+const NEXRAD_TILES = buildNexradTileList();
+
+/**
+ * For a given RainViewer frame timestamp, find the closest NEXRAD product.
+ * NEXRAD products are at 5-min intervals going back 55 minutes.
+ */
+function findClosestNexradProduct(frameTimestamp: number): NexradProduct {
+  const now = Math.floor(Date.now() / 1000);
+  const ageSeconds = now - frameTimestamp;
+  const ageMinutes = Math.max(0, Math.round(ageSeconds / 60));
+
+  // NEXRAD products: 0, 5, 10, ..., 55 minutes ago
+  // Snap to nearest 5-minute interval
+  const snapped = Math.min(55, Math.round(ageMinutes / 5) * 5);
+  const idx = NEXRAD_FRAME_COUNT - 1 - snapped / 5;
+  const clampedIdx = Math.max(0, Math.min(NEXRAD_FRAME_COUNT - 1, idx));
+  return NEXRAD_FRAME_PRODUCTS[clampedIdx];
+}
+
+/* ── Frame compositing ───────────────────────────────────────────── */
+
+/**
+ * Composite RainViewer tiles onto a canvas, then overlay NEXRAD US tiles.
+ *
+ * RainViewer layer: zoom-level tiles covering the full globe.
+ * NEXRAD layer: zoom-5 tiles for the US, drawn on top of RainViewer pixels.
+ *
+ * At zoom 4 canvas (4096px):
+ *   - Each zoom-4 tile = 256px
+ *   - Each zoom-5 tile covers half a zoom-4 tile = 128px in the canvas
+ *   - Zoom-5 tile (x5, y5) maps to canvas position: (x5 * 128, y5 * 128)
+ */
+async function compositeRadarFrame(
+  manifest: RadarManifest,
+  frame: { time: number; path: string },
+  zoomLevel: number,
+  tilesPerAxis: number,
+  canvasSize: number,
+  includeNexrad: boolean,
+): Promise<HTMLCanvasElement> {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasSize;
+  canvas.height = canvasSize;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Failed to get 2d context");
+
+  // 1) Load and composite RainViewer global tiles
+  const rvTiles: { x: number; y: number }[] = [];
+  for (let y = 0; y < tilesPerAxis; y++) {
+    for (let x = 0; x < tilesPerAxis; x++) {
+      rvTiles.push({ x, y });
+    }
+  }
+
+  const rvTasks = rvTiles.map((t) => {
+    const url = getRadarTileUrlForFrame(manifest, frame, zoomLevel, t.x, t.y);
     return () => loadImage(url);
   });
 
-  const results = await loadInBatches(tasks, TILE_BATCH_SIZE);
+  const rvResults = await loadInBatches(rvTasks, TILE_BATCH_SIZE);
 
-  results.forEach((result, i) => {
+  rvResults.forEach((result, i) => {
     if (result.status === "fulfilled") {
-      const tile = tiles[i];
+      const tile = rvTiles[i];
       ctx.drawImage(
         result.value,
         tile.x * TILE_SIZE,
@@ -172,16 +262,68 @@ async function compositeRadarTilesForFrame(
     }
   });
 
-  // Boost color vibrancy after compositing all tiles
-  boostRadarColors(ctx, CANVAS_SIZE, CANVAS_SIZE);
+  // 2) Overlay NEXRAD US tiles (zoom 5) on top of RainViewer
+  if (includeNexrad && zoomLevel === ZOOM_HIGH) {
+    const product = findClosestNexradProduct(frame.time);
+
+    const nxTasks = NEXRAD_TILES.map((t) => {
+      const url = getNexradTileUrl(product, NEXRAD_ZOOM, t.x, t.y);
+      return () => loadImage(url);
+    });
+
+    const nxResults = await loadInBatches(nxTasks, TILE_BATCH_SIZE);
+
+    // Each zoom-5 tile at 256px original drawn into 128x128 on the zoom-4 canvas
+    const scaledSize = canvasSize / 2 ** NEXRAD_ZOOM; // 4096 / 32 = 128
+    nxResults.forEach((result, i) => {
+      if (result.status === "fulfilled") {
+        const tile = NEXRAD_TILES[i];
+        ctx.drawImage(
+          result.value,
+          tile.x * scaledSize,
+          tile.y * scaledSize,
+          scaledSize,
+          scaledSize,
+        );
+      }
+    });
+  }
+
+  // 3) Post-process colors
+  boostRadarColors(ctx, canvasSize, canvasSize);
 
   return canvas;
 }
 
+/* ── R3F Component ───────────────────────────────────────────────── */
+
 function WeatherRadarOverlayInner({
   manifest,
   onAnimationState,
+  enableNexrad = true,
 }: WeatherRadarOverlayProps) {
+  // Determine resolution tier once on mount
+  const tier = useMemo(() => {
+    const maxTex = getMaxTextureSize();
+    if (maxTex >= 4096) {
+      return {
+        zoom: ZOOM_HIGH,
+        tiles: TILES_HIGH,
+        canvas: CANVAS_HIGH,
+        nexrad: enableNexrad,
+      };
+    }
+    // Fallback: zoom 3, no NEXRAD
+    return {
+      zoom: ZOOM_LOW,
+      tiles: TILES_LOW,
+      canvas: CANVAS_LOW,
+      nexrad: false,
+    };
+    // enableNexrad is a prop, but we only read it once at mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Frame textures indexed by their position in the allFrames array
   const framesRef = useRef<Map<number, THREE.CanvasTexture>>(new Map());
   const [loadedCount, setLoadedCount] = useState(0);
@@ -223,7 +365,14 @@ function WeatherRadarOverlayInner({
       const frame = allFrames[idx];
       if (!frame) return null;
 
-      const canvas = await compositeRadarTilesForFrame(manifest, frame);
+      const canvas = await compositeRadarFrame(
+        manifest,
+        frame,
+        tier.zoom,
+        tier.tiles,
+        tier.canvas,
+        tier.nexrad,
+      );
       if (cancelled) return null;
 
       const tex = new THREE.CanvasTexture(canvas);
@@ -288,7 +437,7 @@ function WeatherRadarOverlayInner({
       map.forEach((tex) => tex.dispose());
       map.clear();
     };
-  }, [manifest, allFrames, pastCount]);
+  }, [manifest, allFrames, pastCount, tier]);
 
   // Animation timer: auto-advance frames
   useEffect(() => {
@@ -341,6 +490,7 @@ function WeatherRadarOverlayInner({
       isLoading,
       timestamps: allFrames.map((f) => f.time),
       isNowcast: allFrames.map((_, i) => i >= pastCount),
+      hasNexrad: tier.nexrad,
       setFrame,
       togglePlay,
     });
@@ -350,6 +500,7 @@ function WeatherRadarOverlayInner({
     isPlaying,
     isLoading,
     pastCount,
+    tier.nexrad,
     onAnimationState,
     setFrame,
     togglePlay,
@@ -397,5 +548,6 @@ export const WeatherRadarOverlay = React.memo(
   WeatherRadarOverlayInner,
   (prev, next) =>
     prev.manifest === next.manifest &&
-    prev.onAnimationState === next.onAnimationState,
+    prev.onAnimationState === next.onAnimationState &&
+    prev.enableNexrad === next.enableNexrad,
 );

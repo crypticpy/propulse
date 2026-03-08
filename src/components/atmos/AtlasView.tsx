@@ -55,6 +55,9 @@ export function AtlasView() {
     );
 
     map.on("load", () => {
+      // Resize to ensure the canvas matches the container's actual dimensions
+      // (handles race between lazy-load mount and flex layout calculation)
+      map.resize();
       setMapReady(true);
     });
 
@@ -84,7 +87,7 @@ export function AtlasView() {
   }, []);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="absolute inset-0">
       <div ref={containerRef} className="absolute inset-0" />
       {mapReady && mapRef.current && (
         <>

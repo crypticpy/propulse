@@ -23,6 +23,11 @@ export const DARK_BASEMAP_STYLE: StyleSpecification = {
   },
   layers: [
     {
+      id: "background",
+      type: "background",
+      paint: { "background-color": "#0a0a1a" },
+    },
+    {
       id: "carto-dark-layer",
       type: "raster",
       source: "carto-dark",

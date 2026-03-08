@@ -46,11 +46,11 @@ interface WeatherRadarOverlayProps {
   onAnimationState?: (state: RadarAnimationState) => void;
 }
 
-/** Zoom 3: 8×8 = 64 tiles, 2048px canvas */
+/** Zoom 3 with 512px tiles: 8×8 = 64 tiles, 4096px canvas (4× sharper) */
 const ZOOM_LEVEL = 3;
 const TILES_PER_AXIS = 8;
-const TILE_SIZE = 256;
-const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 2048
+const TILE_SIZE = 512;
+const CANVAS_SIZE = TILES_PER_AXIS * TILE_SIZE; // 4096
 /** Tiles to load concurrently — keep low to avoid 429 rate limits */
 const TILE_BATCH_SIZE = 8;
 /** Load one frame at a time to avoid hammering the API */
@@ -142,7 +142,14 @@ async function compositeRadarTilesForFrame(
   }
 
   const tasks = tiles.map((t) => {
-    const url = getRadarTileUrlForFrame(manifest, frame, ZOOM_LEVEL, t.x, t.y);
+    const url = getRadarTileUrlForFrame(
+      manifest,
+      frame,
+      ZOOM_LEVEL,
+      t.x,
+      t.y,
+      TILE_SIZE as 256 | 512,
+    );
     return () => loadImage(url);
   });
 

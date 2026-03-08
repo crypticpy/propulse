@@ -56,8 +56,9 @@ export function getRadarTileUrlForFrame(
   z: number,
   x: number,
   y: number,
+  tileSize: 256 | 512 = 256,
 ): string {
-  return `${manifest.host}${frame.path}/256/${z}/${x}/${y}/6/1_1.png`;
+  return `${manifest.host}${frame.path}/${tileSize}/${z}/${x}/${y}/6/1_1.png`;
 }
 
 /** Get all frames in chronological order (past + nowcast) */

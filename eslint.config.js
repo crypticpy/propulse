@@ -14,6 +14,7 @@ export default tseslint.config(
       "dev-dist",
       "bridge/dist",
       "collector/dist",
+      "ml/", // Python ML workspace (venv bundles third-party JS)
     ],
   },
   {

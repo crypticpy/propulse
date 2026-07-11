@@ -8,6 +8,7 @@ import { collectRbn } from "./collectors/rbn.js";
 import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
+import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
 import { startLightning, stopLightning } from "./collectors/lightning.js";
 import { collectSatellites } from "./collectors/satellites.js";
@@ -59,6 +60,11 @@ async function main(): Promise<void> {
   // Hourly aggregator (checks on interval, only runs on new hour boundary)
   register("aggregator", pollIntervals.aggregator, () =>
     computeHourlyStats(db, config),
+  );
+
+  // Path-level hourly aggregator (ML training flywheel — never pruned)
+  register("path-aggregator", pollIntervals.aggregator, () =>
+    computePathHourlyStats(db, config),
   );
 
   // Auto-prune: retention periods configurable via RETENTION_* env vars

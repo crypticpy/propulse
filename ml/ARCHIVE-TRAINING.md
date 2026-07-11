@@ -20,11 +20,27 @@ own-data-trained on that test, every conclusion transfers to prod.
 
 | Source | Coverage | Volume | What it adds |
 |---|---|---|---|
-| WSPR archive (wsprnet.org/drupal/downloads) | 2008 → now, monthly CSV dumps | ~10B spots total, ~50–500M/month | **TX power in every record** → calibrated SNR-per-watt; full solar cycles 24+25; all bands incl. LF/MF |
-| RBN archive (reversebeacon.net, daily zips) | 2009 → now | ~100–200M/yr | CW skimmer network — same source as 85% of our own data, so distribution-matched |
+| **CEDAR Madrigal "Amateur Radio Signal Report"** (cedar.openmadrigal.org, instrument 8308) | **2009-02 → ~1 month behind now**, daily HDF5 | ~150M points/day at peak | **The FT8 history that "doesn't exist" elsewhere**: PSKReporter + RBN + WSPRNet merged, geolocated (TX/RX lat/lon per spot!), SNR, mode, freq, path length. Maintained by MIT Haystack + HamSCI. Verified 2026-07-11. |
+| WSPR archive (wsprnet.org dumps or **wspr.live ClickHouse**) | 2008 → now | ~10B spots | **TX power in every record** → calibrated SNR-per-watt; full solar cycles 24+25 |
+| RBN archive (reversebeacon.net/raw_data, daily zips) | 2009 → now | ~450K/day | CW skimmer network, distribution-matched to 85% of our own data. **Verified: archive is CW+RTTY ONLY — FT8 exists on live telnet :7001 but is NOT in the raw archive.** |
 | NASA OMNI2 (omniweb.gsfc.nasa.gov) | 1963 → now, hourly | tiny | Kp, F10.7, Bz/By/Bt, solar wind, Dst — joins everything |
 | GFZ Hp30/Kp (kp.gfz-potsdam.de) | definitive Kp + 30-min resolution | tiny | sub-hour geomagnetic dynamics |
-| NOAA GOES X-ray archive | 2010 → now | small | flare/D-layer absorption history |
+| NOAA GOES X-ray/proton archive (NCEI) | 1974 → now | small | flare/D-layer absorption history |
+
+### Measured-ionosphere upgrades (replace our proxies with instruments)
+
+| Source | What it adds |
+|---|---|
+| GIRO/DIDBase ionosondes (lgdc.uml.edu) | **Measured foF2/hmF2/MUF(3000)** from ~60+ stations, decades of history — replaces our SFI secant-law MUF proxy with ground truth near the path midpoint |
+| GNSS TEC maps (Madrigal GNSS TEC, or CODE IONEX 1998→) | Measured total electron content on a global grid → per-path ionization features, same portal as the spot data |
+| IGRF geomagnetic coords (pure computation, `apexpy`/`ppigrf`) | Magnetic latitude of path endpoints/midpoint + auroral-zone-crossing flag — free feature, no download; auroral paths behave categorically differently |
+| Land/sea fraction along path (Natural Earth coastlines, computation) | Sea-water multi-hop reflection advantage on low bands |
+| NOAA POES hemispheric power (1978→) | Auroral oval intensity history — sharper than Kp for polar paths |
+
+Climate/weather data is NOT useful for the HF F-layer model (ionosphere ≠
+troposphere). It becomes relevant later for the VHF/6m sporadic-E + tropo
+model (ERA5 reanalysis, open, 1940→) and possibly low-band QRN noise
+priors (thunderstorm/CAPE climatology). Skip for now.
 
 WSPR is the crown jewel: reporters log TX power, so SNR becomes a physical
 quantity (`snr_per_watt`), and 2008–2025 spans two solar minima and two
@@ -86,8 +102,9 @@ lessons (equi-joins only, TEMP VIEWs, RANGE window frames) carry over as-is.
 
 1. Reactivate collector with `path_hourly_stats` flywheel (done, this repo)
    so live 2026 data accrues while archive work proceeds.
-2. Download WSPR 2014–2025 (one cycle) + OMNI2 first — ~300 GB, one weekend
-   of downloads; validate the pipeline end-to-end on one year before
-   committing to the full 2008+ pull.
+2. Pull one month of Madrigal amateur-radio HDF5 + one month of wspr.live
+   aggregates + OMNI2 first; validate the pipeline end-to-end on that slice
+   before committing to the full 2009+ pull. Madrigal covers the FT8/digital
+   history nothing else has — prioritize it over raw WSPR dumps.
 3. Scale to full archive + RBN on the M5 Max; GPU rental only if learning
    curves are still climbing at the 128 GB ceiling.

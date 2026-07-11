@@ -126,3 +126,36 @@ Two strategic reads:
 Next moves in order: mode-aware labels + SNR head (Tier 2, product-critical),
 collector reactivation + path_hourly_stats flywheel, WSPR/RBN/OMNI archive
 training on the M5 Max (Tier 4). Skip further Tier-1/3 grinding.
+
+## v4 outcome — mode-aware labels + SNR quantile head (2026-07-11)
+
+Dataset: 41.1M cells with a mode_class dimension (cw | digital), 154M usable
+path spots (112.7M cw after callsign-map grid backfill). Cells are per-mode,
+so headline numbers are **not directly comparable** to pooled v2/v3.
+
+`ml/models/path_open_v4_full.json` holdout (Mar 23–Apr 5, open rate 10.3%):
+
+| slice | AUC | PR-AUC | Brier | n | open |
+|---|---|---|---|---|---|
+| all | 0.9569 | 0.7594 | 0.0462 | 18.3M | 10.3% |
+| cw | 0.9301 | 0.7541 | 0.0832 | 5.3M | 17.9% |
+| digital | 0.9672 | 0.7728 | 0.0312 | 13.0M | 7.3% |
+| storm kp≥4 | 0.9539 | 0.7385 | 0.0462 | 1.5M | 9.8% |
+| ice-cold | 0.9280 | 0.2503 | 0.0201 | 14.9M | 2.4% |
+
+Threshold precision unchanged and safe-side: claim ≥70% → 89.7% actual,
+≥90% → 97.1%. Digital is the easier problem (denser, more deterministic
+FT8 reporting); CW pays for skimmer-coverage variance. Ice-cold PR-AUC
+(~0.25) confirms the v3 read — data, not features, is the lever there.
+
+**SNR quantile head** (`snr_q{10,50,90}_v4.txt`, LightGBM, positives only):
+
+- p50 MAE **4.58 dB** vs 13.07 dB constant-median baseline (−65% error)
+- p10–p90 empirical coverage **78.8%** (target 80% — near-perfectly
+  calibrated out of the box)
+- identical skill per mode (cw 4.57 / digital 4.59 dB)
+
+This unlocks the product surface: "expected report S5–S9" ranges and the
+SSB derivation P(SSB) ≈ P(digital open) × P(SNR margin ≥ +14 dB) via the
+quantile spread. Tier 2 is done; remaining levers are the flywheel
+(built — see ARCHIVE-TRAINING.md order of operations) and Tier 4 archives.

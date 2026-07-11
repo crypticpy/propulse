@@ -42,6 +42,15 @@ lessons (equi-joins only, TEMP VIEWs, RANGE window frames) carry over as-is.
    `convert_spots.py` (hour_utc, band, mode_class, tx/rx_field, snr,
    callsigns) + `tx_power_dbm` for WSPR. Keep 4-char grid too (below).
    ~2–4 TB raw → ~100–200 GB Parquet. Disk, not RAM, is the constraint.
+   **Preferred WSPR route (2026-07-11): wspr.live** — the full WSPR history
+   is a public ClickHouse DB (`http://db1.wspr.live/?query=...`, table
+   `wspr.rx`, partitioned by month). Push the path-hour GROUP BY into their
+   server and download pre-aggregated cells month by month instead of raw
+   dumps — ~100× less transfer, lands directly in our training schema.
+   Fall back to raw dumps only if we need sub-hour recency features.
+   Note: PSKReporter (FT8) has NO historical archive — live MQTT only
+   (mqtt.pskreporter.info) — which is why the collector flywheel must run;
+   digital path data is only collectible forward.
 2. **Solar join** (`archive/solar_history.py`): OMNI2 hourly + GFZ Kp + GOES
    → one `solar_hourly.parquet` (1976→2026). Fills the xray/dst/proton gaps
    our own snapshots had.

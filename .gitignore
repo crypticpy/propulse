@@ -56,3 +56,4 @@ out/
 
 # Database setup (contains credentials)
 db_setup/
+data/exports/

@@ -24,6 +24,7 @@ import { NightLightsOverlay } from "./NightLightsOverlay";
 import { LabelsOverlay } from "./LabelsOverlay";
 import { AuroraOverlay } from "./AuroraOverlay";
 import { MUFOverlay } from "./MUFOverlay";
+import { SporadicEOverlay } from "./SporadicEOverlay";
 import { PathArc } from "./PathArc";
 import {
   LocationMarker,
@@ -203,6 +204,15 @@ function GlobeScene({
       {/* MUF overlay */}
       {layers.muf && currentSFI && (
         <MUFOverlay date={displayTime} sfi={currentSFI} opacity={0.45} />
+      )}
+
+      {/* Sporadic E overlay */}
+      {layers.sporadicE && (
+        <SporadicEOverlay
+          date={displayTime}
+          opacity={0.5}
+          minProbability={10}
+        />
       )}
 
       {/* Live spot arcs */}

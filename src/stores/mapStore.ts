@@ -10,6 +10,7 @@ export const LAYER_PRESETS = {
     aurora: false,
     muf: true,
     nvis: false,
+    sporadicE: false,
     spots: true,
     nightLights: true,
     labels: false,
@@ -20,6 +21,7 @@ export const LAYER_PRESETS = {
     aurora: false,
     muf: false,
     nvis: false,
+    sporadicE: false,
     spots: true,
     nightLights: false,
     labels: false,
@@ -30,6 +32,7 @@ export const LAYER_PRESETS = {
     aurora: true,
     muf: false,
     nvis: false,
+    sporadicE: true,
     spots: false,
     nightLights: false,
     labels: false,
@@ -40,6 +43,7 @@ export const LAYER_PRESETS = {
     aurora: false,
     muf: false,
     nvis: true,
+    sporadicE: false,
     spots: false,
     nightLights: true,
     labels: true,
@@ -87,6 +91,7 @@ interface MapState {
     aurora: boolean;
     muf: boolean;
     nvis: boolean;
+    sporadicE: boolean;
     spots: boolean;
     nightLights: boolean;
     labels: boolean;
@@ -125,6 +130,7 @@ const initialState = {
     aurora: false,
     muf: false,
     nvis: false,
+    sporadicE: false,
     spots: true,
     nightLights: true,
     labels: false,

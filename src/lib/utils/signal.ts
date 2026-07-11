@@ -16,6 +16,16 @@ import type {
   OperatingMode,
   ModeParameters,
 } from "../../types/signal";
+import {
+  getGrayLineEnhancementForPath,
+  getEffectiveBandEnhancement,
+  type GrayLineEnhancement,
+} from "./grayLineEnhancement";
+import {
+  getPolarAbsorptionForPath,
+  type PolarAbsorption,
+} from "./polarAbsorption";
+import { isTEPPath, detectTEP, type TEPResult } from "./ionosphere";
 
 /**
  * Mode-specific parameters for signal calculations
@@ -667,4 +677,249 @@ export function isSignalDecodable(snrDb: number, mode: OperatingMode): boolean {
   const modeParams = MODE_PARAMETERS[mode];
   // Allow 3 dB margin for fading
   return snrDb >= modeParams.minSNR - 3;
+}
+
+// ============================================================================
+// Enhanced Signal Prediction with Gray Line, Polar, and TEP Effects
+// ============================================================================
+
+/**
+ * Enhanced signal prediction including all propagation effects
+ */
+export interface EnhancedSignalPrediction extends SignalPrediction {
+  /** Gray line enhancement in dB (positive = benefit) */
+  grayLineEnhancement: number;
+  /** Polar absorption in dB (positive = loss) */
+  polarAbsorption: number;
+  /** TEP enhancement in dB (positive = benefit) */
+  tepEnhancement: number;
+  /** Gray line analysis details */
+  grayLine: GrayLineEnhancement;
+  /** Polar absorption details */
+  polar: PolarAbsorption;
+  /** TEP detection result */
+  tep: TEPResult;
+  /** Special propagation notes */
+  notes: string[];
+}
+
+/**
+ * Get band name from frequency
+ */
+function getBandFromFrequency(frequencyMHz: number): string {
+  if (frequencyMHz >= 50) return "6m";
+  if (frequencyMHz >= 28) return "10m";
+  if (frequencyMHz >= 24) return "12m";
+  if (frequencyMHz >= 21) return "15m";
+  if (frequencyMHz >= 18) return "17m";
+  if (frequencyMHz >= 14) return "20m";
+  if (frequencyMHz >= 10) return "30m";
+  if (frequencyMHz >= 7) return "40m";
+  if (frequencyMHz >= 5) return "60m";
+  if (frequencyMHz >= 3.5) return "80m";
+  return "160m";
+}
+
+/**
+ * Predict signal strength with all propagation enhancements
+ *
+ * This function extends the basic predictSignalStrength with:
+ * - Gray line enhancement calculation
+ * - Polar absorption calculation
+ * - TEP (Trans-Equatorial Propagation) detection
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param frequencyMHz - Operating frequency in MHz
+ * @param distanceKm - Path distance in kilometers
+ * @param hops - Number of ionospheric hops
+ * @param absorptionDb - D-layer absorption in dB
+ * @param txPowerWatts - Transmitter power in watts
+ * @param mode - Operating mode
+ * @param kIndex - Current K-index (0-9)
+ * @param time - Current time for calculations
+ * @param antennaGainDbi - Combined TX+RX antenna gain in dBi
+ * @returns Enhanced signal prediction with all effects
+ */
+export function predictEnhancedSignalStrength(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  frequencyMHz: number,
+  distanceKm: number,
+  hops: number,
+  absorptionDb: number,
+  txPowerWatts: number,
+  mode: OperatingMode,
+  kIndex: number,
+  time: Date,
+  antennaGainDbi: number = 0,
+): EnhancedSignalPrediction {
+  const notes: string[] = [];
+  const band = getBandFromFrequency(frequencyMHz);
+
+  // Calculate gray line enhancement
+  const grayLine = getGrayLineEnhancementForPath(lat1, lon1, lat2, lon2, time);
+  const grayLineEnhancement = getEffectiveBandEnhancement(
+    grayLine.enhancement,
+    band,
+  );
+
+  if (grayLine.isEnhanced && grayLineEnhancement > 0.5) {
+    notes.push(
+      `Gray line: +${grayLineEnhancement.toFixed(1)} dB (${grayLine.type})`,
+    );
+  }
+
+  // Calculate polar absorption
+  const polar = getPolarAbsorptionForPath(lat1, lon1, lat2, lon2, kIndex);
+
+  if (polar.isAffected && polar.absorption > 1) {
+    notes.push(`Polar path: -${polar.absorption.toFixed(1)} dB`);
+  }
+
+  // Check for TEP conditions
+  const tep = detectTEP(lat1, lon1, lat2, lon2, frequencyMHz, time);
+  const tepEnhancement = tep.enhancement;
+
+  if (tep.isTEP && tepEnhancement > 0) {
+    notes.push(`TEP: +${tepEnhancement.toFixed(1)} dB`);
+  }
+
+  // Calculate base path loss components
+  const freeSpaceLoss = calculateFreeSpaceLoss(frequencyMHz, distanceKm);
+  const groundReflectionLoss = calculateGroundReflectionLoss(hops, "mixed");
+
+  // Calculate total path loss with all effects
+  // Base loss - enhancements + polar absorption
+  const basePathLoss = calculateTotalPathLoss(
+    frequencyMHz,
+    distanceKm,
+    hops,
+    absorptionDb,
+    "mixed",
+  );
+
+  const effectivePathLoss =
+    basePathLoss - grayLineEnhancement - tepEnhancement + polar.absorption;
+
+  // Calculate expected SNR with effective path loss
+  const expectedSNR = calculateExpectedSNR(
+    txPowerWatts,
+    effectivePathLoss,
+    mode,
+    antennaGainDbi,
+  );
+
+  // Calculate received signal level for S-meter reading
+  const txPowerDbm = 10 * Math.log10(txPowerWatts * 1000);
+  const rxSignalDbm = txPowerDbm + antennaGainDbi - effectivePathLoss;
+
+  // Get S-unit reading
+  const sUnit = dBmToSUnits(rxSignalDbm);
+
+  // Classify signal strength
+  const signalClass = getSignalClass(expectedSNR, mode);
+
+  // Calculate prediction confidence
+  let confidence = calculateConfidence(distanceKm, hops, expectedSNR, mode);
+
+  // Adjust confidence for special conditions
+  if (polar.severity === "severe" || polar.severity === "blackout") {
+    confidence -= 15;
+  } else if (polar.severity === "moderate") {
+    confidence -= 5;
+  }
+
+  if (grayLine.quality === "excellent") {
+    confidence += 5; // Gray line conditions are fairly predictable
+  }
+
+  if (tep.isTEP) {
+    confidence -= 10; // TEP is less predictable
+  }
+
+  confidence = Math.max(10, Math.min(95, confidence));
+
+  return {
+    pathLoss: Math.round(effectivePathLoss * 10) / 10,
+    freeSpaceLoss: Math.round(freeSpaceLoss * 10) / 10,
+    absorptionLoss: absorptionDb,
+    groundReflectionLoss,
+    expectedSNR,
+    sUnit,
+    signalClass,
+    confidence: Math.round(confidence),
+    mode,
+    grayLineEnhancement: Math.round(grayLineEnhancement * 10) / 10,
+    polarAbsorption: Math.round(polar.absorption * 10) / 10,
+    tepEnhancement: Math.round(tepEnhancement * 10) / 10,
+    grayLine,
+    polar,
+    tep,
+    notes,
+  };
+}
+
+/**
+ * Check if a path benefits from gray line conditions
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param time - Current time
+ * @returns True if path has significant gray line enhancement
+ */
+export function hasGrayLineEnhancement(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  time: Date,
+): boolean {
+  const grayLine = getGrayLineEnhancementForPath(lat1, lon1, lat2, lon2, time);
+  return grayLine.isEnhanced && grayLine.enhancement >= 3;
+}
+
+/**
+ * Check if a path is affected by polar absorption
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param kIndex - Current K-index
+ * @returns True if path has significant polar absorption
+ */
+export function hasPolarAbsorption(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  kIndex: number,
+): boolean {
+  const polar = getPolarAbsorptionForPath(lat1, lon1, lat2, lon2, kIndex);
+  return polar.isAffected && polar.absorption >= 10;
+}
+
+/**
+ * Check if a path supports TEP conditions
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @returns True if path crosses magnetic equator
+ */
+export function supportsTEP(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): boolean {
+  return isTEPPath(lat1, lon1, lat2, lon2);
 }

@@ -125,13 +125,48 @@ const K_TO_A_TABLE = [
 ];
 
 /**
+ * Full Kp-to-Ap conversion table (ITU standard, 0.33 increments)
+ */
+const FULL_KP_AP_TABLE = [
+  { kp: "0", ap: 0 },
+  { kp: "0+", ap: 2 },
+  { kp: "1-", ap: 3 },
+  { kp: "1", ap: 4 },
+  { kp: "1+", ap: 5 },
+  { kp: "2-", ap: 6 },
+  { kp: "2", ap: 7 },
+  { kp: "2+", ap: 9 },
+  { kp: "3-", ap: 12 },
+  { kp: "3", ap: 15 },
+  { kp: "3+", ap: 18 },
+  { kp: "4-", ap: 22 },
+  { kp: "4", ap: 27 },
+  { kp: "4+", ap: 32 },
+  { kp: "5-", ap: 39 },
+  { kp: "5", ap: 48 },
+  { kp: "5+", ap: 56 },
+  { kp: "6-", ap: 67 },
+  { kp: "6", ap: 80 },
+  { kp: "6+", ap: 94 },
+  { kp: "7-", ap: 111 },
+  { kp: "7", ap: 132 },
+  { kp: "7+", ap: 154 },
+  { kp: "8-", ap: 179 },
+  { kp: "8", ap: 207 },
+  { kp: "8+", ap: 236 },
+  { kp: "9-", ap: 300 },
+  { kp: "9", ap: 400 },
+];
+
+/**
  * AIndexModal Component
  *
  * Displays detailed A-index information including:
- * - Current A-index value
+ * - Current Ap equivalent value (instantaneous, not 24hr average)
  * - Relationship to K-index
  * - Interpretation scale
  * - Impact on propagation
+ * - Educational content about Ap vs true A-index
  */
 export const AIndexModal: React.FC<AIndexModalProps> = ({
   isOpen,
@@ -150,8 +185,8 @@ export const AIndexModal: React.FC<AIndexModalProps> = ({
     <DetailModal
       isOpen={isOpen}
       onClose={onClose}
-      title="A-Index"
-      subtitle="24-hour geomagnetic activity average"
+      title="Ap Index"
+      subtitle="Instantaneous geomagnetic activity equivalent"
       size="lg"
     >
       <div className="space-y-6">
@@ -160,7 +195,7 @@ export const AIndexModal: React.FC<AIndexModalProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
-                Current A-Index
+                Current Ap Equivalent
               </span>
               <div className="flex items-baseline gap-2 mt-1">
                 <span
@@ -185,18 +220,57 @@ export const AIndexModal: React.FC<AIndexModalProps> = ({
           </div>
         </Card>
 
+        {/* Important Clarification */}
+        <Card className="p-4 border-l-4 border-caution-amber">
+          <h3 className="text-sm font-semibold text-caution-amber mb-2">
+            Ap Equivalent vs True A-Index
+          </h3>
+          <p className="text-sm text-gray-400 leading-relaxed">
+            <strong className="text-white">What you see here:</strong> The Ap
+            equivalent for the current Kp value. This shows what the
+            instantaneous geomagnetic activity level means on the linear Ap
+            scale.
+          </p>
+          <p className="text-sm text-gray-400 leading-relaxed mt-2">
+            <strong className="text-white">The true daily A-index:</strong> An
+            average of eight 3-hourly Ap values over a 24-hour period. This
+            requires a full day of measurements and is published by NOAA/GFZ
+            after the day completes.
+          </p>
+          <p className="text-xs text-gray-500 mt-2 italic">
+            For propagation decisions, the current Ap equivalent is often more
+            useful as it reflects real-time conditions rather than a daily
+            average.
+          </p>
+        </Card>
+
         {/* What is the A-Index? */}
         <Card className="p-4">
           <h3 className="text-sm font-semibold text-white mb-2">
-            What is the A-Index?
+            Understanding A-Index and Ap
           </h3>
-          <p className="text-sm text-gray-400 leading-relaxed">
-            The A-index is a daily average of geomagnetic activity derived from
-            the eight 3-hourly K-index values. Unlike the K-index which uses a
-            quasi-logarithmic scale (0-9), the A-index is linear and ranges from
-            0 to 400. This makes it easier to compare activity levels across
-            different days and to calculate longer-term averages.
-          </p>
+          <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
+            <p>
+              The <strong className="text-white">Ap index</strong> is the
+              linearized equivalent of a Kp value. While Kp uses a
+              quasi-logarithmic scale (0-9), Ap converts this to a linear scale
+              (0-400) that better represents the actual magnetic field
+              disturbance amplitude.
+            </p>
+            <p>
+              The <strong className="text-white">true A-index</strong> (daily A)
+              is calculated as the arithmetic mean of eight consecutive 3-hourly
+              Ap values over a complete UT day. The formula is:
+            </p>
+            <div className="bg-white/5 rounded-lg p-3 font-mono text-xs text-center border border-white/10">
+              A = (Ap₁ + Ap₂ + Ap₃ + Ap₄ + Ap₅ + Ap₆ + Ap₇ + Ap₈) / 8
+            </div>
+            <p>
+              Because this requires 24 hours of data, the true A-index is only
+              available after the UT day ends. For real-time monitoring,
+              Propulse displays the Ap equivalent of the current Kp reading.
+            </p>
+          </div>
         </Card>
 
         {/* K-Index Relationship */}
@@ -214,23 +288,22 @@ export const AIndexModal: React.FC<AIndexModalProps> = ({
               </span>
             </div>
             <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-              <span className="text-xs text-gray-500 block">
-                Expected A (from K)
-              </span>
+              <span className="text-xs text-gray-500 block">Ap Equivalent</span>
               <span className="text-2xl font-orbitron font-bold text-gray-300">
-                ~{expectedAFromK ?? "N/A"}
+                {expectedAFromK ?? Math.round(currentValue)}
               </span>
             </div>
           </div>
 
           <p className="text-sm text-gray-400 mb-3">
-            The A-index is calculated by converting each K value to an
-            "equivalent amplitude" (a) and averaging. The conversion is
-            non-linear:
+            The Kp-to-Ap conversion is non-linear. Notice how equal Kp
+            increments result in increasingly larger Ap jumps at higher activity
+            levels. This reflects the logarithmic nature of magnetic
+            disturbances:
           </p>
 
-          {/* K to A conversion table */}
-          <div className="overflow-x-auto">
+          {/* Simple K to A conversion table */}
+          <div className="overflow-x-auto mb-4">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10">
@@ -253,9 +326,7 @@ export const AIndexModal: React.FC<AIndexModalProps> = ({
               </thead>
               <tbody>
                 <tr>
-                  <td className="py-2 px-3 text-gray-400 font-medium">
-                    A Equiv.
-                  </td>
+                  <td className="py-2 px-3 text-gray-400 font-medium">Ap</td>
                   {K_TO_A_TABLE.map((row) => (
                     <td
                       key={row.k}
@@ -273,9 +344,89 @@ export const AIndexModal: React.FC<AIndexModalProps> = ({
             </table>
           </div>
 
-          <p className="text-xs text-gray-500 mt-3">
-            Formula: A = average of eight 3-hourly "a" values (converted from K)
-          </p>
+          {/* Full ITU table (collapsed/expandable) */}
+          <details className="mt-4">
+            <summary className="text-xs text-cosmic-cyan cursor-pointer hover:text-white transition-colors">
+              View full ITU Kp-to-Ap table (including fractional Kp values)
+            </summary>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="py-1 px-2 text-left text-gray-400">Kp</th>
+                    {FULL_KP_AP_TABLE.slice(0, 10).map((row) => (
+                      <th
+                        key={row.kp}
+                        className="py-1 px-2 text-center font-mono text-gray-300"
+                      >
+                        {row.kp}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-white/5">
+                    <td className="py-1 px-2 text-gray-400">Ap</td>
+                    {FULL_KP_AP_TABLE.slice(0, 10).map((row) => (
+                      <td
+                        key={row.kp}
+                        className="py-1 px-2 text-center font-mono text-gray-500"
+                      >
+                        {row.ap}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b border-white/10">
+                    <td className="py-1 px-2 text-gray-400">Kp</td>
+                    {FULL_KP_AP_TABLE.slice(10, 19).map((row) => (
+                      <th
+                        key={row.kp}
+                        className="py-1 px-2 text-center font-mono text-gray-300"
+                      >
+                        {row.kp}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr className="border-b border-white/5">
+                    <td className="py-1 px-2 text-gray-400">Ap</td>
+                    {FULL_KP_AP_TABLE.slice(10, 19).map((row) => (
+                      <td
+                        key={row.kp}
+                        className="py-1 px-2 text-center font-mono text-gray-500"
+                      >
+                        {row.ap}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b border-white/10">
+                    <td className="py-1 px-2 text-gray-400">Kp</td>
+                    {FULL_KP_AP_TABLE.slice(19).map((row) => (
+                      <th
+                        key={row.kp}
+                        className="py-1 px-2 text-center font-mono text-gray-300"
+                      >
+                        {row.kp}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-1 px-2 text-gray-400">Ap</td>
+                    {FULL_KP_AP_TABLE.slice(19).map((row) => (
+                      <td
+                        key={row.kp}
+                        className="py-1 px-2 text-center font-mono text-gray-500"
+                      >
+                        {row.ap}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              Source: ITU-R P.533-14, NOAA/SWPC
+            </p>
+          </details>
         </Card>
 
         {/* Interpretation Scale */}

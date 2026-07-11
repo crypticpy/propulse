@@ -61,8 +61,9 @@ function transformRBNSpot(spot: RBNSpot): LiveSpot {
     getLocationFromPrefix(spot.de_pfx) ||
     getLocationFromContinent(spot.de_cont);
 
-  // Get DX location from callsign prefix or continent fallback
-  const dxPrefix = extractPrefixFromCallsign(spot.callsign);
+  // Get DX location from dx_pfx (provided by API) or extract from callsign as fallback
+  // Using dx_pfx directly is more reliable than parsing the callsign
+  const dxPrefix = spot.dx_pfx || extractPrefixFromCallsign(spot.callsign);
   const dxLocation =
     getLocationFromPrefix(dxPrefix) || getLocationFromContinent(spot.dx_cont);
 

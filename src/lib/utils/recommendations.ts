@@ -20,6 +20,17 @@ import {
   type BestWindow,
 } from "./bands";
 import { MODE_PARAMETERS } from "./signal";
+import {
+  getGrayLineEnhancementForPath,
+  assessGrayLineConditions,
+  type GrayLineEnhancement,
+} from "./grayLineEnhancement";
+import {
+  getPolarAbsorptionForPath,
+  comparePolarPaths,
+  type PolarAbsorption,
+} from "./polarAbsorption";
+import { assessTEPConditions, isTEPPath } from "./ionosphere";
 
 /**
  * Mode-specific minimum SNR thresholds
@@ -460,4 +471,413 @@ export function getStatusBgColorClass(
     case "closed":
       return "bg-gray-500/20";
   }
+}
+
+// ============================================================================
+// Enhanced Recommendations with Gray Line, Polar, and TEP
+// ============================================================================
+
+/**
+ * Enhanced propagation recommendations including special conditions
+ */
+export interface EnhancedPropagationRecommendations extends PropagationRecommendations {
+  /** Gray line enhancement data */
+  grayLine: GrayLineEnhancement;
+  /** Polar absorption data */
+  polar: PolarAbsorption;
+  /** TEP conditions assessment */
+  tep: {
+    favorable: boolean;
+    recommendation: string;
+    bestBands: string[];
+  };
+  /** Special propagation alerts */
+  alerts: PropagationAlert[];
+}
+
+/**
+ * Propagation alert for special conditions
+ */
+export interface PropagationAlert {
+  /** Alert type */
+  type: "warning" | "info" | "opportunity";
+  /** Alert title */
+  title: string;
+  /** Alert message */
+  message: string;
+  /** Affected bands */
+  bands?: string[];
+}
+
+/**
+ * Get enhanced recommendations including gray line, polar, and TEP effects
+ *
+ * @param homeLat - Home station latitude
+ * @param homeLon - Home station longitude
+ * @param targetLat - Target station latitude
+ * @param targetLon - Target station longitude
+ * @param kp - Current K-index (0-9)
+ * @param sfi - Current Solar Flux Index
+ * @param time - Current time for calculations
+ * @param mode - Operating mode
+ * @returns Enhanced propagation recommendations
+ */
+export function getEnhancedRecommendations(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  kp: number,
+  sfi: number,
+  time: Date,
+  mode: OperatingMode,
+): EnhancedPropagationRecommendations {
+  // Get base recommendations
+  const baseRecommendations = getRecommendations(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+    kp,
+    sfi,
+    time,
+    mode,
+  );
+
+  // Calculate gray line enhancement
+  const grayLine = getGrayLineEnhancementForPath(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+    time,
+  );
+
+  // Calculate polar absorption
+  const polar = getPolarAbsorptionForPath(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+    kp,
+  );
+
+  // Check TEP conditions
+  const tep = assessTEPConditions(homeLat, homeLon, targetLat, targetLon, time);
+
+  // Generate alerts
+  const alerts: PropagationAlert[] = [];
+
+  // Gray line opportunity
+  if (grayLine.isEnhanced && grayLine.quality !== "none") {
+    const grayLineConditions = assessGrayLineConditions(
+      homeLat,
+      homeLon,
+      targetLat,
+      targetLon,
+      time,
+    );
+    alerts.push({
+      type: "opportunity",
+      title: "Gray Line Enhancement",
+      message: grayLineConditions.recommendation,
+      bands: grayLineConditions.peakBands,
+    });
+  }
+
+  // Polar path warning
+  if (polar.isAffected) {
+    if (polar.severity === "severe" || polar.severity === "blackout") {
+      // Check if long path is better
+      const pathComparison = comparePolarPaths(
+        homeLat,
+        homeLon,
+        targetLat,
+        targetLon,
+      );
+
+      alerts.push({
+        type: "warning",
+        title: "Polar Path Absorption",
+        message:
+          polar.recommendation +
+          (pathComparison.recommendation === "long"
+            ? " " + pathComparison.reason
+            : ""),
+      });
+    } else if (polar.severity === "moderate") {
+      alerts.push({
+        type: "warning",
+        title: "Polar Path",
+        message: polar.recommendation,
+      });
+    }
+  }
+
+  // TEP opportunity
+  if (tep.favorable) {
+    alerts.push({
+      type: "opportunity",
+      title: "TEP Possible",
+      message: tep.recommendation,
+      bands: tep.bestBands,
+    });
+  } else if (isTEPPath(homeLat, homeLon, targetLat, targetLon)) {
+    alerts.push({
+      type: "info",
+      title: "TEP Path",
+      message: tep.recommendation,
+      bands: tep.bestBands,
+    });
+  }
+
+  // High K-index warning for polar paths
+  if (kp >= 5 && polar.isAffected) {
+    alerts.push({
+      type: "warning",
+      title: "Geomagnetic Storm",
+      message: `K-index ${kp} - Significant polar path degradation expected. Consider long path or wait for conditions to improve.`,
+    });
+  }
+
+  // Modify summary based on special conditions
+  let enhancedSummary = baseRecommendations.summary;
+
+  if (grayLine.isEnhanced && grayLine.quality === "excellent") {
+    enhancedSummary +=
+      " Excellent gray line conditions - low bands (160m, 80m, 40m) highly favored!";
+  }
+
+  if (polar.severity === "severe" || polar.severity === "blackout") {
+    enhancedSummary += " Warning: Significant polar absorption detected.";
+  }
+
+  if (tep.favorable) {
+    enhancedSummary += " TEP conditions favorable on 10m/6m.";
+  }
+
+  return {
+    ...baseRecommendations,
+    summary: enhancedSummary,
+    grayLine,
+    polar,
+    tep,
+    alerts,
+  };
+}
+
+/**
+ * Get gray line-aware band recommendations
+ *
+ * Returns bands that are particularly enhanced during gray line conditions.
+ *
+ * @param homeLat - Home station latitude
+ * @param homeLon - Home station longitude
+ * @param targetLat - Target station latitude
+ * @param targetLon - Target station longitude
+ * @param time - Current time
+ * @returns Object with gray line status and recommended bands
+ */
+export function getGrayLineBandRecommendations(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  time: Date,
+): {
+  isEnhanced: boolean;
+  enhancement: GrayLineEnhancement;
+  recommendedBands: string[];
+  avoidBands: string[];
+  notes: string[];
+} {
+  const grayLine = getGrayLineEnhancementForPath(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+    time,
+  );
+
+  const notes: string[] = [];
+  let recommendedBands: string[] = [];
+  const avoidBands: string[] = [];
+
+  if (!grayLine.isEnhanced) {
+    return {
+      isEnhanced: false,
+      enhancement: grayLine,
+      recommendedBands: [],
+      avoidBands: [],
+      notes: ["Path not currently in gray line zone."],
+    };
+  }
+
+  // Recommend bands based on gray line quality
+  switch (grayLine.quality) {
+    case "excellent":
+      recommendedBands = ["160m", "80m", "40m"];
+      notes.push("Excellent gray line conditions for low bands.");
+      notes.push(`Peak enhancement: +${grayLine.enhancement.toFixed(1)} dB`);
+      break;
+    case "good":
+      recommendedBands = ["80m", "40m"];
+      notes.push("Good gray line enhancement on 80m and 40m.");
+      break;
+    case "moderate":
+      recommendedBands = ["40m"];
+      notes.push("Moderate gray line effect on 40m.");
+      break;
+    default:
+      break;
+  }
+
+  // Add timing note
+  if (grayLine.duration > 0) {
+    notes.push(`Approximately ${grayLine.duration} minutes remaining.`);
+  }
+
+  // Add terminator type
+  if (grayLine.type === "sunrise") {
+    notes.push("Sunrise terminator - conditions may improve.");
+  } else if (grayLine.type === "sunset") {
+    notes.push("Sunset terminator - conditions will fade.");
+  }
+
+  return {
+    isEnhanced: true,
+    enhancement: grayLine,
+    recommendedBands,
+    avoidBands,
+    notes,
+  };
+}
+
+/**
+ * Get polar-aware band recommendations
+ *
+ * Returns warnings about polar paths and suggests alternatives.
+ *
+ * @param homeLat - Home station latitude
+ * @param homeLon - Home station longitude
+ * @param targetLat - Target station latitude
+ * @param targetLon - Target station longitude
+ * @param kp - Current K-index
+ * @returns Object with polar path analysis
+ */
+export function getPolarPathRecommendations(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  kp: number,
+): {
+  isPolarPath: boolean;
+  polar: PolarAbsorption;
+  pathComparison: ReturnType<typeof comparePolarPaths>;
+  notes: string[];
+} {
+  const polar = getPolarAbsorptionForPath(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+    kp,
+  );
+
+  const pathComparison = comparePolarPaths(
+    homeLat,
+    homeLon,
+    targetLat,
+    targetLon,
+  );
+
+  const notes: string[] = [];
+
+  if (!polar.isAffected) {
+    return {
+      isPolarPath: false,
+      polar,
+      pathComparison,
+      notes: ["Path does not cross polar regions."],
+    };
+  }
+
+  notes.push(`Path crosses polar region (max latitude: ${polar.maxLatitude}°)`);
+  notes.push(`Estimated absorption: ${polar.absorption.toFixed(1)} dB`);
+
+  if (polar.severity !== "none") {
+    notes.push(`Severity: ${polar.severity}`);
+  }
+
+  // Add recommendation based on conditions
+  if (polar.severity === "severe" || polar.severity === "blackout") {
+    if (pathComparison.recommendation === "long") {
+      notes.push("RECOMMENDATION: Try long path to avoid polar absorption.");
+    } else {
+      notes.push("RECOMMENDATION: Wait for better conditions.");
+    }
+  } else if (polar.severity === "moderate") {
+    notes.push("Consider using higher power or more efficient modes.");
+  }
+
+  return {
+    isPolarPath: true,
+    polar,
+    pathComparison,
+    notes,
+  };
+}
+
+/**
+ * Get TEP-aware band recommendations
+ *
+ * Returns TEP opportunities and timing suggestions.
+ *
+ * @param homeLat - Home station latitude
+ * @param homeLon - Home station longitude
+ * @param targetLat - Target station latitude
+ * @param targetLon - Target station longitude
+ * @param time - Current time
+ * @returns Object with TEP analysis
+ */
+export function getTEPRecommendations(
+  homeLat: number,
+  homeLon: number,
+  targetLat: number,
+  targetLon: number,
+  time: Date,
+): {
+  isTEPPath: boolean;
+  tep: ReturnType<typeof assessTEPConditions>;
+  notes: string[];
+} {
+  const isTEP = isTEPPath(homeLat, homeLon, targetLat, targetLon);
+  const tep = assessTEPConditions(homeLat, homeLon, targetLat, targetLon, time);
+
+  const notes: string[] = [];
+
+  if (!isTEP) {
+    return {
+      isTEPPath: false,
+      tep,
+      notes: ["Path does not cross magnetic equator."],
+    };
+  }
+
+  notes.push("Trans-equatorial path detected.");
+
+  if (tep.favorable) {
+    notes.push("TEP conditions currently favorable.");
+    notes.push(`Best bands: ${tep.bestBands.join(", ")}`);
+  } else {
+    notes.push("TEP path exists but timing not optimal.");
+    notes.push("Best TEP times: 14:00-21:00 local time at equator.");
+  }
+
+  return {
+    isTEPPath: true,
+    tep,
+    notes,
+  };
 }

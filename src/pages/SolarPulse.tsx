@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   PrimaryMetrics,
   SolarSummary,
@@ -13,6 +13,7 @@ import {
   FlareProbabilityModal,
   BandConditionsModal,
 } from "@/components/solar";
+import type { EventType, EventSeverity } from "@/components/solar/EventAlert";
 import {
   useKIndex,
   useSolarFlux,
@@ -21,7 +22,7 @@ import {
   useMagnetometer,
 } from "@/hooks/useSolarData";
 import { useSolarStore } from "@/stores/solarStore";
-import { kpToAp } from "@/lib/utils/solarConversions";
+import { kpToAp, getStormSeverity } from "@/lib/utils/solarConversions";
 
 export function SolarPulse() {
   // Fetch all solar data
@@ -65,15 +66,75 @@ export function SolarPulse() {
   const isLoading =
     kLoading || fluxLoading || probLoading || sunspotLoading || magLoading;
 
+  /**
+   * Determine if there's an active solar event that warrants an alert.
+   * Priority: Geomagnetic storms (Kp-based) since X-ray flux data isn't directly available.
+   *
+   * TODO: When X-ray flux API is added, include flare detection:
+   * - M-class (1e-5 to 1e-4 W/m2) = moderate flare
+   * - X-class (>1e-4 W/m2) = major flare
+   */
+  const eventAlert = useMemo<{
+    eventType: EventType;
+    severity: EventSeverity;
+    message: string;
+  }>(() => {
+    const stormLevel = getStormSeverity(currentKp);
+
+    // Map storm severity to EventAlert format
+    if (stormLevel === "extreme") {
+      return {
+        eventType: "storm",
+        severity: "major",
+        message: `Extreme geomagnetic storm (Kp=${currentKp.toFixed(1)}, G5). Complete HF disruption likely. Polar paths severely affected.`,
+      };
+    }
+    if (stormLevel === "severe") {
+      return {
+        eventType: "storm",
+        severity: "major",
+        message: `Severe geomagnetic storm (Kp=${currentKp.toFixed(1)}, G4). Widespread HF disruption expected. Avoid polar paths.`,
+      };
+    }
+    if (stormLevel === "strong") {
+      return {
+        eventType: "storm",
+        severity: "moderate",
+        message: `Strong geomagnetic storm (Kp=${currentKp.toFixed(1)}, G3). HF propagation degraded at high latitudes.`,
+      };
+    }
+    if (stormLevel === "moderate") {
+      return {
+        eventType: "storm",
+        severity: "moderate",
+        message: `Moderate geomagnetic storm (Kp=${currentKp.toFixed(1)}, G2). Polar and high-latitude paths may be affected.`,
+      };
+    }
+    if (stormLevel === "minor") {
+      return {
+        eventType: "storm",
+        severity: "minor",
+        message: `Minor geomagnetic storm (Kp=${currentKp.toFixed(1)}, G1). Some polar path degradation possible.`,
+      };
+    }
+
+    // No event to report
+    return {
+      eventType: null,
+      severity: "minor",
+      message: "",
+    };
+  }, [currentKp]);
+
   return (
     <div className="min-h-screen">
       {/* Main content */}
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        {/* Event Alert (conditional) */}
+        {/* Event Alert (conditional) - shows during geomagnetic storms */}
         <EventAlert
-          eventType={null} // TODO: detect from X-ray data
-          severity="minor"
-          message=""
+          eventType={eventAlert.eventType}
+          severity={eventAlert.severity}
+          message={eventAlert.message}
         />
 
         {/* Primary Metrics */}

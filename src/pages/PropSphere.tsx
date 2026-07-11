@@ -22,6 +22,7 @@ import {
   RecommendationsPanel,
   RecommendationsBadge,
   OptimalBandsPanel,
+  WhatsOpenNow,
 } from "@/components/map";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { Card } from "@/components/ui/Card";
@@ -66,7 +67,11 @@ export function PropSphere() {
     isFullscreen,
     setFullscreen,
   } = useMapStore();
-  const { station } = useUserStore();
+  const { station, preferences } = useUserStore();
+  const uiMode = preferences.uiMode || "normal";
+
+  // Derived state for mode checks
+  const isBeginnerMode = uiMode === "beginner";
 
   // Panel collapse states (desktop)
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -280,10 +285,18 @@ export function PropSphere() {
               </Card>
             ) : (
               <div className="relative h-full overflow-hidden">
-                <BandConditionsPanel
-                  displayTime={displayTime}
-                  className="h-full overflow-y-auto"
-                />
+                {/* Show WhatsOpenNow in beginner mode, BandConditionsPanel otherwise */}
+                {isBeginnerMode ? (
+                  <WhatsOpenNow
+                    displayTime={displayTime}
+                    className="h-full overflow-y-auto"
+                  />
+                ) : (
+                  <BandConditionsPanel
+                    displayTime={displayTime}
+                    className="h-full overflow-y-auto"
+                  />
+                )}
                 <button
                   onClick={() => setLeftPanelCollapsed(true)}
                   className="absolute top-2 right-2 p-1 bg-white/10 rounded hover:bg-white/20 transition-colors"
@@ -345,20 +358,22 @@ export function PropSphere() {
               ))}
             </div>
 
-            {/* Layer controls bar */}
+            {/* Layer controls bar - simplified in beginner mode */}
             <div className="flex-shrink-0 flex items-center justify-between gap-2 px-2 py-1.5 bg-nebula-blue/80 border-b border-white/10">
               {/* Layer toggles */}
               <div className="flex flex-wrap gap-1">
-                {(
-                  [
-                    "terminator",
-                    "greyline",
-                    "aurora",
-                    "muf",
-                    "spots",
-                    "nightLights",
-                    "labels",
-                  ] as const
+                {(isBeginnerMode
+                  ? (["terminator", "greyline", "spots", "labels"] as const)
+                  : ([
+                      "terminator",
+                      "greyline",
+                      "aurora",
+                      "muf",
+                      "sporadicE",
+                      "spots",
+                      "nightLights",
+                      "labels",
+                    ] as const)
                 ).map((layer) => {
                   // Display names for layers
                   const displayNames: Record<string, string> = {
@@ -366,6 +381,7 @@ export function PropSphere() {
                     greyline: "Greyline",
                     aurora: "Aurora",
                     muf: "MUF",
+                    sporadicE: "Es",
                     spots: "Spots",
                     nightLights: "Lights",
                     labels: "Labels",
@@ -386,27 +402,31 @@ export function PropSphere() {
                 })}
               </div>
 
-              {/* Preset buttons */}
-              <div className="flex gap-1">
-                {(Object.keys(LAYER_PRESETS) as PresetName[]).map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => applyPreset(preset)}
-                    title={PRESET_CONFIG[preset].description}
-                    className={`px-2 py-0.5 text-[10px] rounded transition-all ${
-                      activePreset === preset
-                        ? "bg-plasma-orange/30 text-plasma-orange"
-                        : "text-gray-400 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    {PRESET_CONFIG[preset].label}
-                  </button>
-                ))}
-              </div>
+              {/* Preset buttons - hidden in beginner mode */}
+              {!isBeginnerMode && (
+                <div className="flex gap-1">
+                  {(Object.keys(LAYER_PRESETS) as PresetName[]).map(
+                    (preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => applyPreset(preset)}
+                        title={PRESET_CONFIG[preset].description}
+                        className={`px-2 py-0.5 text-[10px] rounded transition-all ${
+                          activePreset === preset
+                            ? "bg-plasma-orange/30 text-plasma-orange"
+                            : "text-gray-400 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        {PRESET_CONFIG[preset].label}
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* MUF Legend (bottom of map when MUF layer active) */}
-            {layers.muf && (
+            {/* MUF Legend (bottom of map when MUF layer active) - hidden in beginner mode */}
+            {layers.muf && !isBeginnerMode && (
               <div className="absolute bottom-2 left-2 right-2 z-10">
                 <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2" />
               </div>
@@ -616,12 +636,15 @@ export function PropSphere() {
             {activeTab === "path" && (
               <PathAnalysis displayTime={displayTime} className="h-full" />
             )}
-            {activeTab === "bands" && (
-              <BandConditionsPanel
-                displayTime={displayTime}
-                className="h-full"
-              />
-            )}
+            {activeTab === "bands" &&
+              (isBeginnerMode ? (
+                <WhatsOpenNow displayTime={displayTime} className="h-full" />
+              ) : (
+                <BandConditionsPanel
+                  displayTime={displayTime}
+                  className="h-full"
+                />
+              ))}
             {activeTab === "recs" &&
               (station && target ? (
                 <RecommendationsPanel

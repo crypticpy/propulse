@@ -13,6 +13,7 @@ import { getPathPoints, getPathMetrics } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { estimateMUF, getMUFColor } from "@/lib/api/muf";
+import { calculateEsProbability } from "@/lib/utils/sporadicE";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import {
   resolveSpotLocations,
@@ -469,6 +470,84 @@ function drawAurora(
   }
 
   // Restore context state
+  ctx.restore();
+}
+
+/**
+ * Get Sporadic E color based on probability
+ * Uses warm colors (yellow/orange/red) to distinguish from other overlays
+ */
+function getEsColor(probability: number): string {
+  if (probability >= 60) {
+    return "#ff4444"; // High: bright red
+  } else if (probability >= 40) {
+    const t = (probability - 40) / 20;
+    // Orange to red gradient
+    const r = 255;
+    const g = Math.floor(165 * (1 - t) + 68 * t);
+    const b = Math.floor(0 * (1 - t) + 68 * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  } else if (probability >= 20) {
+    const t = (probability - 20) / 20;
+    // Yellow to orange gradient
+    const r = 255;
+    const g = Math.floor(221 * (1 - t) + 165 * t);
+    const b = 0;
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    const t = probability / 20;
+    // Blue to yellow gradient
+    const r = Math.floor(68 * (1 - t) + 255 * t);
+    const g = Math.floor(136 * (1 - t) + 221 * t);
+    const b = Math.floor(255 * (1 - t));
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+}
+
+/**
+ * Draw Sporadic E overlay on the 2D map
+ * Renders Es probability as colored points at mid-latitudes
+ */
+function drawSporadicE(
+  ctx: CanvasRenderingContext2D,
+  date: Date,
+  opacity: number = 0.5,
+  minProbability: number = 10,
+) {
+  // Generate Es probability grid at lower resolution for performance
+  const resolution = 10; // degrees
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = opacity;
+
+  for (let lat = 70; lat >= -70; lat -= resolution) {
+    for (let lon = -180; lon < 180; lon += resolution) {
+      const centerLat = lat - resolution / 2;
+      const centerLon = lon + resolution / 2;
+
+      const esProb = calculateEsProbability(centerLat, centerLon, date);
+
+      // Only draw if probability exceeds threshold
+      if (esProb.probability < minProbability) continue;
+
+      const color = getEsColor(esProb.probability);
+      const { x, y } = latLonToCanvas(centerLat, centerLon);
+
+      // Draw glowing point
+      const pointSize = 4 + (esProb.probability / 100) * 4;
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, pointSize);
+      gradient.addColorStop(0, color);
+      gradient.addColorStop(0.5, color);
+      gradient.addColorStop(1, "transparent");
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, pointSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   ctx.restore();
 }
 
@@ -987,6 +1066,11 @@ export function FlatMapView({
     // Draw aurora overlay
     if (layers.aurora && auroraData) {
       drawAurora(ctx, auroraData, 10);
+    }
+
+    // Draw Sporadic E overlay
+    if (layers.sporadicE) {
+      drawSporadicE(ctx, displayTime, 0.5, 10);
     }
 
     // Draw night lights (city lights on dark side)

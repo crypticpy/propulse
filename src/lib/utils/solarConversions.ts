@@ -50,16 +50,27 @@ const SORTED_KP_VALUES = Object.keys(KP_TO_AP)
   .sort((a, b) => a - b);
 
 /**
- * Convert Kp index to Ap index using the ITU standard conversion table
- * For values between table entries, linear interpolation is used
+ * Converts a single Kp index value to its Ap equivalent using the ITU standard lookup table.
  *
- * @param kp - The Kp index value (0-9 scale)
- * @returns The corresponding Ap index value
+ * IMPORTANT: This returns the Ap equivalent for a single Kp reading, NOT the true A-index.
+ * The true daily A-index is calculated as the average of eight 3-hourly Ap values.
+ * This function is useful for understanding the instantaneous geomagnetic condition.
+ *
+ * The Kp-to-Ap relationship is nonlinear (quasi-logarithmic to linear conversion):
+ * - Low Kp values (0-2) map to small Ap differences
+ * - High Kp values (7-9) map to large Ap differences
+ *
+ * For values between standard Kp increments (0, 0.33, 0.67, 1, etc.),
+ * linear interpolation is used between the nearest table entries.
+ *
+ * @param kp - The planetary K-index (0-9, supports decimal values)
+ * @returns The equivalent Ap value (rounded to nearest integer)
  *
  * @example
- * kpToAp(3)    // returns 15
- * kpToAp(5)    // returns 48
+ * kpToAp(3)    // returns 15 (exact table match)
+ * kpToAp(5)    // returns 48 (exact table match)
  * kpToAp(3.5)  // returns ~20 (interpolated between 18 and 22)
+ * kpToAp(7.5)  // returns ~166 (interpolated between 154 and 179)
  */
 export function kpToAp(kp: number): number {
   // Clamp Kp to valid range
@@ -159,4 +170,31 @@ export function getGeomagneticCondition(kp: number): string {
   if (kp < 8) return "Strong Storm (G3)";
   if (kp < 9) return "Severe Storm (G4)";
   return "Extreme Storm (G5)";
+}
+
+/**
+ * Geomagnetic storm severity levels based on NOAA G-scale
+ */
+export type StormSeverity =
+  | "none"
+  | "minor"
+  | "moderate"
+  | "strong"
+  | "severe"
+  | "extreme";
+
+/**
+ * Determines geomagnetic storm severity from Kp index
+ * Based on NOAA Space Weather Scales for Geomagnetic Storms
+ *
+ * @param kp - The Kp index value (0-9 scale)
+ * @returns Storm severity level
+ */
+export function getStormSeverity(kp: number): StormSeverity {
+  if (kp < 5) return "none";
+  if (kp < 6) return "minor"; // G1
+  if (kp < 7) return "moderate"; // G2
+  if (kp < 8) return "strong"; // G3
+  if (kp < 9) return "severe"; // G4
+  return "extreme"; // G5
 }

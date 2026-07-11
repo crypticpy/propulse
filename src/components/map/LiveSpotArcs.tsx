@@ -6,9 +6,12 @@
  *
  * Arcs are colored by operating mode (FT8, CW, SSB, etc.)
  * for quick visual identification of activity.
+ *
+ * Respects filter state from dxStore (sources, bands, modes, maxAge)
+ * to show only spots matching user's current filter selections.
  */
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { Line } from "@react-three/drei";
 import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
@@ -142,8 +145,18 @@ function getLocationFromCallsign(
 }
 
 /**
+ * Result of resolving spot locations, includes count of unresolved spots
+ */
+export interface ResolveResultWithStats {
+  resolved: ResolvedSpot[];
+  unlocatedCount: number;
+}
+
+/**
  * Resolve spot locations from grid/callsign with fallback chain
  * Priority: grid locator > callsign prefix > continent
+ *
+ * @returns Array of resolved spots (for backward compatibility with other views)
  */
 export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
   const resolved: ResolvedSpot[] = [];
@@ -180,6 +193,55 @@ export function resolveSpotLocations(spots: LiveSpot[]): ResolvedSpot[] {
   }
 
   return resolved;
+}
+
+/**
+ * Resolve spot locations with statistics about unlocated spots.
+ * Extended version that also tracks how many spots couldn't be geolocated.
+ *
+ * @returns Object with resolved spots array and unlocatedCount
+ */
+export function resolveSpotLocationsWithStats(
+  spots: LiveSpot[],
+): ResolveResultWithStats {
+  const resolved: ResolvedSpot[] = [];
+  let unlocatedCount = 0;
+
+  for (const spot of spots) {
+    // Try to resolve spotter location
+    const spotterLoc =
+      spot.spotterLat !== undefined && spot.spotterLon !== undefined
+        ? { lat: spot.spotterLat, lon: spot.spotterLon }
+        : getLocationFromGrid(spot.spotterGrid) ||
+          getLocationFromCallsign(spot.spotter);
+
+    // Try to resolve DX location
+    const dxLoc =
+      spot.dxLat !== undefined && spot.dxLon !== undefined
+        ? { lat: spot.dxLat, lon: spot.dxLon }
+        : getLocationFromGrid(spot.dxGrid) || getLocationFromCallsign(spot.dx);
+
+    // Track if we couldn't resolve both locations
+    if (!spotterLoc || !dxLoc) {
+      unlocatedCount++;
+      continue;
+    }
+
+    resolved.push({
+      id: spot.id,
+      spotterLat: spotterLoc.lat,
+      spotterLon: spotterLoc.lon,
+      dxLat: dxLoc.lat,
+      dxLon: dxLoc.lon,
+      mode: spot.mode || "UNKNOWN",
+      frequency: spot.frequency,
+      time: spot.time,
+      callsign: spot.dx,
+      source: spot.source,
+    });
+  }
+
+  return { resolved, unlocatedCount };
 }
 
 // ==========================================================================
@@ -325,33 +387,93 @@ function SpotEndpoint({
 /**
  * LiveSpotArcs Component for Globe View
  *
- * Fetches live spots and renders them as 3D arcs on the globe
+ * Fetches live spots and renders them as 3D arcs on the globe.
+ * Respects filter state from dxStore to sync with DXSpotList filtering.
  */
 export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
-  // Get source filter from dxStore - shared with DXSpotList
+  // Get filter state from dxStore - shared with DXSpotList for consistency
   const filters = useDXStore((state) => state.filters);
-  const sourcesFilter = filters.sources as SpotSource[] | undefined;
 
   const { spots, isLoading } = useLiveSpots({
     grid,
     enabled: true,
     refetchInterval: 60000,
-    // Pass sources filter - when empty array, useLiveSpots shows all sources
-    sources:
-      sourcesFilter && sourcesFilter.length > 0 ? sourcesFilter : undefined,
   });
 
-  // Resolve locations and limit count
-  const resolvedSpots = useMemo(() => {
-    return resolveSpotLocations(spots).slice(0, maxArcs);
-  }, [spots, maxArcs]);
+  /**
+   * Apply all filters from dxStore to match DXSpotList behavior.
+   * This ensures map arcs reflect the same filtering as the spot list.
+   */
+  const filterSpot = useCallback(
+    (spot: LiveSpot): boolean => {
+      // Source filter - if sources array is non-empty, only show those sources
+      if (filters.sources && filters.sources.length > 0) {
+        if (!filters.sources.includes(spot.source as SpotSource)) {
+          return false;
+        }
+      }
+
+      // Age filter - filter out spots older than maxAge minutes
+      if (filters.maxAge && filters.maxAge > 0) {
+        const spotTime =
+          spot.time instanceof Date ? spot.time : new Date(spot.time);
+        const ageMinutes = (Date.now() - spotTime.getTime()) / 60000;
+        if (ageMinutes > filters.maxAge) {
+          return false;
+        }
+      }
+
+      // Band filter - if bands array is non-empty, only show those bands
+      if (filters.bands && filters.bands.length > 0) {
+        if (!spot.band || !filters.bands.includes(spot.band)) {
+          return false;
+        }
+      }
+
+      // Mode filter - if modes array is non-empty, only show those modes
+      if (filters.modes && filters.modes.length > 0) {
+        if (!spot.mode || !filters.modes.includes(spot.mode)) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [filters],
+  );
+
+  // Filter spots and resolve locations
+  const { resolvedSpots, unlocatedCount } = useMemo(() => {
+    // First apply all dxStore filters
+    const filteredSpots = spots.filter(filterSpot);
+
+    // Then resolve locations with stats to track unlocated spots
+    const { resolved, unlocatedCount } =
+      resolveSpotLocationsWithStats(filteredSpots);
+
+    // Limit to maxArcs
+    return {
+      resolvedSpots: resolved.slice(0, maxArcs),
+      unlocatedCount,
+    };
+  }, [spots, filterSpot, maxArcs]);
+
+  // Log unlocated spots count for debugging (could be exposed to UI later)
+  // This count is available for tooltip display on layer toggles if needed
+  useMemo(() => {
+    if (unlocatedCount > 0 && process.env.NODE_ENV === "development") {
+      console.debug(
+        `[LiveSpotArcs] ${unlocatedCount} spots could not be geolocated`,
+      );
+    }
+  }, [unlocatedCount]);
 
   if (isLoading || resolvedSpots.length === 0) {
     return null;
   }
 
   return (
-    <group name="live-spot-arcs">
+    <group name="live-spot-arcs" userData={{ unlocatedCount }}>
       {resolvedSpots.map((spot) => {
         const color = getModeColor(spot.mode);
         return (
@@ -376,3 +498,5 @@ export function LiveSpotArcs({ grid, maxArcs = 50 }: LiveSpotArcsProps) {
     </group>
   );
 }
+
+// ResolveResultWithStats is already exported via its interface declaration above

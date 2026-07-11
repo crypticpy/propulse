@@ -14,7 +14,13 @@ export { NightOverlay } from "./NightOverlay";
 export { NightLightsOverlay } from "./NightLightsOverlay";
 export { LabelsOverlay } from "./LabelsOverlay";
 export { AuroraOverlay } from "./AuroraOverlay";
-export { MUFOverlay } from "./MUFOverlay";
+export {
+  MUFOverlay,
+  MUFDataSourceBadge,
+  MUFComparisonDisplay,
+} from "./MUFOverlay";
+export { IonosondeMarkers, IonosondeLegend } from "./IonosondeMarkers";
+export { SporadicEOverlay, SporadicELegend } from "./SporadicEOverlay";
 export { MUFLegend, MUFLegendCompact } from "./MUFLegend";
 export { PathArc } from "./PathArc";
 export { LocationMarker } from "./LocationMarker";
@@ -44,6 +50,9 @@ export { RecommendationsBadge } from "./RecommendationsBadge";
 
 // Optimal bands pop-out panel
 export { OptimalBandsPanel } from "./OptimalBandsPanel";
+
+// Beginner mode components
+export { WhatsOpenNow } from "./WhatsOpenNow";
 
 // LocationMarker exports (for difficulty utilities)
 export {

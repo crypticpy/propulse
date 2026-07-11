@@ -227,11 +227,11 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           onClick={() => setSunspotModalOpen(true)}
         />
 
-        {/* A-Index */}
+        {/* Ap Equivalent (instantaneous, not 24hr average) */}
         <MetricCard
-          label="A-INDEX"
+          label="Ap (INSTANT)"
           value={formattedAIndex}
-          unit="A"
+          unit="Ap"
           description={getAIndexDescription(aIndex)}
           color={getAIndexColor(aIndex)}
           delay={300}

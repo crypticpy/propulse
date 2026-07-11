@@ -42,6 +42,16 @@ export type LicenseClass =
   | "EXTRA";
 
 /**
+ * User experience level for personalization
+ */
+export type ExperienceLevel = "beginner" | "intermediate" | "expert";
+
+/**
+ * UI mode controlling feature visibility and complexity
+ */
+export type UIMode = "beginner" | "normal" | "expert";
+
+/**
  * User application preferences
  */
 export interface UserPreferences {
@@ -61,4 +71,10 @@ export interface UserPreferences {
   radios?: UserRadio[];
   /** Currently active radio ID */
   activeRadioId?: string | null;
+  /** User's experience level with ham radio */
+  experienceLevel?: ExperienceLevel;
+  /** Whether onboarding has been completed */
+  hasCompletedOnboarding?: boolean;
+  /** UI complexity mode */
+  uiMode?: UIMode;
 }

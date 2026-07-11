@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { formatUTC } from "@/lib/utils/time";
 import { useUserStore } from "@/stores/userStore";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
+import { useAllSolarData } from "@/hooks/useSolarData";
 
 /**
  * Header - Main application header with navigation and user info
@@ -12,6 +14,7 @@ export function Header() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showSettings, setShowSettings] = useState(false);
   const { station } = useUserStore();
+  const { lastUpdated } = useAllSolarData();
 
   // Update time every second
   useEffect(() => {
@@ -23,7 +26,8 @@ export function Header() {
     { path: "/", label: "Home", icon: "🏠" },
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
     { path: "/map", label: "PropSphere", icon: "🌍" },
-    // Future: { path: "/log", label: "LogBook", icon: "📝" },
+    { path: "/log", label: "LogBook", icon: "📝" },
+    { path: "/learn", label: "Learn", icon: "📚" },
   ];
 
   return (
@@ -68,8 +72,11 @@ export function Header() {
               ))}
             </nav>
 
-            {/* Right side: Time & Settings */}
+            {/* Right side: Offline Indicator, Time & Settings */}
             <div className="flex items-center gap-4">
+              {/* Offline Indicator */}
+              <OfflineIndicator lastSyncTime={lastUpdated} />
+
               {/* UTC Time */}
               <div className="hidden sm:block text-right">
                 <div className="font-mono text-sm md:text-base text-signal-green font-semibold">

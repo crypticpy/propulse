@@ -5,6 +5,9 @@
  * Shows distance, bearing, hop count, difficulty rating, and
  * MUF/LUF/FOT/HPF frequency limits. Designed for right-side panel
  * in the framed layout.
+ *
+ * Includes a Short/Long Path toggle for DXers who may use long path
+ * when short path propagation is blocked or unfavorable.
  */
 
 import { useMemo, useState, useCallback } from "react";
@@ -46,6 +49,24 @@ const DIFFICULTY_COLORS = [
   "text-plasma-orange",
   "text-alert-red",
 ];
+
+// Beginner-friendly difficulty descriptions
+const BEGINNER_DIFFICULTY_DESCRIPTIONS: Record<number, string> = {
+  1: "Great path! Should work well with any setup.",
+  2: "Good path. Standard power levels should work.",
+  3: "Moderate path. Higher power or digital modes recommended.",
+  4: "Challenging path. Consider FT8 or wait for better conditions.",
+  5: "Very difficult path. Try FT8 and patience!",
+};
+
+// Simple quality indicators for beginners
+const getSimpleQuality = (
+  difficulty: number,
+): { label: string; color: string } => {
+  if (difficulty <= 2) return { label: "Good", color: "text-signal-green" };
+  if (difficulty <= 3) return { label: "Fair", color: "text-caution-amber" };
+  return { label: "Poor", color: "text-alert-red" };
+};
 
 /**
  * Get color class for distance based on difficulty level
@@ -93,11 +114,17 @@ export function PathAnalysis({
   const { station, preferences, savedTargets, addTarget } = useUserStore();
   const activeRadio = useActiveRadio();
   const useImperial = preferences.units === "imperial";
+  const uiMode = preferences.uiMode || "normal";
+  const isBeginnerMode = uiMode === "beginner";
 
   // Save target modal state
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [targetName, setTargetName] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+
+  // Short/Long path toggle - affects which path metrics are highlighted
+  // and could be used to control path arc visualization on the map
+  const [isLongPath, setIsLongPath] = useState(false);
 
   // Fetch current solar data for frequency limits
   const { data: solarFluxData } = useSolarFlux();
@@ -246,84 +273,227 @@ export function PathAnalysis({
           </div>
         </div>
 
-        {/* Short Path */}
-        <div className="space-y-2 pt-3">
-          <h4 className="text-xs font-medium text-gray-400">Short Path</h4>
-          <div className="grid grid-cols-3 gap-2">
-            <MetricItem
-              label="Distance"
-              value={formatDistance(metrics.shortPath.distance, useImperial)}
-              valueClassName={getDistanceColor(metrics.difficulty)}
-            />
-            <MetricItem
-              label="Bearing"
-              value={`${Math.round(metrics.shortPath.bearing)}°`}
-              subValue={formatBearing(metrics.shortPath.bearing)}
-            />
-            <MetricItem
-              label="Return"
-              value={`${Math.round(metrics.shortPath.reciprocal)}°`}
-              subValue={formatBearing(metrics.shortPath.reciprocal)}
-            />
-          </div>
-        </div>
+        {/* Beginner Mode: Simplified view */}
+        {isBeginnerMode ? (
+          <>
+            {/* Simple quality indicator */}
+            <div className="pt-4 pb-3 border-b border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-gray-300">Path Quality</span>
+                <span
+                  className={`text-lg font-bold ${getSimpleQuality(metrics.difficulty).color}`}
+                >
+                  {getSimpleQuality(metrics.difficulty).label}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {BEGINNER_DIFFICULTY_DESCRIPTIONS[metrics.difficulty]}
+              </p>
+            </div>
 
-        {/* Long Path */}
-        <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-          <h4 className="text-xs font-medium text-gray-400">Long Path</h4>
-          <div className="grid grid-cols-3 gap-2">
-            <MetricItem
-              label="Distance"
-              value={formatDistance(metrics.longPath.distance, useImperial)}
-              valueClassName={getLongPathDistanceColor(metrics.difficulty)}
-            />
-            <MetricItem
-              label="Bearing"
-              value={`${Math.round(metrics.longPath.bearing)}°`}
-              subValue={formatBearing(metrics.longPath.bearing)}
-            />
-            <MetricItem
-              label="Return"
-              value={`${Math.round(metrics.longPath.reciprocal)}°`}
-              subValue={formatBearing(metrics.longPath.reciprocal)}
-            />
-          </div>
-        </div>
+            {/* Simple distance and direction */}
+            <div className="py-3 border-b border-white/10">
+              <h4 className="text-xs font-medium text-gray-400 mb-2">
+                Distance & Direction
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-white/5 rounded-lg">
+                  <div className="text-lg font-mono text-white">
+                    {formatDistance(metrics.shortPath.distance, useImperial)}
+                  </div>
+                  <div className="text-xs text-gray-500">Distance</div>
+                </div>
+                <div className="text-center p-3 bg-white/5 rounded-lg">
+                  <div className="text-lg font-mono text-white">
+                    {formatBearing(metrics.shortPath.bearing)}
+                  </div>
+                  <div className="text-xs text-gray-500">Direction</div>
+                </div>
+              </div>
+            </div>
 
-        {/* Propagation Info */}
-        <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-          <h4 className="text-xs font-medium text-gray-400">Propagation</h4>
-          <div className="grid grid-cols-3 gap-2">
-            <MetricItem
-              label="Est. Hops"
-              value={`${metrics.hops}`}
-              subValue="F-layer"
-              valueClassName={getHopsColor(metrics.hops)}
-            />
-            <MetricItem
-              label="Path Light"
-              value={`${Math.round(illumination)}%`}
-              subValue={illumination > 50 ? "Day" : "Night"}
-              valueClassName={getIlluminationColor(illumination)}
-            />
-            <MetricItem
-              label="Midpoint"
-              value={`${metrics.midpoint.lat.toFixed(0)}°`}
-              subValue={`${metrics.midpoint.lon.toFixed(0)}°`}
-            />
-          </div>
-        </div>
+            {/* Simple best band recommendation */}
+            <div className="py-3">
+              <h4 className="text-xs font-medium text-gray-400 mb-2">
+                Best Time to Try
+              </h4>
+              <div className="p-3 bg-white/5 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${illumination > 50 ? "bg-signal-green" : "bg-caution-amber"}`}
+                  />
+                  <span className="text-sm text-white">
+                    {illumination > 50
+                      ? "Daylight path - try higher bands (20m, 17m, 15m)"
+                      : "Night path - try lower bands (40m, 80m)"}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {illumination > 50
+                    ? "Higher bands work best when both stations have daylight."
+                    : "Lower bands work better after sunset."}
+                </p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Normal/Expert Mode: Full details */}
+            {/* Path Toggle */}
+            <div className="flex items-center justify-between pt-3">
+              <h4 className="text-xs font-medium text-gray-400">
+                Path Selection
+              </h4>
+              <button
+                onClick={() => setIsLongPath(!isLongPath)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  isLongPath
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30"
+                    : "bg-signal-green/20 text-signal-green border border-signal-green/30 hover:bg-signal-green/30"
+                }`}
+                title={
+                  isLongPath
+                    ? "Using long path (the longer great circle route)"
+                    : "Using short path (the shorter great circle route)"
+                }
+              >
+                {isLongPath ? "Long Path" : "Short Path"}
+              </button>
+            </div>
 
-        {/* Frequency Limits Section */}
-        <FrequencyLimitsDisplay limits={frequencyLimits} />
+            {/* Short Path - highlighted when selected */}
+            <div
+              className={`space-y-2 pt-3 rounded-lg transition-colors ${
+                !isLongPath ? "bg-signal-green/5 -mx-2 px-2 py-2" : ""
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <h4
+                  className={`text-xs font-medium ${!isLongPath ? "text-signal-green" : "text-gray-400"}`}
+                >
+                  Short Path
+                </h4>
+                {!isLongPath && (
+                  <span className="text-[9px] text-signal-green bg-signal-green/20 px-1.5 py-0.5 rounded">
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <MetricItem
+                  label="Distance"
+                  value={formatDistance(
+                    metrics.shortPath.distance,
+                    useImperial,
+                  )}
+                  valueClassName={
+                    !isLongPath
+                      ? getDistanceColor(metrics.difficulty)
+                      : "text-gray-500"
+                  }
+                />
+                <MetricItem
+                  label="Bearing"
+                  value={`${Math.round(metrics.shortPath.bearing)}°`}
+                  subValue={formatBearing(metrics.shortPath.bearing)}
+                  valueClassName={!isLongPath ? undefined : "text-gray-500"}
+                />
+                <MetricItem
+                  label="Return"
+                  value={`${Math.round(metrics.shortPath.reciprocal)}°`}
+                  subValue={formatBearing(metrics.shortPath.reciprocal)}
+                  valueClassName={!isLongPath ? undefined : "text-gray-500"}
+                />
+              </div>
+            </div>
 
-        {/* Radio Suggestions Section */}
-        {activeRadio && (
-          <RadioSuggestions
-            radio={activeRadio}
-            difficulty={metrics.difficulty}
-            distance={metrics.shortPath.distance}
-          />
+            {/* Long Path - highlighted when selected */}
+            <div
+              className={`space-y-2 pt-3 border-t border-white/5 mt-3 rounded-lg transition-colors ${
+                isLongPath ? "bg-amber-500/5 -mx-2 px-2 py-2" : ""
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <h4
+                  className={`text-xs font-medium ${isLongPath ? "text-amber-400" : "text-gray-400"}`}
+                >
+                  Long Path
+                </h4>
+                {isLongPath && (
+                  <span className="text-[9px] text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded">
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <MetricItem
+                  label="Distance"
+                  value={formatDistance(metrics.longPath.distance, useImperial)}
+                  valueClassName={
+                    isLongPath
+                      ? getLongPathDistanceColor(metrics.difficulty)
+                      : "text-gray-500"
+                  }
+                />
+                <MetricItem
+                  label="Bearing"
+                  value={`${Math.round(metrics.longPath.bearing)}°`}
+                  subValue={formatBearing(metrics.longPath.bearing)}
+                  valueClassName={isLongPath ? undefined : "text-gray-500"}
+                />
+                <MetricItem
+                  label="Return"
+                  value={`${Math.round(metrics.longPath.reciprocal)}°`}
+                  subValue={formatBearing(metrics.longPath.reciprocal)}
+                  valueClassName={isLongPath ? undefined : "text-gray-500"}
+                />
+              </div>
+              {/* Long path propagation hint */}
+              {isLongPath && (
+                <p className="text-[10px] text-amber-400/70 mt-1 leading-relaxed">
+                  Long path may offer better propagation when short path is
+                  blocked by absorption, skip zone, or unfavorable ionospheric
+                  conditions.
+                </p>
+              )}
+            </div>
+
+            {/* Propagation Info */}
+            <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
+              <h4 className="text-xs font-medium text-gray-400">Propagation</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <MetricItem
+                  label="Est. Hops"
+                  value={`${metrics.hops}`}
+                  subValue="F-layer"
+                  valueClassName={getHopsColor(metrics.hops)}
+                />
+                <MetricItem
+                  label="Path Light"
+                  value={`${Math.round(illumination)}%`}
+                  subValue={illumination > 50 ? "Day" : "Night"}
+                  valueClassName={getIlluminationColor(illumination)}
+                />
+                <MetricItem
+                  label="Midpoint"
+                  value={`${metrics.midpoint.lat.toFixed(0)}°`}
+                  subValue={`${metrics.midpoint.lon.toFixed(0)}°`}
+                />
+              </div>
+            </div>
+
+            {/* Frequency Limits Section */}
+            <FrequencyLimitsDisplay limits={frequencyLimits} />
+
+            {/* Radio Suggestions Section */}
+            {activeRadio && (
+              <RadioSuggestions
+                radio={activeRadio}
+                difficulty={metrics.difficulty}
+                distance={metrics.shortPath.distance}
+              />
+            )}
+          </>
         )}
 
         {/* Target coordinates footer */}

@@ -15,8 +15,9 @@ export interface SettingsModalProps {
  * SettingsModal - User settings for station location and preferences
  */
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { station, setStation, preferences, updatePreferences } =
+  const { station, setStation, preferences, updatePreferences, setUIMode } =
     useUserStore();
+  const uiMode = preferences.uiMode || "normal";
 
   // Local form state
   const [callsign, setCallsign] = useState(station?.callsign || "");
@@ -24,6 +25,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [gridError, setGridError] = useState<string | null>(null);
   const [timeFormat, setTimeFormat] = useState(preferences.timeFormat);
   const [units, setUnits] = useState(preferences.units);
+  const [localUIMode, setLocalUIMode] = useState(uiMode);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -32,6 +34,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setGrid(station?.grid || "");
       setTimeFormat(preferences.timeFormat);
       setUnits(preferences.units);
+      setLocalUIMode(preferences.uiMode || "normal");
       setGridError(null);
     }
   }, [isOpen, station, preferences]);
@@ -60,6 +63,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
     // Update preferences
     updatePreferences({ timeFormat, units });
+
+    // Update UI mode
+    setUIMode(localUIMode);
 
     onClose();
   };
@@ -222,6 +228,62 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Interface Mode Section */}
+        <div className="space-y-3 mb-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            Interface Mode
+          </h3>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => setLocalUIMode("beginner")}
+              className={`
+                px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                ${
+                  localUIMode === "beginner"
+                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                    : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                }
+              `}
+            >
+              Beginner
+            </button>
+            <button
+              onClick={() => setLocalUIMode("normal")}
+              className={`
+                px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                ${
+                  localUIMode === "normal"
+                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                    : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                }
+              `}
+            >
+              Normal
+            </button>
+            <button
+              onClick={() => setLocalUIMode("expert")}
+              className={`
+                px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                ${
+                  localUIMode === "expert"
+                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                    : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                }
+              `}
+            >
+              Expert
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">
+            {localUIMode === "beginner" &&
+              "Simplified interface with just the essentials"}
+            {localUIMode === "normal" &&
+              "Balanced view with key propagation data"}
+            {localUIMode === "expert" &&
+              "Full technical details and all overlays"}
+          </p>
         </div>
 
         {/* Actions */}

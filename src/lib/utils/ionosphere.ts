@@ -19,6 +19,27 @@
  */
 
 import { getSubsolarPoint } from "@/lib/utils/sun";
+import {
+  getGrayLineEnhancementForPath,
+  getEffectiveBandEnhancement,
+  type GrayLineEnhancement,
+} from "./grayLineEnhancement";
+import {
+  getPolarAbsorptionForPath,
+  isPolarPath,
+  type PolarAbsorption,
+} from "./polarAbsorption";
+
+// Re-export types for consumers
+export type { GrayLineEnhancement, PolarAbsorption };
+
+// Re-export functions for consumers
+export { isPolarPath } from "./polarAbsorption";
+export {
+  isPathInGrayZone,
+  getGrayZoneWidth,
+  assessGrayLineConditions,
+} from "./grayLineEnhancement";
 
 /**
  * Degree to radian conversion constant
@@ -675,4 +696,400 @@ export function describeConditions(params: IonosphericParameters): string {
     `MUF(3000): ${params.muf3000.toFixed(1)} MHz. ` +
     `Highest usable band: ${highestBand}.`
   );
+}
+
+// ============================================================================
+// Enhanced Path Loss Functions with Gray Line and Polar Effects
+// ============================================================================
+
+/**
+ * Complete path analysis result including all propagation effects
+ */
+export interface EnhancedPathAnalysis {
+  /** Base path loss in dB (free space + absorption + ground) */
+  basePathLoss: number;
+  /** Gray line enhancement in dB (positive = benefit) */
+  grayLineEnhancement: number;
+  /** Polar absorption in dB (positive = loss) */
+  polarAbsorption: number;
+  /** TEP enhancement in dB (positive = benefit) */
+  tepEnhancement: number;
+  /** Total effective path loss (base - enhancements + polar) */
+  totalPathLoss: number;
+  /** Gray line analysis details */
+  grayLine: GrayLineEnhancement;
+  /** Polar absorption details */
+  polar: PolarAbsorption;
+  /** Whether TEP conditions are present */
+  isTEPPath: boolean;
+  /** Special propagation notes */
+  notes: string[];
+}
+
+/**
+ * Calculate total path loss incorporating all propagation effects
+ *
+ * This function combines:
+ * 1. Base path loss (free space + D-layer absorption + ground reflection)
+ * 2. Gray line enhancement (reduces loss for low bands at twilight)
+ * 3. Polar absorption (increases loss for paths crossing polar regions)
+ * 4. TEP enhancement (reduces loss for trans-equatorial paths on 10m/6m)
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param frequencyMHz - Operating frequency in MHz
+ * @param basePathLossDb - Base path loss in dB (from signal.ts calculations)
+ * @param band - Band name (e.g., '40m', '20m')
+ * @param kIndex - Current K-index (0-9)
+ * @param time - Current time for calculations
+ * @returns Enhanced path analysis with all effects
+ */
+export function calculateEnhancedPathLoss(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  frequencyMHz: number,
+  basePathLossDb: number,
+  band: string,
+  kIndex: number,
+  time: Date,
+): EnhancedPathAnalysis {
+  const notes: string[] = [];
+
+  // Calculate gray line enhancement
+  const grayLine = getGrayLineEnhancementForPath(lat1, lon1, lat2, lon2, time);
+  const grayLineEnhancement = getEffectiveBandEnhancement(
+    grayLine.enhancement,
+    band,
+  );
+
+  if (grayLine.isEnhanced) {
+    notes.push(
+      `Gray line enhancement: +${grayLineEnhancement.toFixed(1)} dB (${grayLine.type})`,
+    );
+  }
+
+  // Calculate polar absorption
+  const polar = getPolarAbsorptionForPath(lat1, lon1, lat2, lon2, kIndex);
+
+  if (polar.isAffected) {
+    notes.push(
+      `Polar absorption: -${polar.absorption.toFixed(1)} dB (${polar.severity})`,
+    );
+  }
+
+  // Check for TEP conditions
+  const tepResult = detectTEP(lat1, lon1, lat2, lon2, frequencyMHz, time);
+  const tepEnhancement = tepResult.enhancement;
+
+  if (tepResult.isTEP) {
+    notes.push(`TEP conditions: +${tepEnhancement.toFixed(1)} dB enhancement`);
+  }
+
+  // Calculate total path loss
+  // Total = Base - Enhancements + Absorption
+  const totalPathLoss =
+    basePathLossDb - grayLineEnhancement - tepEnhancement + polar.absorption;
+
+  return {
+    basePathLoss: basePathLossDb,
+    grayLineEnhancement,
+    polarAbsorption: polar.absorption,
+    tepEnhancement,
+    totalPathLoss: Math.max(0, totalPathLoss),
+    grayLine,
+    polar,
+    isTEPPath: tepResult.isTEP,
+    notes,
+  };
+}
+
+/**
+ * Get enhanced MUF with gray line boost
+ *
+ * During gray line conditions, the MUF can be effectively higher
+ * due to reduced D-layer absorption allowing lower angle rays.
+ *
+ * @param baseMuf - Base MUF in MHz
+ * @param grayLine - Gray line enhancement data
+ * @returns Enhanced MUF in MHz
+ */
+export function getEnhancedMUF(
+  baseMuf: number,
+  grayLine: GrayLineEnhancement,
+): number {
+  if (!grayLine.isEnhanced) {
+    return baseMuf;
+  }
+
+  // Gray line can boost effective MUF by allowing lower angle rays
+  // The boost is proportional to the enhancement quality
+  let boost = 0;
+  switch (grayLine.quality) {
+    case "excellent":
+      boost = 0.15; // +15% MUF
+      break;
+    case "good":
+      boost = 0.1; // +10% MUF
+      break;
+    case "moderate":
+      boost = 0.05; // +5% MUF
+      break;
+    default:
+      boost = 0;
+  }
+
+  return baseMuf * (1 + boost);
+}
+
+/**
+ * Get polar path penalty for signal strength calculations
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param kIndex - Current K-index
+ * @returns Absorption penalty in dB
+ */
+export function getPolarPathPenalty(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  kIndex: number,
+): number {
+  if (!isPolarPath(lat1, lon1, lat2, lon2)) {
+    return 0;
+  }
+
+  const polar = getPolarAbsorptionForPath(lat1, lon1, lat2, lon2, kIndex);
+  return polar.absorption;
+}
+
+// ============================================================================
+// Trans-Equatorial Propagation (TEP) Detection
+// ============================================================================
+
+/**
+ * TEP detection result
+ */
+export interface TEPResult {
+  /** Whether TEP conditions are likely */
+  isTEP: boolean;
+  /** Enhancement in dB */
+  enhancement: number;
+  /** Confidence level (0-100) */
+  confidence: number;
+  /** Description of TEP conditions */
+  description: string;
+  /** Recommended bands for TEP */
+  recommendedBands: string[];
+}
+
+/**
+ * Magnetic equator latitude lookup (simplified)
+ * The magnetic equator varies by longitude
+ */
+function getMagneticEquatorLat(lon: number): number {
+  // Simplified model: magnetic equator roughly follows geographic
+  // equator but is shifted north in South America and south in Africa/Asia
+  if (lon >= -80 && lon <= -30) {
+    // South America: shifted north
+    return 10 + (lon + 80) * 0.1;
+  } else if (lon >= -20 && lon <= 60) {
+    // Africa/Middle East: shifted south
+    return -5;
+  } else if (lon >= 100 && lon <= 150) {
+    // Southeast Asia/Pacific: shifted south
+    return -8;
+  }
+  return 3; // Default slight north shift
+}
+
+/**
+ * Check if a path is trans-equatorial (crosses the magnetic equator)
+ *
+ * TEP occurs when a signal path crosses the geomagnetic equator,
+ * typically providing enhanced propagation on 10m and 6m during
+ * solar maximum conditions.
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @returns True if path is suitable for TEP
+ */
+export function isTEPPath(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): boolean {
+  // Get approximate magnetic equator latitude for midpoint longitude
+  const midLon = (lon1 + lon2) / 2;
+  const magEquator = getMagneticEquatorLat(midLon);
+
+  // Adjust latitudes relative to magnetic equator
+  const adjLat1 = lat1 - magEquator;
+  const adjLat2 = lat2 - magEquator;
+
+  // TEP requires stations on opposite sides of magnetic equator
+  // and within about 30 degrees of it
+  const crossesEquator = adjLat1 * adjLat2 < 0;
+  const withinTEPZone = Math.abs(adjLat1) < 30 && Math.abs(adjLat2) < 30;
+
+  return crossesEquator && withinTEPZone;
+}
+
+/**
+ * Detect TEP conditions and calculate enhancement
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param frequencyMHz - Operating frequency
+ * @param time - Current time
+ * @returns TEP detection result
+ */
+export function detectTEP(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  frequencyMHz: number,
+  time: Date,
+): TEPResult {
+  // Check if path is suitable for TEP
+  if (!isTEPPath(lat1, lon1, lat2, lon2)) {
+    return {
+      isTEP: false,
+      enhancement: 0,
+      confidence: 0,
+      description: "Path does not cross magnetic equator",
+      recommendedBands: [],
+    };
+  }
+
+  // TEP is most effective on 10m and 6m
+  const is10mOr6m = frequencyMHz >= 28 && frequencyMHz <= 54;
+
+  if (!is10mOr6m) {
+    return {
+      isTEP: false,
+      enhancement: 0,
+      confidence: 0,
+      description: "TEP is most effective on 10m and 6m bands",
+      recommendedBands: ["10m", "6m"],
+    };
+  }
+
+  // Calculate local solar hour at path midpoint
+  const midLon = (lon1 + lon2) / 2;
+  const localHour = calculateLocalSolarHour(midLon, time);
+
+  // TEP is best around afternoon and evening (14:00-21:00 local)
+  let timeBonus = 0;
+  if (localHour >= 14 && localHour <= 21) {
+    timeBonus = 1 - Math.abs(localHour - 17.5) / 7; // Peak at 17:30
+  } else if (localHour >= 10 && localHour < 14) {
+    timeBonus = 0.3; // Moderate in late morning
+  }
+
+  // Base TEP enhancement
+  // TEP can provide significant signal boost (10-15 dB typically)
+  const baseTEPEnhancement = 10;
+
+  // Calculate confidence based on conditions
+  let confidence = 50; // Base confidence
+
+  // Time bonus
+  if (timeBonus > 0.5) {
+    confidence += 25;
+  } else if (timeBonus > 0) {
+    confidence += 10;
+  }
+
+  // Frequency bonus (6m has slightly higher confidence)
+  if (frequencyMHz >= 50) {
+    confidence += 10;
+  }
+
+  // Calculate final enhancement
+  const enhancement = baseTEPEnhancement * (0.5 + timeBonus * 0.5);
+
+  return {
+    isTEP: true,
+    enhancement: Math.round(enhancement * 10) / 10,
+    confidence: Math.round(confidence),
+    description:
+      timeBonus > 0.5
+        ? "Peak TEP conditions expected"
+        : timeBonus > 0
+          ? "Moderate TEP conditions"
+          : "TEP path but not optimal time",
+    recommendedBands: ["10m", "6m"],
+  };
+}
+
+/**
+ * Check if TEP conditions are favorable for a path
+ *
+ * @param lat1 - Start latitude
+ * @param lon1 - Start longitude
+ * @param lat2 - End latitude
+ * @param lon2 - End longitude
+ * @param time - Current time
+ * @returns Assessment of TEP conditions
+ */
+export function assessTEPConditions(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  time: Date,
+): {
+  favorable: boolean;
+  recommendation: string;
+  bestBands: string[];
+} {
+  // Check path geometry
+  if (!isTEPPath(lat1, lon1, lat2, lon2)) {
+    return {
+      favorable: false,
+      recommendation: "Path is not suitable for TEP (does not cross equator).",
+      bestBands: [],
+    };
+  }
+
+  // Check time
+  const midLon = (lon1 + lon2) / 2;
+  const localHour = calculateLocalSolarHour(midLon, time);
+
+  if (localHour >= 14 && localHour <= 21) {
+    return {
+      favorable: true,
+      recommendation:
+        "TEP conditions favorable. Try 10m and 6m for enhanced propagation.",
+      bestBands: ["10m", "6m"],
+    };
+  } else if (localHour >= 10 && localHour < 14) {
+    return {
+      favorable: true,
+      recommendation:
+        "TEP conditions developing. Monitor 10m for possible opening.",
+      bestBands: ["10m"],
+    };
+  } else {
+    return {
+      favorable: false,
+      recommendation:
+        "TEP path exists but timing not optimal. Best 14:00-21:00 local.",
+      bestBands: ["10m", "6m"],
+    };
+  }
 }

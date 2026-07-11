@@ -11,6 +11,12 @@ import type {
   ITURegion,
   LicenseClass,
 } from "../types/user";
+
+/** User experience level */
+export type ExperienceLevel = "beginner" | "intermediate" | "expert";
+
+/** UI complexity mode */
+export type UIMode = "beginner" | "normal" | "expert";
 import type { UserRadio, RadioEquipment } from "../types/radio";
 import { getRadioById } from "../lib/data/radios";
 
@@ -42,6 +48,8 @@ interface UserStore {
   preferences: Omit<UserPreferences, "station">;
   /** Saved target locations for quick access (max 10) */
   savedTargets: SavedTarget[];
+  /** Get current UI mode from preferences */
+  getUIMode: () => UIMode;
   /** Set or clear the station configuration */
   setStation: (station: UserStation | null) => void;
   /** Partially update user preferences */
@@ -66,6 +74,12 @@ interface UserStore {
   setActiveRadio: (radioId: string | null) => void;
   /** Get the active radio equipment details */
   getActiveRadio: () => RadioEquipment | null;
+  /** Set user's experience level */
+  setExperienceLevel: (level: ExperienceLevel) => void;
+  /** Mark onboarding as completed */
+  setHasCompletedOnboarding: (completed: boolean) => void;
+  /** Set UI complexity mode */
+  setUIMode: (mode: UIMode) => void;
 }
 
 /**
@@ -79,6 +93,9 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
   licenseClass: "GENERAL",
   radios: [],
   activeRadioId: null,
+  experienceLevel: "intermediate",
+  hasCompletedOnboarding: false,
+  uiMode: "normal",
 };
 
 /**
@@ -103,10 +120,13 @@ const defaultPreferences: Omit<UserPreferences, "station"> = {
  */
 export const useUserStore = create<UserStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       station: null,
       preferences: defaultPreferences,
       savedTargets: [],
+
+      // Get UI mode from preferences
+      getUIMode: () => get().preferences.uiMode || "normal",
 
       setStation: (station) => set({ station }),
 
@@ -215,10 +235,28 @@ export const useUserStore = create<UserStore>()(
         // Note: This returns null as a placeholder. Use the useActiveRadio hook instead.
         return null;
       },
+
+      setExperienceLevel: (level) =>
+        set((state) => ({
+          preferences: { ...state.preferences, experienceLevel: level },
+        })),
+
+      setHasCompletedOnboarding: (completed) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            hasCompletedOnboarding: completed,
+          },
+        })),
+
+      setUIMode: (mode) =>
+        set((state) => ({
+          preferences: { ...state.preferences, uiMode: mode },
+        })),
     }),
     {
       name: "propulse-user",
-      version: 3,
+      version: 4,
       partialize: (state) => ({
         station: state.station,
         preferences: state.preferences,

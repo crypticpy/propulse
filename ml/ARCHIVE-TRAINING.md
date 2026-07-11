@@ -98,6 +98,42 @@ lessons (equi-joins only, TEMP VIEWs, RANGE window frames) carry over as-is.
 - Deliverable model stays the same shape: GBT → JSON dump → Edge Function.
   Archive training changes the weights, not the serving architecture.
 
+## Pipeline validation — DONE (2026-07-11, March 2026 slice)
+
+Pulled all 29 available March 2026 days from Madrigal (Mar 15–16 missing on
+their side; ~160 GB HDF5 → 3.15B usable digital rows after convert). Scripts:
+`madrigal_pull.py` → `madrigal_convert.py` → `madrigal_build_cells.py` →
+`madrigal_train_eval.py` (+ `madrigal_validate.py` for the raw cross-check).
+
+**Raw cross-check vs our collector (Mar 1):** our PSKReporter polling captured
+~1% of the feed (1.4M vs 136.9M digital spots/day); 99.5% of our cells appear
+in Madrigal's; Madrigal sees 4.2× more open cells → our constructed negatives
+contain false negatives. Madrigal is PSKReporter+WSPRNet only (no RBN CW).
+
+**Cross-eval** (identical March-only digital cell construction from each
+source; train ≤Mar 19, holdout Mar 24–31, weighted metrics):
+
+| train → eval | AUC | PR-AUC | Brier | cold AUC | cold PR-AUC |
+|---|---|---|---|---|---|
+| madrigal → madrigal | **0.9688** | **0.8671** | 0.0401 | **0.9268** | **0.4181** |
+| ours → madrigal | 0.9559 | 0.8326 | 0.0528 | 0.8937 | 0.3258 |
+| madrigal → ours | 0.9539 | 0.7991 | 0.0559 | 0.9209 | 0.4147 |
+| ours → ours | 0.9620 | 0.8273 | 0.0486 | 0.9379 | 0.4840 |
+
+Reading: each model wins its home holdout (label-distribution match), but the
+Madrigal eval column is the truthful exam — its labels miss far fewer real
+openings ("eval on ours" scores correct open-predictions as false positives
+when our sparse feed missed the spots). On that exam the Madrigal-trained
+model wins **+0.013 AUC / +0.035 PR-AUC overall and +0.033 AUC / +0.092
+PR-AUC on cold cells** — the "be first to the opening" slice — despite
+training on 2 fewer days. Pair universe also grew 1,940 → 10,939 pairs at
+the same ≥300-spot gate (5.6× path coverage).
+
+**Verdict: archive-first training is validated end-to-end.** Denser labels
+beat more features; cold-start is where the gain concentrates, as predicted.
+Raw HDF5 kept at `ml/data/raw/madrigal/` (112 GB), slim parquet at
+`ml/data/processed/madrigal/` (~20 GB), models `path_open_mar_{src}.json`.
+
 ## Order of operations
 
 1. Reactivate collector with `path_hourly_stats` flywheel (done, this repo)

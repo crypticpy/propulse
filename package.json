@@ -7,11 +7,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint . --max-warnings 0",
     "check:bundles": "node scripts/check-bundles.mjs",
     "check:tracked-artifacts": "node scripts/check-tracked-artifacts.mjs",
+    "check:v4-preregistration": "ml/.venv/bin/python ml/src/archive_v4/validate_preregistration.py",
     "check:push-size": "node scripts/check-push-size.mjs",
-    "verify": "npm run check:tracked-artifacts && npm run lint && npm run build && npm run check:bundles",
+    "verify": "npm run check:tracked-artifacts && npm run check:v4-preregistration && npm run lint && npm run test && npm run build && npm run check:bundles",
     "hooks:install": "bash scripts/setup-git-hooks.sh",
     "preview": "vite preview",
     "import:sherwood": "node scripts/import-sherwood.mjs",
@@ -63,6 +66,7 @@
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.5",
     "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^3.2.7",
     "world-atlas": "^2.0.2",
     "world-countries": "^5.1.0"
   }

@@ -12,6 +12,7 @@ from common import (
     MANIFESTS,
     WSPR_COLUMNS,
     band_sql,
+    configure_duckdb,
     ensure_directories,
     load_config,
     relative,
@@ -122,14 +123,8 @@ def main() -> None:
     args = parser.parse_args()
     config = load_config(args.config)
     ensure_directories()
-    temp = Path("/Volumes/Projects/PropulseML/tmp/duckdb-v3-bronze")
-    temp.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
-    con.execute("SET TimeZone='UTC'")
-    con.execute("SET threads=14")
-    con.execute("SET memory_limit='80GB'")
-    con.execute("SET preserve_insertion_order=false")
-    con.execute(f"SET temp_directory='{temp}'")
+    configure_duckdb(con, config, "bronze")
     results = []
     for month in config["months"]:
         output = wspr_bronze_path(month)

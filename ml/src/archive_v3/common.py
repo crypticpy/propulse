@@ -13,13 +13,18 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
-DATA = ROOT / "ml/data"
-RAW = DATA / "raw/archive_v3"
-BRONZE = DATA / "bronze/archive_v3"
-PROCESSED = DATA / "processed/archive_v3"
+ARCHIVE_NAMESPACE = os.environ.get("PROPULSE_ARCHIVE_NAMESPACE", "archive_v3")
+DATA = Path(os.environ.get("PROPULSE_ML_DATA_ROOT", ROOT / "ml/data"))
+RAW = DATA / f"raw/{ARCHIVE_NAMESPACE}"
+BRONZE = DATA / f"bronze/{ARCHIVE_NAMESPACE}"
+PROCESSED = DATA / f"processed/{ARCHIVE_NAMESPACE}"
 MANIFESTS = DATA / "manifests"
-MODELS = ROOT / "ml/models/archive_v3"
-RESULTS = ROOT / "ml/results/archive_v3"
+MODELS = Path(
+    os.environ.get(
+        "PROPULSE_ML_MODEL_ROOT", ROOT / f"ml/models/{ARCHIVE_NAMESPACE}"
+    )
+)
+RESULTS = ROOT / f"ml/results/{ARCHIVE_NAMESPACE}"
 
 WSPR_COLUMNS = {
     "spot_id": "BIGINT",
@@ -56,6 +61,30 @@ def load_config(path: str | Path) -> dict[str, Any]:
 def ensure_directories() -> None:
     for path in (RAW, BRONZE, PROCESSED, MANIFESTS, MODELS, RESULTS):
         path.mkdir(parents=True, exist_ok=True)
+
+
+def configure_duckdb(connection: Any, config: dict[str, Any], stage: str) -> Path:
+    compute = config.get("compute", {})
+    threads = int(
+        os.environ.get("PROPULSE_DUCKDB_THREADS", compute.get("duckdb_threads", 14))
+    )
+    memory_limit = os.environ.get(
+        "PROPULSE_DUCKDB_MEMORY_LIMIT", compute.get("duckdb_memory_limit", "80GB")
+    )
+    configured_temp = os.environ.get(
+        "PROPULSE_ML_TEMP_ROOT", compute.get("temp_root", "")
+    )
+    temp_root = Path(configured_temp) if configured_temp else Path("/tmp/propulse-ml")
+    if not temp_root.parent.exists():
+        temp_root = Path("/tmp/propulse-ml")
+    temp = temp_root / ARCHIVE_NAMESPACE / stage
+    temp.mkdir(parents=True, exist_ok=True)
+    connection.execute("SET TimeZone='UTC'")
+    connection.execute(f"SET threads={threads}")
+    connection.execute(f"SET memory_limit='{memory_limit}'")
+    connection.execute("SET preserve_insertion_order=false")
+    connection.execute(f"SET temp_directory='{temp}'")
+    return temp
 
 
 def sha256(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:

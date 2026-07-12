@@ -1,0 +1,20 @@
+{
+  "run_id": "propagation_v4_multiyear_50m",
+  "status": "preregistered_not_started",
+  "created_at": "2026-07-12T00:00:00Z",
+  "plan": "ml/PERSONALIZED-PROPAGATION-V4-PLAN.md",
+  "config": "ml/config/propagation_v4.json",
+  "config_schema": "ml/config/propagation_v4.schema.json",
+  "source_registry": "ml/config/propagation_v4_sources.json",
+  "baseline_commit": "95d1e68",
+  "locked_archive_test_opened": false,
+  "locked_prospective_test_opened": false,
+  "raw_data_downloaded": false,
+  "model_selected": false,
+  "notes": [
+    "This manifest is committed before V4 outcome acquisition.",
+    "The previous October 2024 result is development evidence, not a V4 locked test.",
+    "Any deviation must be appended with timestamp and reason before opening a locked test."
+  ],
+  "deviations": []
+}

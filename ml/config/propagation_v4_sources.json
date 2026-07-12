@@ -1,0 +1,124 @@
+{
+  "registry_version": 1,
+  "created_at": "2026-07-12T00:00:00Z",
+  "policy": {
+    "raw_third_party_data_tracked_in_git": false,
+    "required_fields": [
+      "owner", "purpose", "url", "time_semantics", "latency",
+      "terms_url", "attribution", "redistribution", "fallback"
+    ]
+  },
+  "sources": [
+    {
+      "id": "wsprnet_archive",
+      "owner": "WSPRnet",
+      "purpose": "Historical exposure-aware WSPR labels",
+      "url": "https://www.wsprnet.org/archive/",
+      "time_semantics": "spot event time",
+      "latency": "monthly archive",
+      "terms_url": "https://www.wsprnet.org/",
+      "attribution": "WSPRnet and contributing amateur stations",
+      "redistribution": "unconfirmed; raw files remain ignored",
+      "fallback": "stop affected split; do not substitute after outcome inspection",
+      "review_status": "terms_review_required"
+    },
+    {
+      "id": "wspr_live",
+      "owner": "WSPR.live volunteer service",
+      "purpose": "Research queries and current WSPR observations",
+      "url": "https://wspr.live/",
+      "time_semantics": "spot event time; database synchronized frequently",
+      "latency": "minutes; no service guarantee",
+      "terms_url": "https://wspr.live/",
+      "attribution": "WSPR.live, WSPRnet, and contributing stations",
+      "redistribution": "research results free; commercial/profit use prohibited",
+      "fallback": "first-party collector or empty/stale state; never synthetic spots",
+      "review_status": "written_production_permission_required"
+    },
+    {
+      "id": "propulse_collector",
+      "owner": "Propulse",
+      "purpose": "Prospective observations and path_hourly_stats",
+      "url": "collector/src/",
+      "time_semantics": "event_time, available_at, ingested_at",
+      "latency": "near-real-time",
+      "terms_url": "ml/RESEARCH-DATA-PRIVACY.md",
+      "attribution": "Upstream source retained per observation",
+      "redistribution": "aggregate-only unless upstream and consent allow",
+      "fallback": "source-specific stale/outage flag"
+    },
+    {
+      "id": "nasa_omni2",
+      "owner": "NASA SPDF",
+      "purpose": "Definitive historical solar wind and geomagnetic features",
+      "url": "https://omniweb.gsfc.nasa.gov/html/ow_data.html",
+      "time_semantics": "hourly definitive/reprocessed observation",
+      "latency": "not operationally contemporaneous",
+      "terms_url": "https://spdf.gsfc.nasa.gov/",
+      "attribution": "NASA SPDF OMNIWeb and original data providers",
+      "redistribution": "derived features with attribution",
+      "fallback": "missingness flags; never present definitive values as live"
+    },
+    {
+      "id": "gfz_kp_hp",
+      "owner": "GFZ German Research Centre for Geosciences",
+      "purpose": "Kp, Hp30, and Hp60 historical/nowcast geomagnetic state",
+      "url": "https://kp.gfz.de/en/data",
+      "time_semantics": "status-tagged definitive, nowcast, or forecast index",
+      "latency": "source-status dependent",
+      "terms_url": "https://kp.gfz.de/en/data",
+      "attribution": "GFZ Potsdam; CC BY 4.0",
+      "redistribution": "allowed with attribution and status/version",
+      "fallback": "NOAA operational geomagnetic inputs plus missingness"
+    },
+    {
+      "id": "noaa_swpc_json",
+      "owner": "NOAA/NWS Space Weather Prediction Center",
+      "purpose": "Operational solar wind, Kp, F10.7, GOES, aurora, and forecasts",
+      "url": "https://services.swpc.noaa.gov/json/",
+      "time_semantics": "observed_at or issued_at/valid_at preserved per product",
+      "latency": "near-real-time/product dependent",
+      "terms_url": "https://www.weather.gov/disclaimer",
+      "attribution": "NOAA Space Weather Prediction Center",
+      "redistribution": "raw issuance archive and derived features with attribution",
+      "fallback": "physics/climatology model with reduced confidence"
+    },
+    {
+      "id": "itu_p533_14",
+      "owner": "International Telecommunication Union",
+      "purpose": "HF circuit-performance baseline",
+      "url": "https://www.itu.int/rec/R-REC-P.533-14-201908-I/en",
+      "time_semantics": "monthly/declared circuit inputs",
+      "latency": "deterministic model",
+      "terms_url": "https://www.itu.int/en/about/Pages/terms-of-use.aspx",
+      "attribution": "Recommendation ITU-R P.533-14",
+      "redistribution": "do not vendor recommendation text",
+      "fallback": "documented unavailable baseline blocks locked-test release"
+    },
+    {
+      "id": "ntia_hf_models",
+      "owner": "NTIA Institute for Telecommunication Sciences",
+      "purpose": "Executable VOACAP/REC533 implementation candidate",
+      "url": "https://its.ntia.gov/software/high-frequency/high-frequency-propagation-models/",
+      "time_semantics": "deterministic model",
+      "latency": "local execution",
+      "terms_url": "https://its.ntia.gov/software/high-frequency/high-frequency-propagation-models/",
+      "attribution": "NTIA/ITS",
+      "redistribution": "license review required before vendoring",
+      "fallback": "reproducible external installation"
+    },
+    {
+      "id": "sherwood_receivers",
+      "owner": "Sherwood Engineering",
+      "purpose": "Independent receiver measurements",
+      "url": "http://www.sherweng.com/table.html",
+      "time_semantics": "test date and retrieval date",
+      "latency": "manual/source update",
+      "terms_url": "http://www.sherweng.com/table.html",
+      "attribution": "Sherwood Engineering receiver test data",
+      "redistribution": "no explicit license found; public release requires written permission/legal review or importer-only distribution",
+      "fallback": "factory specifications labeled as claimed, or unknown",
+      "review_status": "terms_review_required"
+    }
+  ]
+}

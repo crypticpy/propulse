@@ -1,0 +1,33 @@
+{
+  "source": "http://www.sherweng.com/table.html",
+  "retrievedAt": "2026-07-12T07:53:28.036Z",
+  "sourceSha256": "d9fe00b3f8a857953d76c65c6c3eec0f69d8a48851c1aabb77b22cd877bf7dff",
+  "parserVersion": "sherwood-parser-v1",
+  "tableRowCount": 174,
+  "acceptedEntryCount": 161,
+  "auditedDataRowCount": 161,
+  "rejectedValueCount": 0,
+  "physicalRanges": {
+    "noiseFloorDbm": {
+      "min": -180,
+      "max": -70
+    },
+    "sensitivityUv": {
+      "min": 0.001,
+      "max": 100
+    },
+    "blockingDb": {
+      "min": 0,
+      "max": 200
+    },
+    "dynamicRangeDb": {
+      "min": 0,
+      "max": 200
+    },
+    "spacingKhz": {
+      "min": 0.01,
+      "max": 1000
+    }
+  },
+  "detailedAudit": "ml/data/audits/equipment/sherwood-import-audit.json (ignored)"
+}

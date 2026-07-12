@@ -1,6 +1,6 @@
 # Personalized Propagation V4: Multi-Year Model and Product Execution Plan
 
-> Status: ready to execute; preregistration draft frozen on 2026-07-12.
+> Status: execution in progress; preregistration frozen on 2026-07-12.
 > Previous result: [`ARCHIVE-MULTIMONTH-V3-RESULTS.md`](ARCHIVE-MULTIMONTH-V3-RESULTS.md).
 > Primary compute target: Apple M5 Max, 128 GB unified memory, with the external
 > `Projects` SSD for ignored data, models, caches, and reports.
@@ -720,12 +720,12 @@ command and estimated storage/runtime.
 ### Phase 0: freeze, audit, and consolidate
 
 - [ ] Tag/freeze V3 model, config, report, and checksum manifest.
-- [ ] Add the V4 config schema and run manifest before downloading outcomes.
-- [ ] Consolidate all station chain calculations into one pure engine.
-- [ ] Fix and validate Sherwood parsing; quarantine impossible data.
+- [x] Add the V4 config schema and run manifest before downloading outcomes.
+- [x] Consolidate all station chain calculations into one pure engine.
+- [x] Fix and validate Sherwood parsing; quarantine impossible data.
 - [ ] Audit equipment source licenses, provenance, units, and update dates.
-- [ ] Remove or clearly isolate synthetic propagation data from product paths.
-- [ ] Define privacy, consent, retention, and open-research policy.
+- [x] Remove or clearly isolate synthetic propagation data from product paths.
+- [x] Define privacy, consent, retention, and open-research policy.
 - [ ] Confirm WSPR.live/upstream operational permission and fallback strategy.
 
 **Gate:** chain fixtures pass; catalog has no impossible values; frozen configs,

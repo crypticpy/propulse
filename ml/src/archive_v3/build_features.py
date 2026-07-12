@@ -11,7 +11,13 @@ from pathlib import Path
 import duckdb
 import polars as pl
 
-from common import PROCESSED, ensure_directories, load_config, opportunity_path
+from common import (
+    PROCESSED,
+    configure_duckdb,
+    ensure_directories,
+    load_config,
+    opportunity_path,
+)
 
 
 BAND_MHZ = {
@@ -180,14 +186,8 @@ def main() -> None:
     if not weather.exists():
         raise FileNotFoundError(weather)
     split = split_sql(config)
-    temp = Path("/Volumes/Projects/PropulseML/tmp/duckdb-v3-features")
-    temp.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
-    con.execute("SET TimeZone='UTC'")
-    con.execute("SET threads=14")
-    con.execute("SET memory_limit='80GB'")
-    con.execute("SET preserve_insertion_order=false")
-    con.execute(f"SET temp_directory='{temp}'")
+    configure_duckdb(con, config, "features")
     started = time.time()
     bases = [
         PROCESSED / f"dataset_{config['run_id']}_{args.task}_base_{month}.parquet"

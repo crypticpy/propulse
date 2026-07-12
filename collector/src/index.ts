@@ -7,6 +7,7 @@ import { collectPskReporter } from "./collectors/pskreporter.js";
 import { collectRbn } from "./collectors/rbn.js";
 import { collectDxCluster } from "./collectors/dxcluster.js";
 import { collectSolar } from "./collectors/solar.js";
+import { collectForecasts } from "./collectors/forecast.js";
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { pruneOldData } from "./aggregator/prune.js";
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
   // Solar collector
   if (config.enabledSources.has("solar")) {
     register("solar", pollIntervals.solar, () => collectSolar(db));
+    register("forecasts", pollIntervals.solar, () => collectForecasts(db));
   }
 
   // Lightning WebSocket consumer (always-on, not poll-based)

@@ -2,7 +2,8 @@ import type { SherwoodReceiverEntry } from "@/types/sherwood";
 
 /**
  * Generated from http://www.sherweng.com/table.html
- * Retrieved: 2026-02-01T18:14:53.406Z
+ * Retrieved: 2026-07-12T07:53:28.036Z
+ * Source SHA-256: d9fe00b3f8a857953d76c65c6c3eec0f69d8a48851c1aabb77b22cd877bf7dff
  */
 export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
   {
@@ -10,7 +11,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 38,
     "manufacturer": "Aerial-51",
     "model": "ALT-512",
-    "rawDeviceText": "Added 08/15/19\nAerial-51\nALT-512",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -120,
@@ -43,11 +43,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "aor::5000::170",
-    "rowIndex": 170,
+    "key": "aor::5000::171",
+    "rowIndex": 171,
     "manufacturer": "AOR",
     "model": "5000",
-    "rawDeviceText": "AOR\n5000",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -124,
@@ -76,11 +75,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "aor::ar-7030::53",
-    "rowIndex": 53,
+    "key": "aor::ar-7030::54",
+    "rowIndex": 54,
     "manufacturer": "AOR",
     "model": "AR-7030",
-    "rawDeviceText": "AOR\nAR-7030",
     "noiseFloorDbm": -128,
     "noiseFloorDbmSamples": [
       -122,
@@ -113,11 +111,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "aor::ar3030::139",
-    "rowIndex": 139,
+    "key": "aor::ar3030::140",
+    "rowIndex": 140,
     "manufacturer": "AOR",
     "model": "AR3030",
-    "rawDeviceText": "AOR\nAR3030",
     "noiseFloorDbm": -131,
     "noiseFloorDbmSamples": [
       -131
@@ -152,7 +149,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 21,
     "manufacturer": "Apache",
     "model": "ANAN-200D",
-    "rawDeviceText": "Added\n08/31/16\nApache \nANAN-200D \nTested 12/15/2015",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -133,
@@ -191,18 +187,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 13,
     "manufacturer": "Apache",
     "model": "ANAN-7000DLE",
-    "rawDeviceText": "Added\n02/22/18\nApache \nANAN-7000DLE",
-    "noiseFloorDbm": -1406,
+    "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -131,
       -131,
-      -1406
+      -140
     ],
-    "sensitivityUv": 0.166,
+    "sensitivityUv": 0.16,
     "sensitivityUvSamples": [
       0.43,
       0.43,
-      0.166
+      0.16
     ],
     "blockingDb": 126,
     "blockingDbSamples": [
@@ -230,18 +225,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 12,
     "manufacturer": "Apache",
     "model": "ANAN-G2",
-    "rawDeviceText": "Added\n06/24/24\nApache \nANAN-G2",
-    "noiseFloorDbm": -1416,
+    "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -131,
       -131,
-      -1416
+      -141
     ],
-    "sensitivityUv": 0.146,
+    "sensitivityUv": 0.14,
     "sensitivityUvSamples": [
       0.4,
       0.4,
-      0.146
+      0.14
     ],
     "blockingDb": 129,
     "blockingDbSamples": [
@@ -265,11 +259,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "atlas::210/215x::79",
-    "rowIndex": 79,
+    "key": "atlas::210/215x::80",
+    "rowIndex": 80,
     "manufacturer": "Atlas",
     "model": "210/215X",
-    "rawDeviceText": "Atlas\n210/215X",
     "noiseFloorDbm": -120,
     "noiseFloorDbmSamples": [
       -120
@@ -300,11 +293,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "atlas::350-xl::58",
-    "rowIndex": 58,
+    "key": "atlas::350-xl::59",
+    "rowIndex": 59,
     "manufacturer": "Atlas",
     "model": "350-XL",
-    "rawDeviceText": "Atlas\n350-XL",
     "noiseFloorDbm": -131,
     "noiseFloorDbmSamples": [
       -131
@@ -335,11 +327,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "collins::51s1::161",
-    "rowIndex": 161,
+    "key": "collins::51s1::162",
+    "rowIndex": 162,
     "manufacturer": "Collins",
     "model": "51S1",
-    "rawDeviceText": "Collins\n51S1",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -134
@@ -370,11 +361,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "collins::75-s3 wing::155",
-    "rowIndex": 155,
+    "key": "collins::75-s3 wing::156",
+    "rowIndex": 156,
     "manufacturer": "Collins",
     "model": "75-S3 Wing",
-    "rawDeviceText": "Collins\n75-S3 Wing",
     "noiseFloorDbm": -145,
     "noiseFloorDbmSamples": [
       -145
@@ -405,11 +395,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "collins::75-s3b::95",
-    "rowIndex": 95,
+    "key": "collins::75-s3b::96",
+    "rowIndex": 96,
     "manufacturer": "Collins",
     "model": "75-S3B",
-    "rawDeviceText": "Collins\n75-S3B",
     "noiseFloorDbm": -146,
     "noiseFloorDbmSamples": [
       -146
@@ -440,11 +429,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "collins::75s-3c::101",
-    "rowIndex": 101,
+    "key": "collins::75s-3c::102",
+    "rowIndex": 102,
     "manufacturer": "Collins",
     "model": "75S-3C",
-    "rawDeviceText": "Collins\n75S-3C",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -141
@@ -475,11 +463,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "collins::kwm-380::147",
-    "rowIndex": 147,
+    "key": "collins::kwm-380::148",
+    "rowIndex": 148,
     "manufacturer": "Collins",
     "model": "KWM-380",
-    "rawDeviceText": "Collins\nKWM-380",
     "noiseFloorDbm": -127,
     "noiseFloorDbmSamples": [
       -127
@@ -510,11 +497,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "collins::r-390a::68",
-    "rowIndex": 68,
+    "key": "collins::r-390a::69",
+    "rowIndex": 69,
     "manufacturer": "Collins",
     "model": "R-390A",
-    "rawDeviceText": "Collins\nR-390A",
     "noiseFloorDbm": -137,
     "noiseFloorDbmSamples": [
       -137
@@ -545,11 +531,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "commradio::ctx-10::171",
-    "rowIndex": 171,
+    "key": "commradio::ctx-10::172",
+    "rowIndex": 172,
     "manufacturer": "CommRadio",
     "model": "CTX-10",
-    "rawDeviceText": "CommRadio\nCTX-10",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -120,
@@ -582,11 +567,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "drake::r-4c stock::164",
-    "rowIndex": 164,
+    "key": "drake::r-4c stock::165",
+    "rowIndex": 165,
     "manufacturer": "Drake",
     "model": "R-4C Stock",
-    "rawDeviceText": "Drake\nR-4C Stock",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -139
@@ -617,11 +601,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "drake::r-4c/cf-600/6::51",
-    "rowIndex": 51,
+    "key": "drake::r-4c/cf-600/6::52",
+    "rowIndex": 52,
     "manufacturer": "Drake",
     "model": "R-4C/CF-600/6",
-    "rawDeviceText": "Drake\nR-4C/CF-600/6",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -138
@@ -652,11 +635,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "drake::r-7::84",
-    "rowIndex": 84,
+    "key": "drake::r-7::85",
+    "rowIndex": 85,
     "manufacturer": "Drake",
     "model": "R-7",
-    "rawDeviceText": "Drake\nR-7",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -135,
@@ -689,11 +671,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "drake::r-8::107",
-    "rowIndex": 107,
+    "key": "drake::r-8::108",
+    "rowIndex": 108,
     "manufacturer": "Drake",
     "model": "R-8",
-    "rawDeviceText": "Drake\nR-8",
     "noiseFloorDbm": -131,
     "noiseFloorDbmSamples": [
       -128,
@@ -727,11 +708,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "drake::tr-4c::131",
-    "rowIndex": 131,
+    "key": "drake::tr-4c::132",
+    "rowIndex": 132,
     "manufacturer": "Drake",
     "model": "TR-4C",
-    "rawDeviceText": "Drake\nTR-4C",
     "noiseFloorDbm": -124,
     "noiseFloorDbmSamples": [
       -124
@@ -762,11 +742,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "drake::tr-7::85",
-    "rowIndex": 85,
+    "key": "drake::tr-7::86",
+    "rowIndex": 86,
     "manufacturer": "Drake",
     "model": "TR-7",
-    "rawDeviceText": "Drake\nTR-7",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -134
@@ -797,11 +776,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "elecraft::k2::62",
-    "rowIndex": 62,
+    "key": "elecraft::k2::63",
+    "rowIndex": 63,
     "manufacturer": "Elecraft",
     "model": "K2",
-    "rawDeviceText": "Added\n10/3/04\nElecraft K2\ns/n:3170",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -129,
@@ -835,11 +813,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "elecraft::k2::112",
-    "rowIndex": 112,
+    "key": "elecraft::k2::113",
+    "rowIndex": 113,
     "manufacturer": "Elecraft",
     "model": "K2",
-    "rawDeviceText": "Added 2/27/04\nElecraft K2\ns/n: 1140",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -135
@@ -874,7 +851,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 17,
     "manufacturer": "Elecraft",
     "model": "K3",
-    "rawDeviceText": "Added\n2/15/08\nElecraft \nK3",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -130,
@@ -913,7 +889,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 7,
     "manufacturer": "Elecraft",
     "model": "K3 (RX Gain Recal)",
-    "rawDeviceText": "Added\n02/23/15\nElecraft \nK3 (RX Gain Recal)\nNew Synthesizer",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -136,
@@ -951,18 +926,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 5,
     "manufacturer": "Elecraft",
     "model": "K3S",
-    "rawDeviceText": "Added 11/10/15\nElecraft\nK3S",
-    "noiseFloorDbm": -14510,
+    "noiseFloorDbm": -145,
     "noiseFloorDbmSamples": [
       -135,
       -138,
-      -14510
+      -145
     ],
-    "sensitivityUv": 0.081,
+    "sensitivityUv": 0.08,
     "sensitivityUvSamples": [
       0.27,
       0.2,
-      0.081
+      0.08
     ],
     "blockingDb": 150,
     "blockingDbSamples": [
@@ -991,18 +965,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 6,
     "manufacturer": "Elecraft",
     "model": "K3S",
-    "rawDeviceText": "Added 3/17/17\nElecraft K3S\n2nd Sample \n10 meter data",
-    "noiseFloorDbm": -14510,
+    "noiseFloorDbm": -145,
     "noiseFloorDbmSamples": [
       -135,
       -138,
-      -14510
+      -145
     ],
-    "sensitivityUv": 0.081,
+    "sensitivityUv": 0.08,
     "sensitivityUvSamples": [
       0.27,
       0.2,
-      0.081
+      0.08
     ],
     "blockingDb": 150,
     "blockingDbSamples": [
@@ -1030,20 +1003,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 14,
     "manufacturer": "Elecraft",
     "model": "K4D",
-    "rawDeviceText": "Added 05/26/21\nElecraft\nK4D\nS/N 00122",
     "noiseFloorDbm": -137,
     "noiseFloorDbmSamples": [
       -121,
       -132,
-      -137,
-      1
+      -137
     ],
     "sensitivityUv": 0.24,
     "sensitivityUvSamples": [
       1.5,
       0.44,
-      0.24,
-      1
+      0.24
     ],
     "blockingDb": 128,
     "blockingDbSamples": [
@@ -1067,11 +1037,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "elecraft::kx2::49",
-    "rowIndex": 49,
+    "key": "elecraft::kx2::50",
+    "rowIndex": 50,
     "manufacturer": "Elecraft",
     "model": "KX2",
-    "rawDeviceText": "Added\n07/26/17\nElecraft \nKX2",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -123,
@@ -1104,18 +1073,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 11,
     "manufacturer": "Elecraft",
     "model": "KX3",
-    "rawDeviceText": "Added\n08/10/12\nElecraft \nKX3",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -123,
-      -138,
-      2
+      -138
     ],
     "sensitivityUv": 0.09,
     "sensitivityUvSamples": [
       0.9,
-      0.09,
-      2
+      0.09
     ],
     "blockingDb": 138,
     "blockingDbSamples": [
@@ -1141,11 +1107,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "expert::sunsdr2 dx::126",
-    "rowIndex": 126,
+    "key": "expert::sunsdr2 dx::127",
+    "rowIndex": 127,
     "manufacturer": "Expert",
     "model": "SunSDR2 DX",
-    "rawDeviceText": "Updated\n01/30/2023\nExpert\nSunSDR2 DX",
     "noiseFloorDbm": -132,
     "noiseFloorDbmSamples": [
       -124,
@@ -1182,22 +1147,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 18,
     "manufacturer": "FlexRadio",
     "model": "6400",
-    "rawDeviceText": "Added 03/27/19\nFlexRadio\n6400",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -112,
       -127,
-      3,
-      -136,
-      4
+      -136
     ],
     "sensitivityUv": 0.22,
     "sensitivityUvSamples": [
       4,
       0.63,
-      3,
-      0.22,
-      4
+      0.22
     ],
     "blockingDb": 119,
     "blockingDbSamples": [
@@ -1205,8 +1165,7 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ],
     "dynamicRangeWideDb": 100,
     "dynamicRangeWideDbSamples": [
-      100,
-      3
+      100
     ],
     "wideSpacingKhz": 2,
     "wideSpacingKhzSamples": [
@@ -1215,8 +1174,7 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ],
     "dynamicRangeNarrowDb": 100,
     "dynamicRangeNarrowDbSamples": [
-      100,
-      3
+      100
     ],
     "narrowSpacingKhz": 2,
     "narrowSpacingKhzSamples": [
@@ -1229,22 +1187,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 20,
     "manufacturer": "FlexRadio",
     "model": "6600M",
-    "rawDeviceText": "Added 05/14/18\nFlexRadio\n6600M \nPLL update & 2 Hardware Upgrades",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -111,
       -126,
-      3,
-      -136,
-      4
+      -136
     ],
     "sensitivityUv": 0.26,
     "sensitivityUvSamples": [
       4.5,
       0.78,
-      3,
-      0.26,
-      4
+      0.26
     ],
     "blockingDb": 116,
     "blockingDbSamples": [
@@ -1252,8 +1205,7 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ],
     "dynamicRangeWideDb": 102,
     "dynamicRangeWideDbSamples": [
-      102,
-      0
+      102
     ],
     "wideSpacingKhz": 2,
     "wideSpacingKhzSamples": [
@@ -1263,7 +1215,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "dynamicRangeNarrowDb": 99,
     "dynamicRangeNarrowDbSamples": [
       99,
-      3,
       99
     ],
     "narrowSpacingKhz": 2,
@@ -1277,18 +1228,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 19,
     "manufacturer": "FlexRadio",
     "model": "Systems",
-    "rawDeviceText": "Edited\n11/16/24\nFlexRadio Systems \n6700 2017 Data\nHardware Updated",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -118,
-      -135,
-      2
+      -135
     ],
     "sensitivityUv": 0.25,
     "sensitivityUvSamples": [
       2,
-      0.25,
-      2
+      0.25
     ],
     "blockingDb": 130,
     "blockingDbSamples": [
@@ -1305,8 +1253,7 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ],
     "dynamicRangeNarrowDb": 99,
     "dynamicRangeNarrowDbSamples": [
-      99,
-      0
+      99
     ],
     "narrowSpacingKhz": 2,
     "narrowSpacingKhzSamples": [
@@ -1319,18 +1266,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 28,
     "manufacturer": "FlexRadio",
     "model": "Systems",
-    "rawDeviceText": "Added\n3/17/17\nFlexRadio Systems \n6700 \n2nd Sample 10 meters",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -116,
-      -134,
-      2
+      -134
     ],
     "sensitivityUv": 0.25,
     "sensitivityUvSamples": [
       2,
-      0.25,
-      2
+      0.25
     ],
     "blockingDb": 130,
     "blockingDbSamples": [
@@ -1360,7 +1304,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 30,
     "manufacturer": "FlexRadio",
     "model": "Systems",
-    "rawDeviceText": "Added\n2/15/08\nFlexRadio Systems \nFLEX-5000A",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -123,
@@ -1397,7 +1340,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 40,
     "manufacturer": "FlexRadio",
     "model": "Systems",
-    "rawDeviceText": "Added 8/20/09\nFlexRadio Systems\nFLEX-3000",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -123,
@@ -1430,22 +1372,19 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "flexradio::systems::41",
-    "rowIndex": 41,
+    "key": "flexradio::systems::42",
+    "rowIndex": 42,
     "manufacturer": "FlexRadio",
     "model": "Systems",
-    "rawDeviceText": "Updated 3/21/17\nFlexRadio Systems \n6300 Second Sample\nPreamp Updated",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -117,
-      -136,
-      2
+      -136
     ],
     "sensitivityUv": 0.23,
     "sensitivityUvSamples": [
       2.1,
-      0.23,
-      2
+      0.23
     ],
     "blockingDb": 125,
     "blockingDbSamples": [
@@ -1471,11 +1410,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "flexradio::systems::45",
-    "rowIndex": 45,
+    "key": "flexradio::systems::46",
+    "rowIndex": 46,
     "manufacturer": "FlexRadio",
     "model": "Systems",
-    "rawDeviceText": "Added 02/26/11\nFlexRadio Systems\nFLEX-1500",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -112,
@@ -1483,15 +1421,13 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
       -120,
       -129,
       -121,
-      -136,
-      1
+      -136
     ],
     "sensitivityUv": 0.3,
     "sensitivityUvSamples": [
       2.8,
       1.4,
-      0.3,
-      1
+      0.3
     ],
     "blockingDb": 108,
     "blockingDbSamples": [
@@ -1515,22 +1451,19 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "flexradio::systems::48",
-    "rowIndex": 48,
+    "key": "flexradio::systems::49",
+    "rowIndex": 49,
     "manufacturer": "FlexRadio",
     "model": "Systems",
-    "rawDeviceText": "1/12/17\nFlexRadio Systems \n6300\nPreamp Updated",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -117,
-      -136,
-      2
+      -136
     ],
     "sensitivityUv": 0.24,
     "sensitivityUvSamples": [
       2.2,
-      0.24,
-      2
+      0.24
     ],
     "blockingDb": 125,
     "blockingDbSamples": [
@@ -1556,11 +1489,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "heath::sb-104::87",
-    "rowIndex": 87,
+    "key": "heath::sb-104::88",
+    "rowIndex": 88,
     "manufacturer": "Heath",
     "model": "SB-104",
-    "rawDeviceText": "Heath\nSB-104",
     "noiseFloorDbm": -123,
     "noiseFloorDbmSamples": [
       -123
@@ -1591,11 +1523,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "heath::sb-303::146",
-    "rowIndex": 146,
+    "key": "heath::sb-303::147",
+    "rowIndex": 147,
     "manufacturer": "Heath",
     "model": "SB-303",
-    "rawDeviceText": "Heath\nSB-303",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -134
@@ -1630,7 +1561,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 10,
     "manufacturer": "Hilberling",
     "model": "PT-8000A",
-    "rawDeviceText": "Added\n10/02/12\nHilberling \nPT-8000A \nHardware Rev 2.00",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -128,
@@ -1663,11 +1593,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::7000::149",
-    "rowIndex": 149,
+    "key": "icom::7000::150",
+    "rowIndex": 150,
     "manufacturer": "Icom",
     "model": "7000",
-    "rawDeviceText": "Added\n3/27/06\nIcom 7000",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -129,
@@ -1700,11 +1629,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::706mkiig::89",
-    "rowIndex": 89,
+    "key": "icom::706mkiig::90",
+    "rowIndex": 90,
     "manufacturer": "Icom",
     "model": "706MkIIG",
-    "rawDeviceText": "Added\n4/7/06\nIcom\n706MkIIG",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -135,
@@ -1737,24 +1665,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::756 pro::106",
-    "rowIndex": 106,
+    "key": "icom::756 pro::107",
+    "rowIndex": 107,
     "manufacturer": "Icom",
     "model": "756 Pro",
-    "rawDeviceText": "Added 10/3/04\nIcom\n756 Pro",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -127,
       -136,
-      -139,
-      1
+      -139
     ],
     "sensitivityUv": 0.14,
     "sensitivityUvSamples": [
       0.55,
       0.21,
-      0.14,
-      1
+      0.14
     ],
     "blockingDb": 132,
     "blockingDbSamples": [
@@ -1778,17 +1703,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::756 pro ii::83",
-    "rowIndex": 83,
+    "key": "icom::756 pro ii::84",
+    "rowIndex": 84,
     "manufacturer": "Icom",
     "model": "756 Pro II",
-    "rawDeviceText": "Added\n4/7/06\nIcom\n756 Pro II",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -133,
       -138,
-      -141,
-      1
+      -141
     ],
     "sensitivityUv": 0.11,
     "sensitivityUvSamples": [
@@ -1818,17 +1741,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::756 pro iii::82",
-    "rowIndex": 82,
+    "key": "icom::756 pro iii::83",
+    "rowIndex": 83,
     "manufacturer": "Icom",
     "model": "756 Pro III",
-    "rawDeviceText": "Corrected 4/7/06\nIcom\n756 Pro III",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -132,
       -140,
-      -142,
-      1
+      -142
     ],
     "sensitivityUv": 0.11,
     "sensitivityUvSamples": [
@@ -1858,11 +1779,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-275h::152",
-    "rowIndex": 152,
+    "key": "icom::ic-275h::153",
+    "rowIndex": 153,
     "manufacturer": "Icom",
     "model": "IC-275H",
-    "rawDeviceText": "Icom\nIC-275H\n2 meters",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -136
@@ -1893,11 +1813,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-701::100",
-    "rowIndex": 100,
+    "key": "icom::ic-701::101",
+    "rowIndex": 101,
     "manufacturer": "Icom",
     "model": "IC-701",
-    "rawDeviceText": "Icom\nIC-701",
     "noiseFloorDbm": -129,
     "noiseFloorDbmSamples": [
       -129
@@ -1928,11 +1847,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-703+::56",
-    "rowIndex": 56,
+    "key": "icom::ic-703+::57",
+    "rowIndex": 57,
     "manufacturer": "Icom",
     "model": "IC-703+",
-    "rawDeviceText": "Added\n10/03/14\nIcom\nIC-703+",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -126,
@@ -1965,23 +1883,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-705::42",
-    "rowIndex": 42,
+    "key": "icom::ic-705::43",
+    "rowIndex": 43,
     "manufacturer": "Icom",
     "model": "IC-705",
-    "rawDeviceText": "Added 11/07/20\nIcom\nIC-705 \nS/N 12003232",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -127,
       -137,
-      -139,
-      1
+      -139
     ],
-    "sensitivityUv": 0.161,
+    "sensitivityUv": 0.16,
     "sensitivityUvSamples": [
       0.67,
       0.2,
-      0.161
+      0.16
     ],
     "blockingDb": 122,
     "blockingDbSamples": [
@@ -2005,11 +1921,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-720a::73",
-    "rowIndex": 73,
+    "key": "icom::ic-720a::74",
+    "rowIndex": 74,
     "manufacturer": "Icom",
     "model": "IC-720A",
-    "rawDeviceText": "Icom\nIC-720A",
     "noiseFloorDbm": -137,
     "noiseFloorDbmSamples": [
       -137
@@ -2040,11 +1955,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-730::91",
-    "rowIndex": 91,
+    "key": "icom::ic-730::92",
+    "rowIndex": 92,
     "manufacturer": "Icom",
     "model": "IC-730",
-    "rawDeviceText": "Icom\nIC-730",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -140
@@ -2079,13 +1993,11 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 27,
     "manufacturer": "Icom",
     "model": "IC-7300",
-    "rawDeviceText": "Added 02/11/18\nIcom\nIC-7300\nSecond Sample\nS/N 02012272",
     "noiseFloorDbm": -141.5,
     "noiseFloorDbmSamples": [
       -133,
       -140.5,
       -141.5,
-      1,
       -132
     ],
     "sensitivityUv": 0.11,
@@ -2093,7 +2005,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
       0.3,
       0.12,
       0.11,
-      1,
       0.35
     ],
     "blockingDb": 123,
@@ -2124,13 +2035,11 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 32,
     "manufacturer": "Icom",
     "model": "IC-7300",
-    "rawDeviceText": "Added 04/25/16\nIcom\nIC-7300\nS/N 02001408",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -133,
       -141,
       -142,
-      1,
       -122
     ],
     "sensitivityUv": 0.1,
@@ -2138,7 +2047,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
       0.27,
       0.11,
       0.1,
-      1,
       1
     ],
     "blockingDb": 123,
@@ -2165,17 +2073,55 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-7300mk2::47",
-    "rowIndex": 47,
+    "key": "icom::ic-7300mk2::41",
+    "rowIndex": 41,
     "manufacturer": "Icom",
     "model": "IC-7300Mk2",
-    "rawDeviceText": "Added 01/10/26\nIcom\nIC-7300Mk2\nS/N 12001304",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -133,
       -141,
       -142,
-      1,
+      -132
+    ],
+    "sensitivityUv": 0.1,
+    "sensitivityUvSamples": [
+      0.32,
+      0.18,
+      0.1,
+      0.42
+    ],
+    "blockingDb": 124,
+    "blockingDbSamples": [
+      124
+    ],
+    "dynamicRangeWideDb": 89,
+    "dynamicRangeWideDbSamples": [
+      89
+    ],
+    "wideSpacingKhz": 20,
+    "wideSpacingKhzSamples": [
+      20
+    ],
+    "dynamicRangeNarrowDb": 89,
+    "dynamicRangeNarrowDbSamples": [
+      89
+    ],
+    "narrowSpacingKhz": 2,
+    "narrowSpacingKhzSamples": [
+      2
+    ]
+  },
+  {
+    "key": "icom::ic-7300mk2::48",
+    "rowIndex": 48,
+    "manufacturer": "Icom",
+    "model": "IC-7300Mk2",
+    "noiseFloorDbm": -142,
+    "noiseFloorDbmSamples": [
+      -133,
+      -141,
+      -142,
       -132
     ],
     "sensitivityUv": 0.12,
@@ -2183,7 +2129,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
       0.35,
       0.13,
       0.12,
-      1,
       0.42
     ],
     "blockingDb": 122,
@@ -2208,11 +2153,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-735::132",
-    "rowIndex": 132,
+    "key": "icom::ic-735::133",
+    "rowIndex": 133,
     "manufacturer": "Icom",
     "model": "IC-735",
-    "rawDeviceText": "Icom\nIC-735",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -126,
@@ -2245,24 +2189,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-7410::72",
-    "rowIndex": 72,
+    "key": "icom::ic-7410::73",
+    "rowIndex": 73,
     "manufacturer": "Icom",
     "model": "IC-7410",
-    "rawDeviceText": "Added\n8/25/11\nIcom\nIC-7410",
     "noiseFloorDbm": -144,
     "noiseFloorDbmSamples": [
       -135,
       -142,
-      -144,
-      1
+      -144
     ],
     "sensitivityUv": 0.1,
     "sensitivityUvSamples": [
       0.3,
       0.12,
-      0.1,
-      1
+      0.1
     ],
     "blockingDb": 135,
     "blockingDbSamples": [
@@ -2286,11 +2227,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-751::148",
-    "rowIndex": 148,
+    "key": "icom::ic-751::149",
+    "rowIndex": 149,
     "manufacturer": "Icom",
     "model": "IC-751",
-    "rawDeviceText": "Icom\nIC-751",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -127,
@@ -2323,24 +2263,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-7600::71",
-    "rowIndex": 71,
+    "key": "icom::ic-7600::72",
+    "rowIndex": 72,
     "manufacturer": "Icom",
     "model": "IC-7600",
-    "rawDeviceText": "Added\n9/3/09\nIcom\nIC-7600",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -130,
       -138,
-      -141,
-      1
+      -141
     ],
     "sensitivityUv": 0.11,
     "sensitivityUvSamples": [
       0.43,
       0.16,
-      0.11,
-      1
+      0.11
     ],
     "blockingDb": 126,
     "blockingDbSamples": [
@@ -2364,11 +2301,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-761::116",
-    "rowIndex": 116,
+    "key": "icom::ic-761::117",
+    "rowIndex": 117,
     "manufacturer": "Icom",
     "model": "IC-761",
-    "rawDeviceText": "Icom\nIC-761",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -131,
@@ -2405,13 +2341,11 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 24,
     "manufacturer": "Icom",
     "model": "IC-7610",
-    "rawDeviceText": "Added 12/23/17\nIcom\nIC-7610\nS/N 12001056",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -132,
       -140,
       -142,
-      1,
       -129
     ],
     "sensitivityUv": 0.125,
@@ -2419,7 +2353,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
       0.36,
       0.15,
       0.125,
-      1,
       0.51
     ],
     "blockingDb": 122,
@@ -2449,13 +2382,11 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 29,
     "manufacturer": "Icom",
     "model": "IC-7610",
-    "rawDeviceText": "Added 05/21/18\nIcom\nIC-7610\nS/N 12001276\nSecond Sample",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -132,
       -139,
       -141,
-      1,
       -128
     ],
     "sensitivityUv": 0.13,
@@ -2463,7 +2394,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
       0.37,
       0.15,
       0.13,
-      1,
       0.53
     ],
     "blockingDb": 122,
@@ -2491,11 +2421,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-765::55",
-    "rowIndex": 55,
+    "key": "icom::ic-765::56",
+    "rowIndex": 56,
     "manufacturer": "Icom",
     "model": "IC-765",
-    "rawDeviceText": "Added\n4/16/06\nIcom\nIC-765",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -134,
@@ -2527,17 +2456,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-7700::70",
-    "rowIndex": 70,
+    "key": "icom::ic-7700::71",
+    "rowIndex": 71,
     "manufacturer": "Icom",
     "model": "IC-7700",
-    "rawDeviceText": "Added 12/13/2012\nIcom\nIC-7700",
     "noiseFloorDbm": -143,
     "noiseFloorDbmSamples": [
       -127,
       -140,
-      -143,
-      1
+      -143
     ],
     "sensitivityUv": 0.1,
     "sensitivityUvSamples": [
@@ -2571,13 +2498,11 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 23,
     "manufacturer": "Icom",
     "model": "IC-7760",
-    "rawDeviceText": "Added 2/24/25\nIcom\nIC-7760\nS/N 12001144",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -133,
       -141,
       -142,
-      1,
       -128
     ],
     "sensitivityUv": 0.1,
@@ -2585,7 +2510,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
       0.32,
       0.12,
       0.1,
-      1,
       0.5
     ],
     "blockingDb": 122,
@@ -2611,24 +2535,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-7800::61",
-    "rowIndex": 61,
+    "key": "icom::ic-7800::62",
+    "rowIndex": 62,
     "manufacturer": "Icom",
     "model": "IC-7800",
-    "rawDeviceText": "Added\n10/3/04\nIcom\nIC-7800",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -126,
       -136,
-      -139,
-      1
+      -139
     ],
     "sensitivityUv": 0.1,
     "sensitivityUvSamples": [
       0.6,
       0.15,
-      0.1,
-      1
+      0.1
     ],
     "blockingDb": 135,
     "blockingDbSamples": [
@@ -2652,11 +2573,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-781::96",
-    "rowIndex": 96,
+    "key": "icom::ic-781::97",
+    "rowIndex": 97,
     "manufacturer": "Icom",
     "model": "IC-781",
-    "rawDeviceText": "Icom\nIC-781",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -127,
@@ -2689,20 +2609,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 8,
     "manufacturer": "Icom",
     "model": "IC-7851",
-    "rawDeviceText": "Added 04/25/16\nIcom\nIC-7851",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -123,
       -135,
-      -141,
-      1
+      -141
     ],
     "sensitivityUv": 0.11,
     "sensitivityUvSamples": [
       0.65,
       0.16,
-      0.11,
-      1
+      0.11
     ],
     "blockingDb": 149,
     "blockingDbSamples": [
@@ -2726,22 +2643,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-9100::111",
-    "rowIndex": 111,
+    "key": "icom::ic-9100::112",
+    "rowIndex": 112,
     "manufacturer": "Icom",
     "model": "IC-9100",
-    "rawDeviceText": "Added 04/25/16\nIcom \nIC-9100",
-    "noiseFloorDbm": -1412,
+    "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -133,
       -141,
-      -1412
+      -141
     ],
-    "sensitivityUv": 0.1302,
+    "sensitivityUv": 0.13,
     "sensitivityUvSamples": [
       0.36,
       0.15,
-      0.1302
+      0.13
     ],
     "dynamicRangeWideDb": 101,
     "dynamicRangeWideDbSamples": [
@@ -2751,10 +2667,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "wideSpacingKhzSamples": [
       20
     ],
-    "dynamicRangeNarrowDb": 6070,
+    "dynamicRangeNarrowDb": 71,
     "dynamicRangeNarrowDbSamples": [
       71,
-      6070
+      60
     ],
     "narrowSpacingKhz": 2,
     "narrowSpacingKhzSamples": [
@@ -2762,15 +2678,14 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-9700::93",
-    "rowIndex": 93,
+    "key": "icom::ic-9700::94",
+    "rowIndex": 94,
     "manufacturer": "Icom",
     "model": "IC-9700",
-    "rawDeviceText": "Added\n04/11/19\nIcom \nIC-9700",
-    "noiseFloorDbm": -1452,
+    "noiseFloorDbm": -145,
     "noiseFloorDbmSamples": [
       -131,
-      -1452
+      -145
     ],
     "sensitivityUv": 0.082,
     "sensitivityUvSamples": [
@@ -2799,11 +2714,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-r70/r-71a::158",
-    "rowIndex": 158,
+    "key": "icom::ic-r70/r-71a::159",
+    "rowIndex": 159,
     "manufacturer": "Icom",
     "model": "IC-R70/R-71A",
-    "rawDeviceText": "Icom\nIC-R70/R-71A",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -129,
@@ -2836,11 +2750,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-r72::109",
-    "rowIndex": 109,
+    "key": "icom::ic-r72::110",
+    "rowIndex": 110,
     "manufacturer": "Icom",
     "model": "IC-R72",
-    "rawDeviceText": "Icom\nIC-R72",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -127,
@@ -2873,11 +2786,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::ic-r75::133",
-    "rowIndex": 133,
+    "key": "icom::ic-r75::134",
+    "rowIndex": 134,
     "manufacturer": "Icom",
     "model": "IC-R75",
-    "rawDeviceText": "Added\n1/21/04\nIcom\nIC-R75",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -123,
@@ -2914,7 +2826,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 4,
     "manufacturer": "Icom",
     "model": "IC-R8600",
-    "rawDeviceText": "Added 02/11/18\nIcom\nIC-R8600\nSecond sample\nS/N 02001177",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -131,
@@ -2955,7 +2866,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 25,
     "manufacturer": "Icom",
     "model": "IC-R8600",
-    "rawDeviceText": "Added 12/23/17\nIcom\nIC-R8600\nS/N 04001188",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -132,
@@ -2992,11 +2902,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::r-8500::162",
-    "rowIndex": 162,
+    "key": "icom::r-8500::163",
+    "rowIndex": 163,
     "manufacturer": "Icom",
     "model": "R-8500",
-    "rawDeviceText": "Icom\nR-8500",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -135
@@ -3027,11 +2936,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::r-9000::110",
-    "rowIndex": 110,
+    "key": "icom::r-9000::111",
+    "rowIndex": 111,
     "manufacturer": "Icom",
     "model": "R-9000",
-    "rawDeviceText": "Icom\nR-9000",
     "noiseFloorDbm": -131,
     "noiseFloorDbmSamples": [
       -131
@@ -3062,24 +2970,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "icom::r9500::50",
-    "rowIndex": 50,
+    "key": "icom::r9500::51",
+    "rowIndex": 51,
     "manufacturer": "Icom",
     "model": "R9500",
-    "rawDeviceText": "Added 2/15/08\nIcom\nR9500",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -127,
       -130,
-      -135,
-      1
+      -135
     ],
     "sensitivityUv": 0.11,
     "sensitivityUvSamples": [
       0.7,
       0.2,
-      0.11,
-      1
+      0.11
     ],
     "blockingDb": 119,
     "blockingDbSamples": [
@@ -3103,11 +3008,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "jrc::nrd-515::76",
-    "rowIndex": 76,
+    "key": "jrc::nrd-515::77",
+    "rowIndex": 77,
     "manufacturer": "JRC",
     "model": "NRD-515",
-    "rawDeviceText": "JRC\nNRD-515",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -138
@@ -3138,11 +3042,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "jrc::nrd-525::103",
-    "rowIndex": 103,
+    "key": "jrc::nrd-525::104",
+    "rowIndex": 104,
     "manufacturer": "JRC",
     "model": "NRD-525",
-    "rawDeviceText": "JRC\nNRD-525",
     "noiseFloorDbm": -132,
     "noiseFloorDbmSamples": [
       -132
@@ -3173,11 +3076,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "jrc::nrd-535::114",
-    "rowIndex": 114,
+    "key": "jrc::nrd-535::115",
+    "rowIndex": 115,
     "manufacturer": "JRC",
     "model": "NRD-535",
-    "rawDeviceText": "JRC\nNRD-535",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -135
@@ -3208,11 +3110,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "jrc::nrd-545::128",
-    "rowIndex": 128,
+    "key": "jrc::nrd-545::129",
+    "rowIndex": 129,
     "manufacturer": "JRC",
     "model": "NRD-545",
-    "rawDeviceText": "JRC\nNRD-545",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -130
@@ -3243,11 +3144,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "jrc::nrd-93::156",
-    "rowIndex": 156,
+    "key": "jrc::nrd-93::157",
+    "rowIndex": 157,
     "manufacturer": "JRC",
     "model": "NRD-93",
-    "rawDeviceText": "JRC\nNRD-93",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -141
@@ -3278,11 +3178,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::r-1000::145",
-    "rowIndex": 145,
+    "key": "kenwood::r-1000::146",
+    "rowIndex": 146,
     "manufacturer": "Kenwood",
     "model": "R-1000",
-    "rawDeviceText": "Kenwood\nR-1000",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -130
@@ -3313,11 +3212,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::r-2000::167",
-    "rowIndex": 167,
+    "key": "kenwood::r-2000::168",
+    "rowIndex": 168,
     "manufacturer": "Kenwood",
     "model": "R-2000",
-    "rawDeviceText": "Kenwood\nR-2000",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -130
@@ -3348,11 +3246,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::r-5000::142",
-    "rowIndex": 142,
+    "key": "kenwood::r-5000::143",
+    "rowIndex": 143,
     "manufacturer": "Kenwood",
     "model": "R-5000",
-    "rawDeviceText": "Kenwood\nR-5000",
     "noiseFloorDbm": -131,
     "noiseFloorDbmSamples": [
       -131
@@ -3383,11 +3280,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::r-600::168",
-    "rowIndex": 168,
+    "key": "kenwood::r-600::169",
+    "rowIndex": 169,
     "manufacturer": "Kenwood",
     "model": "R-600",
-    "rawDeviceText": "Kenwood\nR-600",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -130
@@ -3414,11 +3310,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::r-820s::92",
-    "rowIndex": 92,
+    "key": "kenwood::r-820s::93",
+    "rowIndex": 93,
     "manufacturer": "Kenwood",
     "model": "R-820S",
-    "rawDeviceText": "Kenwood\nR-820S",
     "noiseFloorDbm": -125,
     "noiseFloorDbmSamples": [
       -125
@@ -3449,11 +3344,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-180s::130",
-    "rowIndex": 130,
+    "key": "kenwood::ts-180s::131",
+    "rowIndex": 131,
     "manufacturer": "Kenwood",
     "model": "TS-180S",
-    "rawDeviceText": "Kenwood\nTS-180S",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -139
@@ -3484,11 +3378,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-2000x::140",
-    "rowIndex": 140,
+    "key": "kenwood::ts-2000x::141",
+    "rowIndex": 141,
     "manufacturer": "Kenwood",
     "model": "TS-2000X",
-    "rawDeviceText": "Added\n11/01/19\nKenwood TS-2000X\n2 meter data",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -123,
@@ -3521,11 +3414,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-430s::125",
-    "rowIndex": 125,
+    "key": "kenwood::ts-430s::126",
+    "rowIndex": 126,
     "manufacturer": "Kenwood",
     "model": "TS-430S",
-    "rawDeviceText": "Kenwood\nTS-430S",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -136
@@ -3556,11 +3448,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-480hx::102",
-    "rowIndex": 102,
+    "key": "kenwood::ts-480hx::103",
+    "rowIndex": 103,
     "manufacturer": "Kenwood",
     "model": "TS-480HX",
-    "rawDeviceText": "Kenwood TS-480HX\nWithout CW Xtal Filter",
     "noiseFloorDbm": -143,
     "noiseFloorDbmSamples": [
       -135,
@@ -3593,11 +3484,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-520::153",
-    "rowIndex": 153,
+    "key": "kenwood::ts-520::154",
+    "rowIndex": 154,
     "manufacturer": "Kenwood",
     "model": "TS-520",
-    "rawDeviceText": "Kenwood\nTS-520",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -139
@@ -3628,11 +3518,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-570s::119",
-    "rowIndex": 119,
+    "key": "kenwood::ts-570s::120",
+    "rowIndex": 120,
     "manufacturer": "Kenwood",
     "model": "TS-570S",
-    "rawDeviceText": "Added\n08/05/15\nKenwood \nTS-570S",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -131,
@@ -3665,11 +3554,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-590s on 20 meters::43",
-    "rowIndex": 43,
+    "key": "kenwood::ts-590s on 20 meters::44",
+    "rowIndex": 44,
     "manufacturer": "Kenwood",
     "model": "TS-590S on 20 meters",
-    "rawDeviceText": "Added 12/30/10\nKenwood\nTS-590S on 20 meters\nDown-conversion Mode\nFor Up-Converson\nsee Narrow Spaced\nat 76 dB",
     "noiseFloorDbm": -137,
     "noiseFloorDbmSamples": [
       -128,
@@ -3706,7 +3594,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 35,
     "manufacturer": "Kenwood",
     "model": "TS-590SG",
-    "rawDeviceText": "Added\n12/09/14\nKenwood \nTS-590SG \nDown Conversion Mode",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -127,
@@ -3739,11 +3626,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-820s::74",
-    "rowIndex": 74,
+    "key": "kenwood::ts-820s::75",
+    "rowIndex": 75,
     "manufacturer": "Kenwood",
     "model": "TS-820S",
-    "rawDeviceText": "Kenwood\nTS-820S",
     "noiseFloorDbm": -137,
     "noiseFloorDbmSamples": [
       -137
@@ -3774,11 +3660,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-830/yk88::59",
-    "rowIndex": 59,
+    "key": "kenwood::ts-830/yk88::60",
+    "rowIndex": 60,
     "manufacturer": "Kenwood",
     "model": "TS-830/YK88",
-    "rawDeviceText": "Kenwood\nTS-830/YK88",
     "noiseFloorDbm": -129,
     "noiseFloorDbmSamples": [
       -129
@@ -3809,11 +3694,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-830s::115",
-    "rowIndex": 115,
+    "key": "kenwood::ts-830s::116",
+    "rowIndex": 116,
     "manufacturer": "Kenwood",
     "model": "TS-830S",
-    "rawDeviceText": "Kenwood\nTS-830S",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -136
@@ -3844,11 +3728,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-850::75",
-    "rowIndex": 75,
+    "key": "kenwood::ts-850::76",
+    "rowIndex": 76,
     "manufacturer": "Kenwood",
     "model": "TS-850",
-    "rawDeviceText": "Updated\n4/17/06\nKenwood TS-850\nInrad-400s",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -128,
@@ -3881,11 +3764,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-870s::120",
-    "rowIndex": 120,
+    "key": "kenwood::ts-870s::121",
+    "rowIndex": 121,
     "manufacturer": "Kenwood",
     "model": "TS-870S",
-    "rawDeviceText": "Added\n4/16/06\nKenwood\nTS-870S",
     "noiseFloorDbm": -137,
     "noiseFloorDbmSamples": [
       -127,
@@ -3921,19 +3803,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 9,
     "manufacturer": "Kenwood",
     "model": "TS-890S",
-    "rawDeviceText": "Added\n10/15/18\nKenwood\nTS-890S",
-    "noiseFloorDbm": -1416,
+    "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -131,
       -140,
-      -1416
+      -141
     ],
     "sensitivityUv": 0.1,
     "sensitivityUvSamples": [
       0.39,
       0.13,
-      0.1,
-      1
+      0.1
     ],
     "blockingDb": 151,
     "blockingDbSamples": [
@@ -3957,11 +3837,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-930s::99",
-    "rowIndex": 99,
+    "key": "kenwood::ts-930s::100",
+    "rowIndex": 100,
     "manufacturer": "Kenwood",
     "model": "TS-930S",
-    "rawDeviceText": "Kenwood\nTS-930S",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -135
@@ -3992,22 +3871,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::ts-990s on 20 meters::46",
-    "rowIndex": 46,
+    "key": "kenwood::ts-990s on 20 meters::47",
+    "rowIndex": 47,
     "manufacturer": "Kenwood",
     "model": "TS-990S on 20 meters",
-    "rawDeviceText": "Added 06/02/13\nKenwood\nTS-990S on 20 meters\n15 & 12 meters\nRMDR varies by band\n17 meters is worst band\n30 meters is best band",
-    "noiseFloorDbm": -1386,
+    "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -127,
       -138,
-      -1386
+      -138
     ],
-    "sensitivityUv": 0.136,
+    "sensitivityUv": 0.13,
     "sensitivityUvSamples": [
       0.75,
       0.17,
-      0.136
+      0.13
     ],
     "blockingDb": 145,
     "blockingDbSamples": [
@@ -4031,11 +3909,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "kenwood::up-conversion::77",
-    "rowIndex": 77,
+    "key": "kenwood::up-conversion::78",
+    "rowIndex": 78,
     "manufacturer": "Kenwood",
     "model": "Up-conversion",
-    "rawDeviceText": "Added 12/30/10\nKenwood\nUp-conversion\nTS-590S on 17 meters",
     "noiseFloorDbm": -139,
     "noiseFloorDbmSamples": [
       -132,
@@ -4068,11 +3945,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "lab599::tx-500::66",
-    "rowIndex": 66,
+    "key": "lab599::tx-500::67",
+    "rowIndex": 67,
     "manufacturer": "Lab599",
     "model": "TX-500",
-    "rawDeviceText": "Added\n10/18/20\nLab599 \nTX-500",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -122,
@@ -4105,11 +3981,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "lowe::hf-150::124",
-    "rowIndex": 124,
+    "key": "lowe::hf-150::125",
+    "rowIndex": 125,
     "manufacturer": "Lowe",
     "model": "HF-150",
-    "rawDeviceText": "Lowe\nHF-150",
     "noiseFloorDbm": -126,
     "noiseFloorDbmSamples": [
       -126
@@ -4140,11 +4015,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "lowe::hf-235::138",
-    "rowIndex": 138,
+    "key": "lowe::hf-235::139",
+    "rowIndex": 139,
     "manufacturer": "Lowe",
     "model": "HF-235",
-    "rawDeviceText": "Lowe\nHF-235",
     "noiseFloorDbm": -126,
     "noiseFloorDbmSamples": [
       -126
@@ -4175,11 +4049,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "palstar::r-30::143",
-    "rowIndex": 143,
+    "key": "palstar::r-30::144",
+    "rowIndex": 144,
     "manufacturer": "Palstar",
     "model": "R-30",
-    "rawDeviceText": "Added 2/27/04\nPalstar\nR-30",
     "noiseFloorDbm": -123,
     "noiseFloorDbmSamples": [
       -123
@@ -4210,11 +4083,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "racal::6790 gm::135",
-    "rowIndex": 135,
+    "key": "racal::6790 gm::136",
+    "rowIndex": 136,
     "manufacturer": "Racal",
     "model": "6790 GM",
-    "rawDeviceText": "Racal\n6790 GM",
     "noiseFloorDbm": -128,
     "noiseFloorDbmSamples": [
       -128
@@ -4245,11 +4117,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "signal/one::cx-11a::129",
-    "rowIndex": 129,
+    "key": "signal/one::cx-11a::130",
+    "rowIndex": 130,
     "manufacturer": "Signal/One",
     "model": "CX-11A",
-    "rawDeviceText": "Signal/One\nCX-11A",
     "noiseFloorDbm": -122,
     "noiseFloorDbmSamples": [
       -122
@@ -4280,11 +4151,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "ten-tec::340::166",
-    "rowIndex": 166,
+    "key": "ten-tec::340::167",
+    "rowIndex": 167,
     "manufacturer": "Ten-Tec",
     "model": "340",
-    "rawDeviceText": "Ten-Tec\n340",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -123,
@@ -4321,7 +4191,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 36,
     "manufacturer": "Ten-Tec",
     "model": "Argonaut VI",
-    "rawDeviceText": "Added 06/22/13\nTen-Tec\nArgonaut VI",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -125,
@@ -4354,11 +4223,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "ten-tec::corsair::69",
-    "rowIndex": 69,
+    "key": "ten-tec::corsair::70",
+    "rowIndex": 70,
     "manufacturer": "Ten-Tec",
     "model": "Corsair",
-    "rawDeviceText": "Ten-Tec Corsair",
     "noiseFloorDbm": -131,
     "noiseFloorDbmSamples": [
       -131
@@ -4393,7 +4261,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 39,
     "manufacturer": "Ten-Tec",
     "model": "Eagle",
-    "rawDeviceText": "Added 11/10/10\nTen-Tec\nEagle",
     "noiseFloorDbm": -132,
     "noiseFloorDbmSamples": [
       -124,
@@ -4426,11 +4293,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "ten-tec::omni v::78",
-    "rowIndex": 78,
+    "key": "ten-tec::omni v::79",
+    "rowIndex": 79,
     "manufacturer": "Ten-Tec",
     "model": "Omni V",
-    "rawDeviceText": "Ten-Tec Omni V",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -134
@@ -4461,11 +4327,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "ten-tec::omni vi+::63",
-    "rowIndex": 63,
+    "key": "ten-tec::omni vi+::64",
+    "rowIndex": 64,
     "manufacturer": "Ten-Tec",
     "model": "Omni VI+",
-    "rawDeviceText": "Added 2/27/04\nTen-Tec\nOmni VI+",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -135
@@ -4496,11 +4361,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "ten-tec::omni vii::60",
-    "rowIndex": 60,
+    "key": "ten-tec::omni vii::61",
+    "rowIndex": 61,
     "manufacturer": "Ten-Tec",
     "model": "Omni VII",
-    "rawDeviceText": "Added\n4/23/07\nTen-Tec\nOmni VII",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -130,
@@ -4533,11 +4397,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "ten-tec::omni-b::90",
-    "rowIndex": 90,
+    "key": "ten-tec::omni-b::91",
+    "rowIndex": 91,
     "manufacturer": "Ten-Tec",
     "model": "Omni-B",
-    "rawDeviceText": "Ten-Tec\nOmni-B",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -136
@@ -4572,7 +4435,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 34,
     "manufacturer": "Ten-Tec",
     "model": "Orion",
-    "rawDeviceText": "Updated\n4/17/06\nTen-Tec\nOrion",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -127,
@@ -4609,7 +4471,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 31,
     "manufacturer": "Ten-Tec",
     "model": "Orion II",
-    "rawDeviceText": "Added\n4/16/06\nTen-Tec\nOrion II",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -125,
@@ -4642,11 +4503,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "unknown::781 with pin diodes::98",
-    "rowIndex": 98,
+    "key": "unknown::781 with pin diodes::99",
+    "rowIndex": 99,
     "manufacturer": "Unknown",
     "model": "781 with Pin Diodes",
-    "rawDeviceText": "Updated\n4/18/06\n781 with Pin Diodes",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -126,
@@ -4679,11 +4539,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "unknown::drake 2b::86",
-    "rowIndex": 86,
+    "key": "unknown::drake 2b::87",
+    "rowIndex": 87,
     "manufacturer": "Unknown",
     "model": "Drake 2B",
-    "rawDeviceText": "Added\n11/03/21\n     Drake 2B",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -136
@@ -4714,11 +4573,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "unknown::drake sw8::134",
-    "rowIndex": 134,
+    "key": "unknown::drake sw8::135",
+    "rowIndex": 135,
     "manufacturer": "Unknown",
     "model": "Drake SW8",
-    "rawDeviceText": "Drake SW8",
     "noiseFloorDbm": -127,
     "noiseFloorDbmSamples": [
       -127
@@ -4749,11 +4607,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "unknown::elad duo::113",
-    "rowIndex": 113,
+    "key": "unknown::elad duo::114",
+    "rowIndex": 114,
     "manufacturer": "Unknown",
     "model": "Elad DUO",
-    "rawDeviceText": "Added 01/06/21\nElad DUO\ns/n: 5F0007",
     "noiseFloorDbm": -132,
     "noiseFloorDbmSamples": [
       -132
@@ -4784,11 +4641,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "unknown::grundig satellite 700::159",
-    "rowIndex": 159,
+    "key": "unknown::grundig satellite 700::160",
+    "rowIndex": 160,
     "manufacturer": "Unknown",
     "model": "Grundig Satellite 700",
-    "rawDeviceText": "Grundig Satellite 700",
     "noiseFloorDbm": -127,
     "noiseFloorDbmSamples": [
       -127
@@ -4819,11 +4675,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "unknown::kwz-30::160",
-    "rowIndex": 160,
+    "key": "unknown::kwz-30::161",
+    "rowIndex": 161,
     "manufacturer": "Unknown",
     "model": "KWZ-30",
-    "rawDeviceText": "KWZ-30",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -130
@@ -4858,7 +4713,6 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 22,
     "manufacturer": "Unknown",
     "model": "Perseus",
-    "rawDeviceText": "Updated\n7/2/09\nPerseus",
     "noiseFloorDbm": -125,
     "noiseFloorDbmSamples": [
       -123,
@@ -4891,11 +4745,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "unknown::stock 781::97",
-    "rowIndex": 97,
+    "key": "unknown::stock 781::98",
+    "rowIndex": 98,
     "manufacturer": "Unknown",
     "model": "Stock 781",
-    "rawDeviceText": "Updated\n4/18/06\nStock 781",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -128,
@@ -4928,11 +4781,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "wj::hf-1000::88",
-    "rowIndex": 88,
+    "key": "wj::hf-1000::89",
+    "rowIndex": 89,
     "manufacturer": "WJ",
     "model": "HF-1000",
-    "rawDeviceText": "WJ\nHF-1000",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -129,
@@ -4965,11 +4817,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "wj hf-1000::2nd sample::57",
-    "rowIndex": 57,
+    "key": "wj hf-1000::2nd sample::58",
+    "rowIndex": 58,
     "manufacturer": "WJ HF-1000",
     "model": "2nd Sample",
-    "rawDeviceText": "Added 11/03/21\nWJ HF-1000\n2nd Sample",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -129,
@@ -5002,11 +4853,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "xiegu::g90::81",
-    "rowIndex": 81,
+    "key": "xiegu::g90::82",
+    "rowIndex": 82,
     "manufacturer": "Xiegu",
     "model": "G90",
-    "rawDeviceText": "Added 05/15/21\nXiegu\nG90",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -120,
@@ -5039,11 +4889,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::901-dm::65",
-    "rowIndex": 65,
+    "key": "yaesu::901-dm::66",
+    "rowIndex": 66,
     "manufacturer": "Yaesu",
     "model": "901-DM",
-    "rawDeviceText": "Yaesu\n901-DM",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -135
@@ -5074,11 +4923,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::frg-100::141",
-    "rowIndex": 141,
+    "key": "yaesu::frg-100::142",
+    "rowIndex": 142,
     "manufacturer": "Yaesu",
     "model": "FRG-100",
-    "rawDeviceText": "Yaesu\nFRG-100",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -133
@@ -5109,11 +4957,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::frg-7700::144",
-    "rowIndex": 144,
+    "key": "yaesu::frg-7700::145",
+    "rowIndex": 145,
     "manufacturer": "Yaesu",
     "model": "FRG-7700",
-    "rawDeviceText": "Yaesu\nFRG-7700",
     "noiseFloorDbm": -130,
     "noiseFloorDbmSamples": [
       -130
@@ -5144,11 +4991,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::frg-8800::169",
-    "rowIndex": 169,
+    "key": "yaesu::frg-8800::170",
+    "rowIndex": 170,
     "manufacturer": "Yaesu",
     "model": "FRG-8800",
-    "rawDeviceText": "Yaesu\nFRG-8800",
     "noiseFloorDbm": -132,
     "noiseFloorDbmSamples": [
       -132
@@ -5175,11 +5021,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-1000::105",
-    "rowIndex": 105,
+    "key": "yaesu::ft-1000::106",
+    "rowIndex": 106,
     "manufacturer": "Yaesu",
     "model": "FT-1000",
-    "rawDeviceText": "Updated\n4/13/09\nYaesu FT-1000\nMP MKV Field\n      Inrad roofing filter mod",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -133
@@ -5210,11 +5055,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-1000::122",
-    "rowIndex": 122,
+    "key": "yaesu::ft-1000::123",
+    "rowIndex": 123,
     "manufacturer": "Yaesu",
     "model": "FT-1000",
-    "rawDeviceText": "Added\n10/3/04\nYaesu FT-1000\nMP MKV Field",
     "noiseFloorDbm": -133,
     "noiseFloorDbmSamples": [
       -133
@@ -5245,20 +5089,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-1000 d::123",
-    "rowIndex": 123,
+    "key": "yaesu::ft-1000 d::124",
+    "rowIndex": 124,
     "manufacturer": "Yaesu",
     "model": "FT-1000 D",
-    "rawDeviceText": "Added\n10/3/04\nYaesu\nFT-1000 D",
     "noiseFloorDbm": -128,
     "noiseFloorDbmSamples": [
-      -128,
-      1
+      -128
     ],
     "sensitivityUv": 0.3,
     "sensitivityUvSamples": [
-      0.3,
-      1
+      0.3
     ],
     "blockingDb": 131,
     "blockingDbSamples": [
@@ -5282,11 +5123,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-1000 mp::127",
-    "rowIndex": 127,
+    "key": "yaesu::ft-1000 mp::128",
+    "rowIndex": 128,
     "manufacturer": "Yaesu",
     "model": "FT-1000 MP",
-    "rawDeviceText": "Added\n10/3/04\nYaesu\nFT-1000 MP",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -125,
@@ -5319,11 +5159,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-101e::163",
-    "rowIndex": 163,
+    "key": "yaesu::ft-101e::164",
+    "rowIndex": 164,
     "manufacturer": "Yaesu",
     "model": "FT-101E",
-    "rawDeviceText": "Yaesu\nFT-101E",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -141
@@ -5354,24 +5193,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-2000::150",
-    "rowIndex": 150,
+    "key": "yaesu::ft-2000::151",
+    "rowIndex": 151,
     "manufacturer": "Yaesu",
     "model": "FT-2000",
-    "rawDeviceText": "Added\n9/22/07\nYaesu FT-2000",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -122,
       -132,
-      -140,
-      1
+      -140
     ],
     "sensitivityUv": 0.14,
     "sensitivityUvSamples": [
       1,
       0.3,
-      0.14,
-      1
+      0.14
     ],
     "blockingDb": 120,
     "blockingDbSamples": [
@@ -5401,20 +5237,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 3,
     "manufacturer": "Yaesu",
     "model": "FT-710",
-    "rawDeviceText": "Added\n10/01/22\nYaesu\nFT-710",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -127,
       -135,
-      -140,
-      6
+      -140
     ],
     "sensitivityUv": 0.13,
     "sensitivityUvSamples": [
       0.66,
       0.23,
-      0.13,
-      1
+      0.13
     ],
     "blockingDb": 129,
     "blockingDbSamples": [
@@ -5438,11 +5271,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-736r::137",
-    "rowIndex": 137,
+    "key": "yaesu::ft-736r::138",
+    "rowIndex": 138,
     "manufacturer": "Yaesu",
     "model": "FT-736R",
-    "rawDeviceText": "Yaesu\nFT-736R\n2 meters",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -141
@@ -5473,11 +5305,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-757::165",
-    "rowIndex": 165,
+    "key": "yaesu::ft-757::166",
+    "rowIndex": 166,
     "manufacturer": "Yaesu",
     "model": "FT-757",
-    "rawDeviceText": "Yaesu\nFT-757",
     "noiseFloorDbm": -134,
     "noiseFloorDbmSamples": [
       -120,
@@ -5510,22 +5341,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-891::118",
-    "rowIndex": 118,
+    "key": "yaesu::ft-891::119",
+    "rowIndex": 119,
     "manufacturer": "Yaesu",
     "model": "FT-891",
-    "rawDeviceText": "Added 07/26/17\nYaesu\nFT-891",
-    "noiseFloorDbm": -1386,
+    "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -129,
       -140,
-      -1386
+      -138
     ],
     "sensitivityUv": 0.11,
     "sensitivityUvSamples": [
       0.44,
       0.11,
-      0.156
+      0.15
     ],
     "dynamicRangeWideDb": 92,
     "dynamicRangeWideDbSamples": [
@@ -5545,24 +5375,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-950::67",
-    "rowIndex": 67,
+    "key": "yaesu::ft-950::68",
+    "rowIndex": 68,
     "manufacturer": "Yaesu",
     "model": "FT-950",
-    "rawDeviceText": "Added\n8/10/12\nYaesu\nFT-950",
     "noiseFloorDbm": -138,
     "noiseFloorDbmSamples": [
       -120,
       -132,
-      -138,
-      1
+      -138
     ],
     "sensitivityUv": 0.15,
     "sensitivityUvSamples": [
       1.1,
       0.31,
-      0.15,
-      1
+      0.15
     ],
     "blockingDb": 125,
     "blockingDbSamples": [
@@ -5586,11 +5413,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-980::157",
-    "rowIndex": 157,
+    "key": "yaesu::ft-980::158",
+    "rowIndex": 158,
     "manufacturer": "Yaesu",
     "model": "FT-980",
-    "rawDeviceText": "Yaesu\nFT-980",
     "noiseFloorDbm": -136,
     "noiseFloorDbmSamples": [
       -136
@@ -5621,24 +5447,21 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-991::104",
-    "rowIndex": 104,
+    "key": "yaesu::ft-991::105",
+    "rowIndex": 105,
     "manufacturer": "Yaesu",
     "model": "FT-991",
-    "rawDeviceText": "Added 08/05/15\nYaesu\nFT-991",
     "noiseFloorDbm": -143,
     "noiseFloorDbmSamples": [
       -123,
       -135,
-      -143,
-      1
+      -143
     ],
     "sensitivityUv": 0.08,
     "sensitivityUvSamples": [
       0.7,
       0.17,
-      0.08,
-      1
+      0.08
     ],
     "blockingDb": 133,
     "blockingDbSamples": [
@@ -5662,11 +5485,10 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ft-one::154",
-    "rowIndex": 154,
+    "key": "yaesu::ft-one::155",
+    "rowIndex": 155,
     "manufacturer": "Yaesu",
     "model": "FT-One",
-    "rawDeviceText": "Yaesu\nFT-One",
     "noiseFloorDbm": -135,
     "noiseFloorDbmSamples": [
       -135
@@ -5701,19 +5523,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 1,
     "manufacturer": "Yaesu",
     "model": "FTdx-101D/MP",
-    "rawDeviceText": "LO Noise Corrected\n05/10/19\nYaesu\nFTdx-101D/MP",
-    "noiseFloorDbm": -1416,
+    "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -127,
       -136,
-      -1416
+      -141
     ],
     "sensitivityUv": 0.12,
     "sensitivityUvSamples": [
       0.6,
       0.2,
-      0.12,
-      1
+      0.12
     ],
     "blockingDb": 147,
     "blockingDbSamples": [
@@ -5737,17 +5557,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ftdx-1200::117",
-    "rowIndex": 117,
+    "key": "yaesu::ftdx-1200::118",
+    "rowIndex": 118,
     "manufacturer": "Yaesu",
     "model": "FTdx-1200",
-    "rawDeviceText": "Added 7/8/15\nYaesu\nFTdx-1200",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -122,
       -134,
-      -140,
-      1
+      -140
     ],
     "sensitivityUv": 0.14,
     "sensitivityUvSamples": [
@@ -5777,17 +5595,15 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     ]
   },
   {
-    "key": "yaesu::ftdx-3000::52",
-    "rowIndex": 52,
+    "key": "yaesu::ftdx-3000::53",
+    "rowIndex": 53,
     "manufacturer": "Yaesu",
     "model": "FTdx-3000",
-    "rawDeviceText": "Added 12/13/2012\nYaesu\nFTdx-3000",
     "noiseFloorDbm": -142,
     "noiseFloorDbmSamples": [
       -127,
       -138,
-      -142,
-      1
+      -142
     ],
     "sensitivityUv": 0.11,
     "sensitivityUvSamples": [
@@ -5821,20 +5637,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 15,
     "manufacturer": "Yaesu",
     "model": "FTdx-5000D",
-    "rawDeviceText": "Added 12/01/10\nYaesu \nFTdx-5000D",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -123,
       -135,
-      -141,
-      1
+      -141
     ],
     "sensitivityUv": 0.13,
     "sensitivityUvSamples": [
       1.1,
       0.27,
-      0.13,
-      1
+      0.13
     ],
     "blockingDb": 127,
     "blockingDbSamples": [
@@ -5862,19 +5675,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 2,
     "manufacturer": "Yaesu",
     "model": "FTdx10",
-    "rawDeviceText": "Added\n12/30/20\nYaesu\nFTdx10",
-    "noiseFloorDbm": -1406,
+    "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -126,
       -135,
-      -1406
+      -140
     ],
     "sensitivityUv": 0.15,
     "sensitivityUvSamples": [
       0.63,
       0.21,
-      0.15,
-      1
+      0.15
     ],
     "blockingDb": 141,
     "blockingDbSamples": [
@@ -5902,19 +5713,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 26,
     "manufacturer": "Yaesu",
     "model": "FTX-1 Optima",
-    "rawDeviceText": "Added 08/30/25\nYaesu\nFTX-1 Optima\nSecond sample \nS/N 5H032092",
     "noiseFloorDbm": -140,
     "noiseFloorDbmSamples": [
       -124,
       -134,
-      -140,
-      1
+      -140
     ],
-    "sensitivityUv": 0.131,
+    "sensitivityUv": 0.13,
     "sensitivityUvSamples": [
       0.9,
       0.25,
-      0.131
+      0.13
     ],
     "blockingDb": 129,
     "blockingDbSamples": [
@@ -5942,19 +5751,17 @@ export const SHERWOOD_RECEIVERS: SherwoodReceiverEntry[] = [
     "rowIndex": 37,
     "manufacturer": "Yaesu",
     "model": "FTX-1 Optima",
-    "rawDeviceText": "Added 06/02/25\nYaesu\nFTX-1 Optima \nS/N 5F020211",
     "noiseFloorDbm": -141,
     "noiseFloorDbmSamples": [
       -124,
       -134,
-      -141,
-      1
+      -141
     ],
-    "sensitivityUv": 0.131,
+    "sensitivityUv": 0.13,
     "sensitivityUvSamples": [
       0.9,
       0.25,
-      0.131
+      0.13
     ],
     "blockingDb": 129,
     "blockingDbSamples": [

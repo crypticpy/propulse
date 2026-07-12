@@ -1,0 +1,300 @@
+{
+  "generated_at": "2026-07-12T07:43:56.205943+00:00",
+  "method": "HTTP HEAD only; archive contents were not read",
+  "objects": [
+    {
+      "month": "2018-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2018-01.csv.gz",
+      "status": 200,
+      "content_length": 603684373,
+      "last_modified": "Thu, 01 Feb 2018 00:22:43 GMT",
+      "etag": "\"23fb7e15-5641b983307ca\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2018-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2018-04.csv.gz",
+      "status": 200,
+      "content_length": 479744400,
+      "last_modified": "Tue, 01 May 2018 00:23:55 GMT",
+      "etag": "\"1c985190-56b19fc5262b1\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2018-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2018-07.csv.gz",
+      "status": 200,
+      "content_length": 567117994,
+      "last_modified": "Wed, 01 Aug 2018 00:20:58 GMT",
+      "etag": "\"21cd88aa-57254ab2c3403\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2018-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2018-10.csv.gz",
+      "status": 200,
+      "content_length": 639626918,
+      "last_modified": "Thu, 01 Nov 2018 00:21:51 GMT",
+      "etag": "\"261feea6-5798f67be2b35\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2019-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2019-01.csv.gz",
+      "status": 200,
+      "content_length": 769176351,
+      "last_modified": "Fri, 01 Feb 2019 00:31:03 GMT",
+      "etag": "\"2dd8b31f-580ca4208a16a\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2019-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2019-04.csv.gz",
+      "status": 200,
+      "content_length": 717032066,
+      "last_modified": "Wed, 01 May 2019 00:31:40 GMT",
+      "etag": "\"2abd0a82-587c8a42493b1\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2019-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2019-07.csv.gz",
+      "status": 200,
+      "content_length": 745408749,
+      "last_modified": "Thu, 01 Aug 2019 00:27:15 GMT",
+      "etag": "\"2c6e08ed-58f034db8a9d0\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2019-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2019-10.csv.gz",
+      "status": 200,
+      "content_length": 813387836,
+      "last_modified": "Sat, 16 Nov 2019 12:49:28 GMT",
+      "etag": "\"307b503c-5977625221865\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2020-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2020-01.csv.gz",
+      "status": 200,
+      "content_length": 1047596288,
+      "last_modified": "Sat, 01 Feb 2020 00:17:10 GMT",
+      "etag": "\"3e710d00-59d789c7453c3\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2020-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2020-04.csv.gz",
+      "status": 200,
+      "content_length": 1134003274,
+      "last_modified": "Fri, 01 May 2020 00:15:22 GMT",
+      "etag": "\"4397844a-5a48b13bcd695\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2020-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2020-07.csv.gz",
+      "status": 200,
+      "content_length": 1230437538,
+      "last_modified": "Sat, 01 Aug 2020 00:32:59 GMT",
+      "etag": "\"4956fca2-5abc60c2fffae\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2020-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2020-10.csv.gz",
+      "status": 200,
+      "content_length": 1343303578,
+      "last_modified": "Sun, 01 Nov 2020 00:24:10 GMT",
+      "etag": "\"50112f9a-5b300a60a2276\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2021-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2021-01.csv.gz",
+      "status": 200,
+      "content_length": 1534025100,
+      "last_modified": "Tue, 27 Apr 2021 22:25:02 GMT",
+      "etag": "\"5b6f5d8c-5c0fbbbbf6e6e\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2021-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2021-04.csv.gz",
+      "status": 200,
+      "content_length": 1378617952,
+      "last_modified": "Sat, 01 May 2021 00:10:06 GMT",
+      "etag": "\"522c0a60-5c1398cfeb48b\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2021-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2021-07.csv.gz",
+      "status": 200,
+      "content_length": 1697246826,
+      "last_modified": "Sun, 01 Aug 2021 00:10:48 GMT",
+      "etag": "\"6529ee6a-5c87448e86b69\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2021-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2021-10.csv.gz",
+      "status": 200,
+      "content_length": 1950269070,
+      "last_modified": "Mon, 01 Nov 2021 00:21:40 GMT",
+      "etag": "\"743ebe8e-5cfaf2930adc9\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2022-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2022-01.csv.gz",
+      "status": 200,
+      "content_length": 1936066789,
+      "last_modified": "Tue, 01 Feb 2022 00:28:17 GMT",
+      "etag": "\"736608e5-5d6e9fa3ad073\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2022-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2022-04.csv.gz",
+      "status": 200,
+      "content_length": 2268789044,
+      "last_modified": "Sun, 01 May 2022 00:29:44 GMT",
+      "etag": "\"873af934-5dde85f4d587d\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2022-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2022-07.csv.gz",
+      "status": 200,
+      "content_length": 1981685565,
+      "last_modified": "Mon, 01 Aug 2022 00:28:22 GMT",
+      "etag": "\"761e1f3d-5e52313ce5e4f\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2022-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2022-10.csv.gz",
+      "status": 200,
+      "content_length": 2584246746,
+      "last_modified": "Tue, 01 Nov 2022 00:37:10 GMT",
+      "etag": "\"9a0879da-5ec5deca993d1\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2023-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2023-01.csv.gz",
+      "status": 200,
+      "content_length": 2534622299,
+      "last_modified": "Wed, 01 Feb 2023 00:36:19 GMT",
+      "etag": "\"9713445b-5f398a3088465\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2023-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2023-04.csv.gz",
+      "status": 200,
+      "content_length": 2620875445,
+      "last_modified": "Mon, 01 May 2023 00:37:35 GMT",
+      "etag": "\"9c3762b5-5fa97076c196c\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2023-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2023-07.csv.gz",
+      "status": 200,
+      "content_length": 2257889168,
+      "last_modified": "Tue, 01 Aug 2023 00:31:29 GMT",
+      "etag": "\"8694a790-601d1ab09b918\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2023-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2023-10.csv.gz",
+      "status": 200,
+      "content_length": 3099955165,
+      "last_modified": "Wed, 01 Nov 2023 00:32:11 GMT",
+      "etag": "\"b8c58fdd-6090c66ee5997\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2024-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2024-01.csv.gz",
+      "status": 200,
+      "content_length": 2814538915,
+      "last_modified": "Thu, 01 Feb 2024 00:32:02 GMT",
+      "etag": "\"a7c274a3-610471fcb3c18\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2024-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2024-04.csv.gz",
+      "status": 200,
+      "content_length": 3191157530,
+      "last_modified": "Wed, 01 May 2024 00:34:12 GMT",
+      "etag": "\"be35331a-61759a5448f1d\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2024-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2024-07.csv.gz",
+      "status": 200,
+      "content_length": 2543849813,
+      "last_modified": "Thu, 01 Aug 2024 00:29:24 GMT",
+      "etag": "\"97a01155-61e944d7c51c5\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2024-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2024-10.csv.gz",
+      "status": 200,
+      "content_length": 3441891979,
+      "last_modified": "Fri, 01 Nov 2024 00:38:50 GMT",
+      "etag": "\"cd271a8b-625cf28a2acbb\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2025-01",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-01.csv.gz",
+      "status": 200,
+      "content_length": 3148313660,
+      "last_modified": "Sat, 01 Feb 2025 00:36:19 GMT",
+      "etag": "\"bba7743c-62d09d903685a\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2025-04",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-04.csv.gz",
+      "status": 200,
+      "content_length": 3064579701,
+      "last_modified": "Thu, 01 May 2025 00:33:32 GMT",
+      "etag": "\"b6a9c675-634082ef9a386\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2025-07",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-07.csv.gz",
+      "status": 200,
+      "content_length": 2608683723,
+      "last_modified": "Fri, 01 Aug 2025 00:29:40 GMT",
+      "etag": "\"9b7d5acb-63b42da8ec550\"",
+      "accept_ranges": "bytes"
+    },
+    {
+      "month": "2025-10",
+      "url": "https://www.wsprnet.org/archive/wsprspots-2025-10.csv.gz",
+      "status": 200,
+      "content_length": 3572498361,
+      "last_modified": "Sat, 01 Nov 2025 00:37:58 GMT",
+      "etag": "\"d4efffb9-6427db1a2b4fa\"",
+      "accept_ranges": "bytes"
+    }
+  ],
+  "total_compressed_bytes": 60320322216,
+  "split_compressed_bytes": {
+    "train": 35934808534,
+    "validation": 11991438237,
+    "locked_archive_test": 12394075445
+  }
+}

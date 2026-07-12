@@ -1,109 +1,74 @@
-/**
- * Hook: useActiveStationGain
- *
- * Returns station gain parameters from the active station preset,
- * falling back to settingsStore.antennaType when no preset is active.
- *
- * Computes system loss from feedline attenuation and accessory gains/losses.
- */
+/** Active station summary derived from the canonical station-chain engine. */
 
-import {
-  useActivePreset,
-  useUserAntennas,
-  useUserFeedlines,
-  useUserAccessories,
-  useInlineComponents,
-} from "@/stores/shackStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { calculateTotalFeedlineLoss } from "@/lib/data/feedlines";
 import { useMemo } from "react";
 import type { AntennaType } from "@/lib/data/antennas";
-import type { UserAccessory } from "@/types/shack";
-
-/** Reference frequency (20 m band center) used for feedline loss calculation */
-const REFERENCE_FREQ_MHZ = 14.1;
+import {
+  computeStationChainPerformance,
+  computeStationPresetPerformance,
+} from "@/lib/station/stationChainEngine";
+import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  useActiveChain,
+  useActivePreset,
+  useInlineComponents,
+  useUserAccessories,
+  useUserAntennas,
+  useUserFeedlines,
+  useUserRadios,
+} from "@/stores/shackStore";
 
 export interface ActiveStationGain {
   antennaType: AntennaType;
   systemLossDb: number;
   txPowerWatts: number;
 }
-
-/**
- * Compute the net gain/loss contribution of a single accessory.
- * Amplifiers contribute positive gain; tuners, filters, and switches
- * contribute negative insertion loss; other categories contribute 0.
- */
-function getAccessoryGainDb(accessory: UserAccessory): number {
-  switch (accessory.category) {
-    case "amplifier":
-      return accessory.gainDb;
-    case "tuner":
-      return -(accessory.insertionLossDb ?? 0);
-    case "filter":
-      return -accessory.insertionLossDb;
-    case "switch":
-      return -accessory.insertionLossDb;
-    default:
-      return 0;
-  }
-}
-
 export function useActiveStationGain(): ActiveStationGain {
-  const preset = useActivePreset();
+  const activeChain = useActiveChain();
+  const activePreset = useActivePreset();
   const antennas = useUserAntennas();
   const feedlines = useUserFeedlines();
   const accessories = useUserAccessories();
+  const radios = useUserRadios();
   const inlineComponents = useInlineComponents();
-  const fallbackAntennaType = useSettingsStore((s) => s.antennaType);
+  const fallbackAntennaType = useSettingsStore((state) => state.antennaType);
 
   return useMemo(() => {
-    if (!preset) {
-      return {
-        antennaType: fallbackAntennaType,
-        systemLossDb: 0,
-        txPowerWatts: 100,
-      };
-    }
+    const inventory = {
+      radios,
+      antennas,
+      feedlines,
+      accessories,
+      inlineComponents,
+    };
+    const calculation = activeChain
+      ? computeStationChainPerformance(activeChain, inventory)
+      : computeStationPresetPerformance(activePreset, inventory);
+    const representativeBand =
+      calculation.bands.find((band) => band.band === "20m") ??
+      calculation.bands[0];
 
-    const antenna = antennas.find((a) => a.id === preset.antennaId);
-    const antennaType: AntennaType =
-      antenna?.gainPatternType ?? fallbackAntennaType;
-
-    const feedline = preset.feedlineId
-      ? feedlines.find((f) => f.id === preset.feedlineId)
-      : undefined;
-    const feedlineLossDb = feedline
-      ? calculateTotalFeedlineLoss(feedline, REFERENCE_FREQ_MHZ)
-      : 0;
-
-    const presetAccessories = accessories.filter((a) =>
-      preset.accessoryIds.includes(a.id),
-    );
-    const netAccessoryGainDb = presetAccessories.reduce(
-      (sum, a) => sum + getAccessoryGainDb(a),
-      0,
-    );
-
-    // Inline component losses
-    const presetInlineIds = preset.inlineComponentIds ?? [];
-    const presetInlines = inlineComponents.filter((c) =>
-      presetInlineIds.includes(c.id),
-    );
-    const inlineLossDb = presetInlines.reduce(
-      (sum, c) => sum + (c.insertionLossDb ?? 0),
-      0,
-    );
-
-    const systemLossDb = feedlineLossDb + inlineLossDb - netAccessoryGainDb;
+    const antennaId = activeChain
+      ? activeChain.nodes.find((node) => node.type === "antenna")
+      : activePreset
+        ? { type: "antenna" as const, antennaId: activePreset.antennaId }
+        : undefined;
+    const antenna =
+      antennaId?.type === "antenna"
+        ? antennas.find((candidate) => candidate.id === antennaId.antennaId)
+        : undefined;
 
     return {
-      antennaType,
-      systemLossDb,
-      txPowerWatts: preset.operatingPowerWatts,
+      antennaType: antenna?.gainPatternType ?? fallbackAntennaType,
+      systemLossDb: representativeBand
+        ? representativeBand.totalPassiveLossDb -
+          representativeBand.totalAmplifierGainDb
+        : 0,
+      txPowerWatts: representativeBand?.txPowerWatts ?? 100,
     };
   }, [
-    preset,
+    activeChain,
+    activePreset,
+    radios,
     antennas,
     feedlines,
     accessories,

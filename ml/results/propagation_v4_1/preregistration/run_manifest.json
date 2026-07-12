@@ -57,6 +57,21 @@
       "path": "ml/data/processed/archive_v4_1/calibration_predictions/propagation_v4_1_calibration_recovery/manifest.json",
       "bytes": 7589,
       "sha256": "03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5"
+    },
+    "calibration_selection": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json",
+      "bytes": 524139,
+      "sha256": "371b040390b4649aae74c2f96c8303c0a69676ea7c0733580eda9c6f2b704a24"
+    },
+    "calibration_oof_daily": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_oof_daily.parquet",
+      "bytes": 612372,
+      "sha256": "4a7f13011366cd834e4ee59582041923cba4a7ad385e65c2382bb093048c6a60"
+    },
+    "selected_calibrator": {
+      "path": "ml/models/archive_v4_1/propagation_v4_1_calibration_recovery/M2_nowcast_v4_1_calibrator.joblib",
+      "bytes": 722043,
+      "sha256": "26bb7950b4d3c858432740f66fdad14ff57f97e02abd8960625f572d5905cf36"
     }
   },
   "phase_status": {
@@ -125,6 +140,30 @@
       "path": "ml/data/processed/archive_v4_1/calibration_predictions/propagation_v4_1_calibration_recovery/manifest.json",
       "bytes": 7589,
       "sha256": "03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5"
+    },
+    {
+      "at": "2026-07-12T18:19:42.440681+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_selection",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json",
+      "bytes": 524139,
+      "sha256": "371b040390b4649aae74c2f96c8303c0a69676ea7c0733580eda9c6f2b704a24"
+    },
+    {
+      "at": "2026-07-12T18:19:42.441962+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_oof_daily",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_oof_daily.parquet",
+      "bytes": 612372,
+      "sha256": "4a7f13011366cd834e4ee59582041923cba4a7ad385e65c2382bb093048c6a60"
+    },
+    {
+      "at": "2026-07-12T18:19:42.442570+00:00",
+      "event": "artifact_frozen",
+      "name": "selected_calibrator",
+      "path": "ml/models/archive_v4_1/propagation_v4_1_calibration_recovery/M2_nowcast_v4_1_calibrator.joblib",
+      "bytes": 722043,
+      "sha256": "26bb7950b4d3c858432740f66fdad14ff57f97e02abd8960625f572d5905cf36"
     }
   ]
 }

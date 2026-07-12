@@ -122,7 +122,7 @@ class Predictor(Protocol):
 
 
 def model_feature_value(value: float | int | None) -> float:
-    return np.nan if value is None else float(value)
+    return 0.0 if value is None else float(value)
 
 
 class ModelRegistry:

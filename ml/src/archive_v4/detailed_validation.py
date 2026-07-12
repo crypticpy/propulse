@@ -37,8 +37,11 @@ DISTANCE_BINS = (
 
 
 def numeric(batch: Any, name: str, dtype: Any = np.float32) -> np.ndarray:
+    column = batch.column(name)
+    if column.null_count:
+        column = pc.fill_null(column, 0)
     return np.asarray(
-        batch.column(name).to_numpy(zero_copy_only=False),
+        column.to_numpy(zero_copy_only=False),
         dtype=dtype,
     )
 

@@ -30,6 +30,28 @@ def compact(number: float | int) -> str:
     return f"{value:.0f}"
 
 
+def feature_family(name: str) -> str:
+    if name.startswith("path_success_") or name.startswith("path_prev"):
+        return "Recent path history"
+    if name.startswith("band_") or name == "band_mhz":
+        return "Band"
+    if name == "power_bin_dbm":
+        return "Declared power"
+    if name.endswith("_missing"):
+        return "Source missingness"
+    if name.startswith("sun_elev") or name in {"dark_frac", "min_abs_elev_ends"}:
+        return "Solar illumination"
+    if name.startswith(("hod_", "doy_")) or name == "is_weekend":
+        return "Calendar"
+    if name in {
+        "dist_km", "bearing_sin", "bearing_cos", "tx_lat_sin", "tx_lat_cos",
+        "tx_lon_sin", "tx_lon_cos", "rx_lat_sin", "rx_lat_cos",
+        "mid_lat_sin", "mid_lat_cos",
+    }:
+        return "Path geometry"
+    return "Space weather"
+
+
 def source(source_id: str, label: str, path: str) -> dict[str, Any]:
     return {
         "id": source_id,
@@ -104,6 +126,7 @@ def main() -> None:
     rolling_path = result_dir / "rolling_validation_results.json"
     outage_path = result_dir / "source_outage_validation_results.json"
     detailed_path = result_dir / "detailed_validation_results.json"
+    lightgbm_path = result_dir / "lightgbm_comparison_results.json"
     future_path = RESULTS / "futurecast_readiness.json"
     sample_path = MANIFESTS / f"{run_id}_hf_balanced_sample.json"
     hf_audit_path = MANIFESTS / f"{run_id}_hf_development_audit.json"
@@ -117,6 +140,7 @@ def main() -> None:
     rolling = read_json(rolling_path, {})
     outage = read_json(outage_path, {})
     detailed = read_json(detailed_path, {})
+    lightgbm = read_json(lightgbm_path, {})
     future = read_json(future_path, {})
     sample = read_json(sample_path, {})
     hf_audit = read_json(hf_audit_path, {})
@@ -142,6 +166,7 @@ def main() -> None:
         source("rolling", "Rolling-origin validation", relative(rolling_path)),
         source("outage", "Source-outage fallback validation", relative(outage_path)),
         source("detailed", "Paired detailed validation", relative(detailed_path)),
+        source("lightgbm", "Bounded LightGBM comparison", relative(lightgbm_path)),
         source("future", "FutureCast issuance readiness", relative(future_path)),
         source("bronze", "Quarterly archive bronze manifest", relative(bronze_path)),
     ]
@@ -245,6 +270,18 @@ def main() -> None:
         {"metric": metric, **values}
         for metric, values in detailed.get("day_bootstrap_95", {}).items()
     ]
+    engine_rows = []
+    if lightgbm:
+        engine_rows = [
+            {
+                "engine": "XGBoost",
+                "brier": lightgbm["xgboost"]["gate_sample"]["weighted_brier"],
+            },
+            {
+                "engine": "LightGBM",
+                "brier": lightgbm["lightgbm"]["gate_sample"]["weighted_brier"],
+            },
+        ]
 
     year_totals: dict[str, dict[str, int]] = defaultdict(lambda: {"spots": 0, "six_meter_spots": 0})
     for row in bronze.get("months", []):
@@ -265,11 +302,37 @@ def main() -> None:
             "opportunities": value["weighted_opportunities"],
         })
 
+    importance_by_family: dict[str, float] = defaultdict(float)
+    for row in m2.get("feature_importance_gain", []):
+        importance_by_family[feature_family(row["feature"])] += float(row["gain"])
+    total_importance = sum(importance_by_family.values())
+    feature_family_rows = [
+        {
+            "family": family,
+            "gain_fraction": gain / total_importance,
+            "gain": gain,
+        }
+        for family, gain in sorted(
+            importance_by_family.items(), key=lambda item: item[1], reverse=True
+        )
+    ] if total_importance else []
+
     release_rows = [
         {"component": "NowCast Core", "status": "development" if development else "pending", "reason": "2025 locked and 2026 prospective tests remain unopened"},
         {"component": "FutureCast", "status": "withheld", "reason": "Requires 90 days of real issued forecasts and horizon validation"},
         {"component": "StationCast Stage A", "status": "shadow", "reason": "Deterministic adapter and privacy contract pass; product validation remains"},
         {"component": "6m Cast", "status": "experimental", "reason": "Heuristic mechanism labels and incomplete mechanism support"},
+    ]
+    experiment_rows = [
+        {"candidate": "B0 climatology", "status": "complete" if b0 else "pending", "decision": "Honest minimum baseline"},
+        {"candidate": "B1 P.533", "status": "complete" if b1.get("status") == "paired_gate_sample" else "pending", "decision": "Pinned physical baseline on identical bounded circuits"},
+        {"candidate": "B2 frozen V3", "status": "blocked", "decision": "Frozen binaries must be transferred from the M5 machine"},
+        {"candidate": "M1 physics/weather", "status": "complete" if m1 else "pending", "decision": "Independent stale-network serving profile"},
+        {"candidate": "M2 NowCast", "status": "complete" if m2 else "pending", "decision": "Primary development candidate"},
+        {"candidate": "M3 TEC/ROTI", "status": "deferred", "decision": "Requires operational/historical IGS parity before ablation"},
+        {"candidate": "M4 station nuisance", "status": "deferred", "decision": "Requires cross-fitted or consented prospective station evidence"},
+        {"candidate": "M5 P.533 hybrid", "status": "not escalated", "decision": "P.533 retained as bounded baseline; full feature build is not justified yet"},
+        {"candidate": "LightGBM 5M", "status": "complete" if lightgbm else "pending", "decision": "Bounded implementation-regression check only"},
     ]
 
     cards = [
@@ -418,6 +481,19 @@ def main() -> None:
                 "size": {"field": "opportunities", "type": "quantitative", "label": "Opportunities"},
             },
         ))
+    if engine_rows:
+        charts.append(chart(
+            "engine_comparison",
+            "The bounded engine check guards against implementation regression",
+            "Same 5M cohort, April calibration protocol, and October sample; lower Brier is better.",
+            "bar",
+            "engine_comparison",
+            "lightgbm",
+            {
+                "x": {"field": "engine", "type": "ordinal", "label": "Engine"},
+                "y": {"field": "brier", "type": "quantitative", "label": "Weighted Brier"},
+            },
+        ))
     if mechanism_rows:
         trained_mechanisms = [row for row in mechanism_rows if row["brier_skill"] is not None]
         if trained_mechanisms:
@@ -447,8 +523,37 @@ def main() -> None:
                 "y": {"field": "spots", "type": "quantitative", "label": "Bronze WSPR rows"},
             },
         ))
+    if feature_family_rows:
+        charts.append(chart(
+            "feature_family_importance",
+            "Recent reports complement physics, geometry, and solar context",
+            "Normalized XGBoost gain by preregistered feature family; predictive importance is not causal effect.",
+            "bar",
+            "feature_family_importance",
+            "development",
+            {
+                "x": {"field": "family", "type": "ordinal", "label": "Feature family"},
+                "y": {"field": "gain_fraction", "type": "quantitative", "label": "Gain fraction", "format": "percent"},
+            },
+            value_format="percent",
+        ))
 
     tables = [
+        {
+            "id": "experiment_matrix",
+            "title": "Experiment matrix and evidence decisions",
+            "subtitle": "Deferred candidates require new evidence; they are not counted as failed or complete.",
+            "dataset": "experiment_matrix",
+            "sourceId": "development",
+            "defaultSort": {"field": "candidate", "direction": "asc"},
+            "density": "dense",
+            "layout": "full",
+            "columns": [
+                {"field": "candidate", "label": "Candidate", "type": "text"},
+                {"field": "status", "label": "Status", "type": "text"},
+                {"field": "decision", "label": "Decision", "type": "text"},
+            ],
+        },
         {
             "id": "band_metrics",
             "title": "M2 error and calibration by band",
@@ -548,6 +653,12 @@ def main() -> None:
             ),
         },
     ])
+    blocks.append({
+        "id": "experiment_table",
+        "type": "table",
+        "tableId": "experiment_matrix",
+        "layout": "full",
+    })
     blocks.extend(chart_blocks[4:])
     if band_rows:
         blocks.append({"id": "band_table", "type": "table", "tableId": "band_metrics", "layout": "full"})
@@ -648,11 +759,14 @@ def main() -> None:
                 "detailed_distance": detailed_distance,
                 "detailed_regions": detailed_regions,
                 "detailed_intervals": detailed_intervals,
+                "engine_comparison": engine_rows,
                 "six_mechanisms": mechanism_rows,
                 "six_mechanisms_trained": [row for row in mechanism_rows if row["brier_skill"] is not None],
                 "archive_coverage": archive_coverage,
                 "band_metrics": band_rows,
                 "release_status": release_rows,
+                "experiment_matrix": experiment_rows,
+                "feature_family_importance": feature_family_rows,
             },
             "accessIssues": access_issues,
         },
@@ -809,6 +923,14 @@ model artifacts only.
         if b1.get("status") == "paired_gate_sample" else
         "The paired P.533 gate is pending."
     )
+    engine_sentence = (
+        f"The bounded 5M LightGBM check selected **{lightgbm['selected_engine']}**: "
+        f"LightGBM minus XGBoost Brier was "
+        f"`{lightgbm['lightgbm_minus_xgboost_brier']:.6f}` against a fixed "
+        f"`{lightgbm['regression_tolerance']:.6f}` tolerance."
+        if lightgbm else
+        "The preregistered bounded LightGBM implementation check is pending."
+    )
     article = f"""# A Multi-Year, Equipment-Aware Propagation Nowcast for Amateur Radio
 
 ## Abstract
@@ -912,6 +1034,9 @@ GPU. Isotonic calibration is selected only inside April, with band/distance
 fallbacks for sparse strata. The inference bundle contains independent physics
 and nowcast profiles, checksums, exact feature order, calibrators, and version
 metadata.
+
+{engine_sentence} This is a regression guard, not permission to tune across
+frameworks after seeing the locked test.
 
 ## Source outages
 
@@ -1020,7 +1145,7 @@ will be published alongside successes.
     input_paths = [
         path for path in (
             development_path, six_path, p533_path, rolling_path, outage_path,
-            detailed_path, future_path,
+            detailed_path, lightgbm_path, future_path,
             sample_path, hf_audit_path, six_audit_path, bronze_path, sources_path,
         ) if path.exists()
     ]

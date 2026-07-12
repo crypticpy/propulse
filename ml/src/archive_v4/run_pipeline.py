@@ -34,6 +34,7 @@ STAGES: dict[str, tuple[Path, list[str], str]] = {
     "train-validation": (ROOT / "ml/src/archive_v4/train_validation.py", [], "development"),
     "rolling-validation": (ROOT / "ml/src/archive_v4/rolling_validation.py", [], "development"),
     "detailed-validation": (ROOT / "ml/src/archive_v4/detailed_validation.py", [], "development"),
+    "compare-lightgbm": (ROOT / "ml/src/archive_v4/compare_lightgbm.py", [], "development"),
     "report-artifact": (ROOT / "ml/src/archive_v4/generate_report_artifact.py", [], "development"),
     "package-serving": (ROOT / "ml/src/archive_v4/package_serving_bundle.py", [], "development"),
     "source-outage-validation": (ROOT / "ml/src/archive_v4/validate_source_outage.py", [], "development"),

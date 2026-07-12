@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import math
 import unittest
 
 from fastapi.testclient import TestClient
@@ -91,8 +90,8 @@ class ServiceTests(unittest.TestCase):
         self.assertGreater(body["personalized_probability"], body["core_probability"])
         self.assertEqual(body["model_version"], "v4-test")
 
-    def test_missing_model_features_remain_nan(self):
-        self.assertTrue(math.isnan(model_feature_value(None)))
+    def test_missing_model_features_match_training_imputation(self):
+        self.assertEqual(model_feature_value(None), 0.0)
         self.assertEqual(model_feature_value(0), 0.0)
 
     def test_raw_equipment_fields_are_rejected(self):

@@ -1,0 +1,1173 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Archive Proof V2: Dense PSK Labels on Common Support",
+    "description": "A technical report on the refined March 2026 archive training proof.",
+    "generatedAt": "2026-07-12T02:31:58.708389+00:00",
+    "cards": [
+      {
+        "id": "dense_pr_auc",
+        "description": "PR-AUC of the dense-label physics-only model on dense HF test truth.",
+        "dataset": "summary",
+        "sourceId": "hf_results",
+        "metrics": [
+          {
+            "label": "Dense PR-AUC",
+            "field": "dense_pr_auc",
+            "format": "number"
+          },
+          {
+            "label": "Delta vs sparse",
+            "field": "pr_auc_delta",
+            "format": "number",
+            "signed": true
+          }
+        ]
+      },
+      {
+        "id": "dense_brier",
+        "description": "Lower is better; both models are scored on identical dense HF truth.",
+        "dataset": "summary",
+        "sourceId": "hf_results",
+        "metrics": [
+          {
+            "label": "Dense Brier",
+            "field": "dense_brier",
+            "format": "number"
+          },
+          {
+            "label": "Sparse Brier",
+            "field": "sparse_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "sparse_recall",
+        "description": "Share of dense-reference positive cells also captured by the sparse collector.",
+        "dataset": "summary",
+        "sourceId": "hf_results",
+        "metrics": [
+          {
+            "label": "Sparse label recall",
+            "field": "sparse_label_recall",
+            "format": "percent"
+          }
+        ]
+      },
+      {
+        "id": "common_pairs",
+        "description": "Directional field pairs meeting the train-only 300-spot gate in both sources.",
+        "dataset": "summary",
+        "sourceId": "dataset_manifest",
+        "metrics": [
+          {
+            "label": "Common pairs",
+            "field": "common_pairs",
+            "format": "compact"
+          },
+          {
+            "label": "HF test rows",
+            "field": "test_rows",
+            "format": "compact"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "hf_pr_auc",
+        "title": "HF reference-test PR-AUC by training source and feature profile",
+        "subtitle": "Identical March 24-31 rows; higher is better.",
+        "type": "horizontalBar",
+        "dataset": "hf_model_metrics",
+        "sourceId": "hf_results",
+        "valueFormat": "number",
+        "encodings": {
+          "x": {
+            "field": "model",
+            "type": "nominal",
+            "label": "Model"
+          },
+          "y": {
+            "field": "pr_auc",
+            "type": "quantitative",
+            "label": "PR-AUC"
+          },
+          "tooltip": [
+            {
+              "field": "roc_auc",
+              "type": "quantitative",
+              "label": "ROC-AUC"
+            },
+            {
+              "field": "rows",
+              "type": "quantitative",
+              "label": "Rows",
+              "format": "compact"
+            }
+          ]
+        }
+      },
+      {
+        "id": "hf_brier",
+        "title": "HF reference-test Brier score by model",
+        "subtitle": "Includes the reference band-hour climatology; lower is better.",
+        "type": "horizontalBar",
+        "dataset": "hf_brier",
+        "sourceId": "hf_results",
+        "valueFormat": "number",
+        "encodings": {
+          "x": {
+            "field": "model",
+            "type": "nominal",
+            "label": "Model"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Brier score"
+          },
+          "tooltip": [
+            {
+              "field": "rows",
+              "type": "quantitative",
+              "label": "Rows",
+              "format": "compact"
+            }
+          ]
+        }
+      },
+      {
+        "id": "band_delta",
+        "title": "Dense-minus-sparse physics PR-AUC by HF band",
+        "subtitle": "Positive values favor training on dense PSK labels.",
+        "type": "bar",
+        "dataset": "hf_band_delta",
+        "sourceId": "hf_results",
+        "valueFormat": "number",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "pr_auc_delta",
+            "type": "quantitative",
+            "label": "PR-AUC delta"
+          },
+          "tooltip": [
+            {
+              "field": "reference_pr_auc",
+              "type": "quantitative",
+              "label": "Dense PR-AUC"
+            },
+            {
+              "field": "sparse_pr_auc",
+              "type": "quantitative",
+              "label": "Sparse PR-AUC"
+            },
+            {
+              "field": "rows",
+              "type": "quantitative",
+              "label": "Rows",
+              "format": "compact"
+            }
+          ]
+        }
+      },
+      {
+        "id": "daily_brier",
+        "title": "Physics-only Brier score by test day",
+        "subtitle": "Paired daily comparison on dense reference truth; lower is better.",
+        "type": "line",
+        "dataset": "hf_daily_brier",
+        "sourceId": "hf_results",
+        "valueFormat": "number",
+        "encodings": {
+          "x": {
+            "field": "date",
+            "type": "temporal",
+            "label": "UTC date"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Brier score"
+          },
+          "color": {
+            "field": "model",
+            "type": "nominal",
+            "label": "Model"
+          },
+          "tooltip": [
+            {
+              "field": "rows",
+              "type": "quantitative",
+              "label": "Rows",
+              "format": "compact"
+            },
+            {
+              "field": "paired_delta",
+              "type": "quantitative",
+              "label": "Dense - sparse"
+            }
+          ]
+        }
+      },
+      {
+        "id": "calibration",
+        "title": "HF physics-only calibration on dense reference truth",
+        "subtitle": "Observed opening rate within equal-width prediction bins.",
+        "type": "line",
+        "dataset": "hf_calibration",
+        "sourceId": "hf_results",
+        "valueFormat": "percent",
+        "encodings": {
+          "x": {
+            "field": "mean_prediction",
+            "type": "quantitative",
+            "label": "Mean predicted probability",
+            "format": "percent"
+          },
+          "y": {
+            "field": "observed_rate",
+            "type": "quantitative",
+            "label": "Observed opening rate",
+            "format": "percent"
+          },
+          "color": {
+            "field": "model",
+            "type": "nominal",
+            "label": "Model"
+          },
+          "tooltip": [
+            {
+              "field": "rows",
+              "type": "quantitative",
+              "label": "Rows",
+              "format": "compact"
+            }
+          ]
+        }
+      }
+    ],
+    "tables": [
+      {
+        "id": "model_table",
+        "title": "HF model metrics on dense reference test labels",
+        "subtitle": "Calibrated predictions on identical March 24-31 rows.",
+        "dataset": "hf_model_metrics",
+        "sourceId": "hf_results",
+        "defaultSort": {
+          "field": "brier",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "columns": [
+          {
+            "field": "model",
+            "label": "Model",
+            "type": "text"
+          },
+          {
+            "field": "pr_auc",
+            "label": "PR-AUC",
+            "format": "number"
+          },
+          {
+            "field": "roc_auc",
+            "label": "ROC-AUC",
+            "format": "number"
+          },
+          {
+            "field": "brier",
+            "label": "Brier",
+            "format": "number"
+          },
+          {
+            "field": "ece_15",
+            "label": "ECE",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "six_table",
+        "title": "Independent 6m model results",
+        "subtitle": "Sparse models are absent when the collector label has no positives.",
+        "dataset": "six_model_metrics",
+        "sourceId": "six_results",
+        "defaultSort": {
+          "field": "brier",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "columns": [
+          {
+            "field": "model",
+            "label": "Model",
+            "type": "text"
+          },
+          {
+            "field": "pr_auc",
+            "label": "PR-AUC",
+            "format": "number"
+          },
+          {
+            "field": "roc_auc",
+            "label": "ROC-AUC",
+            "format": "number"
+          },
+          {
+            "field": "brier",
+            "label": "Brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "split_table",
+        "title": "Dataset cohorts and label prevalence",
+        "subtitle": "No negative sampling; every eligible row is retained.",
+        "dataset": "split_rows",
+        "sourceId": "dataset_manifest",
+        "defaultSort": {
+          "field": "rows",
+          "direction": "desc"
+        },
+        "density": "dense",
+        "columns": [
+          {
+            "field": "task",
+            "label": "Task",
+            "type": "text"
+          },
+          {
+            "field": "split",
+            "label": "Split",
+            "type": "text"
+          },
+          {
+            "field": "rows",
+            "label": "Rows",
+            "format": "compact"
+          },
+          {
+            "field": "reference_open_rate",
+            "label": "Dense prevalence",
+            "format": "percent"
+          },
+          {
+            "field": "sparse_open_rate",
+            "label": "Sparse prevalence",
+            "format": "percent"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "dataset_manifest",
+        "label": "Archive V2 dataset manifest",
+        "path": "ml/results/archive_v2/dataset_manifest.json"
+      },
+      {
+        "id": "hf_results",
+        "label": "HF experiment metrics",
+        "path": "ml/results/archive_v2/hf_results.json"
+      },
+      {
+        "id": "six_results",
+        "label": "6m experiment metrics",
+        "path": "ml/results/archive_v2/6m_results.json"
+      },
+      {
+        "id": "methodology",
+        "label": "Experiment methodology",
+        "path": "ml/ARCHIVE-PROOF-V2.md"
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Archive Proof V2: Dense PSK Labels on Common Support"
+      },
+      {
+        "id": "summary_heading",
+        "type": "markdown",
+        "body": "## Technical Summary\n\nThe stricter PSK-only proof compares models on identical one-hour-ahead HF opportunities. The dense-label physics model reached **0.9197 PR-AUC** and **0.1248 Brier**, versus **0.9050** and **0.1285** for sparse-label training. Dense training won 6 of 8 test days on Brier. Both Brier values use the same dense validation-only recalibration. This supports the archive-first direction on common support, while remaining a March-only validation rather than an untouched production test.",
+        "sourceId": "hf_results"
+      },
+      {
+        "id": "summary_metrics",
+        "type": "metric-strip",
+        "cardIds": [
+          "dense_pr_auc",
+          "dense_brier",
+          "sparse_recall",
+          "common_pairs"
+        ]
+      },
+      {
+        "id": "finding",
+        "type": "markdown",
+        "body": "## Dense labels improved the same one-hour-ahead HF task\n\nThe primary physics-only arm changes only the training labels. It excludes path IDs and target-hour activity, so the comparison cannot be explained by pair memorization, WSPR labels, a different row universe, or 6m behavior."
+      },
+      {
+        "id": "pr_chart",
+        "type": "chart",
+        "chartId": "hf_pr_auc"
+      },
+      {
+        "id": "brier_chart",
+        "type": "chart",
+        "chartId": "hf_brier"
+      },
+      {
+        "id": "model_details",
+        "type": "table",
+        "tableId": "model_table"
+      },
+      {
+        "id": "band_heading",
+        "type": "markdown",
+        "body": "## The aggregate result must survive band-level inspection\n\nPer-band deltas show whether the headline is broad or concentrated in a few high-volume bands. Positive PR-AUC deltas favor dense-label training; Brier and row counts remain available in the chart source data."
+      },
+      {
+        "id": "band_chart",
+        "type": "chart",
+        "chartId": "band_delta"
+      },
+      {
+        "id": "daily_heading",
+        "type": "markdown",
+        "body": "## The paired result held on 6 of 8 test days\n\nThe day-block bootstrap treats days, rather than millions of autocorrelated cells, as the resampling unit. The 95% interval for dense-minus-sparse daily Brier is [-0.00778550747781992, 0.0008763821562752112]. Negative values favor dense-label training.",
+        "sourceId": "hf_results"
+      },
+      {
+        "id": "daily_chart",
+        "type": "chart",
+        "chartId": "daily_brier"
+      },
+      {
+        "id": "calibration_heading",
+        "type": "markdown",
+        "body": "## Calibration sensitivity separates ranking from feed prevalence\n\nHeadline Brier and log loss recalibrate both models on dense validation truth, so sparse-feed prevalence alone cannot decide the comparison. Native sparse calibration is also retained in the metrics JSON; it quantifies the operational underprediction produced when a 19.6% observation process is used as a proxy for 52.6% dense truth."
+      },
+      {
+        "id": "calibration_chart",
+        "type": "chart",
+        "chartId": "calibration"
+      },
+      {
+        "id": "six_heading",
+        "type": "markdown",
+        "body": "## 6m is a separate task and exposed a collector coverage failure\n\nThe collector had no positive 6m labels in train, validation, or test, so a sparse 6m classifier was not trainable. The dense PSK reference data did support a separate 6m model. This confirms that pooling 6m into an HF headline metric would conceal a source-coverage failure.",
+        "sourceId": "six_results"
+      },
+      {
+        "id": "six_table_block",
+        "type": "table",
+        "tableId": "six_table"
+      },
+      {
+        "id": "scope_heading",
+        "type": "markdown",
+        "body": "## Scope, data, and metric definitions\n\nA row is a directional field-pair and band at target hour H. Eligibility requires both endpoint roles to be active on that band in dense PSK data at H-1. `open` means at least one PSK report at H. PR-AUC measures ranking under class imbalance; Brier measures probability accuracy; ECE summarizes calibration-bin error. All test comparisons use identical rows."
+      },
+      {
+        "id": "split_table_block",
+        "type": "table",
+        "tableId": "split_table"
+      },
+      {
+        "id": "method_heading",
+        "type": "markdown",
+        "body": "## Experimental design and model specification\n\nPairs must have at least 300 training-period spots in each source. Train is March 1-19, validation March 20-23, and test March 24-31 UTC. DuckDB builds the risk set and Polars adds vectorized features. LightGBM and XGBoost are compared on a bounded validation bakeoff; the selected engine is then trained on the full data. Isotonic calibration is fit on validation only. The physics profile uses geometry, solar illumination, prior-completed-hour space weather, calendar, and band features. The nowcast profile adds each source's own H-1/H-2/H-3/H-24 activity."
+      },
+      {
+        "id": "limitations_heading",
+        "type": "markdown",
+        "body": "## Limitations, uncertainty, and robustness\n\nThis is a March-only development experiment and is not an untouched final test. Common-support filtering evaluates established paths rather than unseen geography. Region-level H-1 exposure is stronger than the old any-band rule but is not a station-level transmission log. Dense Madrigal PSK is treated as reference truth, not perfect truth. Eight test days provide a small block-bootstrap sample. Archive-era source drift and train-serve availability still require multi-year testing."
+      },
+      {
+        "id": "next_heading",
+        "type": "markdown",
+        "body": "## Recommended next steps\n\n1. Build station-opportunity WSPR and RBN pilots with explicit active-receiver exposure.\n2. Run seasonal and solar-cycle learning curves before downloading the full archive.\n3. Add spatial holdouts and source-era drift tests.\n4. Reserve a future collector interval as the locked production test.\n5. Rent CUDA hardware only after CPU learning curves show a remaining data-capacity constraint."
+      },
+      {
+        "id": "questions_heading",
+        "type": "markdown",
+        "body": "## Further questions\n\n- How much of the gain survives a completely unseen-pair holdout?\n- Which bands benefit from dense labels versus source-specific nowcast lags?\n- Can station-level exposure reduce the remaining reference-label ambiguity?\n- Does an operationally available ionosphere measurement improve opening-onset lead time?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-12T02:31:58.708389+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "dense_pr_auc": 0.9196695698686179,
+          "pr_auc_delta": 0.014698691660029017,
+          "dense_brier": 0.12476134300231934,
+          "sparse_brier": 0.12851427495479584,
+          "brier_delta": -0.0037529319524765015,
+          "sparse_label_recall": 0.3712321957371587,
+          "common_pairs": 1755,
+          "test_rows": 2220493
+        }
+      ],
+      "hf_model_metrics": [
+        {
+          "model": "Dense Physics",
+          "source": "reference",
+          "profile": "physics",
+          "pr_auc": 0.9196695698686179,
+          "roc_auc": 0.9152106152717184,
+          "brier": 0.12476134300231934,
+          "log_loss": 0.3949885368347168,
+          "ece_15": 0.07528637456957342,
+          "rows": 2220493,
+          "positives": 1168751,
+          "engine": "xgboost",
+          "best_iteration": 202
+        },
+        {
+          "model": "Dense Nowcast",
+          "source": "reference",
+          "profile": "nowcast",
+          "pr_auc": 0.9563727939749809,
+          "roc_auc": 0.9491085774871032,
+          "brier": 0.093500055372715,
+          "log_loss": 0.29532507061958313,
+          "ece_15": 0.03643894853112296,
+          "rows": 2220493,
+          "positives": 1168751,
+          "engine": "xgboost",
+          "best_iteration": 225
+        },
+        {
+          "model": "Sparse Physics",
+          "source": "sparse",
+          "profile": "physics",
+          "pr_auc": 0.9049708782085889,
+          "roc_auc": 0.8982734296556811,
+          "brier": 0.12851427495479584,
+          "log_loss": 0.4027189314365387,
+          "ece_15": 0.012382895840154567,
+          "rows": 2220493,
+          "positives": 1168751,
+          "engine": "xgboost",
+          "best_iteration": 946
+        },
+        {
+          "model": "Sparse Nowcast",
+          "source": "sparse",
+          "profile": "nowcast",
+          "pr_auc": 0.9262296951833227,
+          "roc_auc": 0.9156640142350833,
+          "brier": 0.11725081503391266,
+          "log_loss": 0.3670724332332611,
+          "ece_15": 0.009710855852404238,
+          "rows": 2220493,
+          "positives": 1168751,
+          "engine": "xgboost",
+          "best_iteration": 1180
+        }
+      ],
+      "hf_brier": [
+        {
+          "model": "Dense Physics",
+          "brier": 0.12476134300231934,
+          "profile": "physics",
+          "source": "reference",
+          "rows": 2220493
+        },
+        {
+          "model": "Dense Nowcast",
+          "brier": 0.093500055372715,
+          "profile": "nowcast",
+          "source": "reference",
+          "rows": 2220493
+        },
+        {
+          "model": "Sparse Physics",
+          "brier": 0.12851427495479584,
+          "profile": "physics",
+          "source": "sparse",
+          "rows": 2220493
+        },
+        {
+          "model": "Sparse Nowcast",
+          "brier": 0.11725081503391266,
+          "profile": "nowcast",
+          "source": "sparse",
+          "rows": 2220493
+        },
+        {
+          "model": "Reference climatology",
+          "brier": 0.23212056441747,
+          "profile": "baseline",
+          "source": "reference",
+          "rows": 2220493
+        }
+      ],
+      "hf_band_delta": [
+        {
+          "band": "10m",
+          "reference_pr_auc": 0.8932924010111973,
+          "sparse_pr_auc": 0.8796381052265195,
+          "pr_auc_delta": 0.013654295784677806,
+          "reference_brier": 0.1264825463294983,
+          "sparse_brier": 0.12245349586009979,
+          "brier_delta": 0.0040290504693984985,
+          "rows": 248516,
+          "prevalence": 0.47062965764779735
+        },
+        {
+          "band": "12m",
+          "reference_pr_auc": 0.8408611111873392,
+          "sparse_pr_auc": 0.8037091169854935,
+          "pr_auc_delta": 0.03715199420184567,
+          "reference_brier": 0.1483316272497177,
+          "sparse_brier": 0.1578398048877716,
+          "brier_delta": -0.009508177638053894,
+          "rows": 202661,
+          "prevalence": 0.4728339443701551
+        },
+        {
+          "band": "15m",
+          "reference_pr_auc": 0.9390795614762243,
+          "sparse_pr_auc": 0.9272558949714296,
+          "pr_auc_delta": 0.011823666504794716,
+          "reference_brier": 0.11514677107334137,
+          "sparse_brier": 0.1191818043589592,
+          "brier_delta": -0.004035033285617828,
+          "rows": 266726,
+          "prevalence": 0.5703343506069899
+        },
+        {
+          "band": "160m",
+          "reference_pr_auc": 0.8277511864013123,
+          "sparse_pr_auc": 0.772476735916693,
+          "pr_auc_delta": 0.05527445048461932,
+          "reference_brier": 0.10491138696670532,
+          "sparse_brier": 0.10939942300319672,
+          "brier_delta": -0.004488036036491394,
+          "rows": 107152,
+          "prevalence": 0.2575686874720024
+        },
+        {
+          "band": "17m",
+          "reference_pr_auc": 0.9204458434806573,
+          "sparse_pr_auc": 0.905436374188003,
+          "pr_auc_delta": 0.015009469292654232,
+          "reference_brier": 0.13259576261043549,
+          "sparse_brier": 0.1408371925354004,
+          "brier_delta": -0.008241429924964905,
+          "rows": 258579,
+          "prevalence": 0.5571488790659721
+        },
+        {
+          "band": "20m",
+          "reference_pr_auc": 0.9468478360239281,
+          "sparse_pr_auc": 0.9383305415400133,
+          "pr_auc_delta": 0.008517294483914806,
+          "reference_brier": 0.1315915584564209,
+          "sparse_brier": 0.13368436694145203,
+          "brier_delta": -0.002092808485031128,
+          "rows": 308585,
+          "prevalence": 0.7179124066302639
+        },
+        {
+          "band": "30m",
+          "reference_pr_auc": 0.9190500003512369,
+          "sparse_pr_auc": 0.9046263096688009,
+          "pr_auc_delta": 0.014423690682435986,
+          "reference_brier": 0.13996605575084686,
+          "sparse_brier": 0.14034904539585114,
+          "brier_delta": -0.00038298964500427246,
+          "rows": 265861,
+          "prevalence": 0.5643249668059626
+        },
+        {
+          "band": "40m",
+          "reference_pr_auc": 0.9486028126983791,
+          "sparse_pr_auc": 0.9385551610053383,
+          "pr_auc_delta": 0.010047651693040782,
+          "reference_brier": 0.10476472228765488,
+          "sparse_brier": 0.10677365213632584,
+          "brier_delta": -0.0020089298486709595,
+          "rows": 285267,
+          "prevalence": 0.5421657604980598
+        },
+        {
+          "band": "60m",
+          "reference_pr_auc": 0.8846221697641662,
+          "sparse_pr_auc": 0.8506684531974785,
+          "pr_auc_delta": 0.033953716566687664,
+          "reference_brier": 0.12871184945106506,
+          "sparse_brier": 0.13715478777885437,
+          "brier_delta": -0.008442938327789307,
+          "rows": 91093,
+          "prevalence": 0.41857222838198327
+        },
+        {
+          "band": "80m",
+          "reference_pr_auc": 0.901178257006526,
+          "sparse_pr_auc": 0.8670103772049401,
+          "pr_auc_delta": 0.034167879801585865,
+          "reference_brier": 0.10678549855947495,
+          "sparse_brier": 0.1155448630452156,
+          "brier_delta": -0.008759364485740662,
+          "rows": 186053,
+          "prevalence": 0.3645090377473086
+        }
+      ],
+      "hf_daily_brier": [
+        {
+          "date": "2026-03-24",
+          "model": "Dense Physics",
+          "brier": 0.16288764774799347,
+          "paired_delta": 0.008000984787940979,
+          "rows": 262771
+        },
+        {
+          "date": "2026-03-24",
+          "model": "Sparse Physics",
+          "brier": 0.1548866629600525,
+          "paired_delta": 0.008000984787940979,
+          "rows": 262771
+        },
+        {
+          "date": "2026-03-25",
+          "model": "Dense Physics",
+          "brier": 0.1273878514766693,
+          "paired_delta": 0.00263860821723938,
+          "rows": 269373
+        },
+        {
+          "date": "2026-03-25",
+          "model": "Sparse Physics",
+          "brier": 0.12474924325942993,
+          "paired_delta": 0.00263860821723938,
+          "rows": 269373
+        },
+        {
+          "date": "2026-03-26",
+          "model": "Dense Physics",
+          "brier": 0.12249799817800522,
+          "paired_delta": -0.002475552260875702,
+          "rows": 273990
+        },
+        {
+          "date": "2026-03-26",
+          "model": "Sparse Physics",
+          "brier": 0.12497355043888092,
+          "paired_delta": -0.002475552260875702,
+          "rows": 273990
+        },
+        {
+          "date": "2026-03-27",
+          "model": "Dense Physics",
+          "brier": 0.11625094711780548,
+          "paired_delta": -0.006173752248287201,
+          "rows": 284337
+        },
+        {
+          "date": "2026-03-27",
+          "model": "Sparse Physics",
+          "brier": 0.12242469936609268,
+          "paired_delta": -0.006173752248287201,
+          "rows": 284337
+        },
+        {
+          "date": "2026-03-28",
+          "model": "Dense Physics",
+          "brier": 0.12201832979917526,
+          "paired_delta": -0.0037805363535881042,
+          "rows": 281328
+        },
+        {
+          "date": "2026-03-28",
+          "model": "Sparse Physics",
+          "brier": 0.12579886615276337,
+          "paired_delta": -0.0037805363535881042,
+          "rows": 281328
+        },
+        {
+          "date": "2026-03-29",
+          "model": "Dense Physics",
+          "brier": 0.11231415718793869,
+          "paired_delta": -0.010019533336162567,
+          "rows": 283336
+        },
+        {
+          "date": "2026-03-29",
+          "model": "Sparse Physics",
+          "brier": 0.12233369052410126,
+          "paired_delta": -0.010019533336162567,
+          "rows": 283336
+        },
+        {
+          "date": "2026-03-30",
+          "model": "Dense Physics",
+          "brier": 0.12446234375238419,
+          "paired_delta": -0.004130549728870392,
+          "rows": 280129
+        },
+        {
+          "date": "2026-03-30",
+          "model": "Sparse Physics",
+          "brier": 0.12859289348125458,
+          "paired_delta": -0.004130549728870392,
+          "rows": 280129
+        },
+        {
+          "date": "2026-03-31",
+          "model": "Dense Physics",
+          "brier": 0.11317814141511917,
+          "paired_delta": -0.012808360159397125,
+          "rows": 285229
+        },
+        {
+          "date": "2026-03-31",
+          "model": "Sparse Physics",
+          "brier": 0.1259865015745163,
+          "paired_delta": -0.012808360159397125,
+          "rows": 285229
+        }
+      ],
+      "hf_calibration": [
+        {
+          "model": "Dense Physics",
+          "bin": 1,
+          "lower": 0.0,
+          "upper": 0.1,
+          "mean_prediction": 0.04447643458843231,
+          "observed_rate": 0.02747552484470228,
+          "rows": 340958
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 2,
+          "lower": 0.1,
+          "upper": 0.2,
+          "mean_prediction": 0.14575791358947754,
+          "observed_rate": 0.07472364132184009,
+          "rows": 170883
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 3,
+          "lower": 0.2,
+          "upper": 0.30000000000000004,
+          "mean_prediction": 0.24762704968452454,
+          "observed_rate": 0.1360862390516829,
+          "rows": 102413
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 4,
+          "lower": 0.30000000000000004,
+          "upper": 0.4,
+          "mean_prediction": 0.34277063608169556,
+          "observed_rate": 0.19337899764573666,
+          "rows": 103217
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 5,
+          "lower": 0.4,
+          "upper": 0.5,
+          "mean_prediction": 0.4479508399963379,
+          "observed_rate": 0.2816358024691358,
+          "rows": 130896
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 6,
+          "lower": 0.5,
+          "upper": 0.6000000000000001,
+          "mean_prediction": 0.5632630586624146,
+          "observed_rate": 0.3997268251190028,
+          "rows": 122266
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 7,
+          "lower": 0.6000000000000001,
+          "upper": 0.7000000000000001,
+          "mean_prediction": 0.6591168642044067,
+          "observed_rate": 0.517860628537966,
+          "rows": 122952
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 8,
+          "lower": 0.7000000000000001,
+          "upper": 0.8,
+          "mean_prediction": 0.7514431476593018,
+          "observed_rate": 0.6379886297027675,
+          "rows": 175721
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 9,
+          "lower": 0.8,
+          "upper": 0.9,
+          "mean_prediction": 0.8565881848335266,
+          "observed_rate": 0.771405215940946,
+          "rows": 242219
+        },
+        {
+          "model": "Dense Physics",
+          "bin": 10,
+          "lower": 0.9,
+          "upper": 1.0,
+          "mean_prediction": 0.9690744280815125,
+          "observed_rate": 0.9370662709741483,
+          "rows": 708968
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 1,
+          "lower": 0.0,
+          "upper": 0.1,
+          "mean_prediction": 0.04817603528499603,
+          "observed_rate": 0.04795744315907835,
+          "rows": 419768
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 2,
+          "lower": 0.1,
+          "upper": 0.2,
+          "mean_prediction": 0.14725610613822937,
+          "observed_rate": 0.13860728293717983,
+          "rows": 186628
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 3,
+          "lower": 0.2,
+          "upper": 0.30000000000000004,
+          "mean_prediction": 0.24323414266109467,
+          "observed_rate": 0.23529680633639574,
+          "rows": 153147
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 4,
+          "lower": 0.30000000000000004,
+          "upper": 0.4,
+          "mean_prediction": 0.3490529954433441,
+          "observed_rate": 0.34772514481887173,
+          "rows": 131371
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 5,
+          "lower": 0.4,
+          "upper": 0.5,
+          "mean_prediction": 0.4509888291358948,
+          "observed_rate": 0.46680853341898876,
+          "rows": 149436
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 6,
+          "lower": 0.5,
+          "upper": 0.6000000000000001,
+          "mean_prediction": 0.5530419945716858,
+          "observed_rate": 0.5797910710946058,
+          "rows": 149716
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 7,
+          "lower": 0.6000000000000001,
+          "upper": 0.7000000000000001,
+          "mean_prediction": 0.65141361951828,
+          "observed_rate": 0.6845033707372906,
+          "rows": 182601
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 8,
+          "lower": 0.7000000000000001,
+          "upper": 0.8,
+          "mean_prediction": 0.7553457617759705,
+          "observed_rate": 0.7825227206603909,
+          "rows": 202789
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 9,
+          "lower": 0.8,
+          "upper": 0.9,
+          "mean_prediction": 0.854470431804657,
+          "observed_rate": 0.8744679027511928,
+          "rows": 245021
+        },
+        {
+          "model": "Sparse Physics",
+          "bin": 10,
+          "lower": 0.9,
+          "upper": 1.0,
+          "mean_prediction": 0.9644542336463928,
+          "observed_rate": 0.9662938482460701,
+          "rows": 400016
+        }
+      ],
+      "six_model_metrics": [
+        {
+          "model": "Dense Physics",
+          "pr_auc": 0.7061317663515166,
+          "roc_auc": 0.9135688898604093,
+          "brier": 0.07042406499385834,
+          "ece_15": 0.011639164206111557,
+          "rows": 146480,
+          "positives": 21186,
+          "engine": "xgboost"
+        },
+        {
+          "model": "Dense Nowcast",
+          "pr_auc": 0.7997773507697478,
+          "roc_auc": 0.9415703480932527,
+          "brier": 0.056194160133600235,
+          "ece_15": 0.004510608457582266,
+          "rows": 146480,
+          "positives": 21186,
+          "engine": "xgboost"
+        }
+      ],
+      "split_rows": [
+        {
+          "task": "hf",
+          "split": "test",
+          "rows": 2220493,
+          "reference_open_rate": 0.5263475273283906,
+          "sparse_open_rate": 0.1959690933499903,
+          "reference_positives": 1168751,
+          "sparse_positives": 435148
+        },
+        {
+          "task": "hf",
+          "split": "train",
+          "rows": 4879718,
+          "reference_open_rate": 0.5537303590084509,
+          "sparse_open_rate": 0.20978589336514938,
+          "reference_positives": 2702048,
+          "sparse_positives": 1023696
+        },
+        {
+          "task": "hf",
+          "split": "val",
+          "rows": 1088845,
+          "reference_open_rate": 0.4939775633813812,
+          "sparse_open_rate": 0.18197723275581004,
+          "reference_positives": 537865,
+          "sparse_positives": 198145
+        },
+        {
+          "task": "6m",
+          "split": "test",
+          "rows": 146480,
+          "reference_open_rate": 0.14463407973784817,
+          "sparse_open_rate": 0.0,
+          "reference_positives": 21186,
+          "sparse_positives": 0
+        },
+        {
+          "task": "6m",
+          "split": "train",
+          "rows": 318557,
+          "reference_open_rate": 0.1407722950680726,
+          "sparse_open_rate": 0.0,
+          "reference_positives": 44844,
+          "sparse_positives": 0
+        },
+        {
+          "task": "6m",
+          "split": "val",
+          "rows": 68605,
+          "reference_open_rate": 0.13181255010567744,
+          "sparse_open_rate": 0.0,
+          "reference_positives": 9043,
+          "sparse_positives": 0
+        }
+      ]
+    },
+    "accessIssues": []
+  },
+  "sources": [
+    {
+      "id": "dataset_manifest",
+      "label": "Archive V2 dataset manifest",
+      "path": "ml/results/archive_v2/dataset_manifest.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "query": "ml/.venv/bin/python ml/src/archive_v2/build_proof_dataset.py",
+        "sql": "SELECT * FROM read_json_auto('ml/results/archive_v2/dataset_manifest.json')",
+        "description": "Reproduce archive v2 dataset manifest.",
+        "tables_used": [
+          "ml/results/archive_v2/dataset_manifest.json"
+        ]
+      }
+    },
+    {
+      "id": "hf_results",
+      "label": "HF experiment metrics",
+      "path": "ml/results/archive_v2/hf_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "query": "ml/.venv/bin/python ml/src/archive_v2/train_proof.py --task hf",
+        "sql": "SELECT * FROM read_json_auto('ml/results/archive_v2/hf_results.json')",
+        "description": "Reproduce hf experiment metrics.",
+        "tables_used": [
+          "ml/results/archive_v2/hf_results.json"
+        ]
+      }
+    },
+    {
+      "id": "six_results",
+      "label": "6m experiment metrics",
+      "path": "ml/results/archive_v2/6m_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "query": "ml/.venv/bin/python ml/src/archive_v2/train_proof.py --task 6m",
+        "sql": "SELECT * FROM read_json_auto('ml/results/archive_v2/6m_results.json')",
+        "description": "Reproduce 6m experiment metrics.",
+        "tables_used": [
+          "ml/results/archive_v2/6m_results.json"
+        ]
+      }
+    },
+    {
+      "id": "methodology",
+      "label": "Experiment methodology",
+      "path": "ml/ARCHIVE-PROOF-V2.md",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "query": "sed -n '1,260p' ml/ARCHIVE-PROOF-V2.md",
+        "sql": "SELECT content FROM read_text('ml/ARCHIVE-PROOF-V2.md')",
+        "description": "Reproduce experiment methodology.",
+        "tables_used": [
+          "ml/ARCHIVE-PROOF-V2.md"
+        ]
+      }
+    }
+  ]
+}

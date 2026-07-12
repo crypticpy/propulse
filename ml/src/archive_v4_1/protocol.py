@@ -245,9 +245,94 @@ def freeze_artifact(
     existing = manifest["frozen_artifacts"].get(name)
     if existing is not None and existing != value:
         raise ProtocolError(f"frozen artifact changed: {name}")
+    if existing == value:
+        return value
     manifest["frozen_artifacts"][name] = value
     manifest["protocol_events"].append(
         {"at": utc_now(), "event": "artifact_frozen", "name": name, **value}
+    )
+    atomic_write_json(manifest_path, manifest)
+    return value
+
+
+def mark_candidate_frozen(manifest_path: Path) -> dict[str, Any]:
+    manifest = load_json(manifest_path)
+    if manifest["november_gate_opened"]:
+        raise ProtocolError("candidate cannot be frozen after November access")
+    required = {
+        "b2_freeze",
+        "development_data_audit_v2",
+        "calibration_input_inventory",
+        "calibration_predictions",
+        "calibration_selection",
+        "selected_calibrator",
+        "candidate_environment",
+        "split_manifest",
+        "serving_candidate",
+        "candidate_validation",
+        "synthetic_report_validation",
+        "b0_climatology",
+        "candidate_freeze",
+        "scorer_freeze",
+    }
+    missing = sorted(required - set(manifest["frozen_artifacts"]))
+    if missing:
+        raise ProtocolError(f"candidate freeze is incomplete: {missing}")
+    if manifest["protocol_state"] == "candidate_frozen":
+        return manifest
+    if manifest["protocol_state"] != "development_opened":
+        raise ProtocolError(
+            f"candidate freeze requires development_opened, found {manifest['protocol_state']}"
+        )
+    manifest["protocol_state"] = "candidate_frozen"
+    manifest["phase_status"]["phase_0"] = "complete"
+    manifest["phase_status"]["phase_1"] = "complete"
+    manifest["phase_status"]["phase_2"] = "ready"
+    manifest["protocol_events"].append(
+        {"at": utc_now(), "event": "candidate_frozen"}
+    )
+    atomic_write_json(manifest_path, manifest)
+    return manifest
+
+
+def verify_frozen_artifacts(
+    manifest_path: Path,
+    names: Iterable[str] | None = None,
+) -> None:
+    manifest = load_json(manifest_path)
+    selected = list(names) if names is not None else list(manifest["frozen_artifacts"])
+    for name in selected:
+        expected = manifest["frozen_artifacts"].get(name)
+        if expected is None:
+            raise ProtocolError(f"required frozen artifact is absent: {name}")
+        current = artifact(ROOT / expected["path"])
+        if current != expected:
+            raise ProtocolError(f"frozen artifact checksum mismatch: {name}")
+
+
+def record_outcome_artifact(
+    manifest_path: Path,
+    name: str,
+    path: Path,
+) -> dict[str, Any]:
+    manifest = load_json(manifest_path)
+    if name.startswith("november_"):
+        if not manifest["november_gate_opened"]:
+            raise ProtocolError("November result requires the permanent gate-open record")
+    elif name.startswith("locked_"):
+        if not manifest["locked_archive_test_opened"]:
+            raise ProtocolError("locked result requires the permanent archive-open record")
+    else:
+        raise ProtocolError("outcome artifacts must use a locked scope prefix")
+    value = artifact(path)
+    existing = manifest["frozen_artifacts"].get(name)
+    if existing is not None and existing != value:
+        raise ProtocolError(f"outcome artifact changed: {name}")
+    if existing == value:
+        return value
+    manifest["frozen_artifacts"][name] = value
+    manifest["protocol_events"].append(
+        {"at": utc_now(), "event": "outcome_artifact_recorded", "name": name, **value}
     )
     atomic_write_json(manifest_path, manifest)
     return value

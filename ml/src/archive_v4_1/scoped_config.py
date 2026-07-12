@@ -16,6 +16,7 @@ def transform_config(
     scope: str,
 ) -> dict[str, Any]:
     value = copy.deepcopy(config)
+    scoped_run_id = config["run_id"]
     if scope == "calibration-development":
         months = authorize_scope(
             config,
@@ -36,6 +37,7 @@ def transform_config(
         train = []
         validation = []
         test = months
+        scoped_run_id = f"{config['run_id']}_november_gate"
     elif scope == "locked-archive":
         months = authorize_scope(
             config,
@@ -46,10 +48,11 @@ def transform_config(
         train = []
         validation = []
         test = months
+        scoped_run_id = f"{config['run_id']}_locked_archive"
     else:
         raise ValueError(f"unknown V4.1 transform scope: {scope}")
     return {
-        "run_id": config["run_id"],
+        "run_id": scoped_run_id,
         "archive_namespace": config["archive_namespace"],
         "seed": config["seed"],
         "execution_scope": scope,

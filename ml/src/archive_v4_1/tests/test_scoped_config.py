@@ -30,8 +30,19 @@ class ScopedConfigTests(unittest.TestCase):
         self.assertEqual(value["test"]["months"], [])
 
     def test_gate_config_cannot_exist_without_freezes(self) -> None:
+        blocked = json.loads(json.dumps(self.manifest))
+        blocked["frozen_artifacts"].pop("candidate_freeze", None)
+        blocked["frozen_artifacts"].pop("scorer_freeze", None)
         with self.assertRaises(protocol.ProtocolError):
-            transform_config(self.config, self.manifest, "november-gate")
+            transform_config(self.config, blocked, "november-gate")
+        ready = json.loads(json.dumps(self.manifest))
+        ready["frozen_artifacts"].update({
+            "candidate_freeze": {"sha256": "a" * 64},
+            "scorer_freeze": {"sha256": "b" * 64},
+        })
+        value = transform_config(self.config, ready, "november-gate")
+        self.assertEqual(value["run_id"], f"{self.config['run_id']}_november_gate")
+        self.assertEqual(value["test"]["months"], ["2024-11"])
 
     def test_locked_config_cannot_exist_without_approval(self) -> None:
         with self.assertRaises(protocol.ProtocolError):
@@ -39,6 +50,7 @@ class ScopedConfigTests(unittest.TestCase):
         approved = json.loads(json.dumps(self.manifest))
         approved["development_gates_passed"] = True
         value = transform_config(self.config, approved, "locked-archive")
+        self.assertEqual(value["run_id"], f"{self.config['run_id']}_locked_archive")
         self.assertEqual(value["months"], ["2025-01", "2025-04", "2025-07", "2025-10"])
         self.assertEqual(value["test"]["months"], value["months"])
 

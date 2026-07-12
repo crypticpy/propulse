@@ -47,10 +47,13 @@ class ProtocolTests(unittest.TestCase):
             )
 
     def test_gate_requires_all_freezes(self) -> None:
+        blocked = json.loads(json.dumps(self.manifest))
+        blocked["frozen_artifacts"].pop("candidate_freeze", None)
+        blocked["frozen_artifacts"].pop("scorer_freeze", None)
         with self.assertRaisesRegex(protocol.ProtocolError, "candidate freeze"):
             protocol.authorize_scope(
                 self.config,
-                self.manifest,
+                blocked,
                 "november-gate",
                 ["2024-11"],
             )
@@ -119,6 +122,44 @@ class ProtocolTests(unittest.TestCase):
                 )
             with self.assertRaises(protocol.ProtocolError):
                 protocol.resume_one_shot(opened, "november-gate", "attempt-2")
+
+    def test_candidate_state_requires_every_pre_gate_freeze(self) -> None:
+        ready = json.loads(json.dumps(self.manifest))
+        ready["protocol_state"] = "development_opened"
+        required = {
+            "b2_freeze",
+            "development_data_audit_v2",
+            "calibration_input_inventory",
+            "calibration_predictions",
+            "calibration_selection",
+            "selected_calibrator",
+            "candidate_environment",
+            "split_manifest",
+            "serving_candidate",
+            "candidate_validation",
+            "synthetic_report_validation",
+            "b0_climatology",
+            "candidate_freeze",
+            "scorer_freeze",
+        }
+        ready["frozen_artifacts"] = {
+            name: {"path": name, "bytes": 1, "sha256": name.ljust(64, "0")[:64]}
+            for name in required
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            incomplete = json.loads(json.dumps(ready))
+            del incomplete["frozen_artifacts"]["scorer_freeze"]
+            protocol.atomic_write_json(path, incomplete)
+            with self.assertRaisesRegex(protocol.ProtocolError, "incomplete"):
+                protocol.mark_candidate_frozen(path)
+            protocol.atomic_write_json(path, ready)
+            frozen = protocol.mark_candidate_frozen(path)
+            self.assertEqual(frozen["protocol_state"], "candidate_frozen")
+            self.assertEqual(frozen["phase_status"]["phase_2"], "ready")
+            events = len(frozen["protocol_events"])
+            repeated = protocol.mark_candidate_frozen(path)
+            self.assertEqual(len(repeated["protocol_events"]), events)
 
 
 if __name__ == "__main__":

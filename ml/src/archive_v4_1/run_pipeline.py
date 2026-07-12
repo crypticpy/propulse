@@ -9,15 +9,22 @@ import os
 import platform
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 from protocol import (
     DEFAULT_CONFIG,
     DEFAULT_MANIFEST,
     ProtocolError,
+    artifact,
+    begin_one_shot,
     freeze_artifact,
     load_json,
+    mark_development_decision,
     record_development_access,
+    record_outcome_artifact,
+    resume_one_shot,
+    verify_frozen_artifacts,
 )
 from scoped_config import transform_config, write_transform_config
 
@@ -217,6 +224,194 @@ def select_calibration(config: dict) -> None:
     freeze_artifact(DEFAULT_MANIFEST, "selected_calibrator", model)
 
 
+def freeze_candidate_stage(config: dict) -> None:
+    status = subprocess.check_output(
+        ["git", "status", "--porcelain"], cwd=ROOT, text=True
+    ).strip()
+    if status:
+        raise ProtocolError("freeze-candidate requires a clean committed worktree")
+    manifest = load_json(DEFAULT_MANIFEST)
+    required = {
+        "b2_freeze",
+        "development_data_audit_v2",
+        "calibration_input_inventory",
+        "calibration_predictions",
+        "calibration_selection",
+        "selected_calibrator",
+    }
+    missing = sorted(required - set(manifest["frozen_artifacts"]))
+    if missing:
+        raise ProtocolError(f"candidate prerequisites are missing: {missing}")
+    result = RESULT_ROOT / config["run_id"]
+    run(
+        [
+            sys.executable,
+            str(V41 / "package_candidate.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    run(
+        [
+            sys.executable,
+            str(V41 / "freeze_climatology.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--output",
+            str(result / "b0_climatology.json"),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    run(
+        [
+            sys.executable,
+            str(V41 / "validate_candidate_bundle.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    run(
+        [
+            sys.executable,
+            str(V41 / "generate_synthetic_gate_report.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    run(["npm", "run", "verify"], config)
+    run(
+        [
+            sys.executable,
+            str(V41 / "freeze_candidate.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+
+
+def score_november_gate(config: dict, attempt_id: str | None) -> None:
+    status = subprocess.check_output(
+        ["git", "status", "--porcelain"], cwd=ROOT, text=True
+    ).strip()
+    if status:
+        raise ProtocolError("score-november-gate requires a clean frozen worktree")
+    verify_frozen_artifacts(
+        DEFAULT_MANIFEST,
+        (
+            "b2_freeze",
+            "candidate_freeze",
+            "scorer_freeze",
+            "selected_calibrator",
+            "serving_candidate",
+            "candidate_validation",
+        ),
+    )
+    manifest = load_json(DEFAULT_MANIFEST)
+    scorer = load_json(
+        ROOT / manifest["frozen_artifacts"]["scorer_freeze"]["path"]
+    )
+    for item in [scorer["config"], *scorer["sources"]]:
+        current = {
+            "path": item["path"],
+            **{
+                key: value
+                for key, value in artifact(ROOT / item["path"]).items()
+                if key != "path"
+            },
+        }
+        if current != item:
+            raise ProtocolError(f"scorer source changed after freeze: {item['path']}")
+    if manifest["november_gate_opened"]:
+        recorded = manifest["november_gate_attempt_id"]
+        if attempt_id is not None and attempt_id != recorded:
+            raise ProtocolError(
+                f"November is already bound to attempt {recorded}; received {attempt_id}"
+            )
+        attempt = str(recorded)
+        resume_one_shot(manifest, "november-gate", attempt)
+    else:
+        attempt = attempt_id or f"november-{uuid.uuid4().hex}"
+        manifest = begin_one_shot(
+            DEFAULT_MANIFEST,
+            "november-gate",
+            config["data_roles"]["untouched_development_gate"],
+            attempt,
+        )
+    scoped = transform_config(config, manifest, "november-gate")
+    config_path = ROOT / "ml/data/manifests/propagation_v4_1_november_gate.json"
+    write_transform_config(scoped, config_path)
+    for name, script, extra in DEVELOPMENT_STAGES:
+        print(f"\n== November {name} ==", flush=True)
+        run([sys.executable, str(script), "--config", str(config_path), *extra], config)
+
+    result = RESULT_ROOT / config["run_id"]
+    audit_path = result / "november_gate_integrity.json"
+    run(
+        [
+            sys.executable,
+            str(V41 / "audit_gate.py"),
+            "--config",
+            str(config_path),
+            "--output",
+            str(audit_path),
+            "--attempt-id",
+            attempt,
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    gate_dataset = (
+        ROOT
+        / "ml/data/processed/archive_v4_1"
+        / f"dataset_{scoped['run_id']}_hf.parquet"
+        / "part-000.parquet"
+    )
+    output = result / "november_gate_result.json"
+    run(
+        [
+            sys.executable,
+            str(V41 / "score_november_gate.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--attempt-id",
+            attempt,
+            "--dataset",
+            str(gate_dataset),
+            "--integrity-audit",
+            str(audit_path),
+            "--climatology",
+            str(result / "b0_climatology.json"),
+            "--output",
+            str(output),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    gate_result = load_json(output)
+    record_outcome_artifact(DEFAULT_MANIFEST, "november_gate_result", output)
+    mark_development_decision(
+        DEFAULT_MANIFEST,
+        bool(gate_result["decision"]["passed"]),
+        [str(value) for value in gate_result["decision"]["failed_gates"]],
+    )
+
+
 def prepare_development(config: dict, force: bool) -> None:
     manifest = record_development_access(
         DEFAULT_MANIFEST,
@@ -291,11 +486,14 @@ def main() -> None:
             "inventory-calibration",
             "materialize-calibration",
             "select-calibration",
+            "freeze-candidate",
+            "score-november-gate",
         ),
     )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--profile", choices=("m5",), required=True)
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--attempt-id")
     args = parser.parse_args()
     del args.profile
     config = json.loads(Path(args.config).read_text(encoding="utf-8"))
@@ -320,6 +518,10 @@ def main() -> None:
         materialize_calibration(config, args.force)
     elif args.stage == "select-calibration":
         select_calibration(config)
+    elif args.stage == "freeze-candidate":
+        freeze_candidate_stage(config)
+    elif args.stage == "score-november-gate":
+        score_november_gate(config, args.attempt_id)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ROOT = Path(__file__).resolve().parents[2]
 V4 = ROOT / "ml/src/archive_v4"
+V41 = ROOT / "ml/src/archive_v4_1"
 sys.path.insert(0, str(V4))
+# V4.1 joblib bundles retain the historical ``calibration`` module name. Put
+# the backward-compatible V4.1 implementation first before unpickling them.
+sys.path.insert(0, str(V41))
 from station_cast_adapter import apply_station_physics_adapter  # noqa: E402
 
 

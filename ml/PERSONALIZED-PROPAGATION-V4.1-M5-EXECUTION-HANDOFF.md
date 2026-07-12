@@ -1,9 +1,9 @@
 # Personalized Propagation V4.1: M5 Execution Handoff and Resume Plan
 
-> Current status: corrected development data, four-month input inventory, and
-> raw M2 prediction materialization are frozen; full-data selection is next.
+> Current status: four-month calibration selection and the refitted C4 bundle
+> are frozen; candidate/scorer freeze implementation is next.
 > Status date: 2026-07-12.
-> Last executed M5 code checkpoint: `c2ecaa6` on
+> Last executed M5 evidence checkpoint: `49778f1` on
 > `feat/archive-multimonth-v3`.
 > Frozen scientific protocol:
 > [`PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md`](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md).
@@ -80,7 +80,8 @@ Read these before changing code or running a job:
 | Item | Current value |
 |---|---|
 | Branch | `feat/archive-multimonth-v3` |
-| Last executed M5 code checkpoint | `c2ecaa6` |
+| Last executed M5 evidence checkpoint | `49778f1` |
+| Selection code commit | `edb0aae` |
 | Frozen plan commit | `2af85f5` |
 | Parent V4 evidence commit | `2cb309d` |
 | Run ID | `propagation_v4_1_calibration_recovery` |
@@ -129,6 +130,17 @@ validated orchestration when the corresponding artifacts exist.
 - All four monthly manifests and success markers passed. The aggregate
   calibration-prediction manifest SHA-256 is
   `03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5`.
+- Four-fold leave-one-month-out selection evaluated all 206,843,263 rows in
+  1,731.95 seconds with 7.99 GB peak RSS and no swaps. The fixed 2,000-draw
+  UTC-day bootstrap and all preregistered support rules were applied.
+- The selected primary candidate is C4 guarded hierarchical isotonic. It keeps
+  raw identity calibration on 42 of 50 band-distance leaves, applies the 60m
+  band mapping on four leaves, and applies four supported band-distance
+  mappings. The global C1 mapping was rejected because it made February worse
+  despite improving aggregate Brier.
+- The final C4 calibrator was refit on all four development months and
+  serialized outside Git. Its SHA-256 is
+  `26bb7950b4d3c858432740f66fdad14ff57f97e02abd8960625f572d5905cf36`.
 - Mechanical locks remain closed for November 2024, December 2024, and all
   four 2025 months.
 - The current full `npm run verify` passes on the M5: 20 V4 tests, 7 service
@@ -235,8 +247,8 @@ allowed if necessary; choosing a new month is not.
 | In-memory C0-C4 reference implementation | implemented and tested |
 | Streaming raw M2 prediction materialization | complete, audited, and frozen |
 | Bounded-memory isotonic sufficient statistics | complete for all four months |
-| Full-data leave-one-month-out selection | not run |
-| Final selected calibrator bundle | not frozen |
+| Full-data leave-one-month-out selection | complete and frozen |
+| Final selected calibrator bundle | refit and checksum frozen |
 | Candidate/scorer/environment manifests | not frozen |
 | Synthetic dry-run report | not generated |
 | November atomic gate | locked and not run |
@@ -246,9 +258,10 @@ allowed if necessary; choosing a new month is not.
 
 ## Next action
 
-Run full-data leave-one-month-out selection on the frozen predictions and
-statistics, then freeze the candidate and scorer. Do not access November while
-executing or debugging it.
+Implement and execute the remaining candidate/scorer freeze requirements,
+including synthetic end-to-end report fixtures, package parity, fallback and
+privacy tests, and the atomic `candidate_frozen` transition. Do not access
+November while implementing or debugging them.
 
 ### 1. Establish the M5 checkpoint
 
@@ -342,6 +355,9 @@ the bin count from observed candidate performance.
 
 ### 5. Run frozen leave-one-month-out selection
 
+**Status: complete.** The selected topology and all rejected alternatives are
+frozen in `calibration_selection.json`; do not revise them from these results.
+
 For each held-out month in February, April, May, and August:
 
 1. build C1-C3 mappings from the other three months' sufficient statistics;
@@ -369,6 +385,24 @@ months. Do not reconsider topology after this refit. Write:
 - raw-prediction, sufficient-statistic, code, config, environment, and input
   manifests; and
 - a plain-language selection summary that reports rejected candidates too.
+
+The out-of-month overall results were:
+
+| Candidate | Weighted Brier | ECE | Selection interpretation |
+|---|---:|---:|---|
+| C0 identity | 0.04398309 | 0.0074588 | raw reference |
+| C1 global | 0.04385752 | 0.0001492 | rejected: February regressed |
+| C2 per-band | 0.04381746 | 0.0001761 | best aggregate, but not stable across every month/scope |
+| C3 band-distance | 0.04385130 | 0.0003003 | only supported leaves retained |
+| **C4 guarded** | **0.04393383** | **0.0063000** | **selected primary candidate** |
+
+C4's aggregate Brier improvement over raw is `0.0000492543`, about 0.112%
+relative. Its deliberately smaller calibration gain reflects the frozen
+stability guard: broad mappings with better pooled scores were rejected when
+any represented month regressed. Selected mappings are the 60m band plus
+15m/0-1,000 km, 30m/1,000-3,000 km, 40m/0-1,000 km, and
+60m/6,000-10,000 km band-distance leaves. The last mapping replaces the 60m
+band fallback at that leaf, leaving eight calibrated leaves in total.
 
 ### 6. Freeze candidate and scorer
 
@@ -545,12 +579,13 @@ Required deliverables are:
 - [x] Streaming M2 materialization and 262,144-bin statistics implemented and tested.
 - [x] Full four-month M2 predictions and sufficient statistics materialized and audited.
 - [x] Full verification suite passed on the M5 after the streaming implementation.
+- [x] Four-fold C0-C4 selection completed with the fixed daily bootstrap.
+- [x] Selected C4 hierarchy refit and serialized with frozen checksums.
+- [x] Full verification suite passed again after selection.
 - [x] November, December, and 2025 access remain closed.
 
 ### Next
 
-- [ ] Run four-fold leave-one-month-out C0-C4 selection.
-- [ ] Refit the selected hierarchy on all four development months.
 - [ ] Freeze the selected bundle, scorer, environment, and manifests.
 - [ ] Generate and validate the synthetic dry-run report.
 - [ ] Rerun the full verification suite against the final freeze implementation.

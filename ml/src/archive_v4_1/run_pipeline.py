@@ -102,6 +102,24 @@ def freeze_b2(config: dict) -> None:
     freeze_artifact(DEFAULT_MANIFEST, "b2_freeze", output)
 
 
+def score_b2_engineering(config: dict) -> None:
+    output = RESULT_ROOT / "preregistration/b2_october_engineering.json"
+    run(
+        [
+            sys.executable,
+            str(V41 / "score_b2_engineering.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--output",
+            str(output),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    freeze_artifact(DEFAULT_MANIFEST, "b2_engineering", output)
+
+
 def prepare_development(config: dict, force: bool) -> None:
     manifest = record_development_access(
         DEFAULT_MANIFEST,
@@ -125,7 +143,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "stage",
-        choices=("validate", "freeze-b2", "prepare-development"),
+        choices=(
+            "validate",
+            "freeze-b2",
+            "score-b2-engineering",
+            "prepare-development",
+        ),
     )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--profile", choices=("m5",), required=True)
@@ -138,6 +161,8 @@ def main() -> None:
         validate(config)
     elif args.stage == "freeze-b2":
         freeze_b2(config)
+    elif args.stage == "score-b2-engineering":
+        score_b2_engineering(config)
     elif args.stage == "prepare-development":
         prepare_development(config, args.force)
 

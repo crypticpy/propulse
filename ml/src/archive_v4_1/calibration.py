@@ -46,6 +46,50 @@ class IdentityCalibrator:
         return clipped(raw)
 
 
+class CalibratorBundle:
+    """Backward-compatible class name required by frozen V4 joblib bundles."""
+
+    def __init__(
+        self,
+        global_model: IsotonicRegression,
+        band_models: dict[str, IsotonicRegression] | None = None,
+        band_distance_models: dict[tuple[str, str], IsotonicRegression] | None = None,
+    ) -> None:
+        self.global_model = global_model
+        self.band_models = band_models or {}
+        self.band_distance_models = band_distance_models or {}
+
+    @property
+    def method(self) -> str:
+        if self.band_distance_models:
+            return "band_distance_isotonic_with_fallback"
+        return "per_band_isotonic" if self.band_models else "global_isotonic"
+
+    def predict(
+        self,
+        raw: np.ndarray,
+        bands: np.ndarray,
+        distance: np.ndarray | None = None,
+    ) -> np.ndarray:
+        raw_values = np.asarray(raw, dtype=np.float64)
+        output = self.global_model.predict(raw_values)
+        text_bands = np.asarray(bands).astype(str)
+        for band in np.unique(text_bands):
+            mask = text_bands == band
+            model = self.band_models.get(band)
+            if model is not None:
+                output[mask] = model.predict(raw_values[mask])
+        if self.band_distance_models and distance is not None:
+            groups = distance_groups(distance)
+            for band, group in set(zip(text_bands, groups)):
+                model = self.band_distance_models.get((band, group))
+                if model is None:
+                    continue
+                mask = (text_bands == band) & (groups == group)
+                output[mask] = model.predict(raw_values[mask])
+        return clipped(output)
+
+
 @dataclass(frozen=True)
 class CalibrationData:
     month: str

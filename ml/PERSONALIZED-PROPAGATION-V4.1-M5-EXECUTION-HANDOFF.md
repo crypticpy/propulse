@@ -1,9 +1,9 @@
 # Personalized Propagation V4.1: M5 Execution Handoff and Resume Plan
 
-> Current status: corrected development data and the four-month calibration
-> input inventory are frozen; raw M2 prediction materialization is next.
+> Current status: corrected development data, four-month input inventory, and
+> raw M2 prediction materialization are frozen; full-data selection is next.
 > Status date: 2026-07-12.
-> Last executed M5 code checkpoint: `36f90b1` on
+> Last executed M5 code checkpoint: `c2ecaa6` on
 > `feat/archive-multimonth-v3`.
 > Frozen scientific protocol:
 > [`PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md`](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md).
@@ -80,7 +80,7 @@ Read these before changing code or running a job:
 | Item | Current value |
 |---|---|
 | Branch | `feat/archive-multimonth-v3` |
-| Last executed M5 code checkpoint | `36f90b1` |
+| Last executed M5 code checkpoint | `c2ecaa6` |
 | Frozen plan commit | `2af85f5` |
 | Parent V4 evidence commit | `2cb309d` |
 | Run ID | `propagation_v4_1_calibration_recovery` |
@@ -121,7 +121,14 @@ validated orchestration when the corresponding artifacts exist.
   112-field schema match across all four months.
 - Streaming prediction materialization, 262,144-bin sufficient statistics,
   four-fold selection, and atomic output tests are implemented. The full M5
-  materialization and selection jobs have not yet run.
+  materialization completed successfully; full-data selection has not yet run.
+- Materialization scored 206,843,263 rows and 6,394,217,140 weighted
+  opportunities in 308.76 seconds. Its prediction files total 2,916,112,502
+  bytes and sufficient-statistic files total 644,610,998 bytes. Peak RSS was
+  15.76 GB by `/usr/bin/time` with no swaps, safely below the 96 GB ceiling.
+- All four monthly manifests and success markers passed. The aggregate
+  calibration-prediction manifest SHA-256 is
+  `03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5`.
 - Mechanical locks remain closed for November 2024, December 2024, and all
   four 2025 months.
 - The current full `npm run verify` passes on the M5: 20 V4 tests, 7 service
@@ -226,8 +233,8 @@ allowed if necessary; choosing a new month is not.
 | V3/B2 freeze, adapter, October scorer | implemented and frozen |
 | New development data preparation/audit | complete and frozen |
 | In-memory C0-C4 reference implementation | implemented and tested |
-| Streaming raw M2 prediction materialization | implemented and fixture-tested; full run pending |
-| Bounded-memory isotonic sufficient statistics | implemented and convergence-tested; full run pending |
+| Streaming raw M2 prediction materialization | complete, audited, and frozen |
+| Bounded-memory isotonic sufficient statistics | complete for all four months |
 | Full-data leave-one-month-out selection | not run |
 | Final selected calibrator bundle | not frozen |
 | Candidate/scorer/environment manifests | not frozen |
@@ -239,8 +246,9 @@ allowed if necessary; choosing a new month is not.
 
 ## Next action
 
-Run the frozen streaming calibration path on the M5, then select and freeze the
-candidate. Do not access November while executing or debugging it.
+Run full-data leave-one-month-out selection on the frozen predictions and
+statistics, then freeze the candidate and scorer. Do not access November while
+executing or debugging it.
 
 ### 1. Establish the M5 checkpoint
 
@@ -273,6 +281,9 @@ the M2 model hash. Stop if any input differs. Do not substitute October,
 November, or a 2025 month.
 
 ### 3. Materialize raw M2 predictions once
+
+**Status: complete.** The command below produced the frozen manifest recorded
+in the run ledger. Do not rerun it unless a checksum audit fails.
 
 Use `materialize_calibration_predictions.py` through its `run_pipeline.py`
 stage. Stream April plus the three V4.1 months through the frozen 50M M2 model
@@ -532,12 +543,12 @@ Required deliverables are:
 - [x] Three-month corrected development dataset passed all 14 frozen audits.
 - [x] Full April input located and the 206,843,263-row four-month inventory frozen.
 - [x] Streaming M2 materialization and 262,144-bin statistics implemented and tested.
+- [x] Full four-month M2 predictions and sufficient statistics materialized and audited.
 - [x] Full verification suite passed on the M5 after the streaming implementation.
 - [x] November, December, and 2025 access remain closed.
 
 ### Next
 
-- [ ] Run and audit full four-month raw M2 prediction materialization.
 - [ ] Run four-fold leave-one-month-out C0-C4 selection.
 - [ ] Refit the selected hierarchy on all four development months.
 - [ ] Freeze the selected bundle, scorer, environment, and manifests.

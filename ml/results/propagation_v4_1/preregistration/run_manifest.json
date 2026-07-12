@@ -52,6 +52,11 @@
       "path": "ml/results/propagation_v4_1/preregistration/calibration_input_inventory.json",
       "bytes": 2918,
       "sha256": "e8c6e4bd3d6cc76f759f9c081885cbd69a0ed461a42caf79f3e111238cffb57e"
+    },
+    "calibration_predictions": {
+      "path": "ml/data/processed/archive_v4_1/calibration_predictions/propagation_v4_1_calibration_recovery/manifest.json",
+      "bytes": 7589,
+      "sha256": "03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5"
     }
   },
   "phase_status": {
@@ -112,6 +117,14 @@
       "path": "ml/results/propagation_v4_1/preregistration/calibration_input_inventory.json",
       "bytes": 2918,
       "sha256": "e8c6e4bd3d6cc76f759f9c081885cbd69a0ed461a42caf79f3e111238cffb57e"
+    },
+    {
+      "at": "2026-07-12T17:48:55.963919+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_predictions",
+      "path": "ml/data/processed/archive_v4_1/calibration_predictions/propagation_v4_1_calibration_recovery/manifest.json",
+      "bytes": 7589,
+      "sha256": "03491647489580601391070d3dc16fa7065c12d772589fecc7b5020cfa74fee5"
     }
   ]
 }

@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T16:34:13.526449+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "scope": "calibration_development",
+  "months": [
+    "2024-02",
+    "2024-05",
+    "2024-08"
+  ],
+  "november_gate_read": false,
+  "locked_archive_test_read": false,
+  "dataset": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet",
+  "feature_parts": [
+    {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-000.parquet",
+      "bytes": 6785024500,
+      "sha256": "8a7a5b9175b57af5dbe35aada21bd130225d52c0e3909cce03820db2e112278f"
+    },
+    {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-001.parquet",
+      "bytes": 6465201448,
+      "sha256": "1d35d5c91e2d04e1009d76cf79cf38811c62751b04a15cbe8b7a0765cbe6c010"
+    },
+    {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-002.parquet",
+      "bytes": 5936970733,
+      "sha256": "7fe76847306a345bd217273e916bd14207cebe32d9f22f963a9caa506493d97b"
+    }
+  ],
+  "source_manifest": {
+    "path": "ml/data/manifests/propagation_v4_1_calibration_recovery_sources.json",
+    "bytes": 4962,
+    "sha256": "e6c013a3015f1b039309f3cbc7867d4f9a09ade2099052c7a9c399d92542b615"
+  },
+  "bronze_manifest": {
+    "path": "ml/data/manifests/propagation_v4_1_calibration_recovery_bronze.json",
+    "bytes": 3372,
+    "sha256": "79992cc2eedeffb11e7e44d4f0775832f7710829cd30247a4f474040634a519a"
+  },
+  "opportunity_manifest": {
+    "path": "ml/data/manifests/propagation_v4_1_calibration_recovery_hf_opportunities.json",
+    "bytes": 4103,
+    "sha256": "5ef211ae375db465a87963b90519c1e216948549814b088f1fa2429b76e89a1f"
+  },
+  "rows": 150815873,
+  "time_range": [
+    "2024-02-01T00:00:00+00:00",
+    "2024-08-31T23:00:00+00:00"
+  ],
+  "weighted_opportunities": 4600558333.25,
+  "weighted_successes": 423897902.0,
+  "per_month": [
+    {
+      "month": "2024-02",
+      "rows": 54289793,
+      "opportunities": 1417403596.25,
+      "successes": 156451648.0,
+      "prevalence": 0.11037903982600397,
+      "future_weather_rows": 0
+    },
+    {
+      "month": "2024-05",
+      "rows": 50323668,
+      "opportunities": 1630644331.5,
+      "successes": 135211777.0,
+      "prevalence": 0.08291923283823711,
+      "future_weather_rows": 0
+    },
+    {
+      "month": "2024-08",
+      "rows": 46202412,
+      "opportunities": 1552510405.5,
+      "successes": 132234477.0,
+      "prevalence": 0.08517461559776966,
+      "future_weather_rows": 0
+    }
+  ],
+  "summary": {
+    "checks": 14,
+    "failures": 0
+  },
+  "checks": [
+    {
+      "name": "dataset nonempty",
+      "passed": true,
+      "detail": 150815873
+    },
+    {
+      "name": "validation split only",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "assigned months only",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "positive opportunity weights",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "target bounds",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "no future weather availability",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "target hours present",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "feature month coverage",
+      "passed": true,
+      "detail": [
+        "2024-02",
+        "2024-05",
+        "2024-08"
+      ]
+    },
+    {
+      "name": "opportunity month coverage",
+      "passed": true,
+      "detail": [
+        "2024-02",
+        "2024-05",
+        "2024-08"
+      ]
+    },
+    {
+      "name": "source manifest entries",
+      "passed": true,
+      "detail": 7
+    },
+    {
+      "name": "bronze month coverage",
+      "passed": true,
+      "detail": 3
+    },
+    {
+      "name": "exposure reconstruction 2024-02",
+      "passed": true,
+      "detail": 0.001082434271924792
+    },
+    {
+      "name": "exposure reconstruction 2024-05",
+      "passed": true,
+      "detail": 0.0010341995343327384
+    },
+    {
+      "name": "exposure reconstruction 2024-08",
+      "passed": true,
+      "detail": 0.0005349271817804526
+    }
+  ],
+  "passed": true
+}

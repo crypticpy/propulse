@@ -179,7 +179,6 @@ def add_polars_features(source: Path | list[Path], destination: Path, task: str)
         ).sink_parquet(temporary, compression="zstd", statistics=True)
         temporary.replace(part)
         print(f"wrote feature partition {index + 1}/{len(sources)}", flush=True)
-    (destination / "_SUCCESS").write_text("complete\n", encoding="ascii")
 
 
 def main() -> None:
@@ -200,7 +199,9 @@ def main() -> None:
         return
     if args.force:
         if output.is_dir():
-            shutil.rmtree(output)
+            shutil.rmtree(output, ignore_errors=True)
+            if output.exists():
+                raise RuntimeError(f"failed to clear feature directory: {output}")
         else:
             output.unlink(missing_ok=True)
         legacy_base.unlink(missing_ok=True)
@@ -349,7 +350,7 @@ def main() -> None:
         flush=True,
     )
     add_polars_features(bases, output, args.task)
-    output_glob = output / "*.parquet" if output.is_dir() else output
+    output_glob = output / "part-*.parquet" if output.is_dir() else output
     output_audit = pl.scan_parquet(output_glob).select(
         pl.len().alias("rows"),
         pl.col("target_hour").null_count().alias("null_hours"),
@@ -376,6 +377,7 @@ def main() -> None:
         pl.col("opportunities").sum().alias("weighted_opportunities"),
         pl.col("successes").sum().alias("weighted_successes"),
     ).collect()
+    (output / "_SUCCESS").write_text("complete\n", encoding="ascii")
     print(stats)
     print(f"{output} built in {time.time()-started:.1f}s")
 

@@ -120,6 +120,24 @@ def score_b2_engineering(config: dict) -> None:
     freeze_artifact(DEFAULT_MANIFEST, "b2_engineering", output)
 
 
+def audit_development(config: dict) -> None:
+    output = RESULT_ROOT / "preregistration/development_data_audit.json"
+    run(
+        [
+            sys.executable,
+            str(V41 / "audit_development.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--output",
+            str(output),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    freeze_artifact(DEFAULT_MANIFEST, "development_data_audit", output)
+
+
 def prepare_development(config: dict, force: bool) -> None:
     manifest = record_development_access(
         DEFAULT_MANIFEST,
@@ -127,8 +145,8 @@ def prepare_development(config: dict, force: bool) -> None:
     )
     scoped = transform_config(config, manifest, "calibration-development")
     config_path = (
-        Path(config["compute"]["data_root"])
-        / "manifests/propagation_v4_1_calibration_development.json"
+        ROOT
+        / "ml/data/manifests/propagation_v4_1_calibration_development.json"
     )
     write_transform_config(scoped, config_path)
     for name, script, extra in DEVELOPMENT_STAGES:
@@ -148,6 +166,7 @@ def main() -> None:
             "freeze-b2",
             "score-b2-engineering",
             "prepare-development",
+            "audit-development",
         ),
     )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -165,6 +184,8 @@ def main() -> None:
         score_b2_engineering(config)
     elif args.stage == "prepare-development":
         prepare_development(config, args.force)
+    elif args.stage == "audit-development":
+        audit_development(config)
 
 
 if __name__ == "__main__":

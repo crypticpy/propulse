@@ -5,8 +5,8 @@
   "plan_commit": "2af85f5",
   "parent_evidence_commit": "2cb309d",
   "execution_scope": "preregistration",
-  "protocol_state": "preregistered",
-  "development_outcomes_opened": false,
+  "protocol_state": "development_opened",
+  "development_outcomes_opened": true,
   "november_gate_opened": false,
   "november_gate_opened_at": null,
   "november_gate_attempt_id": null,
@@ -17,9 +17,9 @@
   "prospective_test_complete": false,
   "release_approved": false,
   "outcome_access": {
-    "2024-02": false,
-    "2024-05": false,
-    "2024-08": false,
+    "2024-02": true,
+    "2024-05": true,
+    "2024-08": true,
     "2024-11": false,
     "2024-12": false,
     "2025-01": false,
@@ -37,6 +37,11 @@
       "path": "ml/results/propagation_v4_1/preregistration/b2_october_engineering.json",
       "bytes": 27003,
       "sha256": "915cc8f335f7837dc460a15e527a080ccc7fcdf0c151d888e2aa2e6a87890220"
+    },
+    "development_data_audit": {
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit.json",
+      "bytes": 4252,
+      "sha256": "2d1d14f187977498bf9dcd00a1104a03f7a55dacb83388e5806d81e818ede92a"
     }
   },
   "phase_status": {
@@ -64,6 +69,23 @@
       "path": "ml/results/propagation_v4_1/preregistration/b2_october_engineering.json",
       "bytes": 27003,
       "sha256": "915cc8f335f7837dc460a15e527a080ccc7fcdf0c151d888e2aa2e6a87890220"
+    },
+    {
+      "at": "2026-07-12T16:15:46.077344+00:00",
+      "event": "development_outcomes_opened",
+      "months": [
+        "2024-02",
+        "2024-05",
+        "2024-08"
+      ]
+    },
+    {
+      "at": "2026-07-12T16:34:19.828246+00:00",
+      "event": "artifact_frozen",
+      "name": "development_data_audit",
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit.json",
+      "bytes": 4252,
+      "sha256": "2d1d14f187977498bf9dcd00a1104a03f7a55dacb83388e5806d81e818ede92a"
     }
   ]
 }

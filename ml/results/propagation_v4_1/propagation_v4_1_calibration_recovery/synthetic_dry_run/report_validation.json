@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T18:40:37.669258+00:00",
+  "synthetic": true,
+  "checks": {
+    "html_self_contained": true,
+    "synthetic_label_present": true,
+    "accessible_chart_text": true,
+    "reduced_motion_rule": true,
+    "no_locked_access": true
+  },
+  "artifacts": {
+    "json": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/synthetic_dry_run/synthetic_gate_report.json",
+      "bytes": 1179,
+      "sha256": "c95cf099650e81c82e76f1fc30a4b34256d14c01de6803440e82e9fadf9fd726"
+    },
+    "html": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/synthetic_dry_run/REPORT.html",
+      "bytes": 4757,
+      "sha256": "3ed5c87bac1cef0c345515235e336aca7ae6191319d26f5c1ddc08b96922d9f1"
+    }
+  },
+  "passed": true
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T18:40:52.872796+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "scope": "candidate_freeze",
+  "platform": "macOS-26.5.1-arm64-arm-64bit",
+  "architecture": "arm64",
+  "python": "3.12.11",
+  "node": "v24.15.0",
+  "packages": {
+    "duckdb": "1.5.4",
+    "joblib": "1.5.3",
+    "numpy": "2.5.1",
+    "polars": "1.42.1",
+    "pyarrow": "25.0.0",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.3.0"
+  },
+  "git_commit": "132aade0b26621a412cad9af1576081dd04f9b9d",
+  "package_lock": {
+    "path": "package-lock.json",
+    "bytes": 391676,
+    "sha256": "54c1e53d0928db9b0b96241d5d2b2171c090d1c33eeff4fe9c46ca7e2ec37e77"
+  },
+  "november_gate_read": false,
+  "locked_archive_test_read": false
+}

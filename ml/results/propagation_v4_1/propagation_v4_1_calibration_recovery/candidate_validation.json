@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T18:40:37.557998+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "scope": "pre_november_candidate_validation",
+  "november_gate_read": false,
+  "locked_archive_test_read": false,
+  "sample": {
+    "months": [
+      "2024-02",
+      "2024-04",
+      "2024-05",
+      "2024-08"
+    ],
+    "rows_per_month": 256,
+    "rows": 1024,
+    "contains_identity_or_location_fields": false
+  },
+  "bundle_manifest": {
+    "path": "ml/models/archive_v4_1/propagation_v4_1_calibration_recovery/serving/serving_manifest.json",
+    "bytes": 6295,
+    "sha256": "e57c9c204f901ac9d59b0d8945b17176dc7ce43c3a4d017940fff17183136efa"
+  },
+  "public_manifest": {
+    "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/serving_candidate_manifest.json",
+    "bytes": 6805,
+    "sha256": "1332757f5f436e4aed6ff8a5133a9f581a801f9d8b1f703c82615ebf55f84455"
+  },
+  "maximum_offline_service_probability_difference": 0.0,
+  "fresh_probability": {
+    "minimum": 1e-07,
+    "maximum": 0.9999999,
+    "mean": 0.4965117388148683
+  },
+  "stale_probability": {
+    "minimum": 1.3577962818089873e-05,
+    "maximum": 0.9999999,
+    "mean": 0.35467663351998524
+  },
+  "privacy_findings": [],
+  "gates": {
+    "bundle_checksum_and_schema": true,
+    "offline_service_parity": true,
+    "bounded_probabilities": true,
+    "fresh_selects_nowcast": true,
+    "stale_selects_physics": true,
+    "explicit_stale_provenance": true,
+    "reduced_stale_confidence": true,
+    "frontend_response_contract": true,
+    "public_manifest_privacy": true,
+    "locked_scopes_unchanged": true
+  },
+  "passed": true
+}

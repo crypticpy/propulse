@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T18:40:52.901558+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "roles": {
+    "frozen_core_train": [
+      "2018-01",
+      "2018-04",
+      "2018-07",
+      "2018-10",
+      "2019-01",
+      "2019-04",
+      "2019-07",
+      "2019-10",
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10"
+    ],
+    "frozen_early_stopping": [
+      "2024-01",
+      "2024-07"
+    ],
+    "calibration_development": [
+      "2024-02",
+      "2024-04",
+      "2024-05",
+      "2024-08"
+    ],
+    "new_calibration_sources": [
+      "2024-02",
+      "2024-05",
+      "2024-08"
+    ],
+    "observed_engineering": [
+      "2024-10"
+    ],
+    "untouched_development_gate": [
+      "2024-11"
+    ],
+    "reserved_future_version": [
+      "2024-12"
+    ],
+    "locked_archive_test": [
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
+    "locked_prospective_test": {
+      "start": "2026-08-01",
+      "end": "2026-09-30"
+    }
+  },
+  "calibration_input_inventory": {
+    "path": "ml/results/propagation_v4_1/preregistration/calibration_input_inventory.json",
+    "bytes": 2918,
+    "sha256": "e8c6e4bd3d6cc76f759f9c081885cbd69a0ed461a42caf79f3e111238cffb57e"
+  },
+  "observed_engineering_selection_permitted": false,
+  "november_gate_opened": false,
+  "locked_archive_test_opened": false
+}

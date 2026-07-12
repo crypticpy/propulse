@@ -1,0 +1,361 @@
+{
+  "generated_at": "2026-07-12T06:19:53.904774+00:00",
+  "run_id": "archive_v3_eight_month",
+  "task": "hf",
+  "summary": {
+    "checks": 70,
+    "failures": 0
+  },
+  "checks": [
+    {
+      "name": "exists: bronze manifest",
+      "passed": true,
+      "detail": "ml/data/manifests/archive_v3_eight_month_bronze.json"
+    },
+    {
+      "name": "exists: source manifest",
+      "passed": true,
+      "detail": "ml/data/manifests/archive_v3_eight_month_sources.json"
+    },
+    {
+      "name": "exists: opportunity manifest",
+      "passed": true,
+      "detail": "ml/data/manifests/archive_v3_eight_month_hf_opportunities.json"
+    },
+    {
+      "name": "exists: dataset",
+      "passed": true,
+      "detail": "ml/data/processed/archive_v3/dataset_archive_v3_eight_month_hf.parquet"
+    },
+    {
+      "name": "exists: results",
+      "passed": true,
+      "detail": "ml/results/archive_v3/archive_v3_eight_month/hf_results.json"
+    },
+    {
+      "name": "bronze month coverage",
+      "passed": true,
+      "detail": "manifest=8 expected=8"
+    },
+    {
+      "name": "source registry coverage",
+      "passed": true,
+      "detail": "manifest=18 expected=18"
+    },
+    {
+      "name": "source registry checksums",
+      "passed": true,
+      "detail": "all source checksums must be SHA-256"
+    },
+    {
+      "name": "bronze unique rows 2019-01",
+      "passed": true,
+      "detail": "rows=37101656 unique=37101656"
+    },
+    {
+      "name": "bronze checksum 2019-01",
+      "passed": true,
+      "detail": "497b9e5b47e9642fc57c8ed2b4da4d33e3cad5611dd8b0b7978a255a4a92f876"
+    },
+    {
+      "name": "bronze unique rows 2019-04",
+      "passed": true,
+      "detail": "rows=38142481 unique=38142481"
+    },
+    {
+      "name": "bronze checksum 2019-04",
+      "passed": true,
+      "detail": "cfd6e40226d1551ecc568067d4905294dd444e99c544b594c1ca477d561c71e0"
+    },
+    {
+      "name": "bronze unique rows 2019-07",
+      "passed": true,
+      "detail": "rows=40692737 unique=40692737"
+    },
+    {
+      "name": "bronze checksum 2019-07",
+      "passed": true,
+      "detail": "b5b3bc253931c02e74b1aa3125581ba18c1af8d948f0684e7406184bb3ba9e83"
+    },
+    {
+      "name": "bronze unique rows 2019-10",
+      "passed": true,
+      "detail": "rows=42404799 unique=42404799"
+    },
+    {
+      "name": "bronze checksum 2019-10",
+      "passed": true,
+      "detail": "cd85e29f1a03d8999ed67504cb949ca7de586ae5d8452a1f3545c35992d0f1bd"
+    },
+    {
+      "name": "bronze unique rows 2024-01",
+      "passed": true,
+      "detail": "rows=150980504 unique=150980504"
+    },
+    {
+      "name": "bronze checksum 2024-01",
+      "passed": true,
+      "detail": "9b7a4378eca5beb2c8329373bc3855f25665b339f55bf551ee494ff3dec0e5ab"
+    },
+    {
+      "name": "bronze unique rows 2024-04",
+      "passed": true,
+      "detail": "rows=171439522 unique=171439522"
+    },
+    {
+      "name": "bronze checksum 2024-04",
+      "passed": true,
+      "detail": "1aa64371e571d47a67a542c5ae13e0ca165c38832020a873789040cd6b3150e1"
+    },
+    {
+      "name": "bronze unique rows 2024-07",
+      "passed": true,
+      "detail": "rows=139791261 unique=139791261"
+    },
+    {
+      "name": "bronze checksum 2024-07",
+      "passed": true,
+      "detail": "8d2e1664793369956a9f0e913a73988cd7e9e4377675c3c2ace9e971f9fd66d3"
+    },
+    {
+      "name": "bronze unique rows 2024-10",
+      "passed": true,
+      "detail": "rows=189992933 unique=189992933"
+    },
+    {
+      "name": "bronze checksum 2024-10",
+      "passed": true,
+      "detail": "258f051b4355f29e0e744f8f3fc41a991a00f1d51641f2018ad75f19be1e6b14"
+    },
+    {
+      "name": "opportunity month coverage",
+      "passed": true,
+      "detail": "manifest=8 expected=8"
+    },
+    {
+      "name": "positive opportunity weights 2019-01",
+      "passed": true,
+      "detail": "weight=310218348.25 prevalence=0.11327451196304279"
+    },
+    {
+      "name": "sample includes positives 2019-01",
+      "passed": true,
+      "detail": "positive_rows=35139832"
+    },
+    {
+      "name": "inverse-weight exposure audit 2019-01",
+      "passed": true,
+      "detail": "relative_error=-0.000777"
+    },
+    {
+      "name": "positive opportunity weights 2019-04",
+      "passed": true,
+      "detail": "weight=353885098.0 prevalence=0.10288501043352778"
+    },
+    {
+      "name": "sample includes positives 2019-04",
+      "passed": true,
+      "detail": "positive_rows=36409472"
+    },
+    {
+      "name": "inverse-weight exposure audit 2019-04",
+      "passed": true,
+      "detail": "relative_error=-0.000746"
+    },
+    {
+      "name": "positive opportunity weights 2019-07",
+      "passed": true,
+      "detail": "weight=361341293.5 prevalence=0.10667697739893102"
+    },
+    {
+      "name": "sample includes positives 2019-07",
+      "passed": true,
+      "detail": "positive_rows=38546797"
+    },
+    {
+      "name": "inverse-weight exposure audit 2019-07",
+      "passed": true,
+      "detail": "relative_error=-0.000687"
+    },
+    {
+      "name": "positive opportunity weights 2019-10",
+      "passed": true,
+      "detail": "weight=377308193.0 prevalence=0.10586385543978898"
+    },
+    {
+      "name": "sample includes positives 2019-10",
+      "passed": true,
+      "detail": "positive_rows=39943300"
+    },
+    {
+      "name": "inverse-weight exposure audit 2019-10",
+      "passed": true,
+      "detail": "relative_error=-0.000539"
+    },
+    {
+      "name": "positive opportunity weights 2024-01",
+      "passed": true,
+      "detail": "weight=1352612640.25 prevalence=0.10914263079244502"
+    },
+    {
+      "name": "sample includes positives 2024-01",
+      "passed": true,
+      "detail": "positive_rows=147627702"
+    },
+    {
+      "name": "inverse-weight exposure audit 2024-01",
+      "passed": true,
+      "detail": "relative_error=-0.001976"
+    },
+    {
+      "name": "positive opportunity weights 2024-04",
+      "passed": true,
+      "detail": "weight=1793658806.75 prevalence=0.09362461487549018"
+    },
+    {
+      "name": "sample includes positives 2024-04",
+      "passed": true,
+      "detail": "positive_rows=167930615"
+    },
+    {
+      "name": "inverse-weight exposure audit 2024-04",
+      "passed": true,
+      "detail": "relative_error=-0.001361"
+    },
+    {
+      "name": "positive opportunity weights 2024-07",
+      "passed": true,
+      "detail": "weight=1567159443.5 prevalence=0.08719101209946542"
+    },
+    {
+      "name": "sample includes positives 2024-07",
+      "passed": true,
+      "detail": "positive_rows=136642218"
+    },
+    {
+      "name": "inverse-weight exposure audit 2024-07",
+      "passed": true,
+      "detail": "relative_error=-0.001255"
+    },
+    {
+      "name": "positive opportunity weights 2024-10",
+      "passed": true,
+      "detail": "weight=1876872971.0 prevalence=0.09875160858715355"
+    },
+    {
+      "name": "sample includes positives 2024-10",
+      "passed": true,
+      "detail": "positive_rows=185344225"
+    },
+    {
+      "name": "inverse-weight exposure audit 2024-10",
+      "passed": true,
+      "detail": "relative_error=-0.001510"
+    },
+    {
+      "name": "dataset required columns",
+      "passed": true,
+      "detail": "set()"
+    },
+    {
+      "name": "dataset nonempty",
+      "passed": true,
+      "detail": "273137641"
+    },
+    {
+      "name": "strict positive sample weights",
+      "passed": true,
+      "detail": "1.0"
+    },
+    {
+      "name": "fractional target bounds",
+      "passed": true,
+      "detail": "[0.0, 1.0]"
+    },
+    {
+      "name": "split nonempty: train",
+      "passed": true,
+      "detail": "167607702"
+    },
+    {
+      "name": "split nonempty: validation",
+      "passed": true,
+      "detail": "49666692"
+    },
+    {
+      "name": "split nonempty: test",
+      "passed": true,
+      "detail": "55863247"
+    },
+    {
+      "name": "no hour split overlap",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "result run id",
+      "passed": true,
+      "detail": "archive_v3_eight_month"
+    },
+    {
+      "name": "result task",
+      "passed": true,
+      "detail": "hf"
+    },
+    {
+      "name": "all numeric metrics finite",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "physics test metrics",
+      "passed": true,
+      "detail": "dict_keys(['engine', 'calibration_method', 'features', 'best_iteration', 'seconds', 'train_rows', 'validation_rows', 'test_rows', 'validation_raw', 'validation_calibrated', 'test_raw', 'test_calibrated', 'climatology', 'global_climatology', 'brier_skill_vs_climatology', 'calibration_bins', 'claim_metrics', 'slices', 'day_block_vs_climatology', 'feature_importance_gain', 'model_path'])"
+    },
+    {
+      "name": "physics probability bounds",
+      "passed": true,
+      "detail": "0.09342516253376357"
+    },
+    {
+      "name": "physics calibration bins",
+      "passed": true,
+      "detail": "10"
+    },
+    {
+      "name": "nowcast test metrics",
+      "passed": true,
+      "detail": "dict_keys(['engine', 'calibration_method', 'features', 'best_iteration', 'seconds', 'train_rows', 'validation_rows', 'test_rows', 'validation_raw', 'validation_calibrated', 'test_raw', 'test_calibrated', 'climatology', 'global_climatology', 'brier_skill_vs_climatology', 'calibration_bins', 'claim_metrics', 'slices', 'day_block_vs_climatology', 'feature_importance_gain', 'model_path', 'learning_curve'])"
+    },
+    {
+      "name": "nowcast probability bounds",
+      "passed": true,
+      "detail": "0.10169069325992751"
+    },
+    {
+      "name": "nowcast calibration bins",
+      "passed": true,
+      "detail": "10"
+    },
+    {
+      "name": "rolling evaluation exists",
+      "passed": true,
+      "detail": "ml/results/archive_v3/archive_v3_eight_month/hf_rolling_results.json"
+    },
+    {
+      "name": "rolling fold coverage",
+      "passed": true,
+      "detail": "2"
+    },
+    {
+      "name": "rolling nowcast stability: 2019_seasonal",
+      "passed": true,
+      "detail": "skill=0.43320196171742464 ci=[-0.03581886880781388, -0.03397502557419789]"
+    },
+    {
+      "name": "rolling nowcast stability: solar_regime_transfer",
+      "passed": true,
+      "detail": "skill=0.42168282499114185 ci=[-0.03433419527751287, -0.032446338639069434]"
+    }
+  ]
+}

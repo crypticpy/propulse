@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "run_id": "archive_v3_eight_month",
+  "generated_at": "2026-07-12T06:30:41.058094+00:00",
+  "gate_supported": true,
+  "multi_year_ready": false,
+  "headline": {
+    "nowcast_weighted_brier": 0.043737541337864345,
+    "brier_skill_vs_climatology": 0.43520911301615006,
+    "open_pr_auc": 0.9684779279060067,
+    "day_block_95_ci": [
+      -0.034317801308156884,
+      -0.032339885744564624
+    ],
+    "relative_brier_gain_20m_to_50m": 0.0028280406201707515
+  },
+  "report": "ml/results/archive_v3/archive_v3_eight_month/REPORT.html"
+}

@@ -1,0 +1,993 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T14:06:34.759616+00:00",
+  "run_id": "propagation_v4_multiyear_50m",
+  "scope": "development_only",
+  "locked_archive_test_read": false,
+  "purpose": "bounded implementation-regression check, not framework tuning",
+  "train_cap": 5000000,
+  "features": [
+    "band_mhz",
+    "power_bin_dbm",
+    "hod_sin",
+    "hod_cos",
+    "doy_sin",
+    "doy_cos",
+    "is_weekend",
+    "dist_km",
+    "bearing_sin",
+    "bearing_cos",
+    "tx_lat_sin",
+    "tx_lat_cos",
+    "tx_lon_sin",
+    "tx_lon_cos",
+    "rx_lat_sin",
+    "rx_lat_cos",
+    "mid_lat_sin",
+    "mid_lat_cos",
+    "sun_elev_tx",
+    "sun_elev_rx",
+    "sun_elev_mid",
+    "dark_frac",
+    "min_abs_elev_ends",
+    "bt",
+    "bx_gsm",
+    "by_gsm",
+    "bz_gsm",
+    "temperature_k",
+    "density_cm3",
+    "wind_speed",
+    "flow_pressure",
+    "electric_field",
+    "plasma_beta",
+    "alfven_mach",
+    "kp",
+    "sunspot_number",
+    "dst",
+    "ae",
+    "proton_flux_10mev",
+    "ap",
+    "f107",
+    "pcn",
+    "al",
+    "au",
+    "magnetosonic_mach",
+    "hp60",
+    "kp_delta_3h",
+    "kp_max_24h",
+    "bz_min_3h",
+    "dst_min_6h",
+    "band_10m",
+    "band_12m",
+    "band_15m",
+    "band_160m",
+    "band_17m",
+    "band_20m",
+    "band_30m",
+    "band_40m",
+    "band_60m",
+    "band_80m",
+    "ae_missing",
+    "al_missing",
+    "alfven_mach_missing",
+    "ap_missing",
+    "au_missing",
+    "bt_missing",
+    "bx_gsm_missing",
+    "by_gsm_missing",
+    "bz_gsm_missing",
+    "density_cm3_missing",
+    "dst_missing",
+    "electric_field_missing",
+    "f107_missing",
+    "flow_pressure_missing",
+    "hp60_missing",
+    "kp_missing",
+    "magnetosonic_mach_missing",
+    "pcn_missing",
+    "plasma_beta_missing",
+    "proton_flux_10mev_missing",
+    "sunspot_number_missing",
+    "temperature_k_missing",
+    "wind_speed_missing",
+    "path_success_prev1",
+    "path_success_prev2",
+    "path_success_prev3",
+    "path_success_prev24",
+    "path_prev1_available",
+    "path_prev2_available",
+    "path_prev3_available",
+    "path_prev24_available"
+  ],
+  "calibration_selection_protocol": "April days 1-20 fit; days 21-end method selection; full April refit",
+  "lightgbm": {
+    "best_iteration": 135,
+    "calibration_method": "band_distance_isotonic_with_fallback",
+    "calibrator_comparison_on_april_holdout": {
+      "global_isotonic": {
+        "rows": 421427,
+        "weighted_opportunities": 13579210.75,
+        "weighted_prevalence": 0.08860514963108107,
+        "mean_prediction": 0.09260867419178119,
+        "weighted_brier": 0.044039103473179804,
+        "weighted_log_loss": 0.17117589984475498,
+        "weighted_mae": 0.09440438032883257,
+        "expected_calibration_error": 0.004003713706821715,
+        "maximum_calibration_error": 0.12842275189530805,
+        "calibration_bins": [
+          {
+            "bin": 0,
+            "lower": 0.0,
+            "upper": 0.05,
+            "weight": 9785719.5,
+            "mean_prediction": 0.007408624754356636,
+            "observed_rate": 0.007229207830904975
+          },
+          {
+            "bin": 1,
+            "lower": 0.05,
+            "upper": 0.1,
+            "weight": 727503.75,
+            "mean_prediction": 0.07150011018997422,
+            "observed_rate": 0.06949517445379257
+          },
+          {
+            "bin": 2,
+            "lower": 0.1,
+            "upper": 0.15,
+            "weight": 326333.25,
+            "mean_prediction": 0.1223350114930569,
+            "observed_rate": 0.11514303256368662
+          },
+          {
+            "bin": 3,
+            "lower": 0.15,
+            "upper": 0.2,
+            "weight": 389225.25,
+            "mean_prediction": 0.1738749300134486,
+            "observed_rate": 0.16701639996830353
+          },
+          {
+            "bin": 4,
+            "lower": 0.2,
+            "upper": 0.25,
+            "weight": 303761.0,
+            "mean_prediction": 0.22209914508910555,
+            "observed_rate": 0.2174736058199921
+          },
+          {
+            "bin": 5,
+            "lower": 0.25,
+            "upper": 0.3,
+            "weight": 298150.75,
+            "mean_prediction": 0.27788439916672303,
+            "observed_rate": 0.26850175633107737
+          },
+          {
+            "bin": 6,
+            "lower": 0.3,
+            "upper": 0.35,
+            "weight": 247842.25,
+            "mean_prediction": 0.32797479280644554,
+            "observed_rate": 0.3063601950255942
+          },
+          {
+            "bin": 7,
+            "lower": 0.35,
+            "upper": 0.4,
+            "weight": 224078.75,
+            "mean_prediction": 0.37487787217695856,
+            "observed_rate": 0.36287689051885935
+          },
+          {
+            "bin": 8,
+            "lower": 0.4,
+            "upper": 0.45,
+            "weight": 194872.0,
+            "mean_prediction": 0.4200240280812164,
+            "observed_rate": 0.39231392927419256
+          },
+          {
+            "bin": 9,
+            "lower": 0.45,
+            "upper": 0.5,
+            "weight": 227858.5,
+            "mean_prediction": 0.470368146927713,
+            "observed_rate": 0.4437139717484456
+          },
+          {
+            "bin": 10,
+            "lower": 0.5,
+            "upper": 0.55,
+            "weight": 227202.5,
+            "mean_prediction": 0.5215767367823855,
+            "observed_rate": 0.49661865540697747
+          },
+          {
+            "bin": 11,
+            "lower": 0.55,
+            "upper": 0.6,
+            "weight": 241629.75,
+            "mean_prediction": 0.5742571555487658,
+            "observed_rate": 0.5514097499897064
+          },
+          {
+            "bin": 12,
+            "lower": 0.6,
+            "upper": 0.65,
+            "weight": 145201.0,
+            "mean_prediction": 0.6270607602107223,
+            "observed_rate": 0.6064076694399657
+          },
+          {
+            "bin": 13,
+            "lower": 0.65,
+            "upper": 0.7,
+            "weight": 125271.25,
+            "mean_prediction": 0.6724986959639333,
+            "observed_rate": 0.6410968199176468
+          },
+          {
+            "bin": 14,
+            "lower": 0.7,
+            "upper": 0.75,
+            "weight": 38323.25,
+            "mean_prediction": 0.7183846253305695,
+            "observed_rate": 0.7125178579960783
+          },
+          {
+            "bin": 15,
+            "lower": 0.75,
+            "upper": 0.8,
+            "weight": 38355.0,
+            "mean_prediction": 0.7580803395410621,
+            "observed_rate": 0.7140659626741445
+          },
+          {
+            "bin": 16,
+            "lower": 0.8,
+            "upper": 0.85,
+            "weight": 30402.25,
+            "mean_prediction": 0.8142829531410339,
+            "observed_rate": 0.7447146184126245
+          },
+          {
+            "bin": 17,
+            "lower": 0.85,
+            "upper": 0.9,
+            "weight": 10.0,
+            "mean_prediction": 0.871577248104692,
+            "observed_rate": 1.0
+          },
+          {
+            "bin": 18,
+            "lower": 0.9,
+            "upper": 0.95,
+            "weight": 7010.25,
+            "mean_prediction": 0.915510413360753,
+            "observed_rate": 0.8811383330875344
+          },
+          {
+            "bin": 19,
+            "lower": 0.95,
+            "upper": 1.0,
+            "weight": 460.5,
+            "mean_prediction": 0.9998773701230178,
+            "observed_rate": 0.9554831704668838
+          }
+        ],
+        "open_roc_auc": 0.9391161029618872,
+        "open_pr_auc": 0.9587277960380277
+      },
+      "per_band_isotonic": {
+        "rows": 421427,
+        "weighted_opportunities": 13579210.75,
+        "weighted_prevalence": 0.08860514963108107,
+        "mean_prediction": 0.09236662655362336,
+        "weighted_brier": 0.04391067599267235,
+        "weighted_log_loss": 0.17104342226591676,
+        "weighted_mae": 0.09416266564219247,
+        "expected_calibration_error": 0.003761476922542045,
+        "maximum_calibration_error": 0.10702386036431588,
+        "calibration_bins": [
+          {
+            "bin": 0,
+            "lower": 0.0,
+            "upper": 0.05,
+            "weight": 9741405.75,
+            "mean_prediction": 0.0071503254551808,
+            "observed_rate": 0.006992522617606682
+          },
+          {
+            "bin": 1,
+            "lower": 0.05,
+            "upper": 0.1,
+            "weight": 774401.5,
+            "mean_prediction": 0.07043181977664531,
+            "observed_rate": 0.06852130325952958
+          },
+          {
+            "bin": 2,
+            "lower": 0.1,
+            "upper": 0.15,
+            "weight": 363464.25,
+            "mean_prediction": 0.12540527500310752,
+            "observed_rate": 0.119219428182877
+          },
+          {
+            "bin": 3,
+            "lower": 0.15,
+            "upper": 0.2,
+            "weight": 394824.25,
+            "mean_prediction": 0.17662765728620267,
+            "observed_rate": 0.16835085488413706
+          },
+          {
+            "bin": 4,
+            "lower": 0.2,
+            "upper": 0.25,
+            "weight": 278718.5,
+            "mean_prediction": 0.22994896447985064,
+            "observed_rate": 0.22521289396082458
+          },
+          {
+            "bin": 5,
+            "lower": 0.25,
+            "upper": 0.3,
+            "weight": 295774.5,
+            "mean_prediction": 0.2803775537061612,
+            "observed_rate": 0.2677276101093379
+          },
+          {
+            "bin": 6,
+            "lower": 0.3,
+            "upper": 0.35,
+            "weight": 164538.25,
+            "mean_prediction": 0.3183041368253961,
+            "observed_rate": 0.30914392267235075
+          },
+          {
+            "bin": 7,
+            "lower": 0.35,
+            "upper": 0.4,
+            "weight": 295088.75,
+            "mean_prediction": 0.3727008404008319,
+            "observed_rate": 0.3542324132737434
+          },
+          {
+            "bin": 8,
+            "lower": 0.4,
+            "upper": 0.45,
+            "weight": 260416.5,
+            "mean_prediction": 0.4282796575908963,
+            "observed_rate": 0.3983503350285118
+          },
+          {
+            "bin": 9,
+            "lower": 0.45,
+            "upper": 0.5,
+            "weight": 174381.75,
+            "mean_prediction": 0.47695466211003584,
+            "observed_rate": 0.4532699095036939
+          },
+          {
+            "bin": 10,
+            "lower": 0.5,
+            "upper": 0.55,
+            "weight": 272615.25,
+            "mean_prediction": 0.5258566541074413,
+            "observed_rate": 0.5054412769241955
+          },
+          {
+            "bin": 11,
+            "lower": 0.55,
+            "upper": 0.6,
+            "weight": 144348.5,
+            "mean_prediction": 0.5783050039739874,
+            "observed_rate": 0.5680904201317665
+          },
+          {
+            "bin": 12,
+            "lower": 0.6,
+            "upper": 0.65,
+            "weight": 209425.25,
+            "mean_prediction": 0.6222381974869788,
+            "observed_rate": 0.5916239804290869
+          },
+          {
+            "bin": 13,
+            "lower": 0.65,
+            "upper": 0.7,
+            "weight": 95498.25,
+            "mean_prediction": 0.6803948318710132,
+            "observed_rate": 0.6661378612569199
+          },
+          {
+            "bin": 14,
+            "lower": 0.7,
+            "upper": 0.75,
+            "weight": 47777.5,
+            "mean_prediction": 0.7292393715518916,
+            "observed_rate": 0.7188111560585086
+          },
+          {
+            "bin": 15,
+            "lower": 0.75,
+            "upper": 0.8,
+            "weight": 44266.25,
+            "mean_prediction": 0.7704562066446153,
+            "observed_rate": 0.7209329907371008
+          },
+          {
+            "bin": 16,
+            "lower": 0.8,
+            "upper": 0.85,
+            "weight": 10512.5,
+            "mean_prediction": 0.8268016229397462,
+            "observed_rate": 0.8266349585663514
+          },
+          {
+            "bin": 17,
+            "lower": 0.85,
+            "upper": 0.9,
+            "weight": 3046.5,
+            "mean_prediction": 0.8629733103036038,
+            "observed_rate": 0.7559494499392879
+          },
+          {
+            "bin": 18,
+            "lower": 0.9,
+            "upper": 0.95,
+            "weight": 4672.5,
+            "mean_prediction": 0.918265862655921,
+            "observed_rate": 0.8453718567975643
+          },
+          {
+            "bin": 19,
+            "lower": 0.95,
+            "upper": 1.0,
+            "weight": 4034.25,
+            "mean_prediction": 0.990351539586527,
+            "observed_rate": 0.8836834602006685
+          }
+        ],
+        "open_roc_auc": 0.939800908083452,
+        "open_pr_auc": 0.9592346294745755
+      },
+      "band_distance_isotonic_with_fallback": {
+        "rows": 421427,
+        "weighted_opportunities": 13579210.75,
+        "weighted_prevalence": 0.08860514963108107,
+        "mean_prediction": 0.09284474603403213,
+        "weighted_brier": 0.04386923283030307,
+        "weighted_log_loss": 0.17103368437537259,
+        "weighted_mae": 0.09408673332236067,
+        "expected_calibration_error": 0.004239596402950888,
+        "maximum_calibration_error": 0.12248067492438963,
+        "calibration_bins": [
+          {
+            "bin": 0,
+            "lower": 0.0,
+            "upper": 0.05,
+            "weight": 9724110.5,
+            "mean_prediction": 0.006919570311335074,
+            "observed_rate": 0.006838054753279578
+          },
+          {
+            "bin": 1,
+            "lower": 0.05,
+            "upper": 0.1,
+            "weight": 749256.5,
+            "mean_prediction": 0.06952829105473554,
+            "observed_rate": 0.06613756441074718
+          },
+          {
+            "bin": 2,
+            "lower": 0.1,
+            "upper": 0.15,
+            "weight": 406821.75,
+            "mean_prediction": 0.12314799975060027,
+            "observed_rate": 0.1177591907113003
+          },
+          {
+            "bin": 3,
+            "lower": 0.15,
+            "upper": 0.2,
+            "weight": 358905.5,
+            "mean_prediction": 0.1755837849860389,
+            "observed_rate": 0.1678074034276575
+          },
+          {
+            "bin": 4,
+            "lower": 0.2,
+            "upper": 0.25,
+            "weight": 270019.0,
+            "mean_prediction": 0.2230277952614686,
+            "observed_rate": 0.21549224314129198
+          },
+          {
+            "bin": 5,
+            "lower": 0.25,
+            "upper": 0.3,
+            "weight": 313508.5,
+            "mean_prediction": 0.27865625090568225,
+            "observed_rate": 0.26346335106130103
+          },
+          {
+            "bin": 6,
+            "lower": 0.3,
+            "upper": 0.35,
+            "weight": 235879.5,
+            "mean_prediction": 0.324587543477662,
+            "observed_rate": 0.30312935220672865
+          },
+          {
+            "bin": 7,
+            "lower": 0.35,
+            "upper": 0.4,
+            "weight": 238361.25,
+            "mean_prediction": 0.37642786535440337,
+            "observed_rate": 0.37086565050616743
+          },
+          {
+            "bin": 8,
+            "lower": 0.4,
+            "upper": 0.45,
+            "weight": 261221.5,
+            "mean_prediction": 0.4298550352758716,
+            "observed_rate": 0.39358552044795403
+          },
+          {
+            "bin": 9,
+            "lower": 0.45,
+            "upper": 0.5,
+            "weight": 205668.75,
+            "mean_prediction": 0.4775753228051936,
+            "observed_rate": 0.4515416175197953
+          },
+          {
+            "bin": 10,
+            "lower": 0.5,
+            "upper": 0.55,
+            "weight": 240252.0,
+            "mean_prediction": 0.5276580144325194,
+            "observed_rate": 0.504969781940588
+          },
+          {
+            "bin": 11,
+            "lower": 0.55,
+            "upper": 0.6,
+            "weight": 159550.75,
+            "mean_prediction": 0.574469017153564,
+            "observed_rate": 0.5594834245889625
+          },
+          {
+            "bin": 12,
+            "lower": 0.6,
+            "upper": 0.65,
+            "weight": 171678.25,
+            "mean_prediction": 0.624363525944308,
+            "observed_rate": 0.5960918171859765
+          },
+          {
+            "bin": 13,
+            "lower": 0.65,
+            "upper": 0.7,
+            "weight": 93226.5,
+            "mean_prediction": 0.671043737473882,
+            "observed_rate": 0.652067813516874
+          },
+          {
+            "bin": 14,
+            "lower": 0.7,
+            "upper": 0.75,
+            "weight": 92929.0,
+            "mean_prediction": 0.7236189883489355,
+            "observed_rate": 0.6871805357726438
+          },
+          {
+            "bin": 15,
+            "lower": 0.75,
+            "upper": 0.8,
+            "weight": 12752.5,
+            "mean_prediction": 0.7704258934501071,
+            "observed_rate": 0.7449519705628567
+          },
+          {
+            "bin": 16,
+            "lower": 0.8,
+            "upper": 0.85,
+            "weight": 29064.25,
+            "mean_prediction": 0.8177779092011798,
+            "observed_rate": 0.7612788907271727
+          },
+          {
+            "bin": 17,
+            "lower": 0.85,
+            "upper": 0.9,
+            "weight": 5904.5,
+            "mean_prediction": 0.8674742478014839,
+            "observed_rate": 0.7738165806384926
+          },
+          {
+            "bin": 18,
+            "lower": 0.9,
+            "upper": 0.95,
+            "weight": 4004.0,
+            "mean_prediction": 0.9214866030601583,
+            "observed_rate": 0.8908591410252159
+          },
+          {
+            "bin": 19,
+            "lower": 0.95,
+            "upper": 1.0,
+            "weight": 6096.25,
+            "mean_prediction": 0.9926877693291009,
+            "observed_rate": 0.8702070944047112
+          }
+        ],
+        "open_roc_auc": 0.9409942904661245,
+        "open_pr_auc": 0.9598225793801516
+      }
+    },
+    "gate_sample": {
+      "rows": 1314399,
+      "weighted_opportunities": 44075112.75,
+      "weighted_prevalence": 0.09917955347172049,
+      "mean_prediction": 0.0999752331702982,
+      "weighted_brier": 0.04688243346970116,
+      "weighted_log_loss": 0.1834762065388239,
+      "weighted_mae": 0.10096963181461692,
+      "expected_calibration_error": 0.002528667403991355,
+      "maximum_calibration_error": 0.13810686055786658,
+      "calibration_bins": [
+        {
+          "bin": 0,
+          "lower": 0.0,
+          "upper": 0.05,
+          "weight": 30624352.75,
+          "mean_prediction": 0.007182118792334488,
+          "observed_rate": 0.006691276115707894
+        },
+        {
+          "bin": 1,
+          "lower": 0.05,
+          "upper": 0.1,
+          "weight": 2450942.25,
+          "mean_prediction": 0.07028690560748029,
+          "observed_rate": 0.06654705964673743
+        },
+        {
+          "bin": 2,
+          "lower": 0.1,
+          "upper": 0.15,
+          "weight": 1338780.75,
+          "mean_prediction": 0.12286714914929399,
+          "observed_rate": 0.1203266480649103
+        },
+        {
+          "bin": 3,
+          "lower": 0.15,
+          "upper": 0.2,
+          "weight": 1190342.25,
+          "mean_prediction": 0.17532035123317707,
+          "observed_rate": 0.16299177831109185
+        },
+        {
+          "bin": 4,
+          "lower": 0.2,
+          "upper": 0.25,
+          "weight": 1142610.0,
+          "mean_prediction": 0.22599012467327972,
+          "observed_rate": 0.2332781964567375
+        },
+        {
+          "bin": 5,
+          "lower": 0.25,
+          "upper": 0.3,
+          "weight": 948390.5,
+          "mean_prediction": 0.27651623836429734,
+          "observed_rate": 0.26712098035746107
+        },
+        {
+          "bin": 6,
+          "lower": 0.3,
+          "upper": 0.35,
+          "weight": 869836.5,
+          "mean_prediction": 0.32075276595738883,
+          "observed_rate": 0.3244747721579039
+        },
+        {
+          "bin": 7,
+          "lower": 0.35,
+          "upper": 0.4,
+          "weight": 915586.75,
+          "mean_prediction": 0.37657022543432483,
+          "observed_rate": 0.3807165187830503
+        },
+        {
+          "bin": 8,
+          "lower": 0.4,
+          "upper": 0.45,
+          "weight": 1089389.75,
+          "mean_prediction": 0.4244127756548549,
+          "observed_rate": 0.4252454185568138
+        },
+        {
+          "bin": 9,
+          "lower": 0.45,
+          "upper": 0.5,
+          "weight": 805793.25,
+          "mean_prediction": 0.47453085563557257,
+          "observed_rate": 0.49607514103377526
+        },
+        {
+          "bin": 10,
+          "lower": 0.5,
+          "upper": 0.55,
+          "weight": 804410.25,
+          "mean_prediction": 0.5228920815857702,
+          "observed_rate": 0.5285636279936403
+        },
+        {
+          "bin": 11,
+          "lower": 0.55,
+          "upper": 0.6,
+          "weight": 616753.5,
+          "mean_prediction": 0.5725084279857612,
+          "observed_rate": 0.5666185926407857
+        },
+        {
+          "bin": 12,
+          "lower": 0.6,
+          "upper": 0.65,
+          "weight": 487688.25,
+          "mean_prediction": 0.6192249621212228,
+          "observed_rate": 0.6166951941888298
+        },
+        {
+          "bin": 13,
+          "lower": 0.65,
+          "upper": 0.7,
+          "weight": 351304.5,
+          "mean_prediction": 0.6720388104241755,
+          "observed_rate": 0.6564789236420701
+        },
+        {
+          "bin": 14,
+          "lower": 0.7,
+          "upper": 0.75,
+          "weight": 231461.5,
+          "mean_prediction": 0.7231305668179331,
+          "observed_rate": 0.7086621320349127
+        },
+        {
+          "bin": 15,
+          "lower": 0.75,
+          "upper": 0.8,
+          "weight": 73874.5,
+          "mean_prediction": 0.7788303983202204,
+          "observed_rate": 0.739808729846355
+        },
+        {
+          "bin": 16,
+          "lower": 0.8,
+          "upper": 0.85,
+          "weight": 61267.5,
+          "mean_prediction": 0.8156322731127005,
+          "observed_rate": 0.7858489412270679
+        },
+        {
+          "bin": 17,
+          "lower": 0.85,
+          "upper": 0.9,
+          "weight": 44633.75,
+          "mean_prediction": 0.8726752138445962,
+          "observed_rate": 0.8393872355030636
+        },
+        {
+          "bin": 18,
+          "lower": 0.9,
+          "upper": 0.95,
+          "weight": 17388.0,
+          "mean_prediction": 0.933332535575262,
+          "observed_rate": 0.8886013343729497
+        },
+        {
+          "bin": 19,
+          "lower": 0.95,
+          "upper": 1.0,
+          "weight": 10306.25,
+          "mean_prediction": 0.988367624600549,
+          "observed_rate": 0.8502607640426825
+        }
+      ],
+      "open_roc_auc": 0.9410727829506186,
+      "open_pr_auc": 0.9625537758526974
+    }
+  },
+  "xgboost": {
+    "best_iteration": 115,
+    "gate_sample": {
+      "rows": 1314399,
+      "weighted_opportunities": 44075112.75,
+      "weighted_prevalence": 0.09917955347172049,
+      "mean_prediction": 0.10210016561588854,
+      "weighted_brier": 0.04732314861019439,
+      "weighted_log_loss": 0.1846123280932546,
+      "weighted_mae": 0.10222049072199753,
+      "expected_calibration_error": 0.0032820028824586903,
+      "maximum_calibration_error": 0.08981783847348823,
+      "calibration_bins": [
+        {
+          "bin": 0,
+          "lower": 0.0,
+          "upper": 0.05,
+          "weight": 30444723.0,
+          "mean_prediction": 0.007021700565634519,
+          "observed_rate": 0.006543761298282032
+        },
+        {
+          "bin": 1,
+          "lower": 0.05,
+          "upper": 0.1,
+          "weight": 2601492.5,
+          "mean_prediction": 0.07201978167974346,
+          "observed_rate": 0.06724370725188848
+        },
+        {
+          "bin": 2,
+          "lower": 0.1,
+          "upper": 0.15,
+          "weight": 1178113.75,
+          "mean_prediction": 0.12612080942504958,
+          "observed_rate": 0.11661182982480704
+        },
+        {
+          "bin": 3,
+          "lower": 0.15,
+          "upper": 0.2,
+          "weight": 1268359.25,
+          "mean_prediction": 0.1745121704050861,
+          "observed_rate": 0.16462607114356212
+        },
+        {
+          "bin": 4,
+          "lower": 0.2,
+          "upper": 0.25,
+          "weight": 1113388.0,
+          "mean_prediction": 0.22934874828326346,
+          "observed_rate": 0.2311925403135537
+        },
+        {
+          "bin": 5,
+          "lower": 0.25,
+          "upper": 0.3,
+          "weight": 891643.5,
+          "mean_prediction": 0.27600965337254296,
+          "observed_rate": 0.25901831856305874
+        },
+        {
+          "bin": 6,
+          "lower": 0.3,
+          "upper": 0.35,
+          "weight": 1063883.5,
+          "mean_prediction": 0.3257012860707602,
+          "observed_rate": 0.326906094587892
+        },
+        {
+          "bin": 7,
+          "lower": 0.35,
+          "upper": 0.4,
+          "weight": 865590.5,
+          "mean_prediction": 0.3807717438066887,
+          "observed_rate": 0.36408902380927793
+        },
+        {
+          "bin": 8,
+          "lower": 0.4,
+          "upper": 0.45,
+          "weight": 983092.5,
+          "mean_prediction": 0.4308141256060914,
+          "observed_rate": 0.4234840568489111
+        },
+        {
+          "bin": 9,
+          "lower": 0.45,
+          "upper": 0.5,
+          "weight": 894652.25,
+          "mean_prediction": 0.4735449505286299,
+          "observed_rate": 0.47791977297877364
+        },
+        {
+          "bin": 10,
+          "lower": 0.5,
+          "upper": 0.55,
+          "weight": 904336.5,
+          "mean_prediction": 0.5256902695328094,
+          "observed_rate": 0.5169071470340489
+        },
+        {
+          "bin": 11,
+          "lower": 0.55,
+          "upper": 0.6,
+          "weight": 412197.75,
+          "mean_prediction": 0.5683592592474227,
+          "observed_rate": 0.5700953002545766
+        },
+        {
+          "bin": 12,
+          "lower": 0.6,
+          "upper": 0.65,
+          "weight": 612693.75,
+          "mean_prediction": 0.6246805650175595,
+          "observed_rate": 0.5946494478352823
+        },
+        {
+          "bin": 13,
+          "lower": 0.65,
+          "upper": 0.7,
+          "weight": 402657.0,
+          "mean_prediction": 0.6710673050657507,
+          "observed_rate": 0.651713493238358
+        },
+        {
+          "bin": 14,
+          "lower": 0.7,
+          "upper": 0.75,
+          "weight": 175135.0,
+          "mean_prediction": 0.717057071095731,
+          "observed_rate": 0.7003739973210451
+        },
+        {
+          "bin": 15,
+          "lower": 0.75,
+          "upper": 0.8,
+          "weight": 129374.5,
+          "mean_prediction": 0.772628898278622,
+          "observed_rate": 0.7298965409522713
+        },
+        {
+          "bin": 16,
+          "lower": 0.8,
+          "upper": 0.85,
+          "weight": 64161.25,
+          "mean_prediction": 0.8278259903542631,
+          "observed_rate": 0.8038652615144167
+        },
+        {
+          "bin": 17,
+          "lower": 0.85,
+          "upper": 0.9,
+          "weight": 43797.25,
+          "mean_prediction": 0.8735619137677983,
+          "observed_rate": 0.8006667087726748
+        },
+        {
+          "bin": 18,
+          "lower": 0.9,
+          "upper": 0.95,
+          "weight": 10423.75,
+          "mean_prediction": 0.9193803716555018,
+          "observed_rate": 0.8735819645618231
+        },
+        {
+          "bin": 19,
+          "lower": 0.95,
+          "upper": 1.0,
+          "weight": 15397.25,
+          "mean_prediction": 0.9837437024903711,
+          "observed_rate": 0.8939258640168829
+        }
+      ],
+      "open_roc_auc": 0.9405208372605836,
+      "open_pr_auc": 0.9619221612486888
+    }
+  },
+  "lightgbm_minus_xgboost_brier": -0.0004407151404932294,
+  "regression_tolerance": 0.0004732314861019439,
+  "implementation_regression": false,
+  "selected_engine": "xgboost",
+  "runtime_seconds": 40.0265839099884,
+  "peak_rss_gb": 16.679916381835938
+}

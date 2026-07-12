@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T03:57:31.765420-05:00",
+  "archive_status": "ml/results/propagation_v4/forecast_archive_status.json",
+  "minimum_distinct_capture_days": 90,
+  "sources": {
+    "noaa_3_day": {
+      "unique_payloads": 1,
+      "unique_capture_days": 1,
+      "first_capture_day": "2026-07-12",
+      "last_capture_day": "2026-07-12"
+    },
+    "noaa_45_day": {
+      "unique_payloads": 1,
+      "unique_capture_days": 1,
+      "first_capture_day": "2026-07-12",
+      "last_capture_day": "2026-07-12"
+    }
+  },
+  "required_sources_present": [
+    "noaa_3_day",
+    "noaa_45_day"
+  ],
+  "issued_forecast_training_ready": false,
+  "release_approved": false,
+  "horizons": {
+    "3": {
+      "status": "withheld_insufficient_issued_history"
+    },
+    "6": {
+      "status": "withheld_insufficient_issued_history"
+    },
+    "12": {
+      "status": "withheld_insufficient_issued_history"
+    },
+    "24": {
+      "status": "withheld_insufficient_issued_history"
+    }
+  },
+  "prohibitions": [
+    "Do not substitute observed OMNI/GFZ values for historical forecast issuances.",
+    "Do not release a horizon before time-held-out skill and calibration gates pass."
+  ]
+}

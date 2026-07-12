@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T14:28:44.698470+00:00",
+  "run_id": "propagation_v4_multiyear_50m",
+  "git_commit": "36f29685bfb845ebecb498a8cb9213c97b9195a0",
+  "execution_scope": "development",
+  "locked_archive_test_read": false,
+  "prospective_test_complete": false,
+  "development_complete": true,
+  "development_gates_passed": false,
+  "failed_development_gates": [
+    "short_path_calibration_non_regression"
+  ],
+  "release_approved": false,
+  "inputs": [
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json",
+      "bytes": 569373,
+      "sha256": "a7c049d9da494da77d96ebc0d51c6b0f91f55240afbf8e6659ddfe82dc25c08c"
+    },
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/6m_development_results.json",
+      "bytes": 36679,
+      "sha256": "3d46e872dd1137d124000799dedc61615f1050d6f80eb45ad986b1541085823f"
+    },
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/p533_validation_results.json",
+      "bytes": 7902,
+      "sha256": "82736ae603d7368eb7f8ff35653a84ba2cae85c7b35a10b89034a7d6e1bac6b9"
+    },
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/rolling_validation_results.json",
+      "bytes": 548121,
+      "sha256": "137d58b59def9ba689589b3dc8536f83a9d3336781ad3a15c4f0a96e4377895e"
+    },
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/source_outage_validation_results.json",
+      "bytes": 1369,
+      "sha256": "a688e561e013e6fe237fca85343e295991d5f4ac2dd302f1b7f78b3486eceaef"
+    },
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json",
+      "bytes": 44747,
+      "sha256": "a383e37758d70250a050acc9f35edcacbb39aad01dcdd41fbbd1f15552c28ca5"
+    },
+    {
+      "path": "ml/results/propagation_v4/propagation_v4_multiyear_50m/lightgbm_comparison_results.json",
+      "bytes": 28146,
+      "sha256": "f7495aa80e8141566ec1e90deed487eb4ae68b9dce88ebca8bed363531c1b0d1"
+    },
+    {
+      "path": "ml/results/propagation_v4/futurecast_readiness.json",
+      "bytes": 1206,
+      "sha256": "bf36e6c2b97dcd538935cf5137d34c2fde7443dfdd7358992aee49f70473d4eb"
+    },
+    {
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_hf_balanced_sample.json",
+      "bytes": 2594,
+      "sha256": "8bd8ac6d0b7252e7b101096f267ae4d864a29f3be4f7dc2ebd939ddf1c3bfafd"
+    },
+    {
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_hf_development_audit.json",
+      "bytes": 5005,
+      "sha256": "624980689ce6e806b3d60ad0da7acde2bf734de696f2bcea6bb70ceaebe0cbe0"
+    },
+    {
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_6m_development_audit.json",
+      "bytes": 4971,
+      "sha256": "9b68b0fa842a112fcbf5ccafdc71e21119436587326327d605b649fc75b87757"
+    },
+    {
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_bronze.json",
+      "bytes": 23564,
+      "sha256": "ed0e875773c874a47fc78c337554fb24f00e05188e52abbde57eb1decbb1c084"
+    },
+    {
+      "path": "ml/data/manifests/propagation_v4_multiyear_50m_sources.json",
+      "bytes": 47309,
+      "sha256": "01993f7e28fe86ce8b085f8b86d27185753a71d30fb9ec18be7311f082c9c405"
+    }
+  ],
+  "report_artifact": "ml/results/propagation_v4/propagation_v4_multiyear_50m/REPORT.artifact.json",
+  "required_followup": [
+    "Publish the frozen failed candidate, then preregister a new calibration version with a fresh untouched development gate.",
+    "Produce the frozen V3/B2 development comparison before opening 2025.",
+    "Keep the locked 2025 archive closed until every development gate passes.",
+    "Complete the 2026-08-01 through 2026-09-30 prospective test."
+  ]
+}

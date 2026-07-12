@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T14:11:11.411080+00:00",
+  "run_id": "propagation_v4_multiyear_50m",
+  "scope": "development_shadow",
+  "locked_archive_test_read": false,
+  "bundle_manifest": "ml/models/archive_v4/propagation_v4_multiyear_50m/serving/serving_manifest.json",
+  "validation_source": "ml/data/processed/archive_v4/samples/propagation_v4_multiyear_50m/hf/validation.parquet",
+  "rows": 5000,
+  "scenarios": [
+    {
+      "scenario": "fresh path history",
+      "profile": "nowcast",
+      "mean_confidence": 0.9867274725274727,
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "mean": 0.24559545663118798,
+      "p05": 2.4322762328665704e-05,
+      "p50": 0.1605677306652069,
+      "p95": 0.7096326947212219
+    },
+    {
+      "scenario": "path history outage",
+      "profile": "physics",
+      "mean_confidence": 0.7390861445783133,
+      "minimum": 0.0,
+      "maximum": 0.9235880374908447,
+      "mean": 0.2179927151718562,
+      "p05": 8.716555748833343e-05,
+      "p50": 0.1611134111881256,
+      "p95": 0.5885487198829651
+    }
+  ],
+  "mean_absolute_probability_change": 0.10642005814616809,
+  "gates": {
+    "bounded_probabilities": true,
+    "explicit_stale_warning": true,
+    "lower_confidence_when_stale": true,
+    "stale_selects_physics_profile": true,
+    "fresh_selects_nowcast_profile": true
+  },
+  "passed": true
+}

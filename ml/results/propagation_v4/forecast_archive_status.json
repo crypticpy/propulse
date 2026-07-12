@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "captures": [
+    {
+      "source": "noaa_45_day",
+      "url": "https://services.swpc.noaa.gov/json/45-day-forecast.json",
+      "captured_at": "2026-07-12T08:35:53.993762+00:00",
+      "http_date": "Sun, 12 Jul 2026 08:35:54 GMT",
+      "last_modified": "Sun, 12 Jul 2026 08:35:03 GMT",
+      "etag": "\"1899-65665d9a2de2b\"",
+      "bytes": 6297,
+      "sha256": "a396f8d3cae6aa4fa01393e7dccd904fd71f33f71df6698bab1567ee747fe36c",
+      "path": "ml/data/raw/archive_v4/forecast_issuances/source=noaa_45_day/date=2026-07-12/20260712T083553Z-a396f8d3cae6.json"
+    },
+    {
+      "source": "noaa_3_day",
+      "url": "https://services.swpc.noaa.gov/text/3-day-solar-geomag-predictions.txt",
+      "captured_at": "2026-07-12T08:35:53.993762+00:00",
+      "http_date": "Sun, 12 Jul 2026 08:35:54 GMT",
+      "last_modified": "Sun, 12 Jul 2026 08:35:26 GMT",
+      "etag": "\"a7f-65665db0a3215\"",
+      "bytes": 2687,
+      "sha256": "40c4eb8f6c20d4598d713bd4ba406e06a135b14e67ea0fe531b7dcc572603ed5",
+      "path": "ml/data/raw/archive_v4/forecast_issuances/source=noaa_3_day/date=2026-07-12/20260712T083553Z-40c4eb8f6c20.txt"
+    }
+  ],
+  "last_capture_at": "2026-07-12T08:35:53.993762+00:00",
+  "schedule": "collector/src/collectors/forecast.ts every 6 hours",
+  "operational_note": "Local capture proves the archive path; deployment migration and service-role collector are required for continuous production history."
+}

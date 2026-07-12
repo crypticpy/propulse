@@ -1,17 +1,16 @@
 # Propulse ML — Contact Probability Model
 
-> **Status**: V1-V4 short-window experiments and Archive Proof V2 are complete.
-> Exposure-aware Archive V3 completed its eight-month M5 run on 2026-07-12.
-> See the [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md),
-> [animated report](results/archive_v3/archive_v3_eight_month/REPORT.html), and
-> frozen [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md). V3 passed its
-> temporal statistical gate but is not approved for all-years scaling or
-> product probability serving.
-> The next phase is preregistered in the
-> [Personalized Propagation V4 execution plan](PERSONALIZED-PROPAGATION-V4-PLAN.md):
-> a regime-balanced 50M multi-year experiment, equipment-aware StationCast,
-> direct FutureCast horizons, a separate 6m program, product integration, and
-> prospective validation.
+> **Status**: Personalized Propagation V4 completed its 50M-row multi-year
+> development run on the 128 GB M5 Max on 2026-07-12. M2 reached `0.044731`
+> October 2024 Brier and `42.50%` skill over climatology; every rolling-origin
+> fold had positive skill. The preregistered detailed gate nevertheless failed
+> because calibration slightly regressed raw M2 at 0-500 km and 500-1500 km.
+> The locked 2025 archive remains unopened and no production replacement is
+> approved. Start with the [visual development report](results/propagation_v4/propagation_v4_multiyear_50m/REPORT.html),
+> [public research article](research/PERSONALIZED-PROPAGATION-V4-RESEARCH.md),
+> and frozen [execution plan](PERSONALIZED-PROPAGATION-V4-PLAN.md).
+> Archive V3 context remains in its [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md)
+> and [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md).
 > **Created**: 2026-07-11
 > **Supersedes**: Level 2/3 of `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md` (Level 1 — `band_region_stats` — was never implemented)
 

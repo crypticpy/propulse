@@ -154,6 +154,10 @@ def main() -> None:
     b1 = development.get("baselines", {}).get("B1_p533_voacap", {})
     primary_cap = int(m2.get("train_cap", 0))
     development_complete = primary_cap == int(config["sampling"]["primary_train_rows"])
+    detailed_gates = detailed.get("gates", {})
+    failed_detailed_gates = [
+        name for name, passed in detailed_gates.items() if passed is False
+    ]
 
     generated_at = utc_now()
     source_rows = [
@@ -266,6 +270,16 @@ def main() -> None:
     detailed_daily = detailed.get("daily", [])
     detailed_distance = detailed.get("distance", [])
     detailed_regions = detailed.get("coarse_transmitter_regions", [])
+    short_path_regressions = [
+        row
+        for row in detailed_distance
+        if row.get("key") in {"0-500 km", "500-1500 km", "1500-3000 km"}
+        and float(row.get("m2_calibration_gain", 0.0)) < 0
+    ]
+    short_path_regression_text = ", ".join(
+        f"{row['key']} (+{abs(float(row['m2_calibration_gain'])):.6f} Brier versus raw M2)"
+        for row in short_path_regressions
+    )
     detailed_intervals = [
         {"metric": metric, **values}
         for metric, values in detailed.get("day_bootstrap_95", {}).items()
@@ -317,8 +331,17 @@ def main() -> None:
         )
     ] if total_importance else []
 
+    nowcast_status = (
+        "blocked" if failed_detailed_gates else
+        ("development" if development else "pending")
+    )
+    nowcast_reason = (
+        "Detailed development gate failed: " + ", ".join(failed_detailed_gates)
+        if failed_detailed_gates else
+        "2025 locked and 2026 prospective tests remain unopened"
+    )
     release_rows = [
-        {"component": "NowCast Core", "status": "development" if development else "pending", "reason": "2025 locked and 2026 prospective tests remain unopened"},
+        {"component": "NowCast Core", "status": nowcast_status, "reason": nowcast_reason},
         {"component": "FutureCast", "status": "withheld", "reason": "Requires 90 days of real issued forecasts and horizon validation"},
         {"component": "StationCast Stage A", "status": "shadow", "reason": "Deterministic adapter and privacy contract pass; product validation remains"},
         {"component": "6m Cast", "status": "experimental", "reason": "Heuristic mechanism labels and incomplete mechanism support"},
@@ -326,9 +349,9 @@ def main() -> None:
     experiment_rows = [
         {"candidate": "B0 climatology", "status": "complete" if b0 else "pending", "decision": "Honest minimum baseline"},
         {"candidate": "B1 P.533", "status": "complete" if b1.get("status") == "paired_gate_sample" else "pending", "decision": "Pinned physical baseline on identical bounded circuits"},
-        {"candidate": "B2 frozen V3", "status": "blocked", "decision": "Frozen binaries must be transferred from the M5 machine"},
+        {"candidate": "B2 frozen V3", "status": "blocked", "decision": "Frozen V3 development comparison has not been produced"},
         {"candidate": "M1 physics/weather", "status": "complete" if m1 else "pending", "decision": "Independent stale-network serving profile"},
-        {"candidate": "M2 NowCast", "status": "complete" if m2 else "pending", "decision": "Primary development candidate"},
+        {"candidate": "M2 NowCast", "status": ("gate failed" if failed_detailed_gates else ("complete" if m2 else "pending")), "decision": "Primary development candidate; locked test remains closed"},
         {"candidate": "M3 TEC/ROTI", "status": "deferred", "decision": "Requires operational/historical IGS parity before ablation"},
         {"candidate": "M4 station nuisance", "status": "deferred", "decision": "Requires cross-fitted or consented prospective station evidence"},
         {"candidate": "M5 P.533 hybrid", "status": "not escalated", "decision": "P.533 retained as bounded baseline; full feature build is not justified yet"},
@@ -623,6 +646,11 @@ def main() -> None:
                 )
                 + "The 2025 archive test and 2026 prospective test remain unopened. FutureCast is withheld, "
                 "and 6m remains a separate experimental mechanism program."
+                + (
+                    " The detailed development gate failed because calibration regressed raw M2 on "
+                    f"{short_path_regression_text}; the locked test therefore remains closed."
+                    if short_path_regression_text else ""
+                )
             ),
         },
         {"id": "headline_metrics", "type": "metric-strip", "cardIds": [item["id"] for item in cards]},
@@ -692,7 +720,12 @@ def main() -> None:
             "type": "markdown",
             "body": (
                 "## The remaining evidence gaps are release blockers\n\n"
-                "- Frozen V3 binaries must be transferred before the B2 comparison can be reproduced.\n"
+                + (
+                    "- The short-path calibration non-regression gate failed on "
+                    f"{short_path_regression_text}.\n"
+                    if short_path_regression_text else ""
+                )
+                + "- The frozen V3/B2 development comparison has not been produced.\n"
                 "- The locked 2025 archive is not opened until every preregistered development gate passes.\n"
                 "- The prospective window runs from 2026-08-01 through 2026-09-30.\n"
                 "- FutureCast needs at least 90 days of genuine issued forecasts; observations cannot backfill them.\n"
@@ -706,9 +739,11 @@ def main() -> None:
             "type": "markdown",
             "body": (
                 "## Next steps are gated, not open-ended tuning\n\n"
-                "Complete the 20M/50M curve, rolling-origin folds, source-outage checks, frozen V3 comparison, and "
-                "product shadow integration. Open 2025 once if every gate passes. Preserve the selected bundle for "
-                "the prospective window, then publish supported successes and failures without post-test tuning."
+                "Publish this failed gate without modifying the frozen candidate. Preregister a new calibration "
+                "version that may select identity/raw calibration by distance using calibration data only, and give "
+                "that version a fresh untouched development gate. Complete the frozen V3 comparison and product "
+                "shadow integration. Open 2025 only after every gate passes, then preserve the selected bundle for "
+                "the prospective window without post-test tuning."
             ),
         },
         {
@@ -727,8 +762,14 @@ def main() -> None:
     access_issues = [
         {"id": "locked_archive", "dataset": "locked_2025", "message": "The preregistered 2025 archive test remains unopened."},
         {"id": "prospective", "dataset": "prospective_2026", "message": "The prospective evaluation cannot finish before 2026-09-30."},
-        {"id": "frozen_v3", "dataset": "frozen_v3", "message": "Frozen V3 model binaries are not present on this machine."},
+        {"id": "frozen_v3", "dataset": "frozen_v3", "message": "The frozen V3/B2 development comparison has not been produced."},
     ]
+    if failed_detailed_gates:
+        access_issues.append({
+            "id": "failed_development_gate",
+            "dataset": "detailed_validation",
+            "message": "Detailed development gate failed: " + ", ".join(failed_detailed_gates),
+        })
     artifact = {
         "surface": "report",
         "manifest": {
@@ -776,6 +817,13 @@ def main() -> None:
     write_json(artifact_path, artifact)
 
     m2_gate = m2.get("gate_full", {})
+    gate_failure_markdown = (
+        "\n\nThe preregistered detailed development gate **failed** because calibrated "
+        f"M2 regressed raw M2 on {short_path_regression_text}. The locked 2025 "
+        "test remains closed; this frozen candidate will not be tuned against "
+        "its October evaluation result."
+        if short_path_regression_text else ""
+    )
     markdown = f"""# Propagation V4 Development Report
 
 Generated: {generated_at}
@@ -785,7 +833,7 @@ Generated: {generated_at}
 This is development evidence, not a production release. The current M2 model
 uses {compact(primary_cap)} training rows and has an October 2024
 opportunity-weighted Brier score of `{m2_gate.get('weighted_brier', 'pending')}`.
-The locked 2025 archive and 2026 prospective evaluation remain unopened.
+The locked 2025 archive and 2026 prospective evaluation remain unopened.{gate_failure_markdown}
 
 ## Key findings
 
@@ -794,7 +842,7 @@ The locked 2025 archive and 2026 prospective evaluation remain unopened.
 """
     for row in model_metrics:
         markdown += f"| {row['candidate']} | {row['scope']} | {row['brier']:.6f} | {row['log_loss']:.6f} | {row['ece']:.6f} |\n"
-    markdown += """
+    markdown += f"""
 
 The HTML report contains the paired P.533 comparison, learning curve,
 reliability diagram, rolling folds when available, archive coverage, band
@@ -816,7 +864,8 @@ The locked archive is 2025; the prospective window is 2026-08-01 through
 
 ## Limitations
 
-- Frozen V3 binaries are not available on this machine.
+- The short-path calibration non-regression gate failed on {short_path_regression_text or 'pending detailed validation'}.
+- The frozen V3/B2 development comparison has not been produced.
 - FutureCast lacks enough genuine issued-forecast history.
 - 6m mechanism assignments are heuristic and incompletely supported.
 - Product shadow, prospective, and opt-in beta evidence remain incomplete.
@@ -824,9 +873,10 @@ The locked archive is 2025; the prospective window is 2026-08-01 through
 
 ## Recommended next steps
 
-Finish the 20M/50M curve and rolling/source-outage gates, transfer frozen V3,
-then open 2025 once if every preregistered gate passes. Keep failed components
-experimental or disabled.
+Publish this failed candidate without changing it. Preregister a new version
+that may select identity/raw calibration by distance using calibration data
+only, and evaluate that version on a fresh untouched development gate. Produce
+the frozen V3/B2 comparison; open 2025 only after every gate passes.
 """
     (result_dir / "REPORT.md").write_text(markdown, encoding="utf-8")
 
@@ -835,7 +885,9 @@ experimental or disabled.
 ## Status
 
 Development-only. Release approved: **no**. Primary trained cap in this report:
-`{primary_cap}` rows. The 2025 locked and 2026 prospective tests are pending.
+`{primary_cap}` rows. The detailed development gate status is
+`{'failed' if failed_detailed_gates else 'passed or pending'}`; the 2025 locked
+and 2026 prospective tests are pending.
 
 ## Intended use
 
@@ -865,6 +917,7 @@ Network participation, receiver sensitivity, local noise, labels, and path
 exposure are imperfect. Predictions must expose freshness, model version,
 confidence, assumptions, and OOD flags. Missing live history selects the physics
 fallback rather than fabricating evidence.
+{('- Short-path calibrated Brier regressed raw M2 on ' + short_path_regression_text + '.') if short_path_regression_text else ''}
 """
     (result_dir / "model_card.md").write_text(model_card, encoding="utf-8")
 
@@ -961,6 +1014,17 @@ The current M2 candidate uses {compact(primary_cap)} rows and reaches Brier
 gate, with skill `{m2.get('brier_skill_vs_B0', 'pending')}` versus natural
 band-hour climatology. {p533_sentence} These numbers do not include the locked
 2025 or prospective 2026 tests and must not be described as final generalization.
+
+### Why the locked test remains closed
+
+The detailed October gate **failed** its short-path calibration non-regression
+check. Calibrated M2 was slightly worse than raw M2 on
+{short_path_regression_text or 'the pending short-path slices'}. M2 still beat
+M1 and climatology strongly in those slices, but the calibration guardrail is a
+frozen release condition. We therefore did not open 2025 and will not retrofit
+this candidate after seeing October. A future version must preregister any
+identity/raw-by-distance calibration choice using calibration data only and use
+a fresh untouched development gate.
 
 ### Learning curve
 
@@ -1099,6 +1163,8 @@ npm install
 ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py prepare --profile m5
 ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py train-validation --profile m5
 ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py rolling-validation --profile m5
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py compare-lightgbm --profile m5
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py detailed-validation --profile m5
 ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py package-serving --profile m5
 ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py source-outage-validation --profile m5
 ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py report-artifact --profile m5
@@ -1114,7 +1180,8 @@ separate scoped execution and is intentionally absent above.
 
 ## Limitations and release boundary
 
-- Frozen V3 binaries still must be transferred for the preregistered B2 check.
+- The short-path calibration non-regression gate failed on {short_path_regression_text or 'pending detailed validation'}.
+- The frozen V3/B2 development comparison has not been produced.
 - 2025 and the 2026 prospective window have not been scored.
 - Public network participation and equipment exposure remain imperfect.
 - WSPR evidence does not establish FT8, CW, SSB, receive, or two-way-QSO
@@ -1149,6 +1216,31 @@ will be published alongside successes.
             sample_path, hf_audit_path, six_audit_path, bronze_path, sources_path,
         ) if path.exists()
     ]
+    development_gates_passed = (
+        bool(detailed)
+        and not failed_detailed_gates
+        and rolling.get("all_folds_positive_brier_skill") is True
+        and outage.get("passed") is True
+    )
+    required_followup = []
+    if not rolling.get("all_folds_positive_brier_skill"):
+        required_followup.append("Complete all rolling-origin validation gates.")
+    if not outage.get("passed"):
+        required_followup.append("Complete the source-outage fallback gate.")
+    if failed_detailed_gates:
+        required_followup.append(
+            "Publish the frozen failed candidate, then preregister a new calibration "
+            "version with a fresh untouched development gate."
+        )
+    required_followup.extend([
+        "Produce the frozen V3/B2 development comparison before opening 2025.",
+        (
+            "Score the frozen candidates on 2025 once without tuning."
+            if development_gates_passed else
+            "Keep the locked 2025 archive closed until every development gate passes."
+        ),
+        "Complete the 2026-08-01 through 2026-09-30 prospective test.",
+    ])
     run_manifest = {
         "schema_version": 1,
         "generated_at": generated_at,
@@ -1158,18 +1250,15 @@ will be published alongside successes.
         "locked_archive_test_read": False,
         "prospective_test_complete": False,
         "development_complete": development_complete,
+        "development_gates_passed": development_gates_passed,
+        "failed_development_gates": failed_detailed_gates,
         "release_approved": False,
         "inputs": [
             {"path": relative(path), "bytes": path.stat().st_size, "sha256": sha256(path)}
             for path in input_paths
         ],
         "report_artifact": relative(artifact_path),
-        "required_followup": [
-            "Run all rolling-origin and source-outage gates.",
-            "Transfer and score frozen V3 before opening 2025.",
-            "Complete the 2025 archive test once without tuning.",
-            "Complete the 2026-08-01 through 2026-09-30 prospective test.",
-        ],
+        "required_followup": required_followup,
     }
     write_json(result_dir / "run_manifest.json", run_manifest)
     (figures_dir / "README.md").write_text(

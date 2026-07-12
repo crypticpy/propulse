@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T13:58:16.132988+00:00",
+  "run_id": "propagation_v4_multiyear_50m",
+  "scope": "development_only",
+  "locked_test_scored": false,
+  "artifacts": [
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M1_physics_5000000.json",
+      "bytes": 17485582,
+      "sha256": "716bc6d2971e8b3f1a3289007f50d1b13986e925f8c03c518238973f02fe48b9"
+    },
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M1_physics_50000000.json",
+      "bytes": 59348757,
+      "sha256": "025d43884046589ddcdcd555a61e07f0d1aa22daed5403cded66a06bc3cb61d4"
+    },
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M2_nowcast_5000000.json",
+      "bytes": 10769083,
+      "sha256": "da15fe35294d79a849663d0cadc37e8fa9e34bd064a9ead08e101a18cf6b57ca"
+    },
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M2_nowcast_50000000.json",
+      "bytes": 28251303,
+      "sha256": "706d4f5ca6ad855bc9cbf1139cfeb53c0015e04c67d39184be78ca2e1f6755d5"
+    },
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M1_physics_5000000.isotonic.joblib",
+      "bytes": 51763,
+      "sha256": "7fc16a6bb223159c852d1b3b69d39bb7587ec7b46df1e1d1a0a5dc8a660ac72c"
+    },
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M1_physics_50000000.isotonic.joblib",
+      "bytes": 4582,
+      "sha256": "0f61adf63b3b8119fda2ea3f739e9f8bd26ff998072ade2e0f32bebf02567913"
+    },
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M2_nowcast_5000000.isotonic.joblib",
+      "bytes": 55651,
+      "sha256": "f2747472769910b2e77277e92e979644dce32f1763af4c3ead88123790711515"
+    },
+    {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M2_nowcast_50000000.isotonic.joblib",
+      "bytes": 57963,
+      "sha256": "f55f0be138f241d45cd11736af4e627f8410b7089bcee7bb5485c3c759b12865"
+    }
+  ]
+}

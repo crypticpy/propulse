@@ -768,12 +768,20 @@ within budget, and a two-year smoke run reproduces expected V3 behavior.
 
 ### Phase 3: core training and locked evaluation
 
-- [ ] Execute B0/B1/B2 and M1-M5 validation experiments.
-- [ ] Select model/calibration using only 2024 development months.
-- [ ] Run rolling-origin and source-outage validation.
-- [ ] Check all pre-2025 gates.
+- [ ] Execute B0/B1/B2 and M1-M5 validation experiments (B0, B1, M1, M2,
+  bounded LightGBM, and independent 6m arms are complete; B2 remains blocked,
+  while M3-M5 remain deferred by their preregistered evidence requirements).
+- [x] Select model/calibration using only 2024 development months (M2 at 50M
+  selected; the frozen detailed gate then failed short-path calibration
+  non-regression, so this candidate is not approved for the locked test).
+- [x] Run rolling-origin and source-outage validation (all four rolling folds
+  have positive Brier skill; packaged stale-history fallback passed).
+- [x] Check all pre-2025 gates (failed on calibrated versus raw M2 for 0-500 km
+  by `0.000153` Brier and 500-1500 km by `0.000287`; 2025 remains closed).
 - [ ] Score the frozen candidates on 2025 once.
-- [ ] Decide whether a 100M experiment is scientifically justified.
+- [x] Decide whether a 100M experiment is scientifically justified (the
+  20M-to-50M relative Brier gain is `1.83%`, materially steeper than V3, but a
+  100M run is deferred until the calibration gate and frozen B2 comparison pass).
 
 **Gate:** V4 must beat climatology and P.533 on 2025 with calibrated gains, and
 must not materially regress critical band/distance/geographic slices. Otherwise
@@ -783,7 +791,8 @@ retain V3/core physics and publish the failed expansion honestly.
 
 - [ ] Build issued-forecast examples for +3/+6/+12/+24 hours.
 - [ ] Train and validate direct horizon models against persistence/baselines.
-- [ ] Build separate 6m mechanism features and models.
+- [x] Build separate 6m mechanism features and models (development-only;
+  unsupported mechanism families remain experimental and unreleased).
 - [ ] Freeze only the horizons/mechanisms that pass.
 
 **Gate:** every released horizon has positive held-out Brier skill and reliable
@@ -791,14 +800,14 @@ uncertainty; 6m passes both event and quiet-day tests.
 
 ### Phase 5: inference, Supabase, and product integration
 
-- [ ] Package core and calibrators with checksums and schema versions.
-- [ ] Implement batch path/surface inference and health/fallback endpoints.
-- [ ] Add reviewed Supabase migrations and RLS policies.
-- [ ] Connect active location and active station chain to StationCast.
-- [ ] Replace Band Planner heuristic calls with versioned predictions behind a
+- [x] Package core and calibrators with checksums and schema versions.
+- [x] Implement batch path/surface inference and health/fallback endpoints.
+- [x] Add reviewed Supabase migrations and RLS policies.
+- [x] Connect active location and active station chain to StationCast.
+- [x] Replace Band Planner heuristic calls with versioned predictions behind a
   feature flag while preserving an explicit fallback.
-- [ ] Add ReachMap to PropSphere across globe, flat, and azimuthal views.
-- [ ] Add issue/valid time, freshness, confidence, and assumptions UI.
+- [x] Add ReachMap to PropSphere across globe, flat, and azimuthal views.
+- [x] Add issue/valid time, freshness, confidence, and assumptions UI.
 - [ ] Instrument attempts/outcomes with opt-in consent.
 
 **Gate:** contract, parity, privacy, RLS, accessibility, rendering, load, and

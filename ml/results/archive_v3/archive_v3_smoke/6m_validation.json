@@ -1,0 +1,176 @@
+{
+  "generated_at": "2026-07-12T04:41:46.707210+00:00",
+  "run_id": "archive_v3_smoke",
+  "task": "6m",
+  "summary": {
+    "checks": 33,
+    "failures": 0
+  },
+  "checks": [
+    {
+      "name": "exists: bronze manifest",
+      "passed": true,
+      "detail": "ml/data/manifests/archive_v3_smoke_bronze.json"
+    },
+    {
+      "name": "exists: opportunity manifest",
+      "passed": true,
+      "detail": "ml/data/manifests/archive_v3_smoke_6m_opportunities.json"
+    },
+    {
+      "name": "exists: dataset",
+      "passed": true,
+      "detail": "ml/data/processed/archive_v3/dataset_archive_v3_smoke_6m.parquet"
+    },
+    {
+      "name": "exists: results",
+      "passed": true,
+      "detail": "ml/results/archive_v3/archive_v3_smoke/6m_results.json"
+    },
+    {
+      "name": "bronze month coverage",
+      "passed": true,
+      "detail": "manifest=2 expected=2"
+    },
+    {
+      "name": "bronze unique rows 2019-04",
+      "passed": true,
+      "detail": "rows=38142481 unique=38142481"
+    },
+    {
+      "name": "bronze checksum 2019-04",
+      "passed": true,
+      "detail": "cfd6e40226d1551ecc568067d4905294dd444e99c544b594c1ca477d561c71e0"
+    },
+    {
+      "name": "bronze unique rows 2024-04",
+      "passed": true,
+      "detail": "rows=171439522 unique=171439522"
+    },
+    {
+      "name": "bronze checksum 2024-04",
+      "passed": true,
+      "detail": "1aa64371e571d47a67a542c5ae13e0ca165c38832020a873789040cd6b3150e1"
+    },
+    {
+      "name": "opportunity month coverage",
+      "passed": true,
+      "detail": "manifest=2 expected=2"
+    },
+    {
+      "name": "positive opportunity weights 2019-04",
+      "passed": true,
+      "detail": "weight=31693.25 prevalence=0.500169594472009"
+    },
+    {
+      "name": "sample includes positives 2019-04",
+      "passed": true,
+      "detail": "positive_rows=15852"
+    },
+    {
+      "name": "inverse-weight exposure audit 2019-04",
+      "passed": true,
+      "detail": "relative_error=-0.000780"
+    },
+    {
+      "name": "positive opportunity weights 2024-04",
+      "passed": true,
+      "detail": "weight=318960.25 prevalence=0.0778529613016042"
+    },
+    {
+      "name": "sample includes positives 2024-04",
+      "passed": true,
+      "detail": "positive_rows=24832"
+    },
+    {
+      "name": "inverse-weight exposure audit 2024-04",
+      "passed": true,
+      "detail": "relative_error=-0.001142"
+    },
+    {
+      "name": "dataset required columns",
+      "passed": true,
+      "detail": "set()"
+    },
+    {
+      "name": "dataset nonempty",
+      "passed": true,
+      "detail": "112172"
+    },
+    {
+      "name": "strict positive sample weights",
+      "passed": true,
+      "detail": "1.0"
+    },
+    {
+      "name": "fractional target bounds",
+      "passed": true,
+      "detail": "[0.0, 1.0]"
+    },
+    {
+      "name": "split nonempty: train",
+      "passed": true,
+      "detail": "8804"
+    },
+    {
+      "name": "split nonempty: validation",
+      "passed": true,
+      "detail": "5513"
+    },
+    {
+      "name": "split nonempty: test",
+      "passed": true,
+      "detail": "97855"
+    },
+    {
+      "name": "no hour split overlap",
+      "passed": true,
+      "detail": "0"
+    },
+    {
+      "name": "result run id",
+      "passed": true,
+      "detail": "archive_v3_smoke"
+    },
+    {
+      "name": "result task",
+      "passed": true,
+      "detail": "6m"
+    },
+    {
+      "name": "all numeric metrics finite",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "physics test metrics",
+      "passed": true,
+      "detail": "dict_keys(['engine', 'features', 'best_iteration', 'seconds', 'train_rows', 'validation_rows', 'test_rows', 'validation_raw', 'test_raw', 'test_calibrated', 'climatology', 'brier_skill_vs_climatology', 'calibration_bins', 'slices', 'day_block_vs_climatology', 'feature_importance_gain', 'model_path'])"
+    },
+    {
+      "name": "physics probability bounds",
+      "passed": true,
+      "detail": "0.1618004279907825"
+    },
+    {
+      "name": "physics calibration bins",
+      "passed": true,
+      "detail": "10"
+    },
+    {
+      "name": "nowcast test metrics",
+      "passed": true,
+      "detail": "dict_keys(['engine', 'features', 'best_iteration', 'seconds', 'train_rows', 'validation_rows', 'test_rows', 'validation_raw', 'test_raw', 'test_calibrated', 'climatology', 'brier_skill_vs_climatology', 'calibration_bins', 'slices', 'day_block_vs_climatology', 'feature_importance_gain', 'model_path', 'learning_curve'])"
+    },
+    {
+      "name": "nowcast probability bounds",
+      "passed": true,
+      "detail": "0.16597253000368786"
+    },
+    {
+      "name": "nowcast calibration bins",
+      "passed": true,
+      "detail": "10"
+    }
+  ]
+}

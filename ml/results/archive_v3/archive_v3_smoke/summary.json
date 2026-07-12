@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "run_id": "archive_v3_smoke",
+  "generated_at": "2026-07-12T04:45:01.281986+00:00",
+  "gate_supported": true,
+  "headline": {
+    "nowcast_weighted_brier": 0.05478164084786676,
+    "brier_skill_vs_climatology": 0.4065525446738668,
+    "open_pr_auc": 0.9278087573435545,
+    "day_block_95_ci": [
+      -0.038268006313592194,
+      -0.03639271174557507
+    ]
+  },
+  "report": "ml/results/archive_v3/archive_v3_smoke/REPORT.html"
+}

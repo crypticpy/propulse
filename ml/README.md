@@ -1,11 +1,12 @@
 # Propulse ML — Contact Probability Model
 
-> **Status**: V1-V4 short-window experiments complete; stricter PSK-only
-> Archive Proof V2 complete. See [`ARCHIVE-PROOF-V2.md`](ARCHIVE-PROOF-V2.md)
-> and the self-contained visual report at
-> [`results/archive_v2/REPORT.html`](results/archive_v2/REPORT.html).
-> The next-machine execution plan is
-> [`ARCHIVE-MULTIMONTH-V3-PLAN.md`](ARCHIVE-MULTIMONTH-V3-PLAN.md).
+> **Status**: V1-V4 short-window experiments and Archive Proof V2 are complete.
+> Exposure-aware Archive V3 completed its eight-month M5 run on 2026-07-12.
+> See the [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md),
+> [animated report](results/archive_v3/archive_v3_eight_month/REPORT.html), and
+> frozen [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md). V3 passed its
+> temporal statistical gate but is not approved for all-years scaling or
+> product probability serving.
 > **Created**: 2026-07-11
 > **Supersedes**: Level 2/3 of `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md` (Level 1 — `band_region_stats` — was never implemented)
 

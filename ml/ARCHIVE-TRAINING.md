@@ -1,5 +1,12 @@
 # Tier-4: Multi-Year Archive Training (the "big model" plan)
 
+> **2026-07-12 result:** the exposure-aware eight-month V3 experiment is
+> complete. Read
+> [`ARCHIVE-MULTIMONTH-V3-RESULTS.md`](ARCHIVE-MULTIMONTH-V3-RESULTS.md)
+> before expanding this older strategy. The measured 20M-to-50M gain is small,
+> and P.533, station holdouts, prospective collector transfer, and source-term
+> gates remain open.
+
 > **2026-07-11 correction:** the original March cross-evaluation below is
 > retained as experiment history but is superseded by
 > [`ARCHIVE-PROOF-V2.md`](ARCHIVE-PROOF-V2.md). V2 filters Madrigal to PSK-only,

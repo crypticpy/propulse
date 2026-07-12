@@ -1,6 +1,9 @@
 # Archive Multi-Month V3: Execution and M5 Handoff Plan
 
-> Status: approved next experiment, not yet implemented.
+> Status: frozen preregistration; executed on 2026-07-12 with deviations
+> documented in [`ARCHIVE-MULTIMONTH-V3-RESULTS.md`](ARCHIVE-MULTIMONTH-V3-RESULTS.md).
+> The unchecked items below are intentionally preserved rather than rewritten
+> after observing results.
 > Created: 2026-07-11.
 > Prerequisite: Archive Proof V2 and its validated report.
 > Primary decision: run an exposure-aware, representative eight-month pilot

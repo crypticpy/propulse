@@ -1,7 +1,9 @@
 # Personalized Propagation V4.1: Calibration Recovery and Release Plan
 
-> Status: preregistration drafted and frozen on 2026-07-12; execution has not
-> started.
+> Status: preregistration drafted and frozen on 2026-07-12. Execution is in
+> progress; see the current
+> [`V4.1 M5 execution handoff`](PERSONALIZED-PROPAGATION-V4.1-M5-EXECUTION-HANDOFF.md)
+> before resuming work.
 > Parent experiment: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Frozen V4 evidence commit: `2cb309d` on `feat/archive-multimonth-v3`.
 > Primary compute target: Apple M5 Max with 128 GB unified memory.

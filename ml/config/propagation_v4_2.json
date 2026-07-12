@@ -1,0 +1,51 @@
+{
+  "run_id": "propagation_v4_2_performance_recovery",
+  "seed": 20260712,
+  "diagnosis": {
+    "development_months": ["2024-02", "2024-04", "2024-05", "2024-08"],
+    "evaluation_months": ["2024-10", "2024-11"],
+    "forbidden_months": ["2024-12", "2025-01", "2025-04", "2025-07", "2025-10"],
+    "batch_rows": 100000,
+    "bootstrap_repetitions": 2000,
+    "blend_step": 0.05,
+    "router_minimum_month_opportunities": 1000000,
+    "router_minimum_month_positive_mass": 1000,
+    "inputs": {
+      "2024-02": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-000.parquet",
+        "bytes": 6786291189,
+        "sha256": "6d0e2f4f511e2a52f6ed1f772cc8a0b635a46b8068ca9655a97fdb0e4c2282f6"
+      },
+      "2024-04": {
+        "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-025.parquet",
+        "bytes": 7136849835,
+        "sha256": "0decad12069c8fd8dbfc987f203df5767267667c72e3a17a50f3c9e74df84a0c"
+      },
+      "2024-05": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-001.parquet",
+        "bytes": 6464830928,
+        "sha256": "367a61effdfead1d493f793ebf94ed698c393e2b3a95ced588065877ebb78ef2"
+      },
+      "2024-08": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-002.parquet",
+        "bytes": 5936865614,
+        "sha256": "7f5b4976b9b97f4448bd1d8bddc1b768f9c7812dfae12876a4e9e66098381f97"
+      },
+      "2024-10": {
+        "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-027.parquet",
+        "bytes": 7123431215,
+        "sha256": "59eb68ca402e48a0e8a27627f07e31e77f0236c523c51f7d9550246d426b0340"
+      },
+      "2024-11": {
+        "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_hf.parquet/part-000.parquet",
+        "bytes": 6906860189,
+        "sha256": "3987e3ef18e7ed3f3b8888664bc61503486ab8cb0063a26ecfbb911779106d6b"
+      }
+    }
+  },
+  "frozen_candidates": {
+    "v3_results": "ml/results/archive_v3/archive_v3_eight_month/hf_results.json",
+    "v4_results": "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json"
+  },
+  "output": "ml/results/propagation_v4_2/propagation_v4_2_performance_recovery/diagnosis.json"
+}

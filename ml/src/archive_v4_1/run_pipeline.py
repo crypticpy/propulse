@@ -236,6 +236,46 @@ def prepare_development(config: dict, force: bool) -> None:
         run(command, config)
 
 
+def repair_development_features(config: dict) -> None:
+    manifest = record_development_access(
+        DEFAULT_MANIFEST,
+        config["data_roles"]["new_calibration_sources"],
+    )
+    scoped = transform_config(config, manifest, "calibration-development")
+    config_path = (
+        ROOT
+        / "ml/data/manifests/propagation_v4_1_calibration_development.json"
+    )
+    write_transform_config(scoped, config_path)
+    for script, arguments in (
+        (V3 / "build_space_weather.py", []),
+        (V3 / "build_source_manifest.py", []),
+        (V3 / "build_features.py", ["--task", "hf", "--force"]),
+    ):
+        run(
+            [sys.executable, str(script), "--config", str(config_path), *arguments],
+            config,
+        )
+
+
+def audit_development_v2(config: dict) -> None:
+    output = RESULT_ROOT / "preregistration/development_data_audit_v2.json"
+    run(
+        [
+            sys.executable,
+            str(V41 / "audit_development.py"),
+            "--config",
+            str(DEFAULT_CONFIG),
+            "--output",
+            str(output),
+            "--profile",
+            "m5",
+        ],
+        config,
+    )
+    freeze_artifact(DEFAULT_MANIFEST, "development_data_audit_v2", output)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -245,7 +285,9 @@ def main() -> None:
             "freeze-b2",
             "score-b2-engineering",
             "prepare-development",
+            "repair-development-features",
             "audit-development",
+            "audit-development-v2",
             "inventory-calibration",
             "materialize-calibration",
             "select-calibration",
@@ -266,8 +308,12 @@ def main() -> None:
         score_b2_engineering(config)
     elif args.stage == "prepare-development":
         prepare_development(config, args.force)
+    elif args.stage == "repair-development-features":
+        repair_development_features(config)
     elif args.stage == "audit-development":
         audit_development(config)
+    elif args.stage == "audit-development-v2":
+        audit_development_v2(config)
     elif args.stage == "inventory-calibration":
         inventory_calibration(config)
     elif args.stage == "materialize-calibration":

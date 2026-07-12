@@ -132,6 +132,14 @@ audit found zero target-hour nulls, non-positive weights, split violations, or
 future-availability features. Exposure reconstruction error was 0.1082% in
 February, 0.1034% in May, and 0.0535% in August, all well inside the 3% gate.
 
+The first calibration-input inventory subsequently found a schema defect before
+any raw M2 prediction was generated: the 2024-only OMNI build inferred the
+entirely missing `proton_flux_10mev` column as nonnumeric, so the three new
+months omitted `proton_flux_10mev_missing` and used the wrong value type. The
+inventory stopped without writing an artifact. The canonical OMNI schema and
+missingness flag must be restored, the three authorized feature partitions
+rebuilt, and a versioned development audit frozen before inventory resumes.
+
 ### Frozen B2 evidence
 
 | Artifact | SHA-256 |

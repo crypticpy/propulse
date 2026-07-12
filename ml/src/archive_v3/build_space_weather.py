@@ -18,6 +18,33 @@ from common import PROCESSED, RAW, ensure_directories, load_config, month_parts,
 OMNI_URL = "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_{year}.dat"
 GFZ_URL = "https://kp.gfz.de/app/json/?start={start}&end={end}&index=Hp60"
 
+OMNI_FLOAT_COLUMNS = (
+    "bt",
+    "bx_gsm",
+    "by_gsm",
+    "bz_gsm",
+    "temperature_k",
+    "density_cm3",
+    "wind_speed",
+    "flow_pressure",
+    "electric_field",
+    "plasma_beta",
+    "alfven_mach",
+    "kp",
+    "proton_flux_10mev",
+    "f107",
+    "pcn",
+    "magnetosonic_mach",
+)
+OMNI_INTEGER_COLUMNS = (
+    "sunspot_number",
+    "dst",
+    "ae",
+    "ap",
+    "al",
+    "au",
+)
+
 
 def value(parts: list[str], index: int, fill: float) -> float | None:
     number = float(parts[index])
@@ -63,6 +90,23 @@ def parse_omni(path: Path) -> list[dict]:
             }
         )
     return rows
+
+
+def canonicalize_omni_schema(frame: pl.DataFrame) -> pl.DataFrame:
+    """Keep feature types stable when a source column is entirely missing."""
+
+    return frame.with_columns(
+        *[
+            pl.col(name).cast(pl.Float64)
+            for name in OMNI_FLOAT_COLUMNS
+            if name in frame.columns
+        ],
+        *[
+            pl.col(name).cast(pl.Int64)
+            for name in OMNI_INTEGER_COLUMNS
+            if name in frame.columns
+        ],
+    )
 
 
 def month_bounds(month: str) -> tuple[datetime, datetime]:
@@ -114,7 +158,11 @@ def main() -> None:
         path = RAW / f"omni/omni2_{year}.dat"
         download(OMNI_URL.format(year=year), path)
         omni_rows.extend(parse_omni(path))
-    omni = pl.DataFrame(omni_rows).unique("observed_hour").sort("observed_hour")
+    omni = (
+        canonicalize_omni_schema(pl.DataFrame(omni_rows))
+        .unique("observed_hour")
+        .sort("observed_hour")
+    )
     hp60 = pl.concat([load_hp60(month) for month in config["months"]]).unique(
         "observed_hour"
     )

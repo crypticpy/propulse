@@ -104,6 +104,7 @@ import { useReplayStore } from "@/stores/replayStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
+import { propagationModelEnabled } from "@/lib/propagation/modelClient";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -869,22 +870,24 @@ export function PropSphere() {
                 {/* Layers popover */}
                 <LayersPopover />
 
-                <ReachMapControl
-                  enabled={reachMapEnabled}
-                  band={reachMapBand}
-                  onEnabledChange={setReachMapEnabled}
-                  onBandChange={setReachMapBand}
-                  state={
-                    timeOffset === 0
-                      ? reachMapState
-                      : {
-                          ...reachMapState,
-                          loading: false,
-                          error: "Return to live time to use NowCast",
-                          cellCount: 0,
-                        }
-                  }
-                />
+                {propagationModelEnabled && (
+                  <ReachMapControl
+                    enabled={reachMapEnabled}
+                    band={reachMapBand}
+                    onEnabledChange={setReachMapEnabled}
+                    onBandChange={setReachMapBand}
+                    state={
+                      timeOffset === 0
+                        ? reachMapState
+                        : {
+                            ...reachMapState,
+                            loading: false,
+                            error: "Return to live time to use NowCast",
+                            cellCount: 0,
+                          }
+                    }
+                  />
+                )}
 
                 {/* Colors popover */}
                 <ColorsPopover />

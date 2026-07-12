@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import copy
+import math
 import unittest
 
 from fastapi.testclient import TestClient
 
-from app import RuntimePrediction, create_app
+from app import RuntimePrediction, create_app, model_feature_value
 
 
 class FakeRegistry:
@@ -89,6 +90,10 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(body["core_probability"], 0.4)
         self.assertGreater(body["personalized_probability"], body["core_probability"])
         self.assertEqual(body["model_version"], "v4-test")
+
+    def test_missing_model_features_remain_nan(self):
+        self.assertTrue(math.isnan(model_feature_value(None)))
+        self.assertEqual(model_feature_value(0), 0.0)
 
     def test_raw_equipment_fields_are_rejected(self):
         payload = request_payload()

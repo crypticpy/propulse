@@ -103,6 +103,7 @@ def main() -> None:
     p533_path = result_dir / "p533_validation_results.json"
     rolling_path = result_dir / "rolling_validation_results.json"
     outage_path = result_dir / "source_outage_validation_results.json"
+    detailed_path = result_dir / "detailed_validation_results.json"
     future_path = RESULTS / "futurecast_readiness.json"
     sample_path = MANIFESTS / f"{run_id}_hf_balanced_sample.json"
     hf_audit_path = MANIFESTS / f"{run_id}_hf_development_audit.json"
@@ -115,6 +116,7 @@ def main() -> None:
     p533 = read_json(p533_path, {})
     rolling = read_json(rolling_path, {})
     outage = read_json(outage_path, {})
+    detailed = read_json(detailed_path, {})
     future = read_json(future_path, {})
     sample = read_json(sample_path, {})
     hf_audit = read_json(hf_audit_path, {})
@@ -139,6 +141,7 @@ def main() -> None:
         source("p533", "Pinned ITU-R P.533 validation", relative(p533_path)),
         source("rolling", "Rolling-origin validation", relative(rolling_path)),
         source("outage", "Source-outage fallback validation", relative(outage_path)),
+        source("detailed", "Paired detailed validation", relative(detailed_path)),
         source("future", "FutureCast issuance readiness", relative(future_path)),
         source("bronze", "Quarterly archive bronze manifest", relative(bronze_path)),
     ]
@@ -158,7 +161,10 @@ def main() -> None:
             ),
             default=0,
         ),
-        "outage_passed": int(bool(outage.get("passed", False))),
+            "outage_passed": int(bool(outage.get("passed", False))),
+            "m2_skill_lower_95": detailed.get("day_bootstrap_95", {}).get(
+                "m2_skill_vs_b0", {}
+            ).get("lower_95"),
     }]
 
     model_metrics = []
@@ -232,6 +238,13 @@ def main() -> None:
         for row in rolling.get("folds", [])
     ]
     outage_rows = outage.get("scenarios", [])
+    detailed_daily = detailed.get("daily", [])
+    detailed_distance = detailed.get("distance", [])
+    detailed_regions = detailed.get("coarse_transmitter_regions", [])
+    detailed_intervals = [
+        {"metric": metric, **values}
+        for metric, values in detailed.get("day_bootstrap_95", {}).items()
+    ]
 
     year_totals: dict[str, dict[str, int]] = defaultdict(lambda: {"spots": 0, "six_meter_spots": 0})
     for row in bronze.get("months", []):
@@ -268,6 +281,16 @@ def main() -> None:
         metric_card("future_days", "Minimum distinct issued-forecast capture days across required NOAA products.", "summary", "future", "Forecast archive days", "future_days"),
         metric_card("outage_passed", "Packaged model fallback contract on held-out development rows.", "summary", "outage", "Outage fallback passed", "outage_passed"),
     ]
+    if summary[0]["m2_skill_lower_95"] is not None:
+        cards.append(metric_card(
+            "m2_skill_lower_95",
+            "Day-bootstrap lower confidence bound for M2 skill versus climatology.",
+            "summary",
+            "detailed",
+            "M2 skill lower 95%",
+            "m2_skill_lower_95",
+            "percent",
+        ))
 
     charts: list[dict[str, Any]] = []
     if model_metrics:
@@ -353,6 +376,48 @@ def main() -> None:
             },
             value_format="percent",
         ))
+    if detailed_daily:
+        charts.append(chart(
+            "daily_delta",
+            "M2 error reduction persists across October days",
+            "Paired daily Brier difference against band-hour climatology; values below zero favor M2.",
+            "line",
+            "detailed_daily",
+            "detailed",
+            {
+                "x": {"field": "key", "type": "temporal", "label": "UTC day"},
+                "y": {"field": "m2_delta_vs_b0", "type": "quantitative", "label": "M2 minus B0 Brier"},
+            },
+        ))
+    if detailed_distance:
+        charts.append(chart(
+            "distance_skill",
+            "NowCast skill is checked across path distance",
+            "Paired opportunity-weighted October development sample; positive values favor M2.",
+            "bar",
+            "detailed_distance",
+            "detailed",
+            {
+                "x": {"field": "key", "type": "ordinal", "label": "Distance"},
+                "y": {"field": "m2_skill_vs_b0", "type": "quantitative", "label": "Brier skill", "format": "percent"},
+            },
+            value_format="percent",
+        ))
+    if detailed_regions:
+        charts.append(chart(
+            "geographic_error",
+            "Coarse regional error reveals geographic weak spots without stations",
+            "Transmitter locations aggregated to 15x30-degree cells; callsigns and grid cells omitted.",
+            "scatter",
+            "detailed_regions",
+            "detailed",
+            {
+                "x": {"field": "lon", "type": "quantitative", "label": "Longitude"},
+                "y": {"field": "lat", "type": "quantitative", "label": "Latitude"},
+                "color": {"field": "m2_brier", "type": "quantitative", "label": "M2 Brier"},
+                "size": {"field": "opportunities", "type": "quantitative", "label": "Opportunities"},
+            },
+        ))
     if mechanism_rows:
         trained_mechanisms = [row for row in mechanism_rows if row["brier_skill"] is not None]
         if trained_mechanisms:
@@ -416,6 +481,23 @@ def main() -> None:
             ],
         },
     ]
+    if detailed_intervals:
+        tables.append({
+            "id": "bootstrap_intervals",
+            "title": "Paired day-bootstrap uncertainty",
+            "subtitle": "Two thousand resamples of October UTC days; development evidence only.",
+            "dataset": "detailed_intervals",
+            "sourceId": "detailed",
+            "defaultSort": {"field": "metric", "direction": "asc"},
+            "density": "dense",
+            "layout": "full",
+            "columns": [
+                {"field": "metric", "label": "Metric", "type": "text"},
+                {"field": "lower_95", "label": "Lower 95%", "format": "number"},
+                {"field": "median", "label": "Median", "format": "number"},
+                {"field": "upper_95", "label": "Upper 95%", "format": "number"},
+            ],
+        })
 
     chart_blocks = [
         {"id": f"block_{item['id']}", "type": "chart", "chartId": item["id"], "layout": "full"}
@@ -469,6 +551,8 @@ def main() -> None:
     blocks.extend(chart_blocks[4:])
     if band_rows:
         blocks.append({"id": "band_table", "type": "table", "tableId": "band_metrics", "layout": "full"})
+    if detailed_intervals:
+        blocks.append({"id": "interval_table", "type": "table", "tableId": "bootstrap_intervals", "layout": "full"})
     blocks.extend([
         {
             "id": "personalization",
@@ -560,6 +644,10 @@ def main() -> None:
                 "reliability": reliability,
                 "rolling": rolling_rows,
                 "outage_scenarios": outage_rows,
+                "detailed_daily": detailed_daily,
+                "detailed_distance": detailed_distance,
+                "detailed_regions": detailed_regions,
+                "detailed_intervals": detailed_intervals,
                 "six_mechanisms": mechanism_rows,
                 "six_mechanisms_trained": [row for row in mechanism_rows if row["brier_skill"] is not None],
                 "archive_coverage": archive_coverage,
@@ -699,6 +787,28 @@ model artifacts only.
 """
     (result_dir / "data_card.md").write_text(data_card, encoding="utf-8")
 
+    learning_curve_markdown = "\n".join(
+        f"| {row['train_rows']:,} | {row['brier']:.6f} | {row['runtime_minutes']:.1f} | {row['peak_rss_gb']:.1f} |"
+        for row in learning_curve
+    ) or "| Pending | Pending | Pending | Pending |"
+    rolling_markdown = "\n".join(
+        f"| {row['gate']} | {row['brier']:.6f} | {row['brier_skill']:.2%} |"
+        for row in rolling_rows
+    ) or "| Pending | Pending | Pending |"
+    outage_sentence = (
+        f"The packaged fallback passed all gates on {outage.get('rows', 0):,} held-out rows; "
+        f"mean confidence changed from {outage_rows[0]['mean_confidence']:.2f} to "
+        f"{outage_rows[1]['mean_confidence']:.2f}."
+        if len(outage_rows) == 2 and outage.get("passed") else
+        "The packaged source-outage replay is pending."
+    )
+    p533_sentence = (
+        f"On {b1['rows']:,} identical October circuits, M2 Brier was "
+        f"{b1['candidate']['weighted_brier']:.6f} versus "
+        f"{b1['p533']['weighted_brier']:.6f} for calibrated P.533."
+        if b1.get("status") == "paired_gate_sample" else
+        "The paired P.533 gate is pending."
+    )
     article = f"""# A Multi-Year, Equipment-Aware Propagation Nowcast for Amateur Radio
 
 ## Abstract
@@ -711,43 +821,193 @@ trees, an official [ITU-R P.533](https://www.itu.int/rec/R-REC-P.533) baseline,
 and a privacy-safe deterministic station adapter derived from the operator's
 existing virtual shack. This document reports development evidence only.
 
+## The high-school version
+
+Radio signals do not travel equally well in every direction or at every hour.
+The Sun, Earth's ionosphere, geomagnetic disturbances, distance, darkness, band,
+and recent reports all supply clues. The model learns how those clues lined up
+with real WSPR decodes in the past. It then answers a narrow question: **if a
+transmitter and a receiver are available, how likely is one WSPR decode on this
+path-hour?** StationCast adjusts that open core estimate for the operator's
+realizable power, cable loss, directional antenna gain, receiver evidence, and
+mode assumptions. It is a probability map, not a promise of a contact.
+
 ## Development result
 
 The current M2 candidate uses {compact(primary_cap)} rows and reaches Brier
-`{m2_gate.get('weighted_brier', 'pending')}` on the October 2024 development
+`{m2_gate.get('weighted_brier', 'pending')}` on the full October 2024 development
 gate, with skill `{m2.get('brier_skill_vs_B0', 'pending')}` versus natural
-band-hour climatology. These numbers do not include the locked 2025 or
-prospective 2026 tests and must not be described as final generalization.
+band-hour climatology. {p533_sentence} These numbers do not include the locked
+2025 or prospective 2026 tests and must not be described as final generalization.
 
-## Method
+### Learning curve
 
-The archive infers receiver opportunities only when a transmitter and receiver
-were observed active. It does not label every missing spot as a failure. The
-training sample is balanced across declared physical and network regimes, then
-post-stratified. XGBoost remains the primary engine. Calibration-family choice
-uses a held-out portion of April 2024; October 2024 is evaluation-only.
+| Training rows | October Brier | Runtime minutes | Peak RSS GB |
+|---:|---:|---:|---:|
+{learning_curve_markdown}
 
-StationCast does not send raw equipment records to the model endpoint. A shared
-TypeScript/Python contract derives realizable conducted power, passive loss,
-path-bearing antenna gain, receiver evidence, mode threshold, warnings, and a
-stable fingerprint. The initial adjustment is deterministic; learned mode and
-station residuals require consented prospective evidence.
+The 50M cap was preregistered. A 100M experiment is justified only if the
+20M-to-50M gain is material enough to outweigh compute, serving, and open-source
+reproduction costs. More rows are not automatically better evidence.
 
-## What remains unknown
+### Rolling-origin checks
 
-The frozen V3 comparison, locked 2025 result, live operational parity, user
-decision utility, and 2026 prospective performance are incomplete. FutureCast
-is withheld because a leakage-free historical issuance archive was not found;
-NOAA forecasts are being archived forward. The 6m track remains independent and
-experimental because its mechanism labels are hypotheses rather than observed
-ground truth.
+| Gate month | Brier | Skill vs climatology |
+|---|---:|---:|
+{rolling_markdown}
 
-## Open research commitment
+## Data and provenance
 
-The code, configs, feature definitions, tests, aggregate metrics, model/data
-cards, and permitted artifacts will be open. Raw restricted archives and private
-operator data will not be redistributed. The public result will include failed
-gates and disabled horizons, not only positive findings.
+The development archive uses Jan/Apr/Jul/Oct snapshots so multiple years and
+solar regimes are represented without loading every raw row at once. Primary
+sources and baselines are:
+
+- [WSPRnet archive](http://wsprnet.org/drupal/downloads) for public decode
+  observations and network exposure evidence;
+- [NASA SPDF OMNI](https://spdf.gsfc.nasa.gov/pub/data/omni/) and
+  [GFZ Kp data](https://kp.gfz-potsdam.de/en/data) for historical solar-wind and
+  geomagnetic context;
+- [NOAA SWPC JSON services](https://services.swpc.noaa.gov/json/) for
+  operationally available space-weather features;
+- [ITU-R P.533](https://www.itu.int/rec/R-REC-P.533) as a pinned physical
+  propagation baseline;
+- the [NOAA 45-day forecast](https://services.swpc.noaa.gov/json/45-day-forecast.json)
+  for forward-archived FutureCast inputs; and
+- [PSK Reporter developer information](https://www.pskreporter.info/pskdev.html)
+  for later external digital-mode validation, subject to service terms.
+
+Raw source bytes, retrieval timestamps, checksums, parser versions, licenses,
+and time semantics are recorded in the source registry and manifests. The HF
+candidate pool contains `{sample.get('natural_train_rows', 0):,}` natural rows
+and `{sample.get('natural_train_opportunities', 0):,.0f}` inferred opportunities.
+The exact nested cohorts contain 5M, 20M, and 50M rows, with post-stratification
+back to natural opportunity mass.
+
+## Why missing spots are not automatic failures
+
+A public spotting network is not a controlled laboratory. A receiver may be
+offline, listening elsewhere, overloaded, or unable to hear the transmitter for
+equipment reasons. V4 first estimates transmitter/receiver availability and
+constructs path-hour opportunities. The outcome is a single decode conditional
+on that inferred exposure. This reduces a major label error in naive approaches
+that mark every absent spot as failed propagation.
+
+## Leakage controls and evaluation protocol
+
+Training uses quarterly anchors from 2018-2023. January and July 2024 control
+early stopping. April days 1-20 fit calibration candidates; April days 21-end
+select the calibration family; full April refits only that selected family.
+October 2024 is evaluation-only. The 2025 archive remains locked until every
+pre-2025 gate passes, and the frozen prospective window is 2026-08-01 through
+2026-09-30. Forecast features must have `issued_at <= prediction issue_time`;
+observations may never masquerade as historical forecasts.
+
+## Model design
+
+M1 uses geometry, calendar/solar position, power bin, and operationally
+available space-weather inputs. M2 adds recent path-history features and is the
+NowCast candidate. Both use XGBoost histogram trees because they handle mixed
+nonlinear regimes efficiently, reproduce on Apple silicon, and serve without a
+GPU. Isotonic calibration is selected only inside April, with band/distance
+fallbacks for sparse strata. The inference bundle contains independent physics
+and nowcast profiles, checksums, exact feature order, calibrators, and version
+metadata.
+
+## Source outages
+
+Recent network history is useful but fragile. When it is stale, the API selects
+M1 rather than filling missing evidence, adds an explicit OOD flag, and lowers
+confidence. {outage_sentence} This behavior is part of the model contract and
+is shown to operators through freshness and profile metadata.
+
+## StationCast and the virtual shack
+
+The product already stores radios, amplifiers, feed lines, inline components,
+antennas, presets, chains, and saved operating locations. StationCast resolves
+the active chain or preset and its linked location. For every path bearing, the
+browser derives a versioned envelope with conducted power, passive loss, power
+at the antenna, EIRP/ERP, directional gain, receiver evidence, local-noise
+assumptions, mode bandwidth/threshold, warnings, and a stable fingerprint.
+
+Raw equipment IDs and inventory records are rejected by the prediction API.
+Stage A is a deterministic, auditable link-budget adapter. Learned station or
+mode residuals require opt-in prospective outcomes and separate evidence; they
+are not inferred from private profiles in this study.
+
+## ReachMap product flow
+
+ReachMap scores a 15-degree global grid in one batch from the active operating
+location. Each cell gets its own bearing-dependent antenna envelope. The same
+probability surface renders on the 3D globe, flat map, and azimuthal view with a
+shared five-step scale, issue/valid time, confidence, served profile, and model
+version. Current live path history is unavailable globally, so the first map
+correctly serves the physics fallback. Future horizons stay disabled until
+their issued-forecast gates pass.
+
+## Independent 6m program
+
+Six meters is not mixed into HF. Its candidate routes auroral, tropospheric,
+F2/TEP, sporadic-E, meteor-scatter, and unknown mechanism hypotheses. Covered
+development rows currently show overall Brier skill
+`{six.get('overall_brier_skill', 'pending')}` versus mechanism climatology, but
+sporadic-E, meteor-scatter, and unknown cases lack sufficient evidence. The 6m
+model remains experimental until mechanism labels are validated with permitted
+ionosonde, weather/reanalysis, and event-catalog sources such as
+[NOAA NOMADS](https://nomads.ncep.noaa.gov/).
+
+## FutureCast is deliberately withheld
+
+FutureCast requires genuine forecasts that were issued before each prediction,
+at +3, +6, +12, and +24 hours. The minimum required archive is 90 distinct
+issuance days; the current archive contains `{summary[0]['future_days']}` day(s).
+No historical observation backfill is allowed. Unsupported horizons therefore
+remain visibly withheld rather than being presented as forecasts.
+
+## Reproduction
+
+The committed orchestration is resumable and uses partitioned Parquet, Polars,
+DuckDB, PyArrow, and XGBoost rather than loading the full 886M-row feature store
+into memory. On a prepared machine:
+
+```bash
+npm install
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py prepare --profile m5
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py train-validation --profile m5
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py rolling-validation --profile m5
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py package-serving --profile m5
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py source-outage-validation --profile m5
+ml/.venv/bin/python ml/src/archive_v4/run_pipeline.py report-artifact --profile m5
+node ml/src/archive_v4/package_report.mjs --input \
+  ml/results/propagation_v4/{run_id}/REPORT.artifact.json --output \
+  ml/results/propagation_v4/{run_id}/REPORT.html
+npm run verify
+```
+
+Large raw/processed files and model binaries remain ignored; checksums and
+manifests make each permitted artifact traceable. The locked 2025 command is a
+separate scoped execution and is intentionally absent above.
+
+## Limitations and release boundary
+
+- Frozen V3 binaries still must be transferred for the preregistered B2 check.
+- 2025 and the 2026 prospective window have not been scored.
+- Public network participation and equipment exposure remain imperfect.
+- WSPR evidence does not establish FT8, CW, SSB, receive, or two-way-QSO
+  probability.
+- 6m mechanism labels are hypotheses, and FutureCast lacks enough issuances.
+- UI shadow parity, operator decision utility, and opt-in beta calibration are
+  not yet complete.
+
+## Open, nonprofit research commitment
+
+Propulse is intended as an open, nonprofit research and community project.
+Subscriptions or donations cover operating costs and product services; they do
+not turn the scientific core into a closed claim. Code, configs, schemas,
+feature definitions, tests, aggregate metrics, model/data cards, the research
+article, and legally redistributable model artifacts will be public. Restricted
+raw archives, private locations, callsigns, and shack inventories will not be
+redistributed. Failed gates, weak bands, disabled horizons, and negative results
+will be published alongside successes.
 """
     research_path = ROOT / "ml/research/PERSONALIZED-PROPAGATION-V4-RESEARCH.md"
     research_path.parent.mkdir(parents=True, exist_ok=True)
@@ -759,7 +1019,8 @@ gates and disabled horizons, not only positive findings.
     ).stdout.strip()
     input_paths = [
         path for path in (
-            development_path, six_path, p533_path, rolling_path, outage_path, future_path,
+            development_path, six_path, p533_path, rolling_path, outage_path,
+            detailed_path, future_path,
             sample_path, hf_audit_path, six_audit_path, bronze_path, sources_path,
         ) if path.exists()
     ]

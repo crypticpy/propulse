@@ -554,6 +554,7 @@ def main() -> None:
     result_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
     previous_curves: dict[int, dict[str, Any]] = {}
+    previous_candidates: dict[str, dict[str, Any]] = {}
     previous_results_path = result_dir / "development_results.json"
     if previous_results_path.exists():
         previous = json.loads(previous_results_path.read_text(encoding="utf-8"))
@@ -567,6 +568,7 @@ def main() -> None:
                 int(row["train_cap"]): row
                 for row in previous.get("learning_curve", [])
             }
+            previous_candidates = previous.get("candidates", {})
     output: dict[str, Any] = {
         "schema_version": 1,
         "generated_at": utc_now(),
@@ -585,16 +587,31 @@ def main() -> None:
     }
     primary_cap = caps[-1]
     for profile in ("M1_physics", "M2_nowcast"):
-        print(f"train {profile} cap={primary_cap:,}", flush=True)
-        output["candidates"][profile] = train_candidate(
-            config, profile, primary_cap, train_paths, validation_path,
-            model_dir, cache_dir, save=True,
+        prior = previous_candidates.get(profile, {})
+        prior_paths = [
+            ROOT / prior.get(key, "")
+            for key in ("model_path", "calibrator_path")
+        ]
+        reusable = (
+            int(prior.get("train_cap", 0)) == primary_cap
+            and all(path.is_file() for path in prior_paths)
         )
+        if reusable:
+            print(f"reuse {profile} cap={primary_cap:,}", flush=True)
+            output["candidates"][profile] = prior
+        else:
+            print(f"train {profile} cap={primary_cap:,}", flush=True)
+            output["candidates"][profile] = train_candidate(
+                config, profile, primary_cap, train_paths, validation_path,
+                model_dir, cache_dir, save=True,
+            )
         candidate = output["candidates"][profile]["gate_full"]
         baseline = output["baselines"]["B0_climatology"]
         output["candidates"][profile]["brier_skill_vs_B0"] = (
             1 - candidate["weighted_brier"] / baseline["weighted_brier"]
         )
+        output["generated_at"] = utc_now()
+        write_json(previous_results_path, output)
     for cap in caps:
         print(f"learning curve M2 cap={cap:,}", flush=True)
         if cap == primary_cap:
@@ -602,16 +619,18 @@ def main() -> None:
         elif cap in previous_curves:
             print(f"reuse learning curve M2 cap={cap:,}", flush=True)
             output["learning_curve"].append(previous_curves[cap])
-            continue
         else:
             curve = train_candidate(
                 config, "M2_nowcast", cap, train_paths, validation_path,
                 model_dir, cache_dir, save=False,
             )
-        output["learning_curve"].append({
-            key: curve[key]
-            for key in ("train_cap", "train_rows", "best_iteration", "gate_full", "seconds", "peak_rss_gb")
-        })
+        if cap not in previous_curves or cap == primary_cap:
+            output["learning_curve"].append({
+                key: curve[key]
+                for key in ("train_cap", "train_rows", "best_iteration", "gate_full", "seconds", "peak_rss_gb")
+            })
+        output["generated_at"] = utc_now()
+        write_json(previous_results_path, output)
     paired_p533 = score_p533_pair(config, output["candidates"]["M2_nowcast"])
     if paired_p533 is not None:
         output["baselines"]["B1_p533_voacap"] = paired_p533
@@ -619,7 +638,7 @@ def main() -> None:
         package: importlib.metadata.version(package)
         for package in ("numpy", "pyarrow", "scikit-learn", "xgboost")
     }
-    results_path = result_dir / "development_results.json"
+    results_path = previous_results_path
     write_json(results_path, output)
     bundle = {
         "schema_version": 1,

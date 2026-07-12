@@ -121,6 +121,10 @@ class Predictor(Protocol):
     def health(self) -> dict[str, Any]: ...
 
 
+def model_feature_value(value: float | int | None) -> float:
+    return np.nan if value is None else float(value)
+
+
 class ModelRegistry:
     def __init__(self, manifest_path: Path) -> None:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -165,12 +169,12 @@ class ModelRegistry:
         if item is None:
             raise RuntimeError("no compatible model profile is loaded")
         missing = [
-            [name for name in item["features"] if name not in values]
+            [name for name in item["features"] if values.get(name) is None]
             for values in rows
         ]
         matrix = np.array(
             [
-                [float(values.get(name) or 0) for name in item["features"]]
+                [model_feature_value(values.get(name)) for name in item["features"]]
                 for values in rows
             ],
             dtype=np.float32,

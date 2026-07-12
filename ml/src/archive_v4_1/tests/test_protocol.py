@@ -17,6 +17,11 @@ class ProtocolTests(unittest.TestCase):
     def setUp(self) -> None:
         self.config = protocol.load_json(protocol.DEFAULT_CONFIG)
         self.manifest = protocol.load_json(protocol.DEFAULT_MANIFEST)
+        self.manifest["november_gate_opened"] = False
+        self.manifest["november_gate_attempt_id"] = None
+        self.manifest["locked_archive_test_opened"] = False
+        self.manifest["locked_archive_attempt_id"] = None
+        self.manifest["development_gates_passed"] = False
 
     def test_development_scope_is_exact_and_excludes_gate(self) -> None:
         allowed = self.config["data_roles"]["new_calibration_sources"]

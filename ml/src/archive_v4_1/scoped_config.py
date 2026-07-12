@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from protocol import authorize_scope
+from protocol import ProtocolError, assert_exact_months, authorize_scope
 
 
 def transform_config(
@@ -28,23 +28,26 @@ def transform_config(
         validation = months
         test: list[str] = []
     elif scope == "november-gate":
-        months = authorize_scope(
-            config,
-            manifest,
-            scope,
-            config["data_roles"]["untouched_development_gate"],
+        requested = config["data_roles"]["untouched_development_gate"]
+        months = (
+            assert_exact_months(requested, requested, scope)
+            if manifest["november_gate_opened"]
+            else authorize_scope(config, manifest, scope, requested)
         )
         train = []
         validation = []
         test = months
         scoped_run_id = f"{config['run_id']}_november_gate"
     elif scope == "locked-archive":
-        months = authorize_scope(
-            config,
-            manifest,
-            scope,
-            config["data_roles"]["locked_archive_test"],
-        )
+        requested = config["data_roles"]["locked_archive_test"]
+        if manifest["locked_archive_test_opened"]:
+            if not manifest["development_gates_passed"]:
+                raise ProtocolError(
+                    "opened locked archive is inconsistent with development decision"
+                )
+            months = assert_exact_months(requested, requested, scope)
+        else:
+            months = authorize_scope(config, manifest, scope, requested)
         train = []
         validation = []
         test = months

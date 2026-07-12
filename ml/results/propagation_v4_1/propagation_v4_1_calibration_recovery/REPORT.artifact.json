@@ -1,0 +1,1189 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propagation V4.1 Calibration Recovery Report",
+    "description": "Technical report for the preregistered V4.1 failed November development gate.",
+    "generatedAt": "2026-07-12T19:32:23.474231+00:00",
+    "cards": [
+      {
+        "id": "decision",
+        "description": "Preregistered V4.1 development decision; zero means failed.",
+        "dataset": "summary",
+        "sourceId": "gate",
+        "metrics": [
+          {
+            "label": "Decision passed",
+            "field": "decision_passed",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "gates",
+        "description": "Every gate was required; partial success is failure.",
+        "dataset": "summary",
+        "sourceId": "gate",
+        "metrics": [
+          {
+            "label": "Gates passed",
+            "field": "gates_passed",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "rows",
+        "description": "November 2024 path-hour feature rows.",
+        "dataset": "summary",
+        "sourceId": "integrity",
+        "metrics": [
+          {
+            "label": "Gate rows",
+            "field": "rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "opportunities",
+        "description": "Opportunity-weighted November evaluation mass.",
+        "dataset": "summary",
+        "sourceId": "integrity",
+        "metrics": [
+          {
+            "label": "Weighted opportunities",
+            "field": "weighted_opportunities",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "brier",
+        "description": "Selected C4 opportunity-weighted Brier; lower is better.",
+        "dataset": "summary",
+        "sourceId": "gate",
+        "metrics": [
+          {
+            "label": "C4 Brier",
+            "field": "c4_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "skill",
+        "description": "Paired-day bootstrap lower bound versus climatology.",
+        "dataset": "summary",
+        "sourceId": "gate",
+        "metrics": [
+          {
+            "label": "Skill lower 95%",
+            "field": "overall_skill_vs_b0_lower",
+            "format": "percent"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "model_brier",
+        "title": "Frozen V3 was the strongest November candidate",
+        "subtitle": "November 2024 opportunity-weighted Brier score; lower is better. All candidates used identical 54.5M rows.",
+        "type": "bar",
+        "dataset": "model_metrics",
+        "sourceId": "gate",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "generalization",
+        "title": "The guarded calibrator improved raw M2 in development and November",
+        "subtitle": "Opportunity-weighted Brier by evidence scope; lower is better. This overall gain did not satisfy every slice gate.",
+        "type": "bar",
+        "dataset": "generalization",
+        "sourceId": "gate",
+        "encodings": {
+          "x": {
+            "field": "scope",
+            "type": "ordinal",
+            "label": "Evidence scope"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          },
+          "color": {
+            "field": "candidate",
+            "type": "nominal",
+            "label": "Candidate"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "short_path_delta",
+        "title": "Calibration still regressed the shortest path slice",
+        "subtitle": "C4 minus raw M2 Brier on November 2024; values above zero are worse and fail exact non-regression.",
+        "type": "bar",
+        "dataset": "short_path",
+        "sourceId": "gate",
+        "encodings": {
+          "x": {
+            "field": "distance",
+            "type": "ordinal",
+            "label": "Path distance"
+          },
+          "y": {
+            "field": "calibrated_minus_raw_brier",
+            "type": "quantitative",
+            "label": "C4 minus raw Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "reliability",
+        "title": "C4 improved aggregate calibration but remained intentionally close to raw M2",
+        "subtitle": "November 2024 opportunity-weighted reliability bins; the diagonal is ideal calibration.",
+        "type": "line",
+        "dataset": "reliability",
+        "sourceId": "gate",
+        "encodings": {
+          "x": {
+            "field": "predicted",
+            "type": "quantitative",
+            "label": "Predicted probability",
+            "format": "percent"
+          },
+          "y": {
+            "field": "observed",
+            "type": "quantitative",
+            "label": "Observed rate",
+            "format": "percent"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Series"
+          }
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "mapping_coverage",
+        "title": "Guard rules left most band-distance leaves on raw M2",
+        "subtitle": "Frozen development selection across 50 band-distance leaves.",
+        "type": "bar",
+        "dataset": "mapping_rows",
+        "sourceId": "selection",
+        "encodings": {
+          "x": {
+            "field": "mapping",
+            "type": "ordinal",
+            "label": "Applied mapping"
+          },
+          "y": {
+            "field": "leaves",
+            "type": "quantitative",
+            "label": "Band-distance leaves"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "gates",
+        "title": "All ten preregistered November gates",
+        "subtitle": "Eight passed. G4 and G6 failed; no weighted voting or override was allowed.",
+        "dataset": "gate_rows",
+        "sourceId": "gate",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "text"
+          },
+          {
+            "field": "observed",
+            "label": "Observed",
+            "type": "text"
+          },
+          {
+            "field": "threshold",
+            "label": "Threshold",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "bootstrap",
+        "title": "Two-thousand-repetition paired-day bootstrap",
+        "subtitle": "Intervals resample November UTC days; negative Brier delta favors C4.",
+        "dataset": "bootstrap_rows",
+        "sourceId": "gate",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "comparison",
+            "label": "Comparison",
+            "type": "text"
+          },
+          {
+            "field": "delta_lower_95",
+            "label": "Delta lower 95%",
+            "format": "number"
+          },
+          {
+            "field": "delta_median",
+            "label": "Delta median",
+            "format": "number"
+          },
+          {
+            "field": "delta_upper_95",
+            "label": "Delta upper 95%",
+            "format": "number"
+          },
+          {
+            "field": "skill_lower_95",
+            "label": "Skill lower 95%",
+            "format": "percent"
+          },
+          {
+            "field": "skill_upper_95",
+            "label": "Skill upper 95%",
+            "format": "percent"
+          }
+        ]
+      },
+      {
+        "id": "timeline",
+        "title": "Data roles remained separated",
+        "subtitle": "The failed November decision keeps all four 2025 archive months closed.",
+        "dataset": "timeline",
+        "sourceId": "protocol",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "period",
+            "label": "Period",
+            "type": "text"
+          },
+          {
+            "field": "role",
+            "label": "Role",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Access status",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "compute",
+        "title": "Streaming kept each stage within M5 memory",
+        "subtitle": "Measured wall time and peak resident memory; all stages completed with zero swap.",
+        "dataset": "compute",
+        "sourceId": "selection",
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "stage",
+            "label": "Stage",
+            "type": "text"
+          },
+          {
+            "field": "rows",
+            "label": "Rows",
+            "format": "number"
+          },
+          {
+            "field": "seconds",
+            "label": "Seconds",
+            "format": "number"
+          },
+          {
+            "field": "peak_rss_gb",
+            "label": "Peak RSS GB",
+            "format": "number"
+          },
+          {
+            "field": "swaps",
+            "label": "Swaps",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "gate",
+        "label": "Atomic November gate result",
+        "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json"
+          ]
+        }
+      },
+      {
+        "id": "integrity",
+        "label": "November integrity audit",
+        "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json"
+          ]
+        }
+      },
+      {
+        "id": "selection",
+        "label": "Frozen calibration selection",
+        "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json"
+          ]
+        }
+      },
+      {
+        "id": "validation",
+        "label": "Candidate package validation",
+        "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json"
+          ]
+        }
+      },
+      {
+        "id": "protocol",
+        "label": "Permanent access and decision ledger",
+        "path": "ml/results/propagation_v4_1/preregistration/run_manifest.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/preregistration/run_manifest.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/preregistration/run_manifest.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_1/preregistration/run_manifest.json"
+          ]
+        }
+      },
+      {
+        "id": "incident",
+        "label": "One-shot recovery incident record",
+        "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propagation V4.1 Calibration Recovery Report"
+      },
+      {
+        "id": "summary_text",
+        "type": "markdown",
+        "body": "## V4.1 failed two required gates; 2025 remains closed\n\nThe frozen guarded calibrator improved raw M2 overall, beat climatology and M1 with strong paired-day confidence, and passed eight gates. It did **not** beat frozen V3/B2, and it made the 0-500 km slice slightly worse than raw M2. Under the preregistered all-gates rule, this is a failed development result, not a release candidate."
+      },
+      {
+        "id": "headline",
+        "type": "metric-strip",
+        "cardIds": [
+          "decision",
+          "gates",
+          "rows",
+          "opportunities",
+          "brier",
+          "skill"
+        ]
+      },
+      {
+        "id": "model_chart",
+        "type": "chart",
+        "chartId": "model_brier",
+        "layout": "full"
+      },
+      {
+        "id": "model_explainer",
+        "type": "markdown",
+        "body": "## The core model is useful, but V3 remains the benchmark to beat\n\nC4 achieved 41.0%-42.0% bootstrapped Brier skill versus band-hour climatology and 17.9%-19.2% versus M1. Frozen V3/B2 was still better by about 0.00121 Brier overall. This suggests the newer core/history design has real signal, but its current transfer and calibration policy does not dominate the simpler frozen V3 system on an unseen month."
+      },
+      {
+        "id": "generalization_chart",
+        "type": "chart",
+        "chartId": "generalization",
+        "layout": "full"
+      },
+      {
+        "id": "short_chart",
+        "type": "chart",
+        "chartId": "short_path_delta",
+        "layout": "full"
+      },
+      {
+        "id": "reliability_chart",
+        "type": "chart",
+        "chartId": "reliability",
+        "layout": "full"
+      },
+      {
+        "id": "mapping_chart",
+        "type": "chart",
+        "chartId": "mapping_coverage",
+        "layout": "full"
+      },
+      {
+        "id": "definitions",
+        "type": "markdown",
+        "body": "## Scope, target, and metrics\n\nThe target is the opportunity-weighted probability of one WSPR decode for an inferred-active transmitter and receiver path-hour. It is not generic QSO probability. Brier score is the primary proper scoring rule and lower is better. ECE describes aggregate calibration. Every model was scored on the same 54,544,159 November rows and 1.723 billion weighted opportunities."
+      },
+      {
+        "id": "timeline_table",
+        "type": "table",
+        "tableId": "timeline",
+        "layout": "full"
+      },
+      {
+        "id": "methods",
+        "type": "markdown",
+        "body": "## Experimental design\n\nThe 50M-row M2 model, its features, seed, XGBoost iteration, and training data were retained. February, April, May, and August 2024 selected among identity, global, per-band, hierarchical, and guarded hierarchical isotonic policies using leave-one-month-out evidence. November was opened once only after the candidate, service bundle, B2 adapter, scorer, gates, and 2,000-day-bootstrap procedure were frozen."
+      },
+      {
+        "id": "gate_table",
+        "type": "table",
+        "tableId": "gates",
+        "layout": "full"
+      },
+      {
+        "id": "bootstrap_table",
+        "type": "table",
+        "tableId": "bootstrap",
+        "layout": "full"
+      },
+      {
+        "id": "robustness",
+        "type": "markdown",
+        "body": "## Robustness, reproducibility, and the one-shot recovery\n\nThe November integrity audit passed all 11 checks. Offline and service probabilities matched exactly on 1,024 pre-gate rows; fallback, stale-history, schema, checksum, privacy, and locked-scope contracts passed. Three operational defects interrupted the same permanent attempt before atomic publication. No outcome metric was exposed before the final result, the access ledger was never reset, and no candidate, threshold, seed, metric, or bootstrap choice changed. The incident JSON records frozen and executed source hashes."
+      },
+      {
+        "id": "compute_table",
+        "type": "table",
+        "tableId": "compute",
+        "layout": "full"
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "body": "## What this result does not establish\n\n- V4.1 is not approved for the locked archive, prospective release, or production replacement.\n- WSPR decode evidence does not directly estimate FT8, CW, SSB, receive-only, or two-way QSO probability.\n- Public receiver participation and equipment capability remain imperfectly observed.\n- Aggregate calibration improvement did not guarantee non-regression in every path slice.\n- StationCast personalization still requires opt-in prospective operator outcomes before learned residuals.\n- FutureCast needs genuine issued-forecast history and cannot be backfilled with observations."
+      },
+      {
+        "id": "next_steps",
+        "type": "markdown",
+        "body": "## Recommended next step: turn the failure into a stronger V4.2\n\nPublish V4.1 unchanged and keep 2025 closed for this experiment. The broader V4 plan remains the north star: build the strongest model that works reliably in Propulse. V4.2 should first explain why frozen V3 transfers better, compare raw M2 and B2 by band, distance, history availability, solar regime, and geography, and test whether a simpler raw-M2 or global-calibration policy is more stable. Retraining, feature changes, receiver-availability modeling, other algorithms, and more rows are valid options when diagnostics support them. Use December 2024 or another explicitly preregistered period as a fresh gate, then retain 2025 for final validation."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\nWhich V3 feature or calibration behavior explains its November advantage? Is the 0-500 km miss localized to particular bands or activity regimes? Does direct modeling of receiver availability improve transfer without identity leakage? Which weather inputs can be available at inference time rather than only in definitive reanalysis?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-12T19:32:23.474231+00:00",
+    "status": "partial",
+    "datasets": {
+      "summary": [
+        {
+          "decision_passed": 0,
+          "gates_passed": 8,
+          "gates_total": 10,
+          "rows": 54544159,
+          "weighted_opportunities": 1722518874.75,
+          "c4_brier": 0.04689390074973904,
+          "c4_ece": 0.005719905856330432,
+          "overall_skill_vs_b0_lower": 0.40967748751477423,
+          "c4_minus_raw": -4.6023454710358846e-05,
+          "m2_minus_b2": 0.0012121487454738525
+        }
+      ],
+      "model_metrics": [
+        {
+          "candidate": "B0 climatology",
+          "brier": 0.08025315568934938,
+          "log_loss": 0.3287397849162818,
+          "ece": 0.00697513353387565
+        },
+        {
+          "candidate": "M1 physics/weather",
+          "brier": 0.05761244139320471,
+          "log_loss": 0.2218414344254447,
+          "ece": 0.007389067385428356
+        },
+        {
+          "candidate": "B2 frozen V3",
+          "brier": 0.045681752004265185,
+          "log_loss": 0.1813934420534258,
+          "ece": 0.0036345948018748427
+        },
+        {
+          "candidate": "M2 raw",
+          "brier": 0.046939924204449396,
+          "log_loss": 0.18521430465282918,
+          "ece": 0.006772566701551909
+        },
+        {
+          "candidate": "C1 global isotonic",
+          "brier": 0.04682429612083414,
+          "log_loss": 0.18474755201201998,
+          "ece": 0.0017316588630258162
+        },
+        {
+          "candidate": "C2 per-band isotonic",
+          "brier": 0.04682859623174789,
+          "log_loss": 0.1847656777667911,
+          "ece": 0.001421006624181572
+        },
+        {
+          "candidate": "C3 hierarchical isotonic",
+          "brier": 0.04682107711685314,
+          "log_loss": 0.18483219961597633,
+          "ece": 0.0014554292423560801
+        },
+        {
+          "candidate": "C4 guarded hierarchical",
+          "brier": 0.04689390074973904,
+          "log_loss": 0.18507296204845242,
+          "ece": 0.005719905856330432
+        }
+      ],
+      "generalization": [
+        {
+          "scope": "Calibration development",
+          "candidate": "C0 identity",
+          "brier": 0.043983085977941455
+        },
+        {
+          "scope": "Calibration development",
+          "candidate": "C4 guarded hierarchical",
+          "brier": 0.04393383166734392
+        },
+        {
+          "scope": "Untouched November gate",
+          "candidate": "C0 identity",
+          "brier": 0.046939924204449396
+        },
+        {
+          "scope": "Untouched November gate",
+          "candidate": "C4 guarded hierarchical",
+          "brier": 0.04689390074973904
+        }
+      ],
+      "short_path": [
+        {
+          "distance": "0-500km",
+          "calibrated_minus_raw_brier": 6.1000123730989286e-05,
+          "calibrated_brier": 0.07366779535361517,
+          "raw_brier": 0.07360679522988418,
+          "result": "fail"
+        },
+        {
+          "distance": "500-1500km",
+          "calibrated_minus_raw_brier": -0.00020865866732262817,
+          "calibrated_brier": 0.10487136886920498,
+          "raw_brier": 0.1050800275365276,
+          "result": "pass"
+        },
+        {
+          "distance": "1500-3000km",
+          "calibrated_minus_raw_brier": -0.00011106765085802661,
+          "calibrated_brier": 0.10474808074254816,
+          "raw_brier": 0.10485914839340618,
+          "result": "pass"
+        }
+      ],
+      "reliability": [
+        {
+          "predicted": 0.007943376007952904,
+          "observed": 0.006223143453497208,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.07155089524548461,
+          "observed": 0.06690516742953212,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.12389598929209202,
+          "observed": 0.11522269926695422,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.1744074385536839,
+          "observed": 0.16200538627342326,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.22456453653022185,
+          "observed": 0.20927605195725646,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.2746796156590492,
+          "observed": 0.25711112990328383,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.32472519206810596,
+          "observed": 0.3025963480908375,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.3748097778376368,
+          "observed": 0.3482705489604749,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.4248102035172763,
+          "observed": 0.3964108764972522,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.4748960784959582,
+          "observed": 0.445796930474562,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.5248690863453046,
+          "observed": 0.496664408168165,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.5746903274190882,
+          "observed": 0.54800271605503,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.624260700051274,
+          "observed": 0.6001817242937599,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.6739896173957355,
+          "observed": 0.6517879855740525,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.7233929701791071,
+          "observed": 0.7024056762930129,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.7721744787915583,
+          "observed": 0.7488942857265714,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.8224555771277705,
+          "observed": 0.7941494804712562,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.8725093618736964,
+          "observed": 0.8565555241405881,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.9166466889423425,
+          "observed": 0.8993004868398478,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.9624202874417864,
+          "observed": 0.9587136304875241,
+          "series": "M2 raw"
+        },
+        {
+          "predicted": 0.007791238532628421,
+          "observed": 0.006243094078643972,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.07158788232599078,
+          "observed": 0.06684284903094175,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.12378926822699154,
+          "observed": 0.11472383241743848,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.17423947193397651,
+          "observed": 0.1613025390473867,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.224770216391872,
+          "observed": 0.20908737286318152,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.2751736966353775,
+          "observed": 0.25813496406840386,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.3247260903024446,
+          "observed": 0.30548435621381664,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.3750343825009375,
+          "observed": 0.3526709673915788,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.42524152931649345,
+          "observed": 0.40272352350310453,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.475177677169809,
+          "observed": 0.454251192473728,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.5247053253153601,
+          "observed": 0.5050738664461416,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.5745830865589944,
+          "observed": 0.5562826779897413,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.6243470782040118,
+          "observed": 0.6085836930031798,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.6739746873599216,
+          "observed": 0.658842845662153,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.7235481176520984,
+          "observed": 0.7117788347863244,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.7725525565317409,
+          "observed": 0.7519953985896916,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.82426771751646,
+          "observed": 0.7982360735075071,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.8733907936310298,
+          "observed": 0.8519794897208397,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.9179629176390032,
+          "observed": 0.9003196023216266,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.9658372743807357,
+          "observed": 0.9494951162925106,
+          "series": "C4 guarded hierarchical"
+        },
+        {
+          "predicted": 0.0,
+          "observed": 0.0,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.1,
+          "observed": 0.1,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.2,
+          "observed": 0.2,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.3,
+          "observed": 0.3,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.4,
+          "observed": 0.4,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.5,
+          "observed": 0.5,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.6,
+          "observed": 0.6,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.7,
+          "observed": 0.7,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.8,
+          "observed": 0.8,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 0.9,
+          "observed": 0.9,
+          "series": "Ideal"
+        },
+        {
+          "predicted": 1.0,
+          "observed": 1.0,
+          "series": "Ideal"
+        }
+      ],
+      "gate_rows": [
+        {
+          "gate": "G1_integrity",
+          "status": "PASS",
+          "observed": "true",
+          "threshold": "Boolean contract"
+        },
+        {
+          "gate": "G2_overall_skill_vs_b0",
+          "status": "PASS",
+          "observed": "+0.40967749",
+          "threshold": "0.0"
+        },
+        {
+          "gate": "G3_history_value_vs_m1",
+          "status": "PASS",
+          "observed": "-0.01025274",
+          "threshold": "0.0"
+        },
+        {
+          "gate": "G4_frozen_v3",
+          "status": "FAIL",
+          "observed": "M2-B2: +0.00121215; short-path relative improvement: -3.004%",
+          "threshold": "0.03"
+        },
+        {
+          "gate": "G5_calibration_overall",
+          "status": "PASS",
+          "observed": "-0.00004602",
+          "threshold": "0.0"
+        },
+        {
+          "gate": "G6_short_path_calibration",
+          "status": "FAIL",
+          "observed": "0-500km: +0.00006100; 500-1500km: -0.00020866; 1500-3000km: -0.00011107",
+          "threshold": "0.0"
+        },
+        {
+          "gate": "G7_band_safety",
+          "status": "PASS",
+          "observed": "10m: +0.00169867; 12m: +0.00123235; 15m: +0.00285121; 160m: +0.00585959; 17m: +0.00440238; 20m: +0.00251478; 30m: +0.00022937; 40m: +0.00234682; 60m: +0.01036103; 80m: +0.00848481",
+          "threshold": "0.02"
+        },
+        {
+          "gate": "G8_reliability",
+          "status": "PASS",
+          "observed": "ECE delta: -0.00105266; high-confidence gap delta: -0.00227445",
+          "threshold": "0.002"
+        },
+        {
+          "gate": "G9_operational_fallback",
+          "status": "PASS",
+          "observed": "true",
+          "threshold": "Boolean contract"
+        },
+        {
+          "gate": "G10_serving_parity",
+          "status": "PASS",
+          "observed": "true",
+          "threshold": "Boolean contract"
+        }
+      ],
+      "bootstrap_rows": [
+        {
+          "comparison": "m2_vs_b0",
+          "delta_lower_95": -0.03384411536922973,
+          "delta_median": -0.03336419051319316,
+          "delta_upper_95": -0.03281891091171439,
+          "skill_lower_95": 0.40967748751477423,
+          "skill_median": 0.41594690887605945,
+          "skill_upper_95": 0.4202842764319388
+        },
+        {
+          "comparison": "m2_vs_m1",
+          "delta_lower_95": -0.011202905977908326,
+          "delta_median": -0.010721999899147478,
+          "delta_upper_95": -0.010252737212336315,
+          "skill_lower_95": 0.17878238935883192,
+          "skill_median": 0.18621632341770672,
+          "skill_upper_95": 0.1923107752540743
+        },
+        {
+          "comparison": "m2_vs_b2",
+          "delta_lower_95": 0.0010600788579876242,
+          "delta_median": 0.0012153566569491278,
+          "delta_upper_95": 0.0013758146377369105,
+          "skill_lower_95": -0.030098264808815965,
+          "skill_median": -0.02660963772747016,
+          "skill_upper_95": -0.02313515538494173
+        },
+        {
+          "comparison": "calibrated_vs_raw",
+          "delta_lower_95": -6.148789887001453e-05,
+          "delta_median": -4.596475586981369e-05,
+          "delta_upper_95": -2.927196443540427e-05,
+          "skill_lower_95": 0.0006214248368862002,
+          "skill_median": 0.000979058340760286,
+          "skill_upper_95": 0.0013152684008658653
+        }
+      ],
+      "timeline": [
+        {
+          "period": "2018-01 to 2023-10 quarterly anchors",
+          "role": "Frozen M2 training",
+          "status": "Observed before V4.1"
+        },
+        {
+          "period": "2024-01 and 2024-07",
+          "role": "Frozen early stopping",
+          "status": "Observed before V4.1"
+        },
+        {
+          "period": "2024-02, 04, 05, 08",
+          "role": "Calibration development",
+          "status": "Selection only"
+        },
+        {
+          "period": "2024-10",
+          "role": "Published V4 gate and B2 engineering",
+          "status": "Not used for V4.1 selection"
+        },
+        {
+          "period": "2024-11",
+          "role": "Untouched V4.1 gate",
+          "status": "Opened once; failed 2 of 10 gates"
+        },
+        {
+          "period": "2025-01, 04, 07, 10",
+          "role": "Locked archive test",
+          "status": "CLOSED after V4.1 failure"
+        },
+        {
+          "period": "2026-08-01 to 2026-09-30",
+          "role": "Prospective NowCast test",
+          "status": "Future evidence"
+        }
+      ],
+      "compute": [
+        {
+          "stage": "Calibration materialization",
+          "rows": 206843263,
+          "seconds": 308.76,
+          "peak_rss_gb": 15.76,
+          "swaps": 0
+        },
+        {
+          "stage": "Four-fold selection",
+          "rows": 206843263,
+          "seconds": 1731.3040227890015,
+          "peak_rss_gb": 7.99,
+          "swaps": 0
+        },
+        {
+          "stage": "Successful November score",
+          "rows": 54544159,
+          "seconds": 431.22,
+          "peak_rss_gb": 12.78,
+          "swaps": 0
+        }
+      ],
+      "mapping_rows": [
+        {
+          "mapping": "C0 identity",
+          "leaves": 42
+        },
+        {
+          "mapping": "C2 per-band isotonic",
+          "leaves": 4
+        },
+        {
+          "mapping": "C3 hierarchical isotonic",
+          "leaves": 4
+        }
+      ]
+    },
+    "accessIssues": [
+      {
+        "id": "locked_archive",
+        "dataset": "locked_2025",
+        "message": "The preregistered 2025 archive remains unopened because V4.1 failed two development gates."
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "gate",
+      "label": "Atomic November gate result",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json"
+        ]
+      }
+    },
+    {
+      "id": "integrity",
+      "label": "November integrity audit",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_integrity.json"
+        ]
+      }
+    },
+    {
+      "id": "selection",
+      "label": "Frozen calibration selection",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/calibration_selection.json"
+        ]
+      }
+    },
+    {
+      "id": "validation",
+      "label": "Candidate package validation",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/candidate_validation.json"
+        ]
+      }
+    },
+    {
+      "id": "protocol",
+      "label": "Permanent access and decision ledger",
+      "path": "ml/results/propagation_v4_1/preregistration/run_manifest.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/preregistration/run_manifest.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/preregistration/run_manifest.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_1/preregistration/run_manifest.json"
+        ]
+      }
+    },
+    {
+      "id": "incident",
+      "label": "One-shot recovery incident record",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_incident.json"
+        ]
+      }
+    }
+  ]
+}

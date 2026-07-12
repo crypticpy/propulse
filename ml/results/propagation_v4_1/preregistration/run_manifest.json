@@ -5,11 +5,11 @@
   "plan_commit": "2af85f5",
   "parent_evidence_commit": "2cb309d",
   "execution_scope": "preregistration",
-  "protocol_state": "candidate_frozen",
+  "protocol_state": "development_failed",
   "development_outcomes_opened": true,
-  "november_gate_opened": false,
-  "november_gate_opened_at": null,
-  "november_gate_attempt_id": null,
+  "november_gate_opened": true,
+  "november_gate_opened_at": "2026-07-12T18:42:49.441736+00:00",
+  "november_gate_attempt_id": "november-fe4f874f7a514075bcb6f48e3333d0e9",
   "development_gates_passed": false,
   "locked_archive_test_opened": false,
   "locked_archive_test_opened_at": null,
@@ -20,7 +20,7 @@
     "2024-02": true,
     "2024-05": true,
     "2024-08": true,
-    "2024-11": false,
+    "2024-11": true,
     "2024-12": false,
     "2025-01": false,
     "2025-04": false,
@@ -112,17 +112,25 @@
       "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/scorer_freeze.json",
       "bytes": 3393,
       "sha256": "cfefe185edd50965aa02c968785cbeee8ed97d913f89549a9dea97e73ff8c756"
+    },
+    "november_gate_result": {
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json",
+      "bytes": 917672,
+      "sha256": "4dd2bcdb16c9515aab399ad0659b4ca0a77a8d28a1e8b97b36364c67444a3824"
     }
   },
   "phase_status": {
     "phase_0": "complete",
     "phase_1": "complete",
-    "phase_2": "ready",
+    "phase_2": "failed",
     "phase_3": "not_started",
     "phase_4": "locked",
     "phase_5": "not_started"
   },
-  "failed_gates": [],
+  "failed_gates": [
+    "G4_frozen_v3",
+    "G6_short_path_calibration"
+  ],
   "protocol_events": [
     {
       "at": "2026-07-12T15:55:45.004646+00:00",
@@ -272,6 +280,31 @@
     {
       "at": "2026-07-12T18:40:52.936614+00:00",
       "event": "candidate_frozen"
+    },
+    {
+      "at": "2026-07-12T18:42:49.441736+00:00",
+      "event": "november-gate_opened",
+      "months": [
+        "2024-11"
+      ],
+      "attempt_id": "november-fe4f874f7a514075bcb6f48e3333d0e9"
+    },
+    {
+      "at": "2026-07-12T19:15:22.903023+00:00",
+      "event": "outcome_artifact_recorded",
+      "name": "november_gate_result",
+      "path": "ml/results/propagation_v4_1/propagation_v4_1_calibration_recovery/november_gate_result.json",
+      "bytes": 917672,
+      "sha256": "4dd2bcdb16c9515aab399ad0659b4ca0a77a8d28a1e8b97b36364c67444a3824"
+    },
+    {
+      "at": "2026-07-12T19:15:22.903912+00:00",
+      "event": "development_decision",
+      "passed": false,
+      "failed_gates": [
+        "G4_frozen_v3",
+        "G6_short_path_calibration"
+      ]
     }
   ]
 }

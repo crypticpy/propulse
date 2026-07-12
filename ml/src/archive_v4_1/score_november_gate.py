@@ -51,6 +51,21 @@ def numeric(batch: Any, name: str, dtype: Any = np.float32) -> np.ndarray:
     return np.asarray(column.to_numpy(zero_copy_only=False), dtype=dtype)
 
 
+def projection_columns(*groups: list[str] | tuple[str, ...]) -> list[str]:
+    return list(dict.fromkeys(name for group in groups for name in group))
+
+
+def repository_input(path: Path) -> Path:
+    value = path if path.is_absolute() else ROOT / path
+    try:
+        value.relative_to(ROOT)
+    except ValueError as error:
+        raise ProtocolError(
+            f"input must use its repository path, not an external target: {path}"
+        ) from error
+    return value
+
+
 class CandidateMetrics:
     def __init__(self) -> None:
         self.overall = MetricAccumulator()
@@ -151,6 +166,10 @@ def main() -> None:
     parser.add_argument("--profile", choices=("m5",), required=True)
     args = parser.parse_args()
     del args.profile
+    args.dataset = repository_input(args.dataset)
+    args.integrity_audit = repository_input(args.integrity_audit)
+    args.climatology = repository_input(args.climatology)
+    args.output = args.output if args.output.is_absolute() else ROOT / args.output
 
     config = load_json(Path(args.config))
     run_manifest = load_json(DEFAULT_MANIFEST)
@@ -188,14 +207,16 @@ def main() -> None:
     m1_features = [str(value) for value in m1_info["features"]]
     m2_features = [str(value) for value in m2_info["features"]]
     union_features = list(dict.fromkeys([*m2_features, *m1_features, *b2.features]))
-    columns = [
-        *union_features,
-        "target_hour",
-        "band",
-        "dist_km",
-        "success_rate",
-        "opportunities",
-    ]
+    columns = projection_columns(
+        union_features,
+        (
+            "target_hour",
+            "band",
+            "dist_km",
+            "success_rate",
+            "opportunities",
+        ),
+    )
     scanner = ds.dataset(args.dataset, format="parquet").scanner(
         columns=columns,
         batch_size=int(config["calibration"]["stream_batch_rows"]),

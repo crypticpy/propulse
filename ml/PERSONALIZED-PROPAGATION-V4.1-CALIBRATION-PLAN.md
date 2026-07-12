@@ -1,9 +1,11 @@
 # Personalized Propagation V4.1: Calibration Recovery and Release Plan
 
-> Status: preregistration drafted and frozen on 2026-07-12. Execution is in
-> progress; see the current
-> [`V4.1 M5 execution handoff`](PERSONALIZED-PROPAGATION-V4.1-M5-EXECUTION-HANDOFF.md)
-> before resuming work.
+> Status: preregistration frozen; Phases 0 and 1 complete on 2026-07-12.
+> The single untouched November gate is complete and V4.1 **failed** two of
+> ten required gates. Phase 3 publication is complete except for the final Git
+> commit and push. The locked 2025 archive remains closed. This file is the
+> canonical execution status and resume point for closing V4.1 and beginning a
+> separately preregistered, performance-driven V4.2.
 > Parent experiment: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Frozen V4 evidence commit: `2cb309d` on `feat/archive-multimonth-v3`.
 > Primary compute target: Apple M5 Max with 128 GB unified memory.
@@ -64,6 +66,42 @@ choices below, but every fix must be recorded. Any change to data roles,
 candidate families, thresholds, features, core model, or endpoint creates a new
 version and requires another untouched gate.
 
+## North-star interpretation
+
+[`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md)
+remains the north star: build the strongest useful, efficient, personalized
+propagation model that can operate honestly inside Propulse. V4.1 is one
+controlled calibration experiment in that program, not a permanent limit on
+the model search or product design.
+
+The frozen V4.1 candidates, metrics, gates, and stop rules are non-negotiable
+only when interpreting and publishing **this** experiment. A failed gate must
+not be waived, retuned, or relabeled as a V4.1 pass after viewing November.
+After V4.1 is published, however, November becomes legitimate diagnostic and
+development evidence for a successor version. That successor may retrain the
+core, change features, model receiver availability, revise calibration,
+compare other algorithms, expand data, or change product integration when the
+evidence justifies it. It must be called a new version and evaluated on a new
+untouched gate.
+
+The practical optimization order for the successor is:
+
+1. improve out-of-time Brier score and calibration across actionable band,
+   distance, geography, activity, and solar-regime slices;
+2. preserve operational source availability, serving parity, bounded memory,
+   latency, privacy, and clear fallback behavior;
+3. improve personalized operator decisions using the existing virtual-shack
+   and location data without leaking identity into the open core;
+4. add rows or model complexity when diagnostics show they address the actual
+   error mode; and
+5. retain a fresh gate and locked final archive so performance claims remain
+   credible.
+
+The current default successor protocol is V4.2: use the now-observed November
+result to diagnose V3-versus-M2 transfer and short-path behavior, keep December
+2024 untouched as the next development gate unless a new preregistration
+chooses a stronger boundary, and preserve the 2025 archive for final validation.
+
 ## Current status as of 2026-07-12
 
 ### Repository and compute
@@ -73,11 +111,66 @@ version and requires another untouched gate.
 | Git branch | `feat/archive-multimonth-v3` |
 | Published V4 evidence commit | `2cb309d` |
 | Draft pull request | [GitHub PR #5](https://github.com/crypticpy/propulse/pull/5) |
-| M5 repository | `/Users/crypticpy/Projects/propulse` |
+| M5 repository | `$HOME/Projects/propulse` |
 | M5 large-artifact root | `/Volumes/Projects/PropulseML` |
 | M5 V4 repository state | clean at the published V4 evidence commit before this plan |
 | Local M3 policy | source inspection and small checks only; no data or ML jobs |
 | V4 safety backup | redundant M5 Git stash retained; do not drop until V4.1 is published |
+
+### V4.1 execution status
+
+All data preparation, prediction materialization, selection, packaging, and
+gate scoring has run on the M5. The M3 has been limited to source edits, Git
+transport, and repository inspection.
+
+| Item | Current result |
+|---|---|
+| Latest published pre-November commit | `882aef3` |
+| Corrected calibration-development rows | 150,815,873 across 2024-02, 04, 05, and 08 |
+| Development audit | 14/14 checks passed |
+| Streaming calibration rows | 206,843,263 |
+| Weighted calibration opportunities | 6,394,217,140 |
+| Materialization wall time | 308.76 seconds |
+| Materialization peak RSS | 15.76 GB; zero swaps |
+| Leave-one-month-out selection wall time | 1,731.95 seconds |
+| Selection peak RSS | 7.99 GB; zero swaps |
+| Selected policy | `C4_guarded_hierarchical_isotonic` |
+| Selected mapping behavior | 42/50 band-distance leaves use raw identity; 4 use C2; 4 use C3 |
+| Candidate validation | 1,024 rows; exact offline/service probability parity; all package, fallback, freshness, privacy, and locked-scope checks passed |
+| Candidate freeze SHA-256 | `905d02636f8bf5d755568bc1d28b82ab2b2aaa864adda966ef02a2a8779c27c2` |
+| Scorer freeze SHA-256 | `cfefe185edd50965aa02c968785cbeee8ed97d913f89549a9dea97e73ff8c756` |
+| Selected calibrator SHA-256 | `26bb7950b4d3c858432740f66fdad14ff57f97e02abd8960625f572d5905cf36` |
+| November attempt | permanently opened as `november-fe4f874f7a514075bcb6f48e3333d0e9` |
+| November gate data | 54,544,159 rows; 1,722,518,874.75 weighted opportunities |
+| November integrity audit | 11/11 checks passed; 0.0776% exposure reconstruction error |
+| November scoring | complete: 54,544,159 rows in 431.22 seconds; 12.78 GB peak RSS; zero swaps |
+| November decision | **failed**: 8/10 gates passed; `G4_frozen_v3` and `G6_short_path_calibration` failed |
+| C4 November Brier / ECE | 0.04689390 / 0.00571991 |
+| Raw M2 November Brier / ECE | 0.04693992 / 0.00677257 |
+| Frozen V3/B2 November Brier | 0.04568175; better than C4 by 0.00121215 |
+| C4 0-500 km delta vs raw M2 | +0.00006100 Brier; exact non-regression failed |
+| C4 500-1,500 / 1,500-3,000 km deltas | -0.00020866 / -0.00011107; both improved |
+| Visual report QA | passed canonical packaging, source interaction, and 1440 px / 390 px browser checks |
+| Locked 2025 archive | closed; no 2025 outcome has been transformed, inspected, or scored |
+
+The development selection favored a conservative repair. C2 had the best
+pooled development Brier score, but its broad mappings were not stable in every
+month and scope. C4 therefore retains raw M2 for most leaves and applies a
+calibrator only where the frozen cross-month support and non-regression rules
+permit it. On development data, C4 improved raw M2 Brier from `0.04398309` to
+`0.04393383` (an absolute improvement of `0.00004925`, about 0.112% relative)
+while reducing ECE from `0.00745883` to `0.00630001`. These are selection
+results, not untouched-gate evidence.
+
+The one-shot November orchestrator permanently opened the attempt before a
+resume-authorization defect stopped the wrapper and before any download. The
+same attempt was resumed without resetting the access ledger, changing a
+candidate, changing a gate, or viewing an outcome metric. The first scorer
+invocation then exposed a duplicate PyArrow projection field because
+`dist_km` was both a model feature and an audit column. The repair only
+deduplicates the projection; it does not alter rows, predictions, metrics,
+bootstrap logic, candidates, or thresholds. Every recovery command and source
+hash must be included in the Phase 2 incident record and final report.
 
 ### Completed V4 evidence
 
@@ -486,7 +579,7 @@ features, gates, or claims with V4.1.
 
 ## M5 execution environment
 
-All commands below run from `/Users/crypticpy/Projects/propulse` on the M5.
+All commands below run from `$HOME/Projects/propulse` on the M5.
 Before any ML command:
 
 ```bash
@@ -634,60 +727,60 @@ model claims.
 
 ## Execution checklist
 
-### Phase 0: freeze and implementation
+### Phase 0: freeze and implementation (complete)
 
-- [ ] Confirm M5 repo, branch, commit, storage, and Python/Node environments.
-- [ ] Create `propagation_v4_1` config and source/split schemas.
-- [ ] Add mechanical denial for November before freeze and all 2025 outcomes.
-- [ ] Freeze and verify V4 evidence and M2/M1/B0/B1 checksums.
-- [ ] Implement and freeze the V3/B2 compatibility adapter and October
+- [x] Confirm M5 repo, branch, commit, storage, and Python/Node environments.
+- [x] Create `propagation_v4_1` config and source/split schemas.
+- [x] Add mechanical denial for November before freeze and all 2025 outcomes.
+- [x] Freeze and verify V4 evidence and M2/M1/B0/B1 checksums.
+- [x] Implement and freeze the V3/B2 compatibility adapter and October
   engineering comparison.
-- [ ] Implement C0-C4 calibrators, guarded selection, manifests, and tests.
-- [ ] Implement one-shot gate orchestration and atomic result writing.
-- [ ] Run all pre-data tests.
+- [x] Implement C0-C4 calibrators, guarded selection, manifests, and tests.
+- [x] Implement one-shot gate orchestration and atomic result writing.
+- [x] Run all pre-data tests.
 
 **Gate:** the experiment is executable without unresolved scientific choices,
 B2 is frozen, and locked scopes are mechanically enforced.
 
-### Phase 1: calibration-development data
+### Phase 1: calibration-development data (complete)
 
-- [ ] Inventory, download, hash, and validate 2024-02, 05, and 08.
-- [ ] Acquire matching OMNI/GFZ inputs and record availability semantics.
-- [ ] Build streaming bronze/features/opportunities in the V4.1 namespace.
-- [ ] Pass per-month and per-band exposure and leakage audits.
-- [ ] Generate frozen raw M2 predictions for calibration development.
-- [ ] Run leave-one-month-out C0-C4 selection.
-- [ ] Freeze selected mappings, refitted calibrators, support, and checksums.
-- [ ] Generate a synthetic dry-run report and run the full pre-gate test suite.
+- [x] Inventory, download, hash, and validate 2024-02, 05, and 08.
+- [x] Acquire matching OMNI/GFZ inputs and record availability semantics.
+- [x] Build streaming bronze/features/opportunities in the V4.1 namespace.
+- [x] Pass per-month and per-band exposure and leakage audits.
+- [x] Generate frozen raw M2 predictions for calibration development.
+- [x] Run leave-one-month-out C0-C4 selection.
+- [x] Freeze selected mappings, refitted calibrators, support, and checksums.
+- [x] Generate a synthetic dry-run report and run the full pre-gate test suite.
 
 **Gate:** candidate and scoring code are frozen before any November outcome is
 read.
 
-### Phase 2: untouched November gate
+### Phase 2: untouched November gate (complete; failed decision)
 
-- [ ] Record pre-unlock audit and verify no prior November outcome access.
-- [ ] Download/hash November WSPR and matching inputs without interim scoring.
-- [ ] Run source, schema, exposure, split, and leakage audits.
-- [ ] Score all frozen candidates in one atomic streaming run.
-- [ ] Calculate fixed metrics, slices, and 2,000-repetition day bootstrap.
-- [ ] Permanently mark the gate opened and publish every gate result.
-- [ ] Stop on failure or freeze V4.1 on complete success.
+- [x] Record pre-unlock audit and verify no prior November outcome access.
+- [x] Download/hash November WSPR and matching inputs without interim scoring.
+- [x] Run source, schema, exposure, split, and leakage audits.
+- [x] Score all frozen candidates in one atomic streaming run.
+- [x] Calculate fixed metrics, slices, and 2,000-repetition day bootstrap.
+- [x] Permanently mark the gate opened and publish every gate result.
+- [x] Stop V4.1 on failure; retain the result unchanged for successor diagnosis.
 
 **Gate:** all ten required V4.1 development gates pass. Partial success is a
 failed V4.1 development decision.
 
-### Phase 3: package and development report
+### Phase 3: package and development report (publication generated)
 
-- [ ] Package the frozen V4.1 bundle and validate offline/service parity.
-- [ ] Run source-outage, stale-history, schema, checksum, and privacy tests.
-- [ ] Generate Markdown and interactive visual reports.
-- [ ] Verify desktop/mobile layout, chart labels, keyboard use, reduced motion,
+- [x] Package the frozen V4.1 bundle and validate offline/service parity.
+- [x] Run source-outage, stale-history, schema, checksum, and privacy tests.
+- [x] Generate Markdown and interactive visual reports.
+- [x] Verify desktop/mobile layout, chart labels, keyboard use, reduced motion,
   and static fallbacks.
 - [ ] Commit and push the complete development evidence.
 
 **Gate:** report and artifacts reproduce the decision and reveal all failures.
 
-### Phase 4: locked archive, only after V4.1 success
+### Phase 4: locked archive (permanently closed for V4.1)
 
 - [ ] Verify development approval and locked scorer/candidate hashes.
 - [ ] Unlock and score the four 2025 months exactly once.

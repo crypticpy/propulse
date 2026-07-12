@@ -17,6 +17,11 @@ class ScopedConfigTests(unittest.TestCase):
     def setUp(self) -> None:
         self.config = protocol.load_json(protocol.DEFAULT_CONFIG)
         self.manifest = protocol.load_json(protocol.DEFAULT_MANIFEST)
+        self.manifest["november_gate_opened"] = False
+        self.manifest["november_gate_attempt_id"] = None
+        self.manifest["locked_archive_test_opened"] = False
+        self.manifest["locked_archive_attempt_id"] = None
+        self.manifest["development_gates_passed"] = False
 
     def test_development_config_contains_only_new_development_months(self) -> None:
         value = transform_config(
@@ -42,6 +47,14 @@ class ScopedConfigTests(unittest.TestCase):
         })
         value = transform_config(self.config, ready, "november-gate")
         self.assertEqual(value["run_id"], f"{self.config['run_id']}_november_gate")
+        self.assertEqual(value["test"]["months"], ["2024-11"])
+
+    def test_gate_config_can_resume_after_permanent_open(self) -> None:
+        opened = json.loads(json.dumps(self.manifest))
+        opened["november_gate_opened"] = True
+        opened["november_gate_attempt_id"] = "attempt-1"
+        value = transform_config(self.config, opened, "november-gate")
+        self.assertEqual(value["months"], ["2024-11"])
         self.assertEqual(value["test"]["months"], ["2024-11"])
 
     def test_locked_config_cannot_exist_without_approval(self) -> None:

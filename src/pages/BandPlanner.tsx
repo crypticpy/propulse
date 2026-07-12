@@ -19,6 +19,9 @@ import { gridToLatLon } from "@/lib/utils/grid";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileBandPlanner } from "@/components/mobile/MobileBandPlanner";
 import { HelpTooltip } from "@/components/help/HelpTooltip";
+import { useStationCastContext } from "@/hooks/useStationCastContext";
+import { useNowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
+import { BrainCircuit, Loader2, TriangleAlert } from "lucide-react";
 
 /**
  * Band Planner Page
@@ -32,6 +35,19 @@ import { HelpTooltip } from "@/components/help/HelpTooltip";
 export function BandPlanner() {
   // User station
   const station = useUserStore((s) => s.station);
+  const stationCast = useStationCastContext();
+  const operatingStation = useMemo(
+    () => station && stationCast.location
+      ? {
+          ...station,
+          grid: stationCast.location.grid,
+          lat: stationCast.location.lat,
+          lon: stationCast.location.lon,
+          timezone: stationCast.location.timezone,
+        }
+      : station,
+    [station, stationCast.location],
+  );
   const favoredBands = useUserStore(
     (s) => s.preferences.favoredBands ?? DEFAULT_FAVORED_BANDS,
   );
@@ -95,6 +111,21 @@ export function BandPlanner() {
     refetchFlux();
     refetchMag();
   };
+  const modelWeather = useMemo(
+    () => ({
+      ...(currentKp == null ? {} : { kp: currentKp }),
+      ...(currentFlux == null ? {} : { f107: currentFlux }),
+      ...(currentBz == null ? {} : { bz_gsm: currentBz }),
+    }),
+    [currentKp, currentFlux, currentBz],
+  );
+  const modelNowCast = useNowCastBandPredictions({
+    origin: stationCast.location,
+    target: targetCoords,
+    weather: modelWeather,
+    weatherUpdatedAt: bandDataUpdatedAt,
+    deriveEnvelope: stationCast.deriveEnvelope,
+  });
 
   // Parse target grid and calculate coordinates
   const handleTargetChange = useCallback((value: string) => {
@@ -119,7 +150,7 @@ export function BandPlanner() {
   // Calculate forecast
   const forecast = useMemo<HourlyForecast[]>(() => {
     if (
-      !station ||
+      !operatingStation ||
       !targetCoords ||
       currentKp === null ||
       currentFlux === null
@@ -128,15 +159,15 @@ export function BandPlanner() {
     }
 
     return getForecastForPath(
-      station.lat,
-      station.lon,
+      operatingStation.lat,
+      operatingStation.lon,
       targetCoords.lat,
       targetCoords.lon,
       currentKp,
       currentFlux,
       new Date(),
     );
-  }, [station, targetCoords, currentKp, currentFlux]);
+  }, [operatingStation, targetCoords, currentKp, currentFlux]);
 
   // Calculate best windows
   const bestWindows = useMemo<BestWindow[]>(() => {
@@ -214,7 +245,7 @@ export function BandPlanner() {
       : allBands;
 
   // Mobile viewport: render MobileBandPlanner with all hook data
-  if (isMobile && !station) {
+  if (isMobile && !operatingStation) {
     return (
       <div className="p-4">
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
@@ -229,10 +260,10 @@ export function BandPlanner() {
       </div>
     );
   }
-  if (isMobile && station) {
+  if (isMobile && operatingStation) {
     return (
       <MobileBandPlanner
-        station={station}
+        station={operatingStation}
         currentKp={currentKp}
         currentFlux={currentFlux}
         currentBz={currentBz}
@@ -387,7 +418,7 @@ export function BandPlanner() {
         )}
 
         {/* Station check */}
-        {!station && (
+        {!operatingStation && (
           <Card>
             <div className="text-center py-8">
               <svg
@@ -421,7 +452,7 @@ export function BandPlanner() {
           </Card>
         )}
 
-        {station && (
+        {operatingStation && (
           <>
             {/* Target input */}
             <Card>
@@ -443,7 +474,7 @@ export function BandPlanner() {
                     <span>
                       Your QTH:{" "}
                       <span className="text-white font-mono">
-                        {station.grid}
+                        {operatingStation.grid}
                       </span>
                     </span>
                     {targetCoords && (
@@ -534,6 +565,74 @@ export function BandPlanner() {
                 </div>
               </div>
             </Card>
+
+            {targetCoords && modelNowCast.enabled && (
+              <Card>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <BrainCircuit className="h-5 w-5 text-cyan-300" aria-hidden="true" />
+                    <div>
+                      <h3 className="text-base font-semibold text-white">Model nowcast</h3>
+                      <p className="text-xs text-gray-400">
+                        Single-decode WSPR probability from your active station chain
+                      </p>
+                    </div>
+                  </div>
+                  {modelNowCast.pending && (
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" aria-label="Loading model predictions" />
+                  )}
+                </div>
+
+                {modelNowCast.predictions.size > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 sm:grid-cols-3 lg:grid-cols-5">
+                    {allBands.map((band) => {
+                      const prediction = modelNowCast.predictions.get(band);
+                      if (!prediction) return null;
+                      const probability = prediction.personalized_probability;
+                      const color =
+                        probability >= 0.5
+                          ? "text-signal-green"
+                          : probability >= 0.2
+                            ? "text-caution-amber"
+                            : "text-gray-300";
+                      return (
+                        <div
+                          key={band}
+                          className="bg-void-black/80 px-3 py-2.5"
+                          style={{ minHeight: 80 }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-sm text-white">{band}</span>
+                            <span className={`font-mono text-sm font-semibold ${color}`}>
+                              {(probability * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-gray-500">
+                            <span>{prediction.profile === "physics" ? "Physics fallback" : "Nowcast"}</span>
+                            <span>{Math.round(prediction.confidence * 100)}% conf.</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {modelNowCast.errors.size > 0 && modelNowCast.predictions.size === 0 && (
+                  <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-caution-amber">
+                    <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>Model service unavailable. The established planner remains active.</span>
+                  </div>
+                )}
+
+                {modelNowCast.predictions.size > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
+                    <span>{[...modelNowCast.predictions.values()][0]?.model_version}</span>
+                    <span>Issued {[...modelNowCast.predictions.values()][0]?.issue_time.slice(11, 16)} UTC</span>
+                    <span>Recent path feed unavailable, so physics fallback is expected</span>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* No target selected */}
             {!targetCoords && (
@@ -1101,9 +1200,9 @@ export function BandPlanner() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     <div>
                       <div className="text-xs text-gray-400 mb-1">From</div>
-                      <div className="font-mono text-white">{station.grid}</div>
+                      <div className="font-mono text-white">{operatingStation.grid}</div>
                       <div className="text-xs text-gray-500">
-                        {station.lat.toFixed(2)}°, {station.lon.toFixed(2)}°
+                        {operatingStation.lat.toFixed(2)}°, {operatingStation.lon.toFixed(2)}°
                       </div>
                     </div>
                     <div>
@@ -1121,8 +1220,8 @@ export function BandPlanner() {
                       <div className="font-mono text-white">
                         {Math.round(
                           calculateGreatCircleDistance(
-                            station.lat,
-                            station.lon,
+                            operatingStation.lat,
+                            operatingStation.lon,
                             targetCoords.lat,
                             targetCoords.lon,
                           ),

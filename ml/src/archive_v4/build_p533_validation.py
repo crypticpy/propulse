@@ -29,6 +29,20 @@ from external_memory import MetricAccumulator  # noqa: E402
 from p533_adapter import Circuit, P533Runner  # noqa: E402
 
 
+_PROCESS_RUNNER: P533Runner | None = None
+
+
+def initialize_process_runner(source: str) -> None:
+    global _PROCESS_RUNNER
+    _PROCESS_RUNNER = P533Runner(Path(source))
+
+
+def run_circuit_in_process(key: tuple[Any, ...]) -> dict[str, Any]:
+    if _PROCESS_RUNNER is None:
+        raise RuntimeError("P.533 worker was not initialized")
+    return run_circuit(_PROCESS_RUNNER, key)
+
+
 def score(target: np.ndarray, prediction: np.ndarray, weight: np.ndarray) -> dict[str, Any]:
     accumulator = MetricAccumulator()
     accumulator.update(target, prediction, weight)
@@ -128,9 +142,7 @@ def main() -> None:
           WHERE strftime(target_hour, '%Y-%m') IN
             ({','.join(repr(month) for month in months)})
         )
-        SELECT target_hour, band, tx_grid4, rx_grid4, tx_lat, tx_lon,
-               rx_lat, rx_lon, band_mhz, power_bin_dbm, sunspot_number,
-               success_rate, opportunities, any_success, sample_month
+        SELECT * EXCLUDE (sample_rank)
         FROM ranked WHERE sample_rank <= {args.rows_per_month}
         ORDER BY sample_month, sample_rank
         """
@@ -141,8 +153,12 @@ def main() -> None:
     started = time.time()
     outputs: dict[tuple[Any, ...], dict[str, Any]] = {}
     failures: list[dict[str, Any]] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = {pool.submit(run_circuit, runner, key): key for key in unique_keys}
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=args.workers,
+        initializer=initialize_process_runner,
+        initargs=(str(source),),
+    ) as pool:
+        futures = {pool.submit(run_circuit_in_process, key): key for key in unique_keys}
         for completed, future in enumerate(concurrent.futures.as_completed(futures), 1):
             key = futures[future]
             try:

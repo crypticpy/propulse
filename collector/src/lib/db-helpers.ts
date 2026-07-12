@@ -48,4 +48,14 @@ export function reportToDb(
       () => {},
       () => {},
     );
+  db.rpc("record_collector_source_status", {
+    p_source: source,
+    p_status: status,
+    p_rows: spotsIngested,
+    p_duration_ms: durationMs,
+    p_error: errorMessage || null,
+  }).then(
+    () => {},
+    () => {},
+  );
 }

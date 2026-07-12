@@ -724,7 +724,7 @@ command and estimated storage/runtime.
 - [x] Add the V4 config schema and run manifest before downloading outcomes.
 - [x] Consolidate all station chain calculations into one pure engine.
 - [x] Fix and validate Sherwood parsing; quarantine impossible data.
-- [ ] Audit equipment source licenses, provenance, units, and update dates.
+- [x] Audit equipment source licenses, provenance, units, and update dates (ambiguous Sherwood/manufacturer redistribution remains blocked from the public release unless cleared; synthetic fixtures only in research examples).
 - [x] Remove or clearly isolate synthetic propagation data from product paths.
 - [x] Define privacy, consent, retention, and open-research policy.
 - [x] Confirm WSPR.live/upstream operational permission and fallback strategy (production blocked pending written permission; research proxy disabled by default, no synthetic fallback).
@@ -734,25 +734,34 @@ source registry, privacy policy, and test calendar are committed.
 
 ### Phase 1: source acquisition and live forecast archive
 
-- [ ] Start immutable archive of every operational forecast issuance now.
+- [x] Start immutable archive of every operational forecast issuance now (local capture plus six-hour collector and immutable Supabase schema; production deployment remains a release gate).
 - [x] Download/checksum the 2018-2025 quarterly WSPR months.
 - [x] Acquire OMNI2 and GFZ historical inputs with status/provenance.
 - [x] Build and validate P.533/VOACAP on Apple Silicon.
-- [ ] Profile optional IGS/GIRO/NWP sources without adding them to primary M2.
-- [ ] Backfill collector outage metadata and feature availability timestamps.
+- [x] Profile optional IGS/GIRO/NWP sources without adding them to primary M2
+  ([source profile](research/PROPAGATION-V4-OPTIONAL-SOURCE-PROFILE.md); each remains a gated ablation or validation arm).
+- [x] Backfill collector outage metadata and feature availability timestamps (migration and collector RPC implemented; production application remains a deployment gate).
 
 **Gate:** all required sources reconcile, licenses/terms are recorded, and
 operational versus definitive values are distinguishable.
 
 ### Phase 2: multi-year streaming dataset
 
-- [ ] Convert and validate month/band bronze Parquet.
-- [ ] Build exposure-aware aggregates independently per month.
-- [ ] Re-run exact exposure audits on bounded station/slot samples.
-- [ ] Build geometry, weather, legal history, P.533, and missingness features.
-- [ ] Create the weighted, regime-balanced 50M nested sample.
-- [ ] Implement external-memory iterator and streamed scoring.
-- [ ] Freeze validation/calibration and encrypted/ignored locked-test manifests.
+- [x] Convert and validate month/band bronze Parquet (28 development months;
+  locked 2025 raw files remain unopened by transforms).
+- [x] Build exposure-aware aggregates independently per month.
+- [x] Re-run exact exposure audits on bounded station/slot samples (HF and 6m
+  development audits each pass 35/35 checks).
+- [x] Build geometry, weather, legal history, and missingness features; P.533
+  remains an independently scored bounded baseline rather than a primary M2 feature.
+- [x] Create the weighted, regime-balanced 50M nested sample (exact nested
+  5M/20M/50M cohorts; post-stratified opportunity mass relative error
+  `6.8e-14`; separate 5M validation sample).
+- [x] Implement external-memory iterator and streamed scoring, including
+  resumable month-partitioned feature materialization after the single-sink M3
+  run exceeded memory.
+- [x] Freeze validation/calibration and ignored locked-test manifests; scoped
+  commands mechanically exclude locked outcomes from development execution.
 
 **Gate:** row/weight/time invariants pass, no split leakage exists, memory stays
 within budget, and a two-year smoke run reproduces expected V3 behavior.

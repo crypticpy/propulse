@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { reportHealth } from "../health.js";
+import { reportToDb } from "../lib/db-helpers.js";
 import { log } from "../logger.js";
 
 const PARSER_VERSION = "forecast-v1";
@@ -211,12 +212,7 @@ export async function collectForecasts(db: SupabaseClient): Promise<void> {
     ]);
     const rows = counts.reduce((sum, count) => sum + count, 0);
     reportHealth("forecasts", "ok", rows);
-    await db.from("collector_health").insert({
-      source: "forecasts",
-      status: "ok",
-      spots_ingested: rows,
-      duration_ms: Date.now() - start,
-    });
+    reportToDb(db, "forecasts", "ok", rows, Date.now() - start);
     log("info", "Forecast issuances archived", {
       products: 2,
       values: rows,
@@ -225,12 +221,7 @@ export async function collectForecasts(db: SupabaseClient): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     reportHealth("forecasts", "error", 0);
-    await db.from("collector_health").insert({
-      source: "forecasts",
-      status: "error",
-      duration_ms: Date.now() - start,
-      error_message: message,
-    });
+    reportToDb(db, "forecasts", "error", 0, Date.now() - start, message);
     log("error", "Forecast collection failed", { error: message });
   }
 }

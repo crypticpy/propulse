@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import sys
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ import joblib
 import numpy as np
 import xgboost as xgb
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -58,6 +60,7 @@ class StationEnvelope(StrictModel):
 class PathFeatures(StrictModel):
     target_grid4: str = Field(pattern="^[A-R]{2}[0-9]{2}$")
     values: dict[str, float | int | None]
+    station: StationEnvelope | None = None
 
 
 class PathRequest(StrictModel):
@@ -106,6 +109,13 @@ class Predictor(Protocol):
         self, values: dict[str, float | int | None], band: str, stale_history: bool
     ) -> RuntimePrediction: ...
 
+    def predict_many(
+        self,
+        rows: list[dict[str, float | int | None]],
+        bands: list[str],
+        stale_history: bool,
+    ) -> list[RuntimePrediction]: ...
+
     def models(self) -> list[dict[str, Any]]: ...
 
     def health(self) -> dict[str, Any]: ...
@@ -120,6 +130,13 @@ class ModelRegistry:
         for name, item in payload["profiles"].items():
             model_path = (manifest_path.parent / item["model_path"]).resolve()
             calibrator_path = (manifest_path.parent / item["calibrator_path"]).resolve()
+            for path, expected in (
+                (model_path, item["model_sha256"]),
+                (calibrator_path, item["calibrator_sha256"]),
+            ):
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                if digest != expected:
+                    raise RuntimeError(f"model artifact checksum mismatch: {path.name}")
             model = xgb.Booster()
             model.load_model(model_path)
             self.profiles[name] = {
@@ -133,35 +150,63 @@ class ModelRegistry:
     def predict(
         self, values: dict[str, float | int | None], band: str, stale_history: bool
     ) -> RuntimePrediction:
+        return self.predict_many([values], [band], stale_history)[0]
+
+    def predict_many(
+        self,
+        rows: list[dict[str, float | int | None]],
+        bands: list[str],
+        stale_history: bool,
+    ) -> list[RuntimePrediction]:
+        if len(rows) != len(bands) or not rows:
+            raise ValueError("rows and bands must have the same non-zero length")
         profile = "physics" if stale_history else "nowcast"
         item = self.profiles.get(profile) or self.profiles.get("physics")
         if item is None:
             raise RuntimeError("no compatible model profile is loaded")
-        missing = [name for name in item["features"] if name not in values]
+        missing = [
+            [name for name in item["features"] if name not in values]
+            for values in rows
+        ]
         matrix = np.array(
-            [[float(values.get(name) or 0) for name in item["features"]]],
+            [
+                [float(values.get(name) or 0) for name in item["features"]]
+                for values in rows
+            ],
             dtype=np.float32,
         )
         raw = item["model"].inplace_predict(
             matrix, iteration_range=(0, item["best_iteration"] + 1)
         )
-        probability = float(item["calibrator"].predict(raw, np.array([band]))[0])
-        ood_flags = []
-        if missing:
-            ood_flags.append("missing_features")
-        if stale_history:
-            ood_flags.append("recent_network_stale_physics_fallback")
-        confidence = max(0.2, 1 - min(len(missing) / max(len(item["features"]), 1), 0.7))
-        if stale_history:
-            confidence *= 0.75
-        return RuntimePrediction(
-            probability=probability,
-            confidence=confidence,
-            model_version=self.version,
-            profile=profile,
-            ood_flags=ood_flags,
-            top_factors=item["top_factors"],
+        distance = np.array(
+            [float(values.get("dist_km") or 0) for values in rows],
+            dtype=np.float64,
         )
+        probabilities = item["calibrator"].predict(raw, np.array(bands), distance)
+        output = []
+        for probability, missing_features in zip(probabilities, missing):
+            ood_flags = []
+            if missing_features:
+                ood_flags.append("missing_features")
+            if stale_history:
+                ood_flags.append("recent_network_stale_physics_fallback")
+            confidence = max(
+                0.2,
+                1 - min(
+                    len(missing_features) / max(len(item["features"]), 1), 0.7
+                ),
+            )
+            if stale_history:
+                confidence *= 0.75
+            output.append(RuntimePrediction(
+                probability=float(probability),
+                confidence=confidence,
+                model_version=self.version,
+                profile=profile,
+                ood_flags=ood_flags,
+                top_factors=item["top_factors"],
+            ))
+        return output
 
     def models(self) -> list[dict[str, Any]]:
         return [{
@@ -176,6 +221,9 @@ class ModelRegistry:
 
 class UnavailableRegistry:
     def predict(self, values: dict[str, float | int | None], band: str, stale_history: bool) -> RuntimePrediction:
+        raise RuntimeError("no approved model bundle is loaded")
+
+    def predict_many(self, rows, bands, stale_history):
         raise RuntimeError("no approved model bundle is loaded")
 
     def models(self) -> list[dict[str, Any]]:
@@ -224,6 +272,21 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
         manifest = os.environ.get("PROPULSE_MODEL_BUNDLE")
         runtime = ModelRegistry(Path(manifest)) if manifest else UnavailableRegistry()
     app = FastAPI(title="Propulse Propagation API", version="1.0.0")
+    allowed_origins = [
+        value.strip()
+        for value in os.environ.get(
+            "PROPULSE_ALLOWED_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if value.strip()
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
 
     @app.get("/v1/propagation/health")
     def health() -> dict[str, Any]:
@@ -246,7 +309,21 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
     def surface(request: SurfaceRequest) -> dict[str, Any]:
         stale = request.data_freshness_seconds.get("path_history", 0) > 7200
         predictions = []
-        for cell in request.cells:
+        try:
+            if hasattr(runtime, "predict_many"):
+                runtime_predictions = runtime.predict_many(
+                    [cell.values for cell in request.cells],
+                    [request.band] * len(request.cells),
+                    stale,
+                )
+            else:
+                runtime_predictions = [
+                    runtime.predict(cell.values, request.band, stale)
+                    for cell in request.cells
+                ]
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        for cell, prediction in zip(request.cells, runtime_predictions):
             path_request = PathRequest(
                 origin_grid4=request.origin_grid4,
                 issue_time=request.issue_time,
@@ -255,13 +332,9 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
                 mode=request.mode,
                 declared_power_watts=request.declared_power_watts,
                 features=cell,
-                station=request.station,
+                station=cell.station or request.station,
                 data_freshness_seconds=request.data_freshness_seconds,
             )
-            try:
-                prediction = runtime.predict(cell.values, request.band, stale)
-            except RuntimeError as error:
-                raise HTTPException(status_code=503, detail=str(error)) from error
             predictions.append(prediction_response(path_request, prediction))
         return {
             "origin_grid4": request.origin_grid4,

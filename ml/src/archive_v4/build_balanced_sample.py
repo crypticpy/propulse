@@ -72,8 +72,6 @@ def strata_sql() -> str:
     return """
       year(target_hour)::SMALLINT AS year,
       month(target_hour)::UTINYINT AS season_anchor,
-      band,
-      power_bin_dbm,
       CASE WHEN dist_km < 1000 THEN '<1k'
            WHEN dist_km < 3000 THEN '1-3k'
            WHEN dist_km < 6000 THEN '3-6k'
@@ -97,6 +95,10 @@ def strata_sql() -> str:
     """
 
 
+def duckdb_parquet_source(path: Path) -> str:
+    return str(path / "*.parquet") if path.is_dir() else str(path)
+
+
 def build(config_path: str, task: str, force: bool) -> dict[str, Any]:
     config = load_config(config_path)
     ensure_directories()
@@ -112,7 +114,9 @@ def build(config_path: str, task: str, force: bool) -> dict[str, Any]:
     )
     manifest_path = MANIFESTS / f"{config['run_id']}_{task}_balanced_sample.json"
     if sample_dir.exists() and not force:
-        return json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest_path.exists() and validation_path.exists():
+            return json.loads(manifest_path.read_text(encoding="utf-8"))
+        shutil.rmtree(sample_dir)
     if force:
         shutil.rmtree(sample_dir, ignore_errors=True)
         validation_path.unlink(missing_ok=True)
@@ -120,11 +124,12 @@ def build(config_path: str, task: str, force: bool) -> dict[str, Any]:
     sample_dir.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
     configure_duckdb(con, config, f"balanced-sample-{task}")
+    source_glob = duckdb_parquet_source(source)
     con.execute(
         f"""
         CREATE OR REPLACE TEMP VIEW stratified AS
         SELECT *, {strata_sql()}
-        FROM read_parquet('{source}')
+        FROM read_parquet('{source_glob}')
         """
     )
     rows = con.execute(
@@ -178,7 +183,7 @@ def build(config_path: str, task: str, force: bool) -> dict[str, Any]:
             SELECT {key_columns}, sum(opportunities)::DOUBLE AS sampled_opportunities
             FROM selected GROUP BY {key_columns}
           )
-          SELECT selected.* EXCLUDE (sampled_opportunities),
+          SELECT selected.*,
                  natural_rows::DOUBLE / quota_{largest} AS inverse_inclusion_weight,
                  natural_opportunities / sampled_opportunities AS poststrat_factor,
                  opportunities * natural_opportunities / sampled_opportunities
@@ -204,8 +209,7 @@ def build(config_path: str, task: str, force: bool) -> dict[str, Any]:
     sample_glob = str(sample_dir / "**/*.parquet")
     sample_stats = con.execute(
         f"""
-        SELECT count(*), sum(training_weight), sum(opportunities),
-               sum(natural_opportunities) / sum(quota_{largest})
+        SELECT count(*), sum(training_weight), sum(opportunities)
         FROM read_parquet('{sample_glob}', hive_partitioning=true)
         """
     ).fetchone()

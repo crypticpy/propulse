@@ -64,6 +64,8 @@ def iter_numpy_batches(
         use_threads=True,
     )
     for batch in scanner.to_batches():
+        if batch.num_rows == 0:
+            continue
         matrix = np.column_stack([_float_column(batch, name) for name in features])
         target = _float_column(batch, "success_rate")
         weight = _float_column(batch, weight_column)
@@ -189,7 +191,7 @@ def score_stream(
     features: list[str],
     *,
     weight_column: str,
-    calibrate: Callable[[np.ndarray, np.ndarray], np.ndarray],
+    calibrate: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray],
     filter_expression: ds.Expression | None = None,
 ) -> dict[str, Any]:
     accumulator = MetricAccumulator()
@@ -211,7 +213,7 @@ def score_stream(
         raw = model.inplace_predict(
             matrix, iteration_range=(0, best_iteration + 1)
         )
-        prediction = calibrate(raw, metadata["band"])
+        prediction = calibrate(raw, metadata["band"], metadata["dist_km"])
         accumulator.update(target, prediction, weight)
         text_bands = metadata["band"].astype(str)
         for band in np.unique(text_bands):

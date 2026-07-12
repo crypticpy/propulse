@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   // Solar collector
   if (config.enabledSources.has("solar")) {
     register("solar", pollIntervals.solar, () => collectSolar(db));
-    register("forecasts", pollIntervals.solar, () => collectForecasts(db));
+    register("forecasts", pollIntervals.forecasts, () => collectForecasts(db));
   }
 
   // Lightning WebSocket consumer (always-on, not poll-based)

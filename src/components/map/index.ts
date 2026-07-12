@@ -41,6 +41,7 @@ export { AzimuthalView } from "./AzimuthalView";
 
 // Control components
 export { TimeControl } from "./TimeControl";
+export { ReachMapControl } from "./ReachMapControl";
 export { DateTimePicker } from "./DateTimePicker";
 export { PathAnalysis } from "./PathAnalysis";
 export { PropagationForecast } from "./PropagationForecast";

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import unittest
 
 from fastapi.testclient import TestClient
@@ -8,6 +9,9 @@ from app import RuntimePrediction, create_app
 
 
 class FakeRegistry:
+    def __init__(self):
+        self.batch_sizes = []
+
     def predict(self, values, band, stale_history):
         return RuntimePrediction(
             probability=0.4,
@@ -17,6 +21,13 @@ class FakeRegistry:
             ood_flags=["recent_network_stale_physics_fallback"] if stale_history else [],
             top_factors=["sun_elev_mid"],
         )
+
+    def predict_many(self, rows, bands, stale_history):
+        self.batch_sizes.append(len(rows))
+        return [
+            self.predict(values, band, stale_history)
+            for values, band in zip(rows, bands)
+        ]
 
     def models(self):
         return [{"model_version": "v4-test"}]
@@ -68,7 +79,8 @@ def request_payload():
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(create_app(FakeRegistry()))
+        self.registry = FakeRegistry()
+        self.client = TestClient(create_app(self.registry))
 
     def test_path_applies_station_envelope(self):
         response = self.client.post("/v1/propagation/path", json=request_payload())
@@ -100,6 +112,47 @@ class ServiceTests(unittest.TestCase):
         response = self.client.post("/v1/propagation/surface", json=payload)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()["cells"]), 2)
+        self.assertEqual(self.registry.batch_sizes, [2])
+
+    def test_surface_applies_per_direction_station_envelopes(self):
+        payload = request_payload()
+        base_features = payload.pop("features")
+        weak_station = copy.deepcopy(payload["station"])
+        weak_station["eirpWatts"] = 5
+        weak_station["antennaGainTowardPathDbi"] = -6
+        strong_station = copy.deepcopy(payload["station"])
+        strong_station["eirpWatts"] = 250
+        strong_station["antennaGainTowardPathDbi"] = 10
+        payload["cells"] = [
+            {**base_features, "station": weak_station},
+            {
+                "target_grid4": "FN31",
+                "values": {"band_mhz": 14.1},
+                "station": strong_station,
+            },
+        ]
+        response = self.client.post("/v1/propagation/surface", json=payload)
+        self.assertEqual(response.status_code, 200)
+        probabilities = [
+            cell["personalized_probability"]
+            for cell in response.json()["cells"]
+        ]
+        self.assertGreater(probabilities[1], probabilities[0])
+
+    def test_local_browser_preflight_is_allowed(self):
+        response = self.client.options(
+            "/v1/propagation/path",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["access-control-allow-origin"],
+            "http://localhost:5173",
+        )
 
 
 if __name__ == "__main__":

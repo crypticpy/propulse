@@ -5,13 +5,13 @@
  * Used for contest overlays (needed mult markers, targeting, etc.).
  */
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useMapStore } from "@/stores/mapStore";
 import { getPathPoints } from "@/lib/utils/path";
 import { latLonToPosition3D } from "@/hooks/useSpotFocus";
-import type { OverlayArc, OverlayMarker } from "@/types/mapOverlays";
+import type { OverlayArc, OverlayCell, OverlayMarker } from "@/types/mapOverlays";
 
 const DEFAULT_MARKER_SIZE = 0.006;
 
@@ -34,33 +34,83 @@ function arcToPoints(arc: OverlayArc): THREE.Vector3[] {
   });
 }
 
+function OverlayCells({ cells }: { cells: OverlayCell[] }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const matrix = new THREE.Matrix4();
+    const quaternion = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    const normal = new THREE.Vector3(0, 0, 1);
+    cells.forEach((cell, index) => {
+      const position = markerToPosition({
+        id: cell.id,
+        lat: cell.lat,
+        lon: cell.lon,
+        color: cell.color,
+      }).normalize().multiplyScalar(1.008);
+      quaternion.setFromUnitVectors(normal, position.clone().normalize());
+      const radius = Math.max(
+        0.006,
+        Math.min(cell.widthDeg, cell.heightDeg) * Math.PI / 360 * 0.92,
+      );
+      scale.setScalar(radius);
+      matrix.compose(position, quaternion, scale);
+      mesh.setMatrixAt(index, matrix);
+      mesh.setColorAt(index, new THREE.Color(cell.color));
+    });
+    mesh.count = cells.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [cells]);
+
+  if (cells.length === 0) return null;
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, cells.length]}>
+      <circleGeometry args={[1, 20]} />
+      <meshBasicMaterial
+        transparent
+        opacity={0.52}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+      />
+    </instancedMesh>
+  );
+}
+
 export function OverlayLayers3D() {
   const overlayLayers = useMapStore((s) => s.overlayLayers);
 
-  const { markers, arcs } = useMemo(() => {
+  const { markers, arcs, cells } = useMemo(() => {
     const markers: OverlayMarker[] = [];
     const arcs: OverlayArc[] = [];
+    const cells: OverlayCell[] = [];
 
     for (const layer of Object.values(overlayLayers)) {
       if (layer.type === "markers") {
         markers.push(...layer.markers);
       } else if (layer.type === "arcs") {
         arcs.push(...layer.arcs);
+      } else if (layer.type === "cells") {
+        cells.push(...layer.cells);
       } else {
         markers.push(...layer.markers);
         arcs.push(...layer.arcs);
+        cells.push(...(layer.cells ?? []));
       }
     }
 
-    return { markers, arcs };
+    return { markers, arcs, cells };
   }, [overlayLayers]);
 
-  if (markers.length === 0 && arcs.length === 0) {
+  if (markers.length === 0 && arcs.length === 0 && cells.length === 0) {
     return null;
   }
 
   return (
     <>
+      <OverlayCells cells={cells} />
       {arcs.map((arc) => (
         <Line
           key={arc.id}
@@ -93,4 +143,3 @@ export function OverlayLayers3D() {
 }
 
 export default OverlayLayers3D;
-

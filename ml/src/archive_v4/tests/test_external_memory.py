@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import xgboost as xgb
 
@@ -14,7 +15,7 @@ import xgboost as xgb
 MODULE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE))
 
-from external_memory import MetricAccumulator, ParquetDataIter  # noqa: E402
+from external_memory import MetricAccumulator, ParquetDataIter, iter_numpy_batches  # noqa: E402
 
 
 class ExternalMemoryTests(unittest.TestCase):
@@ -54,6 +55,25 @@ class ExternalMemoryTests(unittest.TestCase):
             result["weighted_brier"], np.average((y - p) ** 2, weights=w)
         )
         self.assertAlmostEqual(result["weighted_prevalence"], np.average(y, weights=w))
+
+    def test_filtered_empty_batches_are_not_emitted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.parquet"
+            pq.write_table(
+                pa.table({
+                    "a": np.arange(4, dtype=np.float32),
+                    "success_rate": np.zeros(4, dtype=np.float32),
+                    "training_weight": np.ones(4, dtype=np.float32),
+                }),
+                path,
+            )
+            batches = list(iter_numpy_batches(
+                path,
+                ["a"],
+                weight_column="training_weight",
+                filter_expression=ds.field("a") > 100,
+            ))
+            self.assertEqual(batches, [])
 
 
 if __name__ == "__main__":

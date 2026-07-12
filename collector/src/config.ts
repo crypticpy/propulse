@@ -47,6 +47,7 @@ export function loadConfig(): CollectorConfig {
       rbn: parseIntervalMs(process.env.POLL_RBN, 5 * 60_000),
       dxcluster: parseIntervalMs(process.env.POLL_DXCLUSTER, 2 * 60_000),
       solar: parseIntervalMs(process.env.POLL_SOLAR, 15 * 60_000),
+      forecasts: parseIntervalMs(process.env.POLL_FORECASTS, 6 * 60 * 60_000),
       satellites: parseIntervalMs(process.env.POLL_SATELLITES, 2 * 60 * 60_000),
       aggregator: parseIntervalMs(process.env.POLL_AGGREGATOR, 5 * 60_000),
       prune: parseIntervalMs(process.env.POLL_PRUNE, 60 * 60_000),

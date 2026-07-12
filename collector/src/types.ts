@@ -39,6 +39,7 @@ export interface PollIntervals {
   rbn: number;
   dxcluster: number;
   solar: number;
+  forecasts: number;
   satellites: number;
   aggregator: number;
   prune: number;

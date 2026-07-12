@@ -31,8 +31,20 @@ export interface OverlayArc {
   width?: number;
 }
 
+export interface OverlayCell {
+  id: string;
+  lat: number;
+  lon: number;
+  widthDeg: number;
+  heightDeg: number;
+  color: string;
+  opacity?: number;
+  label?: string;
+  value?: number;
+}
+
 export type OverlayLayerModel =
   | { type: "markers"; markers: OverlayMarker[] }
   | { type: "arcs"; arcs: OverlayArc[] }
-  | { type: "mixed"; markers: OverlayMarker[]; arcs: OverlayArc[] };
-
+  | { type: "cells"; cells: OverlayCell[] }
+  | { type: "mixed"; markers: OverlayMarker[]; arcs: OverlayArc[]; cells?: OverlayCell[] };

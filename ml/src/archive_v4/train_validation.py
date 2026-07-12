@@ -17,6 +17,7 @@ from typing import Any
 import joblib
 import duckdb
 import numpy as np
+import polars as pl
 import pyarrow.compute as pc
 import pyarrow.dataset as ds
 import xgboost as xgb
@@ -25,6 +26,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 
 
 V3 = Path(__file__).resolve().parents[1] / "archive_v3"
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(V3))
 from common import (  # noqa: E402
     MANIFESTS,
@@ -48,30 +50,11 @@ from external_memory import (  # noqa: E402
     month_filter,
     score_stream,
 )
+from calibration import CalibratorBundle  # noqa: E402
 
 
-class CalibratorBundle:
-    def __init__(
-        self,
-        global_model: IsotonicRegression,
-        band_models: dict[str, IsotonicRegression] | None = None,
-    ) -> None:
-        self.global_model = global_model
-        self.band_models = band_models or {}
-
-    @property
-    def method(self) -> str:
-        return "per_band_isotonic" if self.band_models else "global_isotonic"
-
-    def predict(self, raw: np.ndarray, bands: np.ndarray) -> np.ndarray:
-        if not self.band_models:
-            return self.global_model.predict(raw)
-        output = np.empty(len(raw), dtype=np.float64)
-        text_bands = bands.astype(str)
-        for band in np.unique(text_bands):
-            mask = text_bands == band
-            output[mask] = self.band_models.get(band, self.global_model).predict(raw[mask])
-        return output
+def duckdb_parquet_source(path: Path) -> str:
+    return str(path / "*.parquet") if path.is_dir() else str(path)
 
 
 def available_features(paths: list[Path], profile: str) -> list[str]:
@@ -97,17 +80,22 @@ def available_features(paths: list[Path], profile: str) -> list[str]:
 def load_predictions(
     model: xgb.Booster,
     best: int,
-    path: Path,
+    path: Path | list[Path],
     features: list[str],
     months: list[str],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    raw_rows, targets, weights, bands, any_success = [], [], [], [], []
+    weight_column: str = "opportunities",
+) -> tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+]:
+    raw_rows, targets, weights, bands, any_success, distances, target_hours = (
+        [], [], [], [], [], [], []
+    )
     for matrix, target, weight, metadata in iter_numpy_batches(
         path,
         features,
-        weight_column="opportunities",
+        weight_column=weight_column,
         filter_expression=month_filter(months),
-        metadata=["band", "any_success"],
+        metadata=["band", "any_success", "dist_km", "target_hour"],
     ):
         raw_rows.append(
             model.inplace_predict(matrix, iteration_range=(0, best + 1))
@@ -116,11 +104,15 @@ def load_predictions(
         weights.append(weight)
         bands.append(metadata["band"])
         any_success.append(metadata["any_success"])
+        distances.append(metadata["dist_km"])
+        target_hours.append(metadata["target_hour"])
     if not raw_rows:
         raise RuntimeError(f"validation sample has no rows for {months}")
     return tuple(
         np.concatenate(values)
-        for values in (raw_rows, targets, weights, bands, any_success)
+        for values in (
+            raw_rows, targets, weights, bands, any_success, distances, target_hours
+        )
     )  # type: ignore[return-value]
 
 
@@ -129,7 +121,8 @@ def fit_calibrators(
     target: np.ndarray,
     weight: np.ndarray,
     bands: np.ndarray,
-) -> tuple[CalibratorBundle, CalibratorBundle]:
+    distance: np.ndarray,
+) -> tuple[CalibratorBundle, CalibratorBundle, CalibratorBundle]:
     global_model = IsotonicRegression(out_of_bounds="clip", y_min=0, y_max=1)
     global_model.fit(raw, target, sample_weight=weight)
     models: dict[str, IsotonicRegression] = {}
@@ -141,7 +134,77 @@ def fit_calibrators(
         model = IsotonicRegression(out_of_bounds="clip", y_min=0, y_max=1)
         model.fit(raw[mask], target[mask], sample_weight=weight[mask])
         models[band] = model
-    return CalibratorBundle(global_model), CalibratorBundle(global_model, models)
+    distance_models: dict[tuple[str, str], IsotonicRegression] = {}
+    groups = CalibratorBundle.distance_groups(distance.astype(np.float64))
+    for band, group in sorted(set(zip(text_bands, groups))):
+        mask = (text_bands == band) & (groups == group)
+        if mask.sum() < 20_000 or np.unique(raw[mask]).size < 50:
+            continue
+        model = IsotonicRegression(out_of_bounds="clip", y_min=0, y_max=1)
+        model.fit(raw[mask], target[mask], sample_weight=weight[mask])
+        distance_models[(band, group)] = model
+    return (
+        CalibratorBundle(global_model),
+        CalibratorBundle(global_model, models),
+        CalibratorBundle(global_model, models, distance_models),
+    )
+
+
+CALIBRATION_SELECTION_PROTOCOL = (
+    "April days 1-20 fit; days 21-end method selection; full April refit"
+)
+
+
+def select_calibrator(
+    calibration: tuple[
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+        np.ndarray,
+    ],
+) -> tuple[CalibratorBundle, dict[str, dict[str, Any]]]:
+    timestamps = calibration[6].astype("datetime64[us]")
+    calibration_days = (
+        timestamps.astype("datetime64[D]") - timestamps.astype("datetime64[M]")
+    ).astype(np.int16) + 1
+    calibration_fit = calibration_days <= 20
+    calibration_select = calibration_days > 20
+    if not calibration_fit.any() or not calibration_select.any():
+        raise RuntimeError("calibration month does not cover both frozen day windows")
+    candidates = list(fit_calibrators(
+        calibration[0][calibration_fit],
+        calibration[1][calibration_fit],
+        calibration[2][calibration_fit],
+        calibration[3][calibration_fit],
+        calibration[5][calibration_fit],
+    ))
+    candidate_metrics = {
+        candidate.method: sample_metrics(
+            calibration[1][calibration_select],
+            candidate.predict(
+                calibration[0][calibration_select],
+                calibration[3][calibration_select],
+                calibration[5][calibration_select],
+            ),
+            calibration[2][calibration_select],
+            calibration[4][calibration_select],
+        )
+        for candidate in candidates
+    }
+    selected_method = min(
+        candidates,
+        key=lambda candidate: (
+            candidate_metrics[candidate.method]["weighted_brier"],
+            candidate_metrics[candidate.method]["weighted_log_loss"],
+        ),
+    ).method
+    selected = next(
+        candidate
+        for candidate in fit_calibrators(
+            calibration[0], calibration[1], calibration[2], calibration[3],
+            calibration[5],
+        )
+        if candidate.method == selected_method
+    )
+    return selected, candidate_metrics
 
 
 def sample_metrics(
@@ -163,32 +226,84 @@ def sample_metrics(
     return output
 
 
+def in_memory_quantile_matrix(
+    paths: Path | list[Path],
+    features: list[str],
+    *,
+    weight_column: str,
+    filter_expression: ds.Expression | None,
+    ref: xgb.QuantileDMatrix | None = None,
+) -> xgb.QuantileDMatrix:
+    matrices: list[np.ndarray] = []
+    targets: list[np.ndarray] = []
+    weights: list[np.ndarray] = []
+    for matrix, target, weight, _ in iter_numpy_batches(
+        paths,
+        features,
+        weight_column=weight_column,
+        filter_expression=filter_expression,
+    ):
+        matrices.append(matrix)
+        targets.append(target)
+        weights.append(weight)
+    if not matrices:
+        raise RuntimeError("in-memory matrix selection is empty")
+    matrix = np.concatenate(matrices)
+    target = np.concatenate(targets)
+    weight = np.concatenate(weights)
+    output = xgb.QuantileDMatrix(
+        matrix,
+        target,
+        weight=weight,
+        max_bin=255,
+        ref=ref,
+    )
+    del matrix, target, weight, matrices, targets, weights
+    return output
+
+
 def peak_rss_gb() -> float:
     value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return float(value) / (1024**3)
+    # macOS reports bytes; Linux reports KiB.
+    return float(value) / (1024**3) if sys.platform == "darwin" else float(value) / (1024**2)
 
 
-def score_climatology(config: dict[str, Any]) -> dict[str, Any]:
+def score_climatology(
+    config: dict[str, Any],
+    *,
+    train_before: str | None = None,
+    gate_months: list[str] | None = None,
+) -> dict[str, Any]:
     source = PROCESSED / f"dataset_{config['run_id']}_hf.parquet"
+    source_glob = duckdb_parquet_source(source)
+    training_where = "split='train'"
+    if train_before is not None:
+        training_where += f" AND target_hour < TIMESTAMPTZ '{train_before}'"
     con = duckdb.connect()
     rows = con.execute(
         f"""
         SELECT band, hour(target_hour) AS hour,
                sum(successes) / sum(opportunities) AS probability
-        FROM read_parquet('{source}') WHERE split='train'
+        FROM read_parquet('{source_glob}') WHERE {training_where}
         GROUP BY band, hour(target_hour)
         """
     ).fetchall()
     global_rate = con.execute(
         f"""
         SELECT sum(successes) / sum(opportunities)
-        FROM read_parquet('{source}') WHERE split='train'
+        FROM read_parquet('{source_glob}') WHERE {training_where}
         """
     ).fetchone()[0]
     rates = {(str(row[0]), int(row[1])): float(row[2]) for row in rows}
+    global_rates = np.full(24, float(global_rate), dtype=np.float64)
+    rate_arrays: dict[str, np.ndarray] = {}
+    for (band, hour), probability in rates.items():
+        rate_arrays.setdefault(
+            band, global_rates.copy()
+        )[hour] = probability
     scanner = ds.dataset(str(source), format="parquet").scanner(
         columns=["target_hour", "band", "success_rate", "opportunities"],
-        filter=month_filter(config["validation_protocol"]["gate_months"]),
+        filter=month_filter(gate_months or config["validation_protocol"]["gate_months"]),
         batch_size=250_000,
     )
     overall = MetricAccumulator()
@@ -196,10 +311,10 @@ def score_climatology(config: dict[str, Any]) -> dict[str, Any]:
     for batch in scanner.to_batches():
         text_bands = batch.column("band").to_numpy(zero_copy_only=False).astype(str)
         hours = pc.hour(batch.column("target_hour")).to_numpy(zero_copy_only=False)
-        prediction = np.array(
-            [rates.get((band, int(hour)), global_rate) for band, hour in zip(text_bands, hours)],
-            dtype=np.float64,
-        )
+        prediction = np.full(len(text_bands), float(global_rate), dtype=np.float64)
+        for band in np.unique(text_bands):
+            mask = text_bands == band
+            prediction[mask] = rate_arrays.get(band, global_rates)[hours[mask]]
         target = batch.column("success_rate").to_numpy(zero_copy_only=False).astype(np.float32)
         weight = batch.column("opportunities").to_numpy(zero_copy_only=False).astype(np.float32)
         overall.update(target, prediction, weight)
@@ -216,6 +331,58 @@ def score_climatology(config: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
+def score_p533_pair(
+    config: dict[str, Any], candidate: dict[str, Any]
+) -> dict[str, Any] | None:
+    cache = PROCESSED / f"p533/{config['run_id']}_validation.parquet"
+    p533_calibrator_path = MODELS / config["run_id"] / "B1_p533.isotonic.joblib"
+    if not cache.exists() or not p533_calibrator_path.exists():
+        return None
+    frame = pl.read_parquet(cache).filter(
+        pl.col("sample_month").is_in(config["validation_protocol"]["gate_months"])
+    )
+    if frame.is_empty():
+        return None
+    features = candidate["features"]
+    missing = sorted(set(features) - set(frame.columns))
+    if missing:
+        return {
+            "status": "not_comparable_missing_features",
+            "missing_features": missing,
+        }
+    model = xgb.Booster()
+    model.load_model(ROOT / candidate["model_path"])
+    calibrator = joblib.load(ROOT / candidate["calibrator_path"])
+    matrix = frame.select(features).fill_null(0).cast(pl.Float32).to_numpy()
+    raw = model.inplace_predict(
+        matrix, iteration_range=(0, int(candidate["best_iteration"]) + 1)
+    )
+    bands = frame["band"].to_numpy()
+    distance = frame["dist_km"].to_numpy()
+    candidate_prediction = calibrator.predict(raw, bands, distance)
+    p533_calibrator = joblib.load(p533_calibrator_path)
+    p533_prediction = p533_calibrator.predict(frame["adjusted_snr_db"].to_numpy())
+    target = frame["success_rate"].to_numpy()
+    weight = frame["opportunities"].to_numpy()
+    any_success = frame["any_success"].to_numpy()
+    candidate_metrics = sample_metrics(
+        target, candidate_prediction, weight, any_success
+    )
+    p533_metrics = sample_metrics(target, p533_prediction, weight, any_success)
+    return {
+        "status": "paired_gate_sample",
+        "rows": frame.height,
+        "candidate": candidate_metrics,
+        "p533": p533_metrics,
+        "candidate_minus_p533_brier": (
+            candidate_metrics["weighted_brier"] - p533_metrics["weighted_brier"]
+        ),
+        "candidate_brier_skill_vs_p533": (
+            1 - candidate_metrics["weighted_brier"] / p533_metrics["weighted_brier"]
+        ),
+    }
+
+
 def train_candidate(
     config: dict[str, Any],
     profile: str,
@@ -229,24 +396,43 @@ def train_candidate(
     features = available_features(train_paths, profile)
     sample_filter = ds.field(f"in_sample_{cap}") == True  # noqa: E712
     validation = config["validation_protocol"]
-    train_iterator = ParquetDataIter(
-        train_paths,
-        features,
-        weight_column="training_weight",
-        cache_prefix=str(cache_dir / f"{profile}-{cap}-train"),
-        filter_expression=sample_filter,
-    )
-    tuning_iterator = ParquetDataIter(
-        validation_path,
-        features,
-        weight_column="opportunities",
-        cache_prefix=str(cache_dir / f"{profile}-{cap}-tuning"),
-        filter_expression=month_filter(validation["early_stopping_months"]),
-    )
-    train_matrix = xgb.ExtMemQuantileDMatrix(train_iterator, max_bin=255)
-    tuning_matrix = xgb.ExtMemQuantileDMatrix(
-        tuning_iterator, max_bin=255, ref=train_matrix
-    )
+    in_memory_cap = int(os.environ.get("PROPULSE_IN_MEMORY_CAP", "5000000"))
+    training_mode = "in_memory_quantile" if cap <= in_memory_cap else "external_memory_quantile"
+    train_iterator = None
+    tuning_iterator = None
+    if cap <= in_memory_cap:
+        train_matrix = in_memory_quantile_matrix(
+            train_paths,
+            features,
+            weight_column="training_weight",
+            filter_expression=sample_filter,
+        )
+        tuning_matrix = in_memory_quantile_matrix(
+            validation_path,
+            features,
+            weight_column="opportunities",
+            filter_expression=month_filter(validation["early_stopping_months"]),
+            ref=train_matrix,
+        )
+    else:
+        train_iterator = ParquetDataIter(
+            train_paths,
+            features,
+            weight_column="training_weight",
+            cache_prefix=str(cache_dir / f"{profile}-{cap}-train"),
+            filter_expression=sample_filter,
+        )
+        tuning_iterator = ParquetDataIter(
+            validation_path,
+            features,
+            weight_column="opportunities",
+            cache_prefix=str(cache_dir / f"{profile}-{cap}-tuning"),
+            filter_expression=month_filter(validation["early_stopping_months"]),
+        )
+        train_matrix = xgb.ExtMemQuantileDMatrix(train_iterator, max_bin=255)
+        tuning_matrix = xgb.ExtMemQuantileDMatrix(
+            tuning_iterator, max_bin=255, ref=train_matrix
+        )
     started = time.time()
     model = xgb.train(
         {
@@ -278,9 +464,7 @@ def train_candidate(
         features,
         validation["calibration_months"],
     )
-    global_cal, band_cal = fit_calibrators(
-        calibration[0], calibration[1], calibration[2], calibration[3]
-    )
+    selected, candidate_metrics = select_calibrator(calibration)
     gate = load_predictions(
         model,
         best,
@@ -288,19 +472,8 @@ def train_candidate(
         features,
         validation["gate_months"],
     )
-    candidates = [global_cal, band_cal]
-    candidate_metrics = {
-        candidate.method: sample_metrics(
-            gate[1], candidate.predict(gate[0], gate[3]), gate[2], gate[4]
-        )
-        for candidate in candidates
-    }
-    selected = min(
-        candidates,
-        key=lambda candidate: (
-            candidate_metrics[candidate.method]["weighted_brier"],
-            candidate_metrics[candidate.method]["weighted_log_loss"],
-        ),
+    gate_sample = sample_metrics(
+        gate[1], selected.predict(gate[0], gate[3], gate[5]), gate[2], gate[4]
     )
     full_gate = score_stream(
         model,
@@ -321,12 +494,14 @@ def train_candidate(
         "candidate": profile,
         "train_cap": cap,
         "features": features,
+        "training_mode": training_mode,
         "train_rows": train_matrix.num_row(),
         "early_stopping_rows": tuning_matrix.num_row(),
         "best_iteration": best,
         "calibration_method": selected.method,
-        "calibrator_comparison_on_gate_sample": candidate_metrics,
-        "gate_sample": candidate_metrics[selected.method],
+        "calibration_selection_protocol": CALIBRATION_SELECTION_PROTOCOL,
+        "calibrator_comparison_on_april_holdout": candidate_metrics,
+        "gate_sample": gate_sample,
         "gate_full": full_gate,
         "seconds": time.time() - started,
         "peak_rss_gb": peak_rss_gb(),
@@ -378,6 +553,20 @@ def main() -> None:
     model_dir.mkdir(parents=True, exist_ok=True)
     result_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
+    previous_curves: dict[int, dict[str, Any]] = {}
+    previous_results_path = result_dir / "development_results.json"
+    if previous_results_path.exists():
+        previous = json.loads(previous_results_path.read_text(encoding="utf-8"))
+        if (
+            previous.get("run_id") == run_id
+            and previous.get("scope") == "development_only"
+            and previous.get("calibration_selection_protocol")
+            == CALIBRATION_SELECTION_PROTOCOL
+        ):
+            previous_curves = {
+                int(row["train_cap"]): row
+                for row in previous.get("learning_curve", [])
+            }
     output: dict[str, Any] = {
         "schema_version": 1,
         "generated_at": utc_now(),
@@ -385,6 +574,7 @@ def main() -> None:
         "scope": "development_only",
         "locked_archive_test_read": False,
         "validation_protocol": config["validation_protocol"],
+        "calibration_selection_protocol": CALIBRATION_SELECTION_PROTOCOL,
         "candidates": {},
         "baselines": {
             "B0_climatology": score_climatology(config),
@@ -409,6 +599,10 @@ def main() -> None:
         print(f"learning curve M2 cap={cap:,}", flush=True)
         if cap == primary_cap:
             curve = output["candidates"]["M2_nowcast"]
+        elif cap in previous_curves:
+            print(f"reuse learning curve M2 cap={cap:,}", flush=True)
+            output["learning_curve"].append(previous_curves[cap])
+            continue
         else:
             curve = train_candidate(
                 config, "M2_nowcast", cap, train_paths, validation_path,
@@ -418,6 +612,9 @@ def main() -> None:
             key: curve[key]
             for key in ("train_cap", "train_rows", "best_iteration", "gate_full", "seconds", "peak_rss_gb")
         })
+    paired_p533 = score_p533_pair(config, output["candidates"]["M2_nowcast"])
+    if paired_p533 is not None:
+        output["baselines"]["B1_p533_voacap"] = paired_p533
     output["versions"] = {
         package: importlib.metadata.version(package)
         for package in ("numpy", "pyarrow", "scikit-learn", "xgboost")

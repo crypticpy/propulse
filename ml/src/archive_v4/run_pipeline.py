@@ -32,6 +32,11 @@ STAGES: dict[str, tuple[Path, list[str], str]] = {
     "audit-6m": (ROOT / "ml/src/archive_v4/audit_development.py", ["--task", "6m"], "development"),
     "sample-hf": (ROOT / "ml/src/archive_v4/build_balanced_sample.py", ["--task", "hf"], "development"),
     "train-validation": (ROOT / "ml/src/archive_v4/train_validation.py", [], "development"),
+    "rolling-validation": (ROOT / "ml/src/archive_v4/rolling_validation.py", [], "development"),
+    "report-artifact": (ROOT / "ml/src/archive_v4/generate_report_artifact.py", [], "development"),
+    "package-serving": (ROOT / "ml/src/archive_v4/package_serving_bundle.py", [], "development"),
+    "source-outage-validation": (ROOT / "ml/src/archive_v4/validate_source_outage.py", [], "development"),
+    "train-6m": (ROOT / "ml/src/archive_v4/train_6m_validation.py", [], "development"),
 }
 
 PREPARE = [
@@ -53,6 +58,7 @@ PREPARE = [
 def environment(config: dict, profile: str) -> dict[str, str]:
     env = dict(os.environ)
     env["PROPULSE_ARCHIVE_NAMESPACE"] = config["archive_namespace"]
+    env.setdefault("MPLCONFIGDIR", "/tmp/propulse-matplotlib")
     if profile == "local-m3":
         env.update(
             {

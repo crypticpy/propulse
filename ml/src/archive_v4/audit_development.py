@@ -26,6 +26,10 @@ from common import (  # noqa: E402
 )
 
 
+def duckdb_parquet_source(path: Path) -> str:
+    return str(path / "*.parquet") if path.is_dir() else str(path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
@@ -42,6 +46,7 @@ def main() -> None:
         raise FileNotFoundError(dataset if not dataset.exists() else opportunity_manifest)
     con = duckdb.connect()
     configure_duckdb(con, config, f"audit-development-{args.task}")
+    source = duckdb_parquet_source(dataset)
     aggregate = con.execute(
         f"""
         SELECT count(*) AS rows,
@@ -53,14 +58,14 @@ def main() -> None:
                                  OR success_rate IS NULL) AS bad_targets,
                count(*) FILTER (weather_available_at > target_hour) AS future_weather_rows,
                min(target_hour), max(target_hour)
-        FROM read_parquet('{dataset}')
+        FROM read_parquet('{source}')
         """
     ).fetchone()
     split_rows = con.execute(
         f"""
         SELECT split, count(*) AS rows, sum(opportunities) AS opportunities,
                sum(successes) AS successes
-        FROM read_parquet('{dataset}') GROUP BY split ORDER BY split
+        FROM read_parquet('{source}') GROUP BY split ORDER BY split
         """
     ).fetchall()
     opportunity = json.loads(opportunity_manifest.read_text(encoding="utf-8"))

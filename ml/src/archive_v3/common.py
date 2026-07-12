@@ -24,7 +24,15 @@ MODELS = Path(
         "PROPULSE_ML_MODEL_ROOT", ROOT / f"ml/models/{ARCHIVE_NAMESPACE}"
     )
 )
-RESULTS = ROOT / f"ml/results/{ARCHIVE_NAMESPACE}"
+DEFAULT_RESULTS_NAMESPACE = (
+    "propagation_v4" if ARCHIVE_NAMESPACE == "archive_v4" else ARCHIVE_NAMESPACE
+)
+RESULTS = Path(
+    os.environ.get(
+        "PROPULSE_ML_RESULTS_ROOT",
+        ROOT / f"ml/results/{DEFAULT_RESULTS_NAMESPACE}",
+    )
+)
 
 WSPR_COLUMNS = {
     "spot_id": "BIGINT",
@@ -88,6 +96,14 @@ def configure_duckdb(connection: Any, config: dict[str, Any], stage: str) -> Pat
 
 
 def sha256(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
+    if path.is_dir():
+        digest = hashlib.sha256()
+        for child in sorted(value for value in path.rglob("*") if value.is_file()):
+            digest.update(str(child.relative_to(path)).encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(sha256(child, chunk_size).encode("ascii"))
+            digest.update(b"\n")
+        return digest.hexdigest()
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(chunk_size):

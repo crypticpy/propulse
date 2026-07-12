@@ -38,6 +38,7 @@ import {
   GridResearchPanel,
   AddPinDialog,
   RegionPresetManager,
+  ReachMapControl,
 } from "@/components/map";
 import { SatelliteDetailModal } from "@/components/map/layers";
 import { LayersPopover } from "@/components/map/LayersPopover";
@@ -102,6 +103,7 @@ import { useSpotReplay } from "@/hooks/useSpotReplay";
 import { useReplayStore } from "@/stores/replayStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { LiveSpot } from "@/types/livespot";
+import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 
 /**
  * Convert decimal degrees to Maidenhead grid locator
@@ -254,6 +256,8 @@ export function PropSphere() {
   // DX Cluster drawer state
   const [dxClusterExpanded, setDxClusterExpanded] = useState(true);
   const [showOptimalBandHelp, setShowOptimalBandHelp] = useState(false);
+  const [reachMapEnabled, setReachMapEnabled] = useState(false);
+  const [reachMapBand, setReachMapBand] = useState("20m");
 
   // Keyboard shortcuts help overlay
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
@@ -533,6 +537,15 @@ export function PropSphere() {
   const displayTime = useMemo(() => {
     return addHours(new Date(), timeOffset);
   }, [timeOffset]);
+  const reachMapState = useReachMapSurface({
+    enabled: reachMapEnabled && timeOffset === 0,
+    band: reachMapBand,
+    validTime: displayTime,
+    weather: {
+      kp: miniKp ?? undefined,
+      f107: miniSfi ?? undefined,
+    },
+  });
 
   // ── Spot Replay ────────────────────────────────────────────────────────
   const { spots: replaySpots } = useSpotReplay({
@@ -855,6 +868,23 @@ export function PropSphere() {
 
                 {/* Layers popover */}
                 <LayersPopover />
+
+                <ReachMapControl
+                  enabled={reachMapEnabled}
+                  band={reachMapBand}
+                  onEnabledChange={setReachMapEnabled}
+                  onBandChange={setReachMapBand}
+                  state={
+                    timeOffset === 0
+                      ? reachMapState
+                      : {
+                          ...reachMapState,
+                          loading: false,
+                          error: "Return to live time to use NowCast",
+                          cellCount: 0,
+                        }
+                  }
+                />
 
                 {/* Colors popover */}
                 <ColorsPopover />

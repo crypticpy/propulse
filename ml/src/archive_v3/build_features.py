@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -73,100 +74,112 @@ def split_sql(config: dict) -> str:
 
 
 def add_polars_features(source: Path | list[Path], destination: Path, task: str) -> None:
+    sources = source if isinstance(source, list) else [source]
+    destination.mkdir(parents=True, exist_ok=True)
     deg = math.pi / 180.0
-    frame = pl.scan_parquet(source).filter(
-        pl.col("target_hour").is_not_null()
-        & pl.col("opportunities").is_not_null()
-        & (pl.col("opportunities") > 0)
-        & pl.col("split").is_in(["train", "validation", "test"])
-    )
-    frame = frame.with_columns(
-        (pl.col("target_hour").dt.hour() + 0.5).alias("frac_hour"),
-        pl.col("target_hour").dt.ordinal_day().alias("day_of_year"),
-    ).with_columns(
-        (
-            2
-            * math.pi
-            / 365
-            * (pl.col("day_of_year") - 1 + (pl.col("frac_hour") - 12) / 24)
-        ).alias("solar_gamma"),
-        (2 * math.pi * pl.col("frac_hour") / 24).sin().alias("hod_sin"),
-        (2 * math.pi * pl.col("frac_hour") / 24).cos().alias("hod_cos"),
-        (2 * math.pi * (pl.col("day_of_year") - 1) / 365).sin().alias("doy_sin"),
-        (2 * math.pi * (pl.col("day_of_year") - 1) / 365).cos().alias("doy_cos"),
-        (pl.col("target_hour").dt.weekday() >= 6).cast(pl.UInt8).alias("is_weekend"),
-    )
-    gamma = pl.col("solar_gamma")
-    frame = frame.with_columns(
-        (
-            0.006918
-            - 0.399912 * gamma.cos()
-            + 0.070257 * gamma.sin()
-            - 0.006758 * (2 * gamma).cos()
-            + 0.000907 * (2 * gamma).sin()
-            - 0.002697 * (3 * gamma).cos()
-            + 0.00148 * (3 * gamma).sin()
-        ).alias("solar_declination"),
-        (
-            229.18
-            * (
-                0.000075
-                + 0.001868 * gamma.cos()
-                - 0.032077 * gamma.sin()
-                - 0.014615 * (2 * gamma).cos()
-                - 0.040849 * (2 * gamma).sin()
-            )
-        ).alias("equation_of_time"),
-    )
-
-    def sun_elevation(lat: str, lon: str) -> pl.Expr:
-        lat_rad = pl.col(lat) * deg
-        hour_angle = (
+    for index, current_source in enumerate(sources):
+        part = destination / f"part-{index:03d}.parquet"
+        if part.exists():
+            print(f"reuse feature partition {index + 1}/{len(sources)}", flush=True)
+            continue
+        frame = pl.scan_parquet(current_source).filter(
+            pl.col("target_hour").is_not_null()
+            & pl.col("opportunities").is_not_null()
+            & (pl.col("opportunities") > 0)
+            & pl.col("split").is_in(["train", "validation", "test"])
+        )
+        frame = frame.with_columns(
+            (pl.col("target_hour").dt.hour() + 0.5).alias("frac_hour"),
+            pl.col("target_hour").dt.ordinal_day().alias("day_of_year"),
+        ).with_columns(
             (
-                pl.col("frac_hour") * 60
-                + pl.col("equation_of_time")
-                + 4 * pl.col(lon)
-            )
-            / 4
-            - 180
-        ) * deg
-        sine = (
-            lat_rad.sin() * pl.col("solar_declination").sin()
-            + lat_rad.cos()
-            * pl.col("solar_declination").cos()
-            * hour_angle.cos()
-        ).clip(-1.0, 1.0)
-        return sine.arcsin() / deg
-
-    frame = frame.with_columns(
-        sun_elevation("tx_lat", "tx_lon").alias("sun_elev_tx"),
-        sun_elevation("rx_lat", "rx_lon").alias("sun_elev_rx"),
-        sun_elevation("mid_lat", "mid_lon").alias("sun_elev_mid"),
-    ).with_columns(
-        (
+                2
+                * math.pi
+                / 365
+                * (pl.col("day_of_year") - 1 + (pl.col("frac_hour") - 12) / 24)
+            ).alias("solar_gamma"),
+            (2 * math.pi * pl.col("frac_hour") / 24).sin().alias("hod_sin"),
+            (2 * math.pi * pl.col("frac_hour") / 24).cos().alias("hod_cos"),
+            (2 * math.pi * (pl.col("day_of_year") - 1) / 365).sin().alias("doy_sin"),
+            (2 * math.pi * (pl.col("day_of_year") - 1) / 365).cos().alias("doy_cos"),
+            (pl.col("target_hour").dt.weekday() >= 6).cast(pl.UInt8).alias("is_weekend"),
+        )
+        gamma = pl.col("solar_gamma")
+        frame = frame.with_columns(
             (
-                (pl.col("sun_elev_tx") < 0).cast(pl.Float32)
-                + (pl.col("sun_elev_mid") < 0).cast(pl.Float32)
-                + (pl.col("sun_elev_rx") < 0).cast(pl.Float32)
-            )
-            / 3
-        ).alias("dark_frac"),
-        pl.min_horizontal(
-            pl.col("sun_elev_tx").abs(), pl.col("sun_elev_rx").abs()
-        ).alias("min_abs_elev_ends"),
-        *[
-            (pl.col("band") == band).cast(pl.UInt8).alias(f"band_{band}")
-            for band in BAND_MHZ
-            if (task == "hf" and band != "6m")
-        ],
-    )
-    frame.drop(
-        "frac_hour",
-        "day_of_year",
-        "solar_gamma",
-        "solar_declination",
-        "equation_of_time",
-    ).sink_parquet(destination, compression="zstd", statistics=True)
+                0.006918
+                - 0.399912 * gamma.cos()
+                + 0.070257 * gamma.sin()
+                - 0.006758 * (2 * gamma).cos()
+                + 0.000907 * (2 * gamma).sin()
+                - 0.002697 * (3 * gamma).cos()
+                + 0.00148 * (3 * gamma).sin()
+            ).alias("solar_declination"),
+            (
+                229.18
+                * (
+                    0.000075
+                    + 0.001868 * gamma.cos()
+                    - 0.032077 * gamma.sin()
+                    - 0.014615 * (2 * gamma).cos()
+                    - 0.040849 * (2 * gamma).sin()
+                )
+            ).alias("equation_of_time"),
+        )
+
+        def sun_elevation(lat: str, lon: str) -> pl.Expr:
+            lat_rad = pl.col(lat) * deg
+            hour_angle = (
+                (
+                    pl.col("frac_hour") * 60
+                    + pl.col("equation_of_time")
+                    + 4 * pl.col(lon)
+                )
+                / 4
+                - 180
+            ) * deg
+            sine = (
+                lat_rad.sin() * pl.col("solar_declination").sin()
+                + lat_rad.cos()
+                * pl.col("solar_declination").cos()
+                * hour_angle.cos()
+            ).clip(-1.0, 1.0)
+            return sine.arcsin() / deg
+
+        frame = frame.with_columns(
+            sun_elevation("tx_lat", "tx_lon").alias("sun_elev_tx"),
+            sun_elevation("rx_lat", "rx_lon").alias("sun_elev_rx"),
+            sun_elevation("mid_lat", "mid_lon").alias("sun_elev_mid"),
+        ).with_columns(
+            (
+                (
+                    (pl.col("sun_elev_tx") < 0).cast(pl.Float32)
+                    + (pl.col("sun_elev_mid") < 0).cast(pl.Float32)
+                    + (pl.col("sun_elev_rx") < 0).cast(pl.Float32)
+                )
+                / 3
+            ).alias("dark_frac"),
+            pl.min_horizontal(
+                pl.col("sun_elev_tx").abs(), pl.col("sun_elev_rx").abs()
+            ).alias("min_abs_elev_ends"),
+            *[
+                (pl.col("band") == band).cast(pl.UInt8).alias(f"band_{band}")
+                for band in BAND_MHZ
+                if (task == "hf" and band != "6m")
+            ],
+        )
+        temporary = part.with_suffix(".tmp.parquet")
+        temporary.unlink(missing_ok=True)
+        frame.drop(
+            "frac_hour",
+            "day_of_year",
+            "solar_gamma",
+            "solar_declination",
+            "equation_of_time",
+        ).sink_parquet(temporary, compression="zstd", statistics=True)
+        temporary.replace(part)
+        print(f"wrote feature partition {index + 1}/{len(sources)}", flush=True)
+    (destination / "_SUCCESS").write_text("complete\n", encoding="ascii")
 
 
 def main() -> None:
@@ -179,11 +192,17 @@ def main() -> None:
     ensure_directories()
     output = PROCESSED / f"dataset_{config['run_id']}_{args.task}.parquet"
     legacy_base = PROCESSED / f"dataset_{config['run_id']}_{args.task}_base.parquet"
-    if output.exists() and not args.force:
+    if output.is_dir() and (output / "_SUCCESS").exists() and not args.force:
+        print(f"{output} exists")
+        return
+    if output.is_file() and not args.force:
         print(f"{output} exists")
         return
     if args.force:
-        output.unlink(missing_ok=True)
+        if output.is_dir():
+            shutil.rmtree(output)
+        else:
+            output.unlink(missing_ok=True)
         legacy_base.unlink(missing_ok=True)
     paths = [opportunity_path(month, args.task) for month in config["months"]]
     missing = [path for path in paths if not path.exists()]
@@ -206,6 +225,30 @@ def main() -> None:
             base.unlink(missing_ok=True)
     base_stats = [0, 0, 0, 0]
     for month, source, base in zip(config["months"], paths, bases):
+        if base.exists() and not args.force:
+            month_stats = con.execute(
+                f"""
+                SELECT count(*) AS rows,
+                       count(*) FILTER (target_hour IS NULL) AS null_hours,
+                       count(*) FILTER (opportunities IS NULL OR opportunities <= 0) AS bad_weights,
+                       count(*) FILTER (split = 'excluded' OR split IS NULL) AS bad_splits
+                FROM read_parquet('{base}')
+                """
+            ).fetchone()
+            print(
+                f"reuse feature base {month} {args.task}: rows={month_stats[0]:,}",
+                flush=True,
+            )
+            if any(month_stats[1:]):
+                raise RuntimeError(
+                    f"existing base feature invariant failed for {month}: {month_stats}"
+                )
+            base_stats = [
+                left + right for left, right in zip(base_stats, month_stats)
+            ]
+            continue
+        if base.exists():
+            base.unlink()
         print(f"build feature base {month} {args.task}", flush=True)
         con.execute(
             f"""
@@ -306,7 +349,8 @@ def main() -> None:
         flush=True,
     )
     add_polars_features(bases, output, args.task)
-    output_audit = pl.scan_parquet(output).select(
+    output_glob = output / "*.parquet" if output.is_dir() else output
+    output_audit = pl.scan_parquet(output_glob).select(
         pl.len().alias("rows"),
         pl.col("target_hour").null_count().alias("null_hours"),
         (pl.col("opportunities").is_null() | (pl.col("opportunities") <= 0))
@@ -327,7 +371,7 @@ def main() -> None:
         )
     for base in bases:
         base.unlink()
-    stats = pl.scan_parquet(output).group_by("split").agg(
+    stats = pl.scan_parquet(output_glob).group_by("split").agg(
         pl.len().alias("rows"),
         pl.col("opportunities").sum().alias("weighted_opportunities"),
         pl.col("successes").sum().alias("weighted_successes"),

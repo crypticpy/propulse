@@ -46,6 +46,32 @@ class IdentityCalibrator:
         return clipped(raw)
 
 
+class IdentityOutsideIsotonic:
+    """Apply isotonic interpolation only inside observed prediction support."""
+
+    method = "isotonic_with_identity_outside_support"
+
+    def __init__(
+        self,
+        model: IsotonicRegression,
+        lower_bound: float,
+        upper_bound: float,
+    ) -> None:
+        if not lower_bound < upper_bound:
+            raise ValueError("isotonic support requires increasing bounds")
+        self.model = model
+        self.lower_bound = float(lower_bound)
+        self.upper_bound = float(upper_bound)
+
+    def predict(self, raw: np.ndarray) -> np.ndarray:
+        values = clipped(raw)
+        output = values.copy()
+        supported = (values >= self.lower_bound) & (values <= self.upper_bound)
+        if np.any(supported):
+            output[supported] = clipped(self.model.predict(values[supported]))
+        return output
+
+
 class CalibratorBundle:
     """Backward-compatible class name required by frozen V4 joblib bundles."""
 
@@ -117,9 +143,9 @@ class CalibrationData:
 
 @dataclass
 class HierarchyModels:
-    global_model: IsotonicRegression
-    band_models: dict[str, IsotonicRegression]
-    band_distance_models: dict[tuple[str, str], IsotonicRegression]
+    global_model: Any
+    band_models: dict[str, Any]
+    band_distance_models: dict[tuple[str, str], Any]
 
 
 class GuardedCalibratorBundle:
@@ -231,15 +257,33 @@ def predict_family(
     data: CalibrationData,
     family: str,
 ) -> np.ndarray:
+    return predict_family_arrays(
+        models,
+        data.raw,
+        data.band,
+        data.distance,
+        family,
+    )
+
+
+def predict_family_arrays(
+    models: HierarchyModels,
+    raw_values: np.ndarray,
+    bands: np.ndarray,
+    distance: np.ndarray,
+    family: str,
+) -> np.ndarray:
+    """Predict a fixed C0-C3 family without constructing pooled row objects."""
+
     if family not in CANDIDATE_IDS[:4]:
         raise ValueError(f"unsupported fixed family: {family}")
-    raw = clipped(data.raw)
+    raw = clipped(raw_values)
     if family == "C0_identity":
         return raw
     output = clipped(models.global_model.predict(raw))
     if family == "C1_global_isotonic":
         return output
-    text_bands = np.asarray(data.band).astype(str)
+    text_bands = np.asarray(bands).astype(str)
     for band in np.unique(text_bands):
         model = models.band_models.get(band)
         mask = text_bands == band
@@ -247,7 +291,7 @@ def predict_family(
             output[mask] = clipped(model.predict(raw[mask]))
     if family == "C2_per_band_isotonic":
         return output
-    groups = distance_groups(data.distance)
+    groups = distance_groups(distance)
     for key, model in models.band_distance_models.items():
         band, group = key
         mask = (text_bands == band) & (groups == group)

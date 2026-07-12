@@ -50,6 +50,8 @@
     "minimum_positive_equivalent": 1000.0,
     "minimum_negative_equivalent": 1000.0,
     "minimum_months": 3,
+    "sufficient_statistic_bins": 262144,
+    "stream_batch_rows": 250000,
     "bootstrap_repetitions": 2000,
     "bootstrap_upper_bound": 0.0,
     "tie_order": [

@@ -46,7 +46,8 @@ class StreamingFeatureTests(unittest.TestCase):
             }
             add_polars_features(sources, destination, "hf")
 
-            self.assertTrue((destination / "_SUCCESS").exists())
+            # The caller writes _SUCCESS only after its final dataset audit.
+            self.assertFalse((destination / "_SUCCESS").exists())
             self.assertEqual(len(first_mtimes), 2)
             self.assertEqual(
                 pl.scan_parquet(destination / "*.parquet").select(pl.len()).collect().item(),

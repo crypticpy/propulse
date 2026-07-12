@@ -255,7 +255,7 @@ time range, environment, peak RSS, duration, and locked-scope audit.
 ### 4. Fit isotonic mappings from fixed sufficient statistics
 
 The existing in-memory implementation is a correctness reference, not the
-150.8M-row execution path. Use 65,536 fixed equal-width bins over the frozen
+150.8M-row execution path. Use 262,144 fixed equal-width bins over the frozen
 probability interval `[1e-7, 0.9999999]`. For each month and applicable group,
 accumulate in float64:
 
@@ -264,7 +264,7 @@ row_count, sum_weight, sum_weight_probability,
 sum_weight_target, sum_weight_target_squared
 ```
 
-The bin index is deterministic, clipped to `[0, 65535]`. Fit each isotonic
+The bin index is deterministic, clipped to `[0, 262143]`. Fit each isotonic
 mapping at the weighted mean probability of nonempty bins using weighted PAVA
 or `sklearn.isotonic.IsotonicRegression` with `sum_weight` as sample weight.
 Use the frozen identity behavior outside fitted support.
@@ -273,14 +273,20 @@ Add tests before full execution:
 
 - fixed-bin aggregation matches direct weighted sums;
 - binned global isotonic matches exact isotonic on deterministic fixtures to
-  at most `1e-6` weighted Brier difference and `1e-3` maximum probability
-  difference;
+  at most `1e-6` weighted Brier difference, `5e-5` weighted mean absolute
+  probability difference, and `1e-3` 99th-percentile absolute difference;
 - empty bins and sparse groups fall back correctly;
 - serialized mappings reproduce predictions exactly within existing serving
   tolerance;
 - AppleDouble files are ignored and `_SUCCESS` appears only after final audit.
 
-This is a numerical execution method, not a new candidate family. Do not tune
+This is a numerical execution method, not a new candidate family. The original
+65,536-bin implementation missed the fixed synthetic Brier tolerance by
+`2.63e-6`; 262,144 bins reduced the difference to `1.34e-7`. This correction
+was frozen before any development predictions or calibration metrics existed.
+The isolated maximum point difference was rejected as a convergence statistic
+because isotonic step boundaries left it near 0.013 even at 1,048,576 bins;
+weighted and percentile errors remain the deterministic checks. Do not tune
 the bin count from observed candidate performance.
 
 ### 5. Run frozen leave-one-month-out selection
@@ -490,7 +496,7 @@ Required deliverables are:
 
 - [ ] Confirm and freeze the full April development input inventory.
 - [ ] Implement and test streaming raw M2 prediction materialization.
-- [ ] Implement and test 65,536-bin isotonic sufficient statistics.
+- [ ] Implement and test 262,144-bin isotonic sufficient statistics.
 - [ ] Run four-fold leave-one-month-out C0-C4 selection.
 - [ ] Refit the selected hierarchy on all four development months.
 - [ ] Freeze the selected bundle, scorer, environment, and manifests.

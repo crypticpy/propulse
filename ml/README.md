@@ -8,7 +8,9 @@
 > The locked 2025 archive remains unopened and no production replacement is
 > approved. Start with the [visual development report](results/propagation_v4/propagation_v4_multiyear_50m/REPORT.html),
 > [public research article](research/PERSONALIZED-PROPAGATION-V4-RESEARCH.md),
-> and frozen [execution plan](PERSONALIZED-PROPAGATION-V4-PLAN.md).
+> frozen [execution plan](PERSONALIZED-PROPAGATION-V4-PLAN.md), and the new
+> [V4.1 calibration recovery preregistration](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md),
+> which is the only approved resume point.
 > Archive V3 context remains in its [methodology and decision](ARCHIVE-MULTIMONTH-V3-RESULTS.md)
 > and [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md).
 > **Created**: 2026-07-11

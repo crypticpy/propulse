@@ -1,0 +1,467 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T06:21:52.999896+00:00",
+  "run_id": "archive_v3_eight_month",
+  "task": "hf",
+  "config_path": "ml/config/archive_v3_eight_month.json",
+  "path": "ml/data/processed/archive_v3/dataset_archive_v3_eight_month_hf.parquet",
+  "bytes": 33930867392,
+  "sha256": "f5ccb44e45c74e1e587c304954e17e48b302f3c848846e13f737f75b842dbaeb",
+  "columns": [
+    {
+      "name": "target_hour",
+      "type": "Datetime(time_unit='us', time_zone='UTC')"
+    },
+    {
+      "name": "band",
+      "type": "String"
+    },
+    {
+      "name": "tx_grid4",
+      "type": "String"
+    },
+    {
+      "name": "rx_grid4",
+      "type": "String"
+    },
+    {
+      "name": "power_bin_dbm",
+      "type": "Float64"
+    },
+    {
+      "name": "successes",
+      "type": "Float64"
+    },
+    {
+      "name": "opportunities",
+      "type": "Float64"
+    },
+    {
+      "name": "success_rate",
+      "type": "Float64"
+    },
+    {
+      "name": "any_success",
+      "type": "UInt8"
+    },
+    {
+      "name": "sampled_rows",
+      "type": "Int32"
+    },
+    {
+      "name": "positive_rows",
+      "type": "Int32"
+    },
+    {
+      "name": "mean_positive_snr",
+      "type": "Float32"
+    },
+    {
+      "name": "min_positive_snr",
+      "type": "Float32"
+    },
+    {
+      "name": "max_positive_snr",
+      "type": "Float32"
+    },
+    {
+      "name": "tx_lon",
+      "type": "Decimal(precision=12, scale=1)"
+    },
+    {
+      "name": "tx_lat",
+      "type": "Decimal(precision=12, scale=1)"
+    },
+    {
+      "name": "rx_lon",
+      "type": "Decimal(precision=12, scale=1)"
+    },
+    {
+      "name": "rx_lat",
+      "type": "Decimal(precision=12, scale=1)"
+    },
+    {
+      "name": "mid_lat",
+      "type": "Float64"
+    },
+    {
+      "name": "mid_lon",
+      "type": "Float64"
+    },
+    {
+      "name": "dist_km",
+      "type": "Float64"
+    },
+    {
+      "name": "bearing_sin",
+      "type": "Float64"
+    },
+    {
+      "name": "bearing_cos",
+      "type": "Float64"
+    },
+    {
+      "name": "tx_lat_sin",
+      "type": "Float64"
+    },
+    {
+      "name": "tx_lat_cos",
+      "type": "Float64"
+    },
+    {
+      "name": "tx_lon_sin",
+      "type": "Float64"
+    },
+    {
+      "name": "tx_lon_cos",
+      "type": "Float64"
+    },
+    {
+      "name": "rx_lat_sin",
+      "type": "Float64"
+    },
+    {
+      "name": "rx_lat_cos",
+      "type": "Float64"
+    },
+    {
+      "name": "mid_lat_sin",
+      "type": "Float64"
+    },
+    {
+      "name": "mid_lat_cos",
+      "type": "Float64"
+    },
+    {
+      "name": "band_mhz",
+      "type": "Decimal(precision=4, scale=2)"
+    },
+    {
+      "name": "path_success_prev1",
+      "type": "Float64"
+    },
+    {
+      "name": "path_success_prev2",
+      "type": "Float64"
+    },
+    {
+      "name": "path_success_prev3",
+      "type": "Float64"
+    },
+    {
+      "name": "path_success_prev24",
+      "type": "Float64"
+    },
+    {
+      "name": "bt",
+      "type": "Float64"
+    },
+    {
+      "name": "bx_gsm",
+      "type": "Float64"
+    },
+    {
+      "name": "by_gsm",
+      "type": "Float64"
+    },
+    {
+      "name": "bz_gsm",
+      "type": "Float64"
+    },
+    {
+      "name": "temperature_k",
+      "type": "Float64"
+    },
+    {
+      "name": "density_cm3",
+      "type": "Float64"
+    },
+    {
+      "name": "wind_speed",
+      "type": "Float64"
+    },
+    {
+      "name": "flow_pressure",
+      "type": "Float64"
+    },
+    {
+      "name": "electric_field",
+      "type": "Float64"
+    },
+    {
+      "name": "plasma_beta",
+      "type": "Float64"
+    },
+    {
+      "name": "alfven_mach",
+      "type": "Float64"
+    },
+    {
+      "name": "kp",
+      "type": "Float64"
+    },
+    {
+      "name": "sunspot_number",
+      "type": "Int64"
+    },
+    {
+      "name": "dst",
+      "type": "Int64"
+    },
+    {
+      "name": "ae",
+      "type": "Int64"
+    },
+    {
+      "name": "proton_flux_10mev",
+      "type": "Float64"
+    },
+    {
+      "name": "ap",
+      "type": "Int64"
+    },
+    {
+      "name": "f107",
+      "type": "Float64"
+    },
+    {
+      "name": "pcn",
+      "type": "Float64"
+    },
+    {
+      "name": "al",
+      "type": "Int64"
+    },
+    {
+      "name": "au",
+      "type": "Int64"
+    },
+    {
+      "name": "magnetosonic_mach",
+      "type": "Float64"
+    },
+    {
+      "name": "hp60",
+      "type": "Float64"
+    },
+    {
+      "name": "kp_delta_3h",
+      "type": "Float64"
+    },
+    {
+      "name": "kp_max_24h",
+      "type": "Float64"
+    },
+    {
+      "name": "bz_min_3h",
+      "type": "Float64"
+    },
+    {
+      "name": "dst_min_6h",
+      "type": "Int64"
+    },
+    {
+      "name": "bt_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "bx_gsm_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "by_gsm_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "bz_gsm_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "temperature_k_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "density_cm3_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "wind_speed_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "flow_pressure_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "electric_field_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "plasma_beta_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "alfven_mach_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "kp_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "sunspot_number_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "dst_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "ae_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "proton_flux_10mev_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "ap_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "f107_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "pcn_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "al_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "au_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "magnetosonic_mach_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "hp60_missing",
+      "type": "UInt8"
+    },
+    {
+      "name": "split",
+      "type": "String"
+    },
+    {
+      "name": "hod_sin",
+      "type": "Float64"
+    },
+    {
+      "name": "hod_cos",
+      "type": "Float64"
+    },
+    {
+      "name": "doy_sin",
+      "type": "Float64"
+    },
+    {
+      "name": "doy_cos",
+      "type": "Float64"
+    },
+    {
+      "name": "is_weekend",
+      "type": "UInt8"
+    },
+    {
+      "name": "sun_elev_tx",
+      "type": "Float64"
+    },
+    {
+      "name": "sun_elev_rx",
+      "type": "Float64"
+    },
+    {
+      "name": "sun_elev_mid",
+      "type": "Float64"
+    },
+    {
+      "name": "dark_frac",
+      "type": "Float32"
+    },
+    {
+      "name": "min_abs_elev_ends",
+      "type": "Float64"
+    },
+    {
+      "name": "band_160m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_80m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_60m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_40m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_30m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_20m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_17m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_15m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_12m",
+      "type": "UInt8"
+    },
+    {
+      "name": "band_10m",
+      "type": "UInt8"
+    }
+  ],
+  "splits": [
+    {
+      "split": "test",
+      "rows": 55863247,
+      "weighted_opportunities": 1876872971.0,
+      "weighted_successes": 185344225.0,
+      "min_time": "2024-10-01 00:00:00+00:00",
+      "max_time": "2024-10-31 23:00:00+00:00"
+    },
+    {
+      "split": "train",
+      "rows": 167607702,
+      "weighted_opportunities": 4549024379.75,
+      "weighted_successes": 465597718.0,
+      "min_time": "2019-01-01 00:00:00+00:00",
+      "max_time": "2024-04-30 23:00:00+00:00"
+    },
+    {
+      "split": "validation",
+      "rows": 49666692,
+      "weighted_opportunities": 1567159443.5,
+      "weighted_successes": 136642218.0,
+      "min_time": "2024-07-01 00:00:00+00:00",
+      "max_time": "2024-07-31 23:00:00+00:00"
+    }
+  ],
+  "availability_contract": "Space-weather observations are joined at available_at=target_hour, where available_at is observed_hour+1h; path-history features use H-1, H-2, H-3, and H-24 only."
+}

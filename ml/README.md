@@ -7,6 +7,11 @@
 > frozen [preregistration](ARCHIVE-MULTIMONTH-V3-PLAN.md). V3 passed its
 > temporal statistical gate but is not approved for all-years scaling or
 > product probability serving.
+> The next phase is preregistered in the
+> [Personalized Propagation V4 execution plan](PERSONALIZED-PROPAGATION-V4-PLAN.md):
+> a regime-balanced 50M multi-year experiment, equipment-aware StationCast,
+> direct FutureCast horizons, a separate 6m program, product integration, and
+> prospective validation.
 > **Created**: 2026-07-11
 > **Supersedes**: Level 2/3 of `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md` (Level 1 — `band_region_stats` — was never implemented)
 

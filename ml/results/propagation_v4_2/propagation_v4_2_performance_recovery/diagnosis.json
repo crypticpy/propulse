@@ -1,0 +1,3804 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T20:43:40.851473+00:00",
+  "run_id": "propagation_v4_2_performance_recovery",
+  "scope": "observed_2024_paired_diagnosis",
+  "outcome_access": {
+    "observed_months": [
+      "2024-02",
+      "2024-04",
+      "2024-05",
+      "2024-08",
+      "2024-10",
+      "2024-11"
+    ],
+    "development_months": [
+      "2024-02",
+      "2024-04",
+      "2024-05",
+      "2024-08"
+    ],
+    "evaluation_months": [
+      "2024-10",
+      "2024-11"
+    ],
+    "december_2024_read": false,
+    "locked_2025_read": false,
+    "selection_claim": "October and November are evaluation-only for Phase 0 policies; neither is a fresh validation claim."
+  },
+  "estimand": "V4 natural-distribution opportunity-weighted conditional single-decode probability",
+  "inputs": {
+    "2024-02": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-000.parquet",
+      "bytes": 6786291189,
+      "sha256": "6d0e2f4f511e2a52f6ed1f772cc8a0b635a46b8068ca9655a97fdb0e4c2282f6",
+      "sha256_verified_this_run": true,
+      "rows": 54289793,
+      "row_groups": 442
+    },
+    "2024-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-025.parquet",
+      "bytes": 7136849835,
+      "sha256": "0decad12069c8fd8dbfc987f203df5767267667c72e3a17a50f3c9e74df84a0c",
+      "sha256_verified_this_run": true,
+      "rows": 56027390,
+      "row_groups": 456
+    },
+    "2024-05": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-001.parquet",
+      "bytes": 6464830928,
+      "sha256": "367a61effdfead1d493f793ebf94ed698c393e2b3a95ced588065877ebb78ef2",
+      "sha256_verified_this_run": true,
+      "rows": 50323668,
+      "row_groups": 410
+    },
+    "2024-08": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-002.parquet",
+      "bytes": 5936865614,
+      "sha256": "7f5b4976b9b97f4448bd1d8bddc1b768f9c7812dfae12876a4e9e66098381f97",
+      "sha256_verified_this_run": true,
+      "rows": 46202412,
+      "row_groups": 376
+    },
+    "2024-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-027.parquet",
+      "bytes": 7123431215,
+      "sha256": "59eb68ca402e48a0e8a27627f07e31e77f0236c523c51f7d9550246d426b0340",
+      "sha256_verified_this_run": true,
+      "rows": 55863247,
+      "row_groups": 455
+    },
+    "2024-11": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_hf.parquet/part-000.parquet",
+      "bytes": 6906860189,
+      "sha256": "3987e3ef18e7ed3f3b8888664bc61503486ab8cb0063a26ecfbb911779106d6b",
+      "sha256_verified_this_run": true,
+      "rows": 54544159,
+      "row_groups": 444
+    }
+  },
+  "frozen_models": {
+    "b2_model": {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_nowcast.json",
+      "sha256": "93a88864667d582939c1d9ec3a543e8745668be9331f1eae50b8ad973debc145",
+      "best_iteration": 996,
+      "features": 64
+    },
+    "m2_model": {
+      "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M2_nowcast_50000000.json",
+      "sha256": "706d4f5ca6ad855bc9cbf1139cfeb53c0015e04c67d39184be78ca2e1f6755d5",
+      "best_iteration": 394,
+      "features": 91
+    }
+  },
+  "overall": {
+    "development": {
+      "opportunities": 6394217140.0,
+      "rows": 206843263,
+      "positive_mass": 591828517.0,
+      "b2_brier": 0.041174011026676144,
+      "m2_brier": 0.04398308598584347,
+      "m2_minus_b2_brier": 0.0028090749591673236,
+      "m2_relative_brier_improvement": -0.06822446706363783
+    },
+    "evaluation": {
+      "opportunities": 3599391845.75,
+      "rows": 110407406,
+      "positive_mass": 362520188.0,
+      "b2_brier": 0.0446062190428188,
+      "m2_brier": 0.04585355726212668,
+      "m2_minus_b2_brier": 0.001247338219307878,
+      "m2_relative_brier_improvement": -0.027963325430261587
+    },
+    "all_observed": {
+      "opportunities": 9993608985.75,
+      "rows": 317250669,
+      "positive_mass": 954348705.0,
+      "b2_brier": 0.04241018722326711,
+      "m2_brier": 0.04465677244577636,
+      "m2_minus_b2_brier": 0.0022465852225092495,
+      "m2_relative_brier_improvement": -0.052972773043471255
+    }
+  },
+  "blend_selection": {
+    "selected_on": [
+      "2024-02",
+      "2024-04",
+      "2024-05",
+      "2024-08"
+    ],
+    "evaluated_on": [
+      "2024-10",
+      "2024-11"
+    ],
+    "analytic_b2_weight": 1.0,
+    "rounded_b2_weight": 1.0,
+    "rounding_step": 0.05,
+    "grid": [
+      {
+        "b2_weight": 0.0,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.0,
+          "blend_brier": 0.04398308598584347,
+          "blend_minus_b2_brier": 0.0028090749591673236,
+          "blend_relative_brier_improvement": -0.06822446706363783
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.0,
+          "blend_brier": 0.04585355726212668,
+          "blend_minus_b2_brier": 0.001247338219307878,
+          "blend_relative_brier_improvement": -0.027963325430261587
+        }
+      },
+      {
+        "b2_weight": 0.05,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.05,
+          "blend_brier": 0.04372368673341339,
+          "blend_minus_b2_brier": 0.0025496757067372464,
+          "blend_relative_brier_improvement": -0.0619243946159469
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.05,
+          "blend_brier": 0.045677965460366544,
+          "blend_minus_b2_brier": 0.0010717464175477448,
+          "blend_relative_brier_improvement": -0.024026838421766783
+        }
+      },
+      {
+        "b2_weight": 0.1,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.1,
+          "blend_brier": 0.043476808060401384,
+          "blend_minus_b2_brier": 0.00230279703372524,
+          "blend_relative_brier_improvement": -0.05592841154662542
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.1,
+          "blend_brier": 0.04551429206816377,
+          "blend_minus_b2_brier": 0.0009080730253449715,
+          "blend_relative_brier_improvement": -0.020357543069796646
+        }
+      },
+      {
+        "b2_weight": 0.15,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.15000000000000002,
+          "blend_brier": 0.04324244996680745,
+          "blend_minus_b2_brier": 0.002068438940131305,
+          "blend_relative_brier_improvement": -0.05023651785567318
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.15000000000000002,
+          "blend_brier": 0.04536253708551831,
+          "blend_minus_b2_brier": 0.0007563180426995095,
+          "blend_relative_brier_improvement": -0.01695543937435051
+        }
+      },
+      {
+        "b2_weight": 0.2,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.2,
+          "blend_brier": 0.04302061245263161,
+          "blend_minus_b2_brier": 0.0018466014259554686,
+          "blend_relative_brier_improvement": -0.04484871354309106
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.2,
+          "blend_brier": 0.04522270051243022,
+          "blend_minus_b2_brier": 0.0006164814696114213,
+          "blend_relative_brier_improvement": -0.013820527335429267
+        }
+      },
+      {
+        "b2_weight": 0.25,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.25,
+          "blend_brier": 0.042811295517873826,
+          "blend_minus_b2_brier": 0.0016372844911976825,
+          "blend_relative_brier_improvement": -0.0397649986088775
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.25,
+          "blend_brier": 0.04509478234889944,
+          "blend_minus_b2_brier": 0.0004885633060806374,
+          "blend_relative_brier_improvement": -0.01095280695303158
+        }
+      },
+      {
+        "b2_weight": 0.3,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.30000000000000004,
+          "blend_brier": 0.04261449916253412,
+          "blend_minus_b2_brier": 0.0014404881358579744,
+          "blend_relative_brier_improvement": -0.0349853730530334
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.30000000000000004,
+          "blend_brier": 0.04497878259492601,
+          "blend_minus_b2_brier": 0.0003725635521072135,
+          "blend_relative_brier_improvement": -0.008352278227158783
+        }
+      },
+      {
+        "b2_weight": 0.35,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.35000000000000003,
+          "blend_brier": 0.04243022338661249,
+          "blend_minus_b2_brier": 0.0012562123599363442,
+          "blend_relative_brier_improvement": -0.03050983687555875
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.35000000000000003,
+          "blend_brier": 0.04487470125050992,
+          "blend_minus_b2_brier": 0.0002684822076911217,
+          "blend_relative_brier_improvement": -0.006018941157810209
+        }
+      },
+      {
+        "b2_weight": 0.4,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.4,
+          "blend_brier": 0.042258468190108936,
+          "blend_minus_b2_brier": 0.001084457163432792,
+          "blend_relative_brier_improvement": -0.026338390076453555
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.4,
+          "blend_brier": 0.04478253831565118,
+          "blend_minus_b2_brier": 0.00017631927283238286,
+          "blend_relative_brier_improvement": -0.003952795744986304
+        }
+      },
+      {
+        "b2_weight": 0.45,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.45,
+          "blend_brier": 0.04209923357302346,
+          "blend_minus_b2_brier": 0.0009252225463473179,
+          "blend_relative_brier_improvement": -0.022471032655717593
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.45,
+          "blend_brier": 0.04470229379034979,
+          "blend_minus_b2_brier": 9.607474753099005e-05,
+          "blend_relative_brier_improvement": -0.0021538419886868443
+        }
+      },
+      {
+        "b2_weight": 0.5,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.5,
+          "blend_brier": 0.04195251953535605,
+          "blend_minus_b2_brier": 0.0007785085086799079,
+          "blend_relative_brier_improvement": -0.018907764613350864
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.5,
+          "blend_brier": 0.044633967674605715,
+          "blend_minus_b2_brier": 2.77486317869155e-05,
+          "blend_relative_brier_improvement": -0.0006220798889113865
+        }
+      },
+      {
+        "b2_weight": 0.55,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.55,
+          "blend_brier": 0.04181832607710672,
+          "blend_minus_b2_brier": 0.0006443150504305759,
+          "blend_relative_brier_improvement": -0.01564858594935359
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.55,
+          "blend_brier": 0.04457755996841899,
+          "blend_minus_b2_brier": -2.8659074399813023e-05,
+          "blend_relative_brier_improvement": 0.0006424905543396253
+        }
+      },
+      {
+        "b2_weight": 0.6,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.6000000000000001,
+          "blend_brier": 0.04169665319827547,
+          "blend_minus_b2_brier": 0.0005226421715993287,
+          "blend_relative_brier_improvement": -0.01269349666372599
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.6000000000000001,
+          "blend_brier": 0.044533070671789604,
+          "blend_minus_b2_brier": -7.314837102919552e-05,
+          "blend_relative_brier_improvement": 0.0016398693410660803
+        }
+      },
+      {
+        "b2_weight": 0.65,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.65,
+          "blend_brier": 0.04158750089886229,
+          "blend_minus_b2_brier": 0.00041348987218614575,
+          "blend_relative_brier_improvement": -0.0100424967564674
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.65,
+          "blend_brier": 0.044500499784717554,
+          "blend_minus_b2_brier": -0.00010571925810124588,
+          "blend_relative_brier_improvement": 0.0023700564712683114
+        }
+      },
+      {
+        "b2_weight": 0.7,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.7000000000000001,
+          "blend_brier": 0.04149086917886719,
+          "blend_minus_b2_brier": 0.0003168581521910477,
+          "blend_relative_brier_improvement": -0.007695586227578266
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.7000000000000001,
+          "blend_brier": 0.04447984730720286,
+          "blend_minus_b2_brier": -0.00012637173561593634,
+          "blend_relative_brier_improvement": 0.0028330519449457636
+        }
+      },
+      {
+        "b2_weight": 0.75,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.75,
+          "blend_brier": 0.04140675803829016,
+          "blend_minus_b2_brier": 0.00023274701161401373,
+          "blend_relative_brier_improvement": -0.005652765077058364
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.75,
+          "blend_brier": 0.0444711132392455,
+          "blend_minus_b2_brier": -0.0001351058035733016,
+          "blend_relative_brier_improvement": 0.003028855762099214
+        }
+      },
+      {
+        "b2_weight": 0.8,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.8,
+          "blend_brier": 0.04133516747713121,
+          "blend_minus_b2_brier": 0.00016115645045506471,
+          "blend_relative_brier_improvement": -0.003914033304908138
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.8,
+          "blend_brier": 0.044474297580845486,
+          "blend_minus_b2_brier": -0.0001319214619733139,
+          "blend_relative_brier_improvement": 0.0029574679227279965
+        }
+      },
+      {
+        "b2_weight": 0.85,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.8500000000000001,
+          "blend_brier": 0.04127609749539033,
+          "blend_minus_b2_brier": 0.00010208646871418675,
+          "blend_relative_brier_improvement": -0.002479390911127144
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.8500000000000001,
+          "blend_brier": 0.044489400332002806,
+          "blend_minus_b2_brier": -0.00011681871081599404,
+          "blend_relative_brier_improvement": 0.002618888426832555
+        }
+      },
+      {
+        "b2_weight": 0.9,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.9,
+          "blend_brier": 0.04122954809306753,
+          "blend_minus_b2_brier": 5.553706639138678e-05,
+          "blend_relative_brier_improvement": -0.0013488378957153824
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.9,
+          "blend_brier": 0.044516421492717465,
+          "blend_minus_b2_brier": -8.979755010133511e-05,
+          "blend_relative_brier_improvement": 0.002013117274412668
+        }
+      },
+      {
+        "b2_weight": 0.95,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 0.9500000000000001,
+          "blend_brier": 0.041195519270162795,
+          "blend_minus_b2_brier": 2.1508243486650924e-05,
+          "blend_relative_brier_improvement": -0.000522374258672853
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 0.9500000000000001,
+          "blend_brier": 0.044555361062989456,
+          "blend_minus_b2_brier": -5.0857979829344035e-05,
+          "blend_relative_brier_improvement": 0.001140154465468668
+        }
+      },
+      {
+        "b2_weight": 1.0,
+        "development": {
+          "opportunities": 6394217140.0,
+          "rows": 206843263,
+          "positive_mass": 591828517.0,
+          "b2_brier": 0.041174011026676144,
+          "m2_brier": 0.04398308598584347,
+          "m2_minus_b2_brier": 0.0028090749591673236,
+          "m2_relative_brier_improvement": -0.06822446706363783,
+          "b2_weight": 1.0,
+          "blend_brier": 0.041174011026676144,
+          "blend_minus_b2_brier": 0.0,
+          "blend_relative_brier_improvement": 0.0
+        },
+        "evaluation": {
+          "opportunities": 3599391845.75,
+          "rows": 110407406,
+          "positive_mass": 362520188.0,
+          "b2_brier": 0.0446062190428188,
+          "m2_brier": 0.04585355726212668,
+          "m2_minus_b2_brier": 0.001247338219307878,
+          "m2_relative_brier_improvement": -0.027963325430261587,
+          "b2_weight": 1.0,
+          "blend_brier": 0.0446062190428188,
+          "blend_minus_b2_brier": 0.0,
+          "blend_relative_brier_improvement": 0.0
+        }
+      }
+    ]
+  },
+  "routers": {
+    "band": {
+      "choices": {
+        "10m": "b2",
+        "12m": "b2",
+        "15m": "b2",
+        "160m": "b2",
+        "17m": "b2",
+        "20m": "b2",
+        "30m": "b2",
+        "40m": "b2",
+        "60m": "b2",
+        "80m": "b2"
+      },
+      "m2_choices": []
+    },
+    "stable_band_distance": {
+      "choices": {
+        "10m|0-500 km": "b2",
+        "10m|10000-25000 km": "b2",
+        "10m|1500-3000 km": "b2",
+        "10m|3000-6000 km": "b2",
+        "10m|500-1500 km": "b2",
+        "10m|6000-10000 km": "b2",
+        "12m|0-500 km": "b2",
+        "12m|10000-25000 km": "b2",
+        "12m|1500-3000 km": "b2",
+        "12m|3000-6000 km": "b2",
+        "12m|500-1500 km": "b2",
+        "12m|6000-10000 km": "b2",
+        "15m|0-500 km": "b2",
+        "15m|10000-25000 km": "b2",
+        "15m|1500-3000 km": "b2",
+        "15m|3000-6000 km": "b2",
+        "15m|500-1500 km": "b2",
+        "15m|6000-10000 km": "b2",
+        "160m|0-500 km": "b2",
+        "160m|10000-25000 km": "b2",
+        "160m|1500-3000 km": "b2",
+        "160m|3000-6000 km": "b2",
+        "160m|500-1500 km": "b2",
+        "160m|6000-10000 km": "b2",
+        "17m|0-500 km": "b2",
+        "17m|10000-25000 km": "b2",
+        "17m|1500-3000 km": "b2",
+        "17m|3000-6000 km": "b2",
+        "17m|500-1500 km": "b2",
+        "17m|6000-10000 km": "b2",
+        "20m|0-500 km": "b2",
+        "20m|10000-25000 km": "b2",
+        "20m|1500-3000 km": "b2",
+        "20m|3000-6000 km": "b2",
+        "20m|500-1500 km": "b2",
+        "20m|6000-10000 km": "b2",
+        "30m|0-500 km": "b2",
+        "30m|10000-25000 km": "b2",
+        "30m|1500-3000 km": "b2",
+        "30m|3000-6000 km": "b2",
+        "30m|500-1500 km": "b2",
+        "30m|6000-10000 km": "b2",
+        "40m|0-500 km": "b2",
+        "40m|10000-25000 km": "b2",
+        "40m|1500-3000 km": "b2",
+        "40m|3000-6000 km": "b2",
+        "40m|500-1500 km": "b2",
+        "40m|6000-10000 km": "b2",
+        "60m|0-500 km": "b2",
+        "60m|10000-25000 km": "b2",
+        "60m|1500-3000 km": "b2",
+        "60m|3000-6000 km": "b2",
+        "60m|500-1500 km": "b2",
+        "60m|6000-10000 km": "b2",
+        "80m|0-500 km": "b2",
+        "80m|10000-25000 km": "b2",
+        "80m|1500-3000 km": "b2",
+        "80m|3000-6000 km": "b2",
+        "80m|500-1500 km": "b2",
+        "80m|6000-10000 km": "b2"
+      },
+      "m2_choices": [],
+      "minimum_month_opportunities": 1000000.0,
+      "minimum_month_positive_mass": 1000.0
+    }
+  },
+  "evaluation_policies": {
+    "raw_m2": {
+      "candidate": "raw_m2",
+      "opportunities": 3599391845.75,
+      "rows": 110407406,
+      "positive_mass": 362520188.0,
+      "b2_brier": 0.0446062190428188,
+      "candidate_brier": 0.04585355726212668,
+      "candidate_minus_b2_brier": 0.001247338219307878,
+      "candidate_relative_brier_improvement": -0.027963325430261587
+    },
+    "selected_blend": {
+      "candidate": "fixed_convex_blend",
+      "opportunities": 3599391845.75,
+      "rows": 110407406,
+      "positive_mass": 362520188.0,
+      "b2_brier": 0.0446062190428188,
+      "m2_brier": 0.04585355726212668,
+      "m2_minus_b2_brier": 0.001247338219307878,
+      "m2_relative_brier_improvement": -0.027963325430261587,
+      "b2_weight": 1.0,
+      "blend_brier": 0.0446062190428188,
+      "blend_minus_b2_brier": 0.0,
+      "blend_relative_brier_improvement": 0.0
+    },
+    "band_router": {
+      "candidate": "development_selected_band_router",
+      "opportunities": 3599391845.75,
+      "rows": 110407406,
+      "positive_mass": 362520188.0,
+      "b2_brier": 0.04460621904281908,
+      "candidate_brier": 0.04460621904281908,
+      "candidate_minus_b2_brier": 0.0,
+      "candidate_relative_brier_improvement": 0.0
+    },
+    "stable_band_distance_router": {
+      "candidate": "cross_month_stable_band_distance_router",
+      "opportunities": 3599391845.75,
+      "rows": 110407406,
+      "positive_mass": 362520188.0,
+      "b2_brier": 0.044606219042819056,
+      "candidate_brier": 0.044606219042819056,
+      "candidate_minus_b2_brier": 0.0,
+      "candidate_relative_brier_improvement": 0.0
+    }
+  },
+  "best_evaluation_policy": "selected_blend",
+  "bootstrap": {
+    "raw_m2_minus_b2": {
+      "lower_95": 0.0011359539175385058,
+      "median": 0.001246441065915903,
+      "upper_95": 0.0013578534256373385
+    },
+    "selected_blend_minus_b2": {
+      "lower_95": 0.0,
+      "median": 0.0,
+      "upper_95": 0.0
+    },
+    "band_router_minus_b2": {
+      "lower_95": 0.0,
+      "median": 0.0,
+      "upper_95": 0.0
+    },
+    "stable_band_distance_router_minus_b2": {
+      "lower_95": 0.0,
+      "median": 0.0,
+      "upper_95": 0.0
+    }
+  },
+  "slices": {
+    "month": [
+      {
+        "key": "2024-02",
+        "opportunities": 1417403596.25,
+        "rows": 54289793,
+        "positive_mass": 156451648.0,
+        "b2_brier": 0.04801962521449276,
+        "m2_brier": 0.05080000955124364,
+        "m2_minus_b2_brier": 0.002780384336750881,
+        "m2_relative_brier_improvement": -0.05790100035832291
+      },
+      {
+        "key": "2024-04",
+        "opportunities": 1793658806.75,
+        "rows": 56027390,
+        "positive_mass": 167930615.0,
+        "b2_brier": 0.03940075779148916,
+        "m2_brier": 0.04341211617397364,
+        "m2_minus_b2_brier": 0.004011358382484481,
+        "m2_relative_brier_improvement": -0.10180916833409137
+      },
+      {
+        "key": "2024-05",
+        "opportunities": 1630644331.5,
+        "rows": 50323668,
+        "positive_mass": 135211777.0,
+        "b2_brier": 0.03923726267989452,
+        "m2_brier": 0.041511367094704786,
+        "m2_minus_b2_brier": 0.0022741044148102685,
+        "m2_relative_brier_improvement": -0.057957774306604204
+      },
+      {
+        "key": "2024-08",
+        "opportunities": 1552510405.5,
+        "rows": 46202412,
+        "positive_mass": 132234477.0,
+        "b2_brier": 0.03900704379649179,
+        "m2_brier": 0.041015175091146314,
+        "m2_minus_b2_brier": 0.0020081312946545263,
+        "m2_relative_brier_improvement": -0.05148124798001574
+      },
+      {
+        "key": "2024-10",
+        "opportunities": 1876872971.0,
+        "rows": 55863247,
+        "positive_mass": 185344225.0,
+        "b2_brier": 0.04361913794828978,
+        "m2_brier": 0.04485653317367198,
+        "m2_minus_b2_brier": 0.0012373952253821943,
+        "m2_relative_brier_improvement": -0.028368172402882363
+      },
+      {
+        "key": "2024-11",
+        "opportunities": 1722518874.75,
+        "rows": 54544159,
+        "positive_mass": 177175963.0,
+        "b2_brier": 0.045681752004264865,
+        "m2_brier": 0.0469399242044501,
+        "m2_minus_b2_brier": 0.0012581722001852313,
+        "m2_relative_brier_improvement": -0.027542117913248232
+      }
+    ],
+    "day": [
+      {
+        "key": "2024-02-01",
+        "opportunities": 43391936.5,
+        "rows": 1631297,
+        "positive_mass": 4708421.0,
+        "b2_brier": 0.05031098611377755,
+        "m2_brier": 0.05237420820854946,
+        "m2_minus_b2_brier": 0.002063222094771909,
+        "m2_relative_brier_improvement": -0.04100937497241586
+      },
+      {
+        "key": "2024-02-02",
+        "opportunities": 42823528.5,
+        "rows": 1607431,
+        "positive_mass": 4499464.0,
+        "b2_brier": 0.04374078155620845,
+        "m2_brier": 0.046881086149644535,
+        "m2_minus_b2_brier": 0.0031403045934360885,
+        "m2_relative_brier_improvement": -0.07179351812451462
+      },
+      {
+        "key": "2024-02-03",
+        "opportunities": 44582786.5,
+        "rows": 1627320,
+        "positive_mass": 4545060.0,
+        "b2_brier": 0.0437612170283473,
+        "m2_brier": 0.04656575654511467,
+        "m2_minus_b2_brier": 0.0028045395167673667,
+        "m2_relative_brier_improvement": -0.0640873290829791
+      },
+      {
+        "key": "2024-02-04",
+        "opportunities": 47690768.0,
+        "rows": 1737070,
+        "positive_mass": 4935377.0,
+        "b2_brier": 0.04488060884679439,
+        "m2_brier": 0.04776470862444909,
+        "m2_minus_b2_brier": 0.0028840997776547056,
+        "m2_relative_brier_improvement": -0.06426160098451295
+      },
+      {
+        "key": "2024-02-05",
+        "opportunities": 46455248.25,
+        "rows": 1733205,
+        "positive_mass": 4870584.0,
+        "b2_brier": 0.04517533264749622,
+        "m2_brier": 0.04803198379553139,
+        "m2_minus_b2_brier": 0.002856651148035169,
+        "m2_relative_brier_improvement": -0.06323475624021757
+      },
+      {
+        "key": "2024-02-06",
+        "opportunities": 48420548.0,
+        "rows": 1831536,
+        "positive_mass": 5254992.0,
+        "b2_brier": 0.04672468939152495,
+        "m2_brier": 0.049579667549591436,
+        "m2_minus_b2_brier": 0.0028549781580664846,
+        "m2_relative_brier_improvement": -0.06110213241105744
+      },
+      {
+        "key": "2024-02-07",
+        "opportunities": 47767030.0,
+        "rows": 1783812,
+        "positive_mass": 5128279.0,
+        "b2_brier": 0.04593147956292573,
+        "m2_brier": 0.04893251509851128,
+        "m2_minus_b2_brier": 0.0030010355355855473,
+        "m2_relative_brier_improvement": -0.0653372276299995
+      },
+      {
+        "key": "2024-02-08",
+        "opportunities": 49376060.5,
+        "rows": 1828143,
+        "positive_mass": 5233553.0,
+        "b2_brier": 0.0453800329353394,
+        "m2_brier": 0.048492299044032273,
+        "m2_minus_b2_brier": 0.0031122661086928766,
+        "m2_relative_brier_improvement": -0.06858227963667307
+      },
+      {
+        "key": "2024-02-09",
+        "opportunities": 50476061.5,
+        "rows": 1868456,
+        "positive_mass": 5287747.0,
+        "b2_brier": 0.04683328170619703,
+        "m2_brier": 0.04991546909129718,
+        "m2_minus_b2_brier": 0.0030821873851001533,
+        "m2_relative_brier_improvement": -0.06581190283516514
+      },
+      {
+        "key": "2024-02-10",
+        "opportunities": 47085820.75,
+        "rows": 1794912,
+        "positive_mass": 5006106.0,
+        "b2_brier": 0.046505261634833275,
+        "m2_brier": 0.0496482059709323,
+        "m2_minus_b2_brier": 0.0031429443360990253,
+        "m2_relative_brier_improvement": -0.06758255357808607
+      },
+      {
+        "key": "2024-02-11",
+        "opportunities": 47116693.5,
+        "rows": 1804824,
+        "positive_mass": 5140646.0,
+        "b2_brier": 0.04833798279306799,
+        "m2_brier": 0.051148304243336475,
+        "m2_minus_b2_brier": 0.0028103214502684867,
+        "m2_relative_brier_improvement": -0.05813898900786385
+      },
+      {
+        "key": "2024-02-12",
+        "opportunities": 50786809.5,
+        "rows": 1886419,
+        "positive_mass": 5420637.0,
+        "b2_brier": 0.04731891203805203,
+        "m2_brier": 0.05018525492897542,
+        "m2_minus_b2_brier": 0.0028663428909233915,
+        "m2_relative_brier_improvement": -0.0605749956511763
+      },
+      {
+        "key": "2024-02-13",
+        "opportunities": 50187727.25,
+        "rows": 1938995,
+        "positive_mass": 5650733.0,
+        "b2_brier": 0.04885782020606239,
+        "m2_brier": 0.05144207836961282,
+        "m2_minus_b2_brier": 0.002584258163550429,
+        "m2_relative_brier_improvement": -0.052893439630566474
+      },
+      {
+        "key": "2024-02-14",
+        "opportunities": 51656532.5,
+        "rows": 1991026,
+        "positive_mass": 5793009.0,
+        "b2_brier": 0.04874202147061606,
+        "m2_brier": 0.05143271685045172,
+        "m2_minus_b2_brier": 0.002690695379835656,
+        "m2_relative_brier_improvement": -0.05520278598739958
+      },
+      {
+        "key": "2024-02-15",
+        "opportunities": 49580745.25,
+        "rows": 1939795,
+        "positive_mass": 5688703.0,
+        "b2_brier": 0.048738265199556825,
+        "m2_brier": 0.051438971102877186,
+        "m2_minus_b2_brier": 0.0027007059033203606,
+        "m2_relative_brier_improvement": -0.05541243399334039
+      },
+      {
+        "key": "2024-02-16",
+        "opportunities": 48722371.75,
+        "rows": 1934746,
+        "positive_mass": 5636735.0,
+        "b2_brier": 0.049330805580521234,
+        "m2_brier": 0.05215828061933823,
+        "m2_minus_b2_brier": 0.002827475038816994,
+        "m2_relative_brier_improvement": -0.05731662002157645
+      },
+      {
+        "key": "2024-02-17",
+        "opportunities": 48943179.5,
+        "rows": 1934332,
+        "positive_mass": 5547421.0,
+        "b2_brier": 0.04961810373016693,
+        "m2_brier": 0.05240150071916122,
+        "m2_minus_b2_brier": 0.0027833969889942897,
+        "m2_relative_brier_improvement": -0.056096399897322735
+      },
+      {
+        "key": "2024-02-18",
+        "opportunities": 48296738.75,
+        "rows": 1936355,
+        "positive_mass": 5507263.0,
+        "b2_brier": 0.05001597805969289,
+        "m2_brier": 0.05251791885849837,
+        "m2_minus_b2_brier": 0.002501940798805481,
+        "m2_relative_brier_improvement": -0.05002283062063628
+      },
+      {
+        "key": "2024-02-19",
+        "opportunities": 48176463.5,
+        "rows": 1886903,
+        "positive_mass": 5557111.0,
+        "b2_brier": 0.050036192504711294,
+        "m2_brier": 0.05280950446858964,
+        "m2_minus_b2_brier": 0.0027733119638783457,
+        "m2_relative_brier_improvement": -0.05542611907605122
+      },
+      {
+        "key": "2024-02-20",
+        "opportunities": 48417691.75,
+        "rows": 1895071,
+        "positive_mass": 5562186.0,
+        "b2_brier": 0.04904236874210938,
+        "m2_brier": 0.05163878798226638,
+        "m2_minus_b2_brier": 0.002596419240157001,
+        "m2_relative_brier_improvement": -0.05294237017404968
+      },
+      {
+        "key": "2024-02-21",
+        "opportunities": 48872260.0,
+        "rows": 1930567,
+        "positive_mass": 5641136.0,
+        "b2_brier": 0.05012794611331559,
+        "m2_brier": 0.05307866179919116,
+        "m2_minus_b2_brier": 0.0029507156858755643,
+        "m2_relative_brier_improvement": -0.05886368612042059
+      },
+      {
+        "key": "2024-02-22",
+        "opportunities": 50253824.75,
+        "rows": 1952005,
+        "positive_mass": 5630825.0,
+        "b2_brier": 0.04878623414790943,
+        "m2_brier": 0.051813116269886605,
+        "m2_minus_b2_brier": 0.003026882121977173,
+        "m2_relative_brier_improvement": -0.06204377474187317
+      },
+      {
+        "key": "2024-02-23",
+        "opportunities": 50002450.25,
+        "rows": 1950907,
+        "positive_mass": 5653156.0,
+        "b2_brier": 0.04936162940383932,
+        "m2_brier": 0.05219695442667825,
+        "m2_minus_b2_brier": 0.002835325022838932,
+        "m2_relative_brier_improvement": -0.05743985879482327
+      },
+      {
+        "key": "2024-02-24",
+        "opportunities": 52222783.25,
+        "rows": 2065689,
+        "positive_mass": 5930212.0,
+        "b2_brier": 0.05015480343325999,
+        "m2_brier": 0.05282234399168774,
+        "m2_minus_b2_brier": 0.0026675405584277515,
+        "m2_relative_brier_improvement": -0.053186143217117676
+      },
+      {
+        "key": "2024-02-25",
+        "opportunities": 53805447.75,
+        "rows": 2114055,
+        "positive_mass": 6182964.0,
+        "b2_brier": 0.05114779294712406,
+        "m2_brier": 0.05359811839900039,
+        "m2_minus_b2_brier": 0.0024503254518763312,
+        "m2_relative_brier_improvement": -0.0479067680282792
+      },
+      {
+        "key": "2024-02-26",
+        "opportunities": 54286419.75,
+        "rows": 2055730,
+        "positive_mass": 6090893.0,
+        "b2_brier": 0.04961119941648589,
+        "m2_brier": 0.052093598615150685,
+        "m2_minus_b2_brier": 0.002482399198664796,
+        "m2_relative_brier_improvement": -0.05003707283561232
+      },
+      {
+        "key": "2024-02-27",
+        "opportunities": 51322125.0,
+        "rows": 1947837,
+        "positive_mass": 5627057.0,
+        "b2_brier": 0.047842138090067765,
+        "m2_brier": 0.0504773772950837,
+        "m2_minus_b2_brier": 0.0026352392050159323,
+        "m2_relative_brier_improvement": -0.055081969791041185
+      },
+      {
+        "key": "2024-02-28",
+        "opportunities": 49185597.25,
+        "rows": 1859042,
+        "positive_mass": 5420061.0,
+        "b2_brier": 0.04715693959050838,
+        "m2_brier": 0.050107236792064885,
+        "m2_minus_b2_brier": 0.002950297201556505,
+        "m2_relative_brier_improvement": -0.06256337300884418
+      },
+      {
+        "key": "2024-02-29",
+        "opportunities": 47497946.5,
+        "rows": 1822313,
+        "positive_mass": 5301317.0,
+        "b2_brier": 0.04752450735214197,
+        "m2_brier": 0.050129340811274244,
+        "m2_minus_b2_brier": 0.0026048334591322747,
+        "m2_relative_brier_improvement": -0.05481032006983799
+      },
+      {
+        "key": "2024-04-01",
+        "opportunities": 55105368.0,
+        "rows": 1771482,
+        "positive_mass": 5243191.0,
+        "b2_brier": 0.04082611353566959,
+        "m2_brier": 0.04607140679691185,
+        "m2_minus_b2_brier": 0.005245293261242262,
+        "m2_relative_brier_improvement": -0.12847887802642477
+      },
+      {
+        "key": "2024-04-02",
+        "opportunities": 55328907.5,
+        "rows": 1775810,
+        "positive_mass": 5410784.0,
+        "b2_brier": 0.03989360875993003,
+        "m2_brier": 0.04365654346283152,
+        "m2_minus_b2_brier": 0.0037629347029014895,
+        "m2_relative_brier_improvement": -0.09432424941914652
+      },
+      {
+        "key": "2024-04-03",
+        "opportunities": 56828589.25,
+        "rows": 1837775,
+        "positive_mass": 5626138.0,
+        "b2_brier": 0.04068309472677801,
+        "m2_brier": 0.044237368001249715,
+        "m2_minus_b2_brier": 0.003554273274471706,
+        "m2_relative_brier_improvement": -0.08736486981488767
+      },
+      {
+        "key": "2024-04-04",
+        "opportunities": 57034492.5,
+        "rows": 1876913,
+        "positive_mass": 5918085.0,
+        "b2_brier": 0.041325749281380504,
+        "m2_brier": 0.045218343955452635,
+        "m2_minus_b2_brier": 0.0038925946740721307,
+        "m2_relative_brier_improvement": -0.0941929606059424
+      },
+      {
+        "key": "2024-04-05",
+        "opportunities": 59921246.75,
+        "rows": 1916337,
+        "positive_mass": 5804920.0,
+        "b2_brier": 0.04049837590094632,
+        "m2_brier": 0.04402559563067076,
+        "m2_minus_b2_brier": 0.0035272197297244387,
+        "m2_relative_brier_improvement": -0.08709533780691725
+      },
+      {
+        "key": "2024-04-06",
+        "opportunities": 58004408.0,
+        "rows": 1806603,
+        "positive_mass": 5236492.0,
+        "b2_brier": 0.039376462835947534,
+        "m2_brier": 0.0427769658254057,
+        "m2_minus_b2_brier": 0.003400502989458168,
+        "m2_relative_brier_improvement": -0.08635877233629485
+      },
+      {
+        "key": "2024-04-07",
+        "opportunities": 65619930.25,
+        "rows": 1999918,
+        "positive_mass": 6227642.0,
+        "b2_brier": 0.04052527191965455,
+        "m2_brier": 0.043926362111763324,
+        "m2_minus_b2_brier": 0.0034010901921087758,
+        "m2_relative_brier_improvement": -0.08392516647024073
+      },
+      {
+        "key": "2024-04-08",
+        "opportunities": 82734421.0,
+        "rows": 2359303,
+        "positive_mass": 8015180.0,
+        "b2_brier": 0.04101981469440376,
+        "m2_brier": 0.04519932521092611,
+        "m2_minus_b2_brier": 0.00417951051652235,
+        "m2_relative_brier_improvement": -0.10189003893995041
+      },
+      {
+        "key": "2024-04-09",
+        "opportunities": 67737302.75,
+        "rows": 2042756,
+        "positive_mass": 6565797.0,
+        "b2_brier": 0.039453406111854626,
+        "m2_brier": 0.043329292585381096,
+        "m2_minus_b2_brier": 0.00387588647352647,
+        "m2_relative_brier_improvement": -0.0982395908362872
+      },
+      {
+        "key": "2024-04-10",
+        "opportunities": 61588328.75,
+        "rows": 1915527,
+        "positive_mass": 5900448.0,
+        "b2_brier": 0.03905511459286791,
+        "m2_brier": 0.04264211272870023,
+        "m2_minus_b2_brier": 0.0035869981358323186,
+        "m2_relative_brier_improvement": -0.0918445169915687
+      },
+      {
+        "key": "2024-04-11",
+        "opportunities": 59337437.25,
+        "rows": 1866966,
+        "positive_mass": 5718005.0,
+        "b2_brier": 0.03936852307687797,
+        "m2_brier": 0.042912419395370265,
+        "m2_minus_b2_brier": 0.003543896318492293,
+        "m2_relative_brier_improvement": -0.09001852346789474
+      },
+      {
+        "key": "2024-04-12",
+        "opportunities": 61916668.25,
+        "rows": 1990396,
+        "positive_mass": 6126832.0,
+        "b2_brier": 0.04090272466627259,
+        "m2_brier": 0.0446062388385324,
+        "m2_minus_b2_brier": 0.0037035141722598156,
+        "m2_relative_brier_improvement": -0.09054443689208913
+      },
+      {
+        "key": "2024-04-13",
+        "opportunities": 63874407.75,
+        "rows": 2034568,
+        "positive_mass": 6383589.0,
+        "b2_brier": 0.04079846749481815,
+        "m2_brier": 0.04447857126242002,
+        "m2_minus_b2_brier": 0.003680103767601868,
+        "m2_relative_brier_improvement": -0.09020200986885807
+      },
+      {
+        "key": "2024-04-14",
+        "opportunities": 65658253.75,
+        "rows": 2066948,
+        "positive_mass": 6420128.0,
+        "b2_brier": 0.0415755197034636,
+        "m2_brier": 0.04550763830867071,
+        "m2_minus_b2_brier": 0.003932118605207112,
+        "m2_relative_brier_improvement": -0.09457773789126045
+      },
+      {
+        "key": "2024-04-15",
+        "opportunities": 65493556.5,
+        "rows": 2068193,
+        "positive_mass": 6319943.0,
+        "b2_brier": 0.041071141289834134,
+        "m2_brier": 0.04482352006618975,
+        "m2_minus_b2_brier": 0.0037523787763556124,
+        "m2_relative_brier_improvement": -0.0913629049135869
+      },
+      {
+        "key": "2024-04-16",
+        "opportunities": 51607644.25,
+        "rows": 1606514,
+        "positive_mass": 4392416.0,
+        "b2_brier": 0.03629451954970394,
+        "m2_brier": 0.04044057867022251,
+        "m2_minus_b2_brier": 0.004146059120518568,
+        "m2_relative_brier_improvement": -0.11423375131996716
+      },
+      {
+        "key": "2024-04-17",
+        "opportunities": 57835078.75,
+        "rows": 1769679,
+        "positive_mass": 5220865.0,
+        "b2_brier": 0.037440295811869306,
+        "m2_brier": 0.04245163629311764,
+        "m2_minus_b2_brier": 0.005011340481248336,
+        "m2_relative_brier_improvement": -0.13384884848211165
+      },
+      {
+        "key": "2024-04-18",
+        "opportunities": 62888848.25,
+        "rows": 1971866,
+        "positive_mass": 6026901.0,
+        "b2_brier": 0.039761488540559976,
+        "m2_brier": 0.04427629329157495,
+        "m2_minus_b2_brier": 0.004514804751014977,
+        "m2_relative_brier_improvement": -0.11354717634400191
+      },
+      {
+        "key": "2024-04-19",
+        "opportunities": 54332859.0,
+        "rows": 1749474,
+        "positive_mass": 5072074.0,
+        "b2_brier": 0.03912568431653457,
+        "m2_brier": 0.04387994304555578,
+        "m2_minus_b2_brier": 0.004754258729021209,
+        "m2_relative_brier_improvement": -0.12151247478659566
+      },
+      {
+        "key": "2024-04-20",
+        "opportunities": 55169508.0,
+        "rows": 1715822,
+        "positive_mass": 4835682.0,
+        "b2_brier": 0.03734153968452499,
+        "m2_brier": 0.04171233457954072,
+        "m2_minus_b2_brier": 0.0043707948950157255,
+        "m2_relative_brier_improvement": -0.11704913434051734
+      },
+      {
+        "key": "2024-04-21",
+        "opportunities": 52892711.75,
+        "rows": 1673517,
+        "positive_mass": 4619051.0,
+        "b2_brier": 0.03655815905420529,
+        "m2_brier": 0.04042247790223446,
+        "m2_minus_b2_brier": 0.0038643188480291663,
+        "m2_relative_brier_improvement": -0.10570332172086361
+      },
+      {
+        "key": "2024-04-22",
+        "opportunities": 54159529.75,
+        "rows": 1661262,
+        "positive_mass": 4645659.0,
+        "b2_brier": 0.03561944115343467,
+        "m2_brier": 0.03978310598368676,
+        "m2_minus_b2_brier": 0.004163664830252094,
+        "m2_relative_brier_improvement": -0.11689304198560135
+      },
+      {
+        "key": "2024-04-23",
+        "opportunities": 62468592.0,
+        "rows": 1912177,
+        "positive_mass": 5936686.0,
+        "b2_brier": 0.03969732476460839,
+        "m2_brier": 0.04404916789552897,
+        "m2_minus_b2_brier": 0.004351843130920581,
+        "m2_relative_brier_improvement": -0.10962560214637951
+      },
+      {
+        "key": "2024-04-24",
+        "opportunities": 60578126.25,
+        "rows": 1920245,
+        "positive_mass": 5897274.0,
+        "b2_brier": 0.040106329975585824,
+        "m2_brier": 0.044189242009288476,
+        "m2_minus_b2_brier": 0.004082912033702653,
+        "m2_relative_brier_improvement": -0.10180218524577223
+      },
+      {
+        "key": "2024-04-25",
+        "opportunities": 66033099.0,
+        "rows": 2076139,
+        "positive_mass": 6470690.0,
+        "b2_brier": 0.04155098739817689,
+        "m2_brier": 0.04607846569475689,
+        "m2_minus_b2_brier": 0.004527478296579998,
+        "m2_relative_brier_improvement": -0.10896199055858413
+      },
+      {
+        "key": "2024-04-26",
+        "opportunities": 56862450.25,
+        "rows": 1737689,
+        "positive_mass": 4988521.0,
+        "b2_brier": 0.03844985863803133,
+        "m2_brier": 0.04273062799445074,
+        "m2_minus_b2_brier": 0.004280769356419405,
+        "m2_relative_brier_improvement": -0.11133381260822706
+      },
+      {
+        "key": "2024-04-27",
+        "opportunities": 47745403.0,
+        "rows": 1463676,
+        "positive_mass": 3705764.0,
+        "b2_brier": 0.03512489809623703,
+        "m2_brier": 0.0393781453369946,
+        "m2_minus_b2_brier": 0.004253247240757575,
+        "m2_relative_brier_improvement": -0.12108924071763294
+      },
+      {
+        "key": "2024-04-28",
+        "opportunities": 55079556.0,
+        "rows": 1682723,
+        "positive_mass": 4496751.0,
+        "b2_brier": 0.03693367460950106,
+        "m2_brier": 0.040360748102893196,
+        "m2_minus_b2_brier": 0.0034270734933921354,
+        "m2_relative_brier_improvement": -0.09278994114792294
+      },
+      {
+        "key": "2024-04-29",
+        "opportunities": 57872689.0,
+        "rows": 1818421,
+        "positive_mass": 5107790.0,
+        "b2_brier": 0.03876817462019833,
+        "m2_brier": 0.042384264771635816,
+        "m2_minus_b2_brier": 0.003616090151437483,
+        "m2_relative_brier_improvement": -0.09327470758846323
+      },
+      {
+        "key": "2024-04-30",
+        "opportunities": 61949393.25,
+        "rows": 1938691,
+        "positive_mass": 5597317.0,
+        "b2_brier": 0.03918691672363044,
+        "m2_brier": 0.04329350361296184,
+        "m2_minus_b2_brier": 0.004106586889331396,
+        "m2_relative_brier_improvement": -0.10479484564436392
+      },
+      {
+        "key": "2024-05-01",
+        "opportunities": 53852371.5,
+        "rows": 1707166,
+        "positive_mass": 4350788.0,
+        "b2_brier": 0.041136687780232196,
+        "m2_brier": 0.042863976365532255,
+        "m2_minus_b2_brier": 0.0017272885853000589,
+        "m2_relative_brier_improvement": -0.04198900491278956
+      },
+      {
+        "key": "2024-05-02",
+        "opportunities": 45452855.25,
+        "rows": 1426314,
+        "positive_mass": 3455243.0,
+        "b2_brier": 0.03626296355683496,
+        "m2_brier": 0.03878477918014793,
+        "m2_minus_b2_brier": 0.0025218156233129674,
+        "m2_relative_brier_improvement": -0.06954245808841653
+      },
+      {
+        "key": "2024-05-03",
+        "opportunities": 48529830.5,
+        "rows": 1497832,
+        "positive_mass": 3791327.0,
+        "b2_brier": 0.03634762943775157,
+        "m2_brier": 0.03953479957126249,
+        "m2_minus_b2_brier": 0.0031871701335109207,
+        "m2_relative_brier_improvement": -0.08768577711427428
+      },
+      {
+        "key": "2024-05-04",
+        "opportunities": 56829233.75,
+        "rows": 1738383,
+        "positive_mass": 4775484.0,
+        "b2_brier": 0.038481990489454165,
+        "m2_brier": 0.04119543961232888,
+        "m2_minus_b2_brier": 0.002713449122874717,
+        "m2_relative_brier_improvement": -0.07051218214968191
+      },
+      {
+        "key": "2024-05-05",
+        "opportunities": 54561331.25,
+        "rows": 1692586,
+        "positive_mass": 4599446.0,
+        "b2_brier": 0.03860997526209298,
+        "m2_brier": 0.041150019206819,
+        "m2_minus_b2_brier": 0.0025400439447260253,
+        "m2_relative_brier_improvement": -0.06578724610631448
+      },
+      {
+        "key": "2024-05-06",
+        "opportunities": 46760636.75,
+        "rows": 1495381,
+        "positive_mass": 3834771.0,
+        "b2_brier": 0.03874023083012936,
+        "m2_brier": 0.04113874372549196,
+        "m2_minus_b2_brier": 0.002398512895362595,
+        "m2_relative_brier_improvement": -0.06191271564384193
+      },
+      {
+        "key": "2024-05-07",
+        "opportunities": 52546487.25,
+        "rows": 1572940,
+        "positive_mass": 4234385.0,
+        "b2_brier": 0.03761253476909029,
+        "m2_brier": 0.040172906499876766,
+        "m2_minus_b2_brier": 0.0025603717307864787,
+        "m2_relative_brier_improvement": -0.06807229947423199
+      },
+      {
+        "key": "2024-05-08",
+        "opportunities": 52367472.0,
+        "rows": 1645809,
+        "positive_mass": 4495689.0,
+        "b2_brier": 0.03974054026026301,
+        "m2_brier": 0.042473590766013265,
+        "m2_minus_b2_brier": 0.002733050505750255,
+        "m2_relative_brier_improvement": -0.06877235407096527
+      },
+      {
+        "key": "2024-05-09",
+        "opportunities": 55702626.5,
+        "rows": 1770701,
+        "positive_mass": 4932199.0,
+        "b2_brier": 0.04053912015493617,
+        "m2_brier": 0.04339826317186397,
+        "m2_minus_b2_brier": 0.002859143016927794,
+        "m2_relative_brier_improvement": -0.07052799878242189
+      },
+      {
+        "key": "2024-05-10",
+        "opportunities": 48012267.75,
+        "rows": 1554123,
+        "positive_mass": 3850634.0,
+        "b2_brier": 0.03907026279439956,
+        "m2_brier": 0.04138878130392042,
+        "m2_minus_b2_brier": 0.0023185185095208616,
+        "m2_relative_brier_improvement": -0.059342280898433186
+      },
+      {
+        "key": "2024-05-11",
+        "opportunities": 23425679.0,
+        "rows": 774539,
+        "positive_mass": 1110940.0,
+        "b2_brier": 0.027182157971942136,
+        "m2_brier": 0.027771025956188026,
+        "m2_minus_b2_brier": 0.0005888679842458895,
+        "m2_relative_brier_improvement": -0.021663768743222178
+      },
+      {
+        "key": "2024-05-12",
+        "opportunities": 40678900.25,
+        "rows": 1222522,
+        "positive_mass": 2623068.0,
+        "b2_brier": 0.033187972975406155,
+        "m2_brier": 0.03483690945199118,
+        "m2_minus_b2_brier": 0.001648936476585025,
+        "m2_relative_brier_improvement": -0.04968476013304479
+      },
+      {
+        "key": "2024-05-13",
+        "opportunities": 47409104.0,
+        "rows": 1440805,
+        "positive_mass": 3419733.0,
+        "b2_brier": 0.035049858492100544,
+        "m2_brier": 0.03753753984817421,
+        "m2_minus_b2_brier": 0.002487681356073669,
+        "m2_relative_brier_improvement": -0.07097550355686422
+      },
+      {
+        "key": "2024-05-14",
+        "opportunities": 56417178.75,
+        "rows": 1686759,
+        "positive_mass": 4440914.0,
+        "b2_brier": 0.038038800043544055,
+        "m2_brier": 0.040717968362780334,
+        "m2_minus_b2_brier": 0.002679168319236279,
+        "m2_relative_brier_improvement": -0.07043251406903894
+      },
+      {
+        "key": "2024-05-15",
+        "opportunities": 55578207.5,
+        "rows": 1702936,
+        "positive_mass": 4540216.0,
+        "b2_brier": 0.038911622954980934,
+        "m2_brier": 0.04172812098890667,
+        "m2_minus_b2_brier": 0.002816498033925738,
+        "m2_relative_brier_improvement": -0.07238192139105326
+      },
+      {
+        "key": "2024-05-16",
+        "opportunities": 49989403.0,
+        "rows": 1500967,
+        "positive_mass": 3844104.0,
+        "b2_brier": 0.03624037157791294,
+        "m2_brier": 0.03935086054482758,
+        "m2_minus_b2_brier": 0.00311048896691464,
+        "m2_relative_brier_improvement": -0.08582938947597207
+      },
+      {
+        "key": "2024-05-17",
+        "opportunities": 55351625.0,
+        "rows": 1691632,
+        "positive_mass": 4551426.0,
+        "b2_brier": 0.03861927324518854,
+        "m2_brier": 0.04115199947371263,
+        "m2_minus_b2_brier": 0.0025327262285240945,
+        "m2_relative_brier_improvement": -0.06558192362772242
+      },
+      {
+        "key": "2024-05-18",
+        "opportunities": 51804922.5,
+        "rows": 1529494,
+        "positive_mass": 3893214.0,
+        "b2_brier": 0.03575203171691821,
+        "m2_brier": 0.03764888533538998,
+        "m2_minus_b2_brier": 0.0018968536184717708,
+        "m2_relative_brier_improvement": -0.05305582724615232
+      },
+      {
+        "key": "2024-05-19",
+        "opportunities": 56680248.5,
+        "rows": 1708350,
+        "positive_mass": 4769733.0,
+        "b2_brier": 0.03968505441259138,
+        "m2_brier": 0.041938111916666534,
+        "m2_minus_b2_brier": 0.0022530575040751524,
+        "m2_relative_brier_improvement": -0.05677345130110978
+      },
+      {
+        "key": "2024-05-20",
+        "opportunities": 58434554.75,
+        "rows": 1736912,
+        "positive_mass": 5024666.0,
+        "b2_brier": 0.0401686420989039,
+        "m2_brier": 0.042440289688803964,
+        "m2_minus_b2_brier": 0.002271647589900061,
+        "m2_relative_brier_improvement": -0.05655276034242762
+      },
+      {
+        "key": "2024-05-21",
+        "opportunities": 58953377.5,
+        "rows": 1808816,
+        "positive_mass": 5345743.0,
+        "b2_brier": 0.040995968570975226,
+        "m2_brier": 0.04315258903574423,
+        "m2_minus_b2_brier": 0.002156620464769006,
+        "m2_relative_brier_improvement": -0.0526056717268506
+      },
+      {
+        "key": "2024-05-22",
+        "opportunities": 61431806.0,
+        "rows": 1865894,
+        "positive_mass": 5516735.0,
+        "b2_brier": 0.04104142644919702,
+        "m2_brier": 0.043501856699785804,
+        "m2_minus_b2_brier": 0.0024604302505887854,
+        "m2_relative_brier_improvement": -0.059949920445246274
+      },
+      {
+        "key": "2024-05-23",
+        "opportunities": 57563497.5,
+        "rows": 1794313,
+        "positive_mass": 5238617.0,
+        "b2_brier": 0.04129628500685096,
+        "m2_brier": 0.043596436005813144,
+        "m2_minus_b2_brier": 0.0023001509989621846,
+        "m2_relative_brier_improvement": -0.05569873896842292
+      },
+      {
+        "key": "2024-05-24",
+        "opportunities": 52602185.5,
+        "rows": 1616117,
+        "positive_mass": 4383177.0,
+        "b2_brier": 0.03959788095803201,
+        "m2_brier": 0.041266563812611796,
+        "m2_minus_b2_brier": 0.0016686828545797866,
+        "m2_relative_brier_improvement": -0.042140710922090596
+      },
+      {
+        "key": "2024-05-25",
+        "opportunities": 58871661.0,
+        "rows": 1779857,
+        "positive_mass": 5140365.0,
+        "b2_brier": 0.04235725053854971,
+        "m2_brier": 0.04418099103932877,
+        "m2_minus_b2_brier": 0.0018237405007790614,
+        "m2_relative_brier_improvement": -0.04305615868809198
+      },
+      {
+        "key": "2024-05-26",
+        "opportunities": 57354475.75,
+        "rows": 1762486,
+        "positive_mass": 4909903.0,
+        "b2_brier": 0.04130509682258402,
+        "m2_brier": 0.04316466040958879,
+        "m2_minus_b2_brier": 0.0018595635870047658,
+        "m2_relative_brier_improvement": -0.04502019678084923
+      },
+      {
+        "key": "2024-05-27",
+        "opportunities": 56477945.75,
+        "rows": 1767498,
+        "positive_mass": 5066460.0,
+        "b2_brier": 0.04213124187407814,
+        "m2_brier": 0.04399259227087991,
+        "m2_minus_b2_brier": 0.0018613503968017697,
+        "m2_relative_brier_improvement": -0.04417981322185982
+      },
+      {
+        "key": "2024-05-28",
+        "opportunities": 58009715.75,
+        "rows": 1788061,
+        "positive_mass": 5183933.0,
+        "b2_brier": 0.042432262601871884,
+        "m2_brier": 0.044421398298758914,
+        "m2_minus_b2_brier": 0.0019891356968870302,
+        "m2_relative_brier_improvement": -0.04687790786813428
+      },
+      {
+        "key": "2024-05-29",
+        "opportunities": 55846613.75,
+        "rows": 1765309,
+        "positive_mass": 4969751.0,
+        "b2_brier": 0.04277494069309936,
+        "m2_brier": 0.045274564018813634,
+        "m2_minus_b2_brier": 0.0024996233257142744,
+        "m2_relative_brier_improvement": -0.05843662867117727
+      },
+      {
+        "key": "2024-05-30",
+        "opportunities": 52137992.5,
+        "rows": 1704500,
+        "positive_mass": 4669135.0,
+        "b2_brier": 0.04198816295164228,
+        "m2_brier": 0.04361092596867398,
+        "m2_minus_b2_brier": 0.0016227630170317017,
+        "m2_relative_brier_improvement": -0.038648107060569314
+      },
+      {
+        "key": "2024-05-31",
+        "opportunities": 51010124.75,
+        "rows": 1574666,
+        "positive_mass": 4249978.0,
+        "b2_brier": 0.039657818491486266,
+        "m2_brier": 0.041121288252298584,
+        "m2_minus_b2_brier": 0.0014634697608123179,
+        "m2_relative_brier_improvement": -0.03690242722570569
+      },
+      {
+        "key": "2024-08-01",
+        "opportunities": 46690811.0,
+        "rows": 1459128,
+        "positive_mass": 3605067.0,
+        "b2_brier": 0.04027219013471165,
+        "m2_brier": 0.04140442867025334,
+        "m2_minus_b2_brier": 0.001132238535541688,
+        "m2_relative_brier_improvement": -0.028114650128396645
+      },
+      {
+        "key": "2024-08-02",
+        "opportunities": 51853861.75,
+        "rows": 1591713,
+        "positive_mass": 4294649.0,
+        "b2_brier": 0.03926443115037716,
+        "m2_brier": 0.041345728156856554,
+        "m2_minus_b2_brier": 0.002081297006479396,
+        "m2_relative_brier_improvement": -0.05300718603329124
+      },
+      {
+        "key": "2024-08-03",
+        "opportunities": 51698691.0,
+        "rows": 1559658,
+        "positive_mass": 4256530.0,
+        "b2_brier": 0.03869982014720481,
+        "m2_brier": 0.04069758512577599,
+        "m2_minus_b2_brier": 0.0019977649785711815,
+        "m2_relative_brier_improvement": -0.0516220739779194
+      },
+      {
+        "key": "2024-08-04",
+        "opportunities": 44429320.75,
+        "rows": 1304638,
+        "positive_mass": 3281656.0,
+        "b2_brier": 0.03539387376598796,
+        "m2_brier": 0.037252021187237166,
+        "m2_minus_b2_brier": 0.0018581474212492066,
+        "m2_relative_brier_improvement": -0.05249912551348945
+      },
+      {
+        "key": "2024-08-05",
+        "opportunities": 47681259.25,
+        "rows": 1361735,
+        "positive_mass": 3705769.0,
+        "b2_brier": 0.036575858279765006,
+        "m2_brier": 0.038310661483642046,
+        "m2_minus_b2_brier": 0.0017348032038770403,
+        "m2_relative_brier_improvement": -0.047430280121048884
+      },
+      {
+        "key": "2024-08-06",
+        "opportunities": 54871878.25,
+        "rows": 1609570,
+        "positive_mass": 4974220.0,
+        "b2_brier": 0.04267229216188635,
+        "m2_brier": 0.04402718322270187,
+        "m2_minus_b2_brier": 0.0013548910608155162,
+        "m2_relative_brier_improvement": -0.03175107293687085
+      },
+      {
+        "key": "2024-08-07",
+        "opportunities": 54976697.0,
+        "rows": 1611750,
+        "positive_mass": 4937645.0,
+        "b2_brier": 0.03994196836346761,
+        "m2_brier": 0.04201482709664021,
+        "m2_minus_b2_brier": 0.002072858733172596,
+        "m2_relative_brier_improvement": -0.051896759676683946
+      },
+      {
+        "key": "2024-08-08",
+        "opportunities": 53741682.75,
+        "rows": 1541340,
+        "positive_mass": 4840466.0,
+        "b2_brier": 0.04027319359861701,
+        "m2_brier": 0.042021483542932205,
+        "m2_minus_b2_brier": 0.0017482899443151956,
+        "m2_relative_brier_improvement": -0.04341076006386624
+      },
+      {
+        "key": "2024-08-09",
+        "opportunities": 54057455.5,
+        "rows": 1556433,
+        "positive_mass": 4777039.0,
+        "b2_brier": 0.04079019877265689,
+        "m2_brier": 0.043075361639807346,
+        "m2_minus_b2_brier": 0.002285162867150456,
+        "m2_relative_brier_improvement": -0.05602235183718407
+      },
+      {
+        "key": "2024-08-10",
+        "opportunities": 56418699.25,
+        "rows": 1641254,
+        "positive_mass": 5009292.0,
+        "b2_brier": 0.04026248047949455,
+        "m2_brier": 0.042704504218687545,
+        "m2_minus_b2_brier": 0.002442023739192993,
+        "m2_relative_brier_improvement": -0.060652590454199684
+      },
+      {
+        "key": "2024-08-11",
+        "opportunities": 53267280.5,
+        "rows": 1566871,
+        "positive_mass": 4530933.0,
+        "b2_brier": 0.04029867026853171,
+        "m2_brier": 0.04494472918914784,
+        "m2_minus_b2_brier": 0.0046460589206161265,
+        "m2_relative_brier_improvement": -0.11529062596003636
+      },
+      {
+        "key": "2024-08-12",
+        "opportunities": 33740165.75,
+        "rows": 1005052,
+        "positive_mass": 2315973.0,
+        "b2_brier": 0.034527113307185525,
+        "m2_brier": 0.03603376034767737,
+        "m2_minus_b2_brier": 0.0015066470404918458,
+        "m2_relative_brier_improvement": -0.04363663498559234
+      },
+      {
+        "key": "2024-08-13",
+        "opportunities": 41535321.0,
+        "rows": 1229196,
+        "positive_mass": 3141445.0,
+        "b2_brier": 0.03611480690480894,
+        "m2_brier": 0.03881534243690335,
+        "m2_minus_b2_brier": 0.002700535532094407,
+        "m2_relative_brier_improvement": -0.07477640789309636
+      },
+      {
+        "key": "2024-08-14",
+        "opportunities": 46904240.5,
+        "rows": 1354788,
+        "positive_mass": 3781219.0,
+        "b2_brier": 0.03742365167433999,
+        "m2_brier": 0.03896037164133334,
+        "m2_minus_b2_brier": 0.0015367199669933523,
+        "m2_relative_brier_improvement": -0.04106280114954752
+      },
+      {
+        "key": "2024-08-15",
+        "opportunities": 54915126.25,
+        "rows": 1648772,
+        "positive_mass": 5006167.0,
+        "b2_brier": 0.040663505226549185,
+        "m2_brier": 0.0424484298163565,
+        "m2_minus_b2_brier": 0.0017849245898073143,
+        "m2_relative_brier_improvement": -0.043895000685822305
+      },
+      {
+        "key": "2024-08-16",
+        "opportunities": 52782209.25,
+        "rows": 1551707,
+        "positive_mass": 4587396.0,
+        "b2_brier": 0.04005036827069865,
+        "m2_brier": 0.041772532047032504,
+        "m2_minus_b2_brier": 0.001722163776333857,
+        "m2_relative_brier_improvement": -0.04299994858209111
+      },
+      {
+        "key": "2024-08-17",
+        "opportunities": 49196006.75,
+        "rows": 1457060,
+        "positive_mass": 4250188.0,
+        "b2_brier": 0.039618698199529144,
+        "m2_brier": 0.04154091664933609,
+        "m2_minus_b2_brier": 0.001922218449806945,
+        "m2_relative_brier_improvement": -0.04851796089124871
+      },
+      {
+        "key": "2024-08-18",
+        "opportunities": 48745505.75,
+        "rows": 1455849,
+        "positive_mass": 4076594.0,
+        "b2_brier": 0.03754764521730029,
+        "m2_brier": 0.039586164484903597,
+        "m2_minus_b2_brier": 0.002038519267603303,
+        "m2_relative_brier_improvement": -0.05429153428412725
+      },
+      {
+        "key": "2024-08-19",
+        "opportunities": 52329994.5,
+        "rows": 1580320,
+        "positive_mass": 4693212.0,
+        "b2_brier": 0.0391767111520703,
+        "m2_brier": 0.04131978151106618,
+        "m2_minus_b2_brier": 0.0021430703589958855,
+        "m2_relative_brier_improvement": -0.05470266124885348
+      },
+      {
+        "key": "2024-08-20",
+        "opportunities": 50277501.0,
+        "rows": 1487297,
+        "positive_mass": 4244176.0,
+        "b2_brier": 0.03900116462348638,
+        "m2_brier": 0.04070065384314939,
+        "m2_minus_b2_brier": 0.0016994892196630085,
+        "m2_relative_brier_improvement": -0.043575345404931465
+      },
+      {
+        "key": "2024-08-21",
+        "opportunities": 50456895.75,
+        "rows": 1529675,
+        "positive_mass": 4428695.0,
+        "b2_brier": 0.039476868762956,
+        "m2_brier": 0.04153936282972711,
+        "m2_minus_b2_brier": 0.0020624940667711075,
+        "m2_relative_brier_improvement": -0.05224563475780264
+      },
+      {
+        "key": "2024-08-22",
+        "opportunities": 48330436.25,
+        "rows": 1453462,
+        "positive_mass": 4140436.0,
+        "b2_brier": 0.03785104125273675,
+        "m2_brier": 0.039617438058331844,
+        "m2_minus_b2_brier": 0.001766396805595094,
+        "m2_relative_brier_improvement": -0.046667059798979116
+      },
+      {
+        "key": "2024-08-23",
+        "opportunities": 51724963.0,
+        "rows": 1571266,
+        "positive_mass": 4577628.0,
+        "b2_brier": 0.03900579308000234,
+        "m2_brier": 0.04148447740322875,
+        "m2_minus_b2_brier": 0.002478684323226406,
+        "m2_relative_brier_improvement": -0.06354656904789846
+      },
+      {
+        "key": "2024-08-24",
+        "opportunities": 49877029.75,
+        "rows": 1531498,
+        "positive_mass": 4296970.0,
+        "b2_brier": 0.03935998995840119,
+        "m2_brier": 0.040849532802891386,
+        "m2_minus_b2_brier": 0.0014895428444901965,
+        "m2_relative_brier_improvement": -0.03784408598844835
+      },
+      {
+        "key": "2024-08-25",
+        "opportunities": 55933803.25,
+        "rows": 1696567,
+        "positive_mass": 5130840.0,
+        "b2_brier": 0.04032895364098387,
+        "m2_brier": 0.04243645758129747,
+        "m2_minus_b2_brier": 0.0021075039403136014,
+        "m2_relative_brier_improvement": -0.0522578383529364
+      },
+      {
+        "key": "2024-08-26",
+        "opportunities": 59339609.25,
+        "rows": 1775228,
+        "positive_mass": 5462144.0,
+        "b2_brier": 0.04061707510799135,
+        "m2_brier": 0.043167000583002955,
+        "m2_minus_b2_brier": 0.002549925475011608,
+        "m2_relative_brier_improvement": -0.06277964300068262
+      },
+      {
+        "key": "2024-08-27",
+        "opportunities": 55651607.25,
+        "rows": 1655738,
+        "positive_mass": 5031890.0,
+        "b2_brier": 0.0396867585946557,
+        "m2_brier": 0.04208020244194463,
+        "m2_minus_b2_brier": 0.0023934438472889286,
+        "m2_relative_brier_improvement": -0.06030837317137894
+      },
+      {
+        "key": "2024-08-28",
+        "opportunities": 43329822.25,
+        "rows": 1275393,
+        "positive_mass": 3396666.0,
+        "b2_brier": 0.03692958440777985,
+        "m2_brier": 0.03784732230074629,
+        "m2_minus_b2_brier": 0.0009177378929664387,
+        "m2_relative_brier_improvement": -0.024851021415044805
+      },
+      {
+        "key": "2024-08-29",
+        "opportunities": 45243170.75,
+        "rows": 1374316,
+        "positive_mass": 3734513.0,
+        "b2_brier": 0.03780932698033161,
+        "m2_brier": 0.03961804665222349,
+        "m2_minus_b2_brier": 0.0018087196718918758,
+        "m2_relative_brier_improvement": -0.047837922976856184
+      },
+      {
+        "key": "2024-08-30",
+        "opportunities": 47455908.25,
+        "rows": 1440282,
+        "positive_mass": 4157602.0,
+        "b2_brier": 0.038676349024657185,
+        "m2_brier": 0.04072595343245709,
+        "m2_minus_b2_brier": 0.0020496044077999084,
+        "m2_relative_brier_improvement": -0.05299374060600259
+      },
+      {
+        "key": "2024-08-31",
+        "opportunities": 45053452.0,
+        "rows": 1324856,
+        "positive_mass": 3567457.0,
+        "b2_brier": 0.035955807186482745,
+        "m2_brier": 0.03747685020065515,
+        "m2_minus_b2_brier": 0.001521043014172406,
+        "m2_relative_brier_improvement": -0.04230312523046975
+      },
+      {
+        "key": "2024-10-01",
+        "opportunities": 62070763.0,
+        "rows": 1892492,
+        "positive_mass": 6056851.0,
+        "b2_brier": 0.046774760347411654,
+        "m2_brier": 0.04803003678217313,
+        "m2_minus_b2_brier": 0.0012552764347614764,
+        "m2_relative_brier_improvement": -0.02683661926727421
+      },
+      {
+        "key": "2024-10-02",
+        "opportunities": 66467182.0,
+        "rows": 1993264,
+        "positive_mass": 6488511.0,
+        "b2_brier": 0.04520418179501194,
+        "m2_brier": 0.047208987123685,
+        "m2_minus_b2_brier": 0.0020048053286730594,
+        "m2_relative_brier_improvement": -0.04434999703709441
+      },
+      {
+        "key": "2024-10-03",
+        "opportunities": 68462220.25,
+        "rows": 2068451,
+        "positive_mass": 6737037.0,
+        "b2_brier": 0.045254421237922456,
+        "m2_brier": 0.046307429601135465,
+        "m2_minus_b2_brier": 0.0010530083632130094,
+        "m2_relative_brier_improvement": -0.023268629548412134
+      },
+      {
+        "key": "2024-10-04",
+        "opportunities": 70450180.0,
+        "rows": 2064607,
+        "positive_mass": 7115591.0,
+        "b2_brier": 0.04423478815077735,
+        "m2_brier": 0.045808699407514065,
+        "m2_minus_b2_brier": 0.0015739112567367125,
+        "m2_relative_brier_improvement": -0.03558084762092517
+      },
+      {
+        "key": "2024-10-05",
+        "opportunities": 69097602.25,
+        "rows": 2081656,
+        "positive_mass": 7159222.0,
+        "b2_brier": 0.04531689772446913,
+        "m2_brier": 0.046685851627459224,
+        "m2_minus_b2_brier": 0.0013689539029900916,
+        "m2_relative_brier_improvement": -0.03020846465072391
+      },
+      {
+        "key": "2024-10-06",
+        "opportunities": 69532832.75,
+        "rows": 2069751,
+        "positive_mass": 7115669.0,
+        "b2_brier": 0.04641573691579679,
+        "m2_brier": 0.04901139362700249,
+        "m2_minus_b2_brier": 0.0025956567112057002,
+        "m2_relative_brier_improvement": -0.055921911051730167
+      },
+      {
+        "key": "2024-10-07",
+        "opportunities": 53193886.25,
+        "rows": 1567428,
+        "positive_mass": 4918497.0,
+        "b2_brier": 0.04192552449474662,
+        "m2_brier": 0.042805431997438345,
+        "m2_minus_b2_brier": 0.0008799075026917277,
+        "m2_relative_brier_improvement": -0.020987394034915008
+      },
+      {
+        "key": "2024-10-08",
+        "opportunities": 38968134.0,
+        "rows": 1154517,
+        "positive_mass": 2939262.0,
+        "b2_brier": 0.03470417237238688,
+        "m2_brier": 0.03556688492084387,
+        "m2_minus_b2_brier": 0.0008627125484569967,
+        "m2_relative_brier_improvement": -0.024859044013492593
+      },
+      {
+        "key": "2024-10-09",
+        "opportunities": 48622315.25,
+        "rows": 1429601,
+        "positive_mass": 4323804.0,
+        "b2_brier": 0.038873915899903,
+        "m2_brier": 0.04012856697959553,
+        "m2_minus_b2_brier": 0.0012546510796925259,
+        "m2_relative_brier_improvement": -0.032274882801185845
+      },
+      {
+        "key": "2024-10-10",
+        "opportunities": 47644650.75,
+        "rows": 1431366,
+        "positive_mass": 4321935.0,
+        "b2_brier": 0.04022707169632077,
+        "m2_brier": 0.0414684414733926,
+        "m2_minus_b2_brier": 0.0012413697770718296,
+        "m2_relative_brier_improvement": -0.03085906392697657
+      },
+      {
+        "key": "2024-10-11",
+        "opportunities": 32949840.5,
+        "rows": 1040272,
+        "positive_mass": 2432899.0,
+        "b2_brier": 0.035689461642028984,
+        "m2_brier": 0.034835526796541234,
+        "m2_minus_b2_brier": -0.0008539348454877499,
+        "m2_relative_brier_improvement": 0.02392680657536539
+      },
+      {
+        "key": "2024-10-12",
+        "opportunities": 51436515.75,
+        "rows": 1516948,
+        "positive_mass": 4713554.0,
+        "b2_brier": 0.04142080355307772,
+        "m2_brier": 0.04271394410688821,
+        "m2_minus_b2_brier": 0.0012931405538104887,
+        "m2_relative_brier_improvement": -0.031219591192947815
+      },
+      {
+        "key": "2024-10-13",
+        "opportunities": 58133827.5,
+        "rows": 1736760,
+        "positive_mass": 5643211.0,
+        "b2_brier": 0.04146379452311533,
+        "m2_brier": 0.04261714332117405,
+        "m2_minus_b2_brier": 0.0011533487980587218,
+        "m2_relative_brier_improvement": -0.027815804398117816
+      },
+      {
+        "key": "2024-10-14",
+        "opportunities": 60876851.5,
+        "rows": 1820629,
+        "positive_mass": 6169506.0,
+        "b2_brier": 0.04259003760324971,
+        "m2_brier": 0.043743212213138996,
+        "m2_minus_b2_brier": 0.0011531746098892848,
+        "m2_relative_brier_improvement": -0.02707615852870937
+      },
+      {
+        "key": "2024-10-15",
+        "opportunities": 61974954.25,
+        "rows": 1804640,
+        "positive_mass": 5947216.0,
+        "b2_brier": 0.04170009389752342,
+        "m2_brier": 0.04234391013027465,
+        "m2_minus_b2_brier": 0.0006438162327512334,
+        "m2_relative_brier_improvement": -0.01543920343041405
+      },
+      {
+        "key": "2024-10-16",
+        "opportunities": 60625736.25,
+        "rows": 1778776,
+        "positive_mass": 5907611.0,
+        "b2_brier": 0.04157020141000352,
+        "m2_brier": 0.04221690710797862,
+        "m2_minus_b2_brier": 0.0006467056979750987,
+        "m2_relative_brier_improvement": -0.015556953684123132
+      },
+      {
+        "key": "2024-10-17",
+        "opportunities": 63513449.75,
+        "rows": 1832696,
+        "positive_mass": 5958928.0,
+        "b2_brier": 0.04132666955168958,
+        "m2_brier": 0.042386817844680826,
+        "m2_minus_b2_brier": 0.0010601482929912462,
+        "m2_relative_brier_improvement": -0.02565288479550132
+      },
+      {
+        "key": "2024-10-18",
+        "opportunities": 62764431.25,
+        "rows": 1834018,
+        "positive_mass": 6219713.0,
+        "b2_brier": 0.042666760934622176,
+        "m2_brier": 0.043765858157259134,
+        "m2_minus_b2_brier": 0.0010990972226369577,
+        "m2_relative_brier_improvement": -0.02576003424119988
+      },
+      {
+        "key": "2024-10-19",
+        "opportunities": 60762757.0,
+        "rows": 1787794,
+        "positive_mass": 5829514.0,
+        "b2_brier": 0.04183195209878674,
+        "m2_brier": 0.04288765690253016,
+        "m2_minus_b2_brier": 0.0010557048037434166,
+        "m2_relative_brier_improvement": -0.02523680466190914
+      },
+      {
+        "key": "2024-10-20",
+        "opportunities": 60425426.0,
+        "rows": 1812668,
+        "positive_mass": 6067909.0,
+        "b2_brier": 0.04359866624309954,
+        "m2_brier": 0.04496865006208538,
+        "m2_minus_b2_brier": 0.0013699838189858357,
+        "m2_relative_brier_improvement": -0.03142260846575007
+      },
+      {
+        "key": "2024-10-21",
+        "opportunities": 63089568.5,
+        "rows": 1865407,
+        "positive_mass": 6352925.0,
+        "b2_brier": 0.04360251664399002,
+        "m2_brier": 0.04474858211372124,
+        "m2_minus_b2_brier": 0.0011460654697312209,
+        "m2_relative_brier_improvement": -0.026284388102841172
+      },
+      {
+        "key": "2024-10-22",
+        "opportunities": 64638352.75,
+        "rows": 1898114,
+        "positive_mass": 6738511.0,
+        "b2_brier": 0.043812104628956176,
+        "m2_brier": 0.04472985402436286,
+        "m2_minus_b2_brier": 0.000917749395406682,
+        "m2_relative_brier_improvement": -0.020947393492713573
+      },
+      {
+        "key": "2024-10-23",
+        "opportunities": 64917168.5,
+        "rows": 1929243,
+        "positive_mass": 6770602.0,
+        "b2_brier": 0.044992589458324864,
+        "m2_brier": 0.04630662056312573,
+        "m2_minus_b2_brier": 0.0013140311048008696,
+        "m2_relative_brier_improvement": -0.029205500741805723
+      },
+      {
+        "key": "2024-10-24",
+        "opportunities": 60610443.0,
+        "rows": 1853952,
+        "positive_mass": 6195219.0,
+        "b2_brier": 0.044543581759662304,
+        "m2_brier": 0.046019779081916165,
+        "m2_minus_b2_brier": 0.001476197322253861,
+        "m2_relative_brier_improvement": -0.03314051685871999
+      },
+      {
+        "key": "2024-10-25",
+        "opportunities": 63956467.5,
+        "rows": 1888974,
+        "positive_mass": 6401419.0,
+        "b2_brier": 0.04401897573917298,
+        "m2_brier": 0.04543356895475262,
+        "m2_minus_b2_brier": 0.0014145932155796362,
+        "m2_relative_brier_improvement": -0.03213598662453143
+      },
+      {
+        "key": "2024-10-26",
+        "opportunities": 62377986.5,
+        "rows": 1871917,
+        "positive_mass": 6345601.0,
+        "b2_brier": 0.0449617235812222,
+        "m2_brier": 0.04671707134282892,
+        "m2_minus_b2_brier": 0.0017553477616067195,
+        "m2_relative_brier_improvement": -0.03904093575140033
+      },
+      {
+        "key": "2024-10-27",
+        "opportunities": 66554420.75,
+        "rows": 1965654,
+        "positive_mass": 6795124.0,
+        "b2_brier": 0.04502502102001528,
+        "m2_brier": 0.046358803071316006,
+        "m2_minus_b2_brier": 0.0013337820513007262,
+        "m2_relative_brier_improvement": -0.029623130008263887
+      },
+      {
+        "key": "2024-10-28",
+        "opportunities": 64356271.0,
+        "rows": 1928752,
+        "positive_mass": 6818300.0,
+        "b2_brier": 0.04644634515233818,
+        "m2_brier": 0.04793575848519353,
+        "m2_minus_b2_brier": 0.0014894133328553563,
+        "m2_relative_brier_improvement": -0.03206739578690776
+      },
+      {
+        "key": "2024-10-29",
+        "opportunities": 66376974.25,
+        "rows": 1997895,
+        "positive_mass": 6888830.0,
+        "b2_brier": 0.04637180215679882,
+        "m2_brier": 0.04796518801416964,
+        "m2_minus_b2_brier": 0.001593385857370816,
+        "m2_relative_brier_improvement": -0.03436109409729293
+      },
+      {
+        "key": "2024-10-30",
+        "opportunities": 67159977.75,
+        "rows": 1976417,
+        "positive_mass": 6979319.0,
+        "b2_brier": 0.04638597547287236,
+        "m2_brier": 0.047089880210099785,
+        "m2_minus_b2_brier": 0.0007039047372274232,
+        "m2_relative_brier_improvement": -0.015174947385532267
+      },
+      {
+        "key": "2024-10-31",
+        "opportunities": 64861784.25,
+        "rows": 1968588,
+        "positive_mass": 6991935.0,
+        "b2_brier": 0.04781550864746511,
+        "m2_brier": 0.0489044319027894,
+        "m2_minus_b2_brier": 0.001088923255324288,
+        "m2_relative_brier_improvement": -0.022773432430735374
+      },
+      {
+        "key": "2024-11-01",
+        "opportunities": 63405613.25,
+        "rows": 1976125,
+        "positive_mass": 6765964.0,
+        "b2_brier": 0.05083184821042786,
+        "m2_brier": 0.052999418663332624,
+        "m2_minus_b2_brier": 0.002167570452904763,
+        "m2_relative_brier_improvement": -0.04264197602911679
+      },
+      {
+        "key": "2024-11-02",
+        "opportunities": 62195155.75,
+        "rows": 1970046,
+        "positive_mass": 6707199.0,
+        "b2_brier": 0.04832644490124753,
+        "m2_brier": 0.049042705409451645,
+        "m2_minus_b2_brier": 0.000716260508204114,
+        "m2_relative_brier_improvement": -0.01482129524875564
+      },
+      {
+        "key": "2024-11-03",
+        "opportunities": 62467649.25,
+        "rows": 1963061,
+        "positive_mass": 6712862.0,
+        "b2_brier": 0.04841119765801972,
+        "m2_brier": 0.049510102674689485,
+        "m2_minus_b2_brier": 0.001098905016669767,
+        "m2_relative_brier_improvement": -0.022699397449997383
+      },
+      {
+        "key": "2024-11-04",
+        "opportunities": 64112678.0,
+        "rows": 1969892,
+        "positive_mass": 6907567.0,
+        "b2_brier": 0.047877811283648215,
+        "m2_brier": 0.04858392339172222,
+        "m2_minus_b2_brier": 0.0007061121080740029,
+        "m2_relative_brier_improvement": -0.014748211940823763
+      },
+      {
+        "key": "2024-11-05",
+        "opportunities": 63130774.75,
+        "rows": 1974361,
+        "positive_mass": 6771530.0,
+        "b2_brier": 0.04763786143843706,
+        "m2_brier": 0.04834130760765305,
+        "m2_minus_b2_brier": 0.0007034461692159918,
+        "m2_relative_brier_improvement": -0.014766535439989514
+      },
+      {
+        "key": "2024-11-06",
+        "opportunities": 62061463.75,
+        "rows": 1919860,
+        "positive_mass": 6559897.0,
+        "b2_brier": 0.0461751276389682,
+        "m2_brier": 0.04726160039103557,
+        "m2_minus_b2_brier": 0.0010864727520673717,
+        "m2_relative_brier_improvement": -0.023529393585270286
+      },
+      {
+        "key": "2024-11-07",
+        "opportunities": 62049791.25,
+        "rows": 1923930,
+        "positive_mass": 6367591.0,
+        "b2_brier": 0.04591821790778624,
+        "m2_brier": 0.04720993727720886,
+        "m2_minus_b2_brier": 0.0012917193694226212,
+        "m2_relative_brier_improvement": -0.028130868929118202
+      },
+      {
+        "key": "2024-11-08",
+        "opportunities": 62162060.25,
+        "rows": 1958861,
+        "positive_mass": 6661058.0,
+        "b2_brier": 0.047733183409984885,
+        "m2_brier": 0.04892700051878393,
+        "m2_minus_b2_brier": 0.001193817108799046,
+        "m2_relative_brier_improvement": -0.025010213514259805
+      },
+      {
+        "key": "2024-11-09",
+        "opportunities": 59111857.75,
+        "rows": 1773442,
+        "positive_mass": 5911563.0,
+        "b2_brier": 0.04497430930492649,
+        "m2_brier": 0.04525563926672375,
+        "m2_minus_b2_brier": 0.0002813299617972567,
+        "m2_relative_brier_improvement": -0.006255348134194483
+      },
+      {
+        "key": "2024-11-10",
+        "opportunities": 57111660.75,
+        "rows": 1752500,
+        "positive_mass": 5776372.0,
+        "b2_brier": 0.04597589084297653,
+        "m2_brier": 0.04661894623603894,
+        "m2_minus_b2_brier": 0.0006430553930624125,
+        "m2_relative_brier_improvement": -0.013986795715577705
+      },
+      {
+        "key": "2024-11-11",
+        "opportunities": 58814413.0,
+        "rows": 1800013,
+        "positive_mass": 6040610.0,
+        "b2_brier": 0.045906177775778594,
+        "m2_brier": 0.046433313059476136,
+        "m2_minus_b2_brier": 0.0005271352836975426,
+        "m2_relative_brier_improvement": -0.011482883333747695
+      },
+      {
+        "key": "2024-11-12",
+        "opportunities": 57744070.5,
+        "rows": 1764162,
+        "positive_mass": 5894248.0,
+        "b2_brier": 0.04402298531849486,
+        "m2_brier": 0.04559519638363565,
+        "m2_minus_b2_brier": 0.0015722110651407856,
+        "m2_relative_brier_improvement": -0.03571341320372179
+      },
+      {
+        "key": "2024-11-13",
+        "opportunities": 57008722.0,
+        "rows": 1791943,
+        "positive_mass": 5814791.0,
+        "b2_brier": 0.043423898650001166,
+        "m2_brier": 0.04484114734257845,
+        "m2_minus_b2_brier": 0.0014172486925772831,
+        "m2_relative_brier_improvement": -0.03263752764348449
+      },
+      {
+        "key": "2024-11-14",
+        "opportunities": 57599830.75,
+        "rows": 1810578,
+        "positive_mass": 5986557.0,
+        "b2_brier": 0.04539334976517439,
+        "m2_brier": 0.04636700398064672,
+        "m2_minus_b2_brier": 0.0009736542154723318,
+        "m2_relative_brier_improvement": -0.02144927000340724
+      },
+      {
+        "key": "2024-11-15",
+        "opportunities": 55128858.5,
+        "rows": 1749247,
+        "positive_mass": 5498927.0,
+        "b2_brier": 0.04407099141654815,
+        "m2_brier": 0.04509451006415796,
+        "m2_minus_b2_brier": 0.001023518647609814,
+        "m2_relative_brier_improvement": -0.023224316374818255
+      },
+      {
+        "key": "2024-11-16",
+        "opportunities": 53932405.75,
+        "rows": 1746517,
+        "positive_mass": 5472115.0,
+        "b2_brier": 0.04472900806014777,
+        "m2_brier": 0.046291594149258104,
+        "m2_minus_b2_brier": 0.001562586089110335,
+        "m2_relative_brier_improvement": -0.03493451245350898
+      },
+      {
+        "key": "2024-11-17",
+        "opportunities": 49891556.75,
+        "rows": 1670138,
+        "positive_mass": 4965880.0,
+        "b2_brier": 0.0434967017062501,
+        "m2_brier": 0.04499311571536476,
+        "m2_minus_b2_brier": 0.0014964140091146619,
+        "m2_relative_brier_improvement": -0.034402930576679536
+      },
+      {
+        "key": "2024-11-18",
+        "opportunities": 51931094.75,
+        "rows": 1677670,
+        "positive_mass": 5190747.0,
+        "b2_brier": 0.043515640637350285,
+        "m2_brier": 0.04519954357963079,
+        "m2_minus_b2_brier": 0.0016839029422805046,
+        "m2_relative_brier_improvement": -0.03869649895111915
+      },
+      {
+        "key": "2024-11-19",
+        "opportunities": 55002506.25,
+        "rows": 1735098,
+        "positive_mass": 5428668.0,
+        "b2_brier": 0.04306460616938276,
+        "m2_brier": 0.0443729379015956,
+        "m2_minus_b2_brier": 0.0013083317322128349,
+        "m2_relative_brier_improvement": -0.030380673332222496
+      },
+      {
+        "key": "2024-11-20",
+        "opportunities": 55162643.75,
+        "rows": 1736610,
+        "positive_mass": 5364313.0,
+        "b2_brier": 0.04287109161951698,
+        "m2_brier": 0.04431245422554753,
+        "m2_minus_b2_brier": 0.0014413626060305537,
+        "m2_relative_brier_improvement": -0.0336208515244425
+      },
+      {
+        "key": "2024-11-21",
+        "opportunities": 50441898.75,
+        "rows": 1653212,
+        "positive_mass": 5047677.0,
+        "b2_brier": 0.043554569136046654,
+        "m2_brier": 0.04513662797035945,
+        "m2_minus_b2_brier": 0.0015820588343127967,
+        "m2_relative_brier_improvement": -0.036323601993882404
+      },
+      {
+        "key": "2024-11-22",
+        "opportunities": 52798513.5,
+        "rows": 1732991,
+        "positive_mass": 5189394.0,
+        "b2_brier": 0.04409471986108508,
+        "m2_brier": 0.04554311012400914,
+        "m2_minus_b2_brier": 0.0014483902629240583,
+        "m2_relative_brier_improvement": -0.03284724945496942
+      },
+      {
+        "key": "2024-11-23",
+        "opportunities": 53431643.75,
+        "rows": 1745858,
+        "positive_mass": 5149027.0,
+        "b2_brier": 0.04408416098799351,
+        "m2_brier": 0.04545270328840873,
+        "m2_minus_b2_brier": 0.0013685423004152208,
+        "m2_relative_brier_improvement": -0.031043854975213225
+      },
+      {
+        "key": "2024-11-24",
+        "opportunities": 54020372.0,
+        "rows": 1766208,
+        "positive_mass": 5472889.0,
+        "b2_brier": 0.04469711223320771,
+        "m2_brier": 0.04648652689974439,
+        "m2_minus_b2_brier": 0.001789414666536683,
+        "m2_relative_brier_improvement": -0.04003423436396503
+      },
+      {
+        "key": "2024-11-25",
+        "opportunities": 57478423.25,
+        "rows": 1857199,
+        "positive_mass": 6035106.0,
+        "b2_brier": 0.04663898780976448,
+        "m2_brier": 0.04788132601918804,
+        "m2_minus_b2_brier": 0.0012423382094235644,
+        "m2_relative_brier_improvement": -0.026637332149894277
+      },
+      {
+        "key": "2024-11-26",
+        "opportunities": 53898191.5,
+        "rows": 1771386,
+        "positive_mass": 5763689.0,
+        "b2_brier": 0.04643538120749005,
+        "m2_brier": 0.04795306872849873,
+        "m2_minus_b2_brier": 0.0015176875210086774,
+        "m2_relative_brier_improvement": -0.03268386048619054
+      },
+      {
+        "key": "2024-11-27",
+        "opportunities": 54615395.75,
+        "rows": 1770751,
+        "positive_mass": 5632181.0,
+        "b2_brier": 0.04532946135775909,
+        "m2_brier": 0.04681330693469856,
+        "m2_minus_b2_brier": 0.0014838455769394729,
+        "m2_relative_brier_improvement": -0.03273468363606491
+      },
+      {
+        "key": "2024-11-28",
+        "opportunities": 56403320.5,
+        "rows": 1809404,
+        "positive_mass": 5853934.0,
+        "b2_brier": 0.04578384424051845,
+        "m2_brier": 0.04723297538800373,
+        "m2_minus_b2_brier": 0.0014491311474852803,
+        "m2_relative_brier_improvement": -0.03165158303161464
+      },
+      {
+        "key": "2024-11-29",
+        "opportunities": 59283251.25,
+        "rows": 1861494,
+        "positive_mass": 6010027.0,
+        "b2_brier": 0.045376241708069545,
+        "m2_brier": 0.04729822707145588,
+        "m2_minus_b2_brier": 0.001921985363386336,
+        "m2_relative_brier_improvement": -0.042356645042388674
+      },
+      {
+        "key": "2024-11-30",
+        "opportunities": 60123057.75,
+        "rows": 1911602,
+        "positive_mass": 6223580.0,
+        "b2_brier": 0.04702198138882311,
+        "m2_brier": 0.04839979246051377,
+        "m2_minus_b2_brier": 0.00137781107169066,
+        "m2_relative_brier_improvement": -0.02930142522701429
+      }
+    ],
+    "band": [
+      {
+        "key": "10m",
+        "opportunities": 643694253.0,
+        "rows": 24366119,
+        "positive_mass": 46707090.0,
+        "b2_brier": 0.03745716867825273,
+        "m2_brier": 0.038352297096094404,
+        "m2_minus_b2_brier": 0.000895128417841673,
+        "m2_relative_brier_improvement": -0.023897385985859998
+      },
+      {
+        "key": "12m",
+        "opportunities": 136199887.0,
+        "rows": 10110578,
+        "positive_mass": 17271961.0,
+        "b2_brier": 0.056240413088856744,
+        "m2_brier": 0.057427376102765194,
+        "m2_minus_b2_brier": 0.00118696301390845,
+        "m2_relative_brier_improvement": -0.021105161728330657
+      },
+      {
+        "key": "15m",
+        "opportunities": 572277641.0,
+        "rows": 25996147,
+        "positive_mass": 57652518.0,
+        "b2_brier": 0.04587337158693086,
+        "m2_brier": 0.047997470504305244,
+        "m2_minus_b2_brier": 0.0021240989173743827,
+        "m2_relative_brier_improvement": -0.04630352738187504
+      },
+      {
+        "key": "160m",
+        "opportunities": 35984748.25,
+        "rows": 3109233,
+        "positive_mass": 8515421.0,
+        "b2_brier": 0.05020053288684639,
+        "m2_brier": 0.053581857320641725,
+        "m2_minus_b2_brier": 0.003381324433795338,
+        "m2_relative_brier_improvement": -0.06735634542798485
+      },
+      {
+        "key": "17m",
+        "opportunities": 421266881.25,
+        "rows": 23230038,
+        "positive_mass": 53402138.0,
+        "b2_brier": 0.05655696326269926,
+        "m2_brier": 0.05853029144427691,
+        "m2_minus_b2_brier": 0.001973328181577652,
+        "m2_relative_brier_improvement": -0.034890985437315836
+      },
+      {
+        "key": "20m",
+        "opportunities": 4000673923.5,
+        "rows": 92067142,
+        "positive_mass": 288100644.0,
+        "b2_brier": 0.037289527611769055,
+        "m2_brier": 0.039133212226517514,
+        "m2_minus_b2_brier": 0.0018436846147484587,
+        "m2_relative_brier_improvement": -0.049442423458498475
+      },
+      {
+        "key": "30m",
+        "opportunities": 1418894516.5,
+        "rows": 49708853,
+        "positive_mass": 158540227.0,
+        "b2_brier": 0.046808459557095165,
+        "m2_brier": 0.0491248908223189,
+        "m2_minus_b2_brier": 0.0023164312652237326,
+        "m2_relative_brier_improvement": -0.04948744921627335
+      },
+      {
+        "key": "40m",
+        "opportunities": 2326064685.5,
+        "rows": 67207470,
+        "positive_mass": 258305806.0,
+        "b2_brier": 0.04516776792816626,
+        "m2_brier": 0.04831596296898421,
+        "m2_minus_b2_brier": 0.0031481950408179527,
+        "m2_relative_brier_improvement": -0.06970003578270156
+      },
+      {
+        "key": "60m",
+        "opportunities": 28679730.0,
+        "rows": 2792013,
+        "positive_mass": 8719200.0,
+        "b2_brier": 0.06246604193041239,
+        "m2_brier": 0.06456806294815695,
+        "m2_minus_b2_brier": 0.0021020210177445584,
+        "m2_relative_brier_improvement": -0.03365061964525018
+      },
+      {
+        "key": "80m",
+        "opportunities": 409872719.75,
+        "rows": 18663076,
+        "positive_mass": 57133700.0,
+        "b2_brier": 0.043236411604609525,
+        "m2_brier": 0.046894009265811665,
+        "m2_minus_b2_brier": 0.00365759766120214,
+        "m2_relative_brier_improvement": -0.08459531042146429
+      }
+    ],
+    "distance": [
+      {
+        "key": "0-500 km",
+        "opportunities": 681280175.25,
+        "rows": 25237376,
+        "positive_mass": 120844599.0,
+        "b2_brier": 0.0627741396828283,
+        "m2_brier": 0.06566557654106481,
+        "m2_minus_b2_brier": 0.002891436858236507,
+        "m2_relative_brier_improvement": -0.04606095555981704
+      },
+      {
+        "key": "10000-25000 km",
+        "opportunities": 1223455181.0,
+        "rows": 24076382,
+        "positive_mass": 18335309.0,
+        "b2_brier": 0.00970336376654915,
+        "m2_brier": 0.010022580616339531,
+        "m2_minus_b2_brier": 0.00031921684979038106,
+        "m2_relative_brier_improvement": -0.03289754537398992
+      },
+      {
+        "key": "1500-3000 km",
+        "opportunities": 1103374509.5,
+        "rows": 64174693,
+        "positive_mass": 231014449.0,
+        "b2_brier": 0.09481622332205615,
+        "m2_brier": 0.10058315742292714,
+        "m2_minus_b2_brier": 0.0057669341008709935,
+        "m2_relative_brier_improvement": -0.06082222955962746
+      },
+      {
+        "key": "3000-6000 km",
+        "opportunities": 1463999147.0,
+        "rows": 45406561,
+        "positive_mass": 120186175.0,
+        "b2_brier": 0.04146121865064397,
+        "m2_brier": 0.0431938745184752,
+        "m2_minus_b2_brier": 0.00173265586783123,
+        "m2_relative_brier_improvement": -0.04178979596404897
+      },
+      {
+        "key": "500-1500 km",
+        "opportunities": 1745528320.75,
+        "rows": 88088842,
+        "positive_mass": 394991633.0,
+        "b2_brier": 0.09355483682324058,
+        "m2_brier": 0.09908305957579203,
+        "m2_minus_b2_brier": 0.005528222752551451,
+        "m2_relative_brier_improvement": -0.059090720910521144
+      },
+      {
+        "key": "6000-10000 km",
+        "opportunities": 3775971652.25,
+        "rows": 70266815,
+        "positive_mass": 68976540.0,
+        "b2_brier": 0.010744998756322992,
+        "m2_brier": 0.011153292068679748,
+        "m2_minus_b2_brier": 0.0004082933123567556,
+        "m2_relative_brier_improvement": -0.03799845133685964
+      }
+    ],
+    "band_distance": [
+      {
+        "key": "10m|0-500 km",
+        "opportunities": 45248386.75,
+        "rows": 1307198,
+        "positive_mass": 2224304.0,
+        "b2_brier": 0.022050795953523456,
+        "m2_brier": 0.02312268136659969,
+        "m2_minus_b2_brier": 0.0010718854130762345,
+        "m2_relative_brier_improvement": -0.04860982865813335
+      },
+      {
+        "key": "10m|10000-25000 km",
+        "opportunities": 67737402.75,
+        "rows": 2608598,
+        "positive_mass": 1967326.0,
+        "b2_brier": 0.018390537186133003,
+        "m2_brier": 0.018561646190996334,
+        "m2_minus_b2_brier": 0.0001711090048633311,
+        "m2_relative_brier_improvement": -0.009304187427018329
+      },
+      {
+        "key": "10m|1500-3000 km",
+        "opportunities": 88952227.0,
+        "rows": 5385844,
+        "positive_mass": 18054262.0,
+        "b2_brier": 0.09073603909584423,
+        "m2_brier": 0.09393533874701904,
+        "m2_minus_b2_brier": 0.003199299651174811,
+        "m2_relative_brier_improvement": -0.03525941492547857
+      },
+      {
+        "key": "10m|3000-6000 km",
+        "opportunities": 102797197.0,
+        "rows": 4595784,
+        "positive_mass": 12250720.0,
+        "b2_brier": 0.06114100920254986,
+        "m2_brier": 0.06220270494012638,
+        "m2_minus_b2_brier": 0.0010616957375765151,
+        "m2_relative_brier_improvement": -0.017364707443072946
+      },
+      {
+        "key": "10m|500-1500 km",
+        "opportunities": 120989166.0,
+        "rows": 3365535,
+        "positive_mass": 3454386.0,
+        "b2_brier": 0.017750870085166275,
+        "m2_brier": 0.018255482122409968,
+        "m2_minus_b2_brier": 0.0005046120372436923,
+        "m2_relative_brier_improvement": -0.028427453686643567
+      },
+      {
+        "key": "10m|6000-10000 km",
+        "opportunities": 217969873.5,
+        "rows": 7103160,
+        "positive_mass": 8756092.0,
+        "b2_brier": 0.024606675575009264,
+        "m2_brier": 0.02488800201584298,
+        "m2_minus_b2_brier": 0.00028132644083371516,
+        "m2_relative_brier_improvement": -0.011432931684580483
+      },
+      {
+        "key": "12m|0-500 km",
+        "opportunities": 9810775.25,
+        "rows": 534761,
+        "positive_mass": 498880.0,
+        "b2_brier": 0.020632071332849444,
+        "m2_brier": 0.02190696418462656,
+        "m2_minus_b2_brier": 0.0012748928517771173,
+        "m2_relative_brier_improvement": -0.061791801279171166
+      },
+      {
+        "key": "12m|10000-25000 km",
+        "opportunities": 11512000.0,
+        "rows": 725784,
+        "positive_mass": 411968.0,
+        "b2_brier": 0.02003544054108497,
+        "m2_brier": 0.020444967648263052,
+        "m2_minus_b2_brier": 0.0004095271071780822,
+        "m2_relative_brier_improvement": -0.020440134886892114
+      },
+      {
+        "key": "12m|1500-3000 km",
+        "opportunities": 20175906.5,
+        "rows": 2455591,
+        "positive_mass": 6936103.0,
+        "b2_brier": 0.12403999279381657,
+        "m2_brier": 0.12795016973272028,
+        "m2_minus_b2_brier": 0.003910176938903706,
+        "m2_relative_brier_improvement": -0.03152351794637176
+      },
+      {
+        "key": "12m|3000-6000 km",
+        "opportunities": 24653568.75,
+        "rows": 2155523,
+        "positive_mass": 4854927.0,
+        "b2_brier": 0.08911722474209484,
+        "m2_brier": 0.08971070211994306,
+        "m2_minus_b2_brier": 0.00059347737784822,
+        "m2_relative_brier_improvement": -0.006659513686223306
+      },
+      {
+        "key": "12m|500-1500 km",
+        "opportunities": 27087058.25,
+        "rows": 1590352,
+        "positive_mass": 1660335.0,
+        "b2_brier": 0.03447624232544724,
+        "m2_brier": 0.03527741869325473,
+        "m2_minus_b2_brier": 0.0008011763678074865,
+        "m2_relative_brier_improvement": -0.023238506106453727
+      },
+      {
+        "key": "12m|6000-10000 km",
+        "opportunities": 42960578.25,
+        "rows": 2648567,
+        "positive_mass": 2909748.0,
+        "b2_brier": 0.03708833675371728,
+        "m2_brier": 0.03776844525471512,
+        "m2_minus_b2_brier": 0.0006801085009978391,
+        "m2_relative_brier_improvement": -0.018337530353923714
+      },
+      {
+        "key": "15m|0-500 km",
+        "opportunities": 37237041.75,
+        "rows": 1137182,
+        "positive_mass": 1547489.0,
+        "b2_brier": 0.018854978100566508,
+        "m2_brier": 0.02125351234529692,
+        "m2_minus_b2_brier": 0.002398534244730414,
+        "m2_relative_brier_improvement": -0.12720960119589586
+      },
+      {
+        "key": "15m|10000-25000 km",
+        "opportunities": 76114982.75,
+        "rows": 2435747,
+        "positive_mass": 1534668.0,
+        "b2_brier": 0.012339186687004289,
+        "m2_brier": 0.012768912804194042,
+        "m2_minus_b2_brier": 0.00042972611718975276,
+        "m2_relative_brier_improvement": -0.03482612980013844
+      },
+      {
+        "key": "15m|1500-3000 km",
+        "opportunities": 73655635.25,
+        "rows": 6345514,
+        "positive_mass": 21688539.0,
+        "b2_brier": 0.11455943003638083,
+        "m2_brier": 0.12027871979415154,
+        "m2_minus_b2_brier": 0.00571928975777071,
+        "m2_relative_brier_improvement": -0.04992421624264742
+      },
+      {
+        "key": "15m|3000-6000 km",
+        "opportunities": 90470179.0,
+        "rows": 4949885,
+        "positive_mass": 14436473.0,
+        "b2_brier": 0.07187271787294651,
+        "m2_brier": 0.07470749090081774,
+        "m2_minus_b2_brier": 0.002834773027871232,
+        "m2_relative_brier_improvement": -0.039441572710279704
+      },
+      {
+        "key": "15m|500-1500 km",
+        "opportunities": 96187318.25,
+        "rows": 4422300,
+        "positive_mass": 9911976.0,
+        "b2_brier": 0.05075768831442613,
+        "m2_brier": 0.0532431714553075,
+        "m2_minus_b2_brier": 0.0024854831408813657,
+        "m2_relative_brier_improvement": -0.04896761896413926
+      },
+      {
+        "key": "15m|6000-10000 km",
+        "opportunities": 198612484.0,
+        "rows": 6705519,
+        "positive_mass": 8533373.0,
+        "b2_brier": 0.024109628093696364,
+        "m2_brier": 0.024999597832246832,
+        "m2_minus_b2_brier": 0.0008899697385504682,
+        "m2_relative_brier_improvement": -0.036913457772629776
+      },
+      {
+        "key": "160m|0-500 km",
+        "opportunities": 4936976.75,
+        "rows": 691483,
+        "positive_mass": 2821317.0,
+        "b2_brier": 0.1070455329872557,
+        "m2_brier": 0.11311946333278163,
+        "m2_minus_b2_brier": 0.006073930345525919,
+        "m2_relative_brier_improvement": -0.05674155825118876
+      },
+      {
+        "key": "160m|10000-25000 km",
+        "opportunities": 1323511.5,
+        "rows": 110246,
+        "positive_mass": 4146.0,
+        "b2_brier": 0.00255721597836124,
+        "m2_brier": 0.002732774962798305,
+        "m2_minus_b2_brier": 0.000175558984437065,
+        "m2_relative_brier_improvement": -0.06865238834835141
+      },
+      {
+        "key": "160m|1500-3000 km",
+        "opportunities": 3636278.25,
+        "rows": 320587,
+        "positive_mass": 806095.0,
+        "b2_brier": 0.06070737281709724,
+        "m2_brier": 0.06485902669437918,
+        "m2_minus_b2_brier": 0.00415165387728194,
+        "m2_relative_brier_improvement": -0.06838796812687464
+      },
+      {
+        "key": "160m|3000-6000 km",
+        "opportunities": 4228700.75,
+        "rows": 226306,
+        "positive_mass": 91623.0,
+        "b2_brier": 0.008823853500904281,
+        "m2_brier": 0.009410167704340373,
+        "m2_minus_b2_brier": 0.0005863142034360919,
+        "m2_relative_brier_improvement": -0.06644650246924488
+      },
+      {
+        "key": "160m|500-1500 km",
+        "opportunities": 11825182.0,
+        "rows": 1286062,
+        "positive_mass": 4781438.0,
+        "b2_brier": 0.0852871901922144,
+        "m2_brier": 0.09151670082025663,
+        "m2_minus_b2_brier": 0.006229510628042237,
+        "m2_relative_brier_improvement": -0.07304157416843715
+      },
+      {
+        "key": "160m|6000-10000 km",
+        "opportunities": 10034099.0,
+        "rows": 474549,
+        "positive_mass": 10802.0,
+        "b2_brier": 0.0007961695460714027,
+        "m2_brier": 0.0008176850119907578,
+        "m2_minus_b2_brier": 2.1515465919355126e-05,
+        "m2_relative_brier_improvement": -0.02702372381048801
+      },
+      {
+        "key": "17m|0-500 km",
+        "opportunities": 29265664.75,
+        "rows": 1062114,
+        "positive_mass": 1524074.0,
+        "b2_brier": 0.026865489705872072,
+        "m2_brier": 0.02856992781717268,
+        "m2_minus_b2_brier": 0.0017044381113006067,
+        "m2_relative_brier_improvement": -0.06344340378534263
+      },
+      {
+        "key": "17m|10000-25000 km",
+        "opportunities": 47424784.25,
+        "rows": 1800196,
+        "positive_mass": 1414753.0,
+        "b2_brier": 0.019026642785345476,
+        "m2_brier": 0.01964523548718426,
+        "m2_minus_b2_brier": 0.0006185927018387827,
+        "m2_relative_brier_improvement": -0.03251192072178011
+      },
+      {
+        "key": "17m|1500-3000 km",
+        "opportunities": 54432327.5,
+        "rows": 5694241,
+        "positive_mass": 18826017.0,
+        "b2_brier": 0.1320675387431401,
+        "m2_brier": 0.13821156531131604,
+        "m2_minus_b2_brier": 0.006144026568175948,
+        "m2_relative_brier_improvement": -0.04652185258124297
+      },
+      {
+        "key": "17m|3000-6000 km",
+        "opportunities": 66482010.5,
+        "rows": 4145513,
+        "positive_mass": 10807411.0,
+        "b2_brier": 0.0766399016107612,
+        "m2_brier": 0.07922057904202498,
+        "m2_minus_b2_brier": 0.002580677431263778,
+        "m2_relative_brier_improvement": -0.03367276545278619
+      },
+      {
+        "key": "17m|500-1500 km",
+        "opportunities": 74947591.25,
+        "rows": 4985242,
+        "positive_mass": 14337129.0,
+        "b2_brier": 0.08164077298660112,
+        "m2_brier": 0.08310347805195416,
+        "m2_minus_b2_brier": 0.0014627050653530371,
+        "m2_relative_brier_improvement": -0.017916354927128175
+      },
+      {
+        "key": "17m|6000-10000 km",
+        "opportunities": 148714503.0,
+        "rows": 5542732,
+        "positive_mass": 6492754.0,
+        "b2_brier": 0.025110578050007337,
+        "m2_brier": 0.026028115710694487,
+        "m2_minus_b2_brier": 0.0009175376606871503,
+        "m2_relative_brier_improvement": -0.03653988605359415
+      },
+      {
+        "key": "20m|0-500 km",
+        "opportunities": 247918120.5,
+        "rows": 3936870,
+        "positive_mass": 10343826.0,
+        "b2_brier": 0.02474260952891647,
+        "m2_brier": 0.024826749367496757,
+        "m2_minus_b2_brier": 8.413983858028898e-05,
+        "m2_relative_brier_improvement": -0.003400604874839619
+      },
+      {
+        "key": "20m|10000-25000 km",
+        "opportunities": 557896492.5,
+        "rows": 8597829,
+        "positive_mass": 8576366.0,
+        "b2_brier": 0.010441674139374834,
+        "m2_brier": 0.010757982160205806,
+        "m2_minus_b2_brier": 0.0003163080208309719,
+        "m2_relative_brier_improvement": -0.03029284543923816
+      },
+      {
+        "key": "20m|1500-3000 km",
+        "opportunities": 444271629.5,
+        "rows": 20558472,
+        "positive_mass": 82505162.0,
+        "b2_brier": 0.09631332441375848,
+        "m2_brier": 0.10242170175914693,
+        "m2_minus_b2_brier": 0.006108377345388452,
+        "m2_relative_brier_improvement": -0.0634219344267164
+      },
+      {
+        "key": "20m|3000-6000 km",
+        "opportunities": 587713341.75,
+        "rows": 13443308,
+        "positive_mass": 38106275.0,
+        "b2_brier": 0.036805220318122486,
+        "m2_brier": 0.03862013585943561,
+        "m2_minus_b2_brier": 0.0018149155413131265,
+        "m2_relative_brier_improvement": -0.04931136196512531
+      },
+      {
+        "key": "20m|500-1500 km",
+        "opportunities": 662725822.0,
+        "rows": 24957347,
+        "positive_mass": 126657764.0,
+        "b2_brier": 0.08885876460869374,
+        "m2_brier": 0.09305320640061066,
+        "m2_minus_b2_brier": 0.004194441791916914,
+        "m2_relative_brier_improvement": -0.04720346732691949
+      },
+      {
+        "key": "20m|6000-10000 km",
+        "opportunities": 1500148517.25,
+        "rows": 20573316,
+        "positive_mass": 21911251.0,
+        "b2_brier": 0.009275436080564237,
+        "m2_brier": 0.009687702139067337,
+        "m2_minus_b2_brier": 0.0004122660585030996,
+        "m2_relative_brier_improvement": -0.044447080969806096
+      },
+      {
+        "key": "30m|0-500 km",
+        "opportunities": 96541183.25,
+        "rows": 3982970,
+        "positive_mass": 19978696.0,
+        "b2_brier": 0.0812011852861134,
+        "m2_brier": 0.08282642609278514,
+        "m2_minus_b2_brier": 0.0016252408066717294,
+        "m2_relative_brier_improvement": -0.020014988709156967
+      },
+      {
+        "key": "30m|10000-25000 km",
+        "opportunities": 147200143.5,
+        "rows": 3142034,
+        "positive_mass": 2522236.0,
+        "b2_brier": 0.010142273359275259,
+        "m2_brier": 0.01071736593137898,
+        "m2_minus_b2_brier": 0.0005750925721037213,
+        "m2_relative_brier_improvement": -0.056702531250332644
+      },
+      {
+        "key": "30m|1500-3000 km",
+        "opportunities": 148075118.75,
+        "rows": 9588429,
+        "positive_mass": 34533741.0,
+        "b2_brier": 0.09937259884406403,
+        "m2_brier": 0.10552206817676445,
+        "m2_minus_b2_brier": 0.0061494693327004135,
+        "m2_relative_brier_improvement": -0.061882947655924614
+      },
+      {
+        "key": "30m|3000-6000 km",
+        "opportunities": 202065026.0,
+        "rows": 6539505,
+        "positive_mass": 18062132.0,
+        "b2_brier": 0.041749234054292095,
+        "m2_brier": 0.04378535107711603,
+        "m2_minus_b2_brier": 0.002036117022823934,
+        "m2_relative_brier_improvement": -0.048770164745444156
+      },
+      {
+        "key": "30m|500-1500 km",
+        "opportunities": 242610747.25,
+        "rows": 15710746,
+        "positive_mass": 73650530.0,
+        "b2_brier": 0.11852304268392903,
+        "m2_brier": 0.12466839564891774,
+        "m2_minus_b2_brier": 0.006145352964988707,
+        "m2_relative_brier_improvement": -0.05184943641192885
+      },
+      {
+        "key": "30m|6000-10000 km",
+        "opportunities": 582402297.75,
+        "rows": 10745169,
+        "positive_mass": 9792892.0,
+        "b2_brier": 0.00889150097410488,
+        "m2_brier": 0.009290323446981545,
+        "m2_minus_b2_brier": 0.000398822472876665,
+        "m2_relative_brier_improvement": -0.04485434731865556
+      },
+      {
+        "key": "40m|0-500 km",
+        "opportunities": 171217453.25,
+        "rows": 8432601,
+        "positive_mass": 60263615.0,
+        "b2_brier": 0.118769287124954,
+        "m2_brier": 0.12615132688747538,
+        "m2_minus_b2_brier": 0.007382039762521372,
+        "m2_relative_brier_improvement": -0.06215445037364686
+      },
+      {
+        "key": "40m|10000-25000 km",
+        "opportunities": 288311647.75,
+        "rows": 3944532,
+        "positive_mass": 1846373.0,
+        "b2_brier": 0.004133268220721879,
+        "m2_brier": 0.00430529118273885,
+        "m2_minus_b2_brier": 0.00017202296201697127,
+        "m2_relative_brier_improvement": -0.041619114180527994
+      },
+      {
+        "key": "40m|1500-3000 km",
+        "opportunities": 223759077.75,
+        "rows": 11116569,
+        "positive_mass": 40281719.0,
+        "b2_brier": 0.0801892668927018,
+        "m2_brier": 0.08609815500151327,
+        "m2_minus_b2_brier": 0.005908888108811475,
+        "m2_relative_brier_improvement": -0.07368677053399098
+      },
+      {
+        "key": "40m|3000-6000 km",
+        "opportunities": 320649742.5,
+        "rows": 7362932,
+        "positive_mass": 19082996.0,
+        "b2_brier": 0.02947570861876175,
+        "m2_brier": 0.030801425338018173,
+        "m2_minus_b2_brier": 0.0013257167192564229,
+        "m2_relative_brier_improvement": -0.04497658517402314
+      },
+      {
+        "key": "40m|500-1500 km",
+        "opportunities": 415664796.75,
+        "rows": 23726837,
+        "positive_mass": 126929415.0,
+        "b2_brier": 0.1214501307745867,
+        "m2_brier": 0.13104765726606124,
+        "m2_minus_b2_brier": 0.009597526491474537,
+        "m2_relative_brier_improvement": -0.07902442286610367
+      },
+      {
+        "key": "40m|6000-10000 km",
+        "opportunities": 906461967.5,
+        "rows": 12623999,
+        "positive_mass": 9901688.0,
+        "b2_brier": 0.006243071588942536,
+        "m2_brier": 0.006543981134999328,
+        "m2_minus_b2_brier": 0.00030090954605679204,
+        "m2_relative_brier_improvement": -0.04819895812019048
+      },
+      {
+        "key": "60m|0-500 km",
+        "opportunities": 5002869.5,
+        "rows": 682412,
+        "positive_mass": 2947743.0,
+        "b2_brier": 0.11333086276211961,
+        "m2_brier": 0.11508544754004242,
+        "m2_minus_b2_brier": 0.001754584777922813,
+        "m2_relative_brier_improvement": -0.015481967887297055
+      },
+      {
+        "key": "60m|10000-25000 km",
+        "opportunities": 985805.0,
+        "rows": 50940,
+        "positive_mass": 11363.0,
+        "b2_brier": 0.005435751737462379,
+        "m2_brier": 0.005944790721834831,
+        "m2_minus_b2_brier": 0.0005090389843724515,
+        "m2_relative_brier_improvement": -0.09364647411400928
+      },
+      {
+        "key": "60m|1500-3000 km",
+        "opportunities": 1421264.5,
+        "rows": 184591,
+        "positive_mass": 534811.0,
+        "b2_brier": 0.08485043327672456,
+        "m2_brier": 0.08767622381306861,
+        "m2_minus_b2_brier": 0.002825790536344047,
+        "m2_relative_brier_improvement": -0.03330319513075719
+      },
+      {
+        "key": "60m|3000-6000 km",
+        "opportunities": 1320754.25,
+        "rows": 142423,
+        "positive_mass": 372260.0,
+        "b2_brier": 0.05238732135847862,
+        "m2_brier": 0.05373638741744736,
+        "m2_minus_b2_brier": 0.0013490660589687356,
+        "m2_relative_brier_improvement": -0.025751766343182103
+      },
+      {
+        "key": "60m|500-1500 km",
+        "opportunities": 9005820.25,
+        "rows": 1263595,
+        "positive_mass": 4655231.0,
+        "b2_brier": 0.10820938726501841,
+        "m2_brier": 0.11275982166432523,
+        "m2_minus_b2_brier": 0.004550434399306816,
+        "m2_relative_brier_improvement": -0.042052122411175175
+      },
+      {
+        "key": "60m|6000-10000 km",
+        "opportunities": 10943216.5,
+        "rows": 468052,
+        "positive_mass": 197792.0,
+        "b2_brier": 0.005014168525544671,
+        "m2_brier": 0.005400457934365742,
+        "m2_minus_b2_brier": 0.0003862894088210705,
+        "m2_relative_brier_improvement": -0.07703957432884834
+      },
+      {
+        "key": "80m|0-500 km",
+        "opportunities": 34101703.5,
+        "rows": 3469785,
+        "positive_mass": 18694655.0,
+        "b2_brier": 0.1370612425453126,
+        "m2_brier": 0.14554212918791887,
+        "m2_minus_b2_brier": 0.008480886642606267,
+        "m2_relative_brier_improvement": -0.06187662161170371
+      },
+      {
+        "key": "80m|10000-25000 km",
+        "opportunities": 24948411.0,
+        "rows": 660476,
+        "positive_mass": 46110.0,
+        "b2_brier": 0.001402658763215305,
+        "m2_brier": 0.0014325643164081327,
+        "m2_minus_b2_brier": 2.9905553192827693e-05,
+        "m2_relative_brier_improvement": -0.021320619082203063
+      },
+      {
+        "key": "80m|1500-3000 km",
+        "opportunities": 44995044.5,
+        "rows": 2524855,
+        "positive_mass": 6848000.0,
+        "b2_brier": 0.05842895822119247,
+        "m2_brier": 0.06461359547322462,
+        "m2_minus_b2_brier": 0.006184637252032152,
+        "m2_relative_brier_improvement": -0.10584883660973698
+      },
+      {
+        "key": "80m|3000-6000 km",
+        "opportunities": 63618626.5,
+        "rows": 1845382,
+        "positive_mass": 2121358.0,
+        "b2_brier": 0.015634299571780856,
+        "m2_brier": 0.016850531587561873,
+        "m2_minus_b2_brier": 0.0012162320157810165,
+        "m2_relative_brier_improvement": -0.07779254901679478
+      },
+      {
+        "key": "80m|500-1500 km",
+        "opportunities": 84484818.75,
+        "rows": 6780826,
+        "positive_mass": 28953429.0,
+        "b2_brier": 0.10783609018299117,
+        "m2_brier": 0.11782041827692426,
+        "m2_minus_b2_brier": 0.009984328093933084,
+        "m2_relative_brier_improvement": -0.09258800163275849
+      },
+      {
+        "key": "80m|6000-10000 km",
+        "opportunities": 157724115.5,
+        "rows": 3381752,
+        "positive_mass": 470148.0,
+        "b2_brier": 0.0017641619334761711,
+        "m2_brier": 0.001827649595483893,
+        "m2_minus_b2_brier": 6.348766200772195e-05,
+        "m2_relative_brier_improvement": -0.035987434488297554
+      }
+    ],
+    "history": [
+      {
+        "key": "no_recent_history",
+        "opportunities": 4247789415.25,
+        "rows": 93917082,
+        "positive_mass": 54996854.0,
+        "b2_brier": 0.010863539197134248,
+        "m2_brier": 0.011145632246275176,
+        "m2_minus_b2_brier": 0.00028209304914092806,
+        "m2_relative_brier_improvement": -0.025966956442274647
+      },
+      {
+        "key": "recent_1h",
+        "opportunities": 4563463145.75,
+        "rows": 189370888,
+        "positive_mass": 851990665.0,
+        "b2_brier": 0.07577547497110623,
+        "m2_brier": 0.08013594320834405,
+        "m2_minus_b2_brier": 0.004360468237237819,
+        "m2_relative_brier_improvement": -0.05754458469446089
+      },
+      {
+        "key": "recent_24h",
+        "opportunities": 1182356424.75,
+        "rows": 33962699,
+        "positive_mass": 47361186.0,
+        "b2_brier": 0.02696836018160737,
+        "m2_brier": 0.028113857657212353,
+        "m2_minus_b2_brier": 0.0011454974756049847,
+        "m2_relative_brier_improvement": -0.0424756072631447
+      }
+    ],
+    "f107": [
+      {
+        "key": "100-150",
+        "opportunities": 1413010523.0,
+        "rows": 45667929,
+        "positive_mass": 137126716.0,
+        "b2_brier": 0.04173774777577975,
+        "m2_brier": 0.044780739303860735,
+        "m2_minus_b2_brier": 0.0030429915280809836,
+        "m2_relative_brier_improvement": -0.07290742050645149
+      },
+      {
+        "key": "150-200",
+        "opportunities": 3714834999.25,
+        "rows": 123388504,
+        "positive_mass": 369256222.0,
+        "b2_brier": 0.0438088829347966,
+        "m2_brier": 0.046050962962557986,
+        "m2_minus_b2_brier": 0.002242080027761384,
+        "m2_relative_brier_improvement": -0.051178662352528104
+      },
+      {
+        "key": "200_plus",
+        "opportunities": 4865763463.5,
+        "rows": 148194236,
+        "positive_mass": 447965767.0,
+        "b2_brier": 0.041537608891221614,
+        "m2_brier": 0.04355635845267819,
+        "m2_minus_b2_brier": 0.002018749561456576,
+        "m2_relative_brier_improvement": -0.04860052408753868
+      }
+    ],
+    "geomagnetic": [
+      {
+        "key": "disturbed_4_plus",
+        "opportunities": 780824569.25,
+        "rows": 23987721,
+        "positive_mass": 65068252.0,
+        "b2_brier": 0.03853048046599982,
+        "m2_brier": 0.04018593933924116,
+        "m2_minus_b2_brier": 0.0016554588732413389,
+        "m2_relative_brier_improvement": -0.042964916430308975
+      },
+      {
+        "key": "quiet_under_2",
+        "opportunities": 5310197091.25,
+        "rows": 170956042,
+        "positive_mass": 518445692.0,
+        "b2_brier": 0.04311154006547245,
+        "m2_brier": 0.045591423785873476,
+        "m2_minus_b2_brier": 0.0024798837204010257,
+        "m2_relative_brier_improvement": -0.057522503641365796
+      },
+      {
+        "key": "unsettled_2_to_4",
+        "opportunities": 3902587325.25,
+        "rows": 122306906,
+        "positive_mass": 370834761.0,
+        "b2_brier": 0.04223211267755236,
+        "m2_brier": 0.0442795236182113,
+        "m2_minus_b2_brier": 0.002047410940658946,
+        "m2_relative_brier_improvement": -0.048479955437967126
+      }
+    ],
+    "missingness": [
+      {
+        "key": "1-3",
+        "opportunities": 9890970845.75,
+        "rows": 314088523,
+        "positive_mass": 945993820.0,
+        "b2_brier": 0.042458792592740956,
+        "m2_brier": 0.04469975046415149,
+        "m2_minus_b2_brier": 0.0022409578714105358,
+        "m2_relative_brier_improvement": -0.052779594862847556
+      },
+      {
+        "key": "4-8",
+        "opportunities": 13323485.75,
+        "rows": 422896,
+        "positive_mass": 1251068.0,
+        "b2_brier": 0.041163016621742474,
+        "m2_brier": 0.043854237831137365,
+        "m2_minus_b2_brier": 0.002691221209394891,
+        "m2_relative_brier_improvement": -0.0653795914455253
+      },
+      {
+        "key": "9_plus",
+        "opportunities": 89314654.25,
+        "rows": 2739250,
+        "positive_mass": 7103817.0,
+        "b2_brier": 0.03721353011728656,
+        "m2_brier": 0.0400169765272299,
+        "m2_minus_b2_brier": 0.0028034464099433443,
+        "m2_relative_brier_improvement": -0.0753340626677359
+      }
+    ],
+    "receiver_latitude": [
+      {
+        "key": "equatorial",
+        "opportunities": 31933976.75,
+        "rows": 1229549,
+        "positive_mass": 1283002.0,
+        "b2_brier": 0.022319156763115813,
+        "m2_brier": 0.024375311730818312,
+        "m2_minus_b2_brier": 0.002056154967702499,
+        "m2_relative_brier_improvement": -0.09212511877242857
+      },
+      {
+        "key": "north_high",
+        "opportunities": 4900736628.5,
+        "rows": 143568574,
+        "positive_mass": 448306904.0,
+        "b2_brier": 0.04165640670382642,
+        "m2_brier": 0.04379020219933711,
+        "m2_minus_b2_brier": 0.002133795495510689,
+        "m2_relative_brier_improvement": -0.05122370517173502
+      },
+      {
+        "key": "north_mid",
+        "opportunities": 4570586198.5,
+        "rows": 158633598,
+        "positive_mass": 483161315.0,
+        "b2_brier": 0.0455773889038823,
+        "m2_brier": 0.04804203840308396,
+        "m2_minus_b2_brier": 0.0024646494992016585,
+        "m2_relative_brier_improvement": -0.05407614517802539
+      },
+      {
+        "key": "south_high",
+        "opportunities": 19326774.25,
+        "rows": 467760,
+        "positive_mass": 697172.0,
+        "b2_brier": 0.020846782719185636,
+        "m2_brier": 0.021353223133867404,
+        "m2_minus_b2_brier": 0.0005064404146817685,
+        "m2_relative_brier_improvement": -0.02429345676518624
+      },
+      {
+        "key": "south_mid",
+        "opportunities": 471025407.75,
+        "rows": 13351188,
+        "positive_mass": 20900312.0,
+        "b2_brier": 0.0217668189944776,
+        "m2_brier": 0.023155241920052347,
+        "m2_minus_b2_brier": 0.0013884229255747456,
+        "m2_relative_brier_improvement": -0.06378621175317334
+      }
+    ],
+    "disagreement": [
+      {
+        "key": "0.01-0.03",
+        "opportunities": 1279361014.5,
+        "rows": 55334447,
+        "positive_mass": 179277276.0,
+        "b2_brier": 0.06552127909832388,
+        "m2_brier": 0.06584117227433595,
+        "m2_minus_b2_brier": 0.0003198931760120677,
+        "m2_relative_brier_improvement": -0.004882279168146653
+      },
+      {
+        "key": "0.03-0.10",
+        "opportunities": 1449954535.25,
+        "rows": 93135434,
+        "positive_mass": 419640825.0,
+        "b2_brier": 0.12280077739534034,
+        "m2_brier": 0.12622423986225748,
+        "m2_minus_b2_brier": 0.003423462466917132,
+        "m2_relative_brier_improvement": -0.02787818236602657
+      },
+      {
+        "key": "0.10_plus",
+        "opportunities": 677345863.25,
+        "rows": 49286553,
+        "positive_mass": 244001131.0,
+        "b2_brier": 0.1520135658469379,
+        "m2_brier": 0.17713397377483325,
+        "m2_minus_b2_brier": 0.025120407927895355,
+        "m2_relative_brier_improvement": -0.16525109313723374
+      },
+      {
+        "key": "under_0.01",
+        "opportunities": 6586947572.75,
+        "rows": 119494235,
+        "positive_mass": 111429473.0,
+        "b2_brier": 0.008954702200200683,
+        "m2_brier": 0.008964291783956387,
+        "m2_minus_b2_brier": 9.589583755704317e-06,
+        "m2_relative_brier_improvement": -0.001070899237217482
+      }
+    ]
+  },
+  "candidate_recommendation": {
+    "phase_1_required": true,
+    "best_no_retraining_policy": "selected_blend",
+    "preserve_m2_specialist_bands": [],
+    "preserve_stable_m2_band_distance_cells": [],
+    "advance_ablations": [
+      "A0",
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A7"
+    ],
+    "reason": "Use paired evidence to test recency and sampling before selecting a new 50M core."
+  },
+  "compute": {
+    "machine_profile": "m5",
+    "batch_rows": 100000,
+    "wall_seconds": 1270.5729161659838,
+    "maximum_rss_gb": 9.92926025390625,
+    "python": "3.12.11",
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "numpy": "2.5.1",
+    "pyarrow": "25.0.0",
+    "xgboost": "3.3.0"
+  }
+}

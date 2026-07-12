@@ -1,5 +1,13 @@
 # Tier-4: Multi-Year Archive Training (the "big model" plan)
 
+> **2026-07-11 correction:** the original March cross-evaluation below is
+> retained as experiment history but is superseded by
+> [`ARCHIVE-PROOF-V2.md`](ARCHIVE-PROOF-V2.md). V2 filters Madrigal to PSK-only,
+> uses identical rows and a train-only common pair universe, defines exposure
+> from the preceding hour, gives 6m its own model, removes random negative
+> sampling, compares engines, and adds common-reference calibration. The full
+> validated report is `ml/results/archive_v2/REPORT.html`.
+
 > Written 2026-07-11. Context: v2–v4 experiments on our own 55-day collector
 > window proved the approach (AUC 0.954 vs climatology 0.929) but hit a data
 > ceiling — ice-cold cells (79% of holdout, the "be first to the opening"
@@ -9,12 +17,11 @@
 
 ## Why this works: our data becomes the exam, not the textbook
 
-The single most valuable property of this plan: **train on archives through
-2025, hold out our own Feb–Apr 2026 collector data as the final test set.**
-Zero leakage is structurally guaranteed (different networks, different years),
-and the score answers the exact question that matters: "does a model trained
-on history predict *our* product's data feed?" If archive-trained beats
-own-data-trained on that test, every conclusion transfers to prod.
+Temporal separation prevents direct row overlap, but it does not structurally
+guarantee zero leakage. Our Feb-Apr 2026 data has already informed features,
+targets, and model selection, so it is development validation rather than a
+final test. The production experiment must reserve a future collector window
+that remains unopened until the pipeline, model, and calibration are frozen.
 
 ## Data sources (all free, all public)
 
@@ -42,8 +49,10 @@ troposphere). It becomes relevant later for the VHF/6m sporadic-E + tropo
 model (ERA5 reanalysis, open, 1940→) and possibly low-band QRN noise
 priors (thunderstorm/CAPE climatology). Skip for now.
 
-WSPR is the crown jewel: reporters log TX power, so SNR becomes a physical
-quantity (`snr_per_watt`), and 2008–2025 spans two solar minima and two
+WSPR is a high-value source because messages include TX power, but
+`SNR - TX power dBm` is a normalized link measurement rather than calibrated
+propagation truth: antenna gain, feedline loss, receiver calibration, and local
+noise remain unobserved. Station effects must be modeled. The 2008–2025 span covers two solar minima and two
 maxima — SFI from 65 to 250. Seasonality (day-of-year), cycle phase, and
 storm recovery dynamics all become learnable, which is exactly what the
 ice-cold slice needs.
@@ -76,9 +85,12 @@ lessons (equi-joins only, TEMP VIEWs, RANGE window frames) carry over as-is.
      get ~10× sharper geography.
    - **day_of_year + cycle-phase features** (sin/cos of solar cycle position,
      SFI 81-day smoothed) — impossible on 55 days, trivial on 17 years.
-4. **Training** (M5 Max, 128 GB): dataset lands at ~1–3B cells. Strategy:
-   - XGBoost `hist` on CPU handles ~500M rows in 128 GB; sample negatives
-     harder (keep-rate ~0.1 with weights) or use `QuantileDMatrix`.
+4. **Training** (M5 Max, 128 GB): do not begin with a 1–3B-row materialization.
+   Build deterministic learning curves at 5M, 20M, 50M, and 100M rows first.
+   Use DuckDB for aggregation, Polars/Arrow at the model boundary, and
+   `QuantileDMatrix` when the quantized representation fits. XGBoost external
+   memory pages features but not all labels/runtime state, so row capacity must
+   be benchmarked rather than inferred from unified memory alone.
    - Rolling-origin evaluation: train ≤2020 → test 2021; train ≤2022 →
      test 2023; etc. Gives honest skill-decay + retrain-cadence numbers.
    - Final: train 2008–2025, test on **our Feb–Apr 2026 cells**.
@@ -129,10 +141,14 @@ PR-AUC on cold cells** — the "be first to the opening" slice — despite
 training on 2 fewer days. Pair universe also grew 1,940 → 10,939 pairs at
 the same ≥300-spot gate (5.6× path coverage).
 
-**Verdict: archive-first training is validated end-to-end.** Denser labels
-beat more features; cold-start is where the gain concentrates, as predicted.
-Raw HDF5 kept at `ml/data/raw/madrigal/` (112 GB), slim parquet at
-`ml/data/processed/madrigal/` (~20 GB), models `path_open_mar_{src}.json`.
+**Historical verdict:** this established feasibility, but it did not isolate
+PSK label density because Madrigal PSK and WSPR labels were pooled and the
+candidate universes differed. Archive-first training is supported more cleanly
+by V2; use the V2 report for quantitative decisions.
+The 112 GB raw HDF5 was removed after conversion and V2 validation because it
+is publicly redownloadable. Source-tagged slim Parquet remains at
+`ml/data/processed/madrigal/` (~14 GB); historical models remain under
+`ml/models/`.
 
 ## Order of operations
 

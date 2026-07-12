@@ -63,3 +63,5 @@ ml/data/
 ml/models/
 ml/.venv/
 catboost_info/
+__pycache__/
+*.py[cod]

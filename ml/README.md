@@ -1,6 +1,9 @@
 # Propulse ML — Contact Probability Model
 
-> **Status**: Planning / data staged
+> **Status**: V1-V4 short-window experiments complete; stricter PSK-only
+> Archive Proof V2 complete. See [`ARCHIVE-PROOF-V2.md`](ARCHIVE-PROOF-V2.md)
+> and the self-contained visual report at
+> [`results/archive_v2/REPORT.html`](results/archive_v2/REPORT.html).
 > **Created**: 2026-07-11
 > **Supersedes**: Level 2/3 of `docs/plans/LOCATION-AWARE-PROPAGATION-MODEL.md` (Level 1 — `band_region_stats` — was never implemented)
 

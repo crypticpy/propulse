@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T17:38:10.346503+00:00",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "scope": "calibration-development-input-inventory",
+  "months": [
+    "2024-02",
+    "2024-04",
+    "2024-05",
+    "2024-08"
+  ],
+  "outcome_metrics_read": false,
+  "november_gate_read": false,
+  "locked_archive_test_read": false,
+  "probability_bins": 262144,
+  "stream_batch_rows": 250000,
+  "feature_count": 91,
+  "feature_order_sha256": "93fe605225495d2d6f2aa611807a6622c11483a0d946ae7fd54c3b358b3a5caf",
+  "model": {
+    "path": "ml/models/archive_v4/propagation_v4_multiyear_50m/M2_nowcast_50000000.json",
+    "bytes": 28251303,
+    "sha256": "706d4f5ca6ad855bc9cbf1139cfeb53c0015e04c67d39184be78ca2e1f6755d5"
+  },
+  "best_iteration": 394,
+  "input_schema_sha256": "757e116ead45c80ebfeb1b5268bd5e3b139fbd134c10b61291aaadcde347c796",
+  "inputs": {
+    "2024-02": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-000.parquet",
+      "bytes": 6786291189,
+      "sha256": "6d0e2f4f511e2a52f6ed1f772cc8a0b635a46b8068ca9655a97fdb0e4c2282f6",
+      "rows": 54289793,
+      "minimum_time": "2024-02-01T00:00:00+00:00",
+      "maximum_time": "2024-02-29T23:00:00+00:00",
+      "schema_sha256": "757e116ead45c80ebfeb1b5268bd5e3b139fbd134c10b61291aaadcde347c796"
+    },
+    "2024-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-025.parquet",
+      "bytes": 7136849835,
+      "sha256": "0decad12069c8fd8dbfc987f203df5767267667c72e3a17a50f3c9e74df84a0c",
+      "rows": 56027390,
+      "minimum_time": "2024-04-01T00:00:00+00:00",
+      "maximum_time": "2024-04-30T23:00:00+00:00",
+      "schema_sha256": "757e116ead45c80ebfeb1b5268bd5e3b139fbd134c10b61291aaadcde347c796"
+    },
+    "2024-05": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-001.parquet",
+      "bytes": 6464830928,
+      "sha256": "367a61effdfead1d493f793ebf94ed698c393e2b3a95ced588065877ebb78ef2",
+      "rows": 50323668,
+      "minimum_time": "2024-05-01T00:00:00+00:00",
+      "maximum_time": "2024-05-31T23:00:00+00:00",
+      "schema_sha256": "757e116ead45c80ebfeb1b5268bd5e3b139fbd134c10b61291aaadcde347c796"
+    },
+    "2024-08": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-002.parquet",
+      "bytes": 5936865614,
+      "sha256": "7f5b4976b9b97f4448bd1d8bddc1b768f9c7812dfae12876a4e9e66098381f97",
+      "rows": 46202412,
+      "minimum_time": "2024-08-01T00:00:00+00:00",
+      "maximum_time": "2024-08-31T23:00:00+00:00",
+      "schema_sha256": "757e116ead45c80ebfeb1b5268bd5e3b139fbd134c10b61291aaadcde347c796"
+    }
+  },
+  "environment": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.11",
+    "pyarrow": "25.0.0",
+    "xgboost": "3.3.0"
+  }
+}

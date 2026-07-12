@@ -1,9 +1,9 @@
 # Personalized Propagation V4.1: M5 Execution Handoff and Resume Plan
 
-> Current status: development data prepared and audited; calibration selection
-> is the next executable step.
+> Current status: corrected development data and the four-month calibration
+> input inventory are frozen; raw M2 prediction materialization is next.
 > Status date: 2026-07-12.
-> Last executed M5 evidence checkpoint: `2fd6e3e` on
+> Last executed M5 code checkpoint: `36f90b1` on
 > `feat/archive-multimonth-v3`.
 > Frozen scientific protocol:
 > [`PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md`](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md).
@@ -58,7 +58,13 @@ Read these before changing code or running a job:
 - [`results/propagation_v4_1/preregistration/run_manifest.json`](results/propagation_v4_1/preregistration/run_manifest.json)
   is the permanent access and artifact ledger.
 - [`results/propagation_v4_1/preregistration/development_data_audit.json`](results/propagation_v4_1/preregistration/development_data_audit.json)
-  is the frozen development-data audit.
+  is the original defect-era development-data audit.
+- [`results/propagation_v4_1/preregistration/development_data_audit_v2.json`](results/propagation_v4_1/preregistration/development_data_audit_v2.json)
+  is the frozen post-repair audit.
+- [`results/propagation_v4_1/preregistration/calibration_input_inventory.json`](results/propagation_v4_1/preregistration/calibration_input_inventory.json)
+  freezes the four calibration-development inputs and M2 contract.
+- [`results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/sources.json`](results/propagation_v4_1/propagation_v4_1_calibration_recovery/manifests/sources.json)
+  records source provenance for the new development months.
 - [`results/propagation_v4_1/preregistration/b2_freeze.json`](results/propagation_v4_1/preregistration/b2_freeze.json)
   freezes the V3/B2 artifacts.
 - [`results/propagation_v4_1/preregistration/b2_october_engineering.json`](results/propagation_v4_1/preregistration/b2_october_engineering.json)
@@ -74,7 +80,7 @@ Read these before changing code or running a job:
 | Item | Current value |
 |---|---|
 | Branch | `feat/archive-multimonth-v3` |
-| Last executed M5 evidence checkpoint | `2fd6e3e` |
+| Last executed M5 code checkpoint | `36f90b1` |
 | Frozen plan commit | `2af85f5` |
 | Parent V4 evidence commit | `2cb309d` |
 | Run ID | `propagation_v4_1_calibration_recovery` |
@@ -106,11 +112,21 @@ validated orchestration when the corresponding artifacts exist.
   were downloaded, transformed, and audited on the M5.
 - The new three-month HF feature dataset contains 150,815,873 rows and about
   4.6006 billion weighted opportunities. All 14 frozen audit checks passed.
+- The canonical OMNI schema repair was applied and only the affected
+  space-weather and feature partitions were rebuilt. The original audit is
+  retained as defect-era evidence; `development_data_audit_v2.json` records
+  the corrected 14-of-14 pass.
+- The full April partition was found and frozen with the three new months. The
+  calibration input inventory covers 206,843,263 natural rows with an exact
+  112-field schema match across all four months.
+- Streaming prediction materialization, 262,144-bin sufficient statistics,
+  four-fold selection, and atomic output tests are implemented. The full M5
+  materialization and selection jobs have not yet run.
 - Mechanical locks remain closed for November 2024, December 2024, and all
   four 2025 months.
-- The most recent targeted V4.1 validation passed 16 tests. A full `npm run
-  verify` passed earlier in Phase 0 and must be rerun after the streaming
-  implementation and before candidate freeze.
+- The current full `npm run verify` passes on the M5: 20 V4 tests, 7 service
+  tests, 29 V4.1 tests, 27 frontend tests, lint, build, and bundle checks.
+  It must run again against the final candidate-freeze implementation.
 
 ### Development data inventory
 
@@ -132,13 +148,31 @@ audit found zero target-hour nulls, non-positive weights, split violations, or
 future-availability features. Exposure reconstruction error was 0.1082% in
 February, 0.1034% in May, and 0.0535% in August, all well inside the 3% gate.
 
-The first calibration-input inventory subsequently found a schema defect before
-any raw M2 prediction was generated: the 2024-only OMNI build inferred the
-entirely missing `proton_flux_10mev` column as nonnumeric, so the three new
-months omitted `proton_flux_10mev_missing` and used the wrong value type. The
-inventory stopped without writing an artifact. The canonical OMNI schema and
-missingness flag must be restored, the three authorized feature partitions
-rebuilt, and a versioned development audit frozen before inventory resumes.
+The first calibration-input inventory found a schema defect before any raw M2
+prediction was generated: the 2024-only OMNI build inferred the entirely
+missing `proton_flux_10mev` column as nonnumeric, so the three new months
+omitted `proton_flux_10mev_missing` and used the wrong value type. The inventory
+stopped without writing an artifact. The builder now casts canonical OMNI
+columns explicitly, the three authorized feature partitions were rebuilt, and
+the versioned audit passed all 14 checks. February, April, May, and August now
+have identical field order, types, and metadata with schema SHA-256
+`757e116ead45c80ebfeb1b5268bd5e3b139fbd134c10b61291aaadcde347c796`.
+
+The frozen calibration inventory contains:
+
+| Month | Natural rows | Input bytes |
+|---|---:|---:|
+| 2024-02 | 54,289,793 | 6,786,291,189 |
+| 2024-04 | 56,027,390 | 7,136,849,835 |
+| 2024-05 | 50,323,668 | 6,464,830,928 |
+| 2024-08 | 46,202,412 | 5,936,865,614 |
+| **Total** | **206,843,263** | **26,324,837,566** |
+
+It freezes the 91-feature M2 order, best iteration 394, model SHA-256
+`706d4f5ca6ad855bc9cbf1139cfeb53c0015e04c67d39184be78ca2e1f6755d5`,
+and 262,144 probability bins. Its access audit records no November or locked
+archive reads and no calibration outcome metrics were calculated during
+inventory.
 
 ### Frozen B2 evidence
 
@@ -192,8 +226,8 @@ allowed if necessary; choosing a new month is not.
 | V3/B2 freeze, adapter, October scorer | implemented and frozen |
 | New development data preparation/audit | complete and frozen |
 | In-memory C0-C4 reference implementation | implemented and tested |
-| Streaming raw M2 prediction materialization | not implemented |
-| Bounded-memory isotonic sufficient statistics | not implemented |
+| Streaming raw M2 prediction materialization | implemented and fixture-tested; full run pending |
+| Bounded-memory isotonic sufficient statistics | implemented and convergence-tested; full run pending |
 | Full-data leave-one-month-out selection | not run |
 | Final selected calibrator bundle | not frozen |
 | Candidate/scorer/environment manifests | not frozen |
@@ -205,8 +239,8 @@ allowed if necessary; choosing a new month is not.
 
 ## Next action
 
-Implement the streaming calibration path on the M5, then select and freeze the
-candidate. Do not access November while implementing or debugging it.
+Run the frozen streaming calibration path on the M5, then select and freeze the
+candidate. Do not access November while executing or debugging it.
 
 ### 1. Establish the M5 checkpoint
 
@@ -230,19 +264,17 @@ Requirements:
 - do not silently upgrade Python, XGBoost, scikit-learn, Polars, PyArrow,
   DuckDB, or Node after candidate freeze.
 
-### 2. Locate the April development partition
+### 2. Verify the frozen calibration inventory
 
-Inventory the existing V4 processed dataset without calculating new outcome
-metrics. Record the exact April input paths, part hashes, row count, opportunity
-weight, schema, and time range. Use full April natural rows when present. Keep
-the same V4 feature semantics, target, clipping, and opportunity weights.
-
-Stop if April cannot be reproduced from frozen V4 inputs without changing the
-estimand. Do not substitute October, November, or a 2025 month.
+Verify `calibration_input_inventory.json` and its run-manifest checksum before
+execution. It freezes full natural February, April, May, and August partitions,
+their hashes, time ranges, identical schema, the 91-feature model contract, and
+the M2 model hash. Stop if any input differs. Do not substitute October,
+November, or a 2025 month.
 
 ### 3. Materialize raw M2 predictions once
 
-Add `materialize_calibration_predictions.py` and a matching `run_pipeline.py`
+Use `materialize_calibration_predictions.py` through its `run_pipeline.py`
 stage. Stream April plus the three V4.1 months through the frozen 50M M2 model
 in bounded Arrow/Polars batches. Never load the combined dataset into memory.
 
@@ -263,7 +295,7 @@ time range, environment, peak RSS, duration, and locked-scope audit.
 ### 4. Fit isotonic mappings from fixed sufficient statistics
 
 The existing in-memory implementation is a correctness reference, not the
-150.8M-row execution path. Use 262,144 fixed equal-width bins over the frozen
+206.8M-row execution path. Use 262,144 fixed equal-width bins over the frozen
 probability interval `[1e-7, 0.9999999]`. For each month and applicable group,
 accumulate in float64:
 
@@ -497,19 +529,20 @@ Required deliverables are:
 - [x] October B2 engineering comparison published as non-gating evidence.
 - [x] February, May, and August raw sources acquired on the M5.
 - [x] Bronze, opportunity, space-weather, source, and feature data built.
-- [x] Three-month development dataset passed all 14 frozen audits.
+- [x] Three-month corrected development dataset passed all 14 frozen audits.
+- [x] Full April input located and the 206,843,263-row four-month inventory frozen.
+- [x] Streaming M2 materialization and 262,144-bin statistics implemented and tested.
+- [x] Full verification suite passed on the M5 after the streaming implementation.
 - [x] November, December, and 2025 access remain closed.
 
 ### Next
 
-- [ ] Confirm and freeze the full April development input inventory.
-- [ ] Implement and test streaming raw M2 prediction materialization.
-- [ ] Implement and test 262,144-bin isotonic sufficient statistics.
+- [ ] Run and audit full four-month raw M2 prediction materialization.
 - [ ] Run four-fold leave-one-month-out C0-C4 selection.
 - [ ] Refit the selected hierarchy on all four development months.
 - [ ] Freeze the selected bundle, scorer, environment, and manifests.
 - [ ] Generate and validate the synthetic dry-run report.
-- [ ] Run the full verification suite on the M5.
+- [ ] Rerun the full verification suite against the final freeze implementation.
 
 ### Locked until candidate freeze
 

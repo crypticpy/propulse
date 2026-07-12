@@ -42,6 +42,16 @@
       "path": "ml/results/propagation_v4_1/preregistration/development_data_audit.json",
       "bytes": 4252,
       "sha256": "2d1d14f187977498bf9dcd00a1104a03f7a55dacb83388e5806d81e818ede92a"
+    },
+    "development_data_audit_v2": {
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit_v2.json",
+      "bytes": 4252,
+      "sha256": "80dc18b190b04e846d5be97aded9c25e0a06f547441b30e44486ac4b10e4bdfa"
+    },
+    "calibration_input_inventory": {
+      "path": "ml/results/propagation_v4_1/preregistration/calibration_input_inventory.json",
+      "bytes": 2918,
+      "sha256": "e8c6e4bd3d6cc76f759f9c081885cbd69a0ed461a42caf79f3e111238cffb57e"
     }
   },
   "phase_status": {
@@ -86,6 +96,22 @@
       "path": "ml/results/propagation_v4_1/preregistration/development_data_audit.json",
       "bytes": 4252,
       "sha256": "2d1d14f187977498bf9dcd00a1104a03f7a55dacb83388e5806d81e818ede92a"
+    },
+    {
+      "at": "2026-07-12T17:37:08.390584+00:00",
+      "event": "artifact_frozen",
+      "name": "development_data_audit_v2",
+      "path": "ml/results/propagation_v4_1/preregistration/development_data_audit_v2.json",
+      "bytes": 4252,
+      "sha256": "80dc18b190b04e846d5be97aded9c25e0a06f547441b30e44486ac4b10e4bdfa"
+    },
+    {
+      "at": "2026-07-12T17:38:18.993912+00:00",
+      "event": "artifact_frozen",
+      "name": "calibration_input_inventory",
+      "path": "ml/results/propagation_v4_1/preregistration/calibration_input_inventory.json",
+      "bytes": 2918,
+      "sha256": "e8c6e4bd3d6cc76f759f9c081885cbd69a0ed461a42caf79f3e111238cffb57e"
     }
   ]
 }

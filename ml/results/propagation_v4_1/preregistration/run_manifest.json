@@ -32,6 +32,11 @@
       "path": "ml/results/propagation_v4_1/preregistration/b2_freeze.json",
       "bytes": 4419,
       "sha256": "543e4022c03af64c58966a5b46146daadd269ba7081dac1dab1749cc17b5b147"
+    },
+    "b2_engineering": {
+      "path": "ml/results/propagation_v4_1/preregistration/b2_october_engineering.json",
+      "bytes": 27003,
+      "sha256": "915cc8f335f7837dc460a15e527a080ccc7fcdf0c151d888e2aa2e6a87890220"
     }
   },
   "phase_status": {
@@ -51,6 +56,14 @@
       "path": "ml/results/propagation_v4_1/preregistration/b2_freeze.json",
       "bytes": 4419,
       "sha256": "543e4022c03af64c58966a5b46146daadd269ba7081dac1dab1749cc17b5b147"
+    },
+    {
+      "at": "2026-07-12T16:12:20.333801+00:00",
+      "event": "artifact_frozen",
+      "name": "b2_engineering",
+      "path": "ml/results/propagation_v4_1/preregistration/b2_october_engineering.json",
+      "bytes": 27003,
+      "sha256": "915cc8f335f7837dc460a15e527a080ccc7fcdf0c151d888e2aa2e6a87890220"
     }
   ]
 }

@@ -69,8 +69,9 @@ already includes:
 - Supabase synchronization and row-level security for shack records;
 - a Three.js/MapLibre PropSphere with live spots, MUF, aurora, day/night, paths,
   time controls, and existing grid heatmap patterns;
-- live and historical collectors for WSPR, PSK Reporter, RBN, DX cluster, and
-  NOAA/GFZ space-weather data.
+- live collectors for PSK Reporter, RBN, DX cluster, and NOAA/GFZ data, plus a
+  WSPR.live research proxy; a permitted first-party WSPR collector remains an
+  explicit production prerequisite.
 
 V4 must use this foundation. It must not create a second, simplified equipment
 profile or a separate location system.
@@ -726,7 +727,7 @@ command and estimated storage/runtime.
 - [ ] Audit equipment source licenses, provenance, units, and update dates.
 - [x] Remove or clearly isolate synthetic propagation data from product paths.
 - [x] Define privacy, consent, retention, and open-research policy.
-- [ ] Confirm WSPR.live/upstream operational permission and fallback strategy.
+- [x] Confirm WSPR.live/upstream operational permission and fallback strategy (production blocked pending written permission; research proxy disabled by default, no synthetic fallback).
 
 **Gate:** chain fixtures pass; catalog has no impossible values; frozen configs,
 source registry, privacy policy, and test calendar are committed.
@@ -734,9 +735,9 @@ source registry, privacy policy, and test calendar are committed.
 ### Phase 1: source acquisition and live forecast archive
 
 - [ ] Start immutable archive of every operational forecast issuance now.
-- [ ] Download/checksum the 2018-2025 quarterly WSPR months.
-- [ ] Acquire OMNI2 and GFZ historical inputs with status/provenance.
-- [ ] Build and validate P.533/VOACAP on Apple Silicon.
+- [x] Download/checksum the 2018-2025 quarterly WSPR months.
+- [x] Acquire OMNI2 and GFZ historical inputs with status/provenance.
+- [x] Build and validate P.533/VOACAP on Apple Silicon.
 - [ ] Profile optional IGS/GIRO/NWP sources without adding them to primary M2.
 - [ ] Backfill collector outage metadata and feature availability timestamps.
 

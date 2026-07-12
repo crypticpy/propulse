@@ -33,12 +33,13 @@
       "attribution": "WSPR.live, WSPRnet, and contributing stations",
       "redistribution": "research results free; commercial/profit use prohibited",
       "fallback": "first-party collector or empty/stale state; never synthetic spots",
-      "review_status": "written_production_permission_required"
+      "review_status": "production_blocked_pending_written_permission",
+      "production_default": "disabled; WSPR_LIVE_RESEARCH_PROXY_ENABLED must be explicitly true"
     },
     {
       "id": "propulse_collector",
       "owner": "Propulse",
-      "purpose": "Prospective observations and path_hourly_stats",
+      "purpose": "Prospective PSK Reporter, RBN, DX Cluster observations and path_hourly_stats; WSPR is not yet implemented",
       "url": "collector/src/",
       "time_semantics": "event_time, available_at, ingested_at",
       "latency": "near-real-time",
@@ -88,11 +89,13 @@
       "owner": "International Telecommunication Union",
       "purpose": "HF circuit-performance baseline",
       "url": "https://www.itu.int/rec/R-REC-P.533-14-201908-I/en",
+      "software_url": "https://github.com/ITU-R-Study-Group-3/ITU-R-HF/tree/v14.3",
+      "software_commit": "cd172be56dc04b154e5d2fa91cbaa6ecf5284305",
       "time_semantics": "monthly/declared circuit inputs",
       "latency": "deterministic model",
-      "terms_url": "https://www.itu.int/en/about/Pages/terms-of-use.aspx",
+      "terms_url": "https://github.com/ITU-R-Study-Group-3/ITU-R-HF/blob/v14.3/README.md",
       "attribution": "Recommendation ITU-R P.533-14",
-      "redistribution": "do not vendor recommendation text",
+      "redistribution": "do not vendor recommendation text or binaries; reproduce from the pinned official source whose code notice permits implementation use free from copyright assertions",
       "fallback": "documented unavailable baseline blocks locked-test release"
     },
     {

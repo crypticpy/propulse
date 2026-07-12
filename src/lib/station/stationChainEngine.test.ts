@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeStationChainPerformance,
   computeStationPresetPerformance,
+  deriveStationFeatureEnvelope,
   stationPresetToChain,
   type StationInventory,
 } from "./stationChainEngine";
@@ -261,5 +262,37 @@ describe("receiver catalog invariants", () => {
     expect(values.length).toBeGreaterThan(100);
     expect(Math.min(...values)).toBeGreaterThanOrEqual(-180);
     expect(Math.max(...values)).toBeLessThanOrEqual(-70);
+  });
+});
+
+describe("station feature envelope", () => {
+  it("contains derived values without raw inventory identifiers", () => {
+    const envelope = deriveStationFeatureEnvelope(chain(), inventory(), "20m", {
+      mode: "FT8",
+      targetBearingDeg: 90,
+      preferTestedSpecs: true,
+    });
+    const serialized = JSON.stringify(envelope);
+
+    expect(envelope?.featureContract).toBe("station-chain-v1");
+    expect(envelope?.modeBandwidthHz).toBe(50);
+    expect(envelope?.receiverEvidence).toBe("manufacturer_claim");
+    expect(serialized).not.toContain(userRadio.id);
+    expect(serialized).not.toContain("500 W amplifier");
+    expect(envelope).not.toHaveProperty("radioId");
+    expect(envelope).not.toHaveProperty("antennaId");
+    expect(envelope).not.toHaveProperty("feedlineId");
+    expect(envelope).not.toHaveProperty("inventory");
+  });
+
+  it("changes its values-only fingerprint when path gain changes", () => {
+    const forward = deriveStationFeatureEnvelope(chain(), inventory(), "20m", {
+      targetBearingDeg: 90,
+    });
+    const offAxis = deriveStationFeatureEnvelope(chain(), inventory(), "20m", {
+      targetBearingDeg: 180,
+    });
+
+    expect(forward?.chainFingerprint).not.toBe(offAxis?.chainFingerprint);
   });
 });

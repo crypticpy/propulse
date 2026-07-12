@@ -11,6 +11,7 @@ from build_space_weather import month_bounds
 from common import (
     MANIFESTS,
     RAW,
+    RESULTS,
     load_config,
     relative,
     sha256,
@@ -94,16 +95,15 @@ def main() -> None:
                 "GFZ Hp60 is provided under CC BY 4.0; retain attribution.",
             )
         )
-    write_json(
-        MANIFESTS / f"{config['run_id']}_sources.json",
-        {
-            "schema_version": 1,
-            "generated_at": utc_now(),
-            "run_id": config["run_id"],
-            "config_path": config["config_path"],
-            "sources": sources,
-        },
-    )
+    manifest = {
+        "schema_version": 1,
+        "generated_at": utc_now(),
+        "run_id": config["run_id"],
+        "config_path": config["config_path"],
+        "sources": sources,
+    }
+    write_json(MANIFESTS / f"{config['run_id']}_sources.json", manifest)
+    write_json(RESULTS / config["run_id"] / "manifests/sources.json", manifest)
     print(f"{len(sources)} sources recorded")
 
 

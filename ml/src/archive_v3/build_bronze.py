@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -125,25 +126,43 @@ def main() -> None:
     ensure_directories()
     con = duckdb.connect()
     configure_duckdb(con, config, "bronze")
+    manifest_path = MANIFESTS / f"{config['run_id']}_bronze.json"
+    previous = {}
+    if manifest_path.exists() and not args.force:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        previous = {row["month"]: row for row in payload.get("months", [])}
     results = []
     for month in config["months"]:
         output = wspr_bronze_path(month)
-        if output.exists() and not args.force:
+        if output.exists() and month in previous and not args.force:
             print(f"skip {month}: {output} exists", flush=True)
+            results.append(previous[month])
             continue
         if output.exists():
+            print(f"rebuild {month}: output lacks a manifest entry", flush=True)
             output.unlink()
         print(f"convert {month}", flush=True)
         row = convert_month(con, month)
         results.append(row)
         print(f"{month}: {row['rows']:,} rows in {row['seconds']:.1f}s", flush=True)
-    manifest = {
-        "schema_version": 1,
-        "generated_at": utc_now(),
-        "config": config,
-        "months": results,
-    }
-    write_json(MANIFESTS / f"{config['run_id']}_bronze.json", manifest)
+        write_json(
+            manifest_path,
+            {
+                "schema_version": 1,
+                "generated_at": utc_now(),
+                "config": config,
+                "months": results,
+            },
+        )
+    write_json(
+        manifest_path,
+        {
+            "schema_version": 1,
+            "generated_at": utc_now(),
+            "config": config,
+            "months": results,
+        },
+    )
 
 
 if __name__ == "__main__":

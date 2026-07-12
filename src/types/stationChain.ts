@@ -61,6 +61,8 @@ export interface StationChain {
   /** Feedline run definitions (referenced by feedline_run nodes) */
   feedlineRuns: FeedlineRun[];
   operatingPowerWatts: number;
+  /** Optional saved operating location explicitly associated with this chain */
+  linkedLocationId?: string;
   /** Non-signal-path accessories (power supply, grounding, keyer, etc.) */
   shackAccessoryIds: string[];
   notes?: string;

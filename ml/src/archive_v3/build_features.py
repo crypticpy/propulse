@@ -39,28 +39,35 @@ def quoted(values: list[str]) -> str:
     return ",".join(f"'{value}'" for value in values)
 
 
+def month_condition(expression: str, months: list[str]) -> str:
+    if not months:
+        return "FALSE"
+    return f"{expression} IN ({quoted(months)})"
+
+
 def split_sql(config: dict) -> str:
-    train = quoted(config["train"]["months"])
-    validation = quoted(config["validation"]["months"])
-    test = quoted(config["test"]["months"])
+    month_expression = "strftime(g.target_hour, '%Y-%m')"
     if "day_end_exclusive" in config["train"]:
         train_condition = (
-            f"strftime(g.target_hour, '%Y-%m') IN ({train}) "
+            f"{month_condition(month_expression, config['train']['months'])} "
             f"AND day(g.target_hour) < {int(config['train']['day_end_exclusive'])}"
         )
     else:
-        train_condition = f"strftime(g.target_hour, '%Y-%m') IN ({train})"
+        train_condition = month_condition(month_expression, config["train"]["months"])
     if "day_start" in config["validation"]:
         validation_condition = (
-            f"strftime(g.target_hour, '%Y-%m') IN ({validation}) "
+            f"{month_condition(month_expression, config['validation']['months'])} "
             f"AND day(g.target_hour) >= {int(config['validation']['day_start'])}"
         )
     else:
-        validation_condition = f"strftime(g.target_hour, '%Y-%m') IN ({validation})"
+        validation_condition = month_condition(
+            month_expression, config["validation"]["months"]
+        )
+    test_condition = month_condition(month_expression, config["test"]["months"])
     return f"""
       CASE WHEN {train_condition} THEN 'train'
            WHEN {validation_condition} THEN 'validation'
-           WHEN strftime(g.target_hour, '%Y-%m') IN ({test}) THEN 'test'
+           WHEN {test_condition} THEN 'test'
            ELSE 'excluded' END
     """
 
@@ -182,7 +189,8 @@ def main() -> None:
     missing = [path for path in paths if not path.exists()]
     if missing:
         raise FileNotFoundError(missing)
-    weather = PROCESSED / f"space_weather_{config['run_id']}.parquet"
+    weather_run_id = config.get("space_weather_run_id", config["run_id"])
+    weather = PROCESSED / f"space_weather_{weather_run_id}.parquet"
     if not weather.exists():
         raise FileNotFoundError(weather)
     split = split_sql(config)
@@ -253,6 +261,11 @@ def main() -> None:
             coalesce(p2.success_rate,0) AS path_success_prev2,
             coalesce(p3.success_rate,0) AS path_success_prev3,
             coalesce(p24.success_rate,0) AS path_success_prev24,
+            (p1.target_hour IS NOT NULL)::UTINYINT AS path_prev1_available,
+            (p2.target_hour IS NOT NULL)::UTINYINT AS path_prev2_available,
+            (p3.target_hour IS NOT NULL)::UTINYINT AS path_prev3_available,
+            (p24.target_hour IS NOT NULL)::UTINYINT AS path_prev24_available,
+            sw.available_at AS weather_available_at,
             sw.* EXCLUDE (observed_hour, available_at),
             {split} AS split
           FROM geometry g

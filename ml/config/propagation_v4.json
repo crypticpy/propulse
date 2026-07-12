@@ -43,6 +43,11 @@
   "validation": {
     "months": ["2024-01", "2024-04", "2024-07", "2024-10"]
   },
+  "validation_protocol": {
+    "early_stopping_months": ["2024-01", "2024-07"],
+    "calibration_months": ["2024-04"],
+    "gate_months": ["2024-10"]
+  },
   "test": {
     "months": ["2025-01", "2025-04", "2025-07", "2025-10"]
   },

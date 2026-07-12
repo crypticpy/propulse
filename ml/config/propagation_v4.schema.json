@@ -83,6 +83,16 @@
     "months": { "$ref": "#/$defs/monthList" },
     "train": { "type": "object" },
     "validation": { "type": "object" },
+    "validation_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["early_stopping_months", "calibration_months", "gate_months"],
+      "properties": {
+        "early_stopping_months": { "$ref": "#/$defs/monthList" },
+        "calibration_months": { "$ref": "#/$defs/monthList" },
+        "gate_months": { "$ref": "#/$defs/monthList" }
+      }
+    },
     "test": { "type": "object" },
     "negative_receivers_per_tx_slot": { "type": "integer", "minimum": 1 },
     "primary_train_rows": { "const": 50000000 },

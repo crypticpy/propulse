@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -184,13 +185,23 @@ def main() -> None:
     ensure_directories()
     con = duckdb.connect()
     configure_duckdb(con, config, "opportunities")
+    manifest_path = MANIFESTS / f"{config['run_id']}_{args.task}_opportunities.json"
+    previous = {}
+    if manifest_path.exists() and not args.force:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        previous = {row["month"]: row for row in payload.get("months", [])}
     results = []
     for month in config["months"]:
         output = opportunity_path(month, args.task)
-        if output.exists() and not args.force:
+        if output.exists() and month in previous and not args.force:
             print(f"skip {month} {args.task}: output exists", flush=True)
+            results.append(previous[month])
             continue
         if output.exists():
+            print(
+                f"rebuild {month} {args.task}: output lacks a manifest entry",
+                flush=True,
+            )
             output.unlink()
         print(f"build opportunities {month} {args.task}", flush=True)
         row = build_month(
@@ -206,8 +217,18 @@ def main() -> None:
             f"{row['seconds']:.1f}s",
             flush=True,
         )
+        write_json(
+            manifest_path,
+            {
+                "schema_version": 1,
+                "generated_at": utc_now(),
+                "config": config,
+                "task": args.task,
+                "months": results,
+            },
+        )
     write_json(
-        MANIFESTS / f"{config['run_id']}_{args.task}_opportunities.json",
+        manifest_path,
         {
             "schema_version": 1,
             "generated_at": utc_now(),

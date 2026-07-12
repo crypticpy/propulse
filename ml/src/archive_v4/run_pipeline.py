@@ -10,24 +10,28 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scoped_config import write_scoped_config
+
 
 ROOT = Path(__file__).resolve().parents[3]
 V3 = ROOT / "ml/src/archive_v3"
 DEFAULT_CONFIG = "ml/config/propagation_v4.json"
 
 
-STAGES: dict[str, tuple[str, list[str]]] = {
-    "inventory": ("inventory.py", ["--output", "ml/data/manifests/propagation_v4_environment.json"]),
-    "download": ("download_sources.py", []),
-    "space-weather": ("build_space_weather.py", []),
-    "source-manifest": ("build_source_manifest.py", []),
-    "bronze": ("build_bronze.py", []),
-    "opportunities-hf": ("build_opportunities.py", ["--task", "hf"]),
-    "opportunities-6m": ("build_opportunities.py", ["--task", "6m"]),
-    "features-hf": ("build_features.py", ["--task", "hf"]),
-    "features-6m": ("build_features.py", ["--task", "6m"]),
-    "audit-hf": ("audit_dataset.py", ["--task", "hf"]),
-    "audit-6m": ("audit_dataset.py", ["--task", "6m"]),
+STAGES: dict[str, tuple[Path, list[str], str]] = {
+    "inventory": (V3 / "inventory.py", ["--output", "ml/data/manifests/propagation_v4_environment.json"], "none"),
+    "download": (V3 / "download_sources.py", [], "all-sources"),
+    "space-weather": (V3 / "build_space_weather.py", [], "all-sources"),
+    "source-manifest": (V3 / "build_source_manifest.py", [], "all-sources"),
+    "bronze": (V3 / "build_bronze.py", [], "development"),
+    "opportunities-hf": (V3 / "build_opportunities.py", ["--task", "hf"], "development"),
+    "opportunities-6m": (V3 / "build_opportunities.py", ["--task", "6m"], "development"),
+    "features-hf": (V3 / "build_features.py", ["--task", "hf"], "development"),
+    "features-6m": (V3 / "build_features.py", ["--task", "6m"], "development"),
+    "audit-hf": (ROOT / "ml/src/archive_v4/audit_development.py", ["--task", "hf"], "development"),
+    "audit-6m": (ROOT / "ml/src/archive_v4/audit_development.py", ["--task", "6m"], "development"),
+    "sample-hf": (ROOT / "ml/src/archive_v4/build_balanced_sample.py", ["--task", "hf"], "development"),
+    "train-validation": (ROOT / "ml/src/archive_v4/train_validation.py", [], "development"),
 }
 
 PREPARE = [
@@ -42,6 +46,7 @@ PREPARE = [
     "features-6m",
     "audit-hf",
     "audit-6m",
+    "sample-hf",
 ]
 
 
@@ -74,10 +79,12 @@ def run_stage(
     profile: str,
     force: bool,
 ) -> None:
-    script, extra = STAGES[stage]
-    command = [sys.executable, str(V3 / script)]
+    script, extra, scope = STAGES[stage]
+    command = [sys.executable, str(script)]
     if stage != "inventory":
-        command.extend(["--config", config_path])
+        scoped_path = ROOT / f"ml/data/manifests/propagation_v4_{scope}.json"
+        write_scoped_config(config, scope, scoped_path)
+        command.extend(["--config", str(scoped_path)])
     command.extend(extra)
     if force and stage in {
         "download",
@@ -86,6 +93,7 @@ def run_stage(
         "opportunities-6m",
         "features-hf",
         "features-6m",
+        "sample-hf",
     }:
         command.append("--force")
     print(f"\n== {stage} ==", flush=True)

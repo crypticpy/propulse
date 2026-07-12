@@ -66,6 +66,20 @@ export default async function handler(req: Request) {
   const limited = applyRateLimit(req, "wspr/spots", 10, 60);
   if (limited) return limited;
 
+  if (process.env.WSPR_LIVE_RESEARCH_PROXY_ENABLED !== "true") {
+    return json(
+      {
+        error: "Live WSPR proxy is disabled pending production permission",
+        source: "wspr.live",
+        live: false,
+        permissionRequired: true,
+        spots: [],
+      },
+      503,
+      "no-store",
+    );
+  }
+
   try {
     const requestUrl = new URL(req.url);
     const requestedBand = requestUrl.searchParams.get("band") ?? "all";

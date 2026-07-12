@@ -53,6 +53,38 @@ export interface StationCalculationOptions {
   bands?: string[];
   targetBearingDeg?: number;
   takeoffAngleDeg?: number;
+  mode?: string;
+  preferTestedSpecs?: boolean;
+  localNoiseFloorDbm?: number;
+}
+
+export interface StationFeatureEnvelope {
+  featureContract: "station-chain-v1";
+  chainFingerprint: string;
+  band: string;
+  frequencyMHz: number;
+  mode: string;
+  requestedPowerWatts: number;
+  conductedPowerWatts: number;
+  powerAtAntennaWatts: number;
+  eirpWatts: number;
+  erpWatts: number;
+  totalPassiveLossDb: number;
+  feedlineLossDb: number;
+  inlineLossDb: number;
+  amplifierGainDb: number;
+  antennaGainTowardPathDbi: number;
+  targetBearingDeg: number | null;
+  takeoffAngleDeg: number | null;
+  receiverNoiseFloorDbm: number | null;
+  receiverEvidence: "independent_test" | "manufacturer_claim" | "unknown";
+  receiverEvidenceIsRelative: true;
+  localSystemNoiseFloorDbm: number | null;
+  modeBandwidthHz: number;
+  modeSnrThresholdDb: number;
+  supported: boolean;
+  warningCodes: string[];
+  assumptions: string[];
 }
 
 export interface NodePerformance {
@@ -124,6 +156,27 @@ export const EMPTY_PRESET_PERFORMANCE: PresetPerformanceResult = {
 
 function clampNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+const MODE_LINK_ASSUMPTIONS: Record<
+  string,
+  { bandwidthHz: number; snrThresholdDb: number }
+> = {
+  WSPR: { bandwidthHz: 6, snrThresholdDb: -28 },
+  FT8: { bandwidthHz: 50, snrThresholdDb: -21 },
+  FT4: { bandwidthHz: 90, snrThresholdDb: -17.5 },
+  CW: { bandwidthHz: 100, snrThresholdDb: -15 },
+  SSB: { bandwidthHz: 2400, snrThresholdDb: 10 },
+};
+
+function stableFingerprint(value: unknown): string {
+  const text = JSON.stringify(value);
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < text.length; index++) {
+    hash ^= BigInt(text.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return `fnv1a64:${hash.toString(16).padStart(16, "0")}`;
 }
 
 function dbForRatio(output: number, input: number): number {
@@ -681,6 +734,7 @@ export function stationPresetToChain(preset: StationPreset): StationChain {
     nodes,
     feedlineRuns,
     operatingPowerWatts: preset.operatingPowerWatts,
+    linkedLocationId: preset.linkedLocationId,
     shackAccessoryIds: [],
     notes: preset.notes,
     createdAt: preset.createdAt,
@@ -710,5 +764,98 @@ export function computeStationPresetPerformance(
     worstBand: result.worstBand,
     totalLossRangeDb,
     warnings: result.warnings,
+  };
+}
+
+export function deriveStationFeatureEnvelope(
+  chain: StationChain,
+  inventory: StationInventory,
+  band: string,
+  options: StationCalculationOptions = {},
+): StationFeatureEnvelope | null {
+  const result = computeStationChainPerformance(chain, inventory, {
+    ...options,
+    bands: [band],
+  });
+  const performance = result.bands[0];
+  if (!performance) return null;
+
+  const radioNode = chain.nodes.find((node) => node.type === "radio");
+  const resolved = radioNode?.type === "radio"
+    ? inventory.radios.find((entry) => entry.userRadio.id === radioNode.radioId)
+    : undefined;
+  const preference = resolved?.userRadio.specPreference;
+  const useTested = preference === "tested"
+    || (preference !== "factory" && options.preferTestedSpecs === true);
+  const receiver = useTested && resolved?.equipment?.testedSpecs
+    ? resolved.equipment.testedSpecs
+    : resolved?.equipment?.receiver;
+  const receiverEvidence = receiver == null
+    ? "unknown"
+    : receiver === resolved?.equipment?.testedSpecs
+      ? "independent_test"
+      : "manufacturer_claim";
+  const mode = (options.mode ?? "WSPR").toUpperCase();
+  const modeAssumption = MODE_LINK_ASSUMPTIONS[mode] ?? {
+    bandwidthHz: 500,
+    snrThresholdDb: 0,
+  };
+  const assumptions = [
+    "receiver_measurement_is_relative_not_local_noise",
+    "mode_threshold_is_engineering_estimate_until_mode_head_validation",
+  ];
+  if (options.targetBearingDeg == null) {
+    assumptions.push("target_bearing_not_supplied");
+  }
+  if (options.localNoiseFloorDbm == null) {
+    assumptions.push("local_noise_not_measured");
+  }
+  const fingerprintValues = {
+    featureContract: "station-chain-v1",
+    band,
+    mode,
+    requestedPowerWatts: performance.requestedPowerWatts,
+    conductedPowerWatts: performance.txPowerWatts,
+    powerAtAntennaWatts: performance.powerAtAntennaWatts,
+    eirpWatts: performance.eirpWatts,
+    totalPassiveLossDb: performance.totalPassiveLossDb,
+    feedlineLossDb: performance.feedlineLossDb,
+    inlineLossDb: performance.inlineLossDb,
+    amplifierGainDb: performance.totalAmplifierGainDb,
+    antennaGainTowardPathDbi: performance.antennaGainDbi,
+    targetBearingDeg: options.targetBearingDeg ?? null,
+    takeoffAngleDeg: options.takeoffAngleDeg ?? null,
+    receiverNoiseFloorDbm: receiver?.noiseFloorDbm ?? null,
+    receiverEvidence,
+    localSystemNoiseFloorDbm: options.localNoiseFloorDbm ?? null,
+  };
+
+  return {
+    featureContract: "station-chain-v1",
+    chainFingerprint: stableFingerprint(fingerprintValues),
+    band,
+    frequencyMHz: performance.freqMHz,
+    mode,
+    requestedPowerWatts: performance.requestedPowerWatts,
+    conductedPowerWatts: performance.txPowerWatts,
+    powerAtAntennaWatts: performance.powerAtAntennaWatts,
+    eirpWatts: performance.eirpWatts,
+    erpWatts: performance.erpWatts,
+    totalPassiveLossDb: performance.totalPassiveLossDb,
+    feedlineLossDb: performance.feedlineLossDb,
+    inlineLossDb: performance.inlineLossDb,
+    amplifierGainDb: performance.totalAmplifierGainDb,
+    antennaGainTowardPathDbi: performance.antennaGainDbi,
+    targetBearingDeg: options.targetBearingDeg ?? null,
+    takeoffAngleDeg: options.takeoffAngleDeg ?? null,
+    receiverNoiseFloorDbm: receiver?.noiseFloorDbm ?? null,
+    receiverEvidence,
+    receiverEvidenceIsRelative: true,
+    localSystemNoiseFloorDbm: options.localNoiseFloorDbm ?? null,
+    modeBandwidthHz: modeAssumption.bandwidthHz,
+    modeSnrThresholdDb: modeAssumption.snrThresholdDb,
+    supported: performance.supported,
+    warningCodes: [...new Set(performance.warnings.map((item) => item.code))].sort(),
+    assumptions,
   };
 }

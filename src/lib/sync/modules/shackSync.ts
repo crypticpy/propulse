@@ -80,6 +80,7 @@ interface StationChainRow {
   nodes: Json;
   feedline_runs: Json;
   operating_power_watts: number;
+  linked_location_id: string | null;
   shack_accessory_ids: string[];
   notes: string | null;
   created_at: string;
@@ -287,7 +288,7 @@ function presetToRow(
   feedline_id: string | null;
   accessory_ids: string[];
   is_active: boolean;
-  linked_location_id: null;
+  linked_location_id: string | null;
   created_at: string;
   updated_at: string;
 } {
@@ -301,7 +302,7 @@ function presetToRow(
     feedline_id: preset.feedlineId ?? null,
     accessory_ids: preset.accessoryIds ?? [],
     is_active: false,
-    linked_location_id: null,
+    linked_location_id: preset.linkedLocationId ?? null,
     created_at: preset.createdAt,
     updated_at: new Date().toISOString(),
   };
@@ -335,6 +336,7 @@ function chainToRow(chain: StationChain, userId: string): StationChainRow {
     nodes: chain.nodes as unknown as Json,
     feedline_runs: chain.feedlineRuns as unknown as Json,
     operating_power_watts: chain.operatingPowerWatts,
+    linked_location_id: chain.linkedLocationId ?? null,
     shack_accessory_ids: chain.shackAccessoryIds,
     notes: chain.notes ?? null,
     created_at: chain.createdAt,
@@ -585,6 +587,7 @@ function rowToChain(row: {
   nodes: Json | null;
   feedline_runs: Json | null;
   operating_power_watts: number;
+  linked_location_id: string | null;
   shack_accessory_ids: string[] | null;
   notes: string | null;
   created_at: string;
@@ -596,6 +599,7 @@ function rowToChain(row: {
     feedlineRuns: (row.feedline_runs ??
       []) as unknown as StationChain["feedlineRuns"],
     operatingPowerWatts: row.operating_power_watts,
+    linkedLocationId: row.linked_location_id ?? undefined,
     shackAccessoryIds: row.shack_accessory_ids ?? [],
     notes: row.notes ?? undefined,
     createdAt: row.created_at,

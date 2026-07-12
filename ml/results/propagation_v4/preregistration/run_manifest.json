@@ -1,6 +1,6 @@
 {
   "run_id": "propagation_v4_multiyear_50m",
-  "status": "preregistered_not_started",
+  "status": "development_dataset_build",
   "created_at": "2026-07-12T00:00:00Z",
   "plan": "ml/PERSONALIZED-PROPAGATION-V4-PLAN.md",
   "config": "ml/config/propagation_v4.json",
@@ -9,12 +9,22 @@
   "baseline_commit": "95d1e68",
   "locked_archive_test_opened": false,
   "locked_prospective_test_opened": false,
-  "raw_data_downloaded": false,
+  "raw_data_downloaded": true,
+  "raw_data_download_completed_at": "2026-07-12T08:00:00Z",
+  "source_manifest": "ml/results/propagation_v4/propagation_v4_multiyear_50m/manifests/sources.json",
+  "source_manifest_sha256": "01993f7e28fe86ce8b085f8b86d27185753a71d30fb9ec18be7311f082c9c405",
   "model_selected": false,
   "notes": [
     "This manifest is committed before V4 outcome acquisition.",
     "The previous October 2024 result is development evidence, not a V4 locked test.",
     "Any deviation must be appended with timestamp and reason before opening a locked test."
+  ],
+  "protocol_amendments": [
+    {
+      "recorded_at": "2026-07-12T08:05:00Z",
+      "before_outcome_processing": true,
+      "change": "Partition 2024 development months into Jan/Jul early stopping, Apr calibration, and Oct gate evaluation."
+    }
   ],
   "deviations": []
 }

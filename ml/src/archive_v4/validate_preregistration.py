@@ -71,6 +71,20 @@ def main() -> None:
         config["validation"]["months"] == split_months["validation"],
         "validation alias differs",
     )
+    validation_protocol = config["validation_protocol"]
+    protocol_months = (
+        validation_protocol["early_stopping_months"]
+        + validation_protocol["calibration_months"]
+        + validation_protocol["gate_months"]
+    )
+    require(
+        sorted(protocol_months) == sorted(split_months["validation"]),
+        "validation protocol must partition the four validation months",
+    )
+    require(
+        len(protocol_months) == len(set(protocol_months)),
+        "validation protocol months overlap",
+    )
     require(
         config["test"]["months"] == split_months["locked_archive_test"],
         "test alias differs",

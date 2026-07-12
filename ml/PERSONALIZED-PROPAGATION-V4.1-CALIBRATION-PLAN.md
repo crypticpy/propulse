@@ -2,8 +2,8 @@
 
 > Status: preregistration frozen; Phases 0 and 1 complete on 2026-07-12.
 > The single untouched November gate is complete and V4.1 **failed** two of
-> ten required gates. Phase 3 publication is complete except for the final Git
-> commit and push. The locked 2025 archive remains closed. This file is the
+> ten required gates. Phase 3 publication is complete and evidence commit
+> `15e237af` is on GitHub. The locked 2025 archive remains closed. This file is the
 > canonical execution status and resume point for closing V4.1 and beginning a
 > separately preregistered, performance-driven V4.2.
 > Parent experiment: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
@@ -776,7 +776,7 @@ failed V4.1 development decision.
 - [x] Generate Markdown and interactive visual reports.
 - [x] Verify desktop/mobile layout, chart labels, keyboard use, reduced motion,
   and static fallbacks.
-- [ ] Commit and push the complete development evidence.
+- [x] Commit and push the complete development evidence (`15e237af`).
 
 **Gate:** report and artifacts reproduce the decision and reveal all failures.
 

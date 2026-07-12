@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "validated_at": "2026-07-12T02:33:39.174722+00:00",
+  "passed": true,
+  "checks": [
+    {
+      "name": "hf_dataset_exists",
+      "passed": true,
+      "detail": "ml/data/processed/archive_v2/proof_hf.parquet"
+    },
+    {
+      "name": "hf_unique_grain",
+      "passed": true,
+      "detail": {
+        "rows": 8189056,
+        "keys": 8189056
+      }
+    },
+    {
+      "name": "hf_binary_labels",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "hf_manifest_row_count",
+      "passed": true,
+      "detail": {
+        "actual": 8189056,
+        "expected": 8189056
+      }
+    },
+    {
+      "name": "hf_band_contract",
+      "passed": true,
+      "detail": [
+        "10m",
+        "12m",
+        "15m",
+        "160m",
+        "17m",
+        "20m",
+        "30m",
+        "40m",
+        "60m",
+        "80m"
+      ]
+    },
+    {
+      "name": "hf_train_time_boundary",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "hf_val_time_boundary",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "hf_test_time_boundary",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "6m_dataset_exists",
+      "passed": true,
+      "detail": "ml/data/processed/archive_v2/proof_6m.parquet"
+    },
+    {
+      "name": "6m_unique_grain",
+      "passed": true,
+      "detail": {
+        "rows": 533642,
+        "keys": 533642
+      }
+    },
+    {
+      "name": "6m_binary_labels",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "6m_manifest_row_count",
+      "passed": true,
+      "detail": {
+        "actual": 533642,
+        "expected": 533642
+      }
+    },
+    {
+      "name": "6m_band_contract",
+      "passed": true,
+      "detail": [
+        "6m"
+      ]
+    },
+    {
+      "name": "6m_train_time_boundary",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "6m_val_time_boundary",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "6m_test_time_boundary",
+      "passed": true,
+      "detail": 0
+    },
+    {
+      "name": "hf_model_set",
+      "passed": true,
+      "detail": [
+        "reference_nowcast",
+        "reference_physics",
+        "sparse_nowcast",
+        "sparse_physics"
+      ]
+    },
+    {
+      "name": "6m_sparse_models_skipped",
+      "passed": true,
+      "detail": [
+        "reference_nowcast",
+        "reference_physics"
+      ]
+    },
+    {
+      "name": "6m_sparse_label_single_class",
+      "passed": true,
+      "detail": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "model_proof_v2_hf_reference_physics",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_reference_physics.json"
+    },
+    {
+      "name": "metadata_proof_v2_hf_reference_physics",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_reference_physics.metadata.json"
+    },
+    {
+      "name": "model_proof_v2_hf_reference_nowcast",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_reference_nowcast.json"
+    },
+    {
+      "name": "metadata_proof_v2_hf_reference_nowcast",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_reference_nowcast.metadata.json"
+    },
+    {
+      "name": "model_proof_v2_hf_sparse_physics",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_sparse_physics.json"
+    },
+    {
+      "name": "metadata_proof_v2_hf_sparse_physics",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_sparse_physics.metadata.json"
+    },
+    {
+      "name": "model_proof_v2_hf_sparse_nowcast",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_sparse_nowcast.json"
+    },
+    {
+      "name": "metadata_proof_v2_hf_sparse_nowcast",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_hf_sparse_nowcast.metadata.json"
+    },
+    {
+      "name": "model_proof_v2_6m_reference_physics",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_6m_reference_physics.json"
+    },
+    {
+      "name": "metadata_proof_v2_6m_reference_physics",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_6m_reference_physics.metadata.json"
+    },
+    {
+      "name": "model_proof_v2_6m_reference_nowcast",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_6m_reference_nowcast.json"
+    },
+    {
+      "name": "metadata_proof_v2_6m_reference_nowcast",
+      "passed": true,
+      "detail": "ml/models/archive_v2/proof_v2_6m_reference_nowcast.metadata.json"
+    },
+    {
+      "name": "portable_report_exists",
+      "passed": true,
+      "detail": 677044
+    },
+    {
+      "name": "canonical_artifact_exists",
+      "passed": true,
+      "detail": "ml/results/archive_v2/artifact.json"
+    },
+    {
+      "name": "hf_engine_selected",
+      "passed": true,
+      "detail": "xgboost"
+    },
+    {
+      "name": "6m_engine_selected",
+      "passed": true,
+      "detail": "xgboost"
+    }
+  ],
+  "failure_count": 0
+}

@@ -1,0 +1,239 @@
+{
+  "schema_version": 2,
+  "built_at": "2026-07-12T01:58:40.268352+00:00",
+  "source_filters": {
+    "reference": "Madrigal ssrc=PSK, mode_class=digital",
+    "sparse": "collector source=pskreporter, mode in ['FT8', 'FT4', 'FT2', 'JS8', 'VARAC', 'RTTY', 'FREEDV', 'PKT', 'DATA', 'OLIVIA', 'JT65', 'JT9', 'MSK144', 'Q65', 'FST4', 'FST4W']"
+  },
+  "period": {
+    "start": "2026-03-01",
+    "train_end": "2026-03-20",
+    "val_end": "2026-03-24",
+    "end": "2026-04-01"
+  },
+  "minimum_train_pair_spots_per_source": 300,
+  "common_pairs": 1755,
+  "sampling": "none",
+  "input_inventory_sha256": "23b72fc2cb5c8bd4bfd36e787db551b2a4bde7d2017d239cfac755bcb15a6829",
+  "input_inventory": [
+    {
+      "path": "ml/data/processed/madrigal/2026-03-01.parquet",
+      "size": 657111139,
+      "mtime_ns": 1783799544655255963
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-02.parquet",
+      "size": 556419034,
+      "mtime_ns": 1783800224448811304
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-03.parquet",
+      "size": 576684923,
+      "mtime_ns": 1783800235602447374
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-04.parquet",
+      "size": 549731816,
+      "mtime_ns": 1783800218265336744
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-05.parquet",
+      "size": 593088866,
+      "mtime_ns": 1783800584716018326
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-06.parquet",
+      "size": 600278266,
+      "mtime_ns": 1783800696483983652
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-07.parquet",
+      "size": 519833234,
+      "mtime_ns": 1783800629014272881
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-08.parquet",
+      "size": 564711749,
+      "mtime_ns": 1783801014714327149
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-09.parquet",
+      "size": 554904119,
+      "mtime_ns": 1783801032680938468
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-10.parquet",
+      "size": 467577201,
+      "mtime_ns": 1783800925360400757
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-11.parquet",
+      "size": 515443587,
+      "mtime_ns": 1783801350509783443
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-12.parquet",
+      "size": 526322739,
+      "mtime_ns": 1783801435909231475
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-13.parquet",
+      "size": 459899292,
+      "mtime_ns": 1783801316613904759
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-14.parquet",
+      "size": 427105713,
+      "mtime_ns": 1783801732735844141
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-17.parquet",
+      "size": 483616638,
+      "mtime_ns": 1783801757940007961
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-18.parquet",
+      "size": 499050537,
+      "mtime_ns": 1783801741214656231
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-19.parquet",
+      "size": 519719386,
+      "mtime_ns": 1783802132457974988
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-20.parquet",
+      "size": 521719046,
+      "mtime_ns": 1783802152281663836
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-21.parquet",
+      "size": 396707767,
+      "mtime_ns": 1783802081593413213
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-22.parquet",
+      "size": 354867383,
+      "mtime_ns": 1783802426182379579
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-23.parquet",
+      "size": 346729217,
+      "mtime_ns": 1783802444694800369
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-24.parquet",
+      "size": 391512012,
+      "mtime_ns": 1783802391450067275
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-25.parquet",
+      "size": 426132651,
+      "mtime_ns": 1783802690148406464
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-26.parquet",
+      "size": 439904217,
+      "mtime_ns": 1783802717867633716
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-27.parquet",
+      "size": 469785008,
+      "mtime_ns": 1783802761776453575
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-28.parquet",
+      "size": 493309410,
+      "mtime_ns": 1783803070956104204
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-29.parquet",
+      "size": 521262966,
+      "mtime_ns": 1783803116679615436
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-30.parquet",
+      "size": 482049930,
+      "mtime_ns": 1783803141822724950
+    },
+    {
+      "path": "ml/data/processed/madrigal/2026-03-31.parquet",
+      "size": 521555076,
+      "mtime_ns": 1783803764715925792
+    },
+    {
+      "path": "ml/data/processed/spots_slim.parquet",
+      "size": 971445202,
+      "mtime_ns": 1783776898809406953
+    },
+    {
+      "path": "ml/data/raw/solar_snapshots.csv",
+      "size": 869341,
+      "mtime_ns": 1783775991451580849
+    }
+  ],
+  "outputs": {
+    "hf": "ml/data/processed/archive_v2/proof_hf.parquet",
+    "6m": "ml/data/processed/archive_v2/proof_6m.parquet"
+  },
+  "stats": {
+    "hf": [
+      {
+        "split": "test",
+        "rows": 2220493,
+        "reference_open_rate": 0.5263475273283906,
+        "sparse_open_rate": 0.1959690933499903,
+        "reference_positives": 1168751,
+        "sparse_positives": 435148
+      },
+      {
+        "split": "train",
+        "rows": 4879718,
+        "reference_open_rate": 0.5537303590084509,
+        "sparse_open_rate": 0.20978589336514938,
+        "reference_positives": 2702048,
+        "sparse_positives": 1023696
+      },
+      {
+        "split": "val",
+        "rows": 1088845,
+        "reference_open_rate": 0.4939775633813812,
+        "sparse_open_rate": 0.18197723275581004,
+        "reference_positives": 537865,
+        "sparse_positives": 198145
+      }
+    ],
+    "6m": [
+      {
+        "split": "test",
+        "rows": 146480,
+        "reference_open_rate": 0.14463407973784817,
+        "sparse_open_rate": 0.0,
+        "reference_positives": 21186,
+        "sparse_positives": 0
+      },
+      {
+        "split": "train",
+        "rows": 318557,
+        "reference_open_rate": 0.1407722950680726,
+        "sparse_open_rate": 0.0,
+        "reference_positives": 44844,
+        "sparse_positives": 0
+      },
+      {
+        "split": "val",
+        "rows": 68605,
+        "reference_open_rate": 0.13181255010567744,
+        "sparse_open_rate": 0.0,
+        "reference_positives": 9043,
+        "sparse_positives": 0
+      }
+    ]
+  },
+  "versions": {
+    "duckdb": "1.5.4",
+    "polars": "1.42.1",
+    "pyarrow": "25.0.0",
+    "numpy": "2.5.1"
+  }
+}

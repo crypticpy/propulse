@@ -27,7 +27,13 @@
     "2025-07": false,
     "2025-10": false
   },
-  "frozen_artifacts": {},
+  "frozen_artifacts": {
+    "b2_freeze": {
+      "path": "ml/results/propagation_v4_1/preregistration/b2_freeze.json",
+      "bytes": 4419,
+      "sha256": "543e4022c03af64c58966a5b46146daadd269ba7081dac1dab1749cc17b5b147"
+    }
+  },
   "phase_status": {
     "phase_0": "in_progress",
     "phase_1": "not_started",
@@ -37,5 +43,14 @@
     "phase_5": "not_started"
   },
   "failed_gates": [],
-  "protocol_events": []
+  "protocol_events": [
+    {
+      "at": "2026-07-12T15:55:45.004646+00:00",
+      "event": "artifact_frozen",
+      "name": "b2_freeze",
+      "path": "ml/results/propagation_v4_1/preregistration/b2_freeze.json",
+      "bytes": 4419,
+      "sha256": "543e4022c03af64c58966a5b46146daadd269ba7081dac1dab1749cc17b5b147"
+    }
+  ]
 }

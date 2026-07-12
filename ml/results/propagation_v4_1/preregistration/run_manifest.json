@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "preregistered_at": "2026-07-12T00:00:00Z",
+  "plan_commit": "2af85f5",
+  "parent_evidence_commit": "2cb309d",
+  "execution_scope": "preregistration",
+  "protocol_state": "preregistered",
+  "development_outcomes_opened": false,
+  "november_gate_opened": false,
+  "november_gate_opened_at": null,
+  "november_gate_attempt_id": null,
+  "development_gates_passed": false,
+  "locked_archive_test_opened": false,
+  "locked_archive_test_opened_at": null,
+  "locked_archive_attempt_id": null,
+  "prospective_test_complete": false,
+  "release_approved": false,
+  "outcome_access": {
+    "2024-02": false,
+    "2024-05": false,
+    "2024-08": false,
+    "2024-11": false,
+    "2024-12": false,
+    "2025-01": false,
+    "2025-04": false,
+    "2025-07": false,
+    "2025-10": false
+  },
+  "frozen_artifacts": {},
+  "phase_status": {
+    "phase_0": "in_progress",
+    "phase_1": "not_started",
+    "phase_2": "not_started",
+    "phase_3": "not_started",
+    "phase_4": "locked",
+    "phase_5": "not_started"
+  },
+  "failed_gates": [],
+  "protocol_events": []
+}

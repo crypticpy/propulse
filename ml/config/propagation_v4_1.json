@@ -1,0 +1,88 @@
+{
+  "$schema": "./propagation_v4_1.schema.json",
+  "run_id": "propagation_v4_1_calibration_recovery",
+  "archive_namespace": "archive_v4_1",
+  "seed": 20260712,
+  "plan_commit": "2af85f5",
+  "parent_run_id": "propagation_v4_multiyear_50m",
+  "parent_evidence_commit": "2cb309d",
+  "data_roles": {
+    "frozen_core_train": [
+      "2018-01", "2018-04", "2018-07", "2018-10",
+      "2019-01", "2019-04", "2019-07", "2019-10",
+      "2020-01", "2020-04", "2020-07", "2020-10",
+      "2021-01", "2021-04", "2021-07", "2021-10",
+      "2022-01", "2022-04", "2022-07", "2022-10",
+      "2023-01", "2023-04", "2023-07", "2023-10"
+    ],
+    "frozen_early_stopping": ["2024-01", "2024-07"],
+    "calibration_development": ["2024-02", "2024-04", "2024-05", "2024-08"],
+    "new_calibration_sources": ["2024-02", "2024-05", "2024-08"],
+    "observed_engineering": ["2024-10"],
+    "untouched_development_gate": ["2024-11"],
+    "reserved_future_version": ["2024-12"],
+    "locked_archive_test": ["2025-01", "2025-04", "2025-07", "2025-10"],
+    "locked_prospective_test": {
+      "start": "2026-08-01",
+      "end": "2026-09-30"
+    }
+  },
+  "frozen_candidates": {
+    "v4_results": "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json",
+    "v4_detailed_results": "ml/results/propagation_v4/propagation_v4_multiyear_50m/detailed_validation_results.json",
+    "v4_model_root": "ml/models/archive_v4/propagation_v4_multiyear_50m",
+    "v3_results": "ml/results/archive_v3/archive_v3_eight_month/hf_results.json",
+    "v3_freeze": "ml/results/archive_v3/archive_v3_eight_month/manifests/v3_release_freeze.json",
+    "v3_model_root": "ml/models/archive_v3/archive_v3_eight_month"
+  },
+  "calibration": {
+    "primary_candidate": "C4_guarded_hierarchical_isotonic",
+    "candidate_ids": [
+      "C0_identity",
+      "C1_global_isotonic",
+      "C2_per_band_isotonic",
+      "C3_hierarchical_isotonic",
+      "C4_guarded_hierarchical_isotonic"
+    ],
+    "serving_distance_bins_km": [0, 1000, 3000, 6000, 10000, 25000],
+    "audit_distance_bins_km": [0, 500, 1500, 3000, 6000, 10000, 25000],
+    "minimum_rows": 10000,
+    "minimum_positive_equivalent": 1000.0,
+    "minimum_negative_equivalent": 1000.0,
+    "minimum_months": 3,
+    "bootstrap_repetitions": 2000,
+    "bootstrap_upper_bound": 0.0,
+    "tie_order": [
+      "C0_identity",
+      "C1_global_isotonic",
+      "C2_per_band_isotonic",
+      "C3_hierarchical_isotonic"
+    ],
+    "probability_clip": [0.0000001, 0.9999999]
+  },
+  "gates": {
+    "maximum_exposure_weight_error_fraction": 0.03,
+    "maximum_feature_available_after_issue_rows": 0,
+    "minimum_overall_brier_skill": 0.0,
+    "history_delta_bootstrap_upper_bound": 0.0,
+    "minimum_short_path_relative_brier_improvement_over_v3": 0.03,
+    "maximum_calibrated_minus_raw_brier": 0.0,
+    "maximum_band_relative_brier_regression": 0.02,
+    "maximum_ece_delta_vs_raw": 0.002,
+    "locked_minimum_relative_brier_improvement_over_v3": 0.01,
+    "locked_maximum_band_relative_brier_regression": 0.05,
+    "locked_maximum_ece_delta": 0.005
+  },
+  "compute": {
+    "required_profile": "m5",
+    "primary_machine": "Apple M5 Max 128 GB",
+    "data_root": "/Volumes/Projects/PropulseML/data",
+    "model_root": "/Volumes/Projects/PropulseML/models",
+    "temp_root": "/Volumes/Projects/PropulseML/tmp",
+    "duckdb_threads": 14,
+    "duckdb_memory_limit": "80GB",
+    "maximum_process_rss_gb": 96,
+    "minimum_free_gb_before_acquisition": 400,
+    "minimum_free_gb_before_gate": 150
+  }
+}

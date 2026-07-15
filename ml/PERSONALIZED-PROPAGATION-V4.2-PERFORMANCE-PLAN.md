@@ -530,7 +530,9 @@ uses the same selected path. These are execution-only changes: stream order,
 predictions, metric arithmetic, calibration, and selection gates are unchanged.
 The selected benchmark artifact, scorer helpers, runtime checks, outcome
 protocol, B2 adapter, and calibration dependency are all required frozen
-artifacts before the one-shot December scope can open.
+artifacts before the one-shot December scope can open. The V3/B2 results file,
+model, and isotonic calibrator used as the gate baseline are frozen separately
+as well, so neither side of the comparison can change after approval.
 DuckDB timezone is also pinned to UTC in every remaining V4.2 connection and
 the locked-month audit converts timestamps to UTC inside its SQL. A synthetic
 boundary-row test exposed this requirement before December access: an unpinned

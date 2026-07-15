@@ -39,6 +39,7 @@ from train_phase2_scale import validate_m5_runtime  # noqa: E402
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 RUN_ID = "propagation_v4_2_phase2_scale"
 RESULT = ROOT / "ml/results/propagation_v4_2" / RUN_ID
+V3_RESULTS = ROOT / "ml/results/archive_v3/archive_v3_eight_month/hf_results.json"
 
 
 SOURCE_FILES = {
@@ -83,6 +84,10 @@ def main() -> None:
     manifest_path = Path(args.manifest).resolve()
     config = load_json(config_path)
     runtime = validate_m5_runtime(config)
+    v3_results = load_json(V3_RESULTS)
+    b2_info = v3_results["profiles"]["nowcast"]
+    b2_model_path = ROOT / str(b2_info["model_path"])
+    b2_calibrator_path = b2_model_path.with_suffix(".isotonic.joblib")
     training_path = RESULT / "training_50m_results.json"
     evaluation_path = RESULT / "evaluation_50m_results.json"
     validation_path = RESULT / "validation_50m.json"
@@ -107,6 +112,9 @@ def main() -> None:
         phase2_html_path,
         serving_path,
         RESULT / "prediction_thread_benchmark.json",
+        V3_RESULTS,
+        b2_model_path,
+        b2_calibrator_path,
     )
     missing = [path for path in required_files if not path.is_file()]
     if missing:
@@ -165,6 +173,9 @@ def main() -> None:
         "training_runtime": MODULE / "train_phase2_scale.py",
         "b2_adapter": ROOT / "ml/src/archive_v4_1/b2_adapter.py",
         "v4_1_calibration": ROOT / "ml/src/archive_v4_1/calibration.py",
+        "v3_b2_results": V3_RESULTS,
+        "v3_b2_model": b2_model_path,
+        "v3_b2_calibrator": b2_calibrator_path,
         "prediction_thread_benchmark": RESULT / "prediction_thread_benchmark.json",
         "gate_report_generator": MODULE / "generate_gate_report.py",
         "gate_report_dry_run_validation": synthetic_path,

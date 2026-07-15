@@ -519,6 +519,14 @@ The live M5 audit passed with 128 GiB unified memory, High Power mode, and 1.4
 TiB free on the Projects volume. The 20M external-memory folds remain I/O-bound
 by design; the already-frozen iterator-fed `QuantileDMatrix` 50M backend is the
 path that converts the larger memory budget into materially higher CPU use.
+Before October/November scoring, the single-process scorer was also amended to
+reuse one `float32` feature matrix for candidates with identical feature order
+and keep band/day label conversion in vectorized Arrow/NumPy code. A no-outcome
+benchmark compares 1, 6, 9, 12, and 18 XGBoost prediction threads on 100,000
+rows from the allowed final early-stopping sample, requires bit-identical
+predictions, and pins the fastest count before scoring. The locked-gate scorer
+uses the same selected path. These are execution-only changes: stream order,
+predictions, metric arithmetic, calibration, and selection gates are unchanged.
 DuckDB timezone is also pinned to UTC in every remaining V4.2 connection and
 the locked-month audit converts timestamps to UTC inside its SQL. A synthetic
 boundary-row test exposed this requirement before December access: an unpinned

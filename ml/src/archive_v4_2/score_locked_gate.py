@@ -18,7 +18,6 @@ from typing import Any
 
 import joblib
 import numpy as np
-import pyarrow.compute as pc
 import pyarrow.dataset as ds
 import xgboost as xgb
 
@@ -49,12 +48,14 @@ from score_phase2_scale import (  # noqa: E402
     STAT_SIZE,
     add_group,
     calibration_result,
+    date_labels,
     contributions,
     distance_labels,
     feature_matrix,
     indices,
     numeric,
     stats_result,
+    text_labels,
     update_calibration,
 )
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
@@ -141,7 +142,7 @@ def verified_inputs(
 
 
 class BundlePredictor:
-    def __init__(self, manifest_path: Path) -> None:
+    def __init__(self, manifest_path: Path, prediction_threads: int) -> None:
         self.manifest_path = manifest_path
         payload = load_json(manifest_path)
         profile = payload["profiles"]["nowcast"]
@@ -167,6 +168,7 @@ class BundlePredictor:
                 raise OutcomeProtocolError("bundle calibrator checksum differs")
             model = xgb.Booster()
             model.load_model(model_path)
+            model.set_param({"nthread": prediction_threads})
             weight = float(item.get("weight", 1.0))
             weights.append(weight)
             self.components.append(
@@ -206,9 +208,13 @@ def score(
     config: dict[str, Any],
     bundle_path: Path,
 ) -> tuple[dict[str, Any], int]:
-    candidate = BundlePredictor(bundle_path)
+    prediction_threads = int(
+        config["compute"]["apple_silicon"]["physical_cores"]
+    )
+    candidate = BundlePredictor(bundle_path, prediction_threads)
     v3_results = load_json(V3_RESULTS)
     b2 = load_profile("nowcast", v3_results["profiles"]["nowcast"], ROOT)
+    b2.model.set_param({"nthread": prediction_threads})
     features = list(dict.fromkeys([*candidate.features, *b2.features]))
     variants = ("candidate", "B2_frozen_v3")
     dimensions = ("month", "day", "week", "band", "distance")
@@ -254,14 +260,9 @@ def score(
             columns = {name: numeric(batch, name) for name in features}
             target = numeric(batch, "success_rate", np.float64)
             weight = numeric(batch, "opportunities", np.float64)
-            bands = np.asarray(batch.column("band").to_pylist(), dtype=str)
+            bands = text_labels(batch, "band")
             distance = numeric(batch, "dist_km", np.float64)
-            days = np.asarray(
-                pc.strftime(
-                    batch.column("target_hour"), format="%Y-%m-%d"
-                ).to_pylist(),
-                dtype=str,
-            )
+            days = date_labels(batch, "target_hour")
             if any(not value.startswith(month) for value in np.unique(days)):
                 raise OutcomeProtocolError(
                     f"gate dataset contains rows outside {month}"
@@ -418,6 +419,9 @@ def main() -> None:
         "compute": {
             **runtime,
             **arrow,
+            "xgboost_prediction_threads": int(
+                config["compute"]["apple_silicon"]["physical_cores"]
+            ),
             "wall_seconds": time.monotonic() - started,
             "peak_rss_gb": peak_rss_gb(),
             "platform": platform.platform(),

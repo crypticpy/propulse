@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+import pyarrow as pa
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -13,18 +15,70 @@ sys.path.insert(0, str(MODULE))
 
 from score_phase2_scale import (  # noqa: E402
     CALIBRATION_BINS,
+    cached_feature_matrix,
     calibration_result,
     contributions,
+    date_labels,
     distance_labels,
     evaluation_reference_days,
     evaluation_reference_months,
     evaluation_reference_overall,
     paired_bootstrap,
+    text_labels,
     update_calibration,
 )
+from benchmark_prediction_threads import select_fastest_exact  # noqa: E402
 
 
 class Phase2ScoringTests(unittest.TestCase):
+    def test_prediction_thread_selection_requires_exact_fastest_result(self) -> None:
+        results = [
+            {
+                "threads": 12,
+                "median_seconds": 2.0,
+                "prediction_sha256": "same",
+                "maximum_absolute_delta": 0.0,
+            },
+            {
+                "threads": 18,
+                "median_seconds": 1.5,
+                "prediction_sha256": "same",
+                "maximum_absolute_delta": 0.0,
+            },
+        ]
+        self.assertEqual(select_fastest_exact(results), 18)
+
+    def test_arrow_labels_match_frozen_text_and_utc_day_values(self) -> None:
+        batch = pa.record_batch(
+            [
+                pa.array(["20m", "10m"]),
+                pa.array(
+                    [
+                        datetime(2024, 10, 1, 0, 0, tzinfo=timezone.utc),
+                        datetime(2024, 10, 31, 23, 59, tzinfo=timezone.utc),
+                    ],
+                    type=pa.timestamp("us", tz="UTC"),
+                ),
+            ],
+            names=["band", "target_hour"],
+        )
+        self.assertEqual(text_labels(batch, "band").tolist(), ["20m", "10m"])
+        self.assertEqual(
+            date_labels(batch, "target_hour").tolist(),
+            ["2024-10-01", "2024-10-31"],
+        )
+
+    def test_feature_matrix_cache_reuses_equal_feature_orders(self) -> None:
+        columns = {
+            "a": np.asarray([1, 2], dtype=np.float32),
+            "b": np.asarray([3, 4], dtype=np.float32),
+        }
+        cache: dict[tuple[str, ...], np.ndarray] = {}
+        first = cached_feature_matrix(cache, columns, ["a", "b"])
+        second = cached_feature_matrix(cache, columns, ["a", "b"])
+        self.assertIs(first, second)
+        np.testing.assert_array_equal(first, np.asarray([[1, 3], [2, 4]]))
+
     def test_contributions_preserve_weighted_brier(self) -> None:
         target = np.asarray([0.0, 1.0])
         prediction = np.asarray([0.25, 0.75])

@@ -137,6 +137,21 @@ def numeric(batch: Any, name: str, dtype: Any = np.float32) -> np.ndarray:
     return np.asarray(column.to_numpy(zero_copy_only=False), dtype=dtype)
 
 
+def text_labels(batch: Any, name: str) -> np.ndarray:
+    column = batch.column(name)
+    if column.null_count:
+        raise Phase2Error(f"scoring label contains nulls: {name}")
+    return np.asarray(column.to_numpy(zero_copy_only=False), dtype=str)
+
+
+def date_labels(batch: Any, name: str) -> np.ndarray:
+    column = batch.column(name)
+    if column.null_count:
+        raise Phase2Error(f"scoring timestamp contains nulls: {name}")
+    formatted = pc.strftime(column, format="%Y-%m-%d")
+    return np.asarray(formatted.to_numpy(zero_copy_only=False), dtype=str)
+
+
 def feature_matrix(columns: dict[str, np.ndarray], features: list[str]) -> np.ndarray:
     missing = [name for name in features if name not in columns]
     if missing:
@@ -144,6 +159,17 @@ def feature_matrix(columns: dict[str, np.ndarray], features: list[str]) -> np.nd
     return np.column_stack(
         [np.asarray(columns[name], dtype=np.float32) for name in features]
     )
+
+
+def cached_feature_matrix(
+    cache: dict[tuple[str, ...], np.ndarray],
+    columns: dict[str, np.ndarray],
+    features: list[str],
+) -> np.ndarray:
+    key = tuple(features)
+    if key not in cache:
+        cache[key] = feature_matrix(columns, features)
+    return cache[key]
 
 
 def indices(labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -530,6 +556,10 @@ def main() -> None:
     v3_result = load_json(V3_RESULTS)
     b2_info = v3_result["profiles"]["nowcast"]
     b2 = load_profile("nowcast", b2_info, ROOT)
+    prediction_threads = int(
+        config["compute"]["apple_silicon"]["physical_cores"]
+    )
+    b2.model.set_param({"nthread": prediction_threads})
     phase0_inputs = load_json(PHASE0_CONFIG)["diagnosis"]["inputs"]
     evaluation_inputs = {
         month: verify_input(month, phase0_inputs[month], args.verify_input_hashes)
@@ -544,6 +574,7 @@ def main() -> None:
         calibrator_path = verify_artifact(info["calibrator"], f"{name} calibrator")
         model = xgb.Booster()
         model.load_model(model_path)
+        model.set_param({"nthread": prediction_threads})
         features = list(map(str, info["features"]))
         union_features.extend(features)
         loaded[name] = {
@@ -605,12 +636,9 @@ def main() -> None:
             columns = {name: numeric(batch, name) for name in union_features}
             target = numeric(batch, "success_rate", np.float64)
             weight = numeric(batch, "opportunities", np.float64)
-            bands = np.asarray(batch.column("band").to_pylist(), dtype=str)
+            bands = text_labels(batch, "band")
             distance = numeric(batch, "dist_km", np.float64)
-            days = np.asarray(
-                pc.strftime(batch.column("target_hour"), format="%Y-%m-%d").to_pylist(),
-                dtype=str,
-            )
+            days = date_labels(batch, "target_hour")
             if any(not value.startswith(month) for value in np.unique(days)):
                 raise Phase2Error(f"evaluation file contains rows outside {month}")
             labels = {
@@ -626,10 +654,13 @@ def main() -> None:
                 "B2_frozen_v3": b2_prediction.astype(np.float64)
             }
             calibrated: dict[str, np.ndarray] = {}
+            matrix_cache: dict[tuple[str, ...], np.ndarray] = {}
             for name in candidate_names:
                 info = loaded[name]
                 raw = info["model"].inplace_predict(
-                    feature_matrix(columns, info["features"]),
+                    cached_feature_matrix(
+                        matrix_cache, columns, info["features"]
+                    ),
                     iteration_range=(0, info["best_iteration"] + 1),
                 ).astype(np.float64)
                 calibrated[name] = info["calibrator"].predict(raw, bands, distance).astype(
@@ -893,6 +924,7 @@ def main() -> None:
             "python": platform.python_version(),
             "numpy": np.__version__,
             "xgboost": xgb.__version__,
+            "xgboost_prediction_threads": prediction_threads,
         },
     }
     output_path = result_dir / f"evaluation_{scale // 1_000_000}m_results.json"

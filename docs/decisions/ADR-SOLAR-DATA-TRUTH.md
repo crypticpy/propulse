@@ -1,6 +1,6 @@
 # ADR: Solar Data Truth and Resilience
 
-**Status:** Accepted  
+**Status:** Accepted
 **Decision scope:** Solar Pulse data, caching, imagery, decision-support language, and operations.
 
 ## Context

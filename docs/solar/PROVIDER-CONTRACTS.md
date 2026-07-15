@@ -1,7 +1,7 @@
 # Solar Provider Contracts
 
-**Contract version:** 1  
-**Executable authority:** `src/lib/solar/sourcePolicies.ts`, `src/lib/solar/adapters.ts`, and `src/lib/solar/mediaProducts.ts`  
+**Contract version:** 1
+**Executable authority:** `src/lib/solar/sourcePolicies.ts`, `src/lib/solar/adapters.ts`, and `src/lib/solar/mediaProducts.ts`
 **Scope:** Every data, image, and animation product used by Solar Pulse.
 
 ## Contract rules

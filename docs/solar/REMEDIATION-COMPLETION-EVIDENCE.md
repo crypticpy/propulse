@@ -1,8 +1,8 @@
 # Solar Weather Remediation Completion Evidence
 
-**Status:** Implemented and verified  
-**Audit baseline:** [Solar weather audit register](../../SOLAR_WEATHER_AUDIT_FINDINGS.json)  
-**Authoritative program:** [Solar Weather Complete Remediation Plan](../plans/SOLAR-WEATHER-COMPLETE-REMEDIATION-PLAN.md)  
+**Status:** Implemented and verified
+**Audit baseline:** [Solar weather audit register](../../SOLAR_WEATHER_AUDIT_FINDINGS.json)
+**Authoritative program:** [Solar Weather Complete Remediation Plan](../plans/SOLAR-WEATHER-COMPLETE-REMEDIATION-PLAN.md)
 **Completed:** 2026-07-15
 
 ## Outcome

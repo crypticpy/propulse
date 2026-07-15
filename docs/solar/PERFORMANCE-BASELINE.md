@@ -1,7 +1,7 @@
 # Solar Pulse Performance Baseline and Budgets
 
-**Measured:** 2026-07-15  
-**Build:** production Vite build, deterministic Playwright desktop/mobile journeys  
+**Measured:** 2026-07-15
+**Build:** production Vite build, deterministic Playwright desktop/mobile journeys
 **Budget authority:** `bundle-budgets.json` and `scripts/check-bundles.mjs`
 
 ## Outcome

@@ -1,9 +1,9 @@
 # Solar Weather Complete Remediation Plan
 
-**Status:** Implemented and verified  
-**Primary evidence:** [Solar weather audit register](../../SOLAR_WEATHER_AUDIT_FINDINGS.json)  
-**Completion evidence:** [Solar Weather Remediation Completion Evidence](../solar/REMEDIATION-COMPLETION-EVIDENCE.md)  
-**Related feature backlog:** [Solar Data Quality & Sources Improvement Plan](./SOLAR-DATA-IMPROVEMENTS.md)  
+**Status:** Implemented and verified
+**Primary evidence:** [Solar weather audit register](../../SOLAR_WEATHER_AUDIT_FINDINGS.json)
+**Completion evidence:** [Solar Weather Remediation Completion Evidence](../solar/REMEDIATION-COMPLETION-EVIDENCE.md)
+**Related feature backlog:** [Solar Data Quality & Sources Improvement Plan](./SOLAR-DATA-IMPROVEMENTS.md)
 **Scope:** Solar Pulse desktop and mobile experiences, all solar widgets and imagery, solar data clients and caches, Vercel-style solar endpoints, development parity, product language, testing, and operational monitoring.
 
 ## Planning Policy

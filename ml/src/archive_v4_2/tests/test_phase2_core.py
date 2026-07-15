@@ -14,6 +14,7 @@ from phase2_core import (  # noqa: E402
     Phase2Error,
     decide_100m,
     scale_workset,
+    select_training_backend,
     select_50m_components,
     training_months,
     validate_config,
@@ -140,6 +141,37 @@ class Phase2CoreTests(unittest.TestCase):
         }
         with self.assertRaises(Phase2Error):
             scale_workset(self.config, 50_000_000, evaluation)
+
+    def test_streamed_backend_requires_every_gate(self) -> None:
+        common = {
+            "candidate": "A4_recent_cycle",
+            "fold": "F3_2024_07",
+            "scale": 20_000_000,
+            "inputs": {"cohort": "a", "validation": "b"},
+            "parameters": {"eta": 0.04},
+            "boost_rounds": 50,
+            "final_validation_logloss": 0.2,
+            "december_2024_read": False,
+            "locked_2025_read": False,
+        }
+        external = {
+            **common,
+            "backend": "external_memory_quantile",
+            "total_seconds": 30,
+            "peak_rss_gb": 10,
+        }
+        in_memory = {
+            **common,
+            "backend": "streamed_in_memory_quantile",
+            "total_seconds": 10,
+            "peak_rss_gb": 30,
+        }
+        policy = self.config["compute"]["apple_silicon"]["backend_benchmark"]
+        decision = select_training_backend(external, in_memory, policy, 2)
+        self.assertEqual(decision["selected_backend"], "streamed_in_memory_quantile")
+        in_memory["peak_rss_gb"] = 50
+        decision = select_training_backend(external, in_memory, policy, 2)
+        self.assertEqual(decision["selected_backend"], "external_memory_quantile")
 
 
 if __name__ == "__main__":

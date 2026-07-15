@@ -202,3 +202,56 @@ def decide_100m(
     if bool(row["december_2024_read"]):
         reasons.append("December was opened before the 100M decision")
     return not reasons, reasons
+
+
+def select_training_backend(
+    external: Mapping[str, Any],
+    in_memory: Mapping[str, Any],
+    policy: Mapping[str, Any],
+    workers: int,
+) -> dict[str, Any]:
+    expected = {
+        "external_memory_quantile": external,
+        "streamed_in_memory_quantile": in_memory,
+    }
+    for backend, result in expected.items():
+        if result.get("backend") != backend:
+            raise Phase2Error(f"backend benchmark result mismatch: {backend}")
+        if result.get("december_2024_read") or result.get("locked_2025_read"):
+            raise Phase2Error("backend benchmark reports locked outcome access")
+    comparable = (
+        external["candidate"] == in_memory["candidate"]
+        and external["fold"] == in_memory["fold"]
+        and int(external["scale"]) == int(in_memory["scale"])
+        and external["inputs"] == in_memory["inputs"]
+        and external["parameters"] == in_memory["parameters"]
+        and int(external["boost_rounds"]) == int(in_memory["boost_rounds"])
+    )
+    if not comparable:
+        raise Phase2Error("backend benchmark arms are not comparable")
+    speedup = float(external["total_seconds"]) / float(in_memory["total_seconds"])
+    loss_difference = abs(
+        float(external["final_validation_logloss"])
+        - float(in_memory["final_validation_logloss"])
+    )
+    parallel_peak = workers * float(in_memory["peak_rss_gb"])
+    checks = {
+        "minimum_speedup": speedup >= float(policy["minimum_speedup_to_adopt"]),
+        "validation_logloss_parity": loss_difference
+        <= float(policy["maximum_validation_logloss_difference"]),
+        "parallel_memory_budget": parallel_peak
+        <= float(policy["maximum_parallel_peak_rss_gb"]),
+    }
+    selected = (
+        "streamed_in_memory_quantile"
+        if all(checks.values())
+        else "external_memory_quantile"
+    )
+    return {
+        "selected_backend": selected,
+        "checks": checks,
+        "speedup": speedup,
+        "validation_logloss_difference": loss_difference,
+        "projected_parallel_peak_rss_gb": parallel_peak,
+        "workers": workers,
+    }

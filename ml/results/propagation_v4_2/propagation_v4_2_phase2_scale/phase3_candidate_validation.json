@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:13:10Z",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scope": "pre_december_phase3_candidate_validation",
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "selected_candidate": "A6_recent_recency_blend",
+  "bundle_manifest": {
+    "path": "ml/models/archive_v4_2/propagation_v4_2_phase2_scale/serving/serving_manifest.json",
+    "bytes": 13113,
+    "sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821"
+  },
+  "public_manifest": {
+    "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/phase3_serving_candidate_manifest.json",
+    "bytes": 13706,
+    "sha256": "c41153ff33fb4a5638bde6323f8ad36b797a2460b9020ea3c757e99b7acdd0af"
+  },
+  "sample": {
+    "months": [
+      "2024-10",
+      "2024-11"
+    ],
+    "rows_per_month": 256,
+    "rows": 512
+  },
+  "maximum_offline_service_probability_difference": 0.0,
+  "latency": {
+    "model_load_ms": 2169.844333009678,
+    "engine_single_p50_ms": 9.364270998048596,
+    "engine_single_p95_ms": 9.855583001626655,
+    "api_path_p50_ms": 10.9298335009953,
+    "api_path_p95_ms": 13.251829197542973,
+    "batch_rows": 4096,
+    "engine_batch_p50_ms": 351.889666999341,
+    "engine_batch_p95_ms": 361.0263922048034,
+    "api_surface_p50_ms": 481.744582997635,
+    "api_surface_p95_ms": 514.1104828071548
+  },
+  "memory": {
+    "peak_rss_gb": 4.25030517578125,
+    "maximum_rss_gb": 32.0
+  },
+  "bundle_bytes": 264396948,
+  "privacy_findings": [],
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0",
+    "arrow_cpu_threads": 18,
+    "arrow_io_threads": 6
+  },
+  "serving_runtime": {
+    "xgboost_prediction_threads": 1,
+    "xgboost_prediction_threads_source": "manifest"
+  },
+  "gates": {
+    "bundle_checksum_and_schema": true,
+    "serving_thread_contract": true,
+    "offline_service_parity": true,
+    "bounded_probabilities": true,
+    "fresh_selects_nowcast": true,
+    "stale_selects_physics_with_provenance": true,
+    "missing_freshness_selects_fallback": true,
+    "stale_reduces_confidence": true,
+    "missing_feature_is_explicit": true,
+    "frontend_response_contract": true,
+    "public_manifest_privacy": true,
+    "single_latency": true,
+    "batch_latency": true,
+    "memory_budget": true,
+    "bundle_size": true,
+    "locked_scopes_remain_closed": true
+  },
+  "passed": true
+}

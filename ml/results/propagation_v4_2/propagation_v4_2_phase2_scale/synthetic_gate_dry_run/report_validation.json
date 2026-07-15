@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:13:47.911575+00:00",
+  "scope": "synthetic_gate_report_dry_run",
+  "synthetic": true,
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11",
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0"
+  },
+  "builder_receipt": {
+    "ok": true,
+    "html": "/Users/crypticpy/Projects/propulse/ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/REPORT.html",
+    "stages": {
+      "validation": "passed",
+      "package": "passed",
+      "verification": "passed"
+    },
+    "counts": {
+      "blocks": 22,
+      "charts": 5,
+      "html": 0,
+      "metrics": 6,
+      "tables": 1
+    },
+    "sourceDialog": "passed",
+    "sourceInteraction": "keyboard_menu_semantic_click",
+    "viewports": [
+      1440,
+      390
+    ],
+    "timings": {
+      "validateAndPackageMs": 1032.5,
+      "staticChartExtractionMs": 988.2,
+      "browserRunMs": 845.8,
+      "readerReadyMs": 48.1,
+      "contentChecksMs": 32,
+      "sourceDialogMs": 32.1,
+      "responsiveChecksMs": 31.9,
+      "verificationMs": 853.4,
+      "totalMs": 1890.8
+    }
+  },
+  "checks": {
+    "portable_builder_completed": true,
+    "browser_verification_passed": true,
+    "html_nonempty": true,
+    "synthetic_label_visible": true,
+    "report_title_visible": true,
+    "no_remote_script": true
+  },
+  "passed": true
+}

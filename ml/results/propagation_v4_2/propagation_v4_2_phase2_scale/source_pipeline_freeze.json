@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:14:14.594952+00:00",
+  "scope": "frozen_gate_data_pipeline",
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "sources": {
+    "v3_common": {
+      "path": "ml/src/archive_v3/common.py",
+      "bytes": 6018,
+      "sha256": "1fa2b48bb1f50dd89cc7a37296857ed476f1e447e9ebefa70bc40ceb72f25313"
+    },
+    "v3_download": {
+      "path": "ml/src/archive_v3/download_sources.py",
+      "bytes": 2339,
+      "sha256": "367418a90df484422dd5f8d1c9eacc12fe2386473aa47da8c1dd2136fa521e51"
+    },
+    "v3_space_weather": {
+      "path": "ml/src/archive_v3/build_space_weather.py",
+      "bytes": 6796,
+      "sha256": "8df5f94ff5d6db421cc9985e22b9fb04ffc34b1d8a40c83e7f590e0418537f79"
+    },
+    "v3_bronze": {
+      "path": "ml/src/archive_v3/build_bronze.py",
+      "bytes": 5845,
+      "sha256": "15c60e67621d34ae43f2bed875f38e5c0ce1f2ac696d804fd8d5de79ea04e800"
+    },
+    "v3_source_manifest": {
+      "path": "ml/src/archive_v3/build_source_manifest.py",
+      "bytes": 3721,
+      "sha256": "ae0a7ccedbd0677c79780fe160696e5f0413994de64918b9a67f77b1de6fe466"
+    },
+    "v3_opportunities": {
+      "path": "ml/src/archive_v3/build_opportunities.py",
+      "bytes": 9017,
+      "sha256": "01420b8b2afbdde6f672c63e1731bcd243f54bf2b196be268cb4b65cdf6692ee"
+    },
+    "v3_features": {
+      "path": "ml/src/archive_v3/build_features.py",
+      "bytes": 16085,
+      "sha256": "a437a39502d79414f700f0ca44bbe0ac12195858db9c425212f30e4bb9e8b3ae"
+    },
+    "v4_2_prepare_gate": {
+      "path": "ml/src/archive_v4_2/prepare_locked_gate.py",
+      "bytes": 7659,
+      "sha256": "aeca435ae7bc9bbda47dd607c289e70d52709ff575dfbe8452ae8fdc27e86e0d"
+    },
+    "v4_2_audit_gate": {
+      "path": "ml/src/archive_v4_2/audit_locked_dataset.py",
+      "bytes": 8308,
+      "sha256": "ef572aa512833f80a0bf6b4afd66d824482cb1e46819be1c8baede0e345280df"
+    }
+  }
+}

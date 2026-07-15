@@ -1,0 +1,745 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propagation V4.2: Synthetic December dry run",
+    "description": "Frozen outcome-gate evidence, uncertainty, calibration, slices, and operational decision.",
+    "generatedAt": "2026-07-15T23:13:45.961531+00:00",
+    "cards": [
+      {
+        "id": "candidate",
+        "description": "Opportunity-weighted probability error.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Candidate Brier",
+            "field": "candidate_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "baseline",
+        "description": "Frozen operational benchmark.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "B2 Brier",
+            "field": "b2_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "improvement",
+        "description": "Positive values improve on B2.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Relative improvement",
+            "field": "relative_improvement",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "gates",
+        "description": "Every gate is mandatory.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Gates passed",
+            "field": "gates_passed",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "rows",
+        "description": "Identical rows for candidate and B2.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Rows",
+            "field": "rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "memory",
+        "description": "Bounded M5 scoring process.",
+        "dataset": "summary",
+        "sourceId": "gate_result",
+        "metrics": [
+          {
+            "label": "Peak RSS GiB",
+            "field": "peak_rss_gb",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "overall_brier",
+        "title": "Gate weighted Brier",
+        "subtitle": "Frozen candidate and B2 on identical outcome rows; lower is better.",
+        "type": "bar",
+        "dataset": "overall_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "model",
+            "type": "ordinal",
+            "label": "Model"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "daily_delta",
+        "title": "Paired UTC-day Brier delta",
+        "subtitle": "Candidate minus B2; negative values improve. The bootstrap resamples these daily aggregates.",
+        "type": "bar",
+        "dataset": "day_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "day",
+            "type": "ordinal",
+            "label": "UTC day"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "band_safety",
+        "title": "Supported-band relative Brier regression",
+        "subtitle": "Candidate relative to B2; negative values improve and positive values regress.",
+        "type": "bar",
+        "dataset": "band_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "relative_brier_regression",
+            "type": "quantitative",
+            "label": "Relative regression"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "distance_safety",
+        "title": "Path-distance Brier delta",
+        "subtitle": "Candidate minus B2 on fixed distance bins; short paths have explicit materiality tolerances.",
+        "type": "bar",
+        "dataset": "distance_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "distance",
+            "type": "ordinal",
+            "label": "Distance"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "reliability",
+        "title": "Gate probability reliability",
+        "subtitle": "Observed opportunity-weighted success versus mean predicted probability.",
+        "type": "line",
+        "dataset": "reliability_rows",
+        "sourceId": "gate_result",
+        "encodings": {
+          "x": {
+            "field": "mean_prediction",
+            "type": "quantitative",
+            "label": "Mean prediction"
+          },
+          "y": {
+            "field": "observed_rate",
+            "type": "quantitative",
+            "label": "Observed rate"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Series"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "gate_table",
+        "title": "Preregistered gate decision",
+        "subtitle": "Every row must pass; evidence is copied from the immutable scorer output.",
+        "dataset": "gate_rows",
+        "sourceId": "gate_result",
+        "defaultSort": {
+          "field": "gate",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "gate",
+            "label": "Gate",
+            "type": "text"
+          },
+          {
+            "field": "passed",
+            "label": "Status",
+            "type": "text"
+          },
+          {
+            "field": "evidence",
+            "label": "Evidence",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "gate_result",
+        "label": "Synthetic V4.2 gate rendering fixture",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propagation V4.2: Synthetic December dry run"
+      },
+      {
+        "id": "summary",
+        "type": "markdown",
+        "body": "## Technical summary\n\n**Synthetic fixture:** all values in this report are fabricated solely to validate rendering and browser behavior.\n\nThe synthetic fixture passes every rendering gate. This validates only the reporting path; it is not model evidence."
+      },
+      {
+        "id": "cards",
+        "type": "metric-strip",
+        "cardIds": [
+          "candidate",
+          "baseline",
+          "improvement",
+          "gates",
+          "rows",
+          "memory"
+        ]
+      },
+      {
+        "id": "definition",
+        "type": "markdown",
+        "body": "## What the gate measures\n\nBrier score is the opportunity-weighted squared error of the public WSPR single-decode probability. Candidate and B2 receive identical rows. All comparisons are predictive and retrospective; they do not establish causal propagation effects or guaranteed QSOs."
+      },
+      {
+        "id": "overall",
+        "type": "chart",
+        "chartId": "overall_brier",
+        "layout": "full"
+      },
+      {
+        "id": "gate_table_block",
+        "type": "table",
+        "tableId": "gate_table",
+        "layout": "full"
+      },
+      {
+        "id": "temporal",
+        "type": "markdown",
+        "body": "## Transfer must persist through time\n\nThe aggregate point estimate is paired with UTC-day bootstrap uncertainty and daily/weekly stability checks so a few high-volume periods cannot decide advancement."
+      },
+      {
+        "id": "daily",
+        "type": "chart",
+        "chartId": "daily_delta",
+        "layout": "full"
+      },
+      {
+        "id": "slices",
+        "type": "markdown",
+        "body": "## Aggregate performance cannot hide unsafe slices\n\nOnly preregistered supported bands and distances are interpreted. December uses a 2% band ceiling and explicit short-path absolute-or-relative tolerances; the locked archive uses a 3% band ceiling."
+      },
+      {
+        "id": "band",
+        "type": "chart",
+        "chartId": "band_safety",
+        "layout": "full"
+      },
+      {
+        "id": "distance",
+        "type": "chart",
+        "chartId": "distance_safety",
+        "layout": "full"
+      },
+      {
+        "id": "calibration",
+        "type": "markdown",
+        "body": "## Calibrated magnitude matters to the product\n\nReachMap and StationCast consume probability magnitude, so ECE and high-confidence reliability are mandatory alongside Brier."
+      },
+      {
+        "id": "reliability_block",
+        "type": "chart",
+        "chartId": "reliability",
+        "layout": "full"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "body": "## Method and frozen execution\n\nThe scorer streams 100,000-row Arrow batches on native arm64, scores the packaged candidate and frozen B2 on the same feature matrix, and retains additive sufficient statistics only. The access protocol hashes every frozen dependency and records the one-shot attempt before acquisition."
+      },
+      {
+        "id": "limits",
+        "type": "markdown",
+        "body": "## Limitations and robustness\n\nWSPR observations reflect receiver deployment and reporting behavior as well as ionospheric propagation. Supported-slice thresholds limit noisy vetoes but do not eliminate selection effects. Operational fallback and service parity evidence comes from Phase 3, not this archive stream."
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "body": "## Recommended next step\n\nThe synthetic fixture passes every rendering gate. This validates only the reporting path; it is not model evidence."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\n- Does performance transfer to the next locked scope without tuning?\n- Which supported bands or distance regimes set the limiting gate?\n- Does the approved core improve operator choices during the prospective opt-in study?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-15T23:13:45.961531+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "candidate_brier": 0.044,
+          "b2_brier": 0.046,
+          "relative_improvement": 0.0434782608695653,
+          "gates_passed": 10,
+          "gates_total": 10,
+          "rows": 560000,
+          "peak_rss_gb": 1.25
+        }
+      ],
+      "overall_rows": [
+        {
+          "model": "Frozen V4.2 candidate",
+          "brier": 0.044
+        },
+        {
+          "model": "Frozen V3/B2",
+          "brier": 0.046
+        }
+      ],
+      "day_rows": [
+        {
+          "day": "2024-12-01",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-02",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-03",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-04",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-05",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-06",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-07",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-08",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-09",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-10",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-11",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-12",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-13",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-14",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-15",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-16",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-17",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-18",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-19",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-20",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-21",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-22",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-23",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-24",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-25",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-26",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-27",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "day": "2024-12-28",
+          "delta_vs_b2": -0.0020000000000000018
+        }
+      ],
+      "band_rows": [
+        {
+          "band": "160m",
+          "relative_brier_regression": -0.0434782608695653
+        },
+        {
+          "band": "80m",
+          "relative_brier_regression": -0.04344048653344923
+        },
+        {
+          "band": "60m",
+          "relative_brier_regression": -0.04340277777777779
+        },
+        {
+          "band": "40m",
+          "relative_brier_regression": -0.04336513443191681
+        },
+        {
+          "band": "30m",
+          "relative_brier_regression": -0.0433275563258233
+        },
+        {
+          "band": "20m",
+          "relative_brier_regression": -0.04329004329004338
+        },
+        {
+          "band": "17m",
+          "relative_brier_regression": -0.04325259515570934
+        },
+        {
+          "band": "15m",
+          "relative_brier_regression": -0.043215211754537686
+        },
+        {
+          "band": "12m",
+          "relative_brier_regression": -0.04317789291882557
+        },
+        {
+          "band": "10m",
+          "relative_brier_regression": -0.043140638481449556
+        }
+      ],
+      "distance_rows": [
+        {
+          "distance": "0-500 km",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "distance": "500-1500 km",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "distance": "1500-3000 km",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "distance": "3000-6000 km",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "distance": "6000-10000 km",
+          "delta_vs_b2": -0.0020000000000000018
+        },
+        {
+          "distance": "10000-25000 km",
+          "delta_vs_b2": -0.0020000000000000018
+        }
+      ],
+      "reliability_rows": [
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.05,
+          "observed_rate": 0.052000000000000005
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.15,
+          "observed_rate": 0.152
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.25,
+          "observed_rate": 0.252
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.35,
+          "observed_rate": 0.352
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.45,
+          "observed_rate": 0.452
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.55,
+          "observed_rate": 0.552
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.65,
+          "observed_rate": 0.652
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.75,
+          "observed_rate": 0.752
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.85,
+          "observed_rate": 0.852
+        },
+        {
+          "series": "Frozen V4.2 candidate",
+          "mean_prediction": 0.95,
+          "observed_rate": 0.952
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.05,
+          "observed_rate": 0.052000000000000005
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.15,
+          "observed_rate": 0.152
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.25,
+          "observed_rate": 0.252
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.35,
+          "observed_rate": 0.352
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.45,
+          "observed_rate": 0.452
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.55,
+          "observed_rate": 0.552
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.65,
+          "observed_rate": 0.652
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.75,
+          "observed_rate": 0.752
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.85,
+          "observed_rate": 0.852
+        },
+        {
+          "series": "Frozen V3/B2",
+          "mean_prediction": 0.95,
+          "observed_rate": 0.952
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 0.0,
+          "observed_rate": 0.0
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 1.0,
+          "observed_rate": 1.0
+        }
+      ],
+      "gate_rows": [
+        {
+          "gate": "G1_integrity_and_scope",
+          "passed": "pass",
+          "evidence": "{\"integrity_passed\": true, \"locked_2025_read\": false}"
+        },
+        {
+          "gate": "G2_overall_performance",
+          "passed": "pass",
+          "evidence": "{\"minimum_relative_improvement\": 0.01, \"paired_day\": {\"delta_lower_95\": -0.0020000000000000018, \"delta_median\": -0.0020000000000000018, \"delta_upper_95\": -0.001999999999999995, \"skill_lower_95\": 0.04345464421510048, \"skill_median\": 0.0434782608695653, \"skill_upper_95\": 0.04350190320826541}, \"relative_improvement\": 0.0434782608695653}"
+        },
+        {
+          "gate": "G3_temporal_value",
+          "passed": "pass",
+          "evidence": "{\"day_win_fraction\": 1.0, \"day_wins\": 28, \"minimum_day_win_fraction\": 0.75, \"qualified_days\": 28, \"week_relative_regressions\": {\"week-1\": -0.043535045711798004, \"week-2\": -0.043506634761801166, \"week-3\": -0.0434782608695653, \"week-4\": -0.04344992396263314, \"week-5\": -0.0434216239687365}}"
+        },
+        {
+          "gate": "G4_band_safety",
+          "passed": "pass",
+          "evidence": "{\"maximum_relative_regression\": 0.02, \"relative_regressions\": {\"10m\": -0.043140638481449556, \"12m\": -0.04317789291882557, \"15m\": -0.043215211754537686, \"160m\": -0.0434782608695653, \"17m\": -0.04325259515570934, \"20m\": -0.04329004329004338, \"30m\": -0.0433275563258233, \"40m\": -0.04336513443191681, \"60m\": -0.04340277777777779, \"80m\": -0.04344048653344923}}"
+        },
+        {
+          "gate": "G5_short_path_materiality",
+          "passed": "pass",
+          "evidence": "{\"bins\": {\"0-500 km\": {\"delta\": -0.0020000000000000018, \"passed\": true, \"tolerance\": 0.00046}, \"1500-3000 km\": {\"delta\": -0.0020000000000000018, \"passed\": true, \"tolerance\": 0.0004606}, \"500-1500 km\": {\"delta\": -0.0020000000000000018, \"passed\": true, \"tolerance\": 0.0004603}}}"
+        },
+        {
+          "gate": "G6_calibration",
+          "passed": "pass",
+          "evidence": "{\"ece_delta_vs_b2\": 0.0, \"high_confidence_gap_delta_vs_b2\": 0.0}"
+        },
+        {
+          "gate": "G7_operational_fallback",
+          "passed": "pass",
+          "evidence": "{}"
+        },
+        {
+          "gate": "G8_serving_parity",
+          "passed": "pass",
+          "evidence": "{}"
+        },
+        {
+          "gate": "G9_privacy_and_provenance",
+          "passed": "pass",
+          "evidence": "{}"
+        },
+        {
+          "gate": "G10_efficiency",
+          "passed": "pass",
+          "evidence": "{}"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "gate_result",
+      "label": "Synthetic V4.2 gate rendering fixture",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/synthetic_gate_result.json"
+        ]
+      }
+    }
+  ]
+}

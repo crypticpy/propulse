@@ -1,0 +1,406 @@
+{
+  "schema_version": 1,
+  "run_id": "propagation_v4_2_phase2_scale",
+  "created_at": "2026-07-15T23:14:14.624087+00:00",
+  "protocol_state": "candidate_frozen",
+  "candidate_frozen": true,
+  "december_opened": false,
+  "december_attempt_id": null,
+  "december_decision_passed": false,
+  "archive_opened": false,
+  "archive_attempt_id": null,
+  "archive_decision_passed": false,
+  "prospective_opened": false,
+  "release_approved": false,
+  "outcome_access": {
+    "2024-12": false,
+    "2025-01": false,
+    "2025-04": false,
+    "2025-07": false,
+    "2025-10": false
+  },
+  "frozen_artifacts": {
+    "config": {
+      "path": "ml/config/propagation_v4_2_phase2_scale.json",
+      "bytes": 8540,
+      "sha256": "6e05d489a5911b42fa9a1e9f9499fa0412e304609fe66ccdd722c0b3ddce9c9f"
+    },
+    "phase2_training_50m": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json",
+      "bytes": 200190,
+      "sha256": "b05b16f7f8ee706570e122603ffd8e06a120e9fe1bcb40586d971ef6ebd6ca38"
+    },
+    "phase2_evaluation_50m": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json",
+      "bytes": 277601,
+      "sha256": "235b55c42ef9d364880777f4406079eb87816525b827c489d197c1ba9ad83c30"
+    },
+    "phase2_validation_50m": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/validation_50m.json",
+      "bytes": 6006,
+      "sha256": "06e0957a8116907be0eb9b2376ebf830022853703e51436c65cc9ce8b2dbef62"
+    },
+    "phase2_report_artifact": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/REPORT.artifact.json",
+      "bytes": 75296,
+      "sha256": "d81e7daf73bdcae4ea78a1c1c533c7830f43f00e129f7f7f8984579a24202bb8"
+    },
+    "phase2_report_html": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/REPORT.html",
+      "bytes": 1004162,
+      "sha256": "5b952557d7e4de2c7dc4e23ff875725a5fb5110e7082664bf0da7a7bc8ff0992"
+    },
+    "serving_candidate": {
+      "path": "ml/models/archive_v4_2/propagation_v4_2_phase2_scale/serving/serving_manifest.json",
+      "bytes": 13113,
+      "sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821"
+    },
+    "phase3_validation": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/phase3_candidate_validation.json",
+      "bytes": 3053,
+      "sha256": "fcdb7a3d57788f4885ff2124ccd82fda11567e9e8b61b9d126e702b826947a5f"
+    },
+    "phase3_packager": {
+      "path": "ml/src/archive_v4_2/package_phase3_candidate.py",
+      "bytes": 11016,
+      "sha256": "87ab72de998132cd218ff452bf6eabedef6c4a9c95768ae98e53376619e2bac9"
+    },
+    "phase3_validator": {
+      "path": "ml/src/archive_v4_2/validate_phase3_candidate.py",
+      "bytes": 16605,
+      "sha256": "0f28b8cc10a2398cbe0d97b92f723f528d78fa582fdfe10d09a50208e42b9806"
+    },
+    "service_runtime": {
+      "path": "ml/service/app.py",
+      "bytes": 18835,
+      "sha256": "5ff76e0401b9a435dbfb136771061aff592de8523d298829fc73258c060afd31"
+    },
+    "station_cast_adapter": {
+      "path": "ml/src/archive_v4/station_cast_adapter.py",
+      "bytes": 2012,
+      "sha256": "a2710c9b2fcc3185775f0a05d71feebbdd14b213bd99cfa3ad749686c28d5f0d"
+    },
+    "gate_scorer": {
+      "path": "ml/src/archive_v4_2/score_locked_gate.py",
+      "bytes": 15787,
+      "sha256": "2f2cbff6e67b4fcc477a4d6c0535f1171c0e785d7728dd3f0a09129b6ad8310b"
+    },
+    "phase2_scoring_helpers": {
+      "path": "ml/src/archive_v4_2/score_phase2_scale.py",
+      "bytes": 36282,
+      "sha256": "d16f8c12da710108a13aa676c76b35a922e4fb8c61724e7d68cc0288ffe0016e"
+    },
+    "gate_scoring_core": {
+      "path": "ml/src/archive_v4_2/gate_scoring.py",
+      "bytes": 14341,
+      "sha256": "1239bae0c74526d0a96e819d587aeeb577164a82d3ff96efe36a0db4db2655de"
+    },
+    "outcome_protocol": {
+      "path": "ml/src/archive_v4_2/outcome_protocol.py",
+      "bytes": 10460,
+      "sha256": "bf69f6041aee501481f633086e9826ae6ac4b63b060a9452930224c3996e546b"
+    },
+    "m5_runtime": {
+      "path": "ml/src/archive_v4_2/m5_runtime.py",
+      "bytes": 6232,
+      "sha256": "f7c9d9fe5938fad9312acc0c8a8e6693c54aab75d3f437cac960f026a585a060"
+    },
+    "training_runtime": {
+      "path": "ml/src/archive_v4_2/train_phase2_scale.py",
+      "bytes": 19332,
+      "sha256": "875208efa9d9419c87d90b2f9c154bc7ac906ef4f92275e23f144827458df67f"
+    },
+    "b2_adapter": {
+      "path": "ml/src/archive_v4_1/b2_adapter.py",
+      "bytes": 3070,
+      "sha256": "4b80785450a029e7e6f675b9645ea1a3d2db2348ad9c4ad49e8fef9d9b4d657a"
+    },
+    "v4_1_calibration": {
+      "path": "ml/src/archive_v4_1/calibration.py",
+      "bytes": 18812,
+      "sha256": "dccaa177814a1c35c7dadf08cb65746931df2e4b7f3bd083fc14fcae40eccd7c"
+    },
+    "v3_b2_results": {
+      "path": "ml/results/archive_v3/archive_v3_eight_month/hf_results.json",
+      "bytes": 73123,
+      "sha256": "bd2e4a34061ac5f303f6669eca82545e1073219a8c09a0d705fa5027984c5379"
+    },
+    "v3_b2_model": {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_nowcast.json",
+      "bytes": 54419601,
+      "sha256": "93a88864667d582939c1d9ec3a543e8745668be9331f1eae50b8ad973debc145"
+    },
+    "v3_b2_calibrator": {
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_nowcast.isotonic.joblib",
+      "bytes": 36361,
+      "sha256": "d1508f33d5a79abca7c2bc4650f48d71f8644de224c4a3f2333f518f8f35ee20"
+    },
+    "prediction_thread_benchmark": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json",
+      "bytes": 3747,
+      "sha256": "3a7c70abebd228e73856b7b7b3d6c5074acd15cc52f84f7f1b50a6a3621434fc"
+    },
+    "gate_report_generator": {
+      "path": "ml/src/archive_v4_2/generate_gate_report.py",
+      "bytes": 20387,
+      "sha256": "9d48a100377ab3ef4ebaa35423d0751d8f48fc59fa94f08ce126fc9c1371f26d"
+    },
+    "gate_report_dry_run_validation": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/report_validation.json",
+      "bytes": 2065,
+      "sha256": "7af80e57f47b2b5bbfd2587b7545f601a5ac225c525423acb7d8ead61c178b59"
+    },
+    "candidate_environment": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/candidate_environment.json",
+      "bytes": 2660,
+      "sha256": "2ab31dd7498c484ecbf233264dacd74874c093c2be799a8f8e896e224f7e6759"
+    },
+    "source_pipeline": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/source_pipeline_freeze.json",
+      "bytes": 1912,
+      "sha256": "8b6a26504fe95f8cdc8d9c63a8c96aa1bd82aac271702761a50e2e1300e02855"
+    }
+  },
+  "outcome_artifacts": {},
+  "events": [
+    {
+      "at": "2026-07-15T23:14:14.624100+00:00",
+      "event": "outcome_protocol_initialized",
+      "months": [
+        "2024-12",
+        "2025-01",
+        "2025-04",
+        "2025-07",
+        "2025-10"
+      ]
+    },
+    {
+      "at": "2026-07-15T23:14:14.624398+00:00",
+      "event": "artifact_frozen",
+      "name": "config",
+      "path": "ml/config/propagation_v4_2_phase2_scale.json",
+      "bytes": 8540,
+      "sha256": "6e05d489a5911b42fa9a1e9f9499fa0412e304609fe66ccdd722c0b3ddce9c9f"
+    },
+    {
+      "at": "2026-07-15T23:14:14.624777+00:00",
+      "event": "artifact_frozen",
+      "name": "phase2_training_50m",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json",
+      "bytes": 200190,
+      "sha256": "b05b16f7f8ee706570e122603ffd8e06a120e9fe1bcb40586d971ef6ebd6ca38"
+    },
+    {
+      "at": "2026-07-15T23:14:14.625267+00:00",
+      "event": "artifact_frozen",
+      "name": "phase2_evaluation_50m",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json",
+      "bytes": 277601,
+      "sha256": "235b55c42ef9d364880777f4406079eb87816525b827c489d197c1ba9ad83c30"
+    },
+    {
+      "at": "2026-07-15T23:14:14.625524+00:00",
+      "event": "artifact_frozen",
+      "name": "phase2_validation_50m",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/validation_50m.json",
+      "bytes": 6006,
+      "sha256": "06e0957a8116907be0eb9b2376ebf830022853703e51436c65cc9ce8b2dbef62"
+    },
+    {
+      "at": "2026-07-15T23:14:14.625812+00:00",
+      "event": "artifact_frozen",
+      "name": "phase2_report_artifact",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/REPORT.artifact.json",
+      "bytes": 75296,
+      "sha256": "d81e7daf73bdcae4ea78a1c1c533c7830f43f00e129f7f7f8984579a24202bb8"
+    },
+    {
+      "at": "2026-07-15T23:14:14.626565+00:00",
+      "event": "artifact_frozen",
+      "name": "phase2_report_html",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/REPORT.html",
+      "bytes": 1004162,
+      "sha256": "5b952557d7e4de2c7dc4e23ff875725a5fb5110e7082664bf0da7a7bc8ff0992"
+    },
+    {
+      "at": "2026-07-15T23:14:14.643705+00:00",
+      "event": "artifact_frozen",
+      "name": "serving_candidate",
+      "path": "ml/models/archive_v4_2/propagation_v4_2_phase2_scale/serving/serving_manifest.json",
+      "bytes": 13113,
+      "sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821"
+    },
+    {
+      "at": "2026-07-15T23:14:14.644507+00:00",
+      "event": "artifact_frozen",
+      "name": "phase3_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/phase3_candidate_validation.json",
+      "bytes": 3053,
+      "sha256": "fcdb7a3d57788f4885ff2124ccd82fda11567e9e8b61b9d126e702b826947a5f"
+    },
+    {
+      "at": "2026-07-15T23:14:14.645070+00:00",
+      "event": "artifact_frozen",
+      "name": "phase3_packager",
+      "path": "ml/src/archive_v4_2/package_phase3_candidate.py",
+      "bytes": 11016,
+      "sha256": "87ab72de998132cd218ff452bf6eabedef6c4a9c95768ae98e53376619e2bac9"
+    },
+    {
+      "at": "2026-07-15T23:14:14.645479+00:00",
+      "event": "artifact_frozen",
+      "name": "phase3_validator",
+      "path": "ml/src/archive_v4_2/validate_phase3_candidate.py",
+      "bytes": 16605,
+      "sha256": "0f28b8cc10a2398cbe0d97b92f723f528d78fa582fdfe10d09a50208e42b9806"
+    },
+    {
+      "at": "2026-07-15T23:14:14.645884+00:00",
+      "event": "artifact_frozen",
+      "name": "service_runtime",
+      "path": "ml/service/app.py",
+      "bytes": 18835,
+      "sha256": "5ff76e0401b9a435dbfb136771061aff592de8523d298829fc73258c060afd31"
+    },
+    {
+      "at": "2026-07-15T23:14:14.646537+00:00",
+      "event": "artifact_frozen",
+      "name": "station_cast_adapter",
+      "path": "ml/src/archive_v4/station_cast_adapter.py",
+      "bytes": 2012,
+      "sha256": "a2710c9b2fcc3185775f0a05d71feebbdd14b213bd99cfa3ad749686c28d5f0d"
+    },
+    {
+      "at": "2026-07-15T23:14:14.647064+00:00",
+      "event": "artifact_frozen",
+      "name": "gate_scorer",
+      "path": "ml/src/archive_v4_2/score_locked_gate.py",
+      "bytes": 15787,
+      "sha256": "2f2cbff6e67b4fcc477a4d6c0535f1171c0e785d7728dd3f0a09129b6ad8310b"
+    },
+    {
+      "at": "2026-07-15T23:14:14.647726+00:00",
+      "event": "artifact_frozen",
+      "name": "phase2_scoring_helpers",
+      "path": "ml/src/archive_v4_2/score_phase2_scale.py",
+      "bytes": 36282,
+      "sha256": "d16f8c12da710108a13aa676c76b35a922e4fb8c61724e7d68cc0288ffe0016e"
+    },
+    {
+      "at": "2026-07-15T23:14:14.648290+00:00",
+      "event": "artifact_frozen",
+      "name": "gate_scoring_core",
+      "path": "ml/src/archive_v4_2/gate_scoring.py",
+      "bytes": 14341,
+      "sha256": "1239bae0c74526d0a96e819d587aeeb577164a82d3ff96efe36a0db4db2655de"
+    },
+    {
+      "at": "2026-07-15T23:14:14.648772+00:00",
+      "event": "artifact_frozen",
+      "name": "outcome_protocol",
+      "path": "ml/src/archive_v4_2/outcome_protocol.py",
+      "bytes": 10460,
+      "sha256": "bf69f6041aee501481f633086e9826ae6ac4b63b060a9452930224c3996e546b"
+    },
+    {
+      "at": "2026-07-15T23:14:14.649269+00:00",
+      "event": "artifact_frozen",
+      "name": "m5_runtime",
+      "path": "ml/src/archive_v4_2/m5_runtime.py",
+      "bytes": 6232,
+      "sha256": "f7c9d9fe5938fad9312acc0c8a8e6693c54aab75d3f437cac960f026a585a060"
+    },
+    {
+      "at": "2026-07-15T23:14:14.649625+00:00",
+      "event": "artifact_frozen",
+      "name": "training_runtime",
+      "path": "ml/src/archive_v4_2/train_phase2_scale.py",
+      "bytes": 19332,
+      "sha256": "875208efa9d9419c87d90b2f9c154bc7ac906ef4f92275e23f144827458df67f"
+    },
+    {
+      "at": "2026-07-15T23:14:14.650052+00:00",
+      "event": "artifact_frozen",
+      "name": "b2_adapter",
+      "path": "ml/src/archive_v4_1/b2_adapter.py",
+      "bytes": 3070,
+      "sha256": "4b80785450a029e7e6f675b9645ea1a3d2db2348ad9c4ad49e8fef9d9b4d657a"
+    },
+    {
+      "at": "2026-07-15T23:14:14.650608+00:00",
+      "event": "artifact_frozen",
+      "name": "v4_1_calibration",
+      "path": "ml/src/archive_v4_1/calibration.py",
+      "bytes": 18812,
+      "sha256": "dccaa177814a1c35c7dadf08cb65746931df2e4b7f3bd083fc14fcae40eccd7c"
+    },
+    {
+      "at": "2026-07-15T23:14:14.650988+00:00",
+      "event": "artifact_frozen",
+      "name": "v3_b2_results",
+      "path": "ml/results/archive_v3/archive_v3_eight_month/hf_results.json",
+      "bytes": 73123,
+      "sha256": "bd2e4a34061ac5f303f6669eca82545e1073219a8c09a0d705fa5027984c5379"
+    },
+    {
+      "at": "2026-07-15T23:14:14.671754+00:00",
+      "event": "artifact_frozen",
+      "name": "v3_b2_model",
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_nowcast.json",
+      "bytes": 54419601,
+      "sha256": "93a88864667d582939c1d9ec3a543e8745668be9331f1eae50b8ad973debc145"
+    },
+    {
+      "at": "2026-07-15T23:14:14.672812+00:00",
+      "event": "artifact_frozen",
+      "name": "v3_b2_calibrator",
+      "path": "ml/models/archive_v3/archive_v3_eight_month/hf_nowcast.isotonic.joblib",
+      "bytes": 36361,
+      "sha256": "d1508f33d5a79abca7c2bc4650f48d71f8644de224c4a3f2333f518f8f35ee20"
+    },
+    {
+      "at": "2026-07-15T23:14:14.673311+00:00",
+      "event": "artifact_frozen",
+      "name": "prediction_thread_benchmark",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json",
+      "bytes": 3747,
+      "sha256": "3a7c70abebd228e73856b7b7b3d6c5074acd15cc52f84f7f1b50a6a3621434fc"
+    },
+    {
+      "at": "2026-07-15T23:14:14.673713+00:00",
+      "event": "artifact_frozen",
+      "name": "gate_report_generator",
+      "path": "ml/src/archive_v4_2/generate_gate_report.py",
+      "bytes": 20387,
+      "sha256": "9d48a100377ab3ef4ebaa35423d0751d8f48fc59fa94f08ce126fc9c1371f26d"
+    },
+    {
+      "at": "2026-07-15T23:14:14.674075+00:00",
+      "event": "artifact_frozen",
+      "name": "gate_report_dry_run_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/synthetic_gate_dry_run/report_validation.json",
+      "bytes": 2065,
+      "sha256": "7af80e57f47b2b5bbfd2587b7545f601a5ac225c525423acb7d8ead61c178b59"
+    },
+    {
+      "at": "2026-07-15T23:14:14.674463+00:00",
+      "event": "artifact_frozen",
+      "name": "candidate_environment",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/candidate_environment.json",
+      "bytes": 2660,
+      "sha256": "2ab31dd7498c484ecbf233264dacd74874c093c2be799a8f8e896e224f7e6759"
+    },
+    {
+      "at": "2026-07-15T23:14:14.674838+00:00",
+      "event": "artifact_frozen",
+      "name": "source_pipeline",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/source_pipeline_freeze.json",
+      "bytes": 1912,
+      "sha256": "8b6a26504fe95f8cdc8d9c63a8c96aa1bd82aac271702761a50e2e1300e02855"
+    },
+    {
+      "at": "2026-07-15T23:14:14.675150+00:00",
+      "event": "candidate_frozen"
+    }
+  ]
+}

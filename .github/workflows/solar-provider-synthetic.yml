@@ -1,0 +1,27 @@
+name: Solar provider synthetic
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solar-provider-synthetic
+  cancel-in-progress: true
+
+jobs:
+  provider-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SOLAR_SYNTHETIC_BASE_URL: ${{ vars.SOLAR_SYNTHETIC_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify deployed data, metadata, and animation contracts
+        run: npm run check:solar:synthetic

@@ -757,34 +757,46 @@ export function BridgeInfoPage() {
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const testStartRef = useRef<number>(0);
+  const testTimeoutRef = useRef<number | null>(null);
+
+  const clearTestTimeout = useCallback(() => {
+    if (testTimeoutRef.current !== null) {
+      window.clearTimeout(testTimeoutRef.current);
+      testTimeoutRef.current = null;
+    }
+  }, []);
 
   const handleTestConnection = useCallback(() => {
     setTestingConnection(true);
     setTestResult(null);
     testStartRef.current = Date.now();
+    clearTestTimeout();
     connect();
 
     // Timeout after 5s
-    const timeout = setTimeout(() => {
+    testTimeoutRef.current = window.setTimeout(() => {
+      testTimeoutRef.current = null;
       setTestingConnection(false);
       setTestResult("Timeout — no response from bridge after 5 seconds.");
     }, 5000);
+  }, [clearTestTimeout, connect]);
 
-    return () => clearTimeout(timeout);
-  }, [connect]);
+  useEffect(() => clearTestTimeout, [clearTestTimeout]);
 
   // Watch for connection success during test
   useEffect(() => {
     if (testingConnection && state === "connected") {
+      clearTestTimeout();
       const latency = Date.now() - testStartRef.current;
       setTestResult(`Connected in ${latency}ms`);
       setTestingConnection(false);
     }
     if (testingConnection && state === "error") {
+      clearTestTimeout();
       setTestResult(error ?? "Connection failed.");
       setTestingConnection(false);
     }
-  }, [state, testingConnection, error]);
+  }, [clearTestTimeout, state, testingConnection, error]);
 
   // Protocol section collapse
   const [protocolExpanded, setProtocolExpanded] = useState(false);

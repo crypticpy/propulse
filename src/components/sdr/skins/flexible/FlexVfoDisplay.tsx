@@ -240,12 +240,12 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
         {/* SPLIT badge */}
         {split && <RadioBadge label="SPLIT" variant="warning" />}
 
-        {/* LOCK badge */}
-        {lock && (
-          <span className={onLockToggle ? "pointer-events-auto" : undefined}>
+        {/* Frequency lock control */}
+        {onLockToggle && (
+          <span className="pointer-events-auto">
             <RadioBadge
-              label="LOCK"
-              variant="accent"
+              label={lock ? "LOCK" : "UNLOCKED"}
+              variant={lock ? "accent" : "default"}
               onClick={onLockToggle}
               icon={
                 <svg

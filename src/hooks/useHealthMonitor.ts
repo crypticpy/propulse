@@ -16,6 +16,7 @@ import { DATA_SOURCE_REGISTRY } from "@/lib/dataSourceRegistry";
 import type { DataSourceId } from "@/lib/dataSourceRegistry";
 import { useDataSourceStatus } from "@/stores/dataSourceStatusStore";
 import { useBridge } from "@/hooks/useBridge";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -167,7 +168,8 @@ const DIRECT_FETCH_SOURCE_IDS: DataSourceId[] = [
 
 export function useHealthMonitor(): HealthSnapshot {
   const queryClient = useQueryClient();
-  const bridge = useBridge({ enabled: false });
+  const bridgeEnabled = useSettingsStore((state) => state.bridgeEnabled);
+  const bridge = useBridge({ enabled: bridgeEnabled });
   const dataSourceStatuses = useDataSourceStatus((s) => s.sources);
 
   // Tick counter drives periodic re-derivation of the snapshot

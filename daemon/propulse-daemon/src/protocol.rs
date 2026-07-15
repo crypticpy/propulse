@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use propulse_radio::types::{DeviceInfo, RadioState};
 
-pub const PROTOCOL_VERSION: &str = "1.0.0";
+pub const PROTOCOL_VERSION: &str = "1.1.0";
 pub const FRAME_TYPE_FFT: u8 = 0x01;
 pub const FRAME_TYPE_AUDIO: u8 = 0x02;
 
@@ -12,6 +12,7 @@ pub struct Hello {
   pub kind: String,
   pub version: String,
   pub daemon_id: String,
+  pub features: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

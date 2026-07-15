@@ -235,6 +235,8 @@ export interface SettingsState {
 
   /** Whether the radio setup wizard has been completed */
   radioSetupCompleted: boolean;
+  /** Optional authentication token for the SDR radio daemon */
+  radioDaemonAuthToken: string;
   /** CAT backend choice */
   catBackend:
     | "auto"
@@ -259,11 +261,13 @@ export interface SettingsState {
   catIcomBaudRate: number;
   /** ICOM radio CI-V address (e.g. 0x94 for IC-7300) */
   catIcomRadioAddress: number;
+  /** Block all software-initiated PTT/TX commands */
+  catPttLockout: boolean;
   /** ICOM Network: RS-BA1 host */
   catIcomNetworkHost: string;
   /** ICOM Network: RS-BA1 username */
   catIcomNetworkUsername: string;
-  /** ICOM Network: RS-BA1 password (stored locally only) */
+  /** ICOM Network: RS-BA1 password (runtime-only; excluded from persistence) */
   catIcomNetworkPassword: string;
   /** Audio device identifier — '' = auto-resolve, or explicit ffmpeg device ID */
   audioDevice: string;
@@ -421,6 +425,7 @@ const defaultSettings: SettingsState = {
 
   // Radio Setup / CAT Connection
   radioSetupCompleted: false,
+  radioDaemonAuthToken: "",
   catBackend: "auto" as const,
   catHamlibHost: "localhost",
   catHamlibPort: 4533,
@@ -430,6 +435,7 @@ const defaultSettings: SettingsState = {
   catIcomSerialPort: "",
   catIcomBaudRate: 19200,
   catIcomRadioAddress: 0x94,
+  catPttLockout: false,
   catIcomNetworkHost: "",
   catIcomNetworkUsername: "",
   catIcomNetworkPassword: "",
@@ -676,8 +682,13 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 30,
+      version: 33,
       storage: createJSONStorage(() => localStorage),
+      partialize: (state) => {
+        const persisted: Partial<SettingsStore> = { ...state };
+        delete persisted.catIcomNetworkPassword;
+        return persisted;
+      },
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>;
         if (version < 2) {
@@ -953,6 +964,8 @@ export const useSettingsStore = create<SettingsStore>()(
             state.catIcomBaudRate = 19200;
           if (state.catIcomRadioAddress === undefined)
             state.catIcomRadioAddress = 0x94;
+          if (state.catPttLockout === undefined)
+            state.catPttLockout = false;
           if (state.catIcomNetworkHost === undefined)
             state.catIcomNetworkHost = "";
           if (state.catIcomNetworkUsername === undefined)
@@ -963,6 +976,20 @@ export const useSettingsStore = create<SettingsStore>()(
           const savedCivPort = localStorage.getItem("propulse-civ-port");
           if (savedCivPort) {
             state.catCivPort = parseInt(savedCivPort, 10) || 4580;
+          }
+        }
+        if (version < 31 && state.catPttLockout === undefined) {
+          state.catPttLockout = false;
+        }
+        if (version < 32 && state.radioDaemonAuthToken === undefined) {
+          state.radioDaemonAuthToken = "";
+        }
+        if (version < 33) {
+          // The old plaintext value remains available in memory for this
+          // session so CAT Settings can move it into the encrypted credential
+          // vault. `partialize` removes it from propulse-settings immediately.
+          if (typeof state.catIcomNetworkPassword !== "string") {
+            state.catIcomNetworkPassword = "";
           }
         }
         // v25: audio device field

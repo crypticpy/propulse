@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import type { RadioCapabilities } from "@/lib/radio/protocol";
 
 interface SlicePanelDspProps {
   nbEnabled: boolean;
@@ -25,6 +26,7 @@ interface SlicePanelDspProps {
   onVoxToggle: () => void;
   onSquelchChange: (level: number) => void;
   canControl: boolean;
+  commands: RadioCapabilities["commands"];
 }
 
 const AGC_MODES: { mode: number; label: string }[] = [
@@ -52,6 +54,7 @@ export function SlicePanelDsp({
   onVoxToggle,
   onSquelchChange,
   canControl,
+  commands,
 }: SlicePanelDspProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -62,7 +65,10 @@ export function SlicePanelDsp({
     { key: "anf", label: "ANF", active: anfEnabled, onClick: onAnfToggle },
     { key: "qsk", label: "QSK", active: qskEnabled, onClick: onQskToggle },
     { key: "vox", label: "VOX", active: voxEnabled, onClick: onVoxToggle },
-  ];
+  ].filter((button) => !commands || commands[button.key as keyof typeof commands] === true);
+  const supportsAgc = !commands || commands.agc === true;
+  const supportsSquelch = !commands || commands.squelch === true;
+  const hasFineControls = supportsAgc || supportsSquelch;
 
   return (
     <div className="space-y-2">
@@ -92,17 +98,17 @@ export function SlicePanelDsp({
         ))}
       </div>
 
-      <button
+      {hasFineControls ? <button
         type="button"
         onClick={() => setShowAdvanced((open) => !open)}
         className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded border bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
       >
         {showAdvanced ? "Hide DSP Fine Controls" : "Show DSP Fine Controls"}
-      </button>
+      </button> : null}
 
-      {showAdvanced && (
+      {showAdvanced && hasFineControls && (
         <div className="space-y-2 pt-0.5">
-          {agcEnabled && (
+          {supportsAgc && agcEnabled && (
             <div className="space-y-0.5">
               <div className="text-[9px] text-gray-500 uppercase tracking-wider">
                 AGC Speed
@@ -128,7 +134,7 @@ export function SlicePanelDsp({
             </div>
           )}
 
-          <div className="space-y-0.5">
+          {supportsSquelch ? <div className="space-y-0.5">
             <div className="flex items-center justify-between">
               <span className="text-[9px] text-gray-500 uppercase tracking-wider">
                 Squelch
@@ -147,7 +153,7 @@ export function SlicePanelDsp({
               disabled={!canControl}
               className="w-full h-1 accent-plasma-orange disabled:opacity-40"
             />
-          </div>
+          </div> : null}
         </div>
       )}
     </div>

@@ -38,7 +38,7 @@ export interface UseFt8AutoConfigOptions {
   handleAgcToggle: (enabled: boolean) => void;
   handleNrChange: (enabled: boolean, level: number) => void;
   handleNbChange: (enabled: boolean, threshold: number) => void;
-  handleToggleFft: () => void;
+  ensureFftStarted: () => void;
 }
 
 export interface Ft8AutoConfig {
@@ -57,7 +57,7 @@ export function useFt8AutoConfig(opts: UseFt8AutoConfigOptions): Ft8AutoConfig {
     handleAgcToggle,
     handleNrChange,
     handleNbChange,
-    handleToggleFft,
+    ensureFftStarted,
   } = opts;
 
   const preFt8SettingsRef = useRef<{
@@ -116,7 +116,7 @@ export function useFt8AutoConfig(opts: UseFt8AutoConfigOptions): Ft8AutoConfig {
 
         // 7. Auto-start FFT streaming so waterfall shows FT8 signals
         if (!useSdrStore.getState().fftEnabled) {
-          handleToggleFft();
+          ensureFftStarted();
         }
       }
 
@@ -186,7 +186,7 @@ export function useFt8AutoConfig(opts: UseFt8AutoConfigOptions): Ft8AutoConfig {
     handleModeChange,
     handleNbChange,
     handleNrChange,
-    handleToggleFft,
+    ensureFftStarted,
   ]);
 
   return { handleFt8Toggle };

@@ -11,10 +11,11 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
-import type { GainStage } from "@/lib/radio/protocol";
+import type { GainStage, RadioCapabilities } from "@/lib/radio/protocol";
 import { GainSlider } from "@/components/sdr/primitives/GainSlider";
 import { SlicePanelDsp } from "./SlicePanelDsp";
 import { SlicePanelFilter } from "./SlicePanelFilter";
@@ -26,6 +27,7 @@ export type SlicePanelId = "dsp" | "filter" | "rx" | "audio" | "xrit";
 
 export interface SlicePanelControlProps {
   canControl: boolean;
+  commands: RadioCapabilities["commands"];
 
   // DSP
   nbEnabled: boolean;
@@ -157,6 +159,36 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
 }) {
   const [activePanel, setActivePanel] = useState<SlicePanelId | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const tabs = useMemo(() => {
+    const commands = controls.commands;
+    const supportsAny = (
+      names: Array<keyof NonNullable<RadioCapabilities["commands"]>>,
+      legacy = true,
+    ) =>
+      commands
+        ? names.some((command) => commands[command] === true)
+        : legacy;
+
+    return TABS.filter((tab) => {
+      if (tab.id === "dsp") {
+        return supportsAny(["nb", "nr", "agc", "anf", "qsk", "vox", "squelch"]);
+      }
+      if (tab.id === "filter") {
+        return supportsAny(["mode", "filter"]);
+      }
+      if (tab.id === "rx") {
+        return controls.rxGainStages.length > 0 || controls.antennas.length > 1;
+      }
+      if (tab.id === "xrit") {
+        return supportsAny(["rit", "xit", "split", "if_shift", "cw_speed"], false);
+      }
+      return true;
+    });
+  }, [
+    controls.antennas.length,
+    controls.commands,
+    controls.rxGainStages.length,
+  ]);
 
   const toggle = useCallback(
     (id: SlicePanelId) => setActivePanel((prev) => (prev === id ? null : id)),
@@ -185,15 +217,21 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
       const idx = Number(e.key) - 1;
-      if (idx >= 0 && idx < TABS.length) {
+      if (idx >= 0 && idx < tabs.length) {
         e.preventDefault();
-        toggle(TABS[idx].id);
+        toggle(tabs[idx].id);
       }
     };
 
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [activePanel, toggle]);
+  }, [activePanel, tabs, toggle]);
+
+  useEffect(() => {
+    if (activePanel && !tabs.some((tab) => tab.id === activePanel)) {
+      setActivePanel(null);
+    }
+  }, [activePanel, tabs]);
 
   let panelContent: ReactNode = null;
   if (activePanel === "dsp") {
@@ -215,6 +253,7 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
         onQskToggle={controls.onQskToggle}
         onVoxToggle={controls.onVoxToggle}
         onSquelchChange={controls.onSquelchChange}
+        commands={controls.commands}
         canControl={controls.canControl}
       />
     );
@@ -335,7 +374,7 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
     <div ref={containerRef}>
       {/* Tab button row */}
       <div className="flex border-t border-white/10 mt-1">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activePanel === tab.id;
           return (
             <button

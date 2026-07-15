@@ -107,6 +107,7 @@ export function ClassicSkin(props: SdrSkinProps) {
         effectiveState={effectiveState}
         selectedDevice={radio.selectedDevice}
         canControlConnected={radio.canControlConnected}
+        tuningLocked={effectiveState?.lock === true}
         smeterDbm={radio.smeterDbm}
         canStreamFft={radio.canStreamFft}
         canStreamAudio={radio.canStreamAudio}

@@ -18,9 +18,12 @@ import type {
   BridgeConnectionOptions,
   BridgeConnection,
 } from "@/types/bridge";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 /** Default bridge WebSocket URL */
 const DEFAULT_BRIDGE_URL = "ws://127.0.0.1:9867";
+const EXTENSION_SOURCE_FROM_PAGE = "propulse-daemon-client";
+const EXTENSION_SOURCE_TO_PAGE = "propulse-daemon-bridge";
 
 /** Close codes that indicate a permanent protocol error — don't retry forever */
 const FATAL_CLOSE_CODES = new Set([
@@ -45,6 +48,7 @@ const DEFAULT_OPTIONS: Required<BridgeConnectionOptions> = {
   pingInterval: 30000,
   connectionTimeout: 5000,
   pongTimeout: 5000,
+  authToken: "",
 };
 
 /**
@@ -121,7 +125,12 @@ export function useBridge(
   options: BridgeConnectionOptions = {},
 ): BridgeConnection {
   const enabled = options.enabled ?? true;
-  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const savedAuthToken = useSettingsStore((store) => store.radioDaemonAuthToken);
+  const opts = {
+    ...DEFAULT_OPTIONS,
+    ...options,
+    authToken: options.authToken ?? savedAuthToken,
+  };
 
   // Connection state
   const [state, setState] = useState<BridgeConnectionState>("disconnected");
@@ -132,6 +141,9 @@ export function useBridge(
 
   // Refs for WebSocket and timers
   const wsRef = useRef<WebSocket | null>(null);
+  const transportRef = useRef<"ws" | "extension">("ws");
+  const extensionSessionIdRef = useRef<string | null>(null);
+  const extensionConnectedRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectCountdownRef = useRef<NodeJS.Timeout | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -140,6 +152,11 @@ export function useBridge(
   const mountedRef = useRef(true);
   const manualDisconnectRef = useRef(false);
   const connectingRef = useRef(false); // Race guard
+  const connectingUrlRef = useRef<string | null>(null);
+  const connectRef = useRef<() => void>(() => {});
+  const scheduleReconnectRef = useRef<
+    (attempt: number, closeCode?: number) => void
+  >(() => {});
 
   // Track last close code to limit retries on fatal errors
   const lastCloseCodeRef = useRef<number | null>(null);
@@ -183,26 +200,50 @@ export function useBridge(
   /**
    * Send a message through the WebSocket
    */
-  const send = useCallback(<T>(type: string, payload: T): boolean => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      return false;
-    }
-
+  const sendRequest = useCallback(<T>(
+    type: string,
+    payload: T,
+  ): string | null => {
+    const id = generateMessageId();
     const message: BridgeMessage<T> = {
       type,
-      id: generateMessageId(),
+      id,
       ts: new Date().toISOString(),
       timestamp: Date.now(),
       payload,
     };
 
     try {
+      if (transportRef.current === "extension") {
+        const sessionId = extensionSessionIdRef.current;
+        if (!sessionId || !extensionConnectedRef.current) return null;
+        window.postMessage(
+          {
+            source: EXTENSION_SOURCE_FROM_PAGE,
+            type: "send",
+            sessionId,
+            text: JSON.stringify(message),
+          },
+          window.location.origin,
+        );
+        return id;
+      }
+
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        return null;
+      }
       wsRef.current.send(JSON.stringify(message));
-      return true;
+      return id;
     } catch {
-      return false;
+      return null;
     }
   }, []);
+
+  const send = useCallback(
+    <T>(type: string, payload: T): boolean =>
+      sendRequest(type, payload) !== null,
+    [sendRequest],
+  );
 
   /**
    * Connect to the bridge WebSocket
@@ -211,7 +252,10 @@ export function useBridge(
     const currentOpts = optsRef.current;
 
     // Race guard: if already connecting, skip
-    if (connectingRef.current) {
+    if (
+      connectingRef.current &&
+      connectingUrlRef.current === currentOpts.url
+    ) {
       return;
     }
 
@@ -220,6 +264,18 @@ export function useBridge(
       wsRef.current.close();
       wsRef.current = null;
     }
+    if (extensionSessionIdRef.current) {
+      window.postMessage(
+        {
+          source: EXTENSION_SOURCE_FROM_PAGE,
+          type: "disconnect",
+          sessionId: extensionSessionIdRef.current,
+        },
+        window.location.origin,
+      );
+      extensionSessionIdRef.current = null;
+      extensionConnectedRef.current = false;
+    }
     clearTimers();
 
     if (!mountedRef.current) {
@@ -227,6 +283,7 @@ export function useBridge(
     }
 
     connectingRef.current = true;
+    connectingUrlRef.current = currentOpts.url;
     setState("connecting");
     setError(null);
     manualDisconnectRef.current = false;
@@ -299,6 +356,7 @@ export function useBridge(
         }
       }, delay);
     };
+    scheduleReconnectRef.current = scheduleReconnect;
 
     /**
      * Start ping interval with pong timeout detection
@@ -324,14 +382,55 @@ export function useBridge(
     };
 
     try {
+      const needsExtension =
+        typeof window !== "undefined" &&
+        window.location.protocol === "https:" &&
+        currentOpts.url.startsWith("ws://");
+
+      if (needsExtension) {
+        transportRef.current = "extension";
+        const sessionId = `bridge-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        extensionSessionIdRef.current = sessionId;
+        extensionConnectedRef.current = false;
+
+        window.postMessage(
+          {
+            source: EXTENSION_SOURCE_FROM_PAGE,
+            type: "connect",
+            sessionId,
+            url: currentOpts.url,
+          },
+          window.location.origin,
+        );
+
+        connectionTimeoutRef.current = setTimeout(() => {
+          if (extensionConnectedRef.current) return;
+          connectingRef.current = false;
+          connectingUrlRef.current = null;
+          if (mountedRef.current) {
+            setState("error");
+            setError(
+              "Connection timed out — install the ProPulse Chrome bridge extension or run the app locally",
+            );
+            scheduleReconnect(reconnectCountRef.current);
+          }
+        }, currentOpts.connectionTimeout);
+        return;
+      }
+
+      transportRef.current = "ws";
       const ws = new WebSocket(currentOpts.url);
       wsRef.current = ws;
 
       // Set connection timeout
       connectionTimeoutRef.current = setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) {
+        if (
+          wsRef.current === ws &&
+          ws.readyState === WebSocket.CONNECTING
+        ) {
           ws.close();
           connectingRef.current = false;
+          connectingUrlRef.current = null;
           if (mountedRef.current) {
             setState("error");
             setError(
@@ -345,12 +444,13 @@ export function useBridge(
       }, currentOpts.connectionTimeout);
 
       ws.onopen = () => {
-        connectingRef.current = false;
-
-        if (!mountedRef.current) {
+        if (!mountedRef.current || wsRef.current !== ws) {
           ws.close();
           return;
         }
+
+        connectingRef.current = false;
+        connectingUrlRef.current = null;
 
         clearTimers();
         setState("connected");
@@ -362,11 +462,16 @@ export function useBridge(
         startPing();
 
         // Subscribe to rig updates
+        if (currentOpts.authToken) {
+          send("hello", { auth_token: currentOpts.authToken });
+        }
         send("bridge.subscribe", { topics: ["rig.update"] });
       };
 
       ws.onclose = (event) => {
+        if (wsRef.current !== ws) return;
         connectingRef.current = false;
+        connectingUrlRef.current = null;
         clearTimers();
         wsRef.current = null;
 
@@ -392,6 +497,7 @@ export function useBridge(
       };
 
       ws.onerror = () => {
+        if (wsRef.current !== ws) return;
         connectingRef.current = false;
         // Error will be followed by onclose, so just update error state
         if (mountedRef.current) {
@@ -402,7 +508,7 @@ export function useBridge(
       };
 
       ws.onmessage = (event) => {
-        if (!mountedRef.current) {
+        if (!mountedRef.current || wsRef.current !== ws) {
           return;
         }
 
@@ -429,6 +535,7 @@ export function useBridge(
       };
     } catch {
       connectingRef.current = false;
+      connectingUrlRef.current = null;
       setState("error");
       setError(
         "Could not connect to the bridge. If you're on a corporate network, your firewall may be blocking local connections.",
@@ -445,11 +552,24 @@ export function useBridge(
   const disconnect = useCallback(() => {
     manualDisconnectRef.current = true;
     connectingRef.current = false;
+    connectingUrlRef.current = null;
     clearTimers();
 
     if (wsRef.current) {
       wsRef.current.close(1000, "Manual disconnect");
       wsRef.current = null;
+    }
+    extensionConnectedRef.current = false;
+    if (extensionSessionIdRef.current) {
+      window.postMessage(
+        {
+          source: EXTENSION_SOURCE_FROM_PAGE,
+          type: "disconnect",
+          sessionId: extensionSessionIdRef.current,
+        },
+        window.location.origin,
+      );
+      extensionSessionIdRef.current = null;
     }
 
     setState("disconnected");
@@ -458,12 +578,104 @@ export function useBridge(
     setReconnectIn(null);
   }, [clearTimers]);
 
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (!mountedRef.current || event.source !== window) return;
+      if (!event.data || typeof event.data !== "object") return;
+
+      const message = event.data as {
+        source?: string;
+        type?: string;
+        sessionId?: string;
+        code?: number;
+        message?: string;
+        text?: string;
+      };
+      if (message.source !== EXTENSION_SOURCE_TO_PAGE) return;
+      if (
+        !message.sessionId ||
+        message.sessionId !== extensionSessionIdRef.current
+      ) {
+        return;
+      }
+
+      if (message.type === "open") {
+        connectingRef.current = false;
+        connectingUrlRef.current = null;
+        extensionConnectedRef.current = true;
+        clearTimers();
+        setState("connected");
+        setError(null);
+        setReconnectCount(0);
+        setReconnectIn(null);
+        lastCloseCodeRef.current = null;
+        fatalRetryCountRef.current = 0;
+        if (optsRef.current.authToken) {
+          send("hello", { auth_token: optsRef.current.authToken });
+        }
+        send("bridge.subscribe", { topics: ["rig.update"] });
+        return;
+      }
+
+      if (message.type === "close") {
+        connectingRef.current = false;
+        connectingUrlRef.current = null;
+        extensionConnectedRef.current = false;
+        extensionSessionIdRef.current = null;
+        clearTimers();
+        if (manualDisconnectRef.current) {
+          setState("disconnected");
+          return;
+        }
+        setState("disconnected");
+        const code = message.code ?? 1006;
+        setError(closeCodeMessage(code));
+        if (optsRef.current.autoReconnect) {
+          scheduleReconnectRef.current(reconnectCountRef.current, code);
+        }
+        return;
+      }
+
+      if (message.type === "error") {
+        setError(message.message ?? "Chrome bridge extension connection error");
+        return;
+      }
+
+      if (message.type === "message" && typeof message.text === "string") {
+        try {
+          const parsed = JSON.parse(message.text) as BridgeMessage;
+          setLastMessage(parsed);
+          if (parsed.type === "bridge.pong") {
+            if (pongTimeoutRef.current) {
+              clearTimeout(pongTimeoutRef.current);
+              pongTimeoutRef.current = null;
+            }
+            return;
+          }
+          if (parsed.type === "bridge.ping") {
+            send("bridge.pong", { timestamp: Date.now() });
+          }
+        } catch {
+          // Ignore malformed messages from the local service.
+        }
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [clearTimers, send]);
+
   // Track component mount lifecycle
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       connectingRef.current = false;
+      connectingUrlRef.current = null;
       clearTimers();
       if (wsRef.current) {
         // Close if OPEN or still CONNECTING to prevent orphaned sockets
@@ -476,6 +688,18 @@ export function useBridge(
         }
         wsRef.current = null;
       }
+      extensionConnectedRef.current = false;
+      if (extensionSessionIdRef.current) {
+        window.postMessage(
+          {
+            source: EXTENSION_SOURCE_FROM_PAGE,
+            type: "disconnect",
+            sessionId: extensionSessionIdRef.current,
+          },
+          window.location.origin,
+        );
+        extensionSessionIdRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -486,7 +710,11 @@ export function useBridge(
 
     function handleVisibilityChange() {
       if (document.visibilityState !== "visible") return;
-      if (!wsRef.current || manualDisconnectRef.current) return;
+      const hasTransport =
+        (transportRef.current === "extension" &&
+          extensionConnectedRef.current) ||
+        (transportRef.current === "ws" && wsRef.current !== null);
+      if (!hasTransport || manualDisconnectRef.current) return;
 
       // Tab just woke up — probe the socket immediately
       const alive = send("bridge.ping", { timestamp: Date.now() });
@@ -496,7 +724,19 @@ export function useBridge(
           wsRef.current.close(4000, "Tab wake-up: socket dead");
           wsRef.current = null;
         }
-        connect();
+        if (extensionSessionIdRef.current) {
+          window.postMessage(
+            {
+              source: EXTENSION_SOURCE_FROM_PAGE,
+              type: "disconnect",
+              sessionId: extensionSessionIdRef.current,
+            },
+            window.location.origin,
+          );
+          extensionSessionIdRef.current = null;
+          extensionConnectedRef.current = false;
+        }
+        connectRef.current();
       }
     }
 
@@ -514,7 +754,13 @@ export function useBridge(
       disconnect();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [enabled, opts.url]);
+
+  useEffect(() => {
+    if (state === "connected" && opts.authToken) {
+      send("hello", { auth_token: opts.authToken });
+    }
+  }, [opts.authToken, send, state]);
 
   return {
     state,
@@ -523,6 +769,7 @@ export function useBridge(
     error,
     lastMessage,
     send,
+    sendRequest,
     connect,
     disconnect,
     reconnectCount,

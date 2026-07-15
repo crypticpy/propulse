@@ -11,11 +11,19 @@
  * - S-meter visualization
  */
 
-import { useState, useCallback, useEffect, memo } from "react";
+import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { useRigStore } from "@/stores/rigStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useProfileStore } from "@/stores/profileStore";
 import { formatFrequency } from "@/types/bridge";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
+import { useShallow } from "zustand/react/shallow";
+import type { BridgeMessage } from "@/types/bridge";
+import {
+  getCredential,
+  isUnlocked,
+  saveCredential,
+} from "@/lib/db/credentialStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -75,6 +83,8 @@ interface CATSettingsProps {
   className?: string;
   /** Optional bridge send function for rig:test / rig.connect */
   bridgeSend?: <T>(type: string, payload: T) => boolean;
+  /** Bridge request sender that exposes the correlation ID */
+  bridgeSendRequest?: <T>(type: string, payload: T) => string | null;
   /** Optional bridge connection state */
   bridgeConnected?: boolean;
   /** Whether the ProPulse Bridge is enabled */
@@ -82,12 +92,13 @@ interface CATSettingsProps {
   /** Callback to toggle bridge enabled state */
   onBridgeEnabledChange?: (enabled: boolean) => void;
   /** Last message from bridge (for device scan results) */
-  lastMessage?: { type: string; payload?: unknown } | null;
+  lastMessage?: BridgeMessage<unknown> | null;
 }
 
 export const CATSettings = memo(function CATSettings({
   className = "",
   bridgeSend,
+  bridgeSendRequest,
   bridgeConnected = false,
   bridgeEnabled = false,
   onBridgeEnabledChange,
@@ -108,7 +119,7 @@ export const CATSettings = memo(function CATSettings({
   } = useRigStore();
 
   // Read persisted config from settingsStore as initial values
-  const savedConfig = useSettingsStore((s) => ({
+  const savedConfig = useSettingsStore(useShallow((s) => ({
     catBackend: s.catBackend,
     hamlibHost: s.catHamlibHost,
     hamlibPort: s.catHamlibPort,
@@ -117,11 +128,16 @@ export const CATSettings = memo(function CATSettings({
     flrigPort: s.catFlrigPort,
     icomSerialPort: s.catIcomSerialPort,
     icomBaudRate: s.catIcomBaudRate,
+    icomRadioAddress: s.catIcomRadioAddress,
     icomNetworkHost: s.catIcomNetworkHost,
     icomNetworkUsername: s.catIcomNetworkUsername,
     icomNetworkPassword: s.catIcomNetworkPassword,
-  }));
+    pttLockout: s.catPttLockout,
+  })));
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
+  const lastCredentialUnlock = useProfileStore(
+    (state) => state.lastCredentialUnlock,
+  );
 
   // Local form state (initialized from persisted store)
   const [selectedBackend, setSelectedBackend] = useState<CATBackend>(() =>
@@ -134,10 +150,10 @@ export const CATSettings = memo(function CATSettings({
   const [civPort, setCivPort] = useState(String(savedConfig.civPort));
   const [flrigHost, setFlrigHost] = useState(savedConfig.flrigHost);
   const [flrigPort, setFlrigPort] = useState(String(savedConfig.flrigPort));
-  const [pttLockout, setPttLockout] = useState(false);
   const [testStatus, setTestStatus] = useState<
     "idle" | "testing" | "success" | "error"
   >("idle");
+  const [testRequestId, setTestRequestId] = useState<string | null>(null);
 
   // ICOM Direct (serial) state
   const [icomSerialPorts, setIcomSerialPorts] = useState<DiscoveredPort[]>([]);
@@ -147,8 +163,13 @@ export const CATSettings = memo(function CATSettings({
   const [icomBaudRate, setIcomBaudRate] = useState(
     String(savedConfig.icomBaudRate),
   );
+  const [icomRadioAddress, setIcomRadioAddress] = useState(
+    `0x${savedConfig.icomRadioAddress.toString(16).toUpperCase()}`,
+  );
   const [icomModelDisplay, setIcomModelDisplay] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [scanRequestId, setScanRequestId] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   // ICOM Network (RS-BA1) state
   const [icomNetHost, setIcomNetHost] = useState(savedConfig.icomNetworkHost);
@@ -158,25 +179,179 @@ export const CATSettings = memo(function CATSettings({
   const [icomNetPass, setIcomNetPass] = useState(
     savedConfig.icomNetworkPassword,
   );
+  const [credentialMessage, setCredentialMessage] = useState<string | null>(
+    null,
+  );
+  const scanTimeoutRef = useRef<number | null>(null);
+  const testTimeoutRef = useRef<number | null>(null);
+  const statusResetTimeoutRef = useRef<number | null>(null);
+
+  const clearRequestTimeout = useCallback((kind: "scan" | "test") => {
+    const ref = kind === "scan" ? scanTimeoutRef : testTimeoutRef;
+    if (ref.current !== null) {
+      window.clearTimeout(ref.current);
+      ref.current = null;
+    }
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearRequestTimeout("scan");
+      clearRequestTimeout("test");
+      if (statusResetTimeoutRef.current !== null) {
+        window.clearTimeout(statusResetTimeoutRef.current);
+      }
+    },
+    [clearRequestTimeout],
+  );
+
+  const saveIcomCredentialIfPossible = useCallback(() => {
+    if (!icomNetPass) return;
+    updatePreferences({
+      catIcomNetworkUsername: icomNetUser,
+      catIcomNetworkPassword: icomNetPass,
+    });
+    if (!isUnlocked()) {
+      setCredentialMessage(
+        "Credential vault is locked. The password is available only for this session until the vault is unlocked.",
+      );
+      return;
+    }
+    void saveCredential("icom-network", icomNetUser, icomNetPass)
+      .then(() => setCredentialMessage("Password saved in the encrypted credential vault."))
+      .catch((error: unknown) =>
+        setCredentialMessage(
+          error instanceof Error ? error.message : "Unable to save credential",
+        ),
+      );
+  }, [icomNetPass, icomNetUser, updatePreferences]);
+
+  useEffect(() => {
+    if (!isUnlocked()) {
+      if (savedConfig.icomNetworkPassword) saveIcomCredentialIfPossible();
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        if (savedConfig.icomNetworkPassword) {
+          await saveCredential(
+            "icom-network",
+            savedConfig.icomNetworkUsername,
+            savedConfig.icomNetworkPassword,
+          );
+          if (!cancelled) {
+            setCredentialMessage(
+              "Legacy password moved to the encrypted credential vault.",
+            );
+          }
+          return;
+        }
+        const credential = await getCredential("icom-network");
+        if (!credential || cancelled) return;
+        setIcomNetUser(credential.username);
+        setIcomNetPass(credential.password);
+        updatePreferences({
+          catIcomNetworkUsername: credential.username,
+          catIcomNetworkPassword: credential.password,
+        });
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setCredentialMessage(
+            error instanceof Error ? error.message : "Unable to load credential",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    savedConfig.icomNetworkPassword,
+    savedConfig.icomNetworkUsername,
+    lastCredentialUnlock,
+    saveIcomCredentialIfPossible,
+    updatePreferences,
+  ]);
 
   // Handle devices:scan:result from bridge (daemon protocol = flat JSON, no payload wrapper)
   useEffect(() => {
     if (!lastMessage) return;
-    const msg = lastMessage as Record<string, unknown>;
-    if (msg.type === "devices:scan:result") {
+    const msg = lastMessage as unknown as Record<string, unknown>;
+    if (
+      msg.type === "devices:scan:result" &&
+      (!scanRequestId || !msg.id || msg.id === scanRequestId)
+    ) {
+      const payload =
+        typeof msg.payload === "object" && msg.payload !== null
+          ? (msg.payload as Record<string, unknown>)
+          : msg;
       const radios = (
-        Array.isArray(msg.radios) ? msg.radios : []
+        Array.isArray(payload.radios) ? payload.radios : []
       ) as DiscoveredPort[];
       setIcomSerialPorts(radios);
+      clearRequestTimeout("scan");
       setScanning(false);
+      setScanRequestId(null);
+      setScanError(null);
       // Auto-select first radio if none selected
       if (radios.length > 0 && !icomSerialPort) {
         setIcomSerialPort(radios[0].port);
         setIcomBaudRate(String(radios[0].baudRate));
+        setIcomRadioAddress(
+          `0x${radios[0].radioAddress.toString(16).toUpperCase()}`,
+        );
         setIcomModelDisplay(radios[0].modelName);
       }
     }
-  }, [lastMessage, icomSerialPort]);
+    if (scanRequestId && msg.id === scanRequestId && msg.type === "error") {
+      const payload =
+        typeof msg.payload === "object" && msg.payload !== null
+          ? (msg.payload as Record<string, unknown>)
+          : {};
+      clearRequestTimeout("scan");
+      setScanning(false);
+      setScanRequestId(null);
+      setScanError(
+        typeof payload.message === "string"
+          ? payload.message
+          : "Radio scan failed",
+      );
+    }
+    if (
+      testStatus === "testing" &&
+      testRequestId &&
+      msg.id === testRequestId
+    ) {
+      const payload =
+        typeof msg.payload === "object" && msg.payload !== null
+          ? (msg.payload as Record<string, unknown>)
+          : {};
+      if (msg.type === "rig:test.ack" && payload.success === true) {
+        setTestStatus("success");
+      } else if (msg.type === "error" || payload.success === false) {
+        setTestStatus("error");
+      } else {
+        return;
+      }
+      clearRequestTimeout("test");
+      if (statusResetTimeoutRef.current !== null) {
+        window.clearTimeout(statusResetTimeoutRef.current);
+      }
+      setTestRequestId(null);
+      statusResetTimeoutRef.current = window.setTimeout(
+        () => setTestStatus("idle"),
+        3000,
+      );
+    }
+  }, [
+    lastMessage,
+    icomSerialPort,
+    scanRequestId,
+    testRequestId,
+    testStatus,
+    clearRequestTimeout,
+  ]);
 
   // Connection status
   const connectionStatus = connected
@@ -201,15 +376,24 @@ export const CATSettings = memo(function CATSettings({
 
   // Scan for ICOM serial devices when backend is icom-serial
   const handleScanPorts = useCallback(() => {
-    if (!bridgeSend) return;
+    if (!bridgeSendRequest) return;
     setScanning(true);
-    bridgeSend("devices:scan", {});
-
-    // The result comes back asynchronously via the bridge protocol.
-    // We listen for it via a one-time handler on the bridge message bus.
-    // For now, set a timeout to reset the scanning state.
-    setTimeout(() => setScanning(false), 5000);
-  }, [bridgeSend]);
+    setScanError(null);
+    const id = bridgeSendRequest("devices:scan", {});
+    if (!id) {
+      setScanning(false);
+      setScanError("Bridge is not connected");
+      return;
+    }
+    setScanRequestId(id);
+    clearRequestTimeout("scan");
+    scanTimeoutRef.current = window.setTimeout(() => {
+      setScanning(false);
+      setScanRequestId((current) => (current === id ? null : current));
+      setScanError("Radio scan timed out");
+      scanTimeoutRef.current = null;
+    }, 12_000);
+  }, [bridgeSendRequest, clearRequestTimeout]);
 
   // Backend change handler — also persist to settingsStore
   const handleBackendChange = useCallback(
@@ -246,7 +430,28 @@ export const CATSettings = memo(function CATSettings({
   // Toggle CAT enabled
   const handleCATToggle = useCallback(
     (enabled: boolean) => {
+      if (enabled && selectedBackend === "icom-network") {
+        saveIcomCredentialIfPossible();
+      }
       setCATEnabled(enabled);
+      const parsedRadioAddress = Number(icomRadioAddress);
+      updatePreferences({
+        catHamlibHost: hamlibHost,
+        catHamlibPort: Number(hamlibPort),
+        catFlrigHost: flrigHost,
+        catFlrigPort: Number(flrigPort),
+        catIcomSerialPort: icomSerialPort,
+        catIcomBaudRate: Number(icomBaudRate),
+        catIcomRadioAddress:
+          Number.isInteger(parsedRadioAddress) &&
+          parsedRadioAddress >= 0 &&
+          parsedRadioAddress <= 0xff
+            ? parsedRadioAddress
+            : savedConfig.icomRadioAddress,
+        catIcomNetworkHost: icomNetHost,
+        catIcomNetworkUsername: icomNetUser,
+        catIcomNetworkPassword: icomNetPass,
+      });
       if (enabled && bridgeSend) {
         let config: Record<string, unknown>;
         if (selectedBackend === "hamlib") {
@@ -266,6 +471,12 @@ export const CATSettings = memo(function CATSettings({
             backend: "icom-serial",
             serialPort: icomSerialPort,
             baudRate: Number(icomBaudRate),
+            radioAddress:
+              Number.isInteger(parsedRadioAddress) &&
+              parsedRadioAddress >= 0 &&
+              parsedRadioAddress <= 0xff
+                ? parsedRadioAddress
+                : savedConfig.icomRadioAddress,
           };
         } else if (selectedBackend === "icom-network") {
           config = {
@@ -294,16 +505,27 @@ export const CATSettings = memo(function CATSettings({
       flrigPort,
       icomSerialPort,
       icomBaudRate,
+      icomRadioAddress,
       icomNetHost,
       icomNetUser,
       icomNetPass,
+      savedConfig.icomRadioAddress,
+      saveIcomCredentialIfPossible,
+      updatePreferences,
     ],
   );
 
   // Test connection
   const handleTestConnection = useCallback(() => {
     if (!bridgeSend) return;
+    if (statusResetTimeoutRef.current !== null) {
+      window.clearTimeout(statusResetTimeoutRef.current);
+      statusResetTimeoutRef.current = null;
+    }
     setTestStatus("testing");
+    if (selectedBackend === "icom-network") {
+      saveIcomCredentialIfPossible();
+    }
 
     let config: Record<string, unknown>;
     if (selectedBackend === "hamlib") {
@@ -319,6 +541,7 @@ export const CATSettings = memo(function CATSettings({
         backend: "icom-serial",
         serialPort: icomSerialPort,
         baudRate: Number(icomBaudRate),
+        radioAddress: Number(icomRadioAddress),
       };
     } else if (selectedBackend === "icom-network") {
       config = {
@@ -331,15 +554,30 @@ export const CATSettings = memo(function CATSettings({
       config = { backend: "auto" };
     }
 
-    const success = bridgeSend("rig:test", config);
-    // Simulate test result since we don't have real response handling here
-    setTimeout(() => {
-      setTestStatus(success && bridgeConnected ? "success" : "error");
-      setTimeout(() => setTestStatus("idle"), 3000);
-    }, 1500);
+    const requestId = bridgeSendRequest?.("rig:test", config) ?? null;
+    if (!requestId) {
+      setTestStatus("error");
+      setTestRequestId(null);
+      statusResetTimeoutRef.current = window.setTimeout(
+        () => setTestStatus("idle"),
+        3000,
+      );
+      return;
+    }
+    setTestRequestId(requestId);
+    clearRequestTimeout("test");
+    testTimeoutRef.current = window.setTimeout(() => {
+      setTestRequestId((current) => (current === requestId ? null : current));
+      setTestStatus("error");
+      statusResetTimeoutRef.current = window.setTimeout(
+        () => setTestStatus("idle"),
+        3000,
+      );
+      testTimeoutRef.current = null;
+    }, 12_000);
   }, [
     bridgeSend,
-    bridgeConnected,
+    bridgeSendRequest,
     selectedBackend,
     hamlibHost,
     hamlibPort,
@@ -347,9 +585,12 @@ export const CATSettings = memo(function CATSettings({
     flrigPort,
     icomSerialPort,
     icomBaudRate,
+    icomRadioAddress,
     icomNetHost,
     icomNetUser,
     icomNetPass,
+    saveIcomCredentialIfPossible,
+    clearRequestTimeout,
   ]);
 
   const sMeterPercent = sMeterToPercent(sMeter);
@@ -584,6 +825,9 @@ export const CATSettings = memo(function CATSettings({
                   if (match) {
                     setIcomBaudRate(String(match.baudRate));
                     setIcomModelDisplay(match.modelName);
+                    setIcomRadioAddress(
+                      `0x${match.radioAddress.toString(16).toUpperCase()}`,
+                    );
                   }
                 }}
                 disabled={connected}
@@ -605,7 +849,7 @@ export const CATSettings = memo(function CATSettings({
             <button
               type="button"
               onClick={handleScanPorts}
-              disabled={connected || scanning || !bridgeSend}
+              disabled={connected || scanning || !bridgeSendRequest}
               className="px-3 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10
                          text-gray-300 hover:bg-white/10 transition-colors
                          disabled:opacity-50 disabled:cursor-not-allowed"
@@ -613,9 +857,12 @@ export const CATSettings = memo(function CATSettings({
               {scanning ? "Scanning..." : "Scan"}
             </button>
           </div>
+          {scanError ? (
+            <div className="text-xs text-alert-red">{scanError}</div>
+          ) : null}
 
-          {/* Baud rate selector */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Baud rate and CI-V address */}
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <label
                 htmlFor="icom-baud"
@@ -637,6 +884,25 @@ export const CATSettings = memo(function CATSettings({
                 <option value="19200">19200</option>
                 <option value="115200">115200</option>
               </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="icom-radio-address"
+                className="block text-xs text-gray-400 mb-1"
+              >
+                CI-V Address
+              </label>
+              <input
+                id="icom-radio-address"
+                value={icomRadioAddress}
+                onChange={(e) => setIcomRadioAddress(e.target.value)}
+                disabled={connected}
+                placeholder="0x94"
+                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
+                           text-white text-sm font-mono focus:outline-none focus:border-plasma-orange/50
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              />
             </div>
 
             {/* Radio model display (auto-detected) */}
@@ -729,6 +995,11 @@ export const CATSettings = memo(function CATSettings({
             RS-BA1 network connection. Requires ICOM RS-BA1 IP Remote Control
             Software running on the radio or gateway.
           </p>
+          {credentialMessage ? (
+            <p className="text-[11px] text-caution-yellow">
+              {credentialMessage}
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -767,12 +1038,14 @@ export const CATSettings = memo(function CATSettings({
       {/* PTT Lockout */}
       <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-2">
         <ToggleSwitch
-          checked={pttLockout}
-          onChange={setPttLockout}
+          checked={savedConfig.pttLockout}
+          onChange={(checked) =>
+            updatePreferences({ catPttLockout: checked })
+          }
           label="PTT Safety Lockout"
           description="Prevent accidental transmissions via CAT control"
         />
-        {pttLockout && (
+        {savedConfig.pttLockout && (
           <p className="pl-[52px] text-xs text-caution-yellow">
             PTT commands via CAT are blocked. Manual PTT on the radio still
             works.

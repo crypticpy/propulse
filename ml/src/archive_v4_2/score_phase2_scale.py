@@ -40,6 +40,7 @@ from phase2_core import (  # noqa: E402
     decide_100m,
     is_robust_b2_win,
     scale_workset,
+    select_final_candidate,
     select_50m_components,
     validate_config,
 )
@@ -817,7 +818,12 @@ def main() -> None:
         for name in candidate_names
     }
     hundred_million = None
+    final_candidate = None
     if scale == 50_000_000:
+        final_candidate = select_final_candidate(
+            selection_rows,
+            float(advancement["maximum_relative_gap_to_b2"]),
+        )
         hundred_million = {}
         for row in component_rows:
             evidence = {
@@ -868,6 +874,7 @@ def main() -> None:
             "learning_rule": advancement["learning_rule"],
         },
         "hundred_million_decision": hundred_million,
+        "final_candidate_selection": final_candidate,
         "training_result": training_path.relative_to(ROOT).as_posix(),
         "cohort_manifest": manifest_path.relative_to(ROOT).as_posix(),
         "compute": {

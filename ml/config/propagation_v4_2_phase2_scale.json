@@ -110,6 +110,12 @@
     "maximum_relative_gap_to_b2": 0.0025,
     "minimum_20m_to_50m_relative_improvement_for_100m": 0.01
   },
+  "final_selection": {
+    "primary_rule": "lowest evaluation Brier among candidates that beat B2 in aggregate and both months with paired-day upper 95% below zero",
+    "fallback_rule": "lowest evaluation Brier among candidates that improve their own 20M version in aggregate and both months with paired-day upper 95% below zero and remain within 0.25% relative of B2",
+    "tie_break": "candidate identifier ascending",
+    "no_eligible_candidate": "stop before December access"
+  },
   "compute": {
     "required_profile": "m5",
     "external_root": "/Volumes/Projects/PropulseML",

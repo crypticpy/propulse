@@ -273,3 +273,39 @@ def select_training_backend(
         "memory_scale_factor": scale_factor,
         "workers": workers,
     }
+
+
+def select_final_candidate(
+    rows: list[Mapping[str, Any]], maximum_relative_gap: float
+) -> dict[str, Any] | None:
+    allowed = {*EXPECTED_CANDIDATES, "A6_recent_recency_blend"}
+    names = [str(row["candidate"]) for row in rows]
+    if len(names) != len(set(names)) or not names or any(
+        name not in allowed for name in names
+    ):
+        raise Phase2Error("invalid final candidate inventory")
+    robust = [row for row in rows if is_robust_b2_win(row)]
+    basis = "robust_b2_win"
+    eligible = robust
+    if not eligible:
+        basis = "robust_20m_learning_with_b2_proximity"
+        eligible = [
+            row
+            for row in rows
+            if float(row["delta_vs_20m"]) < 0
+            and all(float(value) < 0 for value in row["month_deltas_vs_20m"].values())
+            and float(row["bootstrap_upper_vs_20m"]) < 0
+            and float(row["relative_gap_to_b2"]) <= maximum_relative_gap
+        ]
+    if not eligible:
+        return None
+    ordered = sorted(
+        eligible,
+        key=lambda row: (float(row["evaluation_brier"]), str(row["candidate"])),
+    )
+    return {
+        "candidate": str(ordered[0]["candidate"]),
+        "basis": basis,
+        "eligible_candidates": [str(row["candidate"]) for row in ordered],
+        "evaluation_brier": float(ordered[0]["evaluation_brier"]),
+    }

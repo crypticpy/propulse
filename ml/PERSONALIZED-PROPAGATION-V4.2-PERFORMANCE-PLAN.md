@@ -298,6 +298,15 @@ Candidate families expected to be most useful are:
   and
 - a physics hybrid only when its inputs are available at inference.
 
+After 50M scoring, the final development candidate is selected by a frozen
+rule. First choose the lowest October/November Brier among candidates that beat
+B2 in aggregate and in both months with a paired-day upper 95% bound below
+zero. If that set is empty, choose the lowest Brier among candidates that
+improve their own 20M version by the same aggregate, both-month, and paired-day
+rule while remaining within 0.25% relative Brier of B2. Candidate identifier is
+the deterministic tie-break. A6 participates only when both A4 and A5 were
+trained at 50M. If no candidate is eligible, Phase 3 stops before December.
+
 ## Phase 3: candidate packaging and product contract
 
 Before December access, freeze:

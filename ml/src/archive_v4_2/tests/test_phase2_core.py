@@ -17,6 +17,7 @@ from phase2_core import (  # noqa: E402
     scale_workset,
     select_training_backend,
     select_50m_components,
+    select_final_candidate,
     training_months,
     validate_config,
 )
@@ -188,6 +189,56 @@ class Phase2CoreTests(unittest.TestCase):
         in_memory["peak_rss_gb"] = 20
         decision = select_training_backend(external, in_memory, policy, 2)
         self.assertEqual(decision["selected_backend"], "external_memory_quantile")
+
+    def test_final_selection_prefers_robust_b2_win(self) -> None:
+        robust = self.row(
+            "A4_recent_cycle",
+            b2=-0.0001,
+            five=-0.0002,
+            upper_b2=-1e-5,
+            upper_five=-1e-5,
+        )
+        robust.update(
+            {
+                "delta_vs_20m": -0.0002,
+                "month_deltas_vs_20m": {"2024-10": -0.0002, "2024-11": -0.0002},
+                "bootstrap_upper_vs_20m": -1e-5,
+            }
+        )
+        learning = self.row(
+            "A5_recency_weighted",
+            b2=0.00001,
+            five=-0.0003,
+            upper_b2=1e-5,
+            upper_five=-1e-5,
+        )
+        learning.update(
+            {
+                "delta_vs_20m": -0.0003,
+                "month_deltas_vs_20m": {"2024-10": -0.0003, "2024-11": -0.0003},
+                "bootstrap_upper_vs_20m": -1e-5,
+            }
+        )
+        selected = select_final_candidate([learning, robust], 0.0025)
+        self.assertEqual(selected["candidate"], "A4_recent_cycle")
+        self.assertEqual(selected["basis"], "robust_b2_win")
+
+    def test_final_selection_stops_without_eligible_candidate(self) -> None:
+        row = self.row(
+            "A2_long_natural",
+            b2=0.001,
+            five=0.001,
+            upper_b2=0.001,
+            upper_five=0.001,
+        )
+        row.update(
+            {
+                "delta_vs_20m": 0.001,
+                "month_deltas_vs_20m": {"2024-10": 0.001, "2024-11": 0.001},
+                "bootstrap_upper_vs_20m": 0.001,
+            }
+        )
+        self.assertIsNone(select_final_candidate([row], 0.0025))
 
 
 if __name__ == "__main__":

@@ -270,6 +270,13 @@ def main() -> None:
             set(decisions) == set(candidate_names),
             sorted(decisions),
         )
+        final_candidate = evaluation["final_candidate_selection"]
+        add(
+            "final selection stops or uses an evaluated candidate",
+            final_candidate is None
+            or str(final_candidate["candidate"]) in selection_names,
+            final_candidate,
+        )
     add(
         "memory budget",
         bool(evaluation["compute"]["memory_limit_respected"])

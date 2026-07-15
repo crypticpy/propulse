@@ -12,7 +12,7 @@
 
 > Phase 2 status, 2026-07-15: all seven deterministic 20M cohort artifacts are
 > complete and checksum-manifested. A2 has completed all three rolling folds;
-> A4 training is in progress; A5, October/November scoring, and the 50M
+> A4 F1/F2 are complete and A4 F3 is pending; A5, October/November scoring, and the 50M
 > selection remain pending. December 2024 and all 2025 outcomes remain closed.
 
 ## Executive decision
@@ -433,8 +433,8 @@ recorded per fold together with the XGBoost OpenMP/CUDA build flags; it was
 registered before October/November scoring and does not alter any selection
 outcome.
 
-The two-worker path must pass unit tests and a bounded M5 execution check before
-the selected 50M folds launch. A rented NVIDIA GPU remains an option only after
+The two-worker path passed its real macOS spawn-process test and all 41 V4.2
+unit tests. A rented NVIDIA GPU remains an option only after
 the 20M evidence identifies the advancing candidates and a fixed CPU-versus-GPU
 reproducibility benchmark shows material wall-time value. It is not needed to
 change model quality by itself.
@@ -446,10 +446,22 @@ features, weights, parameters, seed, and first 50 trees are fit in separate
 processes with `ExtMemQuantileDMatrix` and iterator-fed `QuantileDMatrix`.
 October and November are not read. The streamed in-memory quantile backend may
 advance for 50M only if it is at least 1.5 times faster, validation log loss is
-within `0.000001`, and two measured worker peaks sum to at most 80 GB. This does
+within `0.000001`, and the two-worker 50M peak projected linearly from the
+measured 20M RSS is at most 80 GB. This does
 not materialize the raw multi-month table in RAM: Parquet remains streamed in
 batches and only XGBoost's compressed quantile representation is retained. If
 any gate fails, 50M remains on external memory.
+
+The benchmark passed every gate. External memory required `208.9943` seconds
+for construction plus 50 trees; streamed in-memory quantile storage required
+`80.2813` seconds, a `2.6033x` end-to-end speedup. Boosting alone improved from
+`167.6585` to `22.8470` seconds (`7.3383x`). Both arms produced exactly
+`0.17702686851738286` validation log loss, with zero difference at recorded
+precision. In-memory peak RSS was `14.5621` GB at 20M; the deliberately
+conservative linear two-worker 50M projection is `72.8105` GB, below the 80 GB
+benchmark limit and 96 GB hard ceiling. The frozen 50M backend is therefore
+iterator-fed `QuantileDMatrix`; 20M remains external-memory for experiment
+continuity. The decision used no October, November, December, or 2025 outcome.
 
 ## Execution checklist
 

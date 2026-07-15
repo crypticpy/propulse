@@ -131,11 +131,12 @@
         "candidate": "A4_recent_cycle",
         "fold": "F3_2024_07",
         "scale": 20000000,
+        "target_scale": 50000000,
         "fixed_boost_rounds": 50,
         "minimum_speedup_to_adopt": 1.5,
         "maximum_parallel_peak_rss_gb": 80,
         "maximum_validation_logloss_difference": 0.000001,
-        "fifty_million_backend": "pending_benchmark"
+        "fifty_million_backend": "streamed_in_memory_quantile"
       }
     }
   }

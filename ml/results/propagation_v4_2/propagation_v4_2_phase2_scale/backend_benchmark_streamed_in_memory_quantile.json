@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T16:18:50Z",
+  "scope": "training_and_early_stopping_only",
+  "backend": "streamed_in_memory_quantile",
+  "candidate": "A4_recent_cycle",
+  "fold": "F3_2024_07",
+  "scale": 20000000,
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "train_rows": 20000000,
+  "validation_rows": 5000000,
+  "features": 91,
+  "batch_rows": 250000,
+  "boost_rounds": 50,
+  "construct_seconds": 57.43428737499926,
+  "train_seconds": 22.84697033300472,
+  "total_seconds": 80.28125770800398,
+  "final_validation_logloss": 0.17702686851738286,
+  "minimum_validation_logloss": 0.17702686851738286,
+  "peak_rss_gb": 14.562103271484375,
+  "parameters": {
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "tree_method": "hist",
+    "max_depth": 9,
+    "min_child_weight": 200,
+    "eta": 0.04,
+    "subsample": 0.85,
+    "colsample_bytree": 0.9,
+    "lambda": 8.0,
+    "alpha": 0.25,
+    "max_bin": 255,
+    "nthread": 14,
+    "seed": 20260711
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "xgboost_openmp": true,
+    "xgboost_cuda": false,
+    "xgboost_version": "3.3.0",
+    "python_version": "3.12.11",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "xgboost_build": {
+      "BUILTIN_PREFETCH_PRESENT": true,
+      "CLANG_VERSION": [
+        15,
+        0,
+        0
+      ],
+      "DEBUG": false,
+      "MM_PREFETCH_PRESENT": false,
+      "USE_CUDA": false,
+      "USE_DLOPEN_NCCL": false,
+      "USE_FEDERATED": false,
+      "USE_NCCL": false,
+      "USE_OPENMP": true,
+      "USE_RMM": false,
+      "libxgboost": "/Users/crypticpy/Projects/propulse/ml/.venv/lib/python3.12/site-packages/xgboost/lib/libxgboost.dylib"
+    }
+  },
+  "inputs": {
+    "manifest": "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json",
+    "cohort_sha256": "f4d2c4f9fa997ecdb3e8032e5b3e638800b9bd2178b957fca30b14a2331c1e4c",
+    "early_stopping_sha256": "d5d8f05f17437df5d1b04bda8fa19ba6236db2da809e13f98c2cd1aab3d3dd30"
+  }
+}

@@ -130,6 +130,22 @@ def scale_workset(
     return selected, (str(config["final_fold"]),)
 
 
+def matrix_backend(config: Mapping[str, Any], scale: int) -> str:
+    if scale == 20_000_000:
+        return "external_memory_quantile"
+    if scale != 50_000_000:
+        raise Phase2Error(f"unsupported Phase 2 scale: {scale}")
+    backend = str(
+        config["compute"]["apple_silicon"]["backend_benchmark"][
+            "fifty_million_backend"
+        ]
+    )
+    allowed = {"external_memory_quantile", "streamed_in_memory_quantile"}
+    if backend not in allowed:
+        raise Phase2Error("50M matrix backend is not frozen from the benchmark")
+    return backend
+
+
 def is_robust_b2_win(row: Mapping[str, Any]) -> bool:
     return (
         float(row["delta_vs_b2"]) < 0
@@ -234,7 +250,8 @@ def select_training_backend(
         float(external["final_validation_logloss"])
         - float(in_memory["final_validation_logloss"])
     )
-    parallel_peak = workers * float(in_memory["peak_rss_gb"])
+    scale_factor = float(policy["target_scale"]) / float(in_memory["scale"])
+    parallel_peak = workers * float(in_memory["peak_rss_gb"]) * scale_factor
     checks = {
         "minimum_speedup": speedup >= float(policy["minimum_speedup_to_adopt"]),
         "validation_logloss_parity": loss_difference
@@ -253,5 +270,6 @@ def select_training_backend(
         "speedup": speedup,
         "validation_logloss_difference": loss_difference,
         "projected_parallel_peak_rss_gb": parallel_peak,
+        "memory_scale_factor": scale_factor,
         "workers": workers,
     }

@@ -35,6 +35,7 @@ from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
     EXPECTED_FOLDS,
     Phase2Error,
+    matrix_backend,
     scale_workset,
     validate_config,
 )
@@ -144,6 +145,8 @@ def train_fold(
     early_item = manifest["early_stopping"][fold]
     cohort_path = verify_artifact(cohort_item)
     early_path = verify_artifact(early_item)
+    backend = matrix_backend(config, scale)
+    external_memory = backend == "external_memory_quantile"
     started = time.monotonic()
     cache = Path(config["compute"]["temp_root"]) / "xgboost-cache" / f"{scale}"
     cache.mkdir(parents=True, exist_ok=True)
@@ -151,20 +154,25 @@ def train_fold(
         cohort_path,
         features,
         weight_column=str(definition["weight"]),
-        cache_prefix=str(cache / f"{candidate}-{fold}-train"),
+        cache_prefix=(
+            str(cache / f"{candidate}-{fold}-train") if external_memory else None
+        ),
         batch_size=int(config["training"]["batch_rows"]),
     )
     early_iterator = ParquetDataIter(
         early_path,
         features,
         weight_column="opportunities",
-        cache_prefix=str(cache / f"{candidate}-{fold}-early"),
+        cache_prefix=(
+            str(cache / f"{candidate}-{fold}-early") if external_memory else None
+        ),
         batch_size=int(config["training"]["batch_rows"]),
     )
-    train_matrix = xgb.ExtMemQuantileDMatrix(train_iterator, max_bin=255)
-    early_matrix = xgb.ExtMemQuantileDMatrix(
-        early_iterator, max_bin=255, ref=train_matrix
+    matrix_type = (
+        xgb.ExtMemQuantileDMatrix if external_memory else xgb.QuantileDMatrix
     )
+    train_matrix = matrix_type(train_iterator, max_bin=255)
+    early_matrix = matrix_type(early_iterator, max_bin=255, ref=train_matrix)
     parameters = dict(config["training"]["parameters"])
     parameters["seed"] = int(config["seed"])
     prior_rounds = int(previous["rounds_completed"]) if previous else 0
@@ -220,6 +228,19 @@ def train_fold(
     )
     model_path = external_models / f"{candidate}_{fold}.json"
     model.save_model(model_path)
+    train_rows = int(train_matrix.num_row())
+    early_rows = int(early_matrix.num_row())
+    importance = model.get_score(importance_type="gain")
+    feature_importance = sorted(
+        [
+            {"feature": features[int(key[1:])], "gain": float(value)}
+            for key, value in importance.items()
+        ],
+        key=lambda row: row["gain"],
+        reverse=True,
+    )
+    del train_matrix, early_matrix, train_iterator, early_iterator, checkpoint
+    gc.collect()
     output: dict[str, Any] = {
         "candidate": candidate,
         "fold": fold,
@@ -227,7 +248,7 @@ def train_fold(
         "definition": definition,
         "features": features,
         "feature_count": len(features),
-        "training_mode": "external_memory_quantile",
+        "training_mode": backend,
         "execution": {
             "machine": platform.machine(),
             "xgboost_threads": training_threads,
@@ -236,8 +257,8 @@ def train_fold(
             "xgboost_openmp": bool(xgb.build_info().get("USE_OPENMP")),
             "xgboost_cuda": bool(xgb.build_info().get("USE_CUDA")),
         },
-        "train_rows": int(train_matrix.num_row()),
-        "early_stopping_rows": int(early_matrix.num_row()),
+        "train_rows": train_rows,
+        "early_stopping_rows": early_rows,
         "best_iteration": best,
         "best_score": float(combined_history[best]),
         "rounds_completed": completed_rounds,
@@ -249,6 +270,7 @@ def train_fold(
         "peak_rss_gb": max(
             float(previous["peak_rss_gb"] if previous else 0.0), peak_rss_gb()
         ),
+        "feature_importance_gain": feature_importance,
     }
     if fold == config["final_fold"]:
         calibration_item = manifest["calibration"]
@@ -276,16 +298,8 @@ def train_fold(
             }
         )
         del calibration, calibrator
-    importance = model.get_score(importance_type="gain")
-    output["feature_importance_gain"] = sorted(
-        [
-            {"feature": features[int(key[1:])], "gain": float(value)}
-            for key, value in importance.items()
-        ],
-        key=lambda row: row["gain"],
-        reverse=True,
-    )
-    del train_matrix, early_matrix, train_iterator, early_iterator, model, checkpoint
+    output["peak_rss_gb"] = max(output["peak_rss_gb"], peak_rss_gb())
+    del model
     gc.collect()
     return output
 

@@ -13,6 +13,7 @@ sys.path.insert(0, str(MODULE))
 from phase2_core import (  # noqa: E402
     Phase2Error,
     decide_100m,
+    matrix_backend,
     scale_workset,
     select_training_backend,
     select_50m_components,
@@ -118,6 +119,21 @@ class Phase2CoreTests(unittest.TestCase):
         candidates, folds = scale_workset(self.config, 20_000_000)
         self.assertEqual(len(candidates), 3)
         self.assertEqual(len(folds), 3)
+        self.assertEqual(
+            matrix_backend(self.config, 20_000_000), "external_memory_quantile"
+        )
+
+    def test_50m_backend_must_be_frozen(self) -> None:
+        self.assertEqual(
+            matrix_backend(self.config, 50_000_000),
+            "streamed_in_memory_quantile",
+        )
+        changed = json.loads(json.dumps(self.config))
+        changed["compute"]["apple_silicon"]["backend_benchmark"][
+            "fifty_million_backend"
+        ] = "pending_benchmark"
+        with self.assertRaises(Phase2Error):
+            matrix_backend(changed, 50_000_000)
 
     def test_50m_workset_uses_only_frozen_selection_and_final_fold(self) -> None:
         evaluation = {
@@ -164,12 +180,12 @@ class Phase2CoreTests(unittest.TestCase):
             **common,
             "backend": "streamed_in_memory_quantile",
             "total_seconds": 10,
-            "peak_rss_gb": 30,
+            "peak_rss_gb": 10,
         }
         policy = self.config["compute"]["apple_silicon"]["backend_benchmark"]
         decision = select_training_backend(external, in_memory, policy, 2)
         self.assertEqual(decision["selected_backend"], "streamed_in_memory_quantile")
-        in_memory["peak_rss_gb"] = 50
+        in_memory["peak_rss_gb"] = 20
         decision = select_training_backend(external, in_memory, policy, 2)
         self.assertEqual(decision["selected_backend"], "external_memory_quantile")
 

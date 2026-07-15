@@ -11,6 +11,7 @@ import { calculatePropagationIndex } from "@/components/solar/PropagationIndex";
 
 interface ConditionsPillProps {
   className?: string;
+  compact?: boolean;
 }
 
 function getScoreColor(score: number): string {
@@ -34,43 +35,46 @@ function getCategoryShort(
 ): string {
   switch (category) {
     case "excellent":
-      return "Exc";
+      return "Strong";
     case "good":
-      return "Good";
+      return "Support";
     case "fair":
-      return "Fair";
+      return "Mixed";
     case "poor":
-      return "Poor";
+      return "Disrupted";
     case "very-poor":
-      return "Bad";
+      return "Severe";
   }
 }
 
-export function ConditionsPill({ className = "" }: ConditionsPillProps) {
+export function ConditionsPill({ className = "", compact = false }: ConditionsPillProps) {
   const { data: kIndexData, isLoading: kLoading } = useKIndex();
   const { data: solarFluxData, isLoading: sfiLoading } = useSolarFlux();
 
   const currentKp = useMemo(() => {
     if (!kIndexData || kIndexData.length === 0) {
-      return 3;
+      return null;
     }
     return kIndexData[kIndexData.length - 1].kp_index;
   }, [kIndexData]);
 
   const currentSfi = useMemo(() => {
     if (!solarFluxData || solarFluxData.length === 0) {
-      return 100;
+      return null;
     }
     return solarFluxData[solarFluxData.length - 1].flux;
   }, [solarFluxData]);
 
   const indexResult = useMemo(
-    () => calculatePropagationIndex(currentSfi, currentKp, null),
+    () =>
+      currentSfi !== null && currentKp !== null
+        ? calculatePropagationIndex(currentSfi, currentKp, null)
+        : null,
     [currentSfi, currentKp],
   );
 
   const isLoading = kLoading || sfiLoading;
-  const scoreColor = getScoreColor(indexResult.score);
+  const scoreColor = indexResult ? getScoreColor(indexResult.score) : "#888899";
 
   if (isLoading) {
     return (
@@ -82,10 +86,18 @@ export function ConditionsPill({ className = "" }: ConditionsPillProps) {
     );
   }
 
+  if (!indexResult) {
+    return (
+      <div className={`px-2 py-0.5 rounded-full bg-white/10 text-xs text-gray-400 ${className}`}>
+        Global conditions unavailable
+      </div>
+    );
+  }
+
   return (
     <div
       className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/10 ${className}`}
-      title={`Propagation: ${indexResult.score}/100 - ${getCategoryShort(indexResult.category)}`}
+      title={`Global conditions heuristic: ${indexResult.score}/100 (${indexResult.evidenceCoverage}) - ${getCategoryShort(indexResult.category)}`}
     >
       {/* Mini score indicator */}
       <div
@@ -98,9 +110,11 @@ export function ConditionsPill({ className = "" }: ConditionsPillProps) {
       >
         {indexResult.score}
       </span>
-      <span className="text-xs text-gray-400">
-        {getCategoryShort(indexResult.category)}
-      </span>
+      {!compact && (
+        <span className="text-xs text-gray-400">
+          {getCategoryShort(indexResult.category)}
+        </span>
+      )}
     </div>
   );
 }

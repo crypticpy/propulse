@@ -25,9 +25,9 @@ Propulse gives amateur radio operators a single interface for monitoring solar w
 
 **Key capabilities:**
 
-- **Operational Dashboard** -- Live propagation index, band conditions with DX cluster spot counts, solar metrics, cluster pulse, log stats with 7-day activity chart, and band opening predictions -- all on the home screen
+- **Operational Dashboard** -- Transparent Global Conditions Score, heuristic band guidance with DX cluster spot counts, source-aged solar metrics, cluster pulse, log stats with 7-day activity chart, and operating projections -- all on the home screen
 - **PropSphere** -- Interactive 3D globe, 2D flat map, and azimuthal equidistant projection with live DX spot overlays, great circle paths, day/night terminator, and award overlays
-- **Solar Pulse** -- Real-time K-index, solar flux, sunspot, and Bz charts with geomagnetic storm alerts and confidence intervals
+- **Solar Pulse** -- Source-attributed Kp, solar flux, X-ray, Bz, alert, forecast, and imagery products with explicit freshness and outage states
 - **DX Wizard** -- Enter a target location and get recommended band, power, frequency, and operating tips based on propagation physics with antenna gain modeling
 - **Contest Engine** -- 19 built-in contest definitions with real-time scoring, dupe checking, multiplier tracking, rate sheet, and Cabrillo export
 - **Operator Profile** -- 4-tab profile page with completeness ring, callsign auto-fill, markdown bio, social links, awards progress rings (DXCC/WAS/WAZ), activity heatmap, and QR code sharing
@@ -45,9 +45,9 @@ Propulse gives amateur radio operators a single interface for monitoring solar w
 
 The home page is a live operational view designed for at-a-glance situational awareness:
 
-- Composite Propagation Index (0-100) with animated SVG gauge and score breakdown
+- Transparent Global Conditions Score with evidence coverage and disclosed inputs
 - HF Band Conditions table with live DX cluster spot counts per band
-- Primary solar metrics: SFI, K-index, SSN, A-index, IMF Bz
+- Primary solar metrics: observed SFI, official planetary Kp, monthly SSN, and IMF Bz
 - Cluster Pulse showing spot rate, median age, and peak band from the DX cluster
 - Log Stats with today/week/month/DXCC/total and 7-day activity bar chart
 - Band opening predictions based on current solar conditions
@@ -66,21 +66,19 @@ The home page is a live operational view designed for at-a-glance situational aw
 - Great circle path rendering with bearing and distance
 - MUF overlay, Sporadic-E visualization, and Aurora (OVATION) layer
 - Satellite tracking with orbit traces
-- Band conditions panel with propagation forecasts
+- Band conditions panel with path-aware propagation projections
 - Time scrubber to visualize propagation changes throughout the day
 - Pin markers, spot clustering, compass rose, and mini-map navigator
 - Contest overlay engine showing needed multipliers on the map
 
 ### Solar Pulse -- Space Weather Dashboard
 
-- Real-time K-index, A-index, solar flux, and sunspot number charts
-- Bz (interplanetary magnetic field) monitoring with sparkline trends
-- Solar flare probability and geomagnetic storm alerts with severity classification
-- Composite Propagation Index (0-100) with animated gauge and plain-language summary
-- Confidence intervals on propagation predictions
-- SOHO/SDO animated solar image player
-- Model accuracy panel (spot-model correlation)
-- Interactive tooltips explaining every metric (40+ definitions)
+- Official planetary Kp observations, estimates, and predictions kept visibly distinct
+- Chronological observed solar-flux, Bz, and monthly sunspot histories
+- Official SWPC scales, alerts, flare probabilities, proton flux, X-ray flux, Dst, and D-RAP context
+- Transparent general HF guidance based only on available evidence—never presented as a station-to-station forecast
+- Cache-stable NOAA and NASA imagery with retry, age limits, and bounded on-demand animations
+- Per-widget observation time, provider attribution, refresh, stale-data, partial-data, and unavailable states
 
 ### DX Wizard -- Propagation Analysis
 
@@ -137,7 +135,7 @@ Full equipment inventory, station presets, and RF performance analysis:
 
 Comprehensive configuration with 5 sections:
 
-- Preferences: visual style, high contrast, map/globe sub-settings, propagation forecast controls, band presets (up to 5)
+- Preferences: visual style, high contrast, map/globe sub-settings, propagation projection controls, band presets (up to 5)
 - Appearance: custom accent colors with live preview and 8 theme presets
 - Notifications: sub-group headers, quiet hours with UTC hour selectors
 - Data: settings backup/restore including all shack equipment
@@ -159,7 +157,7 @@ Comprehensive configuration with 5 sections:
 - License class filtering (Technician, General, Extra)
 - ITU region awareness for international regulatory compliance
 - Favorite bands with star-toggle for quick filtering
-- Confidence intervals showing prediction reliability
+- Modeled SNR ranges plus qualitative evidence coverage
 
 ### Mobile & PWA
 

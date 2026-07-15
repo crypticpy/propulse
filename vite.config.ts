@@ -3,6 +3,50 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import type { Plugin } from "vite";
+import { SOLAR_ROUTES } from "./api/_lib/solarRoutes";
+
+// ─── Solar API parity plugin ──────────────────────────────────────────────
+// Executes the same edge handlers in local development. Exact route matching
+// prevents /flux from capturing /flux-forecast and keeps media types identical.
+function solarDevApi(): Plugin {
+  return {
+    name: "solar-dev-api",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const requestUrl = new URL(req.url ?? "/", "http://localhost");
+        const handler = SOLAR_ROUTES[requestUrl.pathname];
+        if (!handler) return next();
+        try {
+          const headers = new Headers();
+          for (const [name, value] of Object.entries(req.headers)) {
+            if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
+            else if (value !== undefined) headers.set(name, value);
+          }
+          const origin = `http://${req.headers.host ?? "localhost"}`;
+          const edgeRequest = new Request(new URL(req.url ?? "/", origin), {
+            method: req.method ?? "GET",
+            headers,
+          });
+          const response = await handler(edgeRequest);
+          res.statusCode = response.status;
+          response.headers.forEach((value, name) => res.setHeader(name, value));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (error) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: {
+                code: "DEV_HANDLER_FAILURE",
+                message: error instanceof Error ? error.message : "Solar dev handler failed",
+              },
+            }),
+          );
+        }
+      });
+    },
+  };
+}
 
 // ─── HamQTH dev proxy plugin ───────────────────────────────────────────────
 // In dev mode, edge functions don't run. This plugin adds a middleware that
@@ -462,7 +506,6 @@ function qrzDevProxy(): Plugin {
 
 // ─── Layer dev proxy plugin ────────────────────────────────────────────────
 // Handles API endpoints that only run on Vercel in production:
-// - DRAP: parses NOAA text format (JSON endpoint is dead)
 // - Sporadic E, Ducting, WSPR: computed models (pure math, no external deps)
 // - Lightning: fetches from collector service (COLLECTOR_URL env var)
 // - Fires: proxies to NASA FIRMS (FIRMS_MAP_KEY env var)
@@ -471,100 +514,6 @@ function layerDevProxy(): Plugin {
   return {
     name: "layer-dev-proxy",
     configureServer(server) {
-      // ── DRAP: parse NOAA text table into DRAPData JSON ──────────────
-      server.middlewares.use(async (req, res, next) => {
-        if (req.url !== "/api/solar/drap") return next();
-
-        try {
-          const noaaRes = await fetch(
-            "https://services.swpc.noaa.gov/text/drap_global_frequencies.txt",
-            {
-              headers: {
-                "User-Agent": "Propulse/1.0 (Dev Proxy)",
-                Accept: "text/plain",
-              },
-            },
-          );
-          if (!noaaRes.ok) {
-            res.writeHead(noaaRes.status, {
-              "Content-Type": "application/json",
-            });
-            res.end(
-              JSON.stringify({ error: `NOAA returned ${noaaRes.status}` }),
-            );
-            return;
-          }
-          const text = await noaaRes.text();
-          const lines = text.split("\n");
-
-          // Extract observation time from header
-          let observationTime = new Date().toISOString();
-          for (const line of lines) {
-            if (line.includes("Product Valid At")) {
-              const match = line.match(
-                /(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s*UTC/,
-              );
-              if (match)
-                observationTime = new Date(match[1] + "Z").toISOString();
-              break;
-            }
-          }
-
-          // Parse longitude header row
-          let longitudes: number[] = [];
-          const latitudes: number[] = [];
-          const frequencies: number[][] = [];
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            // Skip comments, pure-dash separator lines, and blank lines
-            if (
-              trimmed.startsWith("#") ||
-              /^-+$/.test(trimmed) ||
-              trimmed === ""
-            )
-              continue;
-
-            // Longitude header: first non-comment, non-separator line with many numbers
-            if (longitudes.length === 0 && !trimmed.includes("|")) {
-              longitudes = trimmed
-                .split(/\s+/)
-                .map(Number)
-                .filter(Number.isFinite);
-              continue;
-            }
-
-            // Data rows: "lat | val val val ..."
-            if (trimmed.includes("|")) {
-              const [latStr, valsStr] = trimmed.split("|");
-              const lat = parseFloat(latStr.trim());
-              if (!Number.isFinite(lat)) continue;
-              const vals = valsStr.trim().split(/\s+/).map(Number);
-              latitudes.push(lat);
-              frequencies.push(vals);
-            }
-          }
-
-          const result = {
-            observation_time: observationTime,
-            forecast_time: observationTime,
-            frequencies,
-            latitudes,
-            longitudes,
-          };
-
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(result));
-        } catch (err) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              error: err instanceof Error ? err.message : "DRAP fetch failed",
-            }),
-          );
-        }
-      });
-
       // ── Sporadic E: computed model ──────────────────────────────────
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith("/api/propagation/sporadic-e")) return next();
@@ -1018,6 +967,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      solarDevApi(),
       hamqthDevProxy(),
       qrzDevProxy(),
       layerDevProxy(),
@@ -1046,14 +996,55 @@ export default defineConfig(({ mode }) => {
           enabled: true,
         },
         workbox: {
-          globPatterns: ["**/*.{js,css,html,svg,png,jpg,woff2}"],
-          globIgnores: ["**/textures/**"],
+          // Install only the application shell and its synchronous imports.
+          // Lazy routes are cached after use so installing Propulse does not
+          // download every radio, mapping, and 3D feature up front.
+          globPatterns: [
+            "*.{html,svg}",
+            "assets/index-*.{js,css}",
+            "assets/vendor-{react,tanstack,utils,supabase,drei,r3f,three-core}-*.js",
+          ],
+          cleanupOutdatedCaches: true,
           navigateFallback: "/index.html",
           runtimeCaching: [
             {
+              // Solar JSON/text semantics belong to React Query + IndexedDB.
+              // Avoid a second five-minute cache that can disguise observation age.
+              urlPattern:
+                /\/api\/solar\/(?!image(?:-meta)?(?:\?|$)|frame(?:\?|$))/,
+              handler: "NetworkOnly",
+            },
+            {
+              // Stable product and immutable-frame URLs may use transport caching.
+              // Widget freshness still comes from provider metadata, not this cache.
+              urlPattern:
+                /\/api\/solar\/(?:image|frame)(?:\?|$)/,
+              handler: "StaleWhileRevalidate",
+              options: {
+                cacheName: "solar-media-v1",
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 7 * 24 * 60 * 60,
+                },
+              },
+            },
+            {
+              // Cache lazy route assets after first use. Content-hashed names
+              // make cache-first safe while keeping them out of install time.
+              urlPattern: /\/assets\/.*\.(?:js|css)$/,
+              handler: "CacheFirst",
+              options: {
+                cacheName: "route-assets-v1",
+                expiration: {
+                  maxEntries: 150,
+                  maxAgeSeconds: 30 * 24 * 60 * 60,
+                },
+              },
+            },
+            {
               // Cache public data APIs only — exclude credential-forwarding endpoints
               urlPattern:
-                /^https:\/\/.*\/api\/(?!log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
+                /^https:\/\/.*\/api\/(?!solar\/|log\/|callsign\/qrz|callsign\/hamqth|profile\/heartbeat)/,
               handler: "NetworkFirst",
               options: {
                 cacheName: "api-cache",
@@ -1142,6 +1133,9 @@ export default defineConfig(({ mode }) => {
               if (id.includes("/node_modules/@tanstack/react-query/")) {
                 return "vendor-tanstack";
               }
+              if (id.includes("/node_modules/@supabase/")) {
+                return "vendor-supabase";
+              }
               if (
                 id.includes("/node_modules/date-fns/") ||
                 id.includes("/node_modules/zustand/") ||
@@ -1179,65 +1173,6 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        // Proxy API requests to NOAA during local development
-        // Uses same JSON endpoints as Vercel Edge Functions
-        "/api/solar/k-index": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/json/planetary_k_index_1m.json",
-        },
-        "/api/solar/flux": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/json/f107_cm_flux.json",
-        },
-        "/api/solar/probabilities": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/json/solar_probabilities.json",
-        },
-        "/api/solar/sunspots": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/json/solar-cycle/sunspots.json",
-        },
-        "/api/solar/magnetometer": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/json/rtsw/rtsw_mag_1m.json",
-        },
-        // New solar data proxies (proton flux, Dst, X-ray, DRAP, CME, SFI forecast)
-        "/api/solar/protons": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/json/goes/primary/integral-protons-1-day.json",
-        },
-        "/api/solar/dst": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/products/kyoto-dst.json",
-        },
-        "/api/solar/xray": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/json/goes/primary/xrays-6-hour.json",
-        },
-        // DRAP: handled by layerDevProxy() middleware (parses NOAA text format)
-        "/api/solar/cme": {
-          target: "https://api.nasa.gov",
-          changeOrigin: true,
-          rewrite: () => {
-            const end = new Date();
-            const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-            const fmt = (d: Date) => d.toISOString().slice(0, 10);
-            return `/DONKI/CMEAnalysis?startDate=${fmt(start)}&endDate=${fmt(end)}&mostAccurateOnly=true&speed500=true&halfAngle30=true&catalog=ALL&api_key=DEMO_KEY`;
-          },
-        },
-        "/api/solar/flux-forecast": {
-          target: "https://services.swpc.noaa.gov",
-          changeOrigin: true,
-          rewrite: () => "/text/3-day-solar-geomag-predictions.txt",
-        },
         // Aurora OVATION data proxy
         "/api/aurora": {
           target: "https://services.swpc.noaa.gov",

@@ -223,7 +223,7 @@ export function BandPlanner() {
           </h2>
           <p className="text-sm text-gray-400">
             Set your callsign and grid square in Settings to enable propagation
-            forecasts.
+            projections.
           </p>
         </div>
       </div>
@@ -279,7 +279,7 @@ export function BandPlanner() {
               />
             </div>
             <p className="text-sm text-gray-400 mt-1">
-              Plan your operating session with 24-hour propagation forecasts
+              Explore a 24-hour path projection from current inputs
             </p>
           </div>
 
@@ -380,7 +380,7 @@ export function BandPlanner() {
               </div>
               <p className="text-sm text-gray-300">
                 Bz is {currentBz?.toFixed(1)} nT. Geomagnetic activity may
-                increase. Forecasts have reduced confidence.
+                increase, so the path projection has weaker evidence.
               </p>
             </div>
           </div>
@@ -415,7 +415,7 @@ export function BandPlanner() {
               <p className="text-gray-400 text-sm max-w-md mx-auto">
                 To use the Band Planner, please configure your station location
                 in Settings. We need your coordinates to calculate path-specific
-                propagation forecasts.
+                propagation projections.
               </p>
             </div>
           </Card>
@@ -460,7 +460,7 @@ export function BandPlanner() {
                 {/* Confidence indicator */}
                 <div className="text-right">
                   <div className="text-xs text-gray-400 mb-1 flex items-center justify-end gap-1">
-                    Forecast Confidence
+                    Projection Evidence
                     <InfoTip
                       content={PROPAGATION_TOOLTIPS.forecastConfidence}
                     />
@@ -557,7 +557,7 @@ export function BandPlanner() {
                   </h3>
                   <p className="text-gray-400 text-sm max-w-md mx-auto">
                     Enter a grid square (like JN58 for central Europe or VK3 for
-                    Melbourne) to see the 24-hour propagation forecast for that
+                    Melbourne) to see the 24-hour propagation projection for that
                     path.
                   </p>
                   <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -622,49 +622,21 @@ export function BandPlanner() {
                               ? `SNR ${bestBandNow.snrLow} to ${bestBandNow.snrHigh} dB`
                               : `SNR ${bestBandNow.snrEstimate} dB`}
                           </span>
-                          {bestBandNow.confidenceLow !== undefined &&
-                            bestBandNow.confidenceHigh !== undefined && (
-                              <span
-                                className="text-xs px-1.5 py-0.5 rounded font-mono"
-                                style={{
-                                  backgroundColor:
-                                    bestBandNow.confidence !== undefined &&
-                                    bestBandNow.confidence >= 70
-                                      ? "#00ff8820"
-                                      : bestBandNow.confidence !== undefined &&
-                                          bestBandNow.confidence >= 45
-                                        ? "#ffaa0020"
-                                        : "#ff445520",
-                                  color:
-                                    bestBandNow.confidence !== undefined &&
-                                    bestBandNow.confidence >= 70
-                                      ? "#00ff88"
-                                      : bestBandNow.confidence !== undefined &&
-                                          bestBandNow.confidence >= 45
-                                        ? "#ffaa00"
-                                        : "#ff4455",
-                                }}
-                                title={`Confidence range: ${bestBandNow.confidenceLow}%-${bestBandNow.confidenceHigh}%`}
-                              >
-                                {bestBandNow.confidenceLow}-
-                                {bestBandNow.confidenceHigh}%
-                              </span>
-                            )}
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
                           {bestBandNow.status === "excellent" ||
                           bestBandNow.status === "good"
-                            ? "Good conditions — SSB, CW, and digital modes viable"
+                            ? "Model is supportive — compare with current observations"
                             : bestBandNow.status === "fair"
-                              ? "Marginal conditions — digital modes recommended"
-                              : "Poor conditions — consider waiting for a better window"}
+                              ? "Model is mixed — weak-signal modes may be more practical"
+                              : "Model support is low — compare another time or band"}
                         </p>
                       </div>
                     </div>
                   ) : (
                     <div className="mt-3 text-gray-400">
-                      No bands currently open on this path. Check the forecast
-                      below for upcoming windows.
+                      The model does not identify a supported band for this hour.
+                      Check the projection below for other windows.
                     </div>
                   )}
                 </Card>
@@ -746,46 +718,22 @@ export function BandPlanner() {
                               {window.peakHour.toString().padStart(2, "0")}:00 •
                               SNR {window.peakSnr} dB
                             </div>
-                            {/* Confidence interval for selected band */}
+                            {/* SNR range for the selected band */}
                             {selectedBand === window.band &&
                               (() => {
                                 const peakBand = forecast[
                                   window.peakHour
                                 ]?.bands.find((b) => b.band === window.band);
                                 if (
-                                  peakBand?.confidenceLow !== undefined &&
-                                  peakBand?.confidenceHigh !== undefined
+                                  peakBand?.snrLow !== undefined &&
+                                  peakBand?.snrHigh !== undefined
                                 ) {
-                                  const conf = peakBand.confidence ?? 50;
                                   return (
                                     <div className="mt-1.5 flex items-center gap-2">
-                                      <span
-                                        className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                                        style={{
-                                          backgroundColor:
-                                            conf >= 70
-                                              ? "#00ff8820"
-                                              : conf >= 45
-                                                ? "#ffaa0020"
-                                                : "#ff445520",
-                                          color:
-                                            conf >= 70
-                                              ? "#00ff88"
-                                              : conf >= 45
-                                                ? "#ffaa00"
-                                                : "#ff4455",
-                                        }}
-                                      >
-                                        Confidence {peakBand.confidenceLow}-
-                                        {peakBand.confidenceHigh}%
+                                      <span className="text-[10px] text-gray-400 font-mono">
+                                        Model SNR range {peakBand.snrLow} to{" "}
+                                        {peakBand.snrHigh} dB
                                       </span>
-                                      {peakBand.snrLow !== undefined &&
-                                        peakBand.snrHigh !== undefined && (
-                                          <span className="text-[10px] text-gray-400 font-mono">
-                                            SNR {peakBand.snrLow} to{" "}
-                                            {peakBand.snrHigh} dB
-                                          </span>
-                                        )}
                                     </div>
                                   );
                                 }
@@ -820,7 +768,7 @@ export function BandPlanner() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        24-Hour Forecast
+                        24-Hour Projection
                         <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
                       </h3>
                       <button
@@ -1131,7 +1079,9 @@ export function BandPlanner() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-400 mb-1">A-Index</div>
+                      <div className="text-xs text-gray-400 mb-1">
+                        ap equivalent (estimated)
+                      </div>
                       <div className="font-mono text-white">
                         {currentKp !== null ? kpToAp(currentKp) : "—"}
                       </div>
@@ -1147,8 +1097,8 @@ export function BandPlanner() {
       {/* Footer */}
       <footer className="max-w-7xl mx-auto px-4 md:px-6 py-8 text-center text-xs text-gray-500">
         <p>
-          Forecasts based on current solar indices and simplified ionospheric
-          model. Actual conditions may vary.
+          Projections use current solar indices and a simplified ionospheric
+          model. They are estimates, not provider-issued forecasts.
         </p>
         <p className="mt-1">Propulse Band Planner — Plan your DX</p>
       </footer>

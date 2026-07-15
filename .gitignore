@@ -20,6 +20,7 @@ collector/dist
 .cache
 .turbo
 coverage
+test-results/
 tmp
 temp
 *.tmp

@@ -25,8 +25,8 @@ export interface PropagationIndexProps {
 }
 
 /**
- * Calculate the composite Propagation Index (0-100)
- * Combines Solar Flux, K-index, and IMF Bz into a single score
+ * Calculate a transparent global-conditions heuristic (0-100).
+ * It is not path-specific and is not a calibrated probability.
  *
  * Formula breakdown:
  * - SFI component (40 points max): Higher SFI = better ionization = better propagation
@@ -42,6 +42,8 @@ export function calculatePropagationIndex(
   sfiScore: number;
   kpScore: number;
   bzScore: number;
+  bzAvailable: boolean;
+  evidenceCoverage: "2 of 3 inputs" | "3 of 3 inputs";
   category: "excellent" | "good" | "fair" | "poor" | "very-poor";
   description: string;
 } {
@@ -56,7 +58,7 @@ export function calculatePropagationIndex(
 
   // Bz component: 0-20 points
   // Bz >= 5 = 20 points (strong shield), Bz < -10 = 0 points (storm conditions)
-  let bzScore = 10; // Default middle value if Bz unknown
+  let bzScore = 0;
   if (bz !== null) {
     if (bz >= 5) {
       bzScore = 20;
@@ -67,8 +69,10 @@ export function calculatePropagationIndex(
     else bzScore = 0;
   }
 
-  // Total score
-  const score = Math.round(sfiScore + kpScore + bzScore);
+  // Normalize only across observed inputs. Missing Bz contributes no hidden
+  // neutral points; evidence coverage is returned and shown beside the score.
+  const availableMaximum = bz === null ? 80 : 100;
+  const score = Math.round(((sfiScore + kpScore + bzScore) / availableMaximum) * 100);
 
   // Categorize
   let category: "excellent" | "good" | "fair" | "poor" | "very-poor";
@@ -76,22 +80,31 @@ export function calculatePropagationIndex(
 
   if (score >= 80) {
     category = "excellent";
-    description = "Outstanding conditions for all HF bands";
+    description = "Global indices are strongly supportive; path results may differ";
   } else if (score >= 60) {
     category = "good";
-    description = "Good conditions for most HF operations";
+    description = "Global indices are supportive; check the specific path and time";
   } else if (score >= 40) {
     category = "fair";
-    description = "Moderate conditions, some bands may be affected";
+    description = "Global inputs are mixed; use path-aware analysis";
   } else if (score >= 20) {
     category = "poor";
-    description = "Degraded conditions, use lower bands";
+    description = "Global inputs indicate disruption risk";
   } else {
     category = "very-poor";
-    description = "Poor conditions, limited propagation expected";
+    description = "Global inputs indicate substantial disruption risk";
   }
 
-  return { score, sfiScore, kpScore, bzScore, category, description };
+  return {
+    score,
+    sfiScore,
+    kpScore,
+    bzScore,
+    bzAvailable: bz !== null,
+    evidenceCoverage: bz === null ? "2 of 3 inputs" : "3 of 3 inputs",
+    category,
+    description,
+  };
 }
 
 /**
@@ -121,15 +134,15 @@ function getCategoryLabel(
 ): string {
   switch (category) {
     case "excellent":
-      return "Excellent";
+      return "Strongly supportive";
     case "good":
-      return "Good";
+      return "Supportive";
     case "fair":
-      return "Fair";
+      return "Mixed";
     case "poor":
-      return "Poor";
+      return "Disrupted";
     case "very-poor":
-      return "Very Poor";
+      return "Severely disrupted";
   }
 }
 
@@ -269,9 +282,10 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
       {onExpand && (
         <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
+            type="button"
             onClick={onExpand}
-            className="p-1 text-gray-500 hover:text-white transition-colors"
-            aria-label="Expand propagation index"
+            className="flex min-h-11 min-w-11 items-center justify-center text-gray-500 transition-colors hover:text-white motion-reduce:transition-none"
+            aria-label="Expand global conditions score"
           >
             <svg
               className="w-4 h-4"
@@ -295,11 +309,11 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
         <div className="flex items-center justify-between mb-2">
           <div>
             <h2 className="font-sans text-lg font-semibold text-white tracking-wide flex items-center gap-2">
-              Propagation Index
+              Global Conditions Score
               <InfoTip content={PROPAGATION_TOOLTIPS.propagationIndex} />
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              Composite HF propagation quality score
+              Uncalibrated global heuristic · not path-specific
             </p>
           </div>
         </div>
@@ -381,7 +395,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                   pathLength={100}
                   strokeDasharray={`${result.score} 100`}
                   filter="url(#gaugeGlow)"
-                  className="transition-all duration-1000 ease-out"
+                  className="transition-all duration-1000 ease-out motion-reduce:transition-none"
                 />
 
                 {/* Tick marks */}
@@ -418,7 +432,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                   stroke="white"
                   strokeWidth="3"
                   strokeLinecap="round"
-                  className="transition-all duration-1000 ease-out"
+                  className="transition-all duration-1000 ease-out motion-reduce:transition-none"
                   style={{
                     filter: "drop-shadow(0 0 6px rgba(255,255,255,0.7))",
                   }}
@@ -428,7 +442,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                   cy={markerY2}
                   r="4"
                   fill="white"
-                  className="transition-all duration-1000 ease-out"
+                  className="transition-all duration-1000 ease-out motion-reduce:transition-none"
                   style={{
                     filter: `drop-shadow(0 0 8px ${scoreColor})`,
                   }}
@@ -486,7 +500,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
               {/* Score breakdown */}
               <div className="space-y-2">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">
-                  Score Breakdown
+                  Heuristic inputs · {result.evidenceCoverage}
                 </div>
 
                 {/* SFI contribution */}
@@ -530,7 +544,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
-                        width: `${(result.bzScore / 20) * 100}%`,
+                        width: `${result.bzAvailable ? (result.bzScore / 20) * 100 : 0}%`,
                         backgroundColor:
                           bz === null
                             ? "#888"
@@ -541,7 +555,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                     />
                   </div>
                   <span className="text-xs font-mono text-gray-300 w-12 text-right">
-                    {Math.round(result.bzScore)}/20
+                    {result.bzAvailable ? `${Math.round(result.bzScore)}/20` : "N/A"}
                   </span>
                 </div>
               </div>
@@ -590,7 +604,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
           <div className="border-t border-white/10 mt-4 pt-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-                Propagation Summary
+                General HF context
               </h3>
               <div className="flex items-center gap-2">
                 <Badge status={conditionBadge.status}>
@@ -598,12 +612,13 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                 </Badge>
                 {onExpandSummary && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onExpandSummary();
                     }}
-                    className="p-1 text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
-                    aria-label="Expand summary"
+                    className="flex min-h-11 min-w-11 items-center justify-center text-gray-500 opacity-100 transition-colors hover:text-white motion-reduce:transition-none sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+                    aria-label="Expand general HF context"
                   >
                     <svg
                       className="w-4 h-4"
@@ -628,7 +643,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
             {bestBands.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-mono uppercase tracking-wider text-gray-500">
-                  Best bands now (general)
+                  Bands supported by global indices
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {bestBands.map((band) => (

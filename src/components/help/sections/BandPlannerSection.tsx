@@ -6,394 +6,152 @@ import { HelpFAQ } from "@/components/help/HelpFAQ";
 export function BandPlannerSection() {
   return (
     <div className="space-y-6">
-      {/* Overview */}
       <p className="text-sm leading-relaxed text-gray-300">
-        The Band Planner gives you a 24-hour propagation forecast, showing which
-        bands will be open at each hour of the day. Use it to plan your
-        operating sessions around the best propagation windows.
+        Band Planner creates a 24-hour station-to-target projection from a
+        simplified ionospheric model and current solar inputs. It is an estimate,
+        not a provider-issued forecast or a promise that a band will open.
       </p>
 
-      {/* Reading the Heatmap */}
       <HelpAccordion
         id="heatmap"
         title="Reading the Heatmap"
-        summary="Understanding the band x hours forecast grid"
+        summary="Band-by-hour model output for the selected path"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
           <p>
-            The heatmap is the central visualization of the Band Planner. It
-            displays bands as rows (160 m through 10 m) against hours as columns
-            (0-23 UTC), forming a grid where each cell represents predicted
-            propagation quality for that band at that hour.
+            Rows are amateur bands and columns are UTC hours. Each cell shows a
+            modeled status and signal-to-noise ratio (SNR) estimate for the path
+            between your station and the target grid. The current UTC hour has
+            an orange marker.
           </p>
-
-          <ul className="list-disc list-inside space-y-1.5 pl-1">
-            <li>
-              The current UTC hour is highlighted with an orange ring marker so
-              you can quickly see where "now" falls in the forecast.
-            </li>
-            <li>
-              Hover over any cell to see a tooltip with the exact status and SNR
-              estimate for that band and hour.
-            </li>
-            <li>
-              Click any band row to select it and view detailed information in
-              the Best Windows section.
-            </li>
-            <li>
-              The color of each cell corresponds to the propagation status
-              (excellent, good, fair, poor, or closed) — see Status Colors below
-              for the full mapping.
-            </li>
-          </ul>
-
           <HelpCallout type="tip">
-            Set a target location first — the forecast is calculated for the
-            path between your QTH and the target. Without a target, no forecast
-            data is shown. Enter a grid square like JN58 (central Europe) or
-            FN31 (northeastern US) in the target field.
+            Enter both endpoints before interpreting the heatmap. The model uses
+            path geometry and time, but actual results also depend on antennas,
+            local noise, short-term ionospheric structure, and transmitter power.
           </HelpCallout>
         </div>
       </HelpAccordion>
 
-      {/* Status Colors */}
       <HelpAccordion
         id="status-colors"
         title="Status Colors"
-        summary="What each propagation status color means"
+        summary="Qualitative categories derived from modeled SNR"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
-          <ul className="list-disc list-inside space-y-2 pl-1">
-            <li>
-              <span className="font-semibold" style={{ color: "#00ff88" }}>
-                Excellent (bright green)
-              </span>{" "}
-              — Strong propagation with SNR at -8 dB or better. All modes are
-              viable including SSB. Signal strength is well above the threshold
-              for any mode.
-            </li>
-            <li>
-              <span className="font-semibold" style={{ color: "#44dd66" }}>
-                Good (yellow-green)
-              </span>{" "}
-              — Reliable propagation with SNR between -12 dB and -8 dB. SSB and
-              CW work well. Digital modes are very comfortable.
-            </li>
-            <li>
-              <span className="font-semibold" style={{ color: "#ffaa00" }}>
-                Fair (orange)
-              </span>{" "}
-              — Marginal propagation with SNR between -18 dB and -12 dB. Digital
-              modes (FT8/FT4) are recommended. SSB may be difficult — you'll
-              need favorable conditions and patience.
-            </li>
-            <li>
-              <span className="font-semibold" style={{ color: "#ff4455" }}>
-                Poor (red)
-              </span>{" "}
-              — Weak or unreliable propagation with SNR between -24 dB and -18
-              dB. Only digital modes may get through, and even those may require
-              patience and maximum power.
-            </li>
-            <li>
-              <span className="font-semibold" style={{ color: "#374151" }}>
-                Closed (gray)
-              </span>{" "}
-              — No propagation expected on this band at this hour. SNR below -24
-              dB. The band is not viable for any mode on this path.
-            </li>
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+          <p>
+            Excellent, Good, Fair, Poor, and Closed are model buckets based on
+            estimated SNR. They compare hours and bands within the projection;
+            they are not observed reception reports.
+          </p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li><strong>Excellent / Good:</strong> stronger modeled support; compare with current spots.</li>
+            <li><strong>Fair:</strong> marginal model support; weak-signal modes may be more practical.</li>
+            <li><strong>Poor:</strong> low model support and greater sensitivity to local conditions.</li>
+            <li><strong>Closed:</strong> modeled SNR is below the display threshold, not proof that communication is impossible.</li>
           </ul>
         </div>
       </HelpAccordion>
 
-      {/* Best Windows */}
       <HelpAccordion
         id="best-windows"
         title="Best Windows"
-        summary="How optimal operating times are identified"
+        summary="Contiguous fair-or-better periods in the projection"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
           <p>
-            The planner automatically identifies contiguous open hours for each
-            band by scanning the 24-hour forecast. A "window" is a consecutive
-            run of hours where a band has fair-or-better propagation. The
-            algorithm works as follows:
+            A window is a consecutive run of hours where a band reaches at least
+            the model’s Fair threshold. Windows are ordered as active, upcoming,
+            then passed and show their modeled peak hour and SNR.
           </p>
-
-          <ol className="list-decimal list-inside space-y-1.5 pl-1">
-            <li>
-              Find the peak SNR hour for each band across the full 24-hour
-              period.
-            </li>
-            <li>
-              Expand outward from the peak in both directions, including
-              consecutive hours that have at least "fair" status.
-            </li>
-            <li>
-              Skip bands that never reach "fair" or better during any hour.
-            </li>
-          </ol>
-
           <p>
-            Windows are sorted with priority: <strong>currently active</strong>{" "}
-            windows first (the current hour falls within the window), then{" "}
-            <strong>upcoming</strong> windows, then windows that have{" "}
-            <strong>already passed</strong> (shown dimmed). Within each group,
-            windows are sorted by current-hour SNR or peak SNR.
+            Use windows to prioritize when to listen or call, then validate them
+            with spots, beacons, or on-air observation.
           </p>
-
-          <p>
-            Each window card shows the band name, start and end hour (UTC), peak
-            hour, peak SNR in dB, and the peak propagation status. Click a
-            window card to highlight that band in the heatmap.
-          </p>
-
-          <HelpCallout type="tip">
-            Look for bands with 3 or more consecutive "good" or "excellent"
-            hours — these are your best operating opportunities where conditions
-            are stable enough for extended sessions.
-          </HelpCallout>
         </div>
       </HelpAccordion>
 
-      {/* Storm & Confidence */}
       <HelpAccordion
         id="storm-confidence"
-        title="Storm & Confidence"
-        summary="How geomagnetic activity affects forecast reliability"
+        title="Storms & Evidence"
+        summary="Why disturbed conditions reduce the usefulness of the projection"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
           <p>
-            The Band Planner monitors geomagnetic conditions and adjusts its
-            confidence level accordingly. Three alert conditions are tracked:
+            Projection Evidence is a qualitative coverage label, not a calibrated
+            probability. It becomes weaker when required inputs are missing or
+            geomagnetic conditions are changing rapidly.
           </p>
-
-          <ul className="list-disc list-inside space-y-2 pl-1">
-            <li>
-              <span className="text-red-400 font-semibold">
-                Storm Alert (Kp &ge; 5)
-              </span>{" "}
-              — A red banner appears indicating a geomagnetic storm in progress.
-              All HF propagation forecasts are significantly degraded. Expect
-              band closures, especially on paths crossing high latitudes.
-              Consider lower bands (40 m, 80 m) and digital modes.
-            </li>
-            <li>
-              <span className="text-amber-400 font-semibold">
-                Disturbed Conditions (Kp &ge; 4)
-              </span>{" "}
-              — Medium confidence. Conditions may be worse than predicted.
-              High-band forecasts are less reliable. The ionosphere is unsettled
-              and could shift quickly.
-            </li>
-            <li>
-              <span className="text-amber-400 font-semibold">
-                Southward IMF (Bz &lt; -5 nT)
-              </span>{" "}
-              — A yellow alert banner indicates that the interplanetary magnetic
-              field is oriented southward, which allows solar wind energy to
-              couple into Earth's magnetosphere. A geomagnetic storm may
-              develop, and forecast confidence is reduced.
-            </li>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li><strong>Kp 4:</strong> unsettled global conditions; model output may change quickly.</li>
+            <li><strong>Kp 5 or higher:</strong> an official geomagnetic-storm level; polar and high-latitude paths can be especially affected.</li>
+            <li><strong>Bz below -5 nT:</strong> southward IMF favors coupling if sustained; watch duration and subsequent Kp rather than treating one sample as a forecast.</li>
           </ul>
-
-          <p>
-            The <strong>Confidence Level</strong> is displayed prominently near
-            the target input:
-          </p>
-
-          <ul className="list-disc list-inside space-y-1 pl-1">
-            <li>
-              <span className="text-green-400 font-semibold">High</span> — Quiet
-              geomagnetic conditions (Kp &lt; 4, Bz &ge; 0). Forecasts are most
-              reliable.
-            </li>
-            <li>
-              <span className="text-amber-400 font-semibold">Medium</span> —
-              Unsettled conditions (Kp &ge; 4 or Bz &lt; 0). Some forecast
-              inaccuracy expected.
-            </li>
-            <li>
-              <span className="text-red-400 font-semibold">Low</span> — Stormy
-              conditions (Kp &ge; 5 or Bz &lt; -5 nT). Forecasts are rough
-              estimates only.
-            </li>
-          </ul>
-
           <HelpCallout type="warning">
-            When confidence is Low, treat all forecasts as rough estimates.
-            Conditions during geomagnetic storms can change rapidly — a band
-            that is predicted to be open may close within minutes, and vice
-            versa.
+            During disturbances, treat the heatmap as a rough comparison and
+            rely more heavily on current reception evidence.
           </HelpCallout>
         </div>
       </HelpAccordion>
 
-      {/* Operating Recommendations */}
       <HelpAccordion
         id="operating-recommendations"
         title="Operating Recommendations"
-        summary="Mode and power guidance based on conditions"
+        summary="How to use model output without over-interpreting it"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
           <p>
-            The Band Planner provides mode and power guidance tailored to
-            current conditions on the best available band:
+            Mode suggestions reflect the model’s SNR thresholds. Narrow-band
+            digital modes and CW can remain usable at lower SNR than SSB, but
+            legal power, antennas, interference, and operator technique still
+            matter.
           </p>
-
-          <div>
-            <h4 className="text-white font-semibold mb-1.5">
-              Mode Recommendations
-            </h4>
-            <ul className="list-disc list-inside space-y-1.5 pl-1">
-              <li>
-                <strong>Excellent/Good status</strong> — SSB, CW, and digital
-                modes are all viable. Strong signals mean you have flexibility
-                to choose any mode. SSB ragchewing is comfortable.
-              </li>
-              <li>
-                <strong>Fair status</strong> — FT8/FT4 recommended. Digital
-                modes have a 12-24 dB advantage over SSB due to narrower
-                bandwidth and digital processing gain. CW is a good middle
-                ground.
-              </li>
-              <li>
-                <strong>Poor status</strong> — Digital modes only. Maximum legal
-                power if possible. Even FT8 may require patience for contacts.
-              </li>
-              <li>
-                <strong>No bands open</strong> — Save power and wait for
-                conditions to improve. Check the forecast for upcoming windows,
-                or try VHF/UHF for local contacts.
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-1.5">Power Guidance</h4>
-            <ul className="list-disc list-inside space-y-1.5 pl-1">
-              <li>
-                <strong>SNR &ge; -10 dB</strong> — 50-100W should be sufficient
-                for reliable contacts. Even QRP (5W) may work on strong
-                openings.
-              </li>
-              <li>
-                <strong>SNR -10 to -18 dB</strong> — Full 100W recommended.
-                Higher power helps on marginal paths, especially for SSB.
-              </li>
-              <li>
-                <strong>SNR &lt; -18 dB</strong> — Maximum legal power
-                recommended. You are operating at the edge of what the band can
-                support — every decibel counts.
-              </li>
-            </ul>
-          </div>
+          <p>
+            A low-support result is a reason to compare another band or hour—not
+            a reason to assume no contact is possible.
+          </p>
         </div>
       </HelpAccordion>
 
-      {/* Favorites Filter */}
       <HelpAccordion
         id="favorites-filter"
         title="Favorites Filter"
-        summary="Focus on your preferred bands"
+        summary="Reduce the heatmap to bands you use"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
-          <p>
-            The Favorites button (star icon) next to the 24-Hour Forecast
-            heading toggles between showing all bands and showing only your
-            favorite bands. This reduces visual clutter when you only operate on
-            certain bands or have specific antennas that cover a subset of the
-            HF spectrum.
-          </p>
-
-          <ul className="list-disc list-inside space-y-1.5 pl-1">
-            <li>
-              Click the star icon next to any band name in the heatmap to toggle
-              it as a favorite.
-            </li>
-            <li>
-              Favorites are saved in your user preferences and persist across
-              sessions.
-            </li>
-            <li>
-              When the Favorites filter is active, only your starred bands
-              appear in the heatmap rows. The Best Windows section still
-              evaluates all bands.
-            </li>
-          </ul>
-        </div>
+        <p className="text-sm leading-relaxed text-gray-300">
+          The star control switches the heatmap between all bands and your saved
+          favorites. It changes presentation only; the model and Best Windows
+          calculation keep the same inputs.
+        </p>
       </HelpAccordion>
 
-      {/* Data Sources */}
       <HelpAccordion
         id="data-sources-planner"
         title="Data Sources"
-        summary="Where the forecast data comes from"
+        summary="Observed inputs used by the local projection"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
           <p>
-            The Band Planner derives its forecasts from the same real-time solar
-            and geomagnetic data used throughout Propulse. Specifically:
+            The model uses source-aged NOAA observations including 10.7 cm solar
+            flux, planetary Kp, and IMF Bz. A missing input remains missing; the
+            UI does not silently substitute zero.
           </p>
-          <ul className="list-disc list-inside space-y-1.5 pl-1">
-            <li>
-              <strong className="text-white">Solar Flux Index (SFI)</strong>{" "}
-              &mdash; Used to estimate ionization levels and MUF for each band.
-              Sourced from NOAA SWPC via the proxied{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded font-mono">
-                /api/solar/flux
-              </code>{" "}
-              endpoint.
-            </li>
-            <li>
-              <strong className="text-white">K-Index (Kp)</strong> &mdash;
-              Measures geomagnetic disturbance, which degrades propagation.
-              Sourced from NOAA SWPC via{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded font-mono">
-                /api/solar/k-index
-              </code>
-              .
-            </li>
-            <li>
-              <strong className="text-white">Bz (IMF Z-Component)</strong>{" "}
-              &mdash; The north-south interplanetary magnetic field component,
-              used for storm confidence assessment. Sourced from SWPC solar wind
-              data.
-            </li>
-          </ul>
           <p>
-            For full details on these data sources and their refresh intervals,
-            see the{" "}
-            <Link
-              to="/help/dashboard"
-              className="text-plasma-orange hover:underline"
-            >
-              Dashboard
-            </Link>{" "}
-            and{" "}
-            <Link
-              to="/help/solar-pulse"
-              className="text-plasma-orange hover:underline"
-            >
-              Solar Pulse
-            </Link>{" "}
-            help sections.
+            See <Link to="/help/solar-pulse" className="text-plasma-orange hover:underline">Solar Pulse</Link>{" "}
+            for provenance and freshness, and <Link to="/help/propsphere" className="text-plasma-orange hover:underline">PropSphere</Link>{" "}
+            for map-based path context.
           </p>
         </div>
       </HelpAccordion>
 
-      {/* FAQ */}
       <HelpFAQ
         items={[
           {
-            question: "Why are all bands closed?",
-            answer:
-              "This typically happens during geomagnetic storms (Kp >= 5) or at night when higher bands shut down. Check the Solar Pulse page for current storm conditions and the Kp/Bz values shown in the Band Planner header. If it is nighttime at the path midpoint, try lower bands (80 m, 40 m) which often improve after dark. During a severe storm, even lower bands may be degraded — wait for conditions to recover, which usually takes 12-24 hours after the storm peak.",
+            question: "Why does every band show low support?",
+            answer: "The current inputs, path geometry, and time may all lower the modeled SNR. Check source freshness, try another hour or band, and compare with current spots or beacons before concluding the path is unusable.",
           },
           {
-            question: "What makes confidence low?",
-            answer:
-              "Geomagnetic storm conditions (Kp >= 5) or sustained southward IMF (Bz < -5 nT). The ionosphere becomes unpredictable during storms because energy from the solar wind is rapidly deposited into the upper atmosphere, causing irregular ionization patterns that the forecast model cannot accurately predict. Low confidence means the actual conditions could be significantly better or worse than what the forecast shows.",
+            question: "What makes Projection Evidence low?",
+            answer: "Missing required observations, Kp at storm levels, or sustained southward Bz make a simplified model less dependable. The label is qualitative and is not a contact probability.",
           },
         ]}
       />

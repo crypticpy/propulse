@@ -35,45 +35,45 @@ function getScoreColor(score: number): string {
 const SCORE_CATEGORIES = [
   {
     range: "80-100",
-    level: "Excellent",
+    level: "Strongly supportive",
     color: "#00ff88",
-    bands: "All HF bands (10m-80m) performing well",
-    tips: "Outstanding DX opportunities. Work higher bands (10m-17m) for long-haul contacts. Low bands excellent for regional.",
+    bands: "Global indices are broadly supportive",
+    tips: "Check station-to-target geometry, illumination, frequency, mode, and local noise before choosing a band.",
   },
   {
     range: "60-79",
-    level: "Good",
+    level: "Supportive",
     color: "#44dd66",
-    bands: "Most bands open (15m-40m reliable)",
-    tips: "Good conditions for DX. 20m likely the workhorse band. Some opportunity on higher bands depending on path.",
+    bands: "Global indices are supportive",
+    tips: "Some paths may benefit, but this score cannot identify which bands are open without station and target context.",
   },
   {
     range: "40-59",
-    level: "Fair",
+    level: "Mixed",
     color: "#ffaa00",
-    bands: "Lower bands favored (20m-80m)",
-    tips: "Moderate conditions. Focus on 20m and 40m for best results. Higher bands may be marginal or closed.",
+    bands: "Global inputs are mixed",
+    tips: "Use the path-aware map or observed spots to choose a band; regional and polar paths can differ materially.",
   },
   {
     range: "20-39",
-    level: "Poor",
+    level: "Disrupted",
     color: "#ff7700",
-    bands: "Only low bands viable (40m-160m)",
-    tips: "Degraded conditions. Stick to lower frequencies. Digital modes (FT8/FT4) recommended for marginal paths.",
+    bands: "Global disruption risk is elevated",
+    tips: "Polar and high-latitude paths may be degraded. Check the actual path before changing frequency or mode.",
   },
   {
     range: "0-19",
-    level: "Very Poor",
+    level: "Severely disrupted",
     color: "#ff4455",
-    bands: "Limited to 80m-160m, possibly closed",
-    tips: "Severe degradation. Consider NVIS on 80m/40m for regional contacts. DX unlikely except on lowest bands.",
+    bands: "Global disruption risk is high",
+    tips: "Decision support is limited to global context. Path-aware results and current observations are required for operating choices.",
   },
 ];
 
 /**
  * PropagationIndexModal Component
  *
- * Detailed explanation of the Propagation Index calculation,
+ * Detailed explanation of the Global Conditions Score calculation,
  * score breakdown, and operating recommendations.
  */
 export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
@@ -94,12 +94,12 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
       <DetailModal
         isOpen={isOpen}
         onClose={onClose}
-        title="Propagation Index Details"
-        subtitle="Understanding your current HF propagation conditions"
+        title="Global Conditions Score Details"
+        subtitle="Transparent global heuristic; not a calibrated probability or path forecast"
         size="xl"
       >
         <div className="text-center py-12 text-gray-500">
-          Solar data unavailable — cannot calculate propagation index.
+          Required solar observations are unavailable, so the heuristic is withheld.
         </div>
       </DetailModal>
     );
@@ -117,8 +117,8 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
     <DetailModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Propagation Index Details"
-      subtitle="Understanding your current HF propagation conditions"
+      title="Global Conditions Score Details"
+      subtitle={`Transparent global heuristic · ${result.evidenceCoverage}`}
       size="xl"
     >
       <div className="space-y-6">
@@ -226,7 +226,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   <span className="text-xs text-gray-400">20 points max</span>
                 </div>
                 <div className="font-mono text-white">
-                  {Math.round(result.bzScore)} / 20
+                  {result.bzAvailable ? `${Math.round(result.bzScore)} / 20` : "Unavailable"}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -234,7 +234,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
-                      width: `${(result.bzScore / 20) * 100}%`,
+                      width: `${result.bzAvailable ? (result.bzScore / 20) * 100 : 0}%`,
                       backgroundColor:
                         bz === null ? "#888" : bz >= 0 ? "#44dd66" : "#ff7700",
                     }}
@@ -337,8 +337,8 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
           </h4>
           <div className="space-y-3 text-sm text-gray-300">
             <p>
-              The Propagation Index combines three key space weather parameters
-              into a single 0-100 score:
+              The Global Conditions Score combines available space-weather inputs
+              into an uncalibrated 0-100 heuristic. It does not predict a station-to-station path.
             </p>
             <div className="bg-white/5 rounded p-3 font-mono text-xs">
               <div className="text-plasma-orange">
@@ -351,14 +351,14 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                 Bz Score = 0-20 based on IMF direction
               </div>
               <div className="text-white mt-2 border-t border-white/10 pt-2">
-                Total = SFI Score + Kp Score + Bz Score
+                Total = available points ÷ available maximum × 100
               </div>
             </div>
             <p>
-              The weighting reflects the relative importance of each factor: SFI
-              and Kp are equally weighted at 40% each as they have the largest
-              impact on HF propagation, while Bz contributes 20% as a storm
-              predictor.
+              SFI and Kp each carry 40 possible points and Bz carries 20. If Bz
+              is missing, it contributes no hidden neutral points; the score is
+              normalized across the two available inputs and evidence coverage is
+              reduced to 2 of 3. Treat the result as general context only.
             </p>
           </div>
         </div>

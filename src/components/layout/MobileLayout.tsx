@@ -1,5 +1,5 @@
 import { Suspense, useState, useCallback, useEffect } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { MobileHeader } from "./MobileHeader";
@@ -58,9 +58,12 @@ export function MobileLayout() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Initialize solar alert monitoring (mirrors Layout.tsx)
-  const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+  const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts({
+    enabled: location.pathname !== "/solar",
+  });
 
   // Feed live spots to the band opening detector (runs on all routes)
   useBandOpeningFeed();

@@ -15,7 +15,6 @@ import { PredictionsCard } from "@/components/dx/PredictionsCard";
 import { HistoryCard } from "@/components/dx/HistoryCard";
 import { AlertsSummary, ContestWeatherCard } from "@/components/dashboard";
 import { DataFreshnessIndicator } from "@/components/ui";
-import { kpToAp } from "@/lib/utils/solarConversions";
 import type { SolarFluxData, MagnetometerData } from "@/lib/api/types";
 
 export interface MobileHomeProps {
@@ -26,6 +25,12 @@ export interface MobileHomeProps {
   fluxData: SolarFluxData[] | undefined;
   magnetometerData: MagnetometerData[] | undefined;
   isLoading: boolean;
+  metricLoadingStates: {
+    kp: boolean;
+    sfi: boolean;
+    ssn: boolean;
+    bz: boolean;
+  };
   combinedUpdatedAt: number | undefined;
   isRefetching: boolean;
   refetchAll: () => void;
@@ -45,6 +50,7 @@ export function MobileHome({
   fluxData,
   magnetometerData,
   isLoading,
+  metricLoadingStates,
   combinedUpdatedAt,
   isRefetching,
   refetchAll,
@@ -81,7 +87,7 @@ export function MobileHome({
           onExpand={onExpandBands}
         />
 
-        {/* Propagation Index */}
+        {/* Global Conditions Score */}
         <PropagationIndex
           solarFlux={currentFlux}
           kIndex={currentKp}
@@ -96,7 +102,6 @@ export function MobileHome({
           kIndex={currentKp}
           solarFlux={currentFlux}
           sunspotNumber={currentSsn}
-          aIndex={currentKp !== null ? kpToAp(currentKp) : undefined}
           bz={currentBz}
           bzData={
             magnetometerData?.map((d) => ({
@@ -104,7 +109,7 @@ export function MobileHome({
               bz_gsm: d.bz_gsm,
             })) ?? []
           }
-          loading={isLoading}
+          loadingStates={metricLoadingStates}
           solarFluxData={
             fluxData?.map((d) => ({
               time_tag: d.time_tag,

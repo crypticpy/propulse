@@ -45,7 +45,9 @@ export function Layout() {
   const isAtmos = location.pathname === "/atmos";
 
   // Initialize solar alert monitoring
-  const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts();
+  const { activeAlerts, dismissAlert, criticalCount } = useSolarAlerts({
+    enabled: location.pathname !== "/solar",
+  });
 
   // Feed live spots to the band opening detector (runs on all routes)
   useBandOpeningFeed();

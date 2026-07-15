@@ -383,6 +383,18 @@ scorer freeze. All candidates receive identical rows and opportunity weights.
 Thresholds may be revised before December is acquired if Phase 0-3 evidence
 shows they do not measure product utility. Once December opens, they are fixed.
 
+The numeric interpretation is now frozen in
+`propagation_v4_2_phase2_scale.json`. A qualified day carries at least one
+million opportunities. A supported week, band, or distance bin has at least
+10,000 rows and one million opportunities. "No material weekly collapse"
+means no supported week regresses more than 2% relative Brier. The three short
+bins are 0-500, 500-1,500, and 1,500-3,000 km; each may regress by no more than
+the larger of `0.0002` absolute Brier or 1% of B2 Brier. High-confidence
+reliability uses bins beginning at probability 0.5 and may worsen by no more
+than `0.002` absolute maximum gap. The paired UTC-day interval uses 2,000
+resamples. These definitions are code-tested in `gate_scoring.py` and must not
+change after December acquisition begins.
+
 ## Phase 5: locked 2025 archive
 
 The four 2025 months open only if every December gate passes. They are scored
@@ -396,6 +408,12 @@ The final archive claim requires:
 - no material calibration or fallback regression;
 - all service, privacy, provenance, and efficiency contracts passing; and
 - publication of every month and failure, not only the aggregate.
+
+The locked archive also requires the aggregate paired UTC-day upper 95% bound
+to remain below zero. Supported-band minimums remain 10,000 rows and one
+million opportunities; ECE and high-confidence maximum-gap deltas versus B2
+may each worsen by at most `0.002`. These thresholds are frozen before any 2025
+outcome is transformed or scored.
 
 Failure retains the best previously approved behavior and informs another
 version. It does not prohibit continued model development.

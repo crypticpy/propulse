@@ -128,6 +128,44 @@
     "maximum_bundle_bytes": 268435456,
     "stale_path_history_seconds": 7200
   },
+  "phase4": {
+    "gate_months": ["2024-12"],
+    "batch_rows": 100000,
+    "bootstrap_repetitions": 2000,
+    "minimum_relative_brier_improvement_vs_b2": 0.01,
+    "minimum_qualified_day_opportunities": 1000000,
+    "minimum_qualified_day_win_fraction": 0.75,
+    "minimum_supported_slice_rows": 10000,
+    "minimum_supported_slice_opportunities": 1000000,
+    "maximum_week_relative_brier_regression": 0.02,
+    "maximum_band_relative_brier_regression": 0.02,
+    "short_distance_bins": ["0-500 km", "500-1500 km", "1500-3000 km"],
+    "maximum_short_path_absolute_brier_regression": 0.0002,
+    "maximum_short_path_relative_brier_regression": 0.01,
+    "maximum_ece_delta_vs_b2": 0.002,
+    "maximum_high_confidence_gap_delta_vs_b2": 0.002
+  },
+  "phase5": {
+    "locked_months": ["2025-01", "2025-04", "2025-07", "2025-10"],
+    "batch_rows": 100000,
+    "bootstrap_repetitions": 2000,
+    "minimum_aggregate_relative_brier_improvement_vs_b2": 0.01,
+    "minimum_months_with_point_improvement": 3,
+    "minimum_supported_slice_rows": 10000,
+    "minimum_supported_slice_opportunities": 1000000,
+    "maximum_band_relative_brier_regression": 0.03,
+    "maximum_ece_delta_vs_b2": 0.002,
+    "maximum_high_confidence_gap_delta_vs_b2": 0.002
+  },
+  "outcome_protocol": {
+    "prospective_window": ["2026-08-01", "2026-09-30"],
+    "minimum_free_gb_before_acquisition": 400,
+    "minimum_free_gb_before_scoring": 150,
+    "wspr_archive_url": "https://www.wsprnet.org/archive/wsprspots-{month}.csv.gz",
+    "noaa_swpc_json_url": "https://services.swpc.noaa.gov/json/",
+    "nasa_omni_url": "https://omniweb.gsfc.nasa.gov/html/ow_data.html",
+    "gfz_kp_url": "https://kp.gfz.de/en/data"
+  },
   "compute": {
     "required_profile": "m5",
     "external_root": "/Volumes/Projects/PropulseML",

@@ -85,7 +85,7 @@ class ParquetDataIter(xgb.DataIter):
         features: list[str],
         *,
         weight_column: str,
-        cache_prefix: str,
+        cache_prefix: str | None,
         filter_expression: ds.Expression | None = None,
         batch_size: int = 250_000,
     ) -> None:

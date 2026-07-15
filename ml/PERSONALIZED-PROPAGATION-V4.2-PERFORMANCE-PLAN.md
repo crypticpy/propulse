@@ -439,6 +439,18 @@ the 20M evidence identifies the advancing candidates and a fixed CPU-versus-GPU
 reproducibility benchmark shows material wall-time value. It is not needed to
 change model quality by itself.
 
+XGBoost's CPU external-memory path is intentionally I/O bounded. Before the
+50M backend is frozen, Phase 2 therefore runs a training-only backend benchmark
+on the A4 July fold: the exact same 20M cohort, 5M early-stopping sample,
+features, weights, parameters, seed, and first 50 trees are fit in separate
+processes with `ExtMemQuantileDMatrix` and iterator-fed `QuantileDMatrix`.
+October and November are not read. The streamed in-memory quantile backend may
+advance for 50M only if it is at least 1.5 times faster, validation log loss is
+within `0.000001`, and two measured worker peaks sum to at most 80 GB. This does
+not materialize the raw multi-month table in RAM: Parquet remains streamed in
+batches and only XGBoost's compressed quantile representation is retained. If
+any gate fails, 50M remains on external memory.
+
 ## Execution checklist
 
 ### Phase 0: diagnosis

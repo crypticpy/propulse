@@ -126,7 +126,17 @@
       "threads_per_parallel_fit": 9,
       "arrow_io_threads_per_fit": 4,
       "backend": "native_arm64_xgboost_openmp_cpu",
-      "gpu_backend": "unavailable_xgboost_build_has_no_cuda_and_no_metal_backend"
+      "gpu_backend": "unavailable_xgboost_build_has_no_cuda_and_no_metal_backend",
+      "backend_benchmark": {
+        "candidate": "A4_recent_cycle",
+        "fold": "F3_2024_07",
+        "scale": 20000000,
+        "fixed_boost_rounds": 50,
+        "minimum_speedup_to_adopt": 1.5,
+        "maximum_parallel_peak_rss_gb": 80,
+        "maximum_validation_logloss_difference": 0.000001,
+        "fifty_million_backend": "pending_benchmark"
+      }
     }
   }
 }

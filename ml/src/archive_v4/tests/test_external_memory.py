@@ -43,6 +43,31 @@ class ExternalMemoryTests(unittest.TestCase):
             self.assertEqual(matrix.num_row(), 100)
             del matrix, iterator
 
+    def test_data_iter_builds_streamed_in_memory_quantile_matrix(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "sample.parquet"
+            pq.write_table(
+                pa.table({
+                    "a": np.arange(100, dtype=np.float32),
+                    "b": np.arange(100, dtype=np.float32) % 5,
+                    "success_rate": (np.arange(100) % 2).astype(np.float32),
+                    "training_weight": np.ones(100, dtype=np.float32),
+                }),
+                path,
+            )
+            iterator = ParquetDataIter(
+                path,
+                ["a", "b"],
+                weight_column="training_weight",
+                cache_prefix=None,
+                batch_size=20,
+            )
+            matrix = xgb.QuantileDMatrix(iterator, max_bin=16)
+            self.assertEqual(matrix.num_row(), 100)
+            self.assertFalse(any(root.glob("*.page")))
+            del matrix, iterator
+
     def test_streamed_metrics_match_direct_calculation(self) -> None:
         y = np.array([0.0, 1.0, 0.5])
         p = np.array([0.1, 0.8, 0.4])

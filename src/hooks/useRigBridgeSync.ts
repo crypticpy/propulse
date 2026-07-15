@@ -45,7 +45,8 @@ export function useRigBridgeSync() {
     enabled: settings.bridgeEnabled,
   });
 
-  const catEnabled = useRigStore((s) => s.catEnabled);
+  const catConfigured =
+    settings.bridgeEnabled && settings.catBackend !== "disabled";
   const pendingFrequency = useRigStore((s) => s.pendingFrequency);
   const pendingMode = useRigStore((s) => s.pendingMode);
   const clearPendingFrequency = useRigStore((s) => s.clearPendingFrequency);
@@ -111,15 +112,22 @@ export function useRigBridgeSync() {
   ]);
 
   useEffect(() => {
-    const enabled =
-      settings.bridgeEnabled && settings.catBackend !== "disabled";
-    setCATEnabled(enabled);
+    setCATEnabled(catConfigured);
     setBackend(
       settings.catBackend === "disabled" || settings.catBackend === "auto"
         ? "none"
         : settings.catBackend,
     );
-  }, [setBackend, setCATEnabled, settings.bridgeEnabled, settings.catBackend]);
+  }, [catConfigured, setBackend, setCATEnabled, settings.catBackend]);
+
+  useEffect(() => {
+    if (!bridgeConnected || catConfigured) return;
+    connectRequestIdRef.current = null;
+    pendingFrequencyRequestRef.current = null;
+    pendingModeRequestRef.current = null;
+    setConnected(false);
+    send("rig.disconnect", {});
+  }, [bridgeConnected, catConfigured, send, setConnected]);
 
   // If the WebSocket drops, reflect it in rigStore.
   useEffect(() => {
@@ -133,11 +141,11 @@ export function useRigBridgeSync() {
 
   // Reconnect the persisted backend after transport reconnect or config changes.
   useEffect(() => {
-    if (!bridgeConnected || !catEnabled || connectRequestIdRef.current) return;
+    if (!bridgeConnected || !catConfigured || connectRequestIdRef.current) return;
     connectRequestIdRef.current = sendRequest("rig.connect", connectPayload);
   }, [
     bridgeConnected,
-    catEnabled,
+    catConfigured,
     connectPayload,
     sendRequest,
   ]);
@@ -175,12 +183,20 @@ export function useRigBridgeSync() {
       if (msg.type === "rig.setFrequency.ack") {
         pendingFrequencyRequestRef.current = null;
         clearPendingFrequency();
+      } else if (msg.type === "error") {
+        pendingFrequencyRequestRef.current = null;
+        clearPendingFrequency();
+        console.error("Rig frequency command failed", msg.payload);
       }
     }
     if (msg.id && msg.id === pendingModeRequestRef.current?.id) {
       if (msg.type === "rig.setMode.ack") {
         pendingModeRequestRef.current = null;
         clearPendingMode();
+      } else if (msg.type === "error") {
+        pendingModeRequestRef.current = null;
+        clearPendingMode();
+        console.error("Rig mode command failed", msg.payload);
       }
     }
   }, [
@@ -194,7 +210,7 @@ export function useRigBridgeSync() {
 
   // Dispatch staged tuning commands.
   useEffect(() => {
-    if (!bridgeConnected || !catEnabled) return;
+    if (!bridgeConnected || !catConfigured) return;
     if (pendingFrequency === null && pendingMode === null) return;
 
     if (
@@ -215,7 +231,7 @@ export function useRigBridgeSync() {
     }
   }, [
     bridgeConnected,
-    catEnabled,
+    catConfigured,
     pendingFrequency,
     pendingMode,
     sendRequest,

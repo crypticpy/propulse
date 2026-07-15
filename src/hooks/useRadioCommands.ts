@@ -161,8 +161,8 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         : freqUnit === "kHz"
           ? Math.round(value * 1_000)
           : Math.round(value);
-    sendTrackedCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
     setDraftState((s) => (s ? { ...s, freq: hz } : s));
+    sendTrackedCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
   }, [
     connectedDeviceId,
     effectiveState?.lock,
@@ -175,8 +175,8 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
   const handleModeChange = useCallback(
     (mode: string) => {
       if (!connectedDeviceId) return;
-      sendTrackedCommand("radio:mode", { device_id: connectedDeviceId, mode });
       setDraftState((s) => (s ? { ...s, mode } : s));
+      sendTrackedCommand("radio:mode", { device_id: connectedDeviceId, mode });
     },
     [connectedDeviceId, sendTrackedCommand],
   );
@@ -319,8 +319,8 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
   const handleVfoChange = useCallback(
     (vfo: "A" | "B") => {
       if (!connectedDeviceId) return;
-      sendTrackedCommand("radio:vfo", { device_id: connectedDeviceId, vfo });
       setDraftState((s) => (s ? { ...s, vfo } : s));
+      sendTrackedCommand("radio:vfo", { device_id: connectedDeviceId, vfo });
     },
     [connectedDeviceId, sendTrackedCommand],
   );

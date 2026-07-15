@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DetailModal } from "@/components/ui";
 import {
   isDaemonResponseMessage,
@@ -55,6 +55,13 @@ function DaemonAddressProbe({
   onError: (error: string) => void;
 }) {
   const failureReportedRef = useRef(false);
+  const enumerationTimeoutRef = useRef<number | null>(null);
+  const clearEnumerationTimeout = useCallback(() => {
+    if (enumerationTimeoutRef.current !== null) {
+      window.clearTimeout(enumerationTimeoutRef.current);
+      enumerationTimeoutRef.current = null;
+    }
+  }, []);
   const probe = useRadioDaemon({
     enabled,
     url,
@@ -63,12 +70,16 @@ function DaemonAddressProbe({
     trackLastMessage: false,
     trackLastFrame: false,
     onMessage: (message) => {
-      if (isDevicesListMessage(message)) onDevices(message.devices);
+      if (isDevicesListMessage(message)) {
+        clearEnumerationTimeout();
+        onDevices(message.devices);
+      }
       if (
         isDaemonResponseMessage(message) &&
         !message.success &&
         !failureReportedRef.current
       ) {
+        clearEnumerationTimeout();
         failureReportedRef.current = true;
         onError(message.error ?? "Daemon rejected device enumeration");
       }
@@ -77,9 +88,25 @@ function DaemonAddressProbe({
 
   useEffect(() => {
     if (!enabled || !probe.error || failureReportedRef.current) return;
+    clearEnumerationTimeout();
     failureReportedRef.current = true;
     onError(probe.error);
-  }, [enabled, onError, probe.error]);
+  }, [clearEnumerationTimeout, enabled, onError, probe.error]);
+
+  useEffect(() => {
+    failureReportedRef.current = false;
+    clearEnumerationTimeout();
+    if (!enabled || !url) return;
+
+    enumerationTimeoutRef.current = window.setTimeout(() => {
+      enumerationTimeoutRef.current = null;
+      if (failureReportedRef.current) return;
+      failureReportedRef.current = true;
+      onError("Timed out while enumerating devices at this daemon address");
+    }, 12_000);
+
+    return clearEnumerationTimeout;
+  }, [authToken, clearEnumerationTimeout, enabled, onError, url]);
 
   return null;
 }

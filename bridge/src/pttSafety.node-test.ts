@@ -46,6 +46,25 @@ test("only the owning client disconnect releases manual PTT", async () => {
   assert.deepEqual(states, [true, false]);
 });
 
+test("a second client cannot take over active manual PTT", async () => {
+  const states: boolean[] = [];
+  const safety = new PttSafetyController(
+    async (enabled) => {
+      states.push(enabled);
+    },
+    1_000,
+    () => {},
+  );
+
+  await safety.setManualPtt("client-a", true);
+  await assert.rejects(
+    safety.setManualPtt("client-b", true),
+    /another client/i,
+  );
+  assert.equal(safety.owner, "client-a");
+  assert.deepEqual(states, [true]);
+});
+
 test("maximum key-down timer releases PTT", async () => {
   const states: boolean[] = [];
   const safety = new PttSafetyController(

@@ -284,6 +284,7 @@ function sendToClient(
 let clusterClient: DXClusterClient | null = null;
 let wsjtxListener: WSJTXListener | null = null;
 let rigController: RigController | null = null;
+let rigControllerStopping: RigController | null = null;
 let lastRigConfig: RigControllerConfig | undefined;
 let rigStartingPromise: Promise<import("./rig.js").RigBackend> | null = null;
 
@@ -339,8 +340,10 @@ const MANUAL_PTT_MAX_DURATION_MS = 180_000;
 
 const pttSafety = new PttSafetyController(
   async (enabled) => {
-    if (!enabled && !rigController) return;
-    const controller = enabled ? await ensureRigController() : rigController;
+    if (!enabled && !rigControllerStopping && !rigController) return;
+    const controller = enabled
+      ? await ensureRigController()
+      : (rigControllerStopping ?? rigController);
     await controller?.setPTT(enabled);
   },
   MANUAL_PTT_MAX_DURATION_MS,
@@ -600,6 +603,23 @@ function stopRig(): void {
 
   if (rigController) {
     const controller = rigController;
+    // Detach synchronously so a new start cannot observe or reuse a controller
+    // that is already shutting down.
+    rigController = null;
+    const retainedForPttRelease =
+      pttSafety.owner !== null && rigControllerStopping === null;
+    if (retainedForPttRelease) rigControllerStopping = controller;
+
+    const finishStop = () => {
+      if (rigControllerStopping === controller && pttSafety.owner !== null) {
+        setTimeout(finishStop, 250);
+        return;
+      }
+      if (rigControllerStopping === controller) rigControllerStopping = null;
+      controller.stop();
+      logger.info("Rig controller stopped");
+    };
+
     void releaseManualPtt("rig stopped")
       .then(() => controller.setPTT(false))
       .catch((err: unknown) => {
@@ -607,11 +627,7 @@ function stopRig(): void {
           error: err instanceof Error ? err.message : String(err),
         });
       })
-      .finally(() => {
-        if (rigController === controller) rigController = null;
-        controller.stop();
-      });
-    logger.info("Rig controller stopped");
+      .finally(finishStop);
   }
 }
 

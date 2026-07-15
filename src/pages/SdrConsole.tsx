@@ -431,6 +431,14 @@ export function SdrConsole() {
               setAudioEnabled(false);
             }
           } else if (action === "start") {
+            const desired =
+              kind === "fft" ? desiredFftRef.current : desiredAudioRef.current;
+            const activeDeviceId = useRadioStore.getState().connectedDeviceId;
+            if (!desired || activeDeviceId !== deviceId) {
+              api.sendCommand(`stream:${kind}:stop`, { device_id: deviceId });
+              commandResponseHandlerRef.current(msg.id, msg.success);
+              return;
+            }
             const timeoutMs = kind === "fft" ? 30_000 : 8_000;
             streamStartTimeoutsRef.current[kind] = window.setTimeout(() => {
               delete streamStartTimeoutsRef.current[kind];

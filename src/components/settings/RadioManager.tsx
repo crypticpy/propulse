@@ -83,6 +83,7 @@ const CUSTOM_MODES: RadioMode[] = [
 ];
 
 const CUSTOM_TIERS: RadioTier[] = ["entry", "midrange", "highend", "flagship"];
+const MAX_USER_RADIOS = 10;
 
 function getRadioDisplayLabel(
   radio: RadioEquipment,
@@ -682,7 +683,7 @@ export function RadioManager({
     }
     return counts;
   }, [preferences.radios]);
-  const atRadioLimit = userRadios.length >= 10;
+  const atRadioLimit = userRadios.length >= MAX_USER_RADIOS;
 
   const removeImpact = useMemo(() => {
     if (!removeRadioTarget) return { presets: 0, chains: 0 };
@@ -1172,12 +1173,18 @@ export function RadioManager({
         <button
           onClick={() => setShowAddModal(true)}
           disabled={atRadioLimit}
-          title={atRadioLimit ? "Maximum of 10 owned radio instances reached" : undefined}
+          title={
+            atRadioLimit
+              ? `Maximum of ${MAX_USER_RADIOS} owned radio instances reached`
+              : undefined
+          }
           className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
                      text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {atRadioLimit ? "10 Radio Limit" : "+ Add Radio Instance"}
+          {atRadioLimit
+            ? `${MAX_USER_RADIOS} Radio Limit`
+            : "+ Add Radio Instance"}
         </button>
       </div>
 

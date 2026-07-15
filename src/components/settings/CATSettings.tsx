@@ -280,7 +280,8 @@ export const CATSettings = memo(function CATSettings({
     const msg = lastMessage as unknown as Record<string, unknown>;
     if (
       msg.type === "devices:scan:result" &&
-      (!scanRequestId || !msg.id || msg.id === scanRequestId)
+      scanRequestId !== null &&
+      msg.id === scanRequestId
     ) {
       const payload =
         typeof msg.payload === "object" && msg.payload !== null

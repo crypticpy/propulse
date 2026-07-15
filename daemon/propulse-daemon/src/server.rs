@@ -71,15 +71,23 @@ struct DaemonState {
 }
 
 struct PttSafetyState {
+  transition: Mutex<()>,
   lockout: AtomicBool,
   release_pending: AtomicBool,
   generation: AtomicU64,
   owner: Mutex<Option<String>>,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ManualPttClaim {
+  generation: u64,
+  new_owner: bool,
+}
+
 impl Default for PttSafetyState {
   fn default() -> Self {
     Self {
+      transition: Mutex::new(()),
       lockout: AtomicBool::new(false),
       release_pending: AtomicBool::new(false),
       generation: AtomicU64::new(0),
@@ -99,12 +107,67 @@ impl PttSafetyState {
     }
   }
 
-  async fn track_manual(&self, client_id: &str, active: bool) -> u64 {
-    let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
-    if !active {
-      self.release_pending.store(false, Ordering::SeqCst);
+  async fn claim_manual(&self, client_id: &str) -> Result<ManualPttClaim, &'static str> {
+    if let Some(error) = self.key_down_error() {
+      return Err(error);
     }
-    *self.owner.lock().await = active.then(|| client_id.to_string());
+
+    let mut owner = self.owner.lock().await;
+    if let Some(error) = self.key_down_error() {
+      return Err(error);
+    }
+    match owner.as_deref() {
+      Some(current) if current != client_id => Err("PTT is already controlled by another client"),
+      Some(_) => Ok(ManualPttClaim {
+        generation: self.generation.load(Ordering::SeqCst),
+        new_owner: false,
+      }),
+      None => {
+        let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        *owner = Some(client_id.to_string());
+        Ok(ManualPttClaim {
+          generation,
+          new_owner: true,
+        })
+      }
+    }
+  }
+
+  async fn confirm_manual(
+    &self,
+    client_id: &str,
+    claim: ManualPttClaim,
+  ) -> Result<u64, &'static str> {
+    if let Some(error) = self.key_down_error() {
+      return Err(error);
+    }
+    let owner = self.owner.lock().await;
+    if owner.as_deref() != Some(client_id)
+      || (claim.new_owner && !self.generation_is(claim.generation))
+    {
+      return Err("PTT ownership changed while the hardware command was running");
+    }
+    if claim.new_owner {
+      Ok(claim.generation)
+    } else {
+      Ok(self.generation.fetch_add(1, Ordering::SeqCst) + 1)
+    }
+  }
+
+  async fn rollback_manual_claim(&self, client_id: &str, claim: ManualPttClaim) {
+    if !claim.new_owner || !self.generation_is(claim.generation) {
+      return;
+    }
+    let mut owner = self.owner.lock().await;
+    if self.generation_is(claim.generation) && owner.as_deref() == Some(client_id) {
+      *owner = None;
+    }
+  }
+
+  async fn track_manual_release(&self) -> u64 {
+    let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    *self.owner.lock().await = None;
+    self.release_pending.store(false, Ordering::SeqCst);
     generation
   }
 
@@ -956,22 +1019,27 @@ async fn attempt_release_all_ptt(state: &Arc<DaemonState>, reason: &str) -> bool
   release_succeeded && radio_release_succeeded
 }
 
-async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
+async fn release_all_ptt_locked(state: &Arc<DaemonState>, reason: &str) -> Option<u64> {
   let generation = state.ptt_safety.begin_release();
   if attempt_release_all_ptt(state, reason).await {
     state.ptt_safety.complete_release(generation).await;
-    return;
+    return None;
   }
 
   if !state.ptt_safety.generation_is(generation) {
-    return;
+    return None;
   }
 
+  Some(generation)
+}
+
+fn schedule_ptt_release_retry(state: &Arc<DaemonState>, reason: &str, generation: u64) {
   let state = Arc::clone(state);
   let reason = reason.to_string();
   tokio::spawn(async move {
     loop {
       tokio::time::sleep(PTT_RELEASE_RETRY_DELAY).await;
+      let _transition = state.ptt_safety.transition.lock().await;
       if !state.ptt_safety.generation_is(generation) {
         return;
       }
@@ -983,24 +1051,99 @@ async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
   });
 }
 
-async fn track_manual_ptt(state: &Arc<DaemonState>, client_id: &str, active: bool) {
-  let generation = state.ptt_safety.track_manual(client_id, active).await;
-
-  if active {
-    let state = Arc::clone(state);
-    tokio::spawn(async move {
-      tokio::time::sleep(MAX_MANUAL_PTT_DURATION).await;
-      if state.ptt_safety.generation_is(generation) {
-        release_all_ptt(&state, "manual PTT timeout").await;
-      }
-    });
+async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    release_all_ptt_locked(state, reason).await
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, reason, generation);
   }
 }
 
+async fn release_owned_ptt(state: &Arc<DaemonState>, client_id: &str, reason: &str) {
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    if !state.ptt_safety.is_owned_by(client_id).await {
+      return;
+    }
+    release_all_ptt_locked(state, reason).await
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, reason, generation);
+  }
+}
+
+async fn release_ptt_if_generation(
+  state: &Arc<DaemonState>,
+  expected_generation: u64,
+  reason: &str,
+) {
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    if !state.ptt_safety.generation_is(expected_generation) {
+      return;
+    }
+    release_all_ptt_locked(state, reason).await
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, reason, generation);
+  }
+}
+
+async fn begin_manual_ptt_transition<'a>(
+  state: &'a Arc<DaemonState>,
+  client_id: &str,
+  active: bool,
+) -> Result<(tokio::sync::MutexGuard<'a, ()>, Option<ManualPttClaim>), &'static str> {
+  let transition = state.ptt_safety.transition.lock().await;
+  let claim = if active {
+    Some(state.ptt_safety.claim_manual(client_id).await?)
+  } else {
+    None
+  };
+  Ok((transition, claim))
+}
+
+async fn complete_manual_ptt_transition(
+  state: &Arc<DaemonState>,
+  client_id: &str,
+  active: bool,
+  claim: Option<ManualPttClaim>,
+) -> Result<Option<u64>, &'static str> {
+  if active {
+    let claim = claim.ok_or("PTT ownership was not claimed before key-down")?;
+    state
+      .ptt_safety
+      .confirm_manual(client_id, claim)
+      .await
+      .map(Some)
+  } else {
+    state.ptt_safety.track_manual_release().await;
+    Ok(None)
+  }
+}
+
+fn schedule_manual_ptt_timeout(state: &Arc<DaemonState>, generation: u64) {
+  let state = Arc::clone(state);
+  tokio::spawn(async move {
+    tokio::time::sleep(MAX_MANUAL_PTT_DURATION).await;
+    release_ptt_if_generation(&state, generation, "manual PTT timeout").await;
+  });
+}
+
 async fn configure_ptt_safety(state: &Arc<DaemonState>, lockout: bool) {
-  state.ptt_safety.lockout.store(lockout, Ordering::SeqCst);
-  if lockout {
-    release_all_ptt(state, "PTT safety lockout enabled").await;
+  let retry_generation = {
+    let _transition = state.ptt_safety.transition.lock().await;
+    state.ptt_safety.lockout.store(lockout, Ordering::SeqCst);
+    if lockout {
+      release_all_ptt_locked(state, "PTT safety lockout enabled").await
+    } else {
+      None
+    }
+  };
+  if let Some(generation) = retry_generation {
+    schedule_ptt_release_retry(state, "PTT safety lockout enabled", generation);
   }
 }
 
@@ -1557,20 +1700,47 @@ async fn handle_text_message(
       };
       let active = value.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
 
-      if active {
-        if let Some(error) = state.ptt_safety.key_down_error() {
+      let (transition, claim) = match begin_manual_ptt_transition(state, client_id, active).await {
+        Ok(value) => value,
+        Err(error) => {
           if let Some(id) = id {
             send_json(state, client_id, &Response::err(id, error)).await?;
           }
           return Ok(());
         }
-      }
+      };
 
       let mut radio = state.radio.lock().await;
       match radio.set_ptt(device_id, active) {
         Ok(new_state) => {
           drop(radio);
-          track_manual_ptt(state, client_id, active).await;
+          let tracked = complete_manual_ptt_transition(state, client_id, active, claim).await;
+          let generation = match tracked {
+            Ok(generation) => generation,
+            Err(error) => {
+              let retry_generation = release_all_ptt_locked(
+                state,
+                "PTT ownership changed during radio key-down",
+              )
+              .await;
+              drop(transition);
+              if let Some(generation) = retry_generation {
+                schedule_ptt_release_retry(
+                  state,
+                  "PTT ownership changed during radio key-down",
+                  generation,
+                );
+              }
+              if let Some(id) = id {
+                send_json(state, client_id, &Response::err(id, error)).await?;
+              }
+              return Ok(());
+            }
+          };
+          drop(transition);
+          if let Some(generation) = generation {
+            schedule_manual_ptt_timeout(state, generation);
+          }
           if let Some(id) = id.clone() {
             send_json(state, client_id, &Response::ok(id)).await?;
           }
@@ -1586,6 +1756,20 @@ async fn handle_text_message(
           maybe_broadcast_rig_from_radio_state(state, &new_state).await?;
         }
         Err(err) => {
+          drop(radio);
+          if let Some(claim) = claim {
+            state.ptt_safety.rollback_manual_claim(client_id, claim).await;
+          }
+          let retry_generation =
+            release_all_ptt_locked(state, "manual radio PTT command failed").await;
+          drop(transition);
+          if let Some(generation) = retry_generation {
+            schedule_ptt_release_retry(
+              state,
+              "manual radio PTT command failed",
+              generation,
+            );
+          }
           if let Some(id) = id {
             send_json(state, client_id, &Response::err(id, err.to_string())).await?;
           }
@@ -2490,43 +2674,86 @@ impl CatBackend for DaemonCatBackend {
   }
 
   async fn set_ptt(&self, enabled: bool) -> anyhow::Result<()> {
-    if enabled {
-      if let Some(error) = self.state.ptt_safety.key_down_error() {
-        return Err(anyhow::anyhow!(error));
+    let client_id = "cat-server";
+    let (transition, claim) = begin_manual_ptt_transition(&self.state, client_id, enabled)
+      .await
+      .map_err(anyhow::Error::msg)?;
+
+    let hardware_result = async {
+      let rig = ensure_rig_service(&self.state).await;
+      if let Ok(st) = rig.status().await {
+        if st.connected {
+          rig.set_ptt(enabled).await?;
+          return Ok::<_, anyhow::Error>(());
+        }
       }
+
+      let (device_id, new_state) = {
+        let mut radio = self.state.radio.lock().await;
+        let device_id = radio
+          .devices()
+          .iter()
+          .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
+          .map(|d| d.device_id.clone())
+          .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
+        let new_state = radio.set_ptt(&device_id, enabled)?;
+        (device_id, new_state)
+      };
+
+      broadcast_json(
+        &self.state,
+        &RadioStateEvent {
+          kind: "radio:state".to_string(),
+          device_id: device_id.clone(),
+          state: new_state.clone(),
+        },
+      )
+      .await?;
+      broadcast_rig_from_radio_state(&self.state, &new_state).await?;
+      Ok(())
     }
-    let rig = ensure_rig_service(&self.state).await;
-    if let Ok(st) = rig.status().await {
-      if st.connected {
-        rig.set_ptt(enabled).await?;
-        track_manual_ptt(&self.state, "cat-server", enabled).await;
-        return Ok(());
+    .await;
+
+    if let Err(error) = hardware_result {
+      if let Some(claim) = claim {
+        self.state.ptt_safety.rollback_manual_claim(client_id, claim).await;
       }
+      let retry_generation =
+        release_all_ptt_locked(&self.state, "CAT server PTT command failed").await;
+      drop(transition);
+      if let Some(generation) = retry_generation {
+        schedule_ptt_release_retry(
+          &self.state,
+          "CAT server PTT command failed",
+          generation,
+        );
+      }
+      return Err(error);
     }
 
-    let (device_id, new_state) = {
-      let mut radio = self.state.radio.lock().await;
-      let device_id = radio
-        .devices()
-        .iter()
-        .find(|d| radio.state(&d.device_id).map(|s| s.connected).unwrap_or(false))
-        .map(|d| d.device_id.clone())
-        .ok_or_else(|| anyhow::anyhow!("No connected device"))?;
-      let new_state = radio.set_ptt(&device_id, enabled)?;
-      (device_id, new_state)
-    };
-
-    broadcast_json(
-      &self.state,
-      &RadioStateEvent {
-        kind: "radio:state".to_string(),
-        device_id: device_id.clone(),
-        state: new_state.clone(),
-      },
-    )
-    .await?;
-    broadcast_rig_from_radio_state(&self.state, &new_state).await?;
-    track_manual_ptt(&self.state, "cat-server", enabled).await;
+    let generation = complete_manual_ptt_transition(&self.state, client_id, enabled, claim)
+      .await
+      .map_err(anyhow::Error::msg);
+    match generation {
+      Ok(Some(generation)) => {
+        drop(transition);
+        schedule_manual_ptt_timeout(&self.state, generation);
+      }
+      Ok(None) => drop(transition),
+      Err(error) => {
+        let retry_generation =
+          release_all_ptt_locked(&self.state, "CAT server PTT ownership changed").await;
+        drop(transition);
+        if let Some(generation) = retry_generation {
+          schedule_ptt_release_retry(
+            &self.state,
+            "CAT server PTT ownership changed",
+            generation,
+          );
+        }
+        return Err(error);
+      }
+    }
     Ok(())
   }
 
@@ -3614,10 +3841,7 @@ async fn remove_client_and_cleanup(state: &Arc<DaemonState>, client_id: &str) {
     return;
   };
 
-  let owns_ptt = state.ptt_safety.is_owned_by(client_id).await;
-  if owns_ptt {
-    release_all_ptt(state, "PTT owner disconnected").await;
-  }
+  release_owned_ptt(state, client_id, "PTT owner disconnected").await;
 
   // If this client was the last subscriber for any stream, stop the stream.
   for device_id in removed.fft_subs {
@@ -4304,8 +4528,9 @@ async fn handle_bridge_message(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-      if enabled {
-        if let Some(error) = state.ptt_safety.key_down_error() {
+      let (transition, claim) = match begin_manual_ptt_transition(state, client_id, enabled).await {
+        Ok(value) => value,
+        Err(error) => {
           send_bridge_ack(
             state,
             client_id,
@@ -4317,7 +4542,7 @@ async fn handle_bridge_message(
           .await?;
           return Ok(());
         }
-      }
+      };
 
       let rig = ensure_rig_service(state).await;
       let st = rig.status().await.unwrap_or(RigStatus {
@@ -4328,33 +4553,12 @@ async fn handle_bridge_message(
         backend: Some("none".to_string()),
       });
 
-      if st.connected {
-        if let Err(err) = rig.set_ptt(enabled).await {
-          send_bridge_ack(
-            state,
-            client_id,
-            msg_id,
-            msg_type,
-            false,
-            serde_json::json!({ "message": err.to_string() }),
-          )
-          .await?;
-          return Ok(());
-        }
-
-        track_manual_ptt(state, client_id, enabled).await;
-
-        send_bridge_ack(
-          state,
-          client_id,
-          msg_id,
-          msg_type,
-          true,
-          serde_json::json!({ "ptt": enabled }),
-        )
-        .await?;
+      let updated = if st.connected {
+        rig.set_ptt(enabled)
+          .await
+          .map(|_| None)
       } else {
-        let updated = async {
+        async {
           let mut radio = state.radio.lock().await;
           let device_id = radio
             .devices()
@@ -4363,13 +4567,47 @@ async fn handle_bridge_message(
             .map(|d| d.device_id.clone())
             .ok_or_else(|| anyhow::anyhow!("No connected radio"))?;
           let new_state = radio.set_ptt(&device_id, enabled)?;
-          Ok::<_, anyhow::Error>((device_id, new_state))
+          Ok::<_, anyhow::Error>(Some((device_id, new_state)))
         }
-        .await;
+        .await
+      };
 
-        match updated {
-          Ok((device_id, new_state)) => {
-            track_manual_ptt(state, client_id, enabled).await;
+      match updated {
+        Ok(radio_update) => {
+          let tracked = complete_manual_ptt_transition(state, client_id, enabled, claim).await;
+          let generation = match tracked {
+            Ok(generation) => generation,
+            Err(error) => {
+              let retry_generation = release_all_ptt_locked(
+                state,
+                "PTT ownership changed during rig key-down",
+              )
+              .await;
+              drop(transition);
+              if let Some(generation) = retry_generation {
+                schedule_ptt_release_retry(
+                  state,
+                  "PTT ownership changed during rig key-down",
+                  generation,
+                );
+              }
+              send_bridge_ack(
+                state,
+                client_id,
+                msg_id,
+                msg_type,
+                false,
+                serde_json::json!({ "message": error }),
+              )
+              .await?;
+              return Ok(());
+            }
+          };
+          drop(transition);
+          if let Some(generation) = generation {
+            schedule_manual_ptt_timeout(state, generation);
+          }
+          if let Some((device_id, new_state)) = radio_update {
             broadcast_json(
               state,
               &RadioStateEvent {
@@ -4380,27 +4618,39 @@ async fn handle_bridge_message(
             )
             .await?;
             broadcast_rig_from_radio_state(state, &new_state).await?;
-            send_bridge_ack(
-              state,
-              client_id,
-              msg_id,
-              msg_type,
-              true,
-              serde_json::json!({ "ptt": enabled }),
-            )
-            .await?;
           }
-          Err(err) => {
-            send_bridge_ack(
-              state,
-              client_id,
-              msg_id,
-              msg_type,
-              false,
-              serde_json::json!({ "message": err.to_string() }),
-            )
-            .await?;
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            true,
+            serde_json::json!({ "ptt": enabled }),
+          )
+          .await?;
+        }
+        Err(err) => {
+          if let Some(claim) = claim {
+            state.ptt_safety.rollback_manual_claim(client_id, claim).await;
           }
+          let retry_generation = release_all_ptt_locked(state, "rig PTT command failed").await;
+          drop(transition);
+          if let Some(generation) = retry_generation {
+            schedule_ptt_release_retry(
+              state,
+              "rig PTT command failed",
+              generation,
+            );
+          }
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            false,
+            serde_json::json!({ "message": err.to_string() }),
+          )
+          .await?;
         }
       }
     }
@@ -4643,7 +4893,8 @@ mod tests {
   #[tokio::test]
   async fn failed_release_state_retains_owner_and_blocks_rekey() {
     let safety = PttSafetyState::default();
-    safety.track_manual("client-a", true).await;
+    let claim = safety.claim_manual("client-a").await.unwrap();
+    safety.confirm_manual("client-a", claim).await.unwrap();
 
     let release_generation = safety.begin_release();
     assert_eq!(
@@ -4664,12 +4915,28 @@ mod tests {
   #[tokio::test]
   async fn stale_release_cannot_clear_a_new_owner() {
     let safety = PttSafetyState::default();
-    safety.track_manual("client-a", true).await;
+    let first = safety.claim_manual("client-a").await.unwrap();
+    safety.confirm_manual("client-a", first).await.unwrap();
     let stale_release = safety.begin_release();
 
-    safety.track_manual("client-b", true).await;
+    safety.track_manual_release().await;
+    let second = safety.claim_manual("client-b").await.unwrap();
+    safety.confirm_manual("client-b", second).await.unwrap();
 
     assert!(!safety.complete_release(stale_release).await);
     assert_eq!(safety.owner.lock().await.as_deref(), Some("client-b"));
+  }
+
+  #[tokio::test]
+  async fn a_second_client_cannot_take_over_an_active_ptt_owner() {
+    let safety = PttSafetyState::default();
+    let first = safety.claim_manual("client-a").await.unwrap();
+    safety.confirm_manual("client-a", first).await.unwrap();
+
+    assert_eq!(
+      safety.claim_manual("client-b").await.unwrap_err(),
+      "PTT is already controlled by another client"
+    );
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-a"));
   }
 }

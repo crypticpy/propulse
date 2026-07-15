@@ -23,7 +23,7 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
   serialized hardware transitions, release-on-disconnect/stop/shutdown, bounded
   manual key-down, hardware-confirmed release retries, and generation-safe FT8
   cancellation.
-- Verified by five Node safety tests, Rust protocol coverage, Rust unit tests,
+- Verified by six Node safety tests, Rust protocol coverage, Rust unit tests,
   bridge build, and live dummy-daemon console checks.
 
 ### 2. Selected device versus connected device (`DONE`)
@@ -73,7 +73,8 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
   error for the command that failed.
 - Radio and stream commands are tracked by request ID; failed optimistic radio
   edits roll back to the latest authoritative state, and unrelated successes no
-  longer clear an existing error.
+  longer clear an existing error. Correlated CAT frequency/mode errors also
+  clear their pending request so the same command can be retried.
 - Verified by frontend tests, CAT correlation tests, and manual failure-path QA.
 
 ### 6. Reconnect must restore radio state and stream subscriptions (`DONE`)
@@ -110,7 +111,8 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
 - Acceptance: stream controls never show enabled when no stream is active.
 - FFT/audio now distinguish desired, pending, and frame-confirmed state. Failed
   starts, no-frame timeouts, and exhausted audio retries turn controls off and
-  issue a stop request.
+  issue a stop request. A late successful start ACK after cancellation or a
+  device switch is immediately paired with a stop request.
 - Verified live: FFT/audio changed to active only after binary frames arrived;
   reload restored the desired FFT subscription.
 
@@ -147,7 +149,8 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
 - Acceptance: click-to-tune works after reload without visiting Settings.
 - Live CAT enabled/backend state is hydrated from settings, the configured
   backend reconnects after transport recovery, and pending frequency/mode
-  requests remain staged until their matching ACK.
+  requests remain staged until their matching ACK. Disabling CAT explicitly
+  disconnects the backend and cannot race a stale auto-connect render.
 - Verified by production build and reconnect/browser state checks.
 
 ### 12. Real connection-test results (`DONE`)
@@ -210,7 +213,8 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
 - Acceptance: every picker action produces the selected daemon/device state.
 - Same-URL device choices are applied, URL-only choices clear remembered IDs,
   authenticated probes try each address in isolated keyed transports, and stale
-  probe errors cannot skip a candidate.
+  probe errors cannot skip a candidate. Each address/token enumeration attempt
+  has a bounded timeout so an unresponsive endpoint advances to the next address.
 - Verified by frontend build/lint and same-URL selection logic review.
 
 ### 18. Cancel delayed radio commands (`DONE`)
@@ -268,8 +272,8 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
   `propulse-settings`, and migrated to the encrypted vault when it is unlocked.
   Frontend, bridge, and daemon coverage plus `verify:radio` now exercise the
   subsystem build/test path.
-- Verified: 7 focused frontend tests, 5 bridge safety tests, 6 Rust unit tests, all Rust
-  integration binaries compiled, and the credential persistence assertion
+- Verified: 7 focused frontend tests, 6 bridge safety tests, 7 Rust unit tests,
+  all Rust integration tests passed, and the credential persistence assertion
   confirms neither the value nor key is written to `propulse-settings`.
 
 ## Implementation order
@@ -289,15 +293,14 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
 - `npm run lint` — passed with zero warnings.
 - `npm run test` — 1 file, 7 focused tests passed.
 - `npm run build` — TypeScript and Vite production build passed.
-- `npm run test:bridge` — bridge TypeScript build and 5 PTT tests passed.
+- `npm run test:bridge` — bridge TypeScript build and 6 PTT tests passed.
 - `cargo check -p propulse-daemon --offline` — passed.
-- `cargo test -p propulse-daemon --lib --offline` — 6 tests passed.
-- `cargo test -p propulse-daemon --tests --no-run --offline` — all unit and
-  integration test executables compiled.
+- `cargo test -p propulse-daemon` — 7 unit tests and all daemon integration
+  tests passed.
 - Browser QA with the live Rust dummy daemon covered device enumeration/connect,
   capability-driven controls, FFT/audio frame activation, reconnect + FFT restore,
   frequency lock, CAT scan/test failures, stable CAT mounting, radio inventory,
   deletion-impact preview, and zero browser console errors.
-- The sandbox blocks Rust integration tests from binding ephemeral ports, so the
-  binaries were compiled here and the equivalent daemon protocol/stream paths
-  were exercised through the live browser session.
+- Rust integration tests were run with localhost binding enabled for the test
+  process; migration, multi-client stream, and protocol lifecycle coverage all
+  passed.

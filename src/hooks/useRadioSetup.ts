@@ -301,7 +301,8 @@ export function useRadioSetup(): UseRadioSetupReturn {
       if (
         transportMode === "detect" &&
         message.type === "devices:scan:result" &&
-        (!message.id || message.id === requestId)
+        requestId !== null &&
+        message.id === requestId
       ) {
         const discovered = message.radios ?? message.payload?.radios ?? [];
         setRadios(discovered);
@@ -387,6 +388,7 @@ export function useRadioSetup(): UseRadioSetupReturn {
   // ── startDetection ──────────────────────────────────────────────────────
   const startDetection = useCallback(() => {
     closeProbeWs();
+    closeTestWs();
     setBridgeStatus("probing");
     setRadios([]);
     setSelectedRadio(undefined);
@@ -402,7 +404,7 @@ export function useRadioSetup(): UseRadioSetupReturn {
       );
       closeProbeWs();
     }, BRIDGE_PROBE_TIMEOUT_MS);
-  }, [closeProbeWs]);
+  }, [closeProbeWs, closeTestWs]);
 
   // ── setConfig (partial merge) ───────────────────────────────────────────
   const setConfig = useCallback((partial: Partial<RadioConfig>) => {
@@ -417,6 +419,7 @@ export function useRadioSetup(): UseRadioSetupReturn {
   // ── testConnection ──────────────────────────────────────────────────────
   const testConnection = useCallback(() => {
     closeTestWs();
+    closeProbeWs();
     setTestResult({ status: "testing" });
     setStep("testing");
 
@@ -433,7 +436,7 @@ export function useRadioSetup(): UseRadioSetupReturn {
       });
       closeTestWs();
     }, RIG_TEST_TIMEOUT_MS);
-  }, [closeTestWs]);
+  }, [closeProbeWs, closeTestWs]);
 
   // ── retryTest ───────────────────────────────────────────────────────────
   const retryTest = useCallback(() => {

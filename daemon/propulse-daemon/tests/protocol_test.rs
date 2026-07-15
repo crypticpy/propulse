@@ -187,7 +187,13 @@ async fn protocol_lifecycle_dummy_radio() -> anyhow::Result<()> {
     serde_json::json!({ "id": "safety-off", "type": "safety:configure", "ptt_lockout": false }).to_string(),
   ))
   .await?;
-  let _ = response_for(&mut ws, "safety-off").await?;
+  assert_eq!(
+    response_for(&mut ws, "safety-off")
+      .await?
+      .get("success")
+      .and_then(|value| value.as_bool()),
+    Some(true),
+  );
 
   // Start FFT stream
   ws.send(Message::Text(

@@ -266,6 +266,10 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
         filterHigh={controls.filterHigh}
         onModeChange={controls.onModeChange}
         onFilterChange={controls.onFilterChange}
+        supportsMode={controls.commands ? controls.commands.mode === true : true}
+        supportsFilter={
+          controls.commands ? controls.commands.filter === true : true
+        }
         canControl={controls.canControl}
       />
     );
@@ -297,6 +301,7 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
         onSplitToggle={controls.onSplitToggle}
         onIfShift={controls.onIfShift}
         onCwSpeed={controls.onCwSpeed}
+        commands={controls.commands}
         canControl={controls.canControl}
       />
     );
@@ -565,6 +570,7 @@ function SlicePanelXRit({
   onSplitToggle,
   onIfShift,
   onCwSpeed,
+  commands,
   canControl,
 }: {
   rit: { enabled: boolean; offsetHz: number } | undefined;
@@ -580,6 +586,7 @@ function SlicePanelXRit({
   onSplitToggle: (enabled: boolean) => void;
   onIfShift: (hz: number) => void;
   onCwSpeed: (wpm: number) => void;
+  commands: RadioCapabilities["commands"];
   canControl: boolean;
 }) {
   const ritEnabled = rit?.enabled ?? false;
@@ -588,11 +595,15 @@ function SlicePanelXRit({
   const xitOffset = xit?.offsetHz ?? 0;
   const isCw =
     currentMode.toUpperCase() === "CW" || currentMode.toUpperCase() === "CWR";
+  const supports = (
+    command: keyof NonNullable<RadioCapabilities["commands"]>,
+  ) => commands?.[command] === true;
 
   return (
     <div className="space-y-2">
       {/* RIT row */}
-      <div className="flex items-center gap-1.5">
+      {supports("rit") && (
+        <div className="flex items-center gap-1.5">
         <button
           onClick={() => onRitToggle(!ritEnabled)}
           disabled={!canControl}
@@ -629,10 +640,12 @@ function SlicePanelXRit({
             CLR
           </button>
         )}
-      </div>
+        </div>
+      )}
 
       {/* XIT row */}
-      <div className="flex items-center gap-1.5">
+      {supports("xit") && (
+        <div className="flex items-center gap-1.5">
         <button
           onClick={() => onXitToggle(!xitEnabled)}
           disabled={!canControl}
@@ -669,10 +682,12 @@ function SlicePanelXRit({
             CLR
           </button>
         )}
-      </div>
+        </div>
+      )}
 
       {/* SPLIT toggle */}
-      <div className="flex items-center gap-2">
+      {supports("split") && (
+        <div className="flex items-center gap-2">
         <button
           onClick={() => onSplitToggle(!split)}
           disabled={!canControl}
@@ -685,10 +700,12 @@ function SlicePanelXRit({
         >
           SPLIT {split ? "ON" : "OFF"}
         </button>
-      </div>
+        </div>
+      )}
 
       {/* IF Shift */}
-      <div className="flex items-center gap-1.5">
+      {supports("if_shift") && (
+        <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-gray-500 shrink-0 w-7">IF</span>
         <input
           type="range"
@@ -714,10 +731,11 @@ function SlicePanelXRit({
             CLR
           </button>
         )}
-      </div>
+        </div>
+      )}
 
       {/* CW Speed — only shown in CW modes */}
-      {isCw && (
+      {isCw && supports("cw_speed") && (
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-gray-500 shrink-0 w-7">WPM</span>
           <input

@@ -70,6 +70,13 @@ export class PttSafetyController {
       if (enabled && this.releasePending) {
         throw new Error("PTT release is pending after a hardware error");
       }
+      if (
+        enabled &&
+        this.ownerClientId !== null &&
+        this.ownerClientId !== clientId
+      ) {
+        throw new Error("PTT is already controlled by another client");
+      }
 
       // Record ownership before the hardware operation so a disconnect that
       // races a slow key-down is queued to release immediately afterward.

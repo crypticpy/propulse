@@ -412,7 +412,9 @@ export function useBridge(
             setError(
               "Connection timed out — install the ProPulse Chrome bridge extension or run the app locally",
             );
-            scheduleReconnect(reconnectCountRef.current);
+            if (currentOpts.autoReconnect) {
+              scheduleReconnect(reconnectCountRef.current);
+            }
           }
         }, currentOpts.connectionTimeout);
         return;

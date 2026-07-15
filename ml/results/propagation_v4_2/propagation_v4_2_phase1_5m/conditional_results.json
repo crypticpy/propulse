@@ -1,0 +1,1724 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T02:49:27Z",
+  "run_id": "propagation_v4_2_phase1_5m",
+  "scope": "observed_2024_phase1_conditional_followup",
+  "selection_basis": "A6/A7 families were triggered by October/November diagnostics; policy parameters were selected only on cross-fitted August days 21-end.",
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "evaluation_months": [
+    "2024-10",
+    "2024-11"
+  ],
+  "evaluation_inputs": {
+    "2024-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-027.parquet",
+      "bytes": 7123431215,
+      "sha256": "59eb68ca402e48a0e8a27627f07e31e77f0236c523c51f7d9550246d426b0340",
+      "sha256_verified_this_run": true,
+      "rows": 55863247
+    },
+    "2024-11": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_hf.parquet/part-000.parquet",
+      "bytes": 6906860189,
+      "sha256": "3987e3ef18e7ed3f3b8888664bc61503486ab8cb0063a26ecfbb911779106d6b",
+      "sha256_verified_this_run": true,
+      "rows": 54544159
+    }
+  },
+  "candidate_artifacts": {
+    "A1_v3_plus_availability": {
+      "model": {
+        "path": "ml/models/archive_v4_2/propagation_v4_2_phase1_5m/A1_v3_plus_availability.json",
+        "bytes": 24953266,
+        "sha256": "4e2ec5c91a0d6d35fb7691259ff6d2232b3f5f94d2984e652dce044b1b982270",
+        "sha256_verified_this_run": true
+      },
+      "calibrator": {
+        "path": "ml/models/archive_v4_2/propagation_v4_2_phase1_5m/A1_v3_plus_availability.joblib",
+        "bytes": 110091,
+        "sha256": "f164d7fb23afa1b1487df883581b9803c6cbf335821d349c5121ab96acc91cbd",
+        "sha256_verified_this_run": true
+      }
+    },
+    "A4_recent_cycle": {
+      "model": {
+        "path": "ml/models/archive_v4_2/propagation_v4_2_phase1_5m/A4_recent_cycle.json",
+        "bytes": 38516757,
+        "sha256": "5e940c69c5c385b3542ca730613c5d1575b735af800e98248d3bf7172cf49723",
+        "sha256_verified_this_run": true
+      },
+      "calibrator": {
+        "path": "ml/models/archive_v4_2/propagation_v4_2_phase1_5m/A4_recent_cycle.joblib",
+        "bytes": 107111,
+        "sha256": "2456231ac6d0c08451153a07b406cb01508b4deff5e646d96c5d23171427ad87",
+        "sha256_verified_this_run": true
+      }
+    },
+    "A5_recency_weighted": {
+      "model": {
+        "path": "ml/models/archive_v4_2/propagation_v4_2_phase1_5m/A5_recency_weighted.json",
+        "bytes": 24274499,
+        "sha256": "94371442af90f93544b30effd23931691bb70fc800aabb49ad277e5f1737e4fe",
+        "sha256_verified_this_run": true
+      },
+      "calibrator": {
+        "path": "ml/models/archive_v4_2/propagation_v4_2_phase1_5m/A5_recency_weighted.joblib",
+        "bytes": 109659,
+        "sha256": "d81ee26ae15610fe217510a674642a847af2707526e87672348b40632135aeda",
+        "sha256_verified_this_run": true
+      }
+    }
+  },
+  "rows": 110407406,
+  "policy_selection": {
+    "month": "2024-08",
+    "calibrator_fit_days": [
+      1,
+      20
+    ],
+    "policy_selection_days": [
+      21,
+      31
+    ],
+    "rows": 1798920,
+    "opportunities": 59820212.75,
+    "calibration_sample": {
+      "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase1_5m/sample_calibration_2024_08_5m.parquet",
+      "bytes": 569609257,
+      "sha256": "2b5739f210dbac15a77e686791a5ff689297ff6e34d8624c321fcc743388fad0",
+      "sha256_verified_this_run": true
+    },
+    "A6_recent_recency_blend": {
+      "left": "A4_recent_cycle",
+      "right": "A5_recency_weighted",
+      "grid": [
+        {
+          "left_weight": 0.0,
+          "weighted_brier": 0.03924916528422542
+        },
+        {
+          "left_weight": 0.05,
+          "weighted_brier": 0.03920664168083783
+        },
+        {
+          "left_weight": 0.1,
+          "weighted_brier": 0.039167098314278004
+        },
+        {
+          "left_weight": 0.15000000000000002,
+          "weighted_brier": 0.039130535184545935
+        },
+        {
+          "left_weight": 0.2,
+          "weighted_brier": 0.03909695229164162
+        },
+        {
+          "left_weight": 0.25,
+          "weighted_brier": 0.03906634963556508
+        },
+        {
+          "left_weight": 0.30000000000000004,
+          "weighted_brier": 0.0390387272163163
+        },
+        {
+          "left_weight": 0.35000000000000003,
+          "weighted_brier": 0.03901408503389528
+        },
+        {
+          "left_weight": 0.4,
+          "weighted_brier": 0.03899242308830202
+        },
+        {
+          "left_weight": 0.45,
+          "weighted_brier": 0.03897374137953651
+        },
+        {
+          "left_weight": 0.5,
+          "weighted_brier": 0.03895803990759877
+        },
+        {
+          "left_weight": 0.55,
+          "weighted_brier": 0.0389453186724888
+        },
+        {
+          "left_weight": 0.6000000000000001,
+          "weighted_brier": 0.038935577674206585
+        },
+        {
+          "left_weight": 0.65,
+          "weighted_brier": 0.03892881691275213
+        },
+        {
+          "left_weight": 0.7000000000000001,
+          "weighted_brier": 0.03892503638812544
+        },
+        {
+          "left_weight": 0.75,
+          "weighted_brier": 0.038924236100326505
+        },
+        {
+          "left_weight": 0.8,
+          "weighted_brier": 0.038926416049355324
+        },
+        {
+          "left_weight": 0.8500000000000001,
+          "weighted_brier": 0.03893157623521192
+        },
+        {
+          "left_weight": 0.9,
+          "weighted_brier": 0.03893971665789628
+        },
+        {
+          "left_weight": 0.9500000000000001,
+          "weighted_brier": 0.038950837317408386
+        },
+        {
+          "left_weight": 1.0,
+          "weighted_brier": 0.03896493821374826
+        }
+      ],
+      "selected_left_weight": 0.75,
+      "selected_brier": 0.038924236100326505
+    },
+    "A7_60m_specialist": {
+      "default": "A4_recent_cycle",
+      "specialist": "A1_v3_plus_availability",
+      "eligible_bands": [
+        "60m"
+      ],
+      "routed_bands": [],
+      "minimum_selection_opportunities": 1000000,
+      "comparison": [
+        {
+          "band": "60m",
+          "opportunities": 137956.75,
+          "default_brier": 0.05389958443126035,
+          "specialist_brier": 0.054715141996770335,
+          "specialist_minus_default_brier": 0.0008155575655099875,
+          "qualifies": false
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "A6_recent_recency_blend": {
+      "overall": {
+        "opportunities": 3599391845.75,
+        "weighted_brier": 0.04460489716992895,
+        "rows": 110407406,
+        "positive_mass": 362520188.0
+      },
+      "slices": {
+        "month": [
+          {
+            "key": "2024-10",
+            "opportunities": 1876872971.0,
+            "weighted_brier": 0.043526983728957934,
+            "rows": 55863247,
+            "positive_mass": 185344225.0
+          },
+          {
+            "key": "2024-11",
+            "opportunities": 1722518874.75,
+            "weighted_brier": 0.04577940192113601,
+            "rows": 54544159,
+            "positive_mass": 177175963.0
+          }
+        ],
+        "day": [
+          {
+            "key": "2024-10-01",
+            "opportunities": 62070763.0,
+            "weighted_brier": 0.04746380622273538,
+            "rows": 1892492,
+            "positive_mass": 6056851.0
+          },
+          {
+            "key": "2024-10-02",
+            "opportunities": 66467182.0,
+            "weighted_brier": 0.0448487603000884,
+            "rows": 1993264,
+            "positive_mass": 6488511.0
+          },
+          {
+            "key": "2024-10-03",
+            "opportunities": 68462220.25,
+            "weighted_brier": 0.04459319191598132,
+            "rows": 2068451,
+            "positive_mass": 6737037.0
+          },
+          {
+            "key": "2024-10-04",
+            "opportunities": 70450180.0,
+            "weighted_brier": 0.04389020122474339,
+            "rows": 2064607,
+            "positive_mass": 7115591.0
+          },
+          {
+            "key": "2024-10-05",
+            "opportunities": 69097602.25,
+            "weighted_brier": 0.04520410577236291,
+            "rows": 2081656,
+            "positive_mass": 7159222.0
+          },
+          {
+            "key": "2024-10-06",
+            "opportunities": 69532832.75,
+            "weighted_brier": 0.046066413046145255,
+            "rows": 2069751,
+            "positive_mass": 7115669.0
+          },
+          {
+            "key": "2024-10-07",
+            "opportunities": 53193886.25,
+            "weighted_brier": 0.04171973716784001,
+            "rows": 1567428,
+            "positive_mass": 4918497.0
+          },
+          {
+            "key": "2024-10-08",
+            "opportunities": 38968134.0,
+            "weighted_brier": 0.03475390979350896,
+            "rows": 1154517,
+            "positive_mass": 2939262.0
+          },
+          {
+            "key": "2024-10-09",
+            "opportunities": 48622315.25,
+            "weighted_brier": 0.0395321696672216,
+            "rows": 1429601,
+            "positive_mass": 4323804.0
+          },
+          {
+            "key": "2024-10-10",
+            "opportunities": 47644650.75,
+            "weighted_brier": 0.040068759118078626,
+            "rows": 1431366,
+            "positive_mass": 4321935.0
+          },
+          {
+            "key": "2024-10-11",
+            "opportunities": 32949840.5,
+            "weighted_brier": 0.03441543927469703,
+            "rows": 1040272,
+            "positive_mass": 2432899.0
+          },
+          {
+            "key": "2024-10-12",
+            "opportunities": 51436515.75,
+            "weighted_brier": 0.04182601612542889,
+            "rows": 1516948,
+            "positive_mass": 4713554.0
+          },
+          {
+            "key": "2024-10-13",
+            "opportunities": 58133827.5,
+            "weighted_brier": 0.041427818622257584,
+            "rows": 1736760,
+            "positive_mass": 5643211.0
+          },
+          {
+            "key": "2024-10-14",
+            "opportunities": 60876851.5,
+            "weighted_brier": 0.04239504355569518,
+            "rows": 1820629,
+            "positive_mass": 6169506.0
+          },
+          {
+            "key": "2024-10-15",
+            "opportunities": 61974954.25,
+            "weighted_brier": 0.04136104385543925,
+            "rows": 1804640,
+            "positive_mass": 5947216.0
+          },
+          {
+            "key": "2024-10-16",
+            "opportunities": 60625736.25,
+            "weighted_brier": 0.04132740664390001,
+            "rows": 1778776,
+            "positive_mass": 5907611.0
+          },
+          {
+            "key": "2024-10-17",
+            "opportunities": 63513449.75,
+            "weighted_brier": 0.04108883669345681,
+            "rows": 1832696,
+            "positive_mass": 5958928.0
+          },
+          {
+            "key": "2024-10-18",
+            "opportunities": 62764431.25,
+            "weighted_brier": 0.04262543119163019,
+            "rows": 1834018,
+            "positive_mass": 6219713.0
+          },
+          {
+            "key": "2024-10-19",
+            "opportunities": 60762757.0,
+            "weighted_brier": 0.04172708150935099,
+            "rows": 1787794,
+            "positive_mass": 5829514.0
+          },
+          {
+            "key": "2024-10-20",
+            "opportunities": 60425426.0,
+            "weighted_brier": 0.04366592209326252,
+            "rows": 1812668,
+            "positive_mass": 6067909.0
+          },
+          {
+            "key": "2024-10-21",
+            "opportunities": 63089568.5,
+            "weighted_brier": 0.043591875906503326,
+            "rows": 1865407,
+            "positive_mass": 6352925.0
+          },
+          {
+            "key": "2024-10-22",
+            "opportunities": 64638352.75,
+            "weighted_brier": 0.0436964041812592,
+            "rows": 1898114,
+            "positive_mass": 6738511.0
+          },
+          {
+            "key": "2024-10-23",
+            "opportunities": 64917168.5,
+            "weighted_brier": 0.04502128078344917,
+            "rows": 1929243,
+            "positive_mass": 6770602.0
+          },
+          {
+            "key": "2024-10-24",
+            "opportunities": 60610443.0,
+            "weighted_brier": 0.04474684418607728,
+            "rows": 1853952,
+            "positive_mass": 6195219.0
+          },
+          {
+            "key": "2024-10-25",
+            "opportunities": 63956467.5,
+            "weighted_brier": 0.04413202277970455,
+            "rows": 1888974,
+            "positive_mass": 6401419.0
+          },
+          {
+            "key": "2024-10-26",
+            "opportunities": 62377986.5,
+            "weighted_brier": 0.04496896489719431,
+            "rows": 1871917,
+            "positive_mass": 6345601.0
+          },
+          {
+            "key": "2024-10-27",
+            "opportunities": 66554420.75,
+            "weighted_brier": 0.04501042748332725,
+            "rows": 1965654,
+            "positive_mass": 6795124.0
+          },
+          {
+            "key": "2024-10-28",
+            "opportunities": 64356271.0,
+            "weighted_brier": 0.04662713970518673,
+            "rows": 1928752,
+            "positive_mass": 6818300.0
+          },
+          {
+            "key": "2024-10-29",
+            "opportunities": 66376974.25,
+            "weighted_brier": 0.04640080841169141,
+            "rows": 1997895,
+            "positive_mass": 6888830.0
+          },
+          {
+            "key": "2024-10-30",
+            "opportunities": 67159977.75,
+            "weighted_brier": 0.045956653801538294,
+            "rows": 1976417,
+            "positive_mass": 6979319.0
+          },
+          {
+            "key": "2024-10-31",
+            "opportunities": 64861784.25,
+            "weighted_brier": 0.047621780193072526,
+            "rows": 1968588,
+            "positive_mass": 6991935.0
+          },
+          {
+            "key": "2024-11-01",
+            "opportunities": 63405613.25,
+            "weighted_brier": 0.05176258107597151,
+            "rows": 1976125,
+            "positive_mass": 6765964.0
+          },
+          {
+            "key": "2024-11-02",
+            "opportunities": 62195155.75,
+            "weighted_brier": 0.04797154992434126,
+            "rows": 1970046,
+            "positive_mass": 6707199.0
+          },
+          {
+            "key": "2024-11-03",
+            "opportunities": 62467649.25,
+            "weighted_brier": 0.048250649276889934,
+            "rows": 1963061,
+            "positive_mass": 6712862.0
+          },
+          {
+            "key": "2024-11-04",
+            "opportunities": 64112678.0,
+            "weighted_brier": 0.04772683229504539,
+            "rows": 1969892,
+            "positive_mass": 6907567.0
+          },
+          {
+            "key": "2024-11-05",
+            "opportunities": 63130774.75,
+            "weighted_brier": 0.04750583071989256,
+            "rows": 1974361,
+            "positive_mass": 6771530.0
+          },
+          {
+            "key": "2024-11-06",
+            "opportunities": 62061463.75,
+            "weighted_brier": 0.04609042761161607,
+            "rows": 1919860,
+            "positive_mass": 6559897.0
+          },
+          {
+            "key": "2024-11-07",
+            "opportunities": 62049791.25,
+            "weighted_brier": 0.0457380175541394,
+            "rows": 1923930,
+            "positive_mass": 6367591.0
+          },
+          {
+            "key": "2024-11-08",
+            "opportunities": 62162060.25,
+            "weighted_brier": 0.04740640973525845,
+            "rows": 1958861,
+            "positive_mass": 6661058.0
+          },
+          {
+            "key": "2024-11-09",
+            "opportunities": 59111857.75,
+            "weighted_brier": 0.044486524785714666,
+            "rows": 1773442,
+            "positive_mass": 5911563.0
+          },
+          {
+            "key": "2024-11-10",
+            "opportunities": 57111660.75,
+            "weighted_brier": 0.045840256618547355,
+            "rows": 1752500,
+            "positive_mass": 5776372.0
+          },
+          {
+            "key": "2024-11-11",
+            "opportunities": 58814413.0,
+            "weighted_brier": 0.04582587804861259,
+            "rows": 1800013,
+            "positive_mass": 6040610.0
+          },
+          {
+            "key": "2024-11-12",
+            "opportunities": 57744070.5,
+            "weighted_brier": 0.044160798590411644,
+            "rows": 1764162,
+            "positive_mass": 5894248.0
+          },
+          {
+            "key": "2024-11-13",
+            "opportunities": 57008722.0,
+            "weighted_brier": 0.04359775403378576,
+            "rows": 1791943,
+            "positive_mass": 5814791.0
+          },
+          {
+            "key": "2024-11-14",
+            "opportunities": 57599830.75,
+            "weighted_brier": 0.04530689835785396,
+            "rows": 1810578,
+            "positive_mass": 5986557.0
+          },
+          {
+            "key": "2024-11-15",
+            "opportunities": 55128858.5,
+            "weighted_brier": 0.044123692210797455,
+            "rows": 1749247,
+            "positive_mass": 5498927.0
+          },
+          {
+            "key": "2024-11-16",
+            "opportunities": 53932405.75,
+            "weighted_brier": 0.04484176913044934,
+            "rows": 1746517,
+            "positive_mass": 5472115.0
+          },
+          {
+            "key": "2024-11-17",
+            "opportunities": 49891556.75,
+            "weighted_brier": 0.043714703278236317,
+            "rows": 1670138,
+            "positive_mass": 4965880.0
+          },
+          {
+            "key": "2024-11-18",
+            "opportunities": 51931094.75,
+            "weighted_brier": 0.043695821814943275,
+            "rows": 1677670,
+            "positive_mass": 5190747.0
+          },
+          {
+            "key": "2024-11-19",
+            "opportunities": 55002506.25,
+            "weighted_brier": 0.04319935008185174,
+            "rows": 1735098,
+            "positive_mass": 5428668.0
+          },
+          {
+            "key": "2024-11-20",
+            "opportunities": 55162643.75,
+            "weighted_brier": 0.04316531668993275,
+            "rows": 1736610,
+            "positive_mass": 5364313.0
+          },
+          {
+            "key": "2024-11-21",
+            "opportunities": 50441898.75,
+            "weighted_brier": 0.04381819383829516,
+            "rows": 1653212,
+            "positive_mass": 5047677.0
+          },
+          {
+            "key": "2024-11-22",
+            "opportunities": 52798513.5,
+            "weighted_brier": 0.044298077669327786,
+            "rows": 1732991,
+            "positive_mass": 5189394.0
+          },
+          {
+            "key": "2024-11-23",
+            "opportunities": 53431643.75,
+            "weighted_brier": 0.044305510650956705,
+            "rows": 1745858,
+            "positive_mass": 5149027.0
+          },
+          {
+            "key": "2024-11-24",
+            "opportunities": 54020372.0,
+            "weighted_brier": 0.04495845358615336,
+            "rows": 1766208,
+            "positive_mass": 5472889.0
+          },
+          {
+            "key": "2024-11-25",
+            "opportunities": 57478423.25,
+            "weighted_brier": 0.046875583691022765,
+            "rows": 1857199,
+            "positive_mass": 6035106.0
+          },
+          {
+            "key": "2024-11-26",
+            "opportunities": 53898191.5,
+            "weighted_brier": 0.046584016034282125,
+            "rows": 1771386,
+            "positive_mass": 5763689.0
+          },
+          {
+            "key": "2024-11-27",
+            "opportunities": 54615395.75,
+            "weighted_brier": 0.04536486604209636,
+            "rows": 1770751,
+            "positive_mass": 5632181.0
+          },
+          {
+            "key": "2024-11-28",
+            "opportunities": 56403320.5,
+            "weighted_brier": 0.04595269714795142,
+            "rows": 1809404,
+            "positive_mass": 5853934.0
+          },
+          {
+            "key": "2024-11-29",
+            "opportunities": 59283251.25,
+            "weighted_brier": 0.045488389878662897,
+            "rows": 1861494,
+            "positive_mass": 6010027.0
+          },
+          {
+            "key": "2024-11-30",
+            "opportunities": 60123057.75,
+            "weighted_brier": 0.04838441188017127,
+            "rows": 1911602,
+            "positive_mass": 6223580.0
+          }
+        ],
+        "band": [
+          {
+            "key": "10m",
+            "opportunities": 299740753.25,
+            "weighted_brier": 0.04480778588945178,
+            "rows": 10592589,
+            "positive_mass": 25952464.0
+          },
+          {
+            "key": "12m",
+            "opportunities": 66992390.0,
+            "weighted_brier": 0.06239900838923589,
+            "rows": 4477981,
+            "positive_mass": 9614108.0
+          },
+          {
+            "key": "15m",
+            "opportunities": 222783327.5,
+            "weighted_brier": 0.04946537732713843,
+            "rows": 9744901,
+            "positive_mass": 25234755.0
+          },
+          {
+            "key": "160m",
+            "opportunities": 14679962.75,
+            "weighted_brier": 0.049850670384576676,
+            "rows": 1146003,
+            "positive_mass": 3349053.0
+          },
+          {
+            "key": "17m",
+            "opportunities": 158341538.0,
+            "weighted_brier": 0.060890397538300646,
+            "rows": 8377640,
+            "positive_mass": 22234406.0
+          },
+          {
+            "key": "20m",
+            "opportunities": 1348895082.25,
+            "weighted_brier": 0.040938393093022954,
+            "rows": 30597311,
+            "positive_mass": 107936206.0
+          },
+          {
+            "key": "30m",
+            "opportunities": 490923580.0,
+            "weighted_brier": 0.04626230786482502,
+            "rows": 16086498,
+            "positive_mass": 55530364.0
+          },
+          {
+            "key": "40m",
+            "opportunities": 834676722.0,
+            "weighted_brier": 0.04381323054405842,
+            "rows": 22144518,
+            "positive_mass": 89961690.0
+          },
+          {
+            "key": "60m",
+            "opportunities": 9716795.25,
+            "weighted_brier": 0.06668026237762685,
+            "rows": 935847,
+            "positive_mass": 2762207.0
+          },
+          {
+            "key": "80m",
+            "opportunities": 152641694.75,
+            "weighted_brier": 0.04189891501113728,
+            "rows": 6304118,
+            "positive_mass": 19944935.0
+          }
+        ],
+        "distance": [
+          {
+            "key": "0-500 km",
+            "opportunities": 245061939.5,
+            "weighted_brier": 0.07024473607224059,
+            "rows": 9145153,
+            "positive_mass": 47724291.0
+          },
+          {
+            "key": "10000-25000 km",
+            "opportunities": 433179220.75,
+            "weighted_brier": 0.008635272443786103,
+            "rows": 7875770,
+            "positive_mass": 5451847.0
+          },
+          {
+            "key": "1500-3000 km",
+            "opportunities": 415997089.0,
+            "weighted_brier": 0.09821531364129829,
+            "rows": 23471978,
+            "positive_mass": 90810358.0
+          },
+          {
+            "key": "3000-6000 km",
+            "opportunities": 534616699.25,
+            "weighted_brier": 0.0408964092392711,
+            "rows": 15480039,
+            "positive_mass": 43017755.0
+          },
+          {
+            "key": "500-1500 km",
+            "opportunities": 632276639.25,
+            "weighted_brier": 0.10063422350263894,
+            "rows": 31378897,
+            "positive_mass": 153603370.0
+          },
+          {
+            "key": "6000-10000 km",
+            "opportunities": 1338260258.0,
+            "weighted_brier": 0.00989771212783597,
+            "rows": 23055569,
+            "positive_mass": 21912567.0
+          }
+        ],
+        "month_band": [
+          {
+            "key": "2024-10|10m",
+            "opportunities": 151938878.5,
+            "weighted_brier": 0.0416508391759335,
+            "rows": 5203754,
+            "positive_mass": 12260405.0
+          },
+          {
+            "key": "2024-10|12m",
+            "opportunities": 31153285.75,
+            "weighted_brier": 0.06270792030410455,
+            "rows": 2179206,
+            "positive_mass": 4387304.0
+          },
+          {
+            "key": "2024-10|15m",
+            "opportunities": 117674414.25,
+            "weighted_brier": 0.04734064318223704,
+            "rows": 4957515,
+            "positive_mass": 12707367.0
+          },
+          {
+            "key": "2024-10|160m",
+            "opportunities": 7127674.75,
+            "weighted_brier": 0.049391912868260654,
+            "rows": 563396,
+            "positive_mass": 1531421.0
+          },
+          {
+            "key": "2024-10|17m",
+            "opportunities": 78073969.25,
+            "weighted_brier": 0.06075605926606818,
+            "rows": 4221913,
+            "positive_mass": 10838534.0
+          },
+          {
+            "key": "2024-10|20m",
+            "opportunities": 729410873.0,
+            "weighted_brier": 0.04006127214508447,
+            "rows": 16051966,
+            "positive_mass": 56708054.0
+          },
+          {
+            "key": "2024-10|30m",
+            "opportunities": 251970935.25,
+            "weighted_brier": 0.04655723356514358,
+            "rows": 8133076,
+            "positive_mass": 28972297.0
+          },
+          {
+            "key": "2024-10|40m",
+            "opportunities": 428827842.0,
+            "weighted_brier": 0.04291178104233105,
+            "rows": 11015074,
+            "positive_mass": 46714007.0
+          },
+          {
+            "key": "2024-10|60m",
+            "opportunities": 4853083.0,
+            "weighted_brier": 0.06496255733566116,
+            "rows": 460364,
+            "positive_mass": 1453773.0
+          },
+          {
+            "key": "2024-10|80m",
+            "opportunities": 75842015.25,
+            "weighted_brier": 0.0405731406373264,
+            "rows": 3076983,
+            "positive_mass": 9771063.0
+          },
+          {
+            "key": "2024-11|10m",
+            "opportunities": 147801874.75,
+            "weighted_brier": 0.04805309616679154,
+            "rows": 5388835,
+            "positive_mass": 13692059.0
+          },
+          {
+            "key": "2024-11|12m",
+            "opportunities": 35839104.25,
+            "weighted_brier": 0.062130485462760246,
+            "rows": 2298775,
+            "positive_mass": 5226804.0
+          },
+          {
+            "key": "2024-11|15m",
+            "opportunities": 105108913.25,
+            "weighted_brier": 0.0518441179896317,
+            "rows": 4787386,
+            "positive_mass": 12527388.0
+          },
+          {
+            "key": "2024-11|160m",
+            "opportunities": 7552288.0,
+            "weighted_brier": 0.050283635118630425,
+            "rows": 582607,
+            "positive_mass": 1817632.0
+          },
+          {
+            "key": "2024-11|17m",
+            "opportunities": 80267568.75,
+            "weighted_brier": 0.061021064534930634,
+            "rows": 4155727,
+            "positive_mass": 11395872.0
+          },
+          {
+            "key": "2024-11|20m",
+            "opportunities": 619484209.25,
+            "weighted_brier": 0.04197115800746201,
+            "rows": 14545345,
+            "positive_mass": 51228152.0
+          },
+          {
+            "key": "2024-11|30m",
+            "opportunities": 238952644.75,
+            "weighted_brier": 0.04595131442670561,
+            "rows": 7953422,
+            "positive_mass": 26558067.0
+          },
+          {
+            "key": "2024-11|40m",
+            "opportunities": 405848880.0,
+            "weighted_brier": 0.044765719668822375,
+            "rows": 11129444,
+            "positive_mass": 43247683.0
+          },
+          {
+            "key": "2024-11|60m",
+            "opportunities": 4863712.25,
+            "weighted_brier": 0.06839421351406123,
+            "rows": 475483,
+            "positive_mass": 1308434.0
+          },
+          {
+            "key": "2024-11|80m",
+            "opportunities": 76799679.5,
+            "weighted_brier": 0.04320815745760644,
+            "rows": 3227135,
+            "positive_mass": 10173872.0
+          }
+        ]
+      }
+    },
+    "A7_60m_specialist": {
+      "overall": {
+        "opportunities": 3599391845.75,
+        "weighted_brier": 0.04464395287577721,
+        "rows": 110407406,
+        "positive_mass": 362520188.0
+      },
+      "slices": {
+        "month": [
+          {
+            "key": "2024-10",
+            "opportunities": 1876872971.0,
+            "weighted_brier": 0.04355032691053118,
+            "rows": 55863247,
+            "positive_mass": 185344225.0
+          },
+          {
+            "key": "2024-11",
+            "opportunities": 1722518874.75,
+            "weighted_brier": 0.04583557814308051,
+            "rows": 54544159,
+            "positive_mass": 177175963.0
+          }
+        ],
+        "day": [
+          {
+            "key": "2024-10-01",
+            "opportunities": 62070763.0,
+            "weighted_brier": 0.0474288422793366,
+            "rows": 1892492,
+            "positive_mass": 6056851.0
+          },
+          {
+            "key": "2024-10-02",
+            "opportunities": 66467182.0,
+            "weighted_brier": 0.044930742167310314,
+            "rows": 1993264,
+            "positive_mass": 6488511.0
+          },
+          {
+            "key": "2024-10-03",
+            "opportunities": 68462220.25,
+            "weighted_brier": 0.044643638677237765,
+            "rows": 2068451,
+            "positive_mass": 6737037.0
+          },
+          {
+            "key": "2024-10-04",
+            "opportunities": 70450180.0,
+            "weighted_brier": 0.04397086009800527,
+            "rows": 2064607,
+            "positive_mass": 7115591.0
+          },
+          {
+            "key": "2024-10-05",
+            "opportunities": 69097602.25,
+            "weighted_brier": 0.04526025253781264,
+            "rows": 2081656,
+            "positive_mass": 7159222.0
+          },
+          {
+            "key": "2024-10-06",
+            "opportunities": 69532832.75,
+            "weighted_brier": 0.046190986731707254,
+            "rows": 2069751,
+            "positive_mass": 7115669.0
+          },
+          {
+            "key": "2024-10-07",
+            "opportunities": 53193886.25,
+            "weighted_brier": 0.0418485817213335,
+            "rows": 1567428,
+            "positive_mass": 4918497.0
+          },
+          {
+            "key": "2024-10-08",
+            "opportunities": 38968134.0,
+            "weighted_brier": 0.034814305586905535,
+            "rows": 1154517,
+            "positive_mass": 2939262.0
+          },
+          {
+            "key": "2024-10-09",
+            "opportunities": 48622315.25,
+            "weighted_brier": 0.039447598476364414,
+            "rows": 1429601,
+            "positive_mass": 4323804.0
+          },
+          {
+            "key": "2024-10-10",
+            "opportunities": 47644650.75,
+            "weighted_brier": 0.04005258652905601,
+            "rows": 1431366,
+            "positive_mass": 4321935.0
+          },
+          {
+            "key": "2024-10-11",
+            "opportunities": 32949840.5,
+            "weighted_brier": 0.034544644731132376,
+            "rows": 1040272,
+            "positive_mass": 2432899.0
+          },
+          {
+            "key": "2024-10-12",
+            "opportunities": 51436515.75,
+            "weighted_brier": 0.0417654313560175,
+            "rows": 1516948,
+            "positive_mass": 4713554.0
+          },
+          {
+            "key": "2024-10-13",
+            "opportunities": 58133827.5,
+            "weighted_brier": 0.04138192517646124,
+            "rows": 1736760,
+            "positive_mass": 5643211.0
+          },
+          {
+            "key": "2024-10-14",
+            "opportunities": 60876851.5,
+            "weighted_brier": 0.04234867770266339,
+            "rows": 1820629,
+            "positive_mass": 6169506.0
+          },
+          {
+            "key": "2024-10-15",
+            "opportunities": 61974954.25,
+            "weighted_brier": 0.041335874721235524,
+            "rows": 1804640,
+            "positive_mass": 5947216.0
+          },
+          {
+            "key": "2024-10-16",
+            "opportunities": 60625736.25,
+            "weighted_brier": 0.04129331030440415,
+            "rows": 1778776,
+            "positive_mass": 5907611.0
+          },
+          {
+            "key": "2024-10-17",
+            "opportunities": 63513449.75,
+            "weighted_brier": 0.041074784518850355,
+            "rows": 1832696,
+            "positive_mass": 5958928.0
+          },
+          {
+            "key": "2024-10-18",
+            "opportunities": 62764431.25,
+            "weighted_brier": 0.04259204997709288,
+            "rows": 1834018,
+            "positive_mass": 6219713.0
+          },
+          {
+            "key": "2024-10-19",
+            "opportunities": 60762757.0,
+            "weighted_brier": 0.0417355731224723,
+            "rows": 1787794,
+            "positive_mass": 5829514.0
+          },
+          {
+            "key": "2024-10-20",
+            "opportunities": 60425426.0,
+            "weighted_brier": 0.04362931634876649,
+            "rows": 1812668,
+            "positive_mass": 6067909.0
+          },
+          {
+            "key": "2024-10-21",
+            "opportunities": 63089568.5,
+            "weighted_brier": 0.04355707345887855,
+            "rows": 1865407,
+            "positive_mass": 6352925.0
+          },
+          {
+            "key": "2024-10-22",
+            "opportunities": 64638352.75,
+            "weighted_brier": 0.0436616108194113,
+            "rows": 1898114,
+            "positive_mass": 6738511.0
+          },
+          {
+            "key": "2024-10-23",
+            "opportunities": 64917168.5,
+            "weighted_brier": 0.04503267440934428,
+            "rows": 1929243,
+            "positive_mass": 6770602.0
+          },
+          {
+            "key": "2024-10-24",
+            "opportunities": 60610443.0,
+            "weighted_brier": 0.04473179549759813,
+            "rows": 1853952,
+            "positive_mass": 6195219.0
+          },
+          {
+            "key": "2024-10-25",
+            "opportunities": 63956467.5,
+            "weighted_brier": 0.044173531398749896,
+            "rows": 1888974,
+            "positive_mass": 6401419.0
+          },
+          {
+            "key": "2024-10-26",
+            "opportunities": 62377986.5,
+            "weighted_brier": 0.045054503290200595,
+            "rows": 1871917,
+            "positive_mass": 6345601.0
+          },
+          {
+            "key": "2024-10-27",
+            "opportunities": 66554420.75,
+            "weighted_brier": 0.04511794200704078,
+            "rows": 1965654,
+            "positive_mass": 6795124.0
+          },
+          {
+            "key": "2024-10-28",
+            "opportunities": 64356271.0,
+            "weighted_brier": 0.04669179825420574,
+            "rows": 1928752,
+            "positive_mass": 6818300.0
+          },
+          {
+            "key": "2024-10-29",
+            "opportunities": 66376974.25,
+            "weighted_brier": 0.04645662118004521,
+            "rows": 1997895,
+            "positive_mass": 6888830.0
+          },
+          {
+            "key": "2024-10-30",
+            "opportunities": 67159977.75,
+            "weighted_brier": 0.04603912220000959,
+            "rows": 1976417,
+            "positive_mass": 6979319.0
+          },
+          {
+            "key": "2024-10-31",
+            "opportunities": 64861784.25,
+            "weighted_brier": 0.04767200577845727,
+            "rows": 1968588,
+            "positive_mass": 6991935.0
+          },
+          {
+            "key": "2024-11-01",
+            "opportunities": 63405613.25,
+            "weighted_brier": 0.051724626456897925,
+            "rows": 1976125,
+            "positive_mass": 6765964.0
+          },
+          {
+            "key": "2024-11-02",
+            "opportunities": 62195155.75,
+            "weighted_brier": 0.04808424409751764,
+            "rows": 1970046,
+            "positive_mass": 6707199.0
+          },
+          {
+            "key": "2024-11-03",
+            "opportunities": 62467649.25,
+            "weighted_brier": 0.04837693123121388,
+            "rows": 1963061,
+            "positive_mass": 6712862.0
+          },
+          {
+            "key": "2024-11-04",
+            "opportunities": 64112678.0,
+            "weighted_brier": 0.04782192067349018,
+            "rows": 1969892,
+            "positive_mass": 6907567.0
+          },
+          {
+            "key": "2024-11-05",
+            "opportunities": 63130774.75,
+            "weighted_brier": 0.047585459748388244,
+            "rows": 1974361,
+            "positive_mass": 6771530.0
+          },
+          {
+            "key": "2024-11-06",
+            "opportunities": 62061463.75,
+            "weighted_brier": 0.04612837127612077,
+            "rows": 1919860,
+            "positive_mass": 6559897.0
+          },
+          {
+            "key": "2024-11-07",
+            "opportunities": 62049791.25,
+            "weighted_brier": 0.045793874532735035,
+            "rows": 1923930,
+            "positive_mass": 6367591.0
+          },
+          {
+            "key": "2024-11-08",
+            "opportunities": 62162060.25,
+            "weighted_brier": 0.04751503132014157,
+            "rows": 1958861,
+            "positive_mass": 6661058.0
+          },
+          {
+            "key": "2024-11-09",
+            "opportunities": 59111857.75,
+            "weighted_brier": 0.04455456029655727,
+            "rows": 1773442,
+            "positive_mass": 5911563.0
+          },
+          {
+            "key": "2024-11-10",
+            "opportunities": 57111660.75,
+            "weighted_brier": 0.04588750452046101,
+            "rows": 1752500,
+            "positive_mass": 5776372.0
+          },
+          {
+            "key": "2024-11-11",
+            "opportunities": 58814413.0,
+            "weighted_brier": 0.04584824625708553,
+            "rows": 1800013,
+            "positive_mass": 6040610.0
+          },
+          {
+            "key": "2024-11-12",
+            "opportunities": 57744070.5,
+            "weighted_brier": 0.044143524676472735,
+            "rows": 1764162,
+            "positive_mass": 5894248.0
+          },
+          {
+            "key": "2024-11-13",
+            "opportunities": 57008722.0,
+            "weighted_brier": 0.043606097779341824,
+            "rows": 1791943,
+            "positive_mass": 5814791.0
+          },
+          {
+            "key": "2024-11-14",
+            "opportunities": 57599830.75,
+            "weighted_brier": 0.04542059401855626,
+            "rows": 1810578,
+            "positive_mass": 5986557.0
+          },
+          {
+            "key": "2024-11-15",
+            "opportunities": 55128858.5,
+            "weighted_brier": 0.04418403741101717,
+            "rows": 1749247,
+            "positive_mass": 5498927.0
+          },
+          {
+            "key": "2024-11-16",
+            "opportunities": 53932405.75,
+            "weighted_brier": 0.04488468848138298,
+            "rows": 1746517,
+            "positive_mass": 5472115.0
+          },
+          {
+            "key": "2024-11-17",
+            "opportunities": 49891556.75,
+            "weighted_brier": 0.04371829147965539,
+            "rows": 1670138,
+            "positive_mass": 4965880.0
+          },
+          {
+            "key": "2024-11-18",
+            "opportunities": 51931094.75,
+            "weighted_brier": 0.043725511799560496,
+            "rows": 1677670,
+            "positive_mass": 5190747.0
+          },
+          {
+            "key": "2024-11-19",
+            "opportunities": 55002506.25,
+            "weighted_brier": 0.04319899998953879,
+            "rows": 1735098,
+            "positive_mass": 5428668.0
+          },
+          {
+            "key": "2024-11-20",
+            "opportunities": 55162643.75,
+            "weighted_brier": 0.04320592834939776,
+            "rows": 1736610,
+            "positive_mass": 5364313.0
+          },
+          {
+            "key": "2024-11-21",
+            "opportunities": 50441898.75,
+            "weighted_brier": 0.04385102397679194,
+            "rows": 1653212,
+            "positive_mass": 5047677.0
+          },
+          {
+            "key": "2024-11-22",
+            "opportunities": 52798513.5,
+            "weighted_brier": 0.04430193922583221,
+            "rows": 1732991,
+            "positive_mass": 5189394.0
+          },
+          {
+            "key": "2024-11-23",
+            "opportunities": 53431643.75,
+            "weighted_brier": 0.04432695098972168,
+            "rows": 1745858,
+            "positive_mass": 5149027.0
+          },
+          {
+            "key": "2024-11-24",
+            "opportunities": 54020372.0,
+            "weighted_brier": 0.04496070716029577,
+            "rows": 1766208,
+            "positive_mass": 5472889.0
+          },
+          {
+            "key": "2024-11-25",
+            "opportunities": 57478423.25,
+            "weighted_brier": 0.046901326860222615,
+            "rows": 1857199,
+            "positive_mass": 6035106.0
+          },
+          {
+            "key": "2024-11-26",
+            "opportunities": 53898191.5,
+            "weighted_brier": 0.04663202624514179,
+            "rows": 1771386,
+            "positive_mass": 5763689.0
+          },
+          {
+            "key": "2024-11-27",
+            "opportunities": 54615395.75,
+            "weighted_brier": 0.04538835848130172,
+            "rows": 1770751,
+            "positive_mass": 5632181.0
+          },
+          {
+            "key": "2024-11-28",
+            "opportunities": 56403320.5,
+            "weighted_brier": 0.04597353447668107,
+            "rows": 1809404,
+            "positive_mass": 5853934.0
+          },
+          {
+            "key": "2024-11-29",
+            "opportunities": 59283251.25,
+            "weighted_brier": 0.045611589083837445,
+            "rows": 1861494,
+            "positive_mass": 6010027.0
+          },
+          {
+            "key": "2024-11-30",
+            "opportunities": 60123057.75,
+            "weighted_brier": 0.048716640699822684,
+            "rows": 1911602,
+            "positive_mass": 6223580.0
+          }
+        ],
+        "band": [
+          {
+            "key": "10m",
+            "opportunities": 299740753.25,
+            "weighted_brier": 0.04487451329200012,
+            "rows": 10592589,
+            "positive_mass": 25952464.0
+          },
+          {
+            "key": "12m",
+            "opportunities": 66992390.0,
+            "weighted_brier": 0.06247484894175809,
+            "rows": 4477981,
+            "positive_mass": 9614108.0
+          },
+          {
+            "key": "15m",
+            "opportunities": 222783327.5,
+            "weighted_brier": 0.04953159239247225,
+            "rows": 9744901,
+            "positive_mass": 25234755.0
+          },
+          {
+            "key": "160m",
+            "opportunities": 14679962.75,
+            "weighted_brier": 0.0499748802252514,
+            "rows": 1146003,
+            "positive_mass": 3349053.0
+          },
+          {
+            "key": "17m",
+            "opportunities": 158341538.0,
+            "weighted_brier": 0.06094923719352713,
+            "rows": 8377640,
+            "positive_mass": 22234406.0
+          },
+          {
+            "key": "20m",
+            "opportunities": 1348895082.25,
+            "weighted_brier": 0.040932651802716526,
+            "rows": 30597311,
+            "positive_mass": 107936206.0
+          },
+          {
+            "key": "30m",
+            "opportunities": 490923580.0,
+            "weighted_brier": 0.046300603929105115,
+            "rows": 16086498,
+            "positive_mass": 55530364.0
+          },
+          {
+            "key": "40m",
+            "opportunities": 834676722.0,
+            "weighted_brier": 0.043871891012416196,
+            "rows": 22144518,
+            "positive_mass": 89961690.0
+          },
+          {
+            "key": "60m",
+            "opportunities": 9716795.25,
+            "weighted_brier": 0.06691139817267971,
+            "rows": 935847,
+            "positive_mass": 2762207.0
+          },
+          {
+            "key": "80m",
+            "opportunities": 152641694.75,
+            "weighted_brier": 0.0420780199939262,
+            "rows": 6304118,
+            "positive_mass": 19944935.0
+          }
+        ],
+        "distance": [
+          {
+            "key": "0-500 km",
+            "opportunities": 245061939.5,
+            "weighted_brier": 0.07033142733395702,
+            "rows": 9145153,
+            "positive_mass": 47724291.0
+          },
+          {
+            "key": "10000-25000 km",
+            "opportunities": 433179220.75,
+            "weighted_brier": 0.008643004174681158,
+            "rows": 7875770,
+            "positive_mass": 5451847.0
+          },
+          {
+            "key": "1500-3000 km",
+            "opportunities": 415997089.0,
+            "weighted_brier": 0.09825293273519527,
+            "rows": 23471978,
+            "positive_mass": 90810358.0
+          },
+          {
+            "key": "3000-6000 km",
+            "opportunities": 534616699.25,
+            "weighted_brier": 0.04097943055619074,
+            "rows": 15480039,
+            "positive_mass": 43017755.0
+          },
+          {
+            "key": "500-1500 km",
+            "opportunities": 632276639.25,
+            "weighted_brier": 0.10068845490183355,
+            "rows": 31378897,
+            "positive_mass": 153603370.0
+          },
+          {
+            "key": "6000-10000 km",
+            "opportunities": 1338260258.0,
+            "weighted_brier": 0.009913897000949683,
+            "rows": 23055569,
+            "positive_mass": 21912567.0
+          }
+        ],
+        "month_band": [
+          {
+            "key": "2024-10|10m",
+            "opportunities": 151938878.5,
+            "weighted_brier": 0.04168406042119873,
+            "rows": 5203754,
+            "positive_mass": 12260405.0
+          },
+          {
+            "key": "2024-10|12m",
+            "opportunities": 31153285.75,
+            "weighted_brier": 0.06276428779523534,
+            "rows": 2179206,
+            "positive_mass": 4387304.0
+          },
+          {
+            "key": "2024-10|15m",
+            "opportunities": 117674414.25,
+            "weighted_brier": 0.0473779724836641,
+            "rows": 4957515,
+            "positive_mass": 12707367.0
+          },
+          {
+            "key": "2024-10|160m",
+            "opportunities": 7127674.75,
+            "weighted_brier": 0.04950548000340793,
+            "rows": 563396,
+            "positive_mass": 1531421.0
+          },
+          {
+            "key": "2024-10|17m",
+            "opportunities": 78073969.25,
+            "weighted_brier": 0.060761219743183575,
+            "rows": 4221913,
+            "positive_mass": 10838534.0
+          },
+          {
+            "key": "2024-10|20m",
+            "opportunities": 729410873.0,
+            "weighted_brier": 0.040044006612066876,
+            "rows": 16051966,
+            "positive_mass": 56708054.0
+          },
+          {
+            "key": "2024-10|30m",
+            "opportunities": 251970935.25,
+            "weighted_brier": 0.046591466408109024,
+            "rows": 8133076,
+            "positive_mass": 28972297.0
+          },
+          {
+            "key": "2024-10|40m",
+            "opportunities": 428827842.0,
+            "weighted_brier": 0.04296654458157199,
+            "rows": 11015074,
+            "positive_mass": 46714007.0
+          },
+          {
+            "key": "2024-10|60m",
+            "opportunities": 4853083.0,
+            "weighted_brier": 0.06512588491934662,
+            "rows": 460364,
+            "positive_mass": 1453773.0
+          },
+          {
+            "key": "2024-10|80m",
+            "opportunities": 75842015.25,
+            "weighted_brier": 0.04071942757834404,
+            "rows": 3076983,
+            "positive_mass": 9771063.0
+          },
+          {
+            "key": "2024-11|10m",
+            "opportunities": 147801874.75,
+            "weighted_brier": 0.048154267570601914,
+            "rows": 5388835,
+            "positive_mass": 13692059.0
+          },
+          {
+            "key": "2024-11|12m",
+            "opportunities": 35839104.25,
+            "weighted_brier": 0.06222325305234537,
+            "rows": 2298775,
+            "positive_mass": 5226804.0
+          },
+          {
+            "key": "2024-11|15m",
+            "opportunities": 105108913.25,
+            "weighted_brier": 0.051942672037862396,
+            "rows": 4787386,
+            "positive_mass": 12527388.0
+          },
+          {
+            "key": "2024-11|160m",
+            "opportunities": 7552288.0,
+            "weighted_brier": 0.05041788929864424,
+            "rows": 582607,
+            "positive_mass": 1817632.0
+          },
+          {
+            "key": "2024-11|17m",
+            "opportunities": 80267568.75,
+            "weighted_brier": 0.061132116392002486,
+            "rows": 4155727,
+            "positive_mass": 11395872.0
+          },
+          {
+            "key": "2024-11|20m",
+            "opportunities": 619484209.25,
+            "weighted_brier": 0.0419789859216826,
+            "rows": 14545345,
+            "positive_mass": 51228152.0
+          },
+          {
+            "key": "2024-11|30m",
+            "opportunities": 238952644.75,
+            "weighted_brier": 0.045993895079155404,
+            "rows": 7953422,
+            "positive_mass": 26558067.0
+          },
+          {
+            "key": "2024-11|40m",
+            "opportunities": 405848880.0,
+            "weighted_brier": 0.04482849770848817,
+            "rows": 11129444,
+            "positive_mass": 43247683.0
+          },
+          {
+            "key": "2024-11|60m",
+            "opportunities": 4863712.25,
+            "weighted_brier": 0.06869300933111656,
+            "rows": 475483,
+            "positive_mass": 1308434.0
+          },
+          {
+            "key": "2024-11|80m",
+            "opportunities": 76799679.5,
+            "weighted_brier": 0.043419671253045314,
+            "rows": 3227135,
+            "positive_mass": 10173872.0
+          }
+        ]
+      }
+    }
+  },
+  "comparisons": {
+    "A6_recent_recency_blend": {
+      "A4_recent_cycle": {
+        "delta_brier": -3.905570422681193e-05,
+        "month_deltas": {
+          "2024-10": -2.3343180042531553e-05,
+          "2024-11": -5.617622022405927e-05
+        },
+        "paired_day_bootstrap": {
+          "lower_95": -5.6111318113633666e-05,
+          "median": -3.856531836673621e-05,
+          "upper_95": -2.2886255563137222e-05
+        }
+      },
+      "A0_v3_control": {
+        "delta_brier": -0.001281502885035847,
+        "month_deltas": {
+          "2024-10": -0.0013585912877269388,
+          "2024-11": -0.001197506627284399
+        },
+        "paired_day_bootstrap": {
+          "lower_95": -0.0013920637671011357,
+          "median": -0.0012844014735919828,
+          "upper_95": -0.0011825320633431014
+        }
+      },
+      "B2_frozen_v3": {
+        "delta_brier": -1.3218728900990517e-06,
+        "month_deltas": {
+          "2024-10": -9.215421933184836e-05,
+          "2024-11": 9.764991687114671e-05
+        },
+        "paired_day_bootstrap": {
+          "lower_95": -8.237585651463267e-05,
+          "median": -1.3050641334363387e-06,
+          "upper_95": 8.762153108816357e-05
+        }
+      }
+    },
+    "A7_60m_specialist": {
+      "A4_recent_cycle": {
+        "delta_brier": 1.6214460329955216e-12,
+        "month_deltas": {
+          "2024-10": 1.5307130563080307e-12,
+          "2024-11": 1.7204362934286621e-12
+        },
+        "paired_day_bootstrap": {
+          "lower_95": 1.4253315328451738e-12,
+          "median": 1.6188130941643367e-12,
+          "upper_95": 1.819306998963858e-12
+        }
+      },
+      "A0_v3_control": {
+        "delta_brier": -0.001242447179187589,
+        "month_deltas": {
+          "2024-10": -0.0013352481061536942,
+          "2024-11": -0.0011413304053399034
+        },
+        "paired_day_bootstrap": {
+          "lower_95": -0.0013570694256262827,
+          "median": -0.0012423598175050562,
+          "upper_95": -0.0011275360547565376
+        }
+      },
+      "B2_frozen_v3": {
+        "delta_brier": 3.773383295815891e-05,
+        "month_deltas": {
+          "2024-10": -6.881103775860375e-05,
+          "2024-11": 0.00015382613881564228
+        },
+        "paired_day_bootstrap": {
+          "lower_95": -4.295174394968051e-05,
+          "median": 3.605534508634786e-05,
+          "upper_95": 0.000130573949963809
+        }
+      }
+    }
+  },
+  "advance_conditional_policy": [
+    "A6_recent_recency_blend"
+  ],
+  "rule": "Beat A4 in both months with paired-day upper 95% below zero.",
+  "compute": {
+    "profile": "m5",
+    "wall_seconds": 588.041454457998,
+    "peak_rss_gb": 9.954360961914062,
+    "maximum_rss_gb": 96.0,
+    "memory_limit_respected": true,
+    "python": "3.12.11",
+    "numpy": "2.5.1",
+    "xgboost": "3.3.0"
+  }
+}

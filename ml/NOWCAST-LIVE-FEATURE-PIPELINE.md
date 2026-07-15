@@ -5,6 +5,13 @@
 > product. Until every release gate below passes, Propulse must mark path
 > history stale and serve the packaged physics/weather profile.
 
+> Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
+> observation time instead of assuming array order, parses the current Kyoto
+> Dst object schema, preserves Bx and proton temperature, and stores per-source
+> observation/quality provenance. Native M5 TypeScript build and all three
+> source-order tests passed. Migration and deployment remain pending; this does
+> not enable live NowCast.
+
 ## Decision
 
 V4.2 NowCast cannot use the existing `path_hourly_stats` table as its recent

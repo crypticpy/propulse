@@ -24,14 +24,18 @@ export interface SolarSnapshot {
   kp_index: number | null;
   sfi: number | null;
   bz_gsm: number | null;
+  bx_gsm: number | null;
   by_gsm: number | null;
   bt: number | null;
   solar_wind_speed: number | null;
+  solar_wind_temperature: number | null;
   sunspot_number: number | null;
   xray_flux: number | null;
   proton_flux_10mev: number | null;
   dst_index: number | null;
   solar_wind_density: number | null;
+  source_observed_at: Record<string, string | null>;
+  source_status: Record<string, unknown>;
 }
 
 export interface PollIntervals {

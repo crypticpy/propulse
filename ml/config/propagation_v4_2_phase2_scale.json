@@ -68,9 +68,16 @@
     "recency_half_life_months": 18
   },
   "training": {
-    "num_boost_round": 1200,
+    "num_boost_round": 2000,
     "early_stopping_rounds": 75,
     "batch_rows": 250000,
+    "capacity_amendment": {
+      "prior_num_boost_round": 1200,
+      "trigger": "A2 rolling folds F1 and F2 completed all 1,200 rounds with best iterations 1,198 and 1,193.",
+      "basis": "Early-stopping validation folds only; October and November evaluation remained unscored.",
+      "continuation": "Continue exact checkpoint boosters under the same parameters and fold-specific validation data.",
+      "maximum_total_boost_round": 2000
+    },
     "parameters": {
       "objective": "binary:logistic",
       "eval_metric": "logloss",

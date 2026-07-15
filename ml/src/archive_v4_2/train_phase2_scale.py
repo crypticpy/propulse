@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import numpy as np
 import xgboost as xgb
 
 
@@ -122,6 +123,7 @@ def train_fold(
     features: list[str],
     external_models: Path,
     repository_models: Path,
+    previous: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     definition = config["candidates"][candidate]
     cohort_item = manifest["cohorts"][candidate][fold]
@@ -151,17 +153,57 @@ def train_fold(
     )
     parameters = dict(config["training"]["parameters"])
     parameters["seed"] = int(config["seed"])
+    prior_rounds = int(previous["rounds_completed"]) if previous else 0
+    total_rounds = int(config["training"]["num_boost_round"])
+    if prior_rounds >= total_rounds:
+        raise Phase2Error("continuation checkpoint already reached the configured ceiling")
     history: dict[str, dict[str, list[float]]] = {}
+    checkpoint = None
+    if previous:
+        checkpoint = xgb.Booster()
+        checkpoint.load_model(verify_artifact(previous["model"]))
     model = xgb.train(
         parameters,
         train_matrix,
-        num_boost_round=int(config["training"]["num_boost_round"]),
+        num_boost_round=total_rounds - prior_rounds,
         evals=[(early_matrix, "early_stopping")],
         early_stopping_rounds=int(config["training"]["early_stopping_rounds"]),
         evals_result=history,
         verbose_eval=100,
+        xgb_model=checkpoint,
     )
-    best = int(model.best_iteration)
+    new_history = list(map(float, history["early_stopping"]["logloss"]))
+    old_history = (
+        list(map(float, previous["evaluation_history"]["early_stopping"]["logloss"]))
+        if previous
+        else []
+    )
+    combined_history = old_history + new_history
+    best = int(np.argmin(np.asarray(combined_history, dtype=np.float64)))
+    completed_rounds = int(model.num_boosted_rounds())
+    segment_seconds = time.monotonic() - started
+    segments = list(previous.get("training_segments", [])) if previous else []
+    if previous and not segments:
+        segments.append(
+            {
+                "start_round": 0,
+                "rounds_completed": prior_rounds,
+                "seconds": float(previous["seconds"]),
+                "reason": "initial preregistered 1,200-round segment",
+            }
+        )
+    segments.append(
+        {
+            "start_round": prior_rounds,
+            "rounds_completed": len(new_history),
+            "seconds": segment_seconds,
+            "reason": (
+                "capacity amendment continuation"
+                if previous
+                else "initial configured training segment"
+            ),
+        }
+    )
     model_path = external_models / f"{candidate}_{fold}.json"
     model.save_model(model_path)
     output: dict[str, Any] = {
@@ -175,12 +217,16 @@ def train_fold(
         "train_rows": int(train_matrix.num_row()),
         "early_stopping_rows": int(early_matrix.num_row()),
         "best_iteration": best,
-        "best_score": float(model.best_score),
-        "rounds_completed": len(history["early_stopping"]["logloss"]),
-        "evaluation_history": history,
+        "best_score": float(combined_history[best]),
+        "rounds_completed": completed_rounds,
+        "evaluation_history": {"early_stopping": {"logloss": combined_history}},
+        "continued_from_checkpoint": previous is not None,
+        "training_segments": segments,
         "model": artifact(model_path, repository_models / model_path.name),
-        "seconds": time.monotonic() - started,
-        "peak_rss_gb": peak_rss_gb(),
+        "seconds": float(previous["seconds"] if previous else 0.0) + segment_seconds,
+        "peak_rss_gb": max(
+            float(previous["peak_rss_gb"] if previous else 0.0), peak_rss_gb()
+        ),
     }
     if fold == config["final_fold"]:
         calibration_item = manifest["calibration"]
@@ -217,7 +263,7 @@ def train_fold(
         key=lambda row: row["gain"],
         reverse=True,
     )
-    del train_matrix, early_matrix, train_iterator, early_iterator, model
+    del train_matrix, early_matrix, train_iterator, early_iterator, model, checkpoint
     gc.collect()
     return output
 
@@ -271,6 +317,7 @@ def main() -> None:
                 "platform": platform.platform(),
             },
         }
+    output["training_contract"] = config["training"]
     requested_candidates = [args.candidate] if args.candidate else list(EXPECTED_CANDIDATES)
     requested_folds = [args.fold] if args.fold else list(EXPECTED_FOLDS)
     for candidate in requested_candidates:
@@ -281,7 +328,28 @@ def main() -> None:
                 verify_artifact(info["model"])
                 if fold == config["final_fold"]:
                     verify_artifact(info["calibrator"])
-                print(f"reuse {candidate} {fold}", flush=True)
+                rounds = int(info["rounds_completed"])
+                best = int(info["best_iteration"])
+                ceiling = int(config["training"]["num_boost_round"])
+                patience = int(config["training"]["early_stopping_rounds"])
+                should_continue = rounds < ceiling and best >= rounds - patience
+                if not should_continue:
+                    print(f"reuse {candidate} {fold}", flush=True)
+                    continue
+                print(f"continue {candidate} {fold} from {rounds}", flush=True)
+                output["candidates"][candidate][fold] = train_fold(
+                    candidate,
+                    fold,
+                    config,
+                    manifest,
+                    scale,
+                    features,
+                    external_models,
+                    repository_models,
+                    previous=info,
+                )
+                output["generated_at"] = utc_now()
+                atomic_write(result_path, output)
                 continue
             print(f"train {candidate} {fold}", flush=True)
             output["candidates"][candidate][fold] = train_fold(

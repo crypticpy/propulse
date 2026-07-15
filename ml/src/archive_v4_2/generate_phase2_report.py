@@ -261,10 +261,20 @@ def candidate_decision_rows(
     return rows
 
 
-def training_rows(scale: int, training: dict[str, Any]) -> list[dict[str, Any]]:
+def training_rows(
+    scale: int,
+    training: dict[str, Any],
+    fallback_threads: int,
+) -> list[dict[str, Any]]:
     rows = []
     for name, folds in training["candidates"].items():
         for fold, info in folds.items():
+            execution = info.get("execution")
+            xgboost_threads = (
+                int(execution["xgboost_threads"])
+                if execution is not None
+                else fallback_threads
+            )
             rows.append(
                 {
                     "candidate": LABELS.get(name, name),
@@ -278,7 +288,12 @@ def training_rows(scale: int, training: dict[str, Any]) -> list[dict[str, Any]]:
                     "training_hours": float(info["seconds"]) / 3600,
                     "peak_rss_gb": float(info["peak_rss_gb"]),
                     "backend": str(info["training_mode"]),
-                    "xgboost_threads": int(info["execution"]["xgboost_threads"]),
+                    "xgboost_threads": xgboost_threads,
+                    "thread_evidence": (
+                        "per-fold execution telemetry"
+                        if execution is not None
+                        else "frozen default training contract"
+                    ),
                 }
             )
     return rows
@@ -467,9 +482,14 @@ def main() -> None:
             for value in (0.0, 1.0)
         ]
     )
-    all_training_rows = training_rows(20_000_000, training_20)
+    fallback_training_threads = int(config["training"]["parameters"]["nthread"])
+    all_training_rows = training_rows(
+        20_000_000, training_20, fallback_training_threads
+    )
     if training_50 is not None:
-        all_training_rows.extend(training_rows(50_000_000, training_50))
+        all_training_rows.extend(
+            training_rows(50_000_000, training_50, fallback_training_threads)
+        )
     feature_rows = combined_feature_rows(latest_training, latest, focus)
 
     backend_external = read_json(BACKEND_EXTERNAL)

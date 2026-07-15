@@ -23,6 +23,7 @@ from score_phase2_scale import (  # noqa: E402
     evaluation_reference_days,
     evaluation_reference_months,
     evaluation_reference_overall,
+    fit_calibrators,
     paired_bootstrap,
     selected_prediction_threads,
     text_labels,
@@ -32,6 +33,20 @@ from benchmark_prediction_threads import select_fastest_exact  # noqa: E402
 
 
 class Phase2ScoringTests(unittest.TestCase):
+    def test_phase2_scorer_uses_matching_v4_calibrator_bundle(self) -> None:
+        raw = np.linspace(0.01, 0.99, 100, dtype=np.float64)
+        target = np.linspace(0.0, 1.0, 100, dtype=np.float64)
+        weight = np.ones(100, dtype=np.float64)
+        bands = np.full(100, "20m")
+        distance = np.linspace(0, 12_000, 100, dtype=np.float64)
+
+        bundles = fit_calibrators(raw, target, weight, bands, distance)
+
+        self.assertEqual(
+            [bundle.method for bundle in bundles],
+            ["global_isotonic", "global_isotonic", "global_isotonic"],
+        )
+
     def test_prediction_thread_decision_must_match_frozen_config(self) -> None:
         config = {
             "compute": {

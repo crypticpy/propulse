@@ -10,7 +10,10 @@ import joblib
 import numpy as np
 import xgboost as xgb
 
-from calibration import clipped
+
+def clipped(values: np.ndarray) -> np.ndarray:
+    """Bound frozen V3 predictions without relying on a path-ambiguous module."""
+    return np.clip(np.asarray(values, dtype=np.float64), 1e-7, 1 - 1e-7)
 
 
 def feature_matrix(

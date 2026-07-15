@@ -29,8 +29,10 @@ ROOT = Path(__file__).resolve().parents[3]
 V4 = ROOT / "ml/src/archive_v4"
 V4_1 = ROOT / "ml/src/archive_v4_1"
 MODULE = Path(__file__).resolve().parent
-sys.path.insert(0, str(V4))
+# Keep V4 ahead of V4.1 so train_validation resolves its matching calibration
+# bundle; V4.1 remains available for the frozen B2 adapter.
 sys.path.insert(0, str(V4_1))
+sys.path.insert(0, str(V4))
 sys.path.insert(0, str(MODULE))
 
 from b2_adapter import feature_matrix as b2_feature_matrix, load_profile  # noqa: E402

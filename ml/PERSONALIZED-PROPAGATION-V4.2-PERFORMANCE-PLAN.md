@@ -417,16 +417,21 @@ GPU and Neural Engine therefore cannot accelerate this XGBoost experiment
 without changing model engines; CPU `hist` with OpenMP is the reproducible
 Apple Silicon path.
 
-The first 20M run remains on its original single-fit, 14-thread contract so an
-active experiment is not changed mid-run. Subsequent multi-fit launches use a
-bounded spawn-process scheduler: two independent folds at a time, nine
+Every completed 20M fold remains on its original single-fit, 14-thread contract
+and is never recomputed. The active A4 F2 fold will also finish under that
+contract; only after its model and result metadata are atomically checkpointed
+will the sequential launcher stop. The remaining independent 20M folds and
+subsequent multi-fit launches then use a bounded spawn-process scheduler: two
+folds at a time, nine
 XGBoost/PyArrow CPU threads per fold, four Arrow I/O threads per fold, unique
 external-memory caches, parent-only atomic checkpoints, and a conservative
 sum-of-worker-peaks RSS guard below 96 GB. This uses all 18 cores across the
 independent work while preserving the same data, features, weights, boosting
 parameters, temporal roles, and model-selection rules. DuckDB cohort builds use
-18 threads. Each fold records its actual thread counts and XGBoost OpenMP/CUDA
-build flags.
+18 threads. The thread-count transition is an execution parameter and is
+recorded per fold together with the XGBoost OpenMP/CUDA build flags; it was
+registered before October/November scoring and does not alter any selection
+outcome.
 
 The two-worker path must pass unit tests and a bounded M5 execution check before
 the selected 50M folds launch. A rented NVIDIA GPU remains an option only after

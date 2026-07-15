@@ -105,6 +105,57 @@ for (const budget of config.budgets ?? []) {
   }
 }
 
+let precacheRow = null;
+if (config.precache) {
+  const serviceWorkerPath = path.resolve(
+    repoRoot,
+    config.precache.serviceWorker ?? "dist/sw.js",
+  );
+  if (!fs.existsSync(serviceWorkerPath)) {
+    fail(
+      `Service worker not found at ${path.relative(repoRoot, serviceWorkerPath)}. Run npm run build first.`,
+    );
+  }
+  const serviceWorker = fs.readFileSync(serviceWorkerPath, "utf8");
+  const urls = [
+    ...serviceWorker.matchAll(/\{url:"([^"]+)"/g),
+  ].map((match) => match[1]);
+  if (urls.length === 0) {
+    fail(
+      `No Workbox precache entries found in ${path.relative(repoRoot, serviceWorkerPath)}.`,
+    );
+  }
+  const serviceWorkerDir = path.dirname(serviceWorkerPath);
+  const precacheFiles = urls.map((url) => {
+    const pathname = decodeURIComponent(url.split("?", 1)[0]).replace(/^\//, "");
+    const absolute = path.resolve(serviceWorkerDir, pathname);
+    if (!absolute.startsWith(`${serviceWorkerDir}${path.sep}`)) {
+      fail(`Precache URL escapes the build directory: ${url}`);
+    }
+    if (!fs.existsSync(absolute)) {
+      fail(`Precache URL has no build artifact: ${url}`);
+    }
+    return absolute;
+  });
+  const totalBytes = precacheFiles.reduce(
+    (total, absolute) => total + fs.statSync(absolute).size,
+    0,
+  );
+  precacheRow = { count: urls.length, totalBytes };
+  if (urls.length > config.precache.maxEntries) {
+    failures.push({
+      name: "PWA precache",
+      issue: `${urls.length} entries exceeds limit ${config.precache.maxEntries}`,
+    });
+  }
+  if (totalBytes / 1024 > config.precache.maxTotalKiB) {
+    failures.push({
+      name: "PWA precache",
+      issue: `${(totalBytes / 1024).toFixed(2)} KiB exceeds limit ${config.precache.maxTotalKiB.toFixed(2)} KiB`,
+    });
+  }
+}
+
 console.log("\n[bundle-check] Evaluated bundle budgets:\n");
 for (const row of rows) {
   const rawLimit =
@@ -115,6 +166,11 @@ for (const row of rows) {
       : "n/a";
   console.log(
     `- ${row.name}: ${row.file} | raw ${formatKb(row.rawBytes)} / ${rawLimit} | gzip ${formatKb(row.gzipBytes)} / ${gzipLimit}`,
+  );
+}
+if (precacheRow) {
+  console.log(
+    `- PWA precache: ${precacheRow.count} entries / ${config.precache.maxEntries} | ${(precacheRow.totalBytes / 1024).toFixed(2)} KiB / ${config.precache.maxTotalKiB.toFixed(2)} KiB`,
   );
 }
 

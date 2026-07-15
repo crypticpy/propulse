@@ -12,6 +12,7 @@ import type {
   ClassifiedError,
   StalenessLevel,
 } from "@/lib/errors/classifyError";
+import type { SolarCacheOutcome } from "@/lib/solar/contracts";
 
 // =============================================================================
 // TYPES
@@ -30,6 +31,12 @@ export interface SourceStatus {
   lastRecovery: number | null;
   /** Timestamp (ms) of the last successful fetch */
   lastSuccess: number | null;
+  /** Timestamp (ms) of the most recent request attempt. */
+  lastAttempt: number | null;
+  /** Provider observation or forecast issue time. */
+  observedAt: number | null;
+  /** Cache/network tier that supplied the last usable value. */
+  cacheOutcome: SolarCacheOutcome | null;
 }
 
 // =============================================================================
@@ -44,6 +51,9 @@ const DEFAULT_STATUS: SourceStatus = {
   consecutiveErrors: 0,
   lastRecovery: null,
   lastSuccess: null,
+  lastAttempt: null,
+  observedAt: null,
+  cacheOutcome: null,
 };
 
 // =============================================================================
@@ -57,9 +67,24 @@ interface DataSourceStatusState {
   // Actions
 
   /** Record an error for a data source. Increments consecutiveErrors and sets errorSince on first error. */
-  reportError: (sourceId: DataSourceId, error: ClassifiedError) => void;
+  reportError: (
+    sourceId: DataSourceId,
+    error: ClassifiedError,
+    metadata?: {
+      observedAt?: number;
+      cacheOutcome?: SolarCacheOutcome;
+      staleness?: StalenessLevel;
+    },
+  ) => void;
   /** Record a successful fetch. Clears error state, resets consecutiveErrors, records lastRecovery if recovering. */
-  reportSuccess: (sourceId: DataSourceId) => void;
+  reportSuccess: (
+    sourceId: DataSourceId,
+    metadata?: {
+      observedAt?: number;
+      cacheOutcome?: SolarCacheOutcome;
+      staleness?: StalenessLevel;
+    },
+  ) => void;
   /** Update the staleness level for a data source. */
   updateStaleness: (sourceId: DataSourceId, level: StalenessLevel) => void;
   /** Reset all source statuses (e.g. on logout or full reconnect). */
@@ -100,7 +125,7 @@ export const useDataSourceStatus = create<DataSourceStatusState>(
     // Actions
     // ========================================================================
 
-    reportError: (sourceId, error) =>
+    reportError: (sourceId, error, metadata) =>
       set((state) => {
         const existing = state.sources[sourceId] ?? DEFAULT_STATUS;
         const now = Date.now();
@@ -112,6 +137,10 @@ export const useDataSourceStatus = create<DataSourceStatusState>(
               ...existing,
               error,
               consecutiveErrors: existing.consecutiveErrors + 1,
+              lastAttempt: now,
+              observedAt: metadata?.observedAt ?? existing.observedAt,
+              cacheOutcome: metadata?.cacheOutcome ?? existing.cacheOutcome,
+              staleness: metadata?.staleness ?? existing.staleness,
               // Only set errorSince on the first error in a streak
               errorSince: existing.errorSince ?? now,
             },
@@ -119,7 +148,7 @@ export const useDataSourceStatus = create<DataSourceStatusState>(
         };
       }),
 
-    reportSuccess: (sourceId) =>
+    reportSuccess: (sourceId, metadata) =>
       set((state) => {
         const existing = state.sources[sourceId] ?? DEFAULT_STATUS;
         const now = Date.now();
@@ -134,6 +163,10 @@ export const useDataSourceStatus = create<DataSourceStatusState>(
               consecutiveErrors: 0,
               errorSince: null,
               lastSuccess: now,
+              lastAttempt: now,
+              observedAt: metadata?.observedAt ?? existing.observedAt,
+              cacheOutcome: metadata?.cacheOutcome ?? existing.cacheOutcome,
+              staleness: metadata?.staleness ?? existing.staleness,
               lastRecovery: wasInError ? now : existing.lastRecovery,
             },
           },
@@ -143,6 +176,7 @@ export const useDataSourceStatus = create<DataSourceStatusState>(
     updateStaleness: (sourceId, level) =>
       set((state) => {
         const existing = state.sources[sourceId] ?? DEFAULT_STATUS;
+        if (existing.staleness === level) return state;
 
         return {
           sources: {

@@ -33,6 +33,7 @@ for path in (V4, V4_1, SERVICE, MODULE):
 
 from b2_adapter import load_profile  # noqa: E402
 from gate_scoring import decide_archive, decide_december  # noqa: E402
+from m5_runtime import configure_arrow_threads  # noqa: E402
 from outcome_protocol import (  # noqa: E402
     DEFAULT_MANIFEST,
     OutcomeProtocolError,
@@ -336,6 +337,7 @@ def main() -> None:
     manifest_path = Path(args.manifest).resolve()
     config = load_json(config_path)
     runtime = validate_m5_runtime(config)
+    arrow = configure_arrow_threads(config, parallel_fit=False)
     manifest = load_json(manifest_path)
     resume_scope(manifest, args.scope, args.attempt_id)
     verify_frozen_artifacts(manifest_path)
@@ -415,6 +417,7 @@ def main() -> None:
         "decision": decision,
         "compute": {
             **runtime,
+            **arrow,
             "wall_seconds": time.monotonic() - started,
             "peak_rss_gb": peak_rss_gb(),
             "platform": platform.platform(),

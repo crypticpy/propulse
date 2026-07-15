@@ -23,6 +23,7 @@ sys.path.insert(0, str(V4))
 sys.path.insert(0, str(MODULE))
 
 from external_memory import ParquetDataIter  # noqa: E402
+from m5_runtime import configure_arrow_threads  # noqa: E402
 from phase2_core import Phase2Error, validate_config  # noqa: E402
 from train_phase2_scale import (  # noqa: E402
     load_json,
@@ -75,6 +76,7 @@ def main() -> None:
     config = load_json(Path(args.config))
     validate_config(config)
     runtime = validate_m5_runtime(config)
+    arrow = configure_arrow_threads(config, parallel_fit=False)
     benchmark = config["compute"]["apple_silicon"]["backend_benchmark"]
     scale = int(benchmark["scale"])
     candidate = str(benchmark["candidate"])
@@ -156,6 +158,7 @@ def main() -> None:
         "parameters": parameters,
         "runtime": {
             **runtime,
+            **arrow,
             "platform": platform.platform(),
             "xgboost_build": xgb.build_info(),
         },

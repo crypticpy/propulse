@@ -503,6 +503,22 @@ benchmark limit and 96 GB hard ceiling. The frozen 50M backend is therefore
 iterator-fed `QuantileDMatrix`; 20M remains external-memory for experiment
 continuity. The decision used no October, November, December, or 2025 outcome.
 
+The execution contract was hardened again on 2026-07-15 without changing any
+data, statistical, or selection decision. Every remaining cohort build,
+training run, open-month score, locked-gate score, and Phase 3 validation now
+refuses to run unless macOS reports native arm64, all 18 physical cores, the
+expected 12-core/6-core cluster topology, and at least the configured 96 GiB
+RSS ceiling in unified memory. Model workflows additionally require XGBoost
+with OpenMP. When connected to AC, the host must report High Power mode
+(`powermode 2`). Single-process Arrow scans use
+all 18 CPU threads with six I/O threads; each two-fit training worker receives
+nine CPU threads and four I/O threads. Runtime evidence records the topology,
+power source/mode, memory, Arrow pools, XGBoost version, OpenMP, and CUDA flags.
+The live M5 audit passed with 128 GiB unified memory, High Power mode, and 1.4
+TiB free on the Projects volume. The 20M external-memory folds remain I/O-bound
+by design; the already-frozen iterator-fed `QuantileDMatrix` 50M backend is the
+path that converts the larger memory budget into materially higher CPU use.
+
 ## Execution checklist
 
 ### Phase 0: diagnosis

@@ -20,7 +20,6 @@ from typing import Any
 
 import joblib
 import numpy as np
-import pyarrow as pa
 import xgboost as xgb
 
 
@@ -38,6 +37,10 @@ from phase2_core import (  # noqa: E402
     matrix_backend,
     scale_workset,
     validate_config,
+)
+from m5_runtime import (  # noqa: E402
+    configure_arrow_threads,
+    validate_m5_runtime as validate_native_m5_runtime,
 )
 from train_validation import (  # noqa: E402
     CALIBRATION_SELECTION_PROTOCOL,
@@ -138,8 +141,9 @@ def train_fold(
 ) -> dict[str, Any]:
     execution = config["compute"]["apple_silicon"]
     training_threads = int(config["training"]["parameters"]["nthread"])
-    pa.set_cpu_count(training_threads)
-    pa.set_io_thread_count(int(execution["arrow_io_threads_per_fit"]))
+    arrow = configure_arrow_threads(config, parallel_fit=training_threads == int(
+        execution["threads_per_parallel_fit"]
+    ))
     definition = config["candidates"][candidate]
     cohort_item = manifest["cohorts"][candidate][fold]
     early_item = manifest["early_stopping"][fold]
@@ -252,8 +256,7 @@ def train_fold(
         "execution": {
             "machine": platform.machine(),
             "xgboost_threads": training_threads,
-            "arrow_cpu_threads": pa.cpu_count(),
-            "arrow_io_threads": pa.io_thread_count(),
+            **arrow,
             "xgboost_openmp": bool(xgb.build_info().get("USE_OPENMP")),
             "xgboost_cuda": bool(xgb.build_info().get("USE_CUDA")),
         },
@@ -348,29 +351,7 @@ def parallel_config(config: dict[str, Any], workers: int) -> dict[str, Any]:
 
 
 def validate_m5_runtime(config: dict[str, Any]) -> dict[str, Any]:
-    hardware = config["compute"]["apple_silicon"]
-    machine = platform.machine()
-    cores = int(os.cpu_count() or 0)
-    build = xgb.build_info()
-    if machine != str(hardware["required_machine"]):
-        raise Phase2Error(
-            f"M5 run requires {hardware['required_machine']}, detected {machine}"
-        )
-    if cores < int(hardware["physical_cores"]):
-        raise Phase2Error(
-            f"M5 run requires at least {hardware['physical_cores']} cores, "
-            f"detected {cores}"
-        )
-    if not bool(build.get("USE_OPENMP")):
-        raise Phase2Error("XGBoost must be built with OpenMP on the M5")
-    return {
-        "machine": machine,
-        "physical_cores_visible": cores,
-        "xgboost_openmp": True,
-        "xgboost_cuda": bool(build.get("USE_CUDA")),
-        "xgboost_version": xgb.__version__,
-        "python_version": platform.python_version(),
-    }
+    return validate_native_m5_runtime(config, xgboost_module=xgb)
 
 
 def main() -> None:

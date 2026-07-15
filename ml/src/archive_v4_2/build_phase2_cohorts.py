@@ -23,6 +23,7 @@ MODULE = Path(__file__).resolve().parent
 sys.path.insert(0, str(MODULE))
 
 from phase1_core import sampling_threshold  # noqa: E402
+from m5_runtime import validate_m5_runtime  # noqa: E402
 from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
     EXPECTED_FOLDS,
@@ -310,6 +311,7 @@ def main() -> None:
     started = time.monotonic()
     config = load_json(Path(args.config))
     validate_config(config)
+    runtime = validate_m5_runtime(config)
     scale = int(args.scale)
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
@@ -450,6 +452,7 @@ def main() -> None:
             else None
         ),
         "environment": {
+            **runtime,
             "python": platform.python_version(),
             "duckdb": duckdb.__version__,
             "platform": platform.platform(),

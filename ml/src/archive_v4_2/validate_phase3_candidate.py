@@ -30,6 +30,7 @@ sys.path.insert(0, str(MODULE))
 sys.path.insert(0, str(SERVICE))
 
 from app import ModelRegistry, create_app  # noqa: E402
+from m5_runtime import configure_arrow_threads  # noqa: E402
 from package_phase3_candidate import selected_components  # noqa: E402
 from phase2_core import Phase2Error, validate_config  # noqa: E402
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
@@ -199,6 +200,7 @@ def main() -> None:
     config = load_json(Path(args.config))
     validate_config(config)
     runtime = validate_m5_runtime(config)
+    arrow = configure_arrow_threads(config, parallel_fit=False)
     phase3 = config["phase3"]
     result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
     training = load_json(result_dir / "training_50m_results.json")
@@ -390,7 +392,7 @@ def main() -> None:
         },
         "bundle_bytes": bundle_bytes,
         "privacy_findings": privacy_findings,
-        "runtime": runtime,
+        "runtime": {**runtime, **arrow},
         "gates": gates,
         "passed": all(gates.values()),
     }

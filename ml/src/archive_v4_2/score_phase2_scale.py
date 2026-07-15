@@ -34,6 +34,7 @@ sys.path.insert(0, str(V4_1))
 sys.path.insert(0, str(MODULE))
 
 from b2_adapter import feature_matrix as b2_feature_matrix, load_profile  # noqa: E402
+from m5_runtime import configure_arrow_threads  # noqa: E402
 from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
     Phase2Error,
@@ -45,6 +46,7 @@ from phase2_core import (  # noqa: E402
     validate_config,
 )
 from train_validation import fit_calibrators, load_predictions  # noqa: E402
+from train_phase2_scale import validate_m5_runtime  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -494,6 +496,8 @@ def main() -> None:
     started = time.monotonic()
     config = load_json(Path(args.config))
     validate_config(config)
+    runtime = validate_m5_runtime(config)
+    arrow = configure_arrow_threads(config, parallel_fit=False)
     scale = int(args.scale)
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
@@ -878,6 +882,8 @@ def main() -> None:
         "training_result": training_path.relative_to(ROOT).as_posix(),
         "cohort_manifest": manifest_path.relative_to(ROOT).as_posix(),
         "compute": {
+            **runtime,
+            **arrow,
             "profile": "m5",
             "wall_seconds": time.monotonic() - started,
             "peak_rss_gb": memory,

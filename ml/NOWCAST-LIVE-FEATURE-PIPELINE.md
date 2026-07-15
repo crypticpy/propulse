@@ -70,6 +70,34 @@ opportunities are summed before the rate is calculated. The online transform
 must reuse this code and pinned DuckDB/hash semantics or demonstrate replay
 equivalence before it may set an availability flag to 1.
 
+### Operational weather
+
+Recent path history is only half of the online contract. The current product
+callers provide Kp, F10.7, and sometimes Bz, while the core was trained with a
+larger as-of weather vector and explicit missingness. The Railway collector
+already stores a useful subset in `solar_snapshots`; Phase 3 must expose one
+trusted, timestamped feature snapshot rather than assembling different subsets
+in each React page.
+
+| Operational source | Core fields |
+|---|---|
+| [NOAA SWPC real-time solar wind](https://services.swpc.noaa.gov/products/solar-wind/) | `bt`, `bx_gsm`, `by_gsm`, `bz_gsm`, `temperature_k`, `density_cm3`, `wind_speed` and derived pressure/field values when source-supported |
+| [NOAA SWPC planetary K index](https://services.swpc.noaa.gov/json/planetary_k_index_1m.json) | `kp`, then `kp_delta_3h` and `kp_max_24h` from as-of history |
+| [NOAA SWPC F10.7](https://services.swpc.noaa.gov/json/f107_cm_flux.json) | `f107` |
+| [NOAA SWPC solar-cycle indices](https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json) | `sunspot_number` |
+| [NOAA SWPC proton flux](https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json) | `proton_flux_10mev` |
+| [NOAA SWPC Kyoto Dst product](https://services.swpc.noaa.gov/products/kyoto-dst.json) | `dst`, then `dst_min_6h` from as-of history |
+| [GFZ Kp/Hp data](https://kp.gfz.de/en/data) | `ap`, `hp60`, status/provenance where operationally available |
+| [NASA OMNI](https://omniweb.gsfc.nasa.gov/html/ow_data.html) | definitive historical training/evaluation context, not a low-latency live feed |
+
+Every field carries observation time, source publication/receipt time, and
+feature `available_at`. Derived windows use only snapshots available by the
+prediction issue time. Unsupported AE/AL/AU/PCN or Mach/plasma fields remain
+missing with their flags set; they are never filled from future definitive
+OMNI data. The backend returns one weather watermark and per-source ages. A
+page fetch timestamp is not evidence that every underlying measurement is
+fresh.
+
 ## Data Flow
 
 1. **Authorized ingest**
@@ -153,6 +181,12 @@ issue time. On deterministic rows from each month require:
 - exact UTC H-1/H-2/H-3/H-24 selection; and
 - identical batch and single-path feature responses.
 
+The same replay separately checks operational-weather names, units, missing
+flags, UTC windows, and availability timestamps against the archived feature
+contract. It reports degradation when the operational subset is used instead
+of definitive OMNI, so the physics fallback claim reflects inputs that can
+actually exist in production.
+
 The archive lacks a reliable receipt timestamp for every historic spot. Any
 replay using event time alone must be labeled optimistic. A minimum 30-day live
 shadow capture with receipt timestamps is required before product enablement.
@@ -189,6 +223,8 @@ shadow capture with receipt timestamps is required before product enablement.
 - [ ] Add rolling bronze and hourly feature-store migrations with RLS/service
   policies, retention, and sparse-export protection.
 - [ ] Build idempotent ingest, hourly finalizer, watermarks, and health metrics.
+- [ ] Consolidate `solar_snapshots` into one trusted operational-weather
+  builder with source observation/receipt times and legal rolling features.
 - [ ] Add batched path-history lookup to the trusted model backend.
 - [ ] Add open-month event-time replay, then a receipt-time live shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.

@@ -24,11 +24,17 @@ from outcome_protocol import (  # noqa: E402
     atomic_write,
     load_json,
     resume_scope,
+    sha256,
 )
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+SOURCE_FREEZE = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "source_pipeline_freeze.json"
+)
 
 
 def scoped_config(
@@ -80,6 +86,18 @@ def run(command: list[str], env: dict[str, str]) -> None:
     subprocess.run(command, cwd=ROOT, env=env, check=True)
 
 
+def verify_source_freeze(path: Path = SOURCE_FREEZE) -> None:
+    value = load_json(path)
+    for name, item in value["sources"].items():
+        source = ROOT / item["path"]
+        if (
+            not source.is_file()
+            or source.stat().st_size != int(item["bytes"])
+            or sha256(source) != str(item["sha256"])
+        ):
+            raise OutcomeProtocolError(f"frozen gate source changed: {name}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -95,6 +113,7 @@ def main() -> None:
     validate_m5_runtime(config)
     manifest = load_json(manifest_path)
     resume_scope(manifest, args.scope, args.attempt_id)
+    verify_source_freeze()
     months = list(
         map(
             str,

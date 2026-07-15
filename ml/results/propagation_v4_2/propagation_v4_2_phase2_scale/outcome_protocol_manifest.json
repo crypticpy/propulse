@@ -2,18 +2,18 @@
   "schema_version": 1,
   "run_id": "propagation_v4_2_phase2_scale",
   "created_at": "2026-07-15T23:14:14.624087+00:00",
-  "protocol_state": "candidate_frozen",
+  "protocol_state": "december_passed",
   "candidate_frozen": true,
-  "december_opened": false,
-  "december_attempt_id": null,
-  "december_decision_passed": false,
+  "december_opened": true,
+  "december_attempt_id": "december-20260715T231616Z",
+  "december_decision_passed": true,
   "archive_opened": false,
   "archive_attempt_id": null,
   "archive_decision_passed": false,
   "prospective_opened": false,
   "release_approved": false,
   "outcome_access": {
-    "2024-12": false,
+    "2024-12": true,
     "2025-01": false,
     "2025-04": false,
     "2025-07": false,
@@ -161,7 +161,13 @@
       "sha256": "8b6a26504fe95f8cdc8d9c63a8c96aa1bd82aac271702761a50e2e1300e02855"
     }
   },
-  "outcome_artifacts": {},
+  "outcome_artifacts": {
+    "december_result": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_gate_result.json",
+      "bytes": 58457,
+      "sha256": "9278d8cc706ba85072be3a05664c761b4b0c43d2c465c6140ad68c0261dccf64"
+    }
+  },
   "events": [
     {
       "at": "2026-07-15T23:14:14.624100+00:00",
@@ -401,6 +407,23 @@
     {
       "at": "2026-07-15T23:14:14.675150+00:00",
       "event": "candidate_frozen"
+    },
+    {
+      "at": "2026-07-15T23:16:26.890738+00:00",
+      "event": "december_opened",
+      "months": [
+        "2024-12"
+      ],
+      "attempt_id": "december-20260715T231616Z"
+    },
+    {
+      "at": "2026-07-15T23:31:10.576371+00:00",
+      "event": "december_decision_recorded",
+      "attempt_id": "december-20260715T231616Z",
+      "passed": true,
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_gate_result.json",
+      "bytes": 58457,
+      "sha256": "9278d8cc706ba85072be3a05664c761b4b0c43d2c465c6140ad68c0261dccf64"
     }
   ]
 }

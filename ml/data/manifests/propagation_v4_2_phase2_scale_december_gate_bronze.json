@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T23:17:51.934934+00:00",
+  "config": {
+    "run_id": "propagation_v4_2_phase2_scale_december_gate",
+    "archive_namespace": "archive_v4_2_december",
+    "execution_scope": "locked_december",
+    "seed": 20260711,
+    "months": [
+      "2024-12"
+    ],
+    "train": {
+      "months": []
+    },
+    "validation": {
+      "months": []
+    },
+    "test": {
+      "months": [
+        "2024-12"
+      ]
+    },
+    "negative_receivers_per_tx_slot": 4,
+    "space_weather_run_id": "propagation_v4_2_phase2_scale_december_gate",
+    "gates": {
+      "max_exposure_weight_error_fraction": 0.03
+    },
+    "compute": {
+      "duckdb_threads": 18,
+      "duckdb_memory_limit": "80GB",
+      "temp_root": "/Volumes/Projects/PropulseML/tmp/propagation_v4_2_phase2_scale"
+    },
+    "config_path": "ml/data/manifests/propagation_v4_2_phase2_scale_december_data_config.json"
+  },
+  "months": [
+    {
+      "month": "2024-12",
+      "source": "/Volumes/Projects/PropulseML/data/raw/archive_v4_2_december/wspr/year=2024/month=12/wsprspots-2024-12.csv.gz",
+      "source_size": 3132148662,
+      "source_sha256": "96b483194c865567ec177b36c6d440883e724c24da0c62619363b7733703dec8",
+      "output": "/Volumes/Projects/PropulseML/data/bronze/archive_v4_2_december/wspr/year=2024/month=12/spots.parquet",
+      "output_size": 3602073112,
+      "rows": 172139458,
+      "unique_rows": 172139458,
+      "min_time": "2024-12-01 00:00:00+00:00",
+      "max_time": "2024-12-31 23:58:00+00:00",
+      "tx_calls": 63083,
+      "rx_calls": 5274,
+      "tx_grids4": 26189,
+      "rx_grids4": 1109,
+      "six_meter_rows": 231350,
+      "seconds": 28.51612091064453
+    }
+  ]
+}

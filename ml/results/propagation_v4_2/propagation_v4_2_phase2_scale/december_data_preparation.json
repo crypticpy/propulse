@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "scope": "december",
+  "attempt_id": "december-20260715T231616Z",
+  "months": [
+    "2024-12"
+  ],
+  "free_gb_before_acquisition": 1404.2975883483887,
+  "data_config": "ml/data/manifests/propagation_v4_2_phase2_scale_december_data_config.json",
+  "namespace": "archive_v4_2_december",
+  "datasets": {
+    "2024-12": "ml/data/processed/archive_v4_2_december/dataset_propagation_v4_2_phase2_scale_december_gate_hf.parquet/part-000.parquet"
+  },
+  "integrity_audit": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/december_integrity_audit.json",
+  "opportunity_manifest": "ml/data/manifests/propagation_v4_2_phase2_scale_december_gate_hf_opportunities.json",
+  "source_manifest": "ml/data/manifests/propagation_v4_2_phase2_scale_december_gate_sources.json",
+  "passed": true
+}

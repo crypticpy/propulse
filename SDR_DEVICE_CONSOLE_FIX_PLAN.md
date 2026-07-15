@@ -21,8 +21,9 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
   manually keyed radio.
 - Implemented in both servers with persisted frontend lockout, client ownership,
   serialized hardware transitions, release-on-disconnect/stop/shutdown, bounded
-  manual key-down, and generation-safe FT8 cancellation.
-- Verified by four Node safety tests, Rust protocol coverage, Rust unit tests,
+  manual key-down, hardware-confirmed release retries, and generation-safe FT8
+  cancellation.
+- Verified by five Node safety tests, Rust protocol coverage, Rust unit tests,
   bridge build, and live dummy-daemon console checks.
 
 ### 2. Selected device versus connected device (`DONE`)
@@ -267,7 +268,7 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
   `propulse-settings`, and migrated to the encrypted vault when it is unlocked.
   Frontend, bridge, and daemon coverage plus `verify:radio` now exercise the
   subsystem build/test path.
-- Verified: 34 frontend tests, 4 bridge safety tests, 4 Rust unit tests, all Rust
+- Verified: 7 focused frontend tests, 5 bridge safety tests, 6 Rust unit tests, all Rust
   integration binaries compiled, and the credential persistence assertion
   confirms neither the value nor key is written to `propulse-settings`.
 
@@ -286,11 +287,11 @@ Status legend: `TODO`, `IN PROGRESS`, `DONE`.
 ## Final verification matrix
 
 - `npm run lint` — passed with zero warnings.
-- `npm run test` — 10 files, 34 tests passed.
+- `npm run test` — 1 file, 7 focused tests passed.
 - `npm run build` — TypeScript and Vite production build passed.
-- `npm run test:bridge` — bridge TypeScript build and 4 PTT tests passed.
+- `npm run test:bridge` — bridge TypeScript build and 5 PTT tests passed.
 - `cargo check -p propulse-daemon --offline` — passed.
-- `cargo test -p propulse-daemon --lib --offline` — 4 tests passed.
+- `cargo test -p propulse-daemon --lib --offline` — 6 tests passed.
 - `cargo test -p propulse-daemon --tests --no-run --offline` — all unit and
   integration test executables compiled.
 - Browser QA with the live Rust dummy daemon covered device enumeration/connect,

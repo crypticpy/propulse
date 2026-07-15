@@ -96,3 +96,34 @@ test("disconnect queued during a slow key-down still releases PTT", async () => 
   assert.equal(safety.owner, null);
   assert.deepEqual(states, [true, false]);
 });
+
+test("failed release retains ownership and retries until PTT-off succeeds", async () => {
+  const states: boolean[] = [];
+  let releaseAttempts = 0;
+  const safety = new PttSafetyController(
+    async (enabled) => {
+      states.push(enabled);
+      if (!enabled && ++releaseAttempts === 1) {
+        throw new Error("transient CAT failure");
+      }
+    },
+    1_000,
+    () => {},
+    10,
+  );
+
+  await safety.setManualPtt("client-a", true);
+  await assert.rejects(
+    safety.releaseIfOwnedBy("client-a", "owner disconnected"),
+    /transient CAT failure/,
+  );
+  assert.equal(safety.owner, "client-a");
+  await assert.rejects(
+    safety.setManualPtt("client-a", true),
+    /release is pending/i,
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(safety.owner, null);
+  assert.deepEqual(states, [true, false, false]);
+});

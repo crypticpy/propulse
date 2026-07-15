@@ -67,9 +67,72 @@ struct DaemonState {
   clients: Mutex<HashMap<String, ClientState>>,
   streams: Mutex<HashMap<String, DeviceStreams>>,
   integrations: Mutex<IntegrationsState>,
-  ptt_lockout: AtomicBool,
-  ptt_generation: AtomicU64,
-  ptt_owner: Mutex<Option<String>>,
+  ptt_safety: PttSafetyState,
+}
+
+struct PttSafetyState {
+  lockout: AtomicBool,
+  release_pending: AtomicBool,
+  generation: AtomicU64,
+  owner: Mutex<Option<String>>,
+}
+
+impl Default for PttSafetyState {
+  fn default() -> Self {
+    Self {
+      lockout: AtomicBool::new(false),
+      release_pending: AtomicBool::new(false),
+      generation: AtomicU64::new(0),
+      owner: Mutex::new(None),
+    }
+  }
+}
+
+impl PttSafetyState {
+  fn key_down_error(&self) -> Option<&'static str> {
+    if self.lockout.load(Ordering::SeqCst) {
+      Some("PTT safety lockout is enabled")
+    } else if self.release_pending.load(Ordering::SeqCst) {
+      Some("PTT release is pending after a hardware error")
+    } else {
+      None
+    }
+  }
+
+  async fn track_manual(&self, client_id: &str, active: bool) -> u64 {
+    let generation = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    if !active {
+      self.release_pending.store(false, Ordering::SeqCst);
+    }
+    *self.owner.lock().await = active.then(|| client_id.to_string());
+    generation
+  }
+
+  fn begin_release(&self) -> u64 {
+    self.release_pending.store(true, Ordering::SeqCst);
+    self.generation.fetch_add(1, Ordering::SeqCst) + 1
+  }
+
+  fn generation_is(&self, generation: u64) -> bool {
+    self.generation.load(Ordering::SeqCst) == generation
+  }
+
+  async fn complete_release(&self, generation: u64) -> bool {
+    if !self.generation_is(generation) {
+      return false;
+    }
+    let mut owner = self.owner.lock().await;
+    if !self.generation_is(generation) {
+      return false;
+    }
+    *owner = None;
+    self.release_pending.store(false, Ordering::SeqCst);
+    true
+  }
+
+  async fn is_owned_by(&self, client_id: &str) -> bool {
+    self.owner.lock().await.as_deref() == Some(client_id)
+  }
 }
 
 #[derive(Default)]
@@ -187,9 +250,7 @@ where
     clients: Mutex::new(HashMap::new()),
     streams: Mutex::new(HashMap::new()),
     integrations: Mutex::new(IntegrationsState::default()),
-    ptt_lockout: AtomicBool::new(false),
-    ptt_generation: AtomicU64::new(0),
-    ptt_owner: Mutex::new(None),
+    ptt_safety: PttSafetyState::default(),
   });
 
   apply_runtime_config(&state, &effective_config).await;
@@ -832,24 +893,31 @@ enum StreamKind {
 }
 
 const MAX_MANUAL_PTT_DURATION: Duration = Duration::from_secs(180);
+const PTT_RELEASE_RETRY_DELAY: Duration = Duration::from_secs(1);
 
-async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
-  state.ptt_generation.fetch_add(1, Ordering::SeqCst);
-  *state.ptt_owner.lock().await = None;
-
+async fn attempt_release_all_ptt(state: &Arc<DaemonState>, reason: &str) -> bool {
+  let mut release_succeeded = true;
   let rig = {
     let integrations = state.integrations.lock().await;
     integrations.rig.as_ref().map(|running| running.service.clone())
   };
   if let Some(rig) = rig {
-    if rig.status().await.is_ok_and(|status| status.connected) {
-      if let Err(err) = rig.set_ptt(false).await {
+    match rig.status().await {
+      Ok(status) if status.connected => {
+        if let Err(err) = rig.set_ptt(false).await {
+          release_succeeded = false;
+          warn!(error = %err, %reason, "failed to release rig PTT");
+        }
+      }
+      Ok(_) => {}
+      Err(err) => {
+        release_succeeded = false;
         warn!(error = %err, %reason, "failed to release rig PTT");
       }
     }
   }
 
-  let released = {
+  let (released, radio_release_succeeded) = {
     let mut radio = state.radio.lock().await;
     let ids = radio
       .devices()
@@ -858,10 +926,18 @@ async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
       .filter(|device| radio.state(&device.device_id).is_some_and(|status| status.ptt == Some(true)))
       .map(|device| device.device_id.clone())
       .collect::<Vec<_>>();
-    ids
-      .into_iter()
-      .filter_map(|device_id| radio.set_ptt(&device_id, false).ok().map(|status| (device_id, status)))
-      .collect::<Vec<_>>()
+    let mut released = Vec::new();
+    let mut succeeded = true;
+    for device_id in ids {
+      match radio.set_ptt(&device_id, false) {
+        Ok(status) => released.push((device_id, status)),
+        Err(err) => {
+          succeeded = false;
+          warn!(error = %err, %reason, %device_id, "failed to release radio PTT");
+        }
+      }
+    }
+    (released, succeeded)
   };
 
   for (device_id, radio_state) in released {
@@ -876,17 +952,45 @@ async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
     .await;
     let _ = maybe_broadcast_rig_from_radio_state(state, &radio_state).await;
   }
+
+  release_succeeded && radio_release_succeeded
+}
+
+async fn release_all_ptt(state: &Arc<DaemonState>, reason: &str) {
+  let generation = state.ptt_safety.begin_release();
+  if attempt_release_all_ptt(state, reason).await {
+    state.ptt_safety.complete_release(generation).await;
+    return;
+  }
+
+  if !state.ptt_safety.generation_is(generation) {
+    return;
+  }
+
+  let state = Arc::clone(state);
+  let reason = reason.to_string();
+  tokio::spawn(async move {
+    loop {
+      tokio::time::sleep(PTT_RELEASE_RETRY_DELAY).await;
+      if !state.ptt_safety.generation_is(generation) {
+        return;
+      }
+      if attempt_release_all_ptt(&state, &reason).await {
+        state.ptt_safety.complete_release(generation).await;
+        return;
+      }
+    }
+  });
 }
 
 async fn track_manual_ptt(state: &Arc<DaemonState>, client_id: &str, active: bool) {
-  let generation = state.ptt_generation.fetch_add(1, Ordering::SeqCst) + 1;
-  *state.ptt_owner.lock().await = active.then(|| client_id.to_string());
+  let generation = state.ptt_safety.track_manual(client_id, active).await;
 
   if active {
     let state = Arc::clone(state);
     tokio::spawn(async move {
       tokio::time::sleep(MAX_MANUAL_PTT_DURATION).await;
-      if state.ptt_generation.load(Ordering::SeqCst) == generation {
+      if state.ptt_safety.generation_is(generation) {
         release_all_ptt(&state, "manual PTT timeout").await;
       }
     });
@@ -894,7 +998,7 @@ async fn track_manual_ptt(state: &Arc<DaemonState>, client_id: &str, active: boo
 }
 
 async fn configure_ptt_safety(state: &Arc<DaemonState>, lockout: bool) {
-  state.ptt_lockout.store(lockout, Ordering::SeqCst);
+  state.ptt_safety.lockout.store(lockout, Ordering::SeqCst);
   if lockout {
     release_all_ptt(state, "PTT safety lockout enabled").await;
   }
@@ -1453,11 +1557,13 @@ async fn handle_text_message(
       };
       let active = value.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
 
-      if active && state.ptt_lockout.load(Ordering::SeqCst) {
-        if let Some(id) = id {
-          send_json(state, client_id, &Response::err(id, "PTT safety lockout is enabled")).await?;
+      if active {
+        if let Some(error) = state.ptt_safety.key_down_error() {
+          if let Some(id) = id {
+            send_json(state, client_id, &Response::err(id, error)).await?;
+          }
+          return Ok(());
         }
-        return Ok(());
       }
 
       let mut radio = state.radio.lock().await;
@@ -2384,8 +2490,10 @@ impl CatBackend for DaemonCatBackend {
   }
 
   async fn set_ptt(&self, enabled: bool) -> anyhow::Result<()> {
-    if enabled && self.state.ptt_lockout.load(Ordering::SeqCst) {
-      return Err(anyhow::anyhow!("PTT safety lockout is enabled"));
+    if enabled {
+      if let Some(error) = self.state.ptt_safety.key_down_error() {
+        return Err(anyhow::anyhow!(error));
+      }
     }
     let rig = ensure_rig_service(&self.state).await;
     if let Ok(st) = rig.status().await {
@@ -3506,7 +3614,7 @@ async fn remove_client_and_cleanup(state: &Arc<DaemonState>, client_id: &str) {
     return;
   };
 
-  let owns_ptt = state.ptt_owner.lock().await.as_deref() == Some(client_id);
+  let owns_ptt = state.ptt_safety.is_owned_by(client_id).await;
   if owns_ptt {
     release_all_ptt(state, "PTT owner disconnected").await;
   }
@@ -4196,17 +4304,19 @@ async fn handle_bridge_message(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-      if enabled && state.ptt_lockout.load(Ordering::SeqCst) {
-        send_bridge_ack(
-          state,
-          client_id,
-          msg_id,
-          msg_type,
-          false,
-          serde_json::json!({ "message": "PTT safety lockout is enabled" }),
-        )
-        .await?;
-        return Ok(());
+      if enabled {
+        if let Some(error) = state.ptt_safety.key_down_error() {
+          send_bridge_ack(
+            state,
+            client_id,
+            msg_id,
+            msg_type,
+            false,
+            serde_json::json!({ "message": error }),
+          )
+          .await?;
+          return Ok(());
+        }
       }
 
       let rig = ensure_rig_service(state).await;
@@ -4524,4 +4634,42 @@ async fn broadcast_rig_update(state: &Arc<DaemonState>, st: &propulse_radio::typ
     "payload": rig_payload_from_state(st),
   });
   broadcast_json(state, &msg).await
+}
+
+#[cfg(test)]
+mod tests {
+  use super::PttSafetyState;
+
+  #[tokio::test]
+  async fn failed_release_state_retains_owner_and_blocks_rekey() {
+    let safety = PttSafetyState::default();
+    safety.track_manual("client-a", true).await;
+
+    let release_generation = safety.begin_release();
+    assert_eq!(
+      safety.key_down_error(),
+      Some("PTT release is pending after a hardware error")
+    );
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-a"));
+
+    // A failed hardware attempt deliberately does not complete the release.
+    assert!(safety.generation_is(release_generation));
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-a"));
+
+    assert!(safety.complete_release(release_generation).await);
+    assert_eq!(safety.owner.lock().await.as_deref(), None);
+    assert_eq!(safety.key_down_error(), None);
+  }
+
+  #[tokio::test]
+  async fn stale_release_cannot_clear_a_new_owner() {
+    let safety = PttSafetyState::default();
+    safety.track_manual("client-a", true).await;
+    let stale_release = safety.begin_release();
+
+    safety.track_manual("client-b", true).await;
+
+    assert!(!safety.complete_release(stale_release).await);
+    assert_eq!(safety.owner.lock().await.as_deref(), Some("client-b"));
+  }
 }

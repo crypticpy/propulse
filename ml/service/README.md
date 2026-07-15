@@ -16,3 +16,9 @@ When recent path history is older than two hours, inference selects the physics
 profile and returns an explicit stale-data OOD flag. If no approved model is
 loaded, prediction endpoints return `503`; the service never fabricates spots
 or probabilities.
+
+Serving manifests may declare a profile as a checksum-verified `single` model
+or a `weighted_ensemble`. Ensemble components must use the same ordered feature
+contract; weights must be non-negative and sum to one. Each component is scored
+and calibrated independently before the frozen probability-space blend is
+applied. The `/models` response exposes each profile kind.

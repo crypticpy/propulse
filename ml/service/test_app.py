@@ -3,9 +3,15 @@ from __future__ import annotations
 import copy
 import unittest
 
+import numpy as np
 from fastapi.testclient import TestClient
 
-from app import RuntimePrediction, create_app, model_feature_value
+from app import (
+    RuntimePrediction,
+    blend_probabilities,
+    create_app,
+    model_feature_value,
+)
 
 
 class FakeRegistry:
@@ -93,6 +99,20 @@ class ServiceTests(unittest.TestCase):
     def test_missing_model_features_match_training_imputation(self):
         self.assertEqual(model_feature_value(None), 0.0)
         self.assertEqual(model_feature_value(0), 0.0)
+
+    def test_weighted_ensemble_probability_is_exact(self):
+        output = blend_probabilities(
+            [np.asarray([0.2, 0.8]), np.asarray([0.6, 0.4])],
+            [0.75, 0.25],
+        )
+        np.testing.assert_allclose(output, np.asarray([0.3, 0.7]))
+
+    def test_weighted_ensemble_rejects_invalid_weights(self):
+        with self.assertRaises(ValueError):
+            blend_probabilities(
+                [np.asarray([0.2]), np.asarray([0.6])],
+                [0.8, 0.3],
+            )
 
     def test_raw_equipment_fields_are_rejected(self):
         payload = request_payload()

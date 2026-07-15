@@ -129,6 +129,22 @@ def model_feature_value(value: float | int | None) -> float:
     return 0.0 if value is None else float(value)
 
 
+def blend_probabilities(
+    predictions: list[np.ndarray], weights: list[float]
+) -> np.ndarray:
+    if not predictions or len(predictions) != len(weights):
+        raise ValueError("ensemble predictions and weights must have equal non-zero length")
+    if any(value < 0 for value in weights) or not np.isclose(sum(weights), 1.0):
+        raise ValueError("ensemble weights must be non-negative and sum to one")
+    shape = predictions[0].shape
+    if any(value.shape != shape for value in predictions):
+        raise ValueError("ensemble component prediction shapes differ")
+    output = np.zeros(shape, dtype=np.float64)
+    for prediction, weight in zip(predictions, weights):
+        output += float(weight) * prediction.astype(np.float64, copy=False)
+    return output
+
+
 class ModelRegistry:
     def __init__(self, manifest_path: Path) -> None:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -136,24 +152,61 @@ class ModelRegistry:
         self.feature_contract = payload["feature_contract"]
         self.profiles: dict[str, dict[str, Any]] = {}
         for name, item in payload["profiles"].items():
-            model_path = (manifest_path.parent / item["model_path"]).resolve()
-            calibrator_path = (manifest_path.parent / item["calibrator_path"]).resolve()
-            for path, expected in (
-                (model_path, item["model_sha256"]),
-                (calibrator_path, item["calibrator_sha256"]),
-            ):
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
-                if digest != expected:
-                    raise RuntimeError(f"model artifact checksum mismatch: {path.name}")
-            model = xgb.Booster()
-            model.load_model(model_path)
-            self.profiles[name] = {
-                "model": model,
-                "calibrator": joblib.load(calibrator_path),
-                "features": item["features"],
-                "best_iteration": int(item["best_iteration"]),
+            kind = str(item.get("kind", "single"))
+            if kind not in {"single", "weighted_ensemble"}:
+                raise RuntimeError(f"unsupported profile kind: {kind}")
+            component_items = (
+                list(item["components"])
+                if kind == "weighted_ensemble"
+                else [item]
+            )
+            components = [
+                self._load_component(manifest_path, component)
+                for component in component_items
+            ]
+            features = components[0]["features"]
+            if any(component["features"] != features for component in components):
+                raise RuntimeError(f"ensemble feature order differs: {name}")
+            weights = (
+                [float(component["weight"]) for component in component_items]
+                if kind == "weighted_ensemble"
+                else [1.0]
+            )
+            if any(value < 0 for value in weights) or not np.isclose(sum(weights), 1.0):
+                raise RuntimeError(f"invalid ensemble weights: {name}")
+            profile = {
+                "kind": kind,
+                "components": components,
+                "weights": weights,
+                "features": features,
                 "top_factors": item.get("top_factors", [])[:5],
             }
+            if kind == "single":
+                profile.update(components[0])
+            self.profiles[name] = profile
+
+    @staticmethod
+    def _load_component(
+        manifest_path: Path, item: dict[str, Any]
+    ) -> dict[str, Any]:
+        model_path = (manifest_path.parent / item["model_path"]).resolve()
+        calibrator_path = (manifest_path.parent / item["calibrator_path"]).resolve()
+        for path, expected in (
+            (model_path, item["model_sha256"]),
+            (calibrator_path, item["calibrator_sha256"]),
+        ):
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            if digest != expected:
+                raise RuntimeError(f"model artifact checksum mismatch: {path.name}")
+        model = xgb.Booster()
+        model.load_model(model_path)
+        return {
+            "model": model,
+            "calibrator": joblib.load(calibrator_path),
+            "features": list(map(str, item["features"])),
+            "best_iteration": int(item["best_iteration"]),
+            "component": str(item.get("component", "single")),
+        }
 
     def predict(
         self, values: dict[str, float | int | None], band: str, stale_history: bool
@@ -172,25 +225,31 @@ class ModelRegistry:
         item = self.profiles.get(profile) or self.profiles.get("physics")
         if item is None:
             raise RuntimeError("no compatible model profile is loaded")
+        features = item["features"]
         missing = [
-            [name for name in item["features"] if values.get(name) is None]
+            [name for name in features if values.get(name) is None]
             for values in rows
         ]
         matrix = np.array(
             [
-                [model_feature_value(values.get(name)) for name in item["features"]]
+                [model_feature_value(values.get(name)) for name in features]
                 for values in rows
             ],
             dtype=np.float32,
-        )
-        raw = item["model"].inplace_predict(
-            matrix, iteration_range=(0, item["best_iteration"] + 1)
         )
         distance = np.array(
             [float(values.get("dist_km") or 0) for values in rows],
             dtype=np.float64,
         )
-        probabilities = item["calibrator"].predict(raw, np.array(bands), distance)
+        component_predictions = []
+        for component in item["components"]:
+            raw = component["model"].inplace_predict(
+                matrix, iteration_range=(0, component["best_iteration"] + 1)
+            )
+            component_predictions.append(
+                component["calibrator"].predict(raw, np.array(bands), distance)
+            )
+        probabilities = blend_probabilities(component_predictions, item["weights"])
         output = []
         for probability, missing_features in zip(probabilities, missing):
             ood_flags = []
@@ -201,7 +260,7 @@ class ModelRegistry:
             confidence = max(
                 0.2,
                 1 - min(
-                    len(missing_features) / max(len(item["features"]), 1), 0.7
+                    len(missing_features) / max(len(features), 1), 0.7
                 ),
             )
             if stale_history:
@@ -221,6 +280,9 @@ class ModelRegistry:
             "model_version": self.version,
             "feature_contract": self.feature_contract,
             "profiles": sorted(self.profiles),
+            "profile_kinds": {
+                name: item["kind"] for name, item in sorted(self.profiles.items())
+            },
         }]
 
     def health(self) -> dict[str, Any]:

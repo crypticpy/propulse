@@ -105,6 +105,7 @@ def configure_connection(config: dict[str, Any]) -> duckdb.DuckDBPyConnection:
     temp = Path(compute["temp_root"])
     temp.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect()
+    connection.execute("SET TimeZone='UTC'")
     connection.execute("SET threads=14")
     connection.execute("SET memory_limit='80GB'")
     connection.execute(f"SET temp_directory={sql_string(temp)}")

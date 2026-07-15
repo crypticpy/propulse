@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+
+import duckdb
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 
 ROOT = Path(__file__).resolve().parents[4]
 MODULE = ROOT / "ml/src/archive_v4_2"
 sys.path.insert(0, str(MODULE))
 
-from audit_locked_dataset import parse_parts  # noqa: E402
+from audit_locked_dataset import dataset_stats, parse_parts  # noqa: E402
 from outcome_protocol import OutcomeProtocolError  # noqa: E402
 from prepare_locked_gate import scoped_config  # noqa: E402
 
@@ -41,6 +47,25 @@ class LockedGateDataTests(unittest.TestCase):
                 ["2025-04=ml/data/two.parquet", "2025-01=ml/data/one.parquet"],
                 ["2025-01", "2025-04"],
             )
+
+    def test_audit_query_binds_parquet_path_and_month(self) -> None:
+        target = datetime(2024, 12, 1, 0, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "gate.parquet"
+            pq.write_table(
+                pa.table(
+                    {
+                        "target_hour": [target],
+                        "split": ["test"],
+                        "opportunities": [1.0],
+                        "success_rate": [0.5],
+                        "weather_available_at": [target],
+                    }
+                ),
+                path,
+            )
+            stats = dataset_stats(duckdb.connect(), path, "2024-12")
+        self.assertEqual(stats[:6], (1, 0, 0, 0, 0, 0))
 
 
 if __name__ == "__main__":

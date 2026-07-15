@@ -518,6 +518,20 @@ The live M5 audit passed with 128 GiB unified memory, High Power mode, and 1.4
 TiB free on the Projects volume. The 20M external-memory folds remain I/O-bound
 by design; the already-frozen iterator-fed `QuantileDMatrix` 50M backend is the
 path that converts the larger memory budget into materially higher CPU use.
+DuckDB timezone is also pinned to UTC in every remaining V4.2 connection and
+the locked-month audit converts timestamps to UTC inside its SQL. A synthetic
+boundary-row test exposed this requirement before December access: an unpinned
+connection on the Chicago-configured M5 would otherwise label midnight UTC as
+the prior local calendar month. This is an execution/audit correction only;
+the 20M/50M builders select complete month files by their UTC Parquet metadata,
+not with the affected SQL month predicate.
+The completed Phase 1 5M builder did predate this correction and used a SQL
+month predicate, so its frozen cohorts may omit UTC-month boundary hours when
+built on a non-UTC host. That limitation is now disclosed rather than repaired
+after October/November were observed. It does not change the Phase 2 inventory:
+A2, A4, and A5 all advanced, and their 20M/50M cohorts use complete UTC month
+files. Phase 1 absolute metrics remain screening evidence, while final claims
+must rest on the corrected Phase 2 models and untouched gates.
 
 ## Execution checklist
 

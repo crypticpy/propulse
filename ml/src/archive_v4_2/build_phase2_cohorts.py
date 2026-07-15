@@ -117,6 +117,7 @@ def configure_connection(config: dict[str, Any]) -> duckdb.DuckDBPyConnection:
     temp = Path(config["compute"]["temp_root"])
     temp.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect()
+    connection.execute("SET TimeZone='UTC'")
     threads = int(config["compute"]["apple_silicon"]["duckdb_threads"])
     connection.execute(f"SET threads={threads}")
     connection.execute("SET memory_limit='80GB'")

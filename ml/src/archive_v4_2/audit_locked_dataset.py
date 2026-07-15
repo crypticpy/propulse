@@ -82,6 +82,29 @@ def required_features() -> list[str]:
     return list(map(str, value["features"]))
 
 
+def dataset_stats(
+    connection: duckdb.DuckDBPyConnection,
+    path: Path,
+    month: str,
+) -> tuple[Any, ...]:
+    """Return the exact integrity row used by the one-shot gate audit."""
+    return connection.execute(
+        """
+        SELECT count(*) AS rows,
+               count(*) FILTER (
+                 strftime(target_hour AT TIME ZONE 'UTC', '%Y-%m') <> ?
+               ) AS wrong_month,
+               count(*) FILTER (split <> 'test') AS wrong_split,
+               count(*) FILTER (opportunities IS NULL OR opportunities <= 0) AS bad_weights,
+               count(*) FILTER (success_rate IS NULL OR success_rate < 0 OR success_rate > 1) AS bad_targets,
+               count(*) FILTER (weather_available_at > target_hour) AS future_weather,
+               min(target_hour), max(target_hour)
+        FROM read_parquet(?)
+        """,
+        [month, str(path)],
+    ).fetchone()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -136,6 +159,7 @@ def main() -> None:
     features = required_features()
     datasets = {}
     con = duckdb.connect()
+    con.execute("SET TimeZone='UTC'")
     con.execute("SET threads=18")
     con.execute("SET memory_limit='80GB'")
     con.execute("SET preserve_insertion_order=false")
@@ -146,19 +170,7 @@ def main() -> None:
         columns = set(ds.dataset(path, format="parquet").schema.names)
         missing = sorted(set(features) - columns)
         check(f"{month} required feature contract", not missing, missing)
-        stats = con.execute(
-            f"""
-            SELECT count(*) AS rows,
-                   count(*) FILTER (strftime(target_hour, '%Y-%m') <> ?) AS wrong_month,
-                   count(*) FILTER (split <> 'test') AS wrong_split,
-                   count(*) FILTER (opportunities IS NULL OR opportunities <= 0) AS bad_weights,
-                   count(*) FILTER (success_rate IS NULL OR success_rate < 0 OR success_rate > 1) AS bad_targets,
-                   count(*) FILTER (weather_available_at > target_hour) AS future_weather,
-                   min(target_hour), max(target_hour)
-            FROM read_parquet(?)
-            """,
-            [month, str(path)],
-        ).fetchone()
+        stats = dataset_stats(con, path, month)
         check(f"{month} nonempty", stats[0] > 0, stats[0])
         check(f"{month} exact month", stats[1] == 0, stats[1])
         check(f"{month} test split only", stats[2] == 0, stats[2])

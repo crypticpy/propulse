@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import concurrent.futures
 import json
+import multiprocessing
+import os
 import sys
+import time
 import unittest
 from pathlib import Path
 
@@ -15,6 +19,11 @@ from train_phase2_scale import fold_needs_training, parallel_config  # noqa: E40
 
 
 CONFIG_PATH = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+
+
+def scheduler_probe(delay: float) -> tuple[int, str]:
+    time.sleep(delay)
+    return os.getpid(), sys.platform
 
 
 class Phase2TrainingTests(unittest.TestCase):
@@ -39,6 +48,15 @@ class Phase2TrainingTests(unittest.TestCase):
         self.assertTrue(fold_needs_training(active, self.config))
         self.assertFalse(fold_needs_training(stopped, self.config))
         self.assertFalse(fold_needs_training(complete, self.config))
+
+    def test_spawn_scheduler_starts_two_independent_workers(self) -> None:
+        context = multiprocessing.get_context("spawn")
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=2, mp_context=context
+        ) as executor:
+            results = list(executor.map(scheduler_probe, (0.25, 0.25)))
+        self.assertEqual(len({pid for pid, _ in results}), 2)
+        self.assertTrue(all(platform_name == sys.platform for _, platform_name in results))
 
 
 if __name__ == "__main__":

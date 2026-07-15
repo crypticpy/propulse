@@ -99,6 +99,37 @@ def training_months(
     return base + available
 
 
+def scale_workset(
+    config: Mapping[str, Any],
+    scale: int,
+    phase2_20m_evaluation: Mapping[str, Any] | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return the preregistered candidate/fold inventory for a scale."""
+    if scale == 20_000_000:
+        return EXPECTED_CANDIDATES, EXPECTED_FOLDS
+    if scale != 50_000_000:
+        raise Phase2Error(f"unsupported Phase 2 scale: {scale}")
+    if phase2_20m_evaluation is None:
+        raise Phase2Error("50M requires the frozen 20M evaluation selection")
+    if int(phase2_20m_evaluation.get("scale", 0)) != 20_000_000:
+        raise Phase2Error("50M selection source is not the 20M evaluation")
+    if phase2_20m_evaluation.get("december_2024_read") or phase2_20m_evaluation.get(
+        "locked_2025_read"
+    ):
+        raise Phase2Error("50M selection source reports locked outcome access")
+    selected = tuple(
+        map(str, phase2_20m_evaluation["selection"]["advance_to_50m"])
+    )
+    maximum = int(config["advancement"]["maximum_50m_components"])
+    if not selected:
+        raise Phase2Error("the 20M evidence advances no candidate to 50M")
+    if len(selected) > maximum or len(set(selected)) != len(selected):
+        raise Phase2Error("invalid 50M candidate count or duplicate selection")
+    if any(name not in EXPECTED_CANDIDATES for name in selected):
+        raise Phase2Error("50M selection contains an unknown candidate")
+    return selected, (str(config["final_fold"]),)
+
+
 def is_robust_b2_win(row: Mapping[str, Any]) -> bool:
     return (
         float(row["delta_vs_b2"]) < 0

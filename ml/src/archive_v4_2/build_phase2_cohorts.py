@@ -27,6 +27,7 @@ from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
     EXPECTED_FOLDS,
     Phase2Error,
+    scale_workset,
     training_months,
     validate_config,
 )
@@ -39,6 +40,14 @@ PHASE1_COHORT_NAMES = {
     "A4_recent_cycle": "recent_cycle_pool",
     "A5_recency_weighted": "long_recent_pool",
 }
+PHASE2_20M_EVALUATION = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "evaluation_20m_results.json"
+)
+PHASE2_20M_MANIFEST = (
+    ROOT / "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json"
+)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -304,6 +313,10 @@ def main() -> None:
     scale = int(args.scale)
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
+    phase2_20m_evaluation = (
+        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+    )
+    candidates, folds = scale_workset(config, scale, phase2_20m_evaluation)
     sources, source_rows = resolve_sources(config)
     external, repository = output_roots(config, scale)
     connection = configure_connection(config)
@@ -312,11 +325,11 @@ def main() -> None:
     half_life = float(config["sampling"]["recency_half_life_months"])
 
     cohort_paths: dict[str, dict[str, Path]] = {}
-    for candidate in EXPECTED_CANDIDATES:
+    for candidate in candidates:
         cohort_paths[candidate] = {}
-        for fold in EXPECTED_FOLDS:
-            if candidate == "A2_long_natural" and fold != EXPECTED_FOLDS[0]:
-                cohort_paths[candidate][fold] = cohort_paths[candidate][EXPECTED_FOLDS[0]]
+        for fold in folds:
+            if candidate == "A2_long_natural" and fold != folds[0]:
+                cohort_paths[candidate][fold] = cohort_paths[candidate][folds[0]]
                 continue
             months = training_months(config, candidate, fold)
             suffix = "shared" if candidate == "A2_long_natural" else fold
@@ -341,8 +354,12 @@ def main() -> None:
             print(f"cohort {candidate} {fold}: {path}", flush=True)
 
     phase1 = load_json(PHASE1_MANIFEST)
+    nested_manifest_path = (
+        PHASE1_MANIFEST if scale == 20_000_000 else PHASE2_20M_MANIFEST
+    )
+    nested_manifest = load_json(nested_manifest_path)
     early_samples: dict[str, dict[str, Any]] = {}
-    for fold in EXPECTED_FOLDS:
+    for fold in folds:
         month = config["rolling_folds"][fold]["early_stopping_month"]
         if month == "2024-07":
             early_samples[fold] = dict(phase1["early_stopping"])
@@ -361,9 +378,9 @@ def main() -> None:
     calibration = dict(phase1["calibration"])
 
     cohorts: dict[str, dict[str, Any]] = {}
-    for candidate in EXPECTED_CANDIDATES:
+    for candidate in candidates:
         cohorts[candidate] = {}
-        for fold in EXPECTED_FOLDS:
+        for fold in folds:
             path = cohort_paths[candidate][fold]
             repo_path = repository / path.name
             weight = str(config["candidates"][candidate]["weight"])
@@ -375,10 +392,24 @@ def main() -> None:
                 "distribution": distribution(connection, path, weight),
             }
             if fold == config["final_fold"]:
-                old = ROOT / phase1["cohorts"][PHASE1_COHORT_NAMES[candidate]]["path"]
-                value["phase1_nestedness"] = verify_nested(connection, old, path)
-                if not value["phase1_nestedness"]["exact_phase1_key_subset"]:
-                    raise Phase2Error(f"{candidate} is not nested over its Phase 1 cohort")
+                if scale == 20_000_000:
+                    old_item = phase1["cohorts"][PHASE1_COHORT_NAMES[candidate]]
+                    nested_scale = 5_000_000
+                else:
+                    old_item = nested_manifest["cohorts"][candidate][fold]
+                    nested_scale = 20_000_000
+                nestedness = verify_nested(connection, ROOT / old_item["path"], path)
+                value["nestedness"] = {
+                    **nestedness,
+                    "source_scale": nested_scale,
+                    "source_path": old_item["path"],
+                }
+                if scale == 20_000_000:
+                    value["phase1_nestedness"] = nestedness
+                if not nestedness["exact_phase1_key_subset"]:
+                    raise Phase2Error(
+                        f"{candidate} is not nested over its {nested_scale // 1_000_000}M cohort"
+                    )
             cohorts[candidate][fold] = value
 
     manifest = {
@@ -390,6 +421,8 @@ def main() -> None:
         "december_2024_read": False,
         "locked_2025_read": False,
         "seed": seed,
+        "selected_candidates": list(candidates),
+        "folds": list(folds),
         "sampling_key": sampling_key(seed),
         "source_inventory": {
             month: {
@@ -400,7 +433,7 @@ def main() -> None:
             for month in sorted(
                 set().union(
                     *(set(training_months(config, candidate, fold))
-                      for candidate in EXPECTED_CANDIDATES for fold in EXPECTED_FOLDS),
+                      for candidate in candidates for fold in folds),
                     {config["calibration_month"]},
                     *(set(config["evaluation_months"]),),
                 )
@@ -410,6 +443,12 @@ def main() -> None:
         "early_stopping": early_samples,
         "calibration": calibration,
         "phase1_manifest": PHASE1_MANIFEST.relative_to(ROOT).as_posix(),
+        "nested_over_manifest": nested_manifest_path.relative_to(ROOT).as_posix(),
+        "selection_source": (
+            PHASE2_20M_EVALUATION.relative_to(ROOT).as_posix()
+            if scale == 50_000_000
+            else None
+        ),
         "environment": {
             "python": platform.python_version(),
             "duckdb": duckdb.__version__,

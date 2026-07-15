@@ -13,6 +13,7 @@ sys.path.insert(0, str(MODULE))
 from phase2_core import (  # noqa: E402
     Phase2Error,
     decide_100m,
+    scale_workset,
     select_50m_components,
     training_months,
     validate_config,
@@ -111,6 +112,34 @@ class Phase2CoreTests(unittest.TestCase):
         approved, reasons = decide_100m(row, 0.01)
         self.assertFalse(approved)
         self.assertIn("50M candidate does not beat B2 consistently", reasons)
+
+    def test_20m_workset_contains_all_candidates_and_folds(self) -> None:
+        candidates, folds = scale_workset(self.config, 20_000_000)
+        self.assertEqual(len(candidates), 3)
+        self.assertEqual(len(folds), 3)
+
+    def test_50m_workset_uses_only_frozen_selection_and_final_fold(self) -> None:
+        evaluation = {
+            "scale": 20_000_000,
+            "december_2024_read": False,
+            "locked_2025_read": False,
+            "selection": {
+                "advance_to_50m": ["A4_recent_cycle", "A5_recency_weighted"]
+            },
+        }
+        candidates, folds = scale_workset(self.config, 50_000_000, evaluation)
+        self.assertEqual(candidates, ("A4_recent_cycle", "A5_recency_weighted"))
+        self.assertEqual(folds, (self.config["final_fold"],))
+
+    def test_50m_workset_rejects_missing_or_oversized_selection(self) -> None:
+        with self.assertRaises(Phase2Error):
+            scale_workset(self.config, 50_000_000, None)
+        evaluation = {
+            "scale": 20_000_000,
+            "selection": {"advance_to_50m": list(self.config["candidates"])},
+        }
+        with self.assertRaises(Phase2Error):
+            scale_workset(self.config, 50_000_000, evaluation)
 
 
 if __name__ == "__main__":

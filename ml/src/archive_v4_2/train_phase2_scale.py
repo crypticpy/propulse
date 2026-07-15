@@ -35,6 +35,7 @@ from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
     EXPECTED_FOLDS,
     Phase2Error,
+    scale_workset,
     validate_config,
 )
 from train_validation import (  # noqa: E402
@@ -47,6 +48,11 @@ from train_validation import (  # noqa: E402
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 V4_RESULTS = ROOT / "ml/results/propagation_v4/propagation_v4_multiyear_50m/development_results.json"
+PHASE2_20M_EVALUATION = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "evaluation_20m_results.json"
+)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -379,6 +385,16 @@ def main() -> None:
         raise Phase2Error("cohort manifest scale mismatch")
     if manifest["december_2024_read"] or manifest["locked_2025_read"]:
         raise Phase2Error("cohort manifest reports locked outcome access")
+    phase2_20m_evaluation = (
+        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+    )
+    candidate_inventory, fold_inventory = scale_workset(
+        config, scale, phase2_20m_evaluation
+    )
+    if tuple(manifest["cohorts"]) != candidate_inventory:
+        raise Phase2Error("cohort manifest does not match the scale selection")
+    if any(tuple(value) != fold_inventory for value in manifest["cohorts"].values()):
+        raise Phase2Error("cohort manifest fold inventory does not match the scale")
     features = v4_features()
     external_models, repository_models = ensure_model_root(config, scale)
     result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
@@ -406,8 +422,12 @@ def main() -> None:
         }
     output["hardware_runtime"] = runtime
     output["training_contract"] = config["training"]
-    requested_candidates = [args.candidate] if args.candidate else list(EXPECTED_CANDIDATES)
-    requested_folds = [args.fold] if args.fold else list(EXPECTED_FOLDS)
+    if args.candidate and args.candidate not in candidate_inventory:
+        raise Phase2Error(f"candidate did not advance to this scale: {args.candidate}")
+    if args.fold and args.fold not in fold_inventory:
+        raise Phase2Error(f"fold is not trained at this scale: {args.fold}")
+    requested_candidates = [args.candidate] if args.candidate else list(candidate_inventory)
+    requested_folds = [args.fold] if args.fold else list(fold_inventory)
     tasks: list[dict[str, Any]] = []
     for candidate in requested_candidates:
         output["candidates"].setdefault(candidate, {})

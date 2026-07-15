@@ -1,0 +1,2317 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T03:27:05.462616+00:00",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scale": 20000000,
+  "scope": "development_only",
+  "december_2024_read": false,
+  "locked_2025_read": false,
+  "seed": 20260711,
+  "sampling_key": "hash(target_hour, band, tx_grid4, rx_grid4, power_bin_dbm, 20260711)",
+  "source_inventory": {
+    "2018-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-000.parquet",
+      "rows": 12846862,
+      "bytes": 1570157307
+    },
+    "2018-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-001.parquet",
+      "rows": 11506481,
+      "bytes": 1412427807
+    },
+    "2018-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-002.parquet",
+      "rows": 12937562,
+      "bytes": 1551721852
+    },
+    "2018-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-003.parquet",
+      "rows": 12512932,
+      "bytes": 1525054387
+    },
+    "2019-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-004.parquet",
+      "rows": 14070053,
+      "bytes": 1720441622
+    },
+    "2019-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-005.parquet",
+      "rows": 14607964,
+      "bytes": 1794444186
+    },
+    "2019-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-006.parquet",
+      "rows": 15945691,
+      "bytes": 1936187808
+    },
+    "2019-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-007.parquet",
+      "rows": 16177757,
+      "bytes": 1986490128
+    },
+    "2020-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-008.parquet",
+      "rows": 19208723,
+      "bytes": 2355806017
+    },
+    "2020-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-009.parquet",
+      "rows": 22425624,
+      "bytes": 2738472049
+    },
+    "2020-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-010.parquet",
+      "rows": 23577008,
+      "bytes": 2839480492
+    },
+    "2020-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-011.parquet",
+      "rows": 23826901,
+      "bytes": 2925325683
+    },
+    "2021-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-012.parquet",
+      "rows": 26214031,
+      "bytes": 3205502381
+    },
+    "2021-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-013.parquet",
+      "rows": 26330607,
+      "bytes": 3296247818
+    },
+    "2021-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-014.parquet",
+      "rows": 30664671,
+      "bytes": 3761046169
+    },
+    "2021-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-015.parquet",
+      "rows": 32778791,
+      "bytes": 4088071744
+    },
+    "2022-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-016.parquet",
+      "rows": 33983659,
+      "bytes": 4252202690
+    },
+    "2022-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-017.parquet",
+      "rows": 40016964,
+      "bytes": 5034749894
+    },
+    "2022-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-018.parquet",
+      "rows": 37172757,
+      "bytes": 4679341086
+    },
+    "2022-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-019.parquet",
+      "rows": 47405806,
+      "bytes": 5959890483
+    },
+    "2023-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-020.parquet",
+      "rows": 47701972,
+      "bytes": 6017268312
+    },
+    "2023-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-021.parquet",
+      "rows": 50062796,
+      "bytes": 6343356871
+    },
+    "2023-07": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-022.parquet",
+      "rows": 46082754,
+      "bytes": 5865284410
+    },
+    "2023-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-023.parquet",
+      "rows": 55923043,
+      "bytes": 7121175737
+    },
+    "2024-01": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-024.parquet",
+      "rows": 50778847,
+      "bytes": 6320320869
+    },
+    "2024-02": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-000.parquet",
+      "rows": 54289793,
+      "bytes": 6786291189
+    },
+    "2024-04": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-025.parquet",
+      "rows": 56027390,
+      "bytes": 7136849835
+    },
+    "2024-05": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-001.parquet",
+      "rows": 50323668,
+      "bytes": 6464830928
+    },
+    "2024-08": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_hf.parquet/part-002.parquet",
+      "rows": 46202412,
+      "bytes": 5936865614
+    },
+    "2024-10": {
+      "path": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet/part-027.parquet",
+      "rows": 55863247,
+      "bytes": 7123431215
+    },
+    "2024-11": {
+      "path": "ml/data/processed/archive_v4_1/dataset_propagation_v4_1_calibration_recovery_november_gate_hf.parquet/part-000.parquet",
+      "rows": 54544159,
+      "bytes": 6906860189
+    }
+  },
+  "cohorts": {
+    "A2_long_natural": {
+      "F1_2024_02": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A2_long_natural_shared_20m.parquet",
+        "bytes": 2437568032,
+        "rows": 20000000,
+        "sha256": "d6f536af50e7be4536e4075fcb1ee57d4654c05aa1c15855b940f1ad56ac1a8c",
+        "months": [
+          "2018-01",
+          "2018-04",
+          "2018-07",
+          "2018-10",
+          "2019-01",
+          "2019-04",
+          "2019-07",
+          "2019-10",
+          "2020-01",
+          "2020-04",
+          "2020-07",
+          "2020-10",
+          "2021-01",
+          "2021-04",
+          "2021-07",
+          "2021-10",
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10"
+        ],
+        "weight_column": "training_weight",
+        "distribution": {
+          "2017-12": {
+            "rows": 2245,
+            "opportunities": 32663.0,
+            "training_weight": 32663.0
+          },
+          "2018-01": {
+            "rows": 380307,
+            "opportunities": 6896972.5,
+            "training_weight": 6896972.5
+          },
+          "2018-03": {
+            "rows": 2357,
+            "opportunities": 33508.5,
+            "training_weight": 33508.5
+          },
+          "2018-04": {
+            "rows": 339760,
+            "opportunities": 6269720.5,
+            "training_weight": 6269720.5
+          },
+          "2018-06": {
+            "rows": 2290,
+            "opportunities": 36516.0,
+            "training_weight": 36516.0
+          },
+          "2018-07": {
+            "rows": 382106,
+            "opportunities": 7593932.25,
+            "training_weight": 7593932.25
+          },
+          "2018-09": {
+            "rows": 1735,
+            "opportunities": 30055.25,
+            "training_weight": 30055.25
+          },
+          "2018-10": {
+            "rows": 370189,
+            "opportunities": 7604749.5,
+            "training_weight": 7604749.5
+          },
+          "2018-12": {
+            "rows": 2607,
+            "opportunities": 46337.5,
+            "training_weight": 46337.5
+          },
+          "2019-01": {
+            "rows": 415274,
+            "opportunities": 9168194.75,
+            "training_weight": 9168194.75
+          },
+          "2019-03": {
+            "rows": 2760,
+            "opportunities": 55260.75,
+            "training_weight": 55260.75
+          },
+          "2019-04": {
+            "rows": 430359,
+            "opportunities": 10420925.0,
+            "training_weight": 10420925.0
+          },
+          "2019-06": {
+            "rows": 2525,
+            "opportunities": 50012.75,
+            "training_weight": 50012.75
+          },
+          "2019-07": {
+            "rows": 471081,
+            "opportunities": 10666661.0,
+            "training_weight": 10666661.0
+          },
+          "2019-09": {
+            "rows": 1972,
+            "opportunities": 39228.75,
+            "training_weight": 39228.75
+          },
+          "2019-10": {
+            "rows": 478523,
+            "opportunities": 11167215.5,
+            "training_weight": 11167215.5
+          },
+          "2019-12": {
+            "rows": 3437,
+            "opportunities": 68753.25,
+            "training_weight": 68753.25
+          },
+          "2020-01": {
+            "rows": 566217,
+            "opportunities": 13409083.75,
+            "training_weight": 13409083.75
+          },
+          "2020-03": {
+            "rows": 3537,
+            "opportunities": 72453.25,
+            "training_weight": 72453.25
+          },
+          "2020-04": {
+            "rows": 661423,
+            "opportunities": 17382855.75,
+            "training_weight": 17382855.75
+          },
+          "2020-06": {
+            "rows": 5421,
+            "opportunities": 140411.0,
+            "training_weight": 140411.0
+          },
+          "2020-07": {
+            "rows": 693036,
+            "opportunities": 18257284.75,
+            "training_weight": 18257284.75
+          },
+          "2020-09": {
+            "rows": 3177,
+            "opportunities": 68544.75,
+            "training_weight": 68544.75
+          },
+          "2020-10": {
+            "rows": 703303,
+            "opportunities": 18151667.5,
+            "training_weight": 18151667.5
+          },
+          "2020-12": {
+            "rows": 4816,
+            "opportunities": 118405.25,
+            "training_weight": 118405.25
+          },
+          "2021-01": {
+            "rows": 772536,
+            "opportunities": 20284916.75,
+            "training_weight": 20284916.75
+          },
+          "2021-03": {
+            "rows": 5023,
+            "opportunities": 114044.75,
+            "training_weight": 114044.75
+          },
+          "2021-04": {
+            "rows": 777099,
+            "opportunities": 22732701.75,
+            "training_weight": 22732701.75
+          },
+          "2021-06": {
+            "rows": 5975,
+            "opportunities": 138726.75,
+            "training_weight": 138726.75
+          },
+          "2021-07": {
+            "rows": 902312,
+            "opportunities": 25178273.25,
+            "training_weight": 25178273.25
+          },
+          "2021-09": {
+            "rows": 6071,
+            "opportunities": 153073.0,
+            "training_weight": 153073.0
+          },
+          "2021-10": {
+            "rows": 964543,
+            "opportunities": 27046726.5,
+            "training_weight": 27046726.5
+          },
+          "2021-12": {
+            "rows": 6201,
+            "opportunities": 147711.0,
+            "training_weight": 147711.0
+          },
+          "2022-01": {
+            "rows": 1002113,
+            "opportunities": 28859681.0,
+            "training_weight": 28859681.0
+          },
+          "2022-03": {
+            "rows": 7105,
+            "opportunities": 164566.5,
+            "training_weight": 164566.5
+          },
+          "2022-04": {
+            "rows": 1179632,
+            "opportunities": 35750589.75,
+            "training_weight": 35750589.75
+          },
+          "2022-06": {
+            "rows": 7925,
+            "opportunities": 179038.75,
+            "training_weight": 179038.75
+          },
+          "2022-07": {
+            "rows": 1093717,
+            "opportunities": 30656605.25,
+            "training_weight": 30656605.25
+          },
+          "2022-09": {
+            "rows": 8401,
+            "opportunities": 210922.0,
+            "training_weight": 210922.0
+          },
+          "2022-10": {
+            "rows": 1400159,
+            "opportunities": 38126966.0,
+            "training_weight": 38126966.0
+          },
+          "2022-12": {
+            "rows": 7413,
+            "opportunities": 174502.75,
+            "training_weight": 174502.75
+          },
+          "2023-01": {
+            "rows": 1406895,
+            "opportunities": 36894335.5,
+            "training_weight": 36894335.5
+          },
+          "2023-03": {
+            "rows": 8902,
+            "opportunities": 215006.5,
+            "training_weight": 215006.5
+          },
+          "2023-04": {
+            "rows": 1479219,
+            "opportunities": 41740820.5,
+            "training_weight": 41740820.5
+          },
+          "2023-06": {
+            "rows": 9170,
+            "opportunities": 233322.0,
+            "training_weight": 233322.0
+          },
+          "2023-07": {
+            "rows": 1357911,
+            "opportunities": 39388790.0,
+            "training_weight": 39388790.0
+          },
+          "2023-09": {
+            "rows": 9316,
+            "opportunities": 245389.5,
+            "training_weight": 245389.5
+          },
+          "2023-10": {
+            "rows": 1651905,
+            "opportunities": 45336817.25,
+            "training_weight": 45336817.25
+          }
+        }
+      },
+      "F2_2024_05": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A2_long_natural_shared_20m.parquet",
+        "bytes": 2437568032,
+        "rows": 20000000,
+        "sha256": "d6f536af50e7be4536e4075fcb1ee57d4654c05aa1c15855b940f1ad56ac1a8c",
+        "months": [
+          "2018-01",
+          "2018-04",
+          "2018-07",
+          "2018-10",
+          "2019-01",
+          "2019-04",
+          "2019-07",
+          "2019-10",
+          "2020-01",
+          "2020-04",
+          "2020-07",
+          "2020-10",
+          "2021-01",
+          "2021-04",
+          "2021-07",
+          "2021-10",
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10"
+        ],
+        "weight_column": "training_weight",
+        "distribution": {
+          "2017-12": {
+            "rows": 2245,
+            "opportunities": 32663.0,
+            "training_weight": 32663.0
+          },
+          "2018-01": {
+            "rows": 380307,
+            "opportunities": 6896972.5,
+            "training_weight": 6896972.5
+          },
+          "2018-03": {
+            "rows": 2357,
+            "opportunities": 33508.5,
+            "training_weight": 33508.5
+          },
+          "2018-04": {
+            "rows": 339760,
+            "opportunities": 6269720.5,
+            "training_weight": 6269720.5
+          },
+          "2018-06": {
+            "rows": 2290,
+            "opportunities": 36516.0,
+            "training_weight": 36516.0
+          },
+          "2018-07": {
+            "rows": 382106,
+            "opportunities": 7593932.25,
+            "training_weight": 7593932.25
+          },
+          "2018-09": {
+            "rows": 1735,
+            "opportunities": 30055.25,
+            "training_weight": 30055.25
+          },
+          "2018-10": {
+            "rows": 370189,
+            "opportunities": 7604749.5,
+            "training_weight": 7604749.5
+          },
+          "2018-12": {
+            "rows": 2607,
+            "opportunities": 46337.5,
+            "training_weight": 46337.5
+          },
+          "2019-01": {
+            "rows": 415274,
+            "opportunities": 9168194.75,
+            "training_weight": 9168194.75
+          },
+          "2019-03": {
+            "rows": 2760,
+            "opportunities": 55260.75,
+            "training_weight": 55260.75
+          },
+          "2019-04": {
+            "rows": 430359,
+            "opportunities": 10420925.0,
+            "training_weight": 10420925.0
+          },
+          "2019-06": {
+            "rows": 2525,
+            "opportunities": 50012.75,
+            "training_weight": 50012.75
+          },
+          "2019-07": {
+            "rows": 471081,
+            "opportunities": 10666661.0,
+            "training_weight": 10666661.0
+          },
+          "2019-09": {
+            "rows": 1972,
+            "opportunities": 39228.75,
+            "training_weight": 39228.75
+          },
+          "2019-10": {
+            "rows": 478523,
+            "opportunities": 11167215.5,
+            "training_weight": 11167215.5
+          },
+          "2019-12": {
+            "rows": 3437,
+            "opportunities": 68753.25,
+            "training_weight": 68753.25
+          },
+          "2020-01": {
+            "rows": 566217,
+            "opportunities": 13409083.75,
+            "training_weight": 13409083.75
+          },
+          "2020-03": {
+            "rows": 3537,
+            "opportunities": 72453.25,
+            "training_weight": 72453.25
+          },
+          "2020-04": {
+            "rows": 661423,
+            "opportunities": 17382855.75,
+            "training_weight": 17382855.75
+          },
+          "2020-06": {
+            "rows": 5421,
+            "opportunities": 140411.0,
+            "training_weight": 140411.0
+          },
+          "2020-07": {
+            "rows": 693036,
+            "opportunities": 18257284.75,
+            "training_weight": 18257284.75
+          },
+          "2020-09": {
+            "rows": 3177,
+            "opportunities": 68544.75,
+            "training_weight": 68544.75
+          },
+          "2020-10": {
+            "rows": 703303,
+            "opportunities": 18151667.5,
+            "training_weight": 18151667.5
+          },
+          "2020-12": {
+            "rows": 4816,
+            "opportunities": 118405.25,
+            "training_weight": 118405.25
+          },
+          "2021-01": {
+            "rows": 772536,
+            "opportunities": 20284916.75,
+            "training_weight": 20284916.75
+          },
+          "2021-03": {
+            "rows": 5023,
+            "opportunities": 114044.75,
+            "training_weight": 114044.75
+          },
+          "2021-04": {
+            "rows": 777099,
+            "opportunities": 22732701.75,
+            "training_weight": 22732701.75
+          },
+          "2021-06": {
+            "rows": 5975,
+            "opportunities": 138726.75,
+            "training_weight": 138726.75
+          },
+          "2021-07": {
+            "rows": 902312,
+            "opportunities": 25178273.25,
+            "training_weight": 25178273.25
+          },
+          "2021-09": {
+            "rows": 6071,
+            "opportunities": 153073.0,
+            "training_weight": 153073.0
+          },
+          "2021-10": {
+            "rows": 964543,
+            "opportunities": 27046726.5,
+            "training_weight": 27046726.5
+          },
+          "2021-12": {
+            "rows": 6201,
+            "opportunities": 147711.0,
+            "training_weight": 147711.0
+          },
+          "2022-01": {
+            "rows": 1002113,
+            "opportunities": 28859681.0,
+            "training_weight": 28859681.0
+          },
+          "2022-03": {
+            "rows": 7105,
+            "opportunities": 164566.5,
+            "training_weight": 164566.5
+          },
+          "2022-04": {
+            "rows": 1179632,
+            "opportunities": 35750589.75,
+            "training_weight": 35750589.75
+          },
+          "2022-06": {
+            "rows": 7925,
+            "opportunities": 179038.75,
+            "training_weight": 179038.75
+          },
+          "2022-07": {
+            "rows": 1093717,
+            "opportunities": 30656605.25,
+            "training_weight": 30656605.25
+          },
+          "2022-09": {
+            "rows": 8401,
+            "opportunities": 210922.0,
+            "training_weight": 210922.0
+          },
+          "2022-10": {
+            "rows": 1400159,
+            "opportunities": 38126966.0,
+            "training_weight": 38126966.0
+          },
+          "2022-12": {
+            "rows": 7413,
+            "opportunities": 174502.75,
+            "training_weight": 174502.75
+          },
+          "2023-01": {
+            "rows": 1406895,
+            "opportunities": 36894335.5,
+            "training_weight": 36894335.5
+          },
+          "2023-03": {
+            "rows": 8902,
+            "opportunities": 215006.5,
+            "training_weight": 215006.5
+          },
+          "2023-04": {
+            "rows": 1479219,
+            "opportunities": 41740820.5,
+            "training_weight": 41740820.5
+          },
+          "2023-06": {
+            "rows": 9170,
+            "opportunities": 233322.0,
+            "training_weight": 233322.0
+          },
+          "2023-07": {
+            "rows": 1357911,
+            "opportunities": 39388790.0,
+            "training_weight": 39388790.0
+          },
+          "2023-09": {
+            "rows": 9316,
+            "opportunities": 245389.5,
+            "training_weight": 245389.5
+          },
+          "2023-10": {
+            "rows": 1651905,
+            "opportunities": 45336817.25,
+            "training_weight": 45336817.25
+          }
+        }
+      },
+      "F3_2024_07": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A2_long_natural_shared_20m.parquet",
+        "bytes": 2437568032,
+        "rows": 20000000,
+        "sha256": "d6f536af50e7be4536e4075fcb1ee57d4654c05aa1c15855b940f1ad56ac1a8c",
+        "months": [
+          "2018-01",
+          "2018-04",
+          "2018-07",
+          "2018-10",
+          "2019-01",
+          "2019-04",
+          "2019-07",
+          "2019-10",
+          "2020-01",
+          "2020-04",
+          "2020-07",
+          "2020-10",
+          "2021-01",
+          "2021-04",
+          "2021-07",
+          "2021-10",
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10"
+        ],
+        "weight_column": "training_weight",
+        "distribution": {
+          "2017-12": {
+            "rows": 2245,
+            "opportunities": 32663.0,
+            "training_weight": 32663.0
+          },
+          "2018-01": {
+            "rows": 380307,
+            "opportunities": 6896972.5,
+            "training_weight": 6896972.5
+          },
+          "2018-03": {
+            "rows": 2357,
+            "opportunities": 33508.5,
+            "training_weight": 33508.5
+          },
+          "2018-04": {
+            "rows": 339760,
+            "opportunities": 6269720.5,
+            "training_weight": 6269720.5
+          },
+          "2018-06": {
+            "rows": 2290,
+            "opportunities": 36516.0,
+            "training_weight": 36516.0
+          },
+          "2018-07": {
+            "rows": 382106,
+            "opportunities": 7593932.25,
+            "training_weight": 7593932.25
+          },
+          "2018-09": {
+            "rows": 1735,
+            "opportunities": 30055.25,
+            "training_weight": 30055.25
+          },
+          "2018-10": {
+            "rows": 370189,
+            "opportunities": 7604749.5,
+            "training_weight": 7604749.5
+          },
+          "2018-12": {
+            "rows": 2607,
+            "opportunities": 46337.5,
+            "training_weight": 46337.5
+          },
+          "2019-01": {
+            "rows": 415274,
+            "opportunities": 9168194.75,
+            "training_weight": 9168194.75
+          },
+          "2019-03": {
+            "rows": 2760,
+            "opportunities": 55260.75,
+            "training_weight": 55260.75
+          },
+          "2019-04": {
+            "rows": 430359,
+            "opportunities": 10420925.0,
+            "training_weight": 10420925.0
+          },
+          "2019-06": {
+            "rows": 2525,
+            "opportunities": 50012.75,
+            "training_weight": 50012.75
+          },
+          "2019-07": {
+            "rows": 471081,
+            "opportunities": 10666661.0,
+            "training_weight": 10666661.0
+          },
+          "2019-09": {
+            "rows": 1972,
+            "opportunities": 39228.75,
+            "training_weight": 39228.75
+          },
+          "2019-10": {
+            "rows": 478523,
+            "opportunities": 11167215.5,
+            "training_weight": 11167215.5
+          },
+          "2019-12": {
+            "rows": 3437,
+            "opportunities": 68753.25,
+            "training_weight": 68753.25
+          },
+          "2020-01": {
+            "rows": 566217,
+            "opportunities": 13409083.75,
+            "training_weight": 13409083.75
+          },
+          "2020-03": {
+            "rows": 3537,
+            "opportunities": 72453.25,
+            "training_weight": 72453.25
+          },
+          "2020-04": {
+            "rows": 661423,
+            "opportunities": 17382855.75,
+            "training_weight": 17382855.75
+          },
+          "2020-06": {
+            "rows": 5421,
+            "opportunities": 140411.0,
+            "training_weight": 140411.0
+          },
+          "2020-07": {
+            "rows": 693036,
+            "opportunities": 18257284.75,
+            "training_weight": 18257284.75
+          },
+          "2020-09": {
+            "rows": 3177,
+            "opportunities": 68544.75,
+            "training_weight": 68544.75
+          },
+          "2020-10": {
+            "rows": 703303,
+            "opportunities": 18151667.5,
+            "training_weight": 18151667.5
+          },
+          "2020-12": {
+            "rows": 4816,
+            "opportunities": 118405.25,
+            "training_weight": 118405.25
+          },
+          "2021-01": {
+            "rows": 772536,
+            "opportunities": 20284916.75,
+            "training_weight": 20284916.75
+          },
+          "2021-03": {
+            "rows": 5023,
+            "opportunities": 114044.75,
+            "training_weight": 114044.75
+          },
+          "2021-04": {
+            "rows": 777099,
+            "opportunities": 22732701.75,
+            "training_weight": 22732701.75
+          },
+          "2021-06": {
+            "rows": 5975,
+            "opportunities": 138726.75,
+            "training_weight": 138726.75
+          },
+          "2021-07": {
+            "rows": 902312,
+            "opportunities": 25178273.25,
+            "training_weight": 25178273.25
+          },
+          "2021-09": {
+            "rows": 6071,
+            "opportunities": 153073.0,
+            "training_weight": 153073.0
+          },
+          "2021-10": {
+            "rows": 964543,
+            "opportunities": 27046726.5,
+            "training_weight": 27046726.5
+          },
+          "2021-12": {
+            "rows": 6201,
+            "opportunities": 147711.0,
+            "training_weight": 147711.0
+          },
+          "2022-01": {
+            "rows": 1002113,
+            "opportunities": 28859681.0,
+            "training_weight": 28859681.0
+          },
+          "2022-03": {
+            "rows": 7105,
+            "opportunities": 164566.5,
+            "training_weight": 164566.5
+          },
+          "2022-04": {
+            "rows": 1179632,
+            "opportunities": 35750589.75,
+            "training_weight": 35750589.75
+          },
+          "2022-06": {
+            "rows": 7925,
+            "opportunities": 179038.75,
+            "training_weight": 179038.75
+          },
+          "2022-07": {
+            "rows": 1093717,
+            "opportunities": 30656605.25,
+            "training_weight": 30656605.25
+          },
+          "2022-09": {
+            "rows": 8401,
+            "opportunities": 210922.0,
+            "training_weight": 210922.0
+          },
+          "2022-10": {
+            "rows": 1400159,
+            "opportunities": 38126966.0,
+            "training_weight": 38126966.0
+          },
+          "2022-12": {
+            "rows": 7413,
+            "opportunities": 174502.75,
+            "training_weight": 174502.75
+          },
+          "2023-01": {
+            "rows": 1406895,
+            "opportunities": 36894335.5,
+            "training_weight": 36894335.5
+          },
+          "2023-03": {
+            "rows": 8902,
+            "opportunities": 215006.5,
+            "training_weight": 215006.5
+          },
+          "2023-04": {
+            "rows": 1479219,
+            "opportunities": 41740820.5,
+            "training_weight": 41740820.5
+          },
+          "2023-06": {
+            "rows": 9170,
+            "opportunities": 233322.0,
+            "training_weight": 233322.0
+          },
+          "2023-07": {
+            "rows": 1357911,
+            "opportunities": 39388790.0,
+            "training_weight": 39388790.0
+          },
+          "2023-09": {
+            "rows": 9316,
+            "opportunities": 245389.5,
+            "training_weight": 245389.5
+          },
+          "2023-10": {
+            "rows": 1651905,
+            "opportunities": 45336817.25,
+            "training_weight": 45336817.25
+          }
+        },
+        "phase1_nestedness": {
+          "phase1_rows": 5000000,
+          "missing_phase1_keys": 0,
+          "exact_phase1_key_subset": true
+        }
+      }
+    },
+    "A4_recent_cycle": {
+      "F1_2024_02": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A4_recent_cycle_F1_2024_02_20m.parquet",
+        "bytes": 2393135310,
+        "rows": 20000000,
+        "sha256": "a0f9e5a8c9bce079a0c0785da3414599fdc4821aaa2b2fc322903d4233f9aaf6",
+        "months": [
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01"
+        ],
+        "weight_column": "training_weight",
+        "distribution": {
+          "2021-12": {
+            "rows": 10306,
+            "opportunities": 245620.75,
+            "training_weight": 245620.75
+          },
+          "2022-01": {
+            "rows": 1648869,
+            "opportunities": 47469196.75,
+            "training_weight": 47469196.75
+          },
+          "2022-03": {
+            "rows": 11534,
+            "opportunities": 265661.75,
+            "training_weight": 265661.75
+          },
+          "2022-04": {
+            "rows": 1944372,
+            "opportunities": 59015267.25,
+            "training_weight": 59015267.25
+          },
+          "2022-06": {
+            "rows": 12930,
+            "opportunities": 290372.0,
+            "training_weight": 290372.0
+          },
+          "2022-07": {
+            "rows": 1801902,
+            "opportunities": 50550270.0,
+            "training_weight": 50550270.0
+          },
+          "2022-09": {
+            "rows": 13948,
+            "opportunities": 351042.0,
+            "training_weight": 351042.0
+          },
+          "2022-10": {
+            "rows": 2306058,
+            "opportunities": 62686480.0,
+            "training_weight": 62686480.0
+          },
+          "2022-12": {
+            "rows": 12195,
+            "opportunities": 284611.25,
+            "training_weight": 284611.25
+          },
+          "2023-01": {
+            "rows": 2317155,
+            "opportunities": 60777884.25,
+            "training_weight": 60777884.25
+          },
+          "2023-03": {
+            "rows": 14584,
+            "opportunities": 349833.0,
+            "training_weight": 349833.0
+          },
+          "2023-04": {
+            "rows": 2435290,
+            "opportunities": 68726765.0,
+            "training_weight": 68726765.0
+          },
+          "2023-06": {
+            "rows": 15071,
+            "opportunities": 383346.5,
+            "training_weight": 383346.5
+          },
+          "2023-07": {
+            "rows": 2237815,
+            "opportunities": 64886631.5,
+            "training_weight": 64886631.5
+          },
+          "2023-09": {
+            "rows": 15350,
+            "opportunities": 405278.25,
+            "training_weight": 405278.25
+          },
+          "2023-10": {
+            "rows": 2719658,
+            "opportunities": 74642558.25,
+            "training_weight": 74642558.25
+          },
+          "2023-12": {
+            "rows": 15873,
+            "opportunities": 420399.75,
+            "training_weight": 420399.75
+          },
+          "2024-01": {
+            "rows": 2467090,
+            "opportunities": 65764763.25,
+            "training_weight": 65764763.25
+          }
+        }
+      },
+      "F2_2024_05": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A4_recent_cycle_F2_2024_05_20m.parquet",
+        "bytes": 2408156882,
+        "rows": 20000000,
+        "sha256": "9ad9f54ebf2f5f2d69edfed904b09e041f947a2ef16085d67a1cbcf4cad98654",
+        "months": [
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01",
+          "2024-02",
+          "2024-04"
+        ],
+        "weight_column": "training_weight",
+        "distribution": {
+          "2021-12": {
+            "rows": 8096,
+            "opportunities": 192099.25,
+            "training_weight": 192099.25
+          },
+          "2022-01": {
+            "rows": 1298838,
+            "opportunities": 37427825.75,
+            "training_weight": 37427825.75
+          },
+          "2022-03": {
+            "rows": 9090,
+            "opportunities": 211639.5,
+            "training_weight": 211639.5
+          },
+          "2022-04": {
+            "rows": 1530787,
+            "opportunities": 46408321.5,
+            "training_weight": 46408321.5
+          },
+          "2022-06": {
+            "rows": 10174,
+            "opportunities": 229214.5,
+            "training_weight": 229214.5
+          },
+          "2022-07": {
+            "rows": 1420031,
+            "opportunities": 39781132.25,
+            "training_weight": 39781132.25
+          },
+          "2022-09": {
+            "rows": 10993,
+            "opportunities": 277149.5,
+            "training_weight": 277149.5
+          },
+          "2022-10": {
+            "rows": 1816196,
+            "opportunities": 49370265.0,
+            "training_weight": 49370265.0
+          },
+          "2022-12": {
+            "rows": 9607,
+            "opportunities": 224220.0,
+            "training_weight": 224220.0
+          },
+          "2023-01": {
+            "rows": 1825332,
+            "opportunities": 47871958.75,
+            "training_weight": 47871958.75
+          },
+          "2023-03": {
+            "rows": 11510,
+            "opportunities": 278472.75,
+            "training_weight": 278472.75
+          },
+          "2023-04": {
+            "rows": 1918526,
+            "opportunities": 54146651.0,
+            "training_weight": 54146651.0
+          },
+          "2023-06": {
+            "rows": 11812,
+            "opportunities": 303051.0,
+            "training_weight": 303051.0
+          },
+          "2023-07": {
+            "rows": 1762253,
+            "opportunities": 51109646.0,
+            "training_weight": 51109646.0
+          },
+          "2023-09": {
+            "rows": 12070,
+            "opportunities": 318903.5,
+            "training_weight": 318903.5
+          },
+          "2023-10": {
+            "rows": 2142715,
+            "opportunities": 58824369.0,
+            "training_weight": 58824369.0
+          },
+          "2023-12": {
+            "rows": 12519,
+            "opportunities": 334567.5,
+            "training_weight": 334567.5
+          },
+          "2024-01": {
+            "rows": 1954634,
+            "opportunities": 52090641.75,
+            "training_weight": 52090641.75
+          },
+          "2024-02": {
+            "rows": 2075717,
+            "opportunities": 54324818.0,
+            "training_weight": 54324818.0
+          },
+          "2024-03": {
+            "rows": 13812,
+            "opportunities": 354019.0,
+            "training_weight": 354019.0
+          },
+          "2024-04": {
+            "rows": 2145288,
+            "opportunities": 68749839.0,
+            "training_weight": 68749839.0
+          }
+        }
+      },
+      "F3_2024_07": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A4_recent_cycle_F3_2024_07_20m.parquet",
+        "bytes": 2424812338,
+        "rows": 20000000,
+        "sha256": "f4d2c4f9fa997ecdb3e8032e5b3e638800b9bd2178b957fca30b14a2331c1e4c",
+        "months": [
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01",
+          "2024-02",
+          "2024-04",
+          "2024-05"
+        ],
+        "weight_column": "training_weight",
+        "distribution": {
+          "2021-12": {
+            "rows": 7331,
+            "opportunities": 174275.25,
+            "training_weight": 174275.25
+          },
+          "2022-01": {
+            "rows": 1184871,
+            "opportunities": 34134941.5,
+            "training_weight": 34134941.5
+          },
+          "2022-03": {
+            "rows": 8320,
+            "opportunities": 194668.5,
+            "training_weight": 194668.5
+          },
+          "2022-04": {
+            "rows": 1395706,
+            "opportunities": 42277924.25,
+            "training_weight": 42277924.25
+          },
+          "2022-06": {
+            "rows": 9307,
+            "opportunities": 208627.5,
+            "training_weight": 208627.5
+          },
+          "2022-07": {
+            "rows": 1293667,
+            "opportunities": 36248755.0,
+            "training_weight": 36248755.0
+          },
+          "2022-09": {
+            "rows": 9961,
+            "opportunities": 251181.0,
+            "training_weight": 251181.0
+          },
+          "2022-10": {
+            "rows": 1655811,
+            "opportunities": 45024104.25,
+            "training_weight": 45024104.25
+          },
+          "2022-12": {
+            "rows": 8746,
+            "opportunities": 205684.25,
+            "training_weight": 205684.25
+          },
+          "2023-01": {
+            "rows": 1664649,
+            "opportunities": 43653556.25,
+            "training_weight": 43653556.25
+          },
+          "2023-03": {
+            "rows": 10467,
+            "opportunities": 253442.25,
+            "training_weight": 253442.25
+          },
+          "2023-04": {
+            "rows": 1748734,
+            "opportunities": 49345204.75,
+            "training_weight": 49345204.75
+          },
+          "2023-06": {
+            "rows": 10811,
+            "opportunities": 275159.0,
+            "training_weight": 275159.0
+          },
+          "2023-07": {
+            "rows": 1606325,
+            "opportunities": 46592728.75,
+            "training_weight": 46592728.75
+          },
+          "2023-09": {
+            "rows": 10988,
+            "opportunities": 290556.5,
+            "training_weight": 290556.5
+          },
+          "2023-10": {
+            "rows": 1953907,
+            "opportunities": 53617747.75,
+            "training_weight": 53617747.75
+          },
+          "2023-12": {
+            "rows": 11392,
+            "opportunities": 305822.0,
+            "training_weight": 305822.0
+          },
+          "2024-01": {
+            "rows": 1782255,
+            "opportunities": 47539210.75,
+            "training_weight": 47539210.75
+          },
+          "2024-02": {
+            "rows": 1892606,
+            "opportunities": 49530594.75,
+            "training_weight": 49530594.75
+          },
+          "2024-03": {
+            "rows": 12602,
+            "opportunities": 323332.0,
+            "training_weight": 323332.0
+          },
+          "2024-04": {
+            "rows": 1968130,
+            "opportunities": 62988067.5,
+            "training_weight": 62988067.5
+          },
+          "2024-05": {
+            "rows": 1753414,
+            "opportunities": 56806504.25,
+            "training_weight": 56806504.25
+          }
+        },
+        "phase1_nestedness": {
+          "phase1_rows": 5000000,
+          "missing_phase1_keys": 0,
+          "exact_phase1_key_subset": true
+        }
+      }
+    },
+    "A5_recency_weighted": {
+      "F1_2024_02": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A5_recency_weighted_F1_2024_02_20m.parquet",
+        "bytes": 2537101999,
+        "rows": 20000000,
+        "sha256": "c159437cbb70f96ecc68563f07a697dbfc4180fe18b05fbe8aa15a531015ede1",
+        "months": [
+          "2018-01",
+          "2018-04",
+          "2018-07",
+          "2018-10",
+          "2019-01",
+          "2019-04",
+          "2019-07",
+          "2019-10",
+          "2020-01",
+          "2020-04",
+          "2020-07",
+          "2020-10",
+          "2021-01",
+          "2021-04",
+          "2021-07",
+          "2021-10",
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01"
+        ],
+        "weight_column": "recency_training_weight",
+        "distribution": {
+          "2017-12": {
+            "rows": 2085,
+            "opportunities": 30314.25,
+            "training_weight": 3813.6528820910657
+          },
+          "2018-01": {
+            "rows": 353886,
+            "opportunities": 6416428.25,
+            "training_weight": 824178.7168755841
+          },
+          "2018-03": {
+            "rows": 2182,
+            "opportunities": 31052.25,
+            "training_weight": 4377.628823972115
+          },
+          "2018-04": {
+            "rows": 316034,
+            "opportunities": 5828169.0,
+            "training_weight": 837204.6984920097
+          },
+          "2018-06": {
+            "rows": 2130,
+            "opportunities": 33975.0,
+            "training_weight": 5374.107087491005
+          },
+          "2018-07": {
+            "rows": 355070,
+            "opportunities": 7056291.0,
+            "training_weight": 1138981.3311392795
+          },
+          "2018-09": {
+            "rows": 1615,
+            "opportunities": 27797.75,
+            "training_weight": 4939.772481701764
+          },
+          "2018-10": {
+            "rows": 344297,
+            "opportunities": 7076365.0,
+            "training_weight": 1284296.5515774537
+          },
+          "2018-12": {
+            "rows": 2411,
+            "opportunities": 42710.75,
+            "training_weight": 8526.777888006312
+          },
+          "2019-01": {
+            "rows": 386051,
+            "opportunities": 8514847.5,
+            "training_weight": 1734353.9299484917
+          },
+          "2019-03": {
+            "rows": 2574,
+            "opportunities": 51651.75,
+            "training_weight": 11555.3823712575
+          },
+          "2019-04": {
+            "rows": 400201,
+            "opportunities": 9691980.0,
+            "training_weight": 2212890.943285952
+          },
+          "2019-06": {
+            "rows": 2324,
+            "opportunities": 45638.0,
+            "training_weight": 11455.83828068986
+          },
+          "2019-07": {
+            "rows": 438154,
+            "opportunities": 9916176.25,
+            "training_weight": 2539725.487744598
+          },
+          "2019-09": {
+            "rows": 1844,
+            "opportunities": 36274.5,
+            "training_weight": 10229.446986916248
+          },
+          "2019-10": {
+            "rows": 444805,
+            "opportunities": 10379844.25,
+            "training_weight": 2987354.152658088
+          },
+          "2019-12": {
+            "rows": 3190,
+            "opportunities": 63990.0,
+            "training_weight": 20272.77881933238
+          },
+          "2020-01": {
+            "rows": 526703,
+            "opportunities": 12465237.75,
+            "training_weight": 4030181.0275849532
+          },
+          "2020-03": {
+            "rows": 3303,
+            "opportunities": 67178.25,
+            "training_weight": 23879.808939253966
+          },
+          "2020-04": {
+            "rows": 614549,
+            "opportunities": 16154055.5,
+            "training_weight": 5853562.55759847
+          },
+          "2020-06": {
+            "rows": 5054,
+            "opportunities": 130403.0,
+            "training_weight": 52010.46464951284
+          },
+          "2020-07": {
+            "rows": 644674,
+            "opportunities": 16988112.25,
+            "training_weight": 6914076.917528439
+          },
+          "2020-09": {
+            "rows": 2965,
+            "opportunities": 64232.5,
+            "training_weight": 28781.168854986812
+          },
+          "2020-10": {
+            "rows": 654184,
+            "opportunities": 16872217.25,
+            "training_weight": 7718488.169374464
+          },
+          "2020-12": {
+            "rows": 4513,
+            "opportunities": 111725.25,
+            "training_weight": 56241.30481764669
+          },
+          "2021-01": {
+            "rows": 718044,
+            "opportunities": 18866109.75,
+            "training_weight": 9695354.672542369
+          },
+          "2021-03": {
+            "rows": 4665,
+            "opportunities": 105597.25,
+            "training_weight": 59567.33755687746
+          },
+          "2021-04": {
+            "rows": 723123,
+            "opportunities": 21162170.25,
+            "training_weight": 12177765.798925975
+          },
+          "2021-06": {
+            "rows": 5562,
+            "opportunities": 130002.25,
+            "training_weight": 82282.49256723115
+          },
+          "2021-07": {
+            "rows": 839434,
+            "opportunities": 23441984.75,
+            "training_weight": 15135216.760653231
+          },
+          "2021-09": {
+            "rows": 5634,
+            "opportunities": 141130.0,
+            "training_weight": 100352.0763579011
+          },
+          "2021-10": {
+            "rows": 896865,
+            "opportunities": 25151212.25,
+            "training_weight": 18246798.924577706
+          },
+          "2021-12": {
+            "rows": 5756,
+            "opportunities": 137589.25,
+            "training_weight": 109911.20658145411
+          },
+          "2022-01": {
+            "rows": 931595,
+            "opportunities": 26843591.0,
+            "training_weight": 21886786.540339448
+          },
+          "2022-03": {
+            "rows": 6607,
+            "opportunities": 153337.75,
+            "training_weight": 137264.45389802038
+          },
+          "2022-04": {
+            "rows": 1097295,
+            "opportunities": 33246756.75,
+            "training_weight": 30368585.89564212
+          },
+          "2022-06": {
+            "rows": 7390,
+            "opportunities": 165860.25,
+            "training_weight": 166591.2954519041
+          },
+          "2022-07": {
+            "rows": 1017440,
+            "opportunities": 28523444.75,
+            "training_weight": 29235314.325905867
+          },
+          "2022-09": {
+            "rows": 7843,
+            "opportunities": 197902.75,
+            "training_weight": 223312.10724126294
+          },
+          "2022-10": {
+            "rows": 1302063,
+            "opportunities": 35443797.25,
+            "training_weight": 40794478.007624425
+          },
+          "2022-12": {
+            "rows": 6868,
+            "opportunities": 160630.25,
+            "training_weight": 203628.34279876278
+          },
+          "2023-01": {
+            "rows": 1308562,
+            "opportunities": 34334934.0,
+            "training_weight": 44447350.26677652
+          },
+          "2023-03": {
+            "rows": 8301,
+            "opportunities": 199532.25,
+            "training_weight": 283449.38527557463
+          },
+          "2023-04": {
+            "rows": 1375212,
+            "opportunities": 38794153.75,
+            "training_weight": 56150977.37418331
+          },
+          "2023-06": {
+            "rows": 8529,
+            "opportunities": 217457.0,
+            "training_weight": 346606.5786103316
+          },
+          "2023-07": {
+            "rows": 1262908,
+            "opportunities": 36642370.75,
+            "training_weight": 59606334.88299659
+          },
+          "2023-09": {
+            "rows": 8714,
+            "opportunities": 230074.0,
+            "training_weight": 411984.99908549053
+          },
+          "2023-10": {
+            "rows": 1535662,
+            "opportunities": 42137010.75,
+            "training_weight": 76909200.48697414
+          },
+          "2023-12": {
+            "rows": 8923,
+            "opportunities": 240427.5,
+            "training_weight": 483669.22125077667
+          },
+          "2024-01": {
+            "rows": 1392207,
+            "opportunities": 37158548.5,
+            "training_weight": 76342756.19941571
+          }
+        }
+      },
+      "F2_2024_05": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A5_recency_weighted_F2_2024_05_20m.parquet",
+        "bytes": 2546956873,
+        "rows": 20000000,
+        "sha256": "f5504b13d3a0c292866f1f2e537d3c73ef8ba187fcef8f414b4819288e44bfdb",
+        "months": [
+          "2018-01",
+          "2018-04",
+          "2018-07",
+          "2018-10",
+          "2019-01",
+          "2019-04",
+          "2019-07",
+          "2019-10",
+          "2020-01",
+          "2020-04",
+          "2020-07",
+          "2020-10",
+          "2021-01",
+          "2021-04",
+          "2021-07",
+          "2021-10",
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01",
+          "2024-02",
+          "2024-04"
+        ],
+        "weight_column": "recency_training_weight",
+        "distribution": {
+          "2017-12": {
+            "rows": 1820,
+            "opportunities": 26783.25,
+            "training_weight": 2867.0239184184493
+          },
+          "2018-01": {
+            "rows": 306856,
+            "opportunities": 5562450.5,
+            "training_weight": 607952.1162074083
+          },
+          "2018-03": {
+            "rows": 1871,
+            "opportunities": 26106.25,
+            "training_weight": 3131.5839724223288
+          },
+          "2018-04": {
+            "rows": 274075,
+            "opportunities": 5055325.25,
+            "training_weight": 617888.2542792896
+          },
+          "2018-06": {
+            "rows": 1848,
+            "opportunities": 30006.0,
+            "training_weight": 4038.5797512989234
+          },
+          "2018-07": {
+            "rows": 308319,
+            "opportunities": 6131248.0,
+            "training_weight": 842079.6477098032
+          },
+          "2018-09": {
+            "rows": 1392,
+            "opportunities": 24041.5,
+            "training_weight": 3635.235661961791
+          },
+          "2018-10": {
+            "rows": 298897,
+            "opportunities": 6149090.0,
+            "training_weight": 949605.3215738554
+          },
+          "2018-12": {
+            "rows": 2092,
+            "opportunities": 37215.0,
+            "training_weight": 6321.78153594902
+          },
+          "2019-01": {
+            "rows": 335346,
+            "opportunities": 7396917.25,
+            "training_weight": 1282010.7441364399
+          },
+          "2019-03": {
+            "rows": 2224,
+            "opportunities": 44016.75,
+            "training_weight": 8378.976289469596
+          },
+          "2019-04": {
+            "rows": 347309,
+            "opportunities": 8412532.0,
+            "training_weight": 1634350.415918934
+          },
+          "2019-06": {
+            "rows": 2032,
+            "opportunities": 40567.25,
+            "training_weight": 8664.620509774331
+          },
+          "2019-07": {
+            "rows": 380105,
+            "opportunities": 8601353.25,
+            "training_weight": 1874480.657457966
+          },
+          "2019-09": {
+            "rows": 1591,
+            "opportunities": 31439.25,
+            "training_weight": 7543.911866279801
+          },
+          "2019-10": {
+            "rows": 385864,
+            "opportunities": 9001201.5,
+            "training_weight": 2204325.5366353593
+          },
+          "2019-12": {
+            "rows": 2774,
+            "opportunities": 55927.0,
+            "training_weight": 15076.356680551144
+          },
+          "2020-01": {
+            "rows": 457379,
+            "opportunities": 10822543.0,
+            "training_weight": 2977323.740448913
+          },
+          "2020-03": {
+            "rows": 2846,
+            "opportunities": 57382.25,
+            "training_weight": 17356.151903668302
+          },
+          "2020-04": {
+            "rows": 533841,
+            "opportunities": 14021764.5,
+            "training_weight": 4323291.116220942
+          },
+          "2020-06": {
+            "rows": 4395,
+            "opportunities": 114440.75,
+            "training_weight": 38838.06230114444
+          },
+          "2020-07": {
+            "rows": 559897,
+            "opportunities": 14746654.75,
+            "training_weight": 5106877.772657372
+          },
+          "2020-09": {
+            "rows": 2573,
+            "opportunities": 54753.5,
+            "training_weight": 20875.6109925928
+          },
+          "2020-10": {
+            "rows": 567399,
+            "opportunities": 14633370.0,
+            "training_weight": 5696174.855311661
+          },
+          "2020-12": {
+            "rows": 3895,
+            "opportunities": 96343.25,
+            "training_weight": 41266.63465514715
+          },
+          "2021-01": {
+            "rows": 622779,
+            "opportunities": 16359476.5,
+            "training_weight": 7153679.936633494
+          },
+          "2021-03": {
+            "rows": 4066,
+            "opportunities": 92102.25,
+            "training_weight": 44207.86369089602
+          },
+          "2021-04": {
+            "rows": 627364,
+            "opportunities": 18355283.5,
+            "training_weight": 8987643.80303958
+          },
+          "2021-06": {
+            "rows": 4816,
+            "opportunities": 112220.25,
+            "training_weight": 60436.80677345446
+          },
+          "2021-07": {
+            "rows": 728613,
+            "opportunities": 20363742.25,
+            "training_weight": 11187270.984698897
+          },
+          "2021-09": {
+            "rows": 4878,
+            "opportunities": 123793.25,
+            "training_weight": 74899.28878685352
+          },
+          "2021-10": {
+            "rows": 778537,
+            "opportunities": 21827017.25,
+            "training_weight": 13474471.479665477
+          },
+          "2021-12": {
+            "rows": 5002,
+            "opportunities": 119447.5,
+            "training_weight": 81191.0661754704
+          },
+          "2022-01": {
+            "rows": 808311,
+            "opportunities": 23290048.0,
+            "training_weight": 16158146.71275405
+          },
+          "2022-03": {
+            "rows": 5713,
+            "opportunities": 132987.5,
+            "training_weight": 101296.28775640498
+          },
+          "2022-04": {
+            "rows": 952302,
+            "opportunities": 28861918.75,
+            "training_weight": 22432651.224433843
+          },
+          "2022-06": {
+            "rows": 6452,
+            "opportunities": 144277.0,
+            "training_weight": 123305.03215851742
+          },
+          "2022-07": {
+            "rows": 882843,
+            "opportunities": 24726866.5,
+            "training_weight": 21565088.79332639
+          },
+          "2022-09": {
+            "rows": 6787,
+            "opportunities": 172258.5,
+            "training_weight": 165392.1182853334
+          },
+          "2022-10": {
+            "rows": 1129574,
+            "opportunities": 30739113.25,
+            "training_weight": 30104201.363831554
+          },
+          "2022-12": {
+            "rows": 5938,
+            "opportunities": 139576.75,
+            "training_weight": 150555.86590645232
+          },
+          "2023-01": {
+            "rows": 1135550,
+            "opportunities": 29810490.75,
+            "training_weight": 32836586.566578194
+          },
+          "2023-03": {
+            "rows": 7239,
+            "opportunities": 174354.75,
+            "training_weight": 210751.1295042919
+          },
+          "2023-04": {
+            "rows": 1193429,
+            "opportunities": 33653288.5,
+            "training_weight": 41446924.72297434
+          },
+          "2023-06": {
+            "rows": 7366,
+            "opportunities": 189586.75,
+            "training_weight": 257125.47002279616
+          },
+          "2023-07": {
+            "rows": 1096262,
+            "opportunities": 31793749.25,
+            "training_weight": 44006983.30775565
+          },
+          "2023-09": {
+            "rows": 7551,
+            "opportunities": 199450.75,
+            "training_weight": 303894.780875279
+          },
+          "2023-10": {
+            "rows": 1333479,
+            "opportunities": 36596294.25,
+            "training_weight": 56836209.74238198
+          },
+          "2023-12": {
+            "rows": 7738,
+            "opportunities": 209366.75,
+            "training_weight": 358381.6216115596
+          },
+          "2024-01": {
+            "rows": 1215605,
+            "opportunities": 32434321.25,
+            "training_weight": 56706790.541926675
+          },
+          "2024-02": {
+            "rows": 1292089,
+            "opportunities": 33811366.75,
+            "training_weight": 61363099.327523805
+          },
+          "2024-03": {
+            "rows": 8541,
+            "opportunities": 218978.0,
+            "training_weight": 420571.1646090265
+          },
+          "2024-04": {
+            "rows": 1334536,
+            "opportunities": 42711437.25,
+            "training_weight": 83630174.2876281
+          }
+        }
+      },
+      "F3_2024_07": {
+        "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/cohort_A5_recency_weighted_F3_2024_07_20m.parquet",
+        "bytes": 2552614077,
+        "rows": 20000000,
+        "sha256": "0f9bc2080eae0695383fd8783ec94371f82aecf1c030d1796636e0caa7b986d9",
+        "months": [
+          "2018-01",
+          "2018-04",
+          "2018-07",
+          "2018-10",
+          "2019-01",
+          "2019-04",
+          "2019-07",
+          "2019-10",
+          "2020-01",
+          "2020-04",
+          "2020-07",
+          "2020-10",
+          "2021-01",
+          "2021-04",
+          "2021-07",
+          "2021-10",
+          "2022-01",
+          "2022-04",
+          "2022-07",
+          "2022-10",
+          "2023-01",
+          "2023-04",
+          "2023-07",
+          "2023-10",
+          "2024-01",
+          "2024-02",
+          "2024-04",
+          "2024-05"
+        ],
+        "weight_column": "recency_training_weight",
+        "distribution": {
+          "2017-12": {
+            "rows": 1716,
+            "opportunities": 25016.0,
+            "training_weight": 2502.7017809349727
+          },
+          "2018-01": {
+            "rows": 289355,
+            "opportunities": 5241395.0,
+            "training_weight": 535393.1137231719
+          },
+          "2018-03": {
+            "rows": 1779,
+            "opportunities": 24728.25,
+            "training_weight": 2772.273957387437
+          },
+          "2018-04": {
+            "rows": 258451,
+            "opportunities": 4767854.5,
+            "training_weight": 544633.1825038146
+          },
+          "2018-06": {
+            "rows": 1734,
+            "opportunities": 28202.0,
+            "training_weight": 3547.5102604191925
+          },
+          "2018-07": {
+            "rows": 290658,
+            "opportunities": 5778102.25,
+            "training_weight": 741677.6339205323
+          },
+          "2018-09": {
+            "rows": 1294,
+            "opportunities": 22423.25,
+            "training_weight": 3168.7849143734184
+          },
+          "2018-10": {
+            "rows": 281852,
+            "opportunities": 5795050.0,
+            "training_weight": 836386.7553198163
+          },
+          "2018-12": {
+            "rows": 1988,
+            "opportunities": 35623.75,
+            "training_weight": 5655.672957016329
+          },
+          "2019-01": {
+            "rows": 316274,
+            "opportunities": 6976855.0,
+            "training_weight": 1130113.3825174517
+          },
+          "2019-03": {
+            "rows": 2102,
+            "opportunities": 41926.25,
+            "training_weight": 7459.027383147003
+          },
+          "2019-04": {
+            "rows": 327627,
+            "opportunities": 7938631.75,
+            "training_weight": 1441407.7996189569
+          },
+          "2019-06": {
+            "rows": 1897,
+            "opportunities": 37783.5,
+            "training_weight": 7542.222788688302
+          },
+          "2019-07": {
+            "rows": 358599,
+            "opportunities": 8109809.5,
+            "training_weight": 1651778.7288219135
+          },
+          "2019-09": {
+            "rows": 1506,
+            "opportunities": 29648.25,
+            "training_weight": 6648.852312844413
+          },
+          "2019-10": {
+            "rows": 363772,
+            "opportunities": 8487035.25,
+            "training_weight": 1942479.5966693137
+          },
+          "2019-12": {
+            "rows": 2619,
+            "opportunities": 52526.0,
+            "training_weight": 13233.42933161931
+          },
+          "2020-01": {
+            "rows": 431539,
+            "opportunities": 10212028.0,
+            "training_weight": 2625617.5567596615
+          },
+          "2020-03": {
+            "rows": 2690,
+            "opportunities": 54141.75,
+            "training_weight": 15304.93014935855
+          },
+          "2020-04": {
+            "rows": 503169,
+            "opportunities": 13212693.5,
+            "training_weight": 3807389.156153956
+          },
+          "2020-06": {
+            "rows": 4150,
+            "opportunities": 108602.75,
+            "training_weight": 34446.164765620146
+          },
+          "2020-07": {
+            "rows": 528021,
+            "opportunities": 13911242.0,
+            "training_weight": 4502428.6226330055
+          },
+          "2020-09": {
+            "rows": 2442,
+            "opportunities": 51995.75,
+            "training_weight": 18527.565190699625
+          },
+          "2020-10": {
+            "rows": 535301,
+            "opportunities": 13800709.5,
+            "training_weight": 5020714.991024805
+          },
+          "2020-12": {
+            "rows": 3688,
+            "opportunities": 91985.25,
+            "training_weight": 36822.9982264676
+          },
+          "2021-01": {
+            "rows": 587384,
+            "opportunities": 15431021.5,
+            "training_weight": 6306280.048287357
+          },
+          "2021-03": {
+            "rows": 3819,
+            "opportunities": 87218.25,
+            "training_weight": 39125.49548882203
+          },
+          "2021-04": {
+            "rows": 591781,
+            "opportunities": 17303730.5,
+            "training_weight": 7918578.541694224
+          },
+          "2021-06": {
+            "rows": 4548,
+            "opportunities": 106770.75,
+            "training_weight": 53741.00266232932
+          },
+          "2021-07": {
+            "rows": 687384,
+            "opportunities": 19206134.5,
+            "training_weight": 9861281.82903568
+          },
+          "2021-09": {
+            "rows": 4587,
+            "opportunities": 116729.25,
+            "training_weight": 66006.03078170287
+          },
+          "2021-10": {
+            "rows": 734782,
+            "opportunities": 20596950.25,
+            "training_weight": 11883441.229035312
+          },
+          "2021-12": {
+            "rows": 4733,
+            "opportunities": 112652.75,
+            "training_weight": 71564.25775502637
+          },
+          "2022-01": {
+            "rows": 762074,
+            "opportunities": 21964384.5,
+            "training_weight": 14241840.12802878
+          },
+          "2022-03": {
+            "rows": 5388,
+            "opportunities": 124973.25,
+            "training_weight": 88965.77482455954
+          },
+          "2022-04": {
+            "rows": 898000,
+            "opportunities": 27214585.75,
+            "training_weight": 19768750.456781846
+          },
+          "2022-06": {
+            "rows": 6097,
+            "opportunities": 135470.0,
+            "training_weight": 108205.6708080798
+          },
+          "2022-07": {
+            "rows": 832974,
+            "opportunities": 23326918.25,
+            "training_weight": 19013519.337516602
+          },
+          "2022-09": {
+            "rows": 6390,
+            "opportunities": 162704.25,
+            "training_weight": 146001.13741147824
+          },
+          "2022-10": {
+            "rows": 1065114,
+            "opportunities": 28998611.0,
+            "training_weight": 26542044.68604246
+          },
+          "2022-12": {
+            "rows": 5601,
+            "opportunities": 131779.5,
+            "training_weight": 132848.19197331666
+          },
+          "2023-01": {
+            "rows": 1070797,
+            "opportunities": 28108093.75,
+            "training_weight": 28936306.620764207
+          },
+          "2023-03": {
+            "rows": 6855,
+            "opportunities": 164419.25,
+            "training_weight": 185742.79810708697
+          },
+          "2023-04": {
+            "rows": 1125577,
+            "opportunities": 31742993.0,
+            "training_weight": 36537041.53324588
+          },
+          "2023-06": {
+            "rows": 6939,
+            "opportunities": 178103.25,
+            "training_weight": 225752.28498419348
+          },
+          "2023-07": {
+            "rows": 1033550,
+            "opportunities": 29976854.25,
+            "training_weight": 38778402.83965839
+          },
+          "2023-09": {
+            "rows": 7118,
+            "opportunities": 188307.75,
+            "training_weight": 268150.7126141588
+          },
+          "2023-10": {
+            "rows": 1258300,
+            "opportunities": 34521104.75,
+            "training_weight": 50106658.74500274
+          },
+          "2023-12": {
+            "rows": 7280,
+            "opportunities": 195002.25,
+            "training_weight": 311961.38124165084
+          },
+          "2024-01": {
+            "rows": 1146572,
+            "opportunities": 30571563.0,
+            "training_weight": 49953966.83529303
+          },
+          "2024-02": {
+            "rows": 1218592,
+            "opportunities": 31904418.25,
+            "training_weight": 54115312.031084016
+          },
+          "2024-03": {
+            "rows": 8052,
+            "opportunities": 204835.0,
+            "training_weight": 367676.91903556575
+          },
+          "2024-04": {
+            "rows": 1266825,
+            "opportunities": 40521900.5,
+            "training_weight": 74161792.23908424
+          },
+          "2024-05": {
+            "rows": 1128664,
+            "opportunities": 36531905.0,
+            "training_weight": 69537531.83806522
+          }
+        },
+        "phase1_nestedness": {
+          "phase1_rows": 5000000,
+          "missing_phase1_keys": 0,
+          "exact_phase1_key_subset": true
+        }
+      }
+    }
+  },
+  "early_stopping": {
+    "F1_2024_02": {
+      "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/sample_early_stopping_2024_02_5m.parquet",
+      "bytes": 553777465,
+      "rows": 5000000,
+      "sha256": "12bfba7b2649767d28d18dd48bc4440d6bedc9eea4031cd351f6f22c8b626d6e"
+    },
+    "F2_2024_05": {
+      "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase2_scale/20m/sample_early_stopping_2024_05_5m.parquet",
+      "bytes": 570745534,
+      "rows": 5000000,
+      "sha256": "1390ccf7958ae52dc6bdf87cb1ae6db14f056da8595bebe5264b832fbf8de60f"
+    },
+    "F3_2024_07": {
+      "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase1_5m/sample_early_stopping_2024_07_5m.parquet",
+      "bytes": 566888739,
+      "rows": 5000000,
+      "sha256": "d5d8f05f17437df5d1b04bda8fa19ba6236db2da809e13f98c2cd1aab3d3dd30"
+    }
+  },
+  "calibration": {
+    "path": "ml/data/processed/archive_v4_2/propagation_v4_2_phase1_5m/sample_calibration_2024_08_5m.parquet",
+    "bytes": 569609257,
+    "rows": 5000000,
+    "sha256": "2b5739f210dbac15a77e686791a5ff689297ff6e34d8624c321fcc743388fad0"
+  },
+  "phase1_manifest": "ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json",
+  "environment": {
+    "python": "3.12.11",
+    "duckdb": "1.5.4",
+    "platform": "macOS-26.5.2-arm64-arm-64bit"
+  },
+  "seconds": 1035.6615076660019
+}

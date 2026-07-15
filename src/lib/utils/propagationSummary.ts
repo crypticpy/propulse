@@ -36,11 +36,11 @@ export function getDetailedSummary(kIndex: number, solarFlux: number): string {
 
   if (solarFlux >= 150) {
     parts.push(
-      "The sun is very active today with excellent HF propagation expected.",
+      "Solar activity is high, which can support higher-band ionization on suitable paths.",
     );
   } else if (solarFlux >= 100) {
     parts.push(
-      "Solar activity is moderate with good propagation on most HF bands.",
+      "Solar activity is moderate and provides useful global ionization context.",
     );
   } else if (solarFlux >= 80) {
     parts.push(
@@ -53,11 +53,11 @@ export function getDetailedSummary(kIndex: number, solarFlux: number): string {
   }
 
   if (solarFlux >= 120) {
-    parts.push("Higher bands (15m-10m) should be open during daylight hours.");
+    parts.push("Higher bands (15m-10m) may be supported on sunlit paths.");
   } else if (solarFlux >= 90) {
-    parts.push("Mid-range bands (17m-20m) are your best bet for DX.");
+    parts.push("Mid-range bands (17m-20m) merit a path-aware check.");
   } else {
-    parts.push("Lower bands (30m-40m) will provide the most reliable paths.");
+    parts.push("Lower bands (30m-40m) may be more resilient, depending on path and local noise.");
   }
 
   if (kIndex >= 5) {
@@ -67,24 +67,22 @@ export function getDetailedSummary(kIndex: number, solarFlux: number): string {
   } else if (kIndex >= 4) {
     parts.push("Note: Elevated geomagnetic activity may affect polar paths.");
   } else if (kIndex <= 1) {
-    parts.push("Geomagnetic conditions are very quiet - ideal for DX.");
+    parts.push("Geomagnetic conditions are quiet; this is supportive but does not guarantee a DX path.");
   }
 
   return parts.join(" ");
 }
 
 /**
- * Get best bands (up to 4) based on current conditions and time of day
+ * Return bands whose global day or night category is supportive. This avoids
+ * pretending one UTC hour represents daylight for every station and target.
  */
 export function getBestBands(kIndex: number, solarFlux: number): string[] {
   const bands = calculateBandConditions(kIndex, solarFlux);
-  const now = new Date();
-  const hour = now.getUTCHours();
-  const isDaytime = hour >= 6 && hour < 18;
-
   const goodBands = bands.filter((band) => {
-    const condition = isDaytime ? band.dayCondition : band.nightCondition;
-    return condition === "Excellent" || condition === "Good";
+    return [band.dayCondition, band.nightCondition].some(
+      (condition) => condition === "Excellent" || condition === "Good",
+    );
   });
 
   return goodBands.map((band) => band.name).slice(0, 4);
@@ -95,8 +93,14 @@ export function getBestBands(kIndex: number, solarFlux: number): string[] {
  */
 export function getConditionBadge(kIndex: number, solarFlux: number) {
   const overall = getOverallCondition(kIndex, solarFlux);
+  const label: Record<BandCondition, string> = {
+    Excellent: "Strongly supportive",
+    Good: "Supportive",
+    Fair: "Mixed",
+    Poor: "Disrupted",
+  };
   return {
-    label: overall.hf.toUpperCase(),
+    label: label[overall.hf].toUpperCase(),
     status: conditionToBadgeStatus(overall.hf),
     vhf: overall.vhf,
   };

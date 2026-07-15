@@ -293,7 +293,7 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
   if (sfi >= 120) {
     summaryParts.push("Higher bands (10-17m) favored.");
   } else if (sfi >= 90) {
-    summaryParts.push("Mid-bands (15-20m) should be open.");
+    summaryParts.push("Mid-bands (15–20 m) may be supported on suitable paths.");
   } else {
     summaryParts.push("Lower bands (20-40m) recommended.");
   }

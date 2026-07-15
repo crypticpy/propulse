@@ -50,11 +50,11 @@ const BAND_INFO: Record<
 
 // Status descriptions
 const STATUS_LABELS: Record<string, { label: string; tip: string }> = {
-  excellent: { label: "Excellent", tip: "Strong signals expected" },
-  good: { label: "Good", tip: "Reliable contacts likely" },
-  fair: { label: "Fair", tip: "Marginal - digital modes recommended" },
-  poor: { label: "Poor", tip: "Weak signals - FT8/FT4 only" },
-  closed: { label: "Closed", tip: "No propagation expected" },
+  excellent: { label: "Excellent", tip: "Strong model support" },
+  good: { label: "Good", tip: "Supportive model estimate" },
+  fair: { label: "Fair", tip: "Marginal model support" },
+  poor: { label: "Poor", tip: "Low model support" },
+  closed: { label: "Closed", tip: "Below the model display threshold" },
 };
 
 interface HoverInfo {

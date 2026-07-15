@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useAllSolarData, useMagnetometer } from "@/hooks/useSolarData";
+import { oldestKnownTimestamp } from "@/hooks/projectSolarResource";
 import { useDXCluster } from "@/hooks/useDXCluster";
-import { kpToAp } from "@/lib/utils/solarConversions";
 import { PrimaryMetrics } from "@/components/solar/PrimaryMetrics";
 import { PropagationIndex } from "@/components/solar/PropagationIndex";
 import { BandConditions } from "@/components/solar/BandConditions";
@@ -44,13 +44,18 @@ export function Home() {
     kIndex: kIndexQuery,
     solarFlux: solarFluxQuery,
     sunspots: sunspotQuery,
-    isLoading,
     dataUpdatedAt,
     isRefetching,
     refetchAll,
   } = useAllSolarData();
-  const { data: magnetometerData, dataUpdatedAt: magUpdatedAt } =
-    useMagnetometer();
+  const magnetometerQuery = useMagnetometer();
+  const {
+    data: magnetometerData,
+    dataUpdatedAt: magUpdatedAt,
+    isLoading: magnetometerLoading,
+    isRefetching: magnetometerRefetching,
+    refetch: refetchMagnetometer,
+  } = magnetometerQuery;
 
   // Ensure DX cluster spots are fetched for ClusterPulseCard
   useDXCluster();
@@ -69,8 +74,22 @@ export function Home() {
       .find((d) => typeof d.bz_gsm === "number" && Number.isFinite(d.bz_gsm))
       ?.bz_gsm ?? null;
 
-  const combinedUpdatedAt =
-    Math.max(dataUpdatedAt || 0, magUpdatedAt || 0) || undefined;
+  const combinedUpdatedAt = oldestKnownTimestamp([
+    dataUpdatedAt,
+    magUpdatedAt,
+  ]);
+  const coreLoading = kIndexQuery.isLoading || solarFluxQuery.isLoading;
+  const metricLoadingStates = {
+    kp: kIndexQuery.isLoading,
+    sfi: solarFluxQuery.isLoading,
+    ssn: sunspotQuery.isLoading,
+    bz: magnetometerLoading,
+  };
+  const refreshAllVisible = useCallback(() => {
+    refetchAll();
+    void refetchMagnetometer();
+  }, [refetchAll, refetchMagnetometer]);
+  const refreshingVisible = isRefetching || magnetometerRefetching;
 
   if (isMobile) {
     return (
@@ -82,10 +101,11 @@ export function Home() {
           currentBz={currentBz}
           fluxData={fluxData}
           magnetometerData={magnetometerData}
-          isLoading={isLoading}
+          isLoading={coreLoading}
+          metricLoadingStates={metricLoadingStates}
           combinedUpdatedAt={combinedUpdatedAt}
-          isRefetching={isRefetching}
-          refetchAll={refetchAll}
+          isRefetching={refreshingVisible}
+          refetchAll={refreshAllVisible}
           onExpandPropagation={() => setActiveModal("propagation")}
           onExpandSummary={() => setActiveModal("summary")}
           onExpandBands={() => setActiveModal("bands")}
@@ -144,8 +164,8 @@ export function Home() {
         <div className="flex justify-end -mt-3">
           <DataFreshnessIndicator
             dataUpdatedAt={combinedUpdatedAt}
-            onRefresh={refetchAll}
-            isRefetching={isRefetching}
+            onRefresh={refreshAllVisible}
+            isRefetching={refreshingVisible}
           />
         </div>
 
@@ -155,13 +175,13 @@ export function Home() {
         {/* Section 2.5: Contest Weather */}
         <ContestWeatherCard />
 
-        {/* Section 3: Band Conditions + Propagation Index (bands first — what operators check first) */}
+        {/* Section 3: Band Conditions + Global Conditions Score */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <BandConditions
               kIndex={currentKp}
               solarFlux={currentFlux}
-              loading={isLoading}
+              loading={coreLoading}
               onExpand={() => setActiveModal("bands")}
             />
           </div>
@@ -169,7 +189,7 @@ export function Home() {
             solarFlux={currentFlux}
             kIndex={currentKp}
             bz={currentBz}
-            loading={isLoading}
+            loading={coreLoading}
             onExpand={() => setActiveModal("propagation")}
             onExpandSummary={() => setActiveModal("summary")}
           />
@@ -180,7 +200,6 @@ export function Home() {
           kIndex={currentKp}
           solarFlux={currentFlux}
           sunspotNumber={currentSsn}
-          aIndex={currentKp !== null ? kpToAp(currentKp) : undefined}
           bz={currentBz}
           bzData={
             magnetometerData?.map((d) => ({
@@ -188,7 +207,7 @@ export function Home() {
               bz_gsm: d.bz_gsm,
             })) ?? []
           }
-          loading={isLoading}
+          loadingStates={metricLoadingStates}
           solarFluxData={
             fluxData?.map((d) => ({
               time_tag: d.time_tag,

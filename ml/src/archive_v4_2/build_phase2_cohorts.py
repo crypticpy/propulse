@@ -148,6 +148,62 @@ def sampling_key(seed: int) -> str:
     return "hash(target_hour, band, tx_grid4, rx_grid4, power_bin_dbm, " f"{seed})"
 
 
+def cohort_query(
+    selected: str,
+    *,
+    recency_reference: str | None,
+    half_life_months: float,
+) -> str:
+    if recency_reference is None:
+        return f"""
+          WITH selected AS ({selected})
+          SELECT *, opportunities::DOUBLE AS training_weight
+          FROM selected ORDER BY v4_2_sample_key
+        """
+    return f"""
+      WITH selected AS ({selected}), multipliers AS (
+        SELECT *, power(
+          0.5,
+          date_diff(
+            'day', target_hour, TIMESTAMPTZ {sql_string(recency_reference)}
+          ) / (30.436875 * {half_life_months})
+        ) AS recency_multiplier
+        FROM selected
+      ), normalization AS (
+        SELECT sum(opportunities)::DOUBLE
+          / sum(opportunities * recency_multiplier)::DOUBLE AS recency_scale
+        FROM multipliers
+      )
+      SELECT multipliers.* EXCLUDE (recency_multiplier),
+             opportunities::DOUBLE AS training_weight,
+             opportunities * recency_multiplier * recency_scale
+               AS recency_training_weight
+      FROM multipliers CROSS JOIN normalization
+      ORDER BY v4_2_sample_key
+    """
+
+
+def required_null_rows(
+    connection: duckdb.DuckDBPyConnection,
+    path: Path,
+    weight_column: str,
+) -> int:
+    if weight_column not in {"training_weight", "recency_training_weight"}:
+        raise ValueError(f"unsupported cohort weight column: {weight_column}")
+    return int(
+        connection.execute(
+            f"""
+            SELECT count(*) FILTER (
+              WHERE target_hour IS NULL OR success_rate IS NULL
+                 OR opportunities IS NULL OR v4_2_sample_key IS NULL
+                 OR {weight_column} IS NULL
+            )
+            FROM read_parquet({sql_string(path)})
+            """
+        ).fetchone()[0]
+    )
+
+
 def copy_cohort(
     connection: duckdb.DuckDBPyConnection,
     sources: list[Path],
@@ -161,9 +217,14 @@ def copy_cohort(
     half_life_months: float,
     force: bool,
 ) -> None:
+    weight_column = (
+        "recency_training_weight" if recency_reference else "training_weight"
+    )
     if output.exists() and not force:
         if row_count(output) != target:
             raise Phase2Error(f"existing cohort has the wrong row count: {output}")
+        if required_null_rows(connection, output, weight_column):
+            raise Phase2Error(f"existing cohort has null required fields: {output}")
         return
     if force:
         output.unlink(missing_ok=True)
@@ -177,33 +238,11 @@ def copy_cohort(
                power_bin_dbm
       LIMIT {target}
     """
-    if recency_reference is None:
-        query = f"""
-          WITH selected AS ({selected})
-          SELECT *, opportunities::DOUBLE AS training_weight
-          FROM selected ORDER BY v4_2_sample_key
-        """
-    else:
-        query = f"""
-          WITH selected AS ({selected}), multipliers AS (
-            SELECT *, power(
-              0.5,
-              date_diff(
-                'day', target_hour, TIMESTAMPTZ {sql_string(recency_reference)}
-              ) / (30.436875 * {half_life_months})
-            ) AS recency_multiplier
-            FROM selected
-          ), normalized AS (
-            SELECT *, sum(opportunities) OVER ()
-              / sum(opportunities * recency_multiplier) OVER () AS recency_scale
-            FROM multipliers
-          )
-          SELECT * EXCLUDE (recency_multiplier, recency_scale),
-                 opportunities::DOUBLE AS training_weight,
-                 opportunities * recency_multiplier * recency_scale
-                   AS recency_training_weight
-          FROM normalized ORDER BY v4_2_sample_key
-        """
+    query = cohort_query(
+        selected,
+        recency_reference=recency_reference,
+        half_life_months=half_life_months,
+    )
     connection.execute(
         f"""
         COPY ({query}) TO {sql_string(output)}
@@ -213,6 +252,11 @@ def copy_cohort(
     observed = row_count(output)
     if observed != target:
         raise Phase2Error(f"cohort returned {observed:,}; expected {target:,}")
+    null_rows = required_null_rows(connection, output, weight_column)
+    if null_rows:
+        raise Phase2Error(
+            f"cohort contains {null_rows:,} rows with null required fields: {output}"
+        )
 
 
 def copy_sample(

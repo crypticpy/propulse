@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
+import copy
 import gc
 import hashlib
 import json
+import multiprocessing
 import os
 import platform
 import sys
@@ -17,6 +20,7 @@ from typing import Any
 
 import joblib
 import numpy as np
+import pyarrow as pa
 import xgboost as xgb
 
 
@@ -125,6 +129,10 @@ def train_fold(
     repository_models: Path,
     previous: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    execution = config["compute"]["apple_silicon"]
+    training_threads = int(config["training"]["parameters"]["nthread"])
+    pa.set_cpu_count(training_threads)
+    pa.set_io_thread_count(int(execution["arrow_io_threads_per_fit"]))
     definition = config["candidates"][candidate]
     cohort_item = manifest["cohorts"][candidate][fold]
     early_item = manifest["early_stopping"][fold]
@@ -214,6 +222,14 @@ def train_fold(
         "features": features,
         "feature_count": len(features),
         "training_mode": "external_memory_quantile",
+        "execution": {
+            "machine": platform.machine(),
+            "xgboost_threads": training_threads,
+            "arrow_cpu_threads": pa.cpu_count(),
+            "arrow_io_threads": pa.io_thread_count(),
+            "xgboost_openmp": bool(xgb.build_info().get("USE_OPENMP")),
+            "xgboost_cuda": bool(xgb.build_info().get("USE_CUDA")),
+        },
         "train_rows": int(train_matrix.num_row()),
         "early_stopping_rows": int(early_matrix.num_row()),
         "best_iteration": best,
@@ -268,6 +284,75 @@ def train_fold(
     return output
 
 
+def train_fold_task(task: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+    """Spawn-safe wrapper used by the bounded multi-fit scheduler."""
+    candidate = str(task["candidate"])
+    fold = str(task["fold"])
+    print(f"worker train {candidate} {fold}", flush=True)
+    result = train_fold(
+        candidate,
+        fold,
+        task["config"],
+        task["manifest"],
+        int(task["scale"]),
+        task["features"],
+        Path(task["external_models"]),
+        Path(task["repository_models"]),
+        previous=task["previous"],
+    )
+    return candidate, fold, result
+
+
+def fold_needs_training(
+    info: dict[str, Any], config: dict[str, Any]
+) -> bool:
+    rounds = int(info["rounds_completed"])
+    best = int(info["best_iteration"])
+    ceiling = int(config["training"]["num_boost_round"])
+    patience = int(config["training"]["early_stopping_rounds"])
+    return rounds < ceiling and best >= rounds - patience
+
+
+def parallel_config(config: dict[str, Any], workers: int) -> dict[str, Any]:
+    updated = copy.deepcopy(config)
+    hardware = updated["compute"]["apple_silicon"]
+    expected = int(hardware["parallel_fit_workers"])
+    if workers != expected:
+        raise Phase2Error(
+            f"parallel run must use the preregistered {expected} workers, got {workers}"
+        )
+    updated["training"]["parameters"]["nthread"] = int(
+        hardware["threads_per_parallel_fit"]
+    )
+    return updated
+
+
+def validate_m5_runtime(config: dict[str, Any]) -> dict[str, Any]:
+    hardware = config["compute"]["apple_silicon"]
+    machine = platform.machine()
+    cores = int(os.cpu_count() or 0)
+    build = xgb.build_info()
+    if machine != str(hardware["required_machine"]):
+        raise Phase2Error(
+            f"M5 run requires {hardware['required_machine']}, detected {machine}"
+        )
+    if cores < int(hardware["physical_cores"]):
+        raise Phase2Error(
+            f"M5 run requires at least {hardware['physical_cores']} cores, "
+            f"detected {cores}"
+        )
+    if not bool(build.get("USE_OPENMP")):
+        raise Phase2Error("XGBoost must be built with OpenMP on the M5")
+    return {
+        "machine": machine,
+        "physical_cores_visible": cores,
+        "xgboost_openmp": True,
+        "xgboost_cuda": bool(build.get("USE_CUDA")),
+        "xgboost_version": xgb.__version__,
+        "python_version": platform.python_version(),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -275,10 +360,12 @@ def main() -> None:
     parser.add_argument("--scale", type=int, required=True)
     parser.add_argument("--candidate", choices=EXPECTED_CANDIDATES)
     parser.add_argument("--fold", choices=EXPECTED_FOLDS)
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
     del args.profile
     config = load_json(Path(args.config))
     validate_config(config)
+    runtime = validate_m5_runtime(config)
     scale = int(args.scale)
     if scale not in [int(value) for value in config["sampling"]["scales"]]:
         raise Phase2Error(f"scale is not preregistered: {scale}")
@@ -317,51 +404,87 @@ def main() -> None:
                 "platform": platform.platform(),
             },
         }
+    output["hardware_runtime"] = runtime
     output["training_contract"] = config["training"]
     requested_candidates = [args.candidate] if args.candidate else list(EXPECTED_CANDIDATES)
     requested_folds = [args.fold] if args.fold else list(EXPECTED_FOLDS)
+    tasks: list[dict[str, Any]] = []
     for candidate in requested_candidates:
         output["candidates"].setdefault(candidate, {})
         for fold in requested_folds:
+            previous = None
             if fold in output["candidates"][candidate]:
                 info = output["candidates"][candidate][fold]
                 verify_artifact(info["model"])
                 if fold == config["final_fold"]:
                     verify_artifact(info["calibrator"])
-                rounds = int(info["rounds_completed"])
-                best = int(info["best_iteration"])
-                ceiling = int(config["training"]["num_boost_round"])
-                patience = int(config["training"]["early_stopping_rounds"])
-                should_continue = rounds < ceiling and best >= rounds - patience
-                if not should_continue:
+                if not fold_needs_training(info, config):
                     print(f"reuse {candidate} {fold}", flush=True)
                     continue
-                print(f"continue {candidate} {fold} from {rounds}", flush=True)
-                output["candidates"][candidate][fold] = train_fold(
-                    candidate,
-                    fold,
-                    config,
-                    manifest,
-                    scale,
-                    features,
-                    external_models,
-                    repository_models,
-                    previous=info,
+                previous = info
+                print(
+                    f"queue continuation {candidate} {fold} "
+                    f"from {int(info['rounds_completed'])}",
+                    flush=True,
                 )
+            else:
+                print(f"queue {candidate} {fold}", flush=True)
+            tasks.append(
+                {
+                    "candidate": candidate,
+                    "fold": fold,
+                    "config": config,
+                    "manifest": manifest,
+                    "scale": scale,
+                    "features": features,
+                    "external_models": str(external_models),
+                    "repository_models": str(repository_models),
+                    "previous": previous,
+                }
+            )
+
+    workers = int(args.workers)
+    if workers < 1:
+        raise Phase2Error("workers must be positive")
+    if workers > 1 and len(tasks) > 1:
+        worker_config = parallel_config(config, workers)
+        for task in tasks:
+            task["config"] = worker_config
+        output["execution_scheduler"] = {
+            "workers": workers,
+            "threads_per_fit": int(
+                worker_config["training"]["parameters"]["nthread"]
+            ),
+            "total_requested_xgboost_threads": workers
+            * int(worker_config["training"]["parameters"]["nthread"]),
+            "method": "spawn_process_pool",
+        }
+        output["training_contract"] = worker_config["training"]
+        completed_peaks: list[float] = []
+        context = multiprocessing.get_context("spawn")
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=workers, mp_context=context
+        ) as executor:
+            futures = [executor.submit(train_fold_task, task) for task in tasks]
+            for future in concurrent.futures.as_completed(futures):
+                candidate, fold, result = future.result()
+                output["candidates"].setdefault(candidate, {})[fold] = result
+                completed_peaks.append(float(result["peak_rss_gb"]))
+                conservative_peak = sum(sorted(completed_peaks, reverse=True)[:workers])
+                output["execution_scheduler"][
+                    "conservative_peak_rss_upper_bound_gb"
+                ] = conservative_peak
                 output["generated_at"] = utc_now()
                 atomic_write(result_path, output)
-                continue
-            print(f"train {candidate} {fold}", flush=True)
-            output["candidates"][candidate][fold] = train_fold(
-                candidate,
-                fold,
-                config,
-                manifest,
-                scale,
-                features,
-                external_models,
-                repository_models,
-            )
+                if conservative_peak > float(config["compute"]["maximum_rss_gb"]):
+                    raise Phase2Error(
+                        "parallel fit RSS upper bound exceeded the configured ceiling"
+                    )
+                print(f"checkpoint {candidate} {fold}", flush=True)
+    else:
+        for task in tasks:
+            candidate, fold, result = train_fold_task(task)
+            output["candidates"].setdefault(candidate, {})[fold] = result
             output["generated_at"] = utc_now()
             atomic_write(result_path, output)
     print(result_path)

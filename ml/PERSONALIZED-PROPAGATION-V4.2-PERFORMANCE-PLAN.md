@@ -10,6 +10,11 @@
 > Compute: Apple M5 Max with 128 GB unified memory. Large artifacts remain on
 > `/Volumes/Projects/PropulseML`; the M3 is limited to source and Git transport.
 
+> Phase 2 status, 2026-07-15: all seven deterministic 20M cohort artifacts are
+> complete and checksum-manifested. A2 has completed all three rolling folds;
+> A4 training is in progress; A5, October/November scoring, and the 50M
+> selection remain pending. December 2024 and all 2025 outcomes remain closed.
+
 ## Executive decision
 
 V4.2 is not another calibration-only repair. Its purpose is to build the best
@@ -400,6 +405,34 @@ After the open core passes archive validation:
 - commit only source, small manifests, aggregate evidence, and reports; and
 - record whether a rented GPU would reduce time enough to justify reproducibility
   and environment complexity.
+
+### Apple Silicon execution amendment
+
+An execution-only amendment was registered before any Phase 2 October/November
+scoring. The M5 audit found 18 native arm64 CPU cores (12 performance and six
+efficiency), 128 GB unified memory, a native arm64 Python/XGBoost environment,
+and XGBoost 3.3 linked to LLVM `libomp`. The installed build has no CUDA support,
+and upstream XGBoost does not provide a Metal/MPS tree-training backend. The M5
+GPU and Neural Engine therefore cannot accelerate this XGBoost experiment
+without changing model engines; CPU `hist` with OpenMP is the reproducible
+Apple Silicon path.
+
+The first 20M run remains on its original single-fit, 14-thread contract so an
+active experiment is not changed mid-run. Subsequent multi-fit launches use a
+bounded spawn-process scheduler: two independent folds at a time, nine
+XGBoost/PyArrow CPU threads per fold, four Arrow I/O threads per fold, unique
+external-memory caches, parent-only atomic checkpoints, and a conservative
+sum-of-worker-peaks RSS guard below 96 GB. This uses all 18 cores across the
+independent work while preserving the same data, features, weights, boosting
+parameters, temporal roles, and model-selection rules. DuckDB cohort builds use
+18 threads. Each fold records its actual thread counts and XGBoost OpenMP/CUDA
+build flags.
+
+The two-worker path must pass unit tests and a bounded M5 execution check before
+the selected 50M folds launch. A rented NVIDIA GPU remains an option only after
+the 20M evidence identifies the advancing candidates and a fixed CPU-versus-GPU
+reproducibility benchmark shows material wall-time value. It is not needed to
+change model quality by itself.
 
 ## Execution checklist
 

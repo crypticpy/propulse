@@ -115,6 +115,18 @@
     "external_root": "/Volumes/Projects/PropulseML",
     "data_root": "/Volumes/Projects/PropulseML/data/processed/archive_v4_2",
     "temp_root": "/Volumes/Projects/PropulseML/tmp/propagation_v4_2_phase2_scale",
-    "maximum_rss_gb": 96
+    "maximum_rss_gb": 96,
+    "apple_silicon": {
+      "required_machine": "arm64",
+      "physical_cores": 18,
+      "performance_cores": 12,
+      "efficiency_cores": 6,
+      "duckdb_threads": 18,
+      "parallel_fit_workers": 2,
+      "threads_per_parallel_fit": 9,
+      "arrow_io_threads_per_fit": 4,
+      "backend": "native_arm64_xgboost_openmp_cpu",
+      "gpu_backend": "unavailable_xgboost_build_has_no_cuda_and_no_metal_backend"
+    }
   }
 }

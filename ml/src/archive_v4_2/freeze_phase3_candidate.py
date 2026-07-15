@@ -106,6 +106,7 @@ def main() -> None:
         phase2_report_path,
         phase2_html_path,
         serving_path,
+        RESULT / "prediction_thread_benchmark.json",
     )
     missing = [path for path in required_files if not path.is_file()]
     if missing:
@@ -157,7 +158,14 @@ def main() -> None:
         "serving_candidate": serving_path,
         "phase3_validation": phase3_path,
         "gate_scorer": MODULE / "score_locked_gate.py",
+        "phase2_scoring_helpers": MODULE / "score_phase2_scale.py",
         "gate_scoring_core": MODULE / "gate_scoring.py",
+        "outcome_protocol": MODULE / "outcome_protocol.py",
+        "m5_runtime": MODULE / "m5_runtime.py",
+        "training_runtime": MODULE / "train_phase2_scale.py",
+        "b2_adapter": ROOT / "ml/src/archive_v4_1/b2_adapter.py",
+        "v4_1_calibration": ROOT / "ml/src/archive_v4_1/calibration.py",
+        "prediction_thread_benchmark": RESULT / "prediction_thread_benchmark.json",
         "gate_report_generator": MODULE / "generate_gate_report.py",
         "gate_report_dry_run_validation": synthetic_path,
         "candidate_environment": environment_path,

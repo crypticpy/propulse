@@ -60,6 +60,11 @@ PHASE2_20M_EVALUATION = (
     / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
     / "evaluation_20m_results.json"
 )
+PREDICTION_THREAD_BENCHMARK = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "prediction_thread_benchmark.json"
+)
 STAT_SIZE = 7
 CALIBRATION_BINS = 20
 DISTANCE_BINS = (
@@ -170,6 +175,26 @@ def cached_feature_matrix(
     if key not in cache:
         cache[key] = feature_matrix(columns, features)
     return cache[key]
+
+
+def selected_prediction_threads(
+    config: dict[str, Any], benchmark: dict[str, Any]
+) -> int:
+    if benchmark.get("december_2024_read") or benchmark.get("locked_2025_read"):
+        raise Phase2Error("prediction thread benchmark reports locked outcome access")
+    if not benchmark.get("all_predictions_bit_identical"):
+        raise Phase2Error("prediction thread benchmark did not preserve exact output")
+    selected = int(benchmark["selected_threads"])
+    hardware = config["compute"]["apple_silicon"]
+    if "single_process_prediction_threads" not in hardware:
+        raise Phase2Error(
+            "run the prediction benchmark and freeze its selected thread count"
+        )
+    configured = int(hardware["single_process_prediction_threads"])
+    tested = {int(row["threads"]) for row in benchmark["results"]}
+    if selected != configured or selected not in tested:
+        raise Phase2Error("prediction thread decision does not match frozen config")
+    return selected
 
 
 def indices(labels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -556,8 +581,8 @@ def main() -> None:
     v3_result = load_json(V3_RESULTS)
     b2_info = v3_result["profiles"]["nowcast"]
     b2 = load_profile("nowcast", b2_info, ROOT)
-    prediction_threads = int(
-        config["compute"]["apple_silicon"]["physical_cores"]
+    prediction_threads = selected_prediction_threads(
+        config, load_json(PREDICTION_THREAD_BENCHMARK)
     )
     b2.model.set_param({"nthread": prediction_threads})
     phase0_inputs = load_json(PHASE0_CONFIG)["diagnosis"]["inputs"]

@@ -26,6 +26,7 @@ PHASE1 = ROOT / "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m"
 BACKEND_DECISION = RESULT / "backend_benchmark_decision.json"
 BACKEND_EXTERNAL = RESULT / "backend_benchmark_external_memory_quantile.json"
 BACKEND_QUANTILE = RESULT / "backend_benchmark_streamed_in_memory_quantile.json"
+PREDICTION_BENCHMARK = RESULT / "prediction_thread_benchmark.json"
 
 
 LABELS = {
@@ -474,6 +475,8 @@ def main() -> None:
     backend_external = read_json(BACKEND_EXTERNAL)
     backend_quantile = read_json(BACKEND_QUANTILE)
     backend_decision = read_json(BACKEND_DECISION)
+    prediction_benchmark = read_json(PREDICTION_BENCHMARK)
+    ensure_open_scope(prediction_benchmark, "prediction thread benchmark")
     backend_rows = []
     for value, label in (
         (backend_external, "External-memory Quantile"),
@@ -499,6 +502,21 @@ def main() -> None:
             (backend_quantile, "Streamed in-memory Quantile"),
         )
     ]
+    single_thread_seconds = next(
+        float(row["median_seconds"])
+        for row in prediction_benchmark["results"]
+        if int(row["threads"]) == 1
+    )
+    prediction_thread_rows = [
+        {
+            "threads": int(row["threads"]),
+            "median_seconds": float(row["median_seconds"]),
+            "speedup_vs_one_thread": single_thread_seconds
+            / float(row["median_seconds"]),
+            "bit_identical": float(row["maximum_absolute_delta"]) == 0,
+        }
+        for row in prediction_benchmark["results"]
+    ]
     cohorts = cohort_rows(
         ROOT / "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json"
     )
@@ -519,6 +537,7 @@ def main() -> None:
             ),
             "evaluation_peak_rss_gb": float(latest["compute"]["peak_rss_gb"]),
             "backend_speedup": float(backend_decision["speedup"]),
+            "prediction_threads": int(prediction_benchmark["selected_threads"]),
         }
     ]
 
@@ -566,6 +585,11 @@ def main() -> None:
         source("backend", "M5 backend benchmark decision", BACKEND_DECISION),
         source("backend_external", "External-memory backend benchmark", BACKEND_EXTERNAL),
         source("backend_quantile", "In-memory Quantile benchmark", BACKEND_QUANTILE),
+        source(
+            "prediction_threads",
+            "M5 XGBoost prediction-thread benchmark",
+            PREDICTION_BENCHMARK,
+        ),
     ]
     if evaluation_50 is not None:
         sources.extend(
@@ -582,6 +606,7 @@ def main() -> None:
         card("focus", "Focus model Brier", "focus_brier", "Lower opportunity-weighted error is better.", latest_source),
         card("delta", "Focus minus B2", "focus_delta_vs_b2", "Negative values improve on B2.", latest_source),
         card("speed", "Backend speedup", "backend_speedup", "Measured total-time ratio at exact log-loss parity.", "backend_combined"),
+        card("prediction_threads", "Prediction threads", "prediction_threads", "Fastest bit-identical M5 inference setting.", "prediction_threads"),
     ]
     charts = [
         chart(
@@ -683,6 +708,18 @@ def main() -> None:
                 "color": {"field": "backend", "type": "nominal", "label": "Backend"},
             },
             "backend_combined",
+        ),
+        chart(
+            "prediction_thread_time",
+            "M5 XGBoost prediction thread sweep",
+            "Median time on the same 100,000-row early-stopping feature matrix; every prediction digest must match.",
+            "line",
+            "prediction_thread_rows",
+            {
+                "x": {"field": "threads", "type": "quantitative", "label": "Prediction threads"},
+                "y": {"field": "median_seconds", "type": "quantitative", "label": "Median seconds"},
+            },
+            "prediction_threads",
         ),
         chart(
             "feature_gain",
@@ -825,10 +862,13 @@ def main() -> None:
                 "threads and four Arrow I/O threads per fit. XGBoost has no Metal backend, so the correct acceleration "
                 "path is multicore CPU plus bounded unified memory. The 50M QuantileDMatrix backend was adopted only "
                 f"after a {backend_decision['speedup']:.3f}x total-time benchmark at exact validation parity and a "
-                f"conservative {backend_decision['projected_parallel_peak_rss_gb']:.2f} GiB two-worker projection."
+                f"conservative {backend_decision['projected_parallel_peak_rss_gb']:.2f} GiB two-worker projection. "
+                f"Single-process scoring uses the measured fastest bit-identical setting of "
+                f"{int(prediction_benchmark['selected_threads'])} XGBoost threads."
             ),
         },
         {"id": "backend", "type": "chart", "chartId": "backend_time", "layout": "full"},
+        {"id": "prediction_threads", "type": "chart", "chartId": "prediction_thread_time", "layout": "full"},
         {"id": "backend_table_block", "type": "table", "tableId": "backend_table", "layout": "full"},
         {"id": "iterations_block", "type": "chart", "chartId": "iterations", "layout": "full"},
         {"id": "training_table_block", "type": "table", "tableId": "training_table", "layout": "full"},
@@ -916,6 +956,7 @@ def main() -> None:
                 "training_rows": all_training_rows,
                 "backend_rows": backend_rows,
                 "backend_table_rows": backend_table_rows,
+                "prediction_thread_rows": prediction_thread_rows,
                 "feature_rows": feature_rows,
                 "cohort_rows": cohorts,
             },
@@ -960,6 +1001,8 @@ projection is `{backend_decision['projected_parallel_peak_rss_gb']:.2f}` GiB.
 The scheduler uses two spawn-isolated fits, nine XGBoost OpenMP threads per fit,
 four Arrow I/O threads per fit, and 18 DuckDB threads for cohort construction.
 XGBoost's macOS build is native arm64 and has no CUDA/Metal training backend.
+Single-process scoring uses the measured fastest bit-identical setting of
+`{int(prediction_benchmark['selected_threads'])}` XGBoost prediction threads.
 
 ## Interpretation limits
 
@@ -971,6 +1014,8 @@ propagation mechanisms.
 ## Reproduce the visual report
 
 ```bash
+ml/.venv/bin/python ml/src/archive_v4_2/benchmark_prediction_threads.py \\
+  --profile m5
 ml/.venv/bin/python ml/src/archive_v4_2/generate_phase2_report.py --profile m5
 node ml/src/archive_v4/package_report.mjs --input \\
   ml/results/propagation_v4_2/{RUN_ID}/REPORT.artifact.json --output \\

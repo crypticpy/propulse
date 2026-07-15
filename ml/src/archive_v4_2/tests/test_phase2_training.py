@@ -39,6 +39,7 @@ class Phase2TrainingTests(unittest.TestCase):
         self.assertEqual(workers * per_fit, 18)
         self.assertEqual(self.config["training"]["parameters"]["nthread"], 14)
 
+    @patch("m5_runtime._thermal_snapshot", return_value=("no limits", {}))
     @patch("m5_runtime._power_snapshot", return_value=("AC Power", {"AC Power": 2}))
     @patch("m5_runtime._sysctl_int")
     @patch("m5_runtime.os.cpu_count", return_value=18)
@@ -49,6 +50,7 @@ class Phase2TrainingTests(unittest.TestCase):
         _cpu_count,
         sysctl,
         _power,
+        _thermal,
     ) -> None:
         values = {
             "hw.physicalcpu": 18,
@@ -62,6 +64,7 @@ class Phase2TrainingTests(unittest.TestCase):
         self.assertEqual(runtime["power_source"], "AC Power")
         self.assertEqual(runtime["power_modes"]["AC Power"], 2)
 
+    @patch("m5_runtime._thermal_snapshot", return_value=("no limits", {}))
     @patch("m5_runtime._power_snapshot", return_value=("AC Power", {"AC Power": 2}))
     @patch("m5_runtime._sysctl_int")
     @patch("m5_runtime.os.cpu_count", return_value=18)
@@ -72,6 +75,7 @@ class Phase2TrainingTests(unittest.TestCase):
         _cpu_count,
         sysctl,
         _power,
+        _thermal,
     ) -> None:
         values = {
             "hw.physicalcpu": 18,
@@ -81,6 +85,29 @@ class Phase2TrainingTests(unittest.TestCase):
         }
         sysctl.side_effect = values.__getitem__
         with self.assertRaises(M5RuntimeError):
+            validate_m5_runtime(self.config)
+
+    @patch("m5_runtime._thermal_snapshot", return_value=("no limits", {}))
+    @patch("m5_runtime._power_snapshot", return_value=("Battery Power", {"AC Power": 2}))
+    @patch("m5_runtime._sysctl_int")
+    @patch("m5_runtime.os.cpu_count", return_value=18)
+    @patch("m5_runtime.platform.machine", return_value="arm64")
+    def test_m5_runtime_rejects_battery_execution(
+        self,
+        _machine,
+        _cpu_count,
+        sysctl,
+        _power,
+        _thermal,
+    ) -> None:
+        values = {
+            "hw.physicalcpu": 18,
+            "hw.perflevel0.physicalcpu": 6,
+            "hw.perflevel1.physicalcpu": 12,
+            "hw.memsize": 128 * 1024**3,
+        }
+        sysctl.side_effect = values.__getitem__
+        with self.assertRaisesRegex(M5RuntimeError, "power source"):
             validate_m5_runtime(self.config)
 
     def test_unregistered_worker_count_is_rejected(self) -> None:

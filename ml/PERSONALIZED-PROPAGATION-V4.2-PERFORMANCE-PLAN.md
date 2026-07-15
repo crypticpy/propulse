@@ -510,8 +510,9 @@ training run, open-month score, locked-gate score, and Phase 3 validation now
 refuses to run unless macOS reports native arm64, all 18 physical cores, the
 expected 12-core/6-core cluster topology, and at least the configured 96 GiB
 RSS ceiling in unified memory. Model workflows additionally require XGBoost
-with OpenMP. When connected to AC, the host must report High Power mode
-(`powermode 2`). Single-process Arrow scans use
+with OpenMP. The host must be on AC power in High Power mode (`powermode 2`),
+and any explicit macOS CPU-speed, scheduler, or availability limit below 100%
+aborts the run. Single-process Arrow scans use
 all 18 CPU threads with six I/O threads; each two-fit training worker receives
 nine CPU threads and four I/O threads. Runtime evidence records the topology,
 power source/mode, memory, Arrow pools, XGBoost version, OpenMP, and CUDA flags.
@@ -527,6 +528,9 @@ rows from the allowed final early-stopping sample, requires bit-identical
 predictions, and pins the fastest count before scoring. The locked-gate scorer
 uses the same selected path. These are execution-only changes: stream order,
 predictions, metric arithmetic, calibration, and selection gates are unchanged.
+The selected benchmark artifact, scorer helpers, runtime checks, outcome
+protocol, B2 adapter, and calibration dependency are all required frozen
+artifacts before the one-shot December scope can open.
 DuckDB timezone is also pinned to UTC in every remaining V4.2 connection and
 the locked-month audit converts timestamps to UTC inside its SQL. A synthetic
 boundary-row test exposed this requirement before December access: an unpinned

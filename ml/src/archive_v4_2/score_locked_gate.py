@@ -45,6 +45,7 @@ from outcome_protocol import (  # noqa: E402
 )
 from score_phase2_scale import (  # noqa: E402
     CALIBRATION_BINS,
+    PREDICTION_THREAD_BENCHMARK,
     STAT_SIZE,
     add_group,
     calibration_result,
@@ -54,6 +55,7 @@ from score_phase2_scale import (  # noqa: E402
     feature_matrix,
     indices,
     numeric,
+    selected_prediction_threads,
     stats_result,
     text_labels,
     update_calibration,
@@ -208,8 +210,8 @@ def score(
     config: dict[str, Any],
     bundle_path: Path,
 ) -> tuple[dict[str, Any], int]:
-    prediction_threads = int(
-        config["compute"]["apple_silicon"]["physical_cores"]
+    prediction_threads = selected_prediction_threads(
+        config, load_json(PREDICTION_THREAD_BENCHMARK)
     )
     candidate = BundlePredictor(bundle_path, prediction_threads)
     v3_results = load_json(V3_RESULTS)
@@ -420,7 +422,9 @@ def main() -> None:
             **runtime,
             **arrow,
             "xgboost_prediction_threads": int(
-                config["compute"]["apple_silicon"]["physical_cores"]
+                config["compute"]["apple_silicon"][
+                    "single_process_prediction_threads"
+                ]
             ),
             "wall_seconds": time.monotonic() - started,
             "peak_rss_gb": peak_rss_gb(),

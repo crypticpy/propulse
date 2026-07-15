@@ -182,6 +182,7 @@
       "threads_per_parallel_fit": 9,
       "arrow_io_threads_per_fit": 4,
       "arrow_io_threads_single_process": 6,
+      "required_power_source": "AC Power",
       "required_ac_power_mode": 2,
       "backend": "native_arm64_xgboost_openmp_cpu",
       "gpu_backend": "unavailable_xgboost_build_has_no_cuda_and_no_metal_backend",

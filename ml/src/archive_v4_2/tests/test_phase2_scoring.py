@@ -24,6 +24,7 @@ from score_phase2_scale import (  # noqa: E402
     evaluation_reference_months,
     evaluation_reference_overall,
     paired_bootstrap,
+    selected_prediction_threads,
     text_labels,
     update_calibration,
 )
@@ -31,6 +32,24 @@ from benchmark_prediction_threads import select_fastest_exact  # noqa: E402
 
 
 class Phase2ScoringTests(unittest.TestCase):
+    def test_prediction_thread_decision_must_match_frozen_config(self) -> None:
+        config = {
+            "compute": {
+                "apple_silicon": {"single_process_prediction_threads": 12}
+            }
+        }
+        benchmark = {
+            "december_2024_read": False,
+            "locked_2025_read": False,
+            "all_predictions_bit_identical": True,
+            "selected_threads": 12,
+            "results": [{"threads": 12}],
+        }
+        self.assertEqual(selected_prediction_threads(config, benchmark), 12)
+        benchmark["selected_threads"] = 18
+        with self.assertRaisesRegex(Exception, "frozen config"):
+            selected_prediction_threads(config, benchmark)
+
     def test_prediction_thread_selection_requires_exact_fastest_result(self) -> None:
         results = [
             {

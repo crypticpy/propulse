@@ -51,6 +51,16 @@ def _power_snapshot() -> tuple[str, dict[str, int]]:
     return source, modes
 
 
+def _thermal_snapshot() -> tuple[str, dict[str, int]]:
+    status = _command("/usr/bin/pmset", "-g", "therm")
+    limits: dict[str, int] = {}
+    for name in ("CPU_Speed_Limit", "Scheduler_Limit", "CPU_Available"):
+        match = re.search(rf"{name}\s*=\s*(\d+)", status)
+        if match:
+            limits[name] = int(match.group(1))
+    return status, limits
+
+
 def validate_m5_runtime(
     config: Mapping[str, Any],
     *,
@@ -94,12 +104,21 @@ def validate_m5_runtime(
             f"host memory {memory_gb:.1f} GiB is below the configured RSS ceiling"
         )
     power_source, power_modes = _power_snapshot()
-    required_power_mode = int(hardware.get("required_ac_power_mode", 2))
-    if power_source == "AC Power" and power_modes.get("AC Power") != required_power_mode:
+    required_power_source = str(hardware.get("required_power_source", "AC Power"))
+    if power_source != required_power_source:
         raise M5RuntimeError(
-            f"AC power mode must be {required_power_mode}; got "
-            f"{power_modes.get('AC Power')}"
+            f"power source must be {required_power_source}; got {power_source}"
         )
+    required_power_mode = int(hardware.get("required_ac_power_mode", 2))
+    if power_modes.get(required_power_source) != required_power_mode:
+        raise M5RuntimeError(
+            f"{required_power_source} power mode must be {required_power_mode}; got "
+            f"{power_modes.get(required_power_source)}"
+        )
+    thermal_status, thermal_limits = _thermal_snapshot()
+    limited = {name: value for name, value in thermal_limits.items() if value < 100}
+    if limited:
+        raise M5RuntimeError(f"macOS reports constrained CPU execution: {limited}")
     output: dict[str, Any] = {
         "machine": machine,
         "physical_cores_visible": physical_cores,
@@ -109,8 +128,11 @@ def validate_m5_runtime(
         "configured_efficiency_cores": int(hardware["efficiency_cores"]),
         "unified_memory_gb": memory_gb,
         "power_source": power_source,
+        "required_power_source": required_power_source,
         "power_modes": power_modes,
         "required_ac_power_mode": required_power_mode,
+        "thermal_status": thermal_status,
+        "thermal_limits": thermal_limits,
         "python_version": platform.python_version(),
     }
     if xgboost_module is not None:

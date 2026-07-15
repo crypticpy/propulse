@@ -341,6 +341,8 @@ request so a small container never inherits the M5's nine-thread training
 worker setting. A deployment may override it only through
 `PROPULSE_XGBOOST_THREADS`; health and model metadata expose the effective
 value, and Phase 3 latency is measured using the manifest default.
+Missing path-history freshness selects the physics fallback, and negative ages
+are rejected; unknown freshness never selects the NowCast profile.
 
 ### Real-time NowCast inputs
 

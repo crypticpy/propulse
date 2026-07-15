@@ -88,6 +88,13 @@ class PathRequest(StrictModel):
             raise ValueError("valid_time must be on or after issue_time")
         return value
 
+    @field_validator("data_freshness_seconds")
+    @classmethod
+    def freshness_is_nonnegative(cls, value: dict[str, int]) -> dict[str, int]:
+        if any(age < 0 for age in value.values()):
+            raise ValueError("data freshness ages must be non-negative")
+        return value
+
 
 class SurfaceRequest(StrictModel):
     origin_grid4: str = Field(pattern="^[A-R]{2}[0-9]{2}$")
@@ -99,6 +106,13 @@ class SurfaceRequest(StrictModel):
     cells: list[PathFeatures] = Field(min_length=1, max_length=4096)
     station: StationEnvelope | None = None
     data_freshness_seconds: dict[str, int] = Field(default_factory=dict)
+
+    @field_validator("data_freshness_seconds")
+    @classmethod
+    def freshness_is_nonnegative(cls, value: dict[str, int]) -> dict[str, int]:
+        if any(age < 0 for age in value.values()):
+            raise ValueError("data freshness ages must be non-negative")
+        return value
 
 
 class RuntimePrediction(StrictModel):
@@ -370,7 +384,8 @@ def path_history_is_stale(
             DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS,
         )
     )
-    return data_freshness_seconds.get("path_history", 0) > threshold
+    age = data_freshness_seconds.get("path_history")
+    return age is None or age > threshold
 
 
 def prediction_response(request: PathRequest, runtime: RuntimePrediction) -> dict[str, Any]:

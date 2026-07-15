@@ -161,6 +161,7 @@ The freeze requires:
 - manifest-default one-thread serving validation with no ambient override;
 - offline/service parity within `1e-12`;
 - fresh NowCast and stale physics-fallback boundary checks at 7,200 seconds;
+- missing freshness selects physics fallback and negative ages are rejected;
 - explicit missingness and reduced fallback confidence;
 - end-to-end API p95 below 50 ms for a path and 3,000 ms for 4,096 cells;
 - peak validation RSS at or below 32 GiB and bundle at or below 256 MiB;

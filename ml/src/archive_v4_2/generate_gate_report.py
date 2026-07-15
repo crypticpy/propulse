@@ -174,6 +174,7 @@ def synthetic_result(config: dict[str, Any]) -> dict[str, Any]:
         "bounded_probabilities",
         "fresh_selects_nowcast",
         "stale_selects_physics_with_provenance",
+        "missing_freshness_selects_fallback",
         "stale_reduces_confidence",
         "missing_feature_is_explicit",
         "frontend_response_contract",

@@ -150,6 +150,17 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["profile"], "physics")
 
+    def test_missing_or_invalid_freshness_never_selects_nowcast(self):
+        payload = request_payload()
+        payload.pop("data_freshness_seconds")
+        response = self.client.post("/v1/propagation/path", json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["profile"], "physics")
+
+        payload["data_freshness_seconds"] = {"path_history": -1}
+        response = self.client.post("/v1/propagation/path", json=payload)
+        self.assertEqual(response.status_code, 422)
+
     def test_surface_scores_multiple_cells(self):
         payload = request_payload()
         payload["cells"] = [

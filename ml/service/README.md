@@ -19,7 +19,8 @@ count and whether it came from the manifest or environment.
 
 Endpoints are `/v1/propagation/path`, `/surface`, `/models`, and `/health`.
 When recent path history is older than two hours, inference selects the physics
-profile and returns an explicit stale-data OOD flag. If no approved model is
+profile and returns an explicit stale-data OOD flag. Missing freshness is stale,
+and negative ages are rejected. If no approved model is
 loaded, prediction endpoints return `503`; the service never fabricates spots
 or probabilities.
 

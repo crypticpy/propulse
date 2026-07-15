@@ -302,6 +302,20 @@ def main() -> None:
         "data_freshness_seconds": {"path_history": stale_after + 1},
     }
     stale_response = client.post("/v1/propagation/path", json=stale_payload)
+    unknown_freshness_payload = {
+        key: value
+        for key, value in path_payload.items()
+        if key != "data_freshness_seconds"
+    }
+    unknown_freshness_response = client.post(
+        "/v1/propagation/path", json=unknown_freshness_payload
+    )
+    unknown_freshness_fallback = (
+        unknown_freshness_response.status_code == 200
+        and unknown_freshness_response.json()["profile"] == "physics"
+        and "recent_network_stale_physics_fallback"
+        in unknown_freshness_response.json()["ood_flags"]
+    )
     contract_ok = (
         contract_response.status_code == 200
         and RESPONSE_FIELDS <= set(contract_response.json())
@@ -355,6 +369,7 @@ def main() -> None:
         "bounded_probabilities": bounded,
         "fresh_selects_nowcast": all(item.profile == "nowcast" for item in served),
         "stale_selects_physics_with_provenance": fallback,
+        "missing_freshness_selects_fallback": unknown_freshness_fallback,
         "stale_reduces_confidence": reduced_confidence,
         "missing_feature_is_explicit": missing_flag,
         "frontend_response_contract": contract_ok and surface_contract_ok,

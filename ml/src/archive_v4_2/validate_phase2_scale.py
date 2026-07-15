@@ -27,6 +27,7 @@ from phase2_core import (  # noqa: E402
     scale_workset,
     validate_config,
 )
+from m5_runtime import validate_m5_runtime  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -34,6 +35,11 @@ PHASE2_20M_EVALUATION = (
     ROOT
     / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
     / "evaluation_20m_results.json"
+)
+PREDICTION_THREAD_BENCHMARK = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "prediction_thread_benchmark.json"
 )
 
 
@@ -84,6 +90,7 @@ def main() -> None:
     del args.profile
     config = load_json(Path(args.config))
     validate_config(config)
+    runtime = validate_m5_runtime(config)
     scale = int(args.scale)
     result_dir = ROOT / "ml/results/propagation_v4_2" / config["run_id"]
     manifest_path = (
@@ -188,6 +195,32 @@ def main() -> None:
         list(evaluation["evaluation_months"]) == list(config["evaluation_months"]),
         evaluation["evaluation_months"],
     )
+    prediction_benchmark = load_json(PREDICTION_THREAD_BENCHMARK)
+    hardware = config["compute"]["apple_silicon"]
+    configured_prediction_threads = int(
+        hardware["single_process_prediction_threads"]
+    )
+    add(
+        "prediction thread benchmark",
+        not prediction_benchmark.get("december_2024_read")
+        and not prediction_benchmark.get("locked_2025_read")
+        and bool(prediction_benchmark.get("all_predictions_bit_identical"))
+        and int(prediction_benchmark["selected_threads"])
+        == configured_prediction_threads
+        and str(hardware["prediction_thread_benchmark_sha256"])
+        == sha256(PREDICTION_THREAD_BENCHMARK)
+        and int(evaluation["compute"]["xgboost_prediction_threads"])
+        == configured_prediction_threads,
+        {
+            "selected_threads": prediction_benchmark["selected_threads"],
+            "scoring_threads": evaluation["compute"][
+                "xgboost_prediction_threads"
+            ],
+            "all_predictions_bit_identical": prediction_benchmark.get(
+                "all_predictions_bit_identical"
+            ),
+        },
+    )
     has_a6 = {
         str(config["conditional_policy"]["left"]),
         str(config["conditional_policy"]["right"]),
@@ -290,6 +323,7 @@ def main() -> None:
         "run_id": config["run_id"],
         "scale": scale,
         "passed": passed,
+        "runtime": runtime,
         "checks": checks,
     }
     output_path = result_dir / f"validation_{scale // 1_000_000}m.json"

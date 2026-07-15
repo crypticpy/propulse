@@ -531,7 +531,14 @@ continuity. The decision used no October, November, December, or 2025 outcome.
 
 - [ ] Freeze candidate, scorer, thresholds, service bundle, and environment.
 - [ ] Pass parity, fallback, privacy, latency, and memory checks.
-- [ ] Produce synthetic dry-run report and browser QA.
+- [x] Produce synthetic dry-run report and browser QA.
+
+The synthetic gate report dry run passed the canonical portable builder and
+browser verifier on the M5 at 1,440 px and 390 px. It rendered 22 ordered
+evidence blocks, five charts, six metrics, and the exact gate table; source
+dialog keyboard interaction, responsive overflow checks, and the no-network
+contract passed. The fixture is labeled synthetic, and its protocol record
+confirms that December 2024 and all 2025 outcomes remained closed.
 
 ### Phase 4: December gate
 

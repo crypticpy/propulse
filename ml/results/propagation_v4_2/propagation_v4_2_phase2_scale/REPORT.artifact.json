@@ -1,0 +1,1988 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propagation V4.2 Phase 2: Scale, Transfer, and Efficiency",
+    "description": "Auditable 5M-to-50M learning curves, temporal transfer, calibration, and native M5 efficiency.",
+    "generatedAt": "2026-07-15T23:11:31.839439+00:00",
+    "cards": [
+      {
+        "id": "scale",
+        "description": "Largest completed training cohort.",
+        "dataset": "summary",
+        "sourceId": "evaluation50",
+        "metrics": [
+          {
+            "label": "Latest scale (M rows)",
+            "field": "latest_scale_million",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "rows",
+        "description": "Identical October and November rows.",
+        "dataset": "summary",
+        "sourceId": "evaluation50",
+        "metrics": [
+          {
+            "label": "Evaluation rows",
+            "field": "evaluation_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "b2",
+        "description": "Current operational statistical benchmark.",
+        "dataset": "summary",
+        "sourceId": "evaluation50",
+        "metrics": [
+          {
+            "label": "Frozen B2 Brier",
+            "field": "b2_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "focus",
+        "description": "Lower opportunity-weighted error is better.",
+        "dataset": "summary",
+        "sourceId": "evaluation50",
+        "metrics": [
+          {
+            "label": "Focus model Brier",
+            "field": "focus_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "delta",
+        "description": "Negative values improve on B2.",
+        "dataset": "summary",
+        "sourceId": "evaluation50",
+        "metrics": [
+          {
+            "label": "Focus minus B2",
+            "field": "focus_delta_vs_b2",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "speed",
+        "description": "Measured total-time ratio at exact log-loss parity.",
+        "dataset": "summary",
+        "sourceId": "backend_combined",
+        "metrics": [
+          {
+            "label": "Backend speedup",
+            "field": "backend_speedup",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "prediction_threads",
+        "description": "Fastest bit-identical M5 inference setting.",
+        "dataset": "summary",
+        "sourceId": "prediction_threads",
+        "metrics": [
+          {
+            "label": "Prediction threads",
+            "field": "prediction_threads",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "learning_curve",
+        "title": "Held-out Brier across training scales",
+        "subtitle": "Same full October/November population; lower is better. B2 is frozen and does not train at these scales.",
+        "type": "line",
+        "dataset": "learning_rows",
+        "sourceId": "evaluation_combined",
+        "encodings": {
+          "x": {
+            "field": "scale_million",
+            "type": "quantitative",
+            "label": "Training rows (millions)"
+          },
+          "y": {
+            "field": "brier",
+            "type": "quantitative",
+            "label": "Weighted Brier"
+          },
+          "color": {
+            "field": "candidate",
+            "type": "nominal",
+            "label": "Candidate"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "candidate_delta",
+        "title": "Candidate error at 50M",
+        "subtitle": "Candidate minus frozen B2 Brier; negative values improve probability accuracy.",
+        "type": "bar",
+        "dataset": "latest_candidate_rows",
+        "sourceId": "evaluation50",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "month_delta",
+        "title": "A6 A4/A5 blend transfer by month",
+        "subtitle": "Candidate minus B2 Brier on identical opportunity mass; negative values improve.",
+        "type": "bar",
+        "dataset": "month_rows",
+        "sourceId": "evaluation50",
+        "encodings": {
+          "x": {
+            "field": "month",
+            "type": "ordinal",
+            "label": "Evaluation month"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "band_delta",
+        "title": "A6 A4/A5 blend transfer by HF band",
+        "subtitle": "Candidate minus B2 Brier; development slice evidence, not a production safety claim.",
+        "type": "bar",
+        "dataset": "band_rows",
+        "sourceId": "evaluation50",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "distance_delta",
+        "title": "A6 A4/A5 blend transfer by path distance",
+        "subtitle": "Candidate minus B2 Brier on fixed distance bins; negative values improve.",
+        "type": "bar",
+        "dataset": "distance_rows",
+        "sourceId": "evaluation50",
+        "encodings": {
+          "x": {
+            "field": "distance",
+            "type": "ordinal",
+            "label": "Distance"
+          },
+          "y": {
+            "field": "delta_vs_b2",
+            "type": "quantitative",
+            "label": "Brier delta vs B2"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "reliability",
+        "title": "A6 A4/A5 blend reliability",
+        "subtitle": "Twenty opportunity-weighted probability bins versus the perfect-calibration reference.",
+        "type": "line",
+        "dataset": "reliability_rows",
+        "sourceId": "evaluation50",
+        "encodings": {
+          "x": {
+            "field": "mean_prediction",
+            "type": "quantitative",
+            "label": "Mean predicted probability"
+          },
+          "y": {
+            "field": "observed_rate",
+            "type": "quantitative",
+            "label": "Observed success rate"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Series"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "iterations",
+        "title": "Rolling-fold early-stopped capacity",
+        "subtitle": "Best iteration by candidate, scale, and earlier temporal validation fold.",
+        "type": "bar",
+        "dataset": "training_rows",
+        "sourceId": "training_combined",
+        "encodings": {
+          "x": {
+            "field": "fold",
+            "type": "ordinal",
+            "label": "Rolling fold"
+          },
+          "y": {
+            "field": "best_iteration",
+            "type": "quantitative",
+            "label": "Best iteration"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Candidate and scale"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "backend_time",
+        "title": "M5 training backend benchmark",
+        "subtitle": "A4 F3 at 20M, 5M validation rows, first 50 trees; lower elapsed seconds is better.",
+        "type": "bar",
+        "dataset": "backend_rows",
+        "sourceId": "backend_combined",
+        "encodings": {
+          "x": {
+            "field": "stage",
+            "type": "ordinal",
+            "label": "Stage"
+          },
+          "y": {
+            "field": "seconds",
+            "type": "quantitative",
+            "label": "Elapsed seconds"
+          },
+          "color": {
+            "field": "backend",
+            "type": "nominal",
+            "label": "Backend"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "prediction_thread_time",
+        "title": "M5 XGBoost prediction thread sweep",
+        "subtitle": "Median time on the same 100,000-row early-stopping feature matrix; every prediction digest must match.",
+        "type": "line",
+        "dataset": "prediction_thread_rows",
+        "sourceId": "prediction_threads",
+        "encodings": {
+          "x": {
+            "field": "threads",
+            "type": "quantitative",
+            "label": "Prediction threads"
+          },
+          "y": {
+            "field": "median_seconds",
+            "type": "quantitative",
+            "label": "Median seconds"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "feature_gain",
+        "title": "Leading split-gain features for A6 A4/A5 blend",
+        "subtitle": "Weighted component gain for an ensemble; descriptive model use, not causal attribution.",
+        "type": "bar",
+        "dataset": "feature_rows",
+        "sourceId": "training50",
+        "encodings": {
+          "x": {
+            "field": "feature",
+            "type": "ordinal",
+            "label": "Feature"
+          },
+          "y": {
+            "field": "weighted_gain",
+            "type": "quantitative",
+            "label": "Weighted split gain"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "candidate_table",
+        "title": "Scale and selection decisions",
+        "subtitle": "All comparisons use paired full October/November scoring and 2,000 UTC-day resamples.",
+        "dataset": "candidate_rows",
+        "sourceId": "evaluation_combined",
+        "defaultSort": {
+          "field": "scale_million",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "scale_million",
+            "label": "Scale M",
+            "format": "number"
+          },
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "brier",
+            "label": "Brier",
+            "format": "number"
+          },
+          {
+            "field": "delta_vs_b2",
+            "label": "Delta vs B2",
+            "format": "number"
+          },
+          {
+            "field": "october_vs_b2",
+            "label": "October",
+            "format": "number"
+          },
+          {
+            "field": "november_vs_b2",
+            "label": "November",
+            "format": "number"
+          },
+          {
+            "field": "upper_95_vs_b2",
+            "label": "Upper 95% vs B2",
+            "format": "number"
+          },
+          {
+            "field": "decision",
+            "label": "Decision",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "training_table",
+        "title": "M5 training efficiency and temporal sensitivity",
+        "subtitle": "Per-process peak RSS; 20M uses external memory and 50M uses streamed QuantileDMatrix.",
+        "dataset": "training_rows",
+        "sourceId": "training_combined",
+        "defaultSort": {
+          "field": "scale_million",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "scale_million",
+            "label": "Scale M",
+            "format": "number"
+          },
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "fold",
+            "label": "Fold",
+            "type": "text"
+          },
+          {
+            "field": "best_iteration",
+            "label": "Best iteration",
+            "format": "number"
+          },
+          {
+            "field": "best_logloss",
+            "label": "Best log loss",
+            "format": "number"
+          },
+          {
+            "field": "training_hours",
+            "label": "Hours",
+            "format": "number"
+          },
+          {
+            "field": "peak_rss_gb",
+            "label": "Peak RSS GiB",
+            "format": "number"
+          },
+          {
+            "field": "xgboost_threads",
+            "label": "Threads",
+            "format": "number"
+          },
+          {
+            "field": "backend",
+            "label": "Backend",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "backend_table",
+        "title": "Backend parity and resource comparison",
+        "subtitle": "The adopted backend had identical validation log loss at recorded precision.",
+        "dataset": "backend_table_rows",
+        "sourceId": "backend_combined",
+        "defaultSort": {
+          "field": "total_seconds",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "backend",
+            "label": "Backend",
+            "type": "text"
+          },
+          {
+            "field": "total_seconds",
+            "label": "Total seconds",
+            "format": "number"
+          },
+          {
+            "field": "validation_logloss",
+            "label": "Validation log loss",
+            "format": "number"
+          },
+          {
+            "field": "peak_rss_gb",
+            "label": "Peak RSS GiB",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "cohort_table",
+        "title": "Deterministic nested training cohorts",
+        "subtitle": "Checksummed Parquet artifacts on the Projects volume; raw station identity is excluded from the model contract.",
+        "dataset": "cohort_rows",
+        "sourceId": "cohorts",
+        "defaultSort": {
+          "field": "scale_million",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "scale_million",
+            "label": "Scale M",
+            "format": "number"
+          },
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "fold",
+            "label": "Fold",
+            "type": "text"
+          },
+          {
+            "field": "rows",
+            "label": "Rows",
+            "format": "number"
+          },
+          {
+            "field": "bytes_gb",
+            "label": "GiB",
+            "format": "number"
+          },
+          {
+            "field": "sha256",
+            "label": "SHA-256",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "evaluation_combined",
+        "label": "5M-to-50M held-out evaluations",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifacts with schema union.",
+          "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json'], union_by_name=true)",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json",
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json",
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json"
+          ]
+        }
+      },
+      {
+        "id": "training_combined",
+        "label": "20M-to-50M rolling training",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifacts with schema union.",
+          "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json'], union_by_name=true)",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json",
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json"
+          ]
+        }
+      },
+      {
+        "id": "cohorts",
+        "label": "Deterministic nested cohort manifests",
+        "path": "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifacts with schema union.",
+          "sql": "SELECT * FROM read_json_auto(['ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json','ml/data/manifests/propagation_v4_2_phase2_50m_cohorts.json'], union_by_name=true)",
+          "tables_used": [
+            "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json",
+            "ml/data/manifests/propagation_v4_2_phase2_50m_cohorts.json"
+          ]
+        }
+      },
+      {
+        "id": "backend_combined",
+        "label": "M5 training backend benchmark",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifacts with schema union.",
+          "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json'], union_by_name=true)",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json",
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json",
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json"
+          ]
+        }
+      },
+      {
+        "id": "evaluation20",
+        "label": "20M held-out evaluation",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json"
+          ]
+        }
+      },
+      {
+        "id": "training20",
+        "label": "20M rolling training",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json"
+          ]
+        }
+      },
+      {
+        "id": "phase1",
+        "label": "5M Phase 1 evaluation",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json"
+          ]
+        }
+      },
+      {
+        "id": "conditional",
+        "label": "5M A6 policy evaluation",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json"
+          ]
+        }
+      },
+      {
+        "id": "backend",
+        "label": "M5 backend benchmark decision",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json"
+          ]
+        }
+      },
+      {
+        "id": "backend_external",
+        "label": "External-memory backend benchmark",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json"
+          ]
+        }
+      },
+      {
+        "id": "backend_quantile",
+        "label": "In-memory Quantile benchmark",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json"
+          ]
+        }
+      },
+      {
+        "id": "prediction_threads",
+        "label": "M5 XGBoost prediction-thread benchmark",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json"
+          ]
+        }
+      },
+      {
+        "id": "evaluation50",
+        "label": "50M held-out evaluation",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json"
+          ]
+        }
+      },
+      {
+        "id": "training50",
+        "label": "50M final-fold training",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propagation V4.2 Phase 2: Scale, Transfer, and Efficiency"
+      },
+      {
+        "id": "summary",
+        "type": "markdown",
+        "body": "## Technical summary\n\nSelect **A6 A4/A5 blend** for the frozen Phase 3 serving candidate using `robust_b2_win`. December remains closed."
+      },
+      {
+        "id": "metrics",
+        "type": "metric-strip",
+        "cardIds": [
+          "scale",
+          "rows",
+          "b2",
+          "focus",
+          "delta",
+          "speed",
+          "prediction_threads"
+        ]
+      },
+      {
+        "id": "plain_language",
+        "type": "markdown",
+        "body": "## Plain-language explainer\n\nThink of each training row as one question: for this hour, band, transmitter area, receiver area, power level, space-weather state, and recent network history, what is the chance that at least one public WSPR receiver reports a decode? The model studies millions of past questions and outputs a probability from 0 to 1. **Brier score** is the average squared distance between those probabilities and what happened, so lower is better. More rows help only when that score also improves on later months. **NowCast** is the identity-free core probability. **StationCast** then adjusts it with the operator's private equipment chain at inference time. **FutureCast** is a later forecast product and is not justified by this retrospective experiment. Receiver locations and activity still affect what WSPR can observe, so this is a decode-opportunity model, not a guarantee that a two-way contact will succeed."
+      },
+      {
+        "id": "definitions",
+        "type": "markdown",
+        "body": "## Scope and metric definitions\n\n**Brier score** is the opportunity-weighted mean squared error of the single-public-WSPR-decode probability; lower is better. Every scale uses the same full October and November 2024 inferred-active path-hour population. **B2** is the frozen V3 NowCast benchmark. October/November are development evidence already observed in earlier work; December 2024 and all 2025 outcomes are still closed."
+      },
+      {
+        "id": "scale_finding",
+        "type": "markdown",
+        "body": "## The scale curve determines whether extra rows buy generalization\n\nThe learning curve compares calibrated models on identical outcomes. A flatter or worsening curve is evidence to stop, not a reason to spend a larger run."
+      },
+      {
+        "id": "learning",
+        "type": "chart",
+        "chartId": "learning_curve",
+        "layout": "full"
+      },
+      {
+        "id": "candidate_delta_block",
+        "type": "chart",
+        "chartId": "candidate_delta",
+        "layout": "full"
+      },
+      {
+        "id": "candidate_table_block",
+        "type": "table",
+        "tableId": "candidate_table",
+        "layout": "full"
+      },
+      {
+        "id": "temporal_finding",
+        "type": "markdown",
+        "body": "## Advancement requires both months and day-level uncertainty\n\nAn aggregate win is insufficient. The frozen rule requires the correct sign in October and November plus a paired UTC-day upper 95% bound below zero, preventing one month or a few high-volume days from deciding the result."
+      },
+      {
+        "id": "month",
+        "type": "chart",
+        "chartId": "month_delta",
+        "layout": "full"
+      },
+      {
+        "id": "safety_finding",
+        "type": "markdown",
+        "body": "## Slice checks show where aggregate performance is fragile\n\nBand and distance deltas use identical opportunity mass for the focus model and B2. Small-support slices remain diagnostic until the untouched gate confirms them."
+      },
+      {
+        "id": "band",
+        "type": "chart",
+        "chartId": "band_delta",
+        "layout": "full"
+      },
+      {
+        "id": "distance",
+        "type": "chart",
+        "chartId": "distance_delta",
+        "layout": "full"
+      },
+      {
+        "id": "calibration_finding",
+        "type": "markdown",
+        "body": "## Probability calibration must remain useful, not just rankings\n\nReliability compares predicted probability with observed opportunity-weighted success. The serving product needs calibrated probabilities because ReachMap and StationCast use magnitude, not merely ordering."
+      },
+      {
+        "id": "reliability_block",
+        "type": "chart",
+        "chartId": "reliability",
+        "layout": "full"
+      },
+      {
+        "id": "compute_finding",
+        "type": "markdown",
+        "body": "## Native Apple Silicon execution removes the main scale bottleneck\n\nThe M5 uses native arm64 Python, OpenMP-enabled XGBoost, 18 DuckDB threads, and a spawn-based two-process scheduler with nine XGBoost threads and four Arrow I/O threads per fit. XGBoost has no Metal backend, so the correct acceleration path is multicore CPU plus bounded unified memory. The 50M QuantileDMatrix backend was adopted only after a 2.603x total-time benchmark at exact validation parity and a conservative 72.81 GiB two-worker projection. Single-process scoring uses the measured fastest bit-identical setting of 18 XGBoost threads."
+      },
+      {
+        "id": "backend",
+        "type": "chart",
+        "chartId": "backend_time",
+        "layout": "full"
+      },
+      {
+        "id": "prediction_threads",
+        "type": "chart",
+        "chartId": "prediction_thread_time",
+        "layout": "full"
+      },
+      {
+        "id": "backend_table_block",
+        "type": "table",
+        "tableId": "backend_table",
+        "layout": "full"
+      },
+      {
+        "id": "iterations_block",
+        "type": "chart",
+        "chartId": "iterations",
+        "layout": "full"
+      },
+      {
+        "id": "training_table_block",
+        "type": "table",
+        "tableId": "training_table",
+        "layout": "full"
+      },
+      {
+        "id": "model_spec",
+        "type": "markdown",
+        "body": "## Model specification and deterministic data design\n\nAll components use 91 identity-free V4 core features, histogram XGBoost with depth 9, learning rate 0.04, 2,000-round ceiling, 75-round early stopping, and August-only calibration. A2 spans the long archive naturally, A4 emphasizes the current solar cycle, A5 applies an 18-month recency half-life, and A6 is an August-selected calibrated A4/A5 blend. Cohorts are deterministic hash samples; 20M is nested inside 50M."
+      },
+      {
+        "id": "features",
+        "type": "chart",
+        "chartId": "feature_gain",
+        "layout": "full"
+      },
+      {
+        "id": "cohort_table_block",
+        "type": "table",
+        "tableId": "cohort_table",
+        "layout": "full"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "body": "## Methodology and validation design\n\nThree rolling folds move early stopping through February, May, and July 2024 without using later outcomes. Final-fold calibrators are selected on August. Full October and November are scored once per scale in bounded Arrow batches against B2 and the smaller version of the same candidate. Selection uses 2,000 paired UTC-day bootstrap resamples. A6 weights are refit only on the frozen August split. All inputs and generated model artifacts are checksummed."
+      },
+      {
+        "id": "limits",
+        "type": "markdown",
+        "body": "## Limitations, uncertainty, and robustness\n\nThis phase measures retrospective NowCast transfer, not a future forecast and not causal feature effects. WSPR receiver availability and station behavior remain part of the observation process. Split gain is descriptive. October/November have been observed during model development, so only the untouched December gate can support a fresh archive claim. Hardware timings apply to the named M5 environment and batch shapes."
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "body": "## Recommended next step\n\nSelect **A6 A4/A5 blend** for the frozen Phase 3 serving candidate using `robust_b2_win`. December remains closed."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Further questions\n\n- Does the frozen candidate pass the untouched December paired-day, band, short-path, calibration, and operational gates?\n- Does source staleness trigger the physics fallback at the exact service boundary?\n- If December passes, does the no-tuning 2025 archive preserve the benefit across at least three of four months?\n- After archive approval, does personalized StationCast improve operator decisions in opt-in prospective use?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-15T23:11:31.839439+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "latest_scale_million": 50,
+          "evaluation_rows": 110407406,
+          "b2_brier": 0.04460621904281905,
+          "focus_brier": 0.043556031740489,
+          "focus_delta_vs_b2": -0.001050187302330051,
+          "focus_ece": 0.001623624119533434,
+          "evaluation_peak_rss_gb": 10.674102783203125,
+          "backend_speedup": 2.6032760297944684,
+          "prediction_threads": 18
+        }
+      ],
+      "learning_rows": [
+        {
+          "candidate": "A2 long natural",
+          "candidate_id": "A2_long_natural",
+          "scale_million": 5,
+          "brier": 0.04552942805135886
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "scale_million": 5,
+          "brier": 0.04464395287415576
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "scale_million": 5,
+          "brier": 0.044987634986707964
+        },
+        {
+          "candidate": "A6 A4/A5 blend",
+          "candidate_id": "A6_recent_recency_blend",
+          "scale_million": 5,
+          "brier": 0.04460489716992895
+        },
+        {
+          "candidate": "Frozen V3/B2",
+          "candidate_id": "B2_frozen_v3",
+          "scale_million": 5,
+          "brier": 0.04460621904281905
+        },
+        {
+          "candidate": "A2 long natural",
+          "candidate_id": "A2_long_natural",
+          "scale_million": 20,
+          "brier": 0.045097402244863624
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "scale_million": 20,
+          "brier": 0.04395728576563356
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "scale_million": 20,
+          "brier": 0.04427148569011381
+        },
+        {
+          "candidate": "A6 A4/A5 blend",
+          "candidate_id": "A6_recent_recency_blend",
+          "scale_million": 20,
+          "brier": 0.043916698716980986
+        },
+        {
+          "candidate": "Frozen V3/B2",
+          "candidate_id": "B2_frozen_v3",
+          "scale_million": 20,
+          "brier": 0.04460621904281905
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "scale_million": 50,
+          "brier": 0.04361894110421036
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "scale_million": 50,
+          "brier": 0.043775199773549156
+        },
+        {
+          "candidate": "A6 A4/A5 blend",
+          "candidate_id": "A6_recent_recency_blend",
+          "scale_million": 50,
+          "brier": 0.043556031740489
+        },
+        {
+          "candidate": "Frozen V3/B2",
+          "candidate_id": "B2_frozen_v3",
+          "scale_million": 50,
+          "brier": 0.04460621904281905
+        }
+      ],
+      "candidate_rows": [
+        {
+          "candidate": "A2 long natural",
+          "candidate_id": "A2_long_natural",
+          "scale_million": 20,
+          "brier": 0.045097402244863624,
+          "delta_vs_b2": 0.0004911832020445747,
+          "relative_improvement_vs_reference": 0.009488935507994789,
+          "october_vs_b2": 0.00036638541511180983,
+          "november_vs_b2": 0.0006271640592488414,
+          "upper_95_vs_b2": 0.0005631023093363559,
+          "upper_95_vs_reference": -0.0003932423278645745,
+          "decision": "did not advance"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "scale_million": 20,
+          "brier": 0.04395728576563356,
+          "delta_vs_b2": -0.0006489332771854872,
+          "relative_improvement_vs_reference": 0.015380965714613226,
+          "october_vs_b2": -0.0007613561012037862,
+          "november_vs_b2": -0.0005264362974317996,
+          "upper_95_vs_b2": -0.000584136406748923,
+          "upper_95_vs_reference": -0.0006341651298581252,
+          "decision": "advanced to 50M"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "scale_million": 20,
+          "brier": 0.04427148569011381,
+          "delta_vs_b2": -0.0003347333527052368,
+          "relative_improvement_vs_reference": 0.01591880295120529,
+          "october_vs_b2": -0.0003907517010825895,
+          "november_vs_b2": -0.00027369522680029124,
+          "upper_95_vs_b2": -0.00026562200793696215,
+          "upper_95_vs_reference": -0.0006576763895970924,
+          "decision": "advanced to 50M"
+        },
+        {
+          "candidate": "A6 A4/A5 blend",
+          "candidate_id": "A6_recent_recency_blend",
+          "scale_million": 20,
+          "brier": 0.043916698716980986,
+          "delta_vs_b2": -0.0006895203258380639,
+          "relative_improvement_vs_reference": 0.01542876447682795,
+          "october_vs_b2": -0.0007938929072852097,
+          "november_vs_b2": -0.0005757949670604917,
+          "upper_95_vs_b2": -0.0006271895427104678,
+          "upper_95_vs_reference": -0.000637555804774949,
+          "decision": "did not advance"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "scale_million": 50,
+          "brier": 0.04361894110421036,
+          "delta_vs_b2": -0.0009872779386086925,
+          "relative_improvement_vs_reference": 0.007697123594644917,
+          "october_vs_b2": -0.0011194686960434089,
+          "november_vs_b2": -0.0008432416303345153,
+          "upper_95_vs_b2": -0.0009180809193435689,
+          "upper_95_vs_reference": -0.00031310530021639666,
+          "decision": "not selected"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "scale_million": 50,
+          "brier": 0.043775199773549156,
+          "delta_vs_b2": -0.0008310192692698934,
+          "relative_improvement_vs_reference": 0.011210057869719958,
+          "october_vs_b2": -0.000901212803600053,
+          "november_vs_b2": -0.0007545357257475946,
+          "upper_95_vs_b2": -0.000765229277430959,
+          "upper_95_vs_reference": -0.00046062531144337515,
+          "decision": "not selected"
+        },
+        {
+          "candidate": "A6 A4/A5 blend",
+          "candidate_id": "A6_recent_recency_blend",
+          "scale_million": 50,
+          "brier": 0.043556031740489,
+          "delta_vs_b2": -0.001050187302330051,
+          "relative_improvement_vs_reference": 0.008212524780523367,
+          "october_vs_b2": -0.001169551728063531,
+          "november_vs_b2": -0.0009201266872369551,
+          "upper_95_vs_b2": -0.0009871218692333514,
+          "upper_95_vs_reference": -0.0003388626408108637,
+          "decision": "selected for Phase 3"
+        }
+      ],
+      "latest_candidate_rows": [
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "scale_million": 50,
+          "brier": 0.04361894110421036,
+          "delta_vs_b2": -0.0009872779386086925,
+          "relative_improvement_vs_reference": 0.007697123594644917,
+          "october_vs_b2": -0.0011194686960434089,
+          "november_vs_b2": -0.0008432416303345153,
+          "upper_95_vs_b2": -0.0009180809193435689,
+          "upper_95_vs_reference": -0.00031310530021639666,
+          "decision": "not selected"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "scale_million": 50,
+          "brier": 0.043775199773549156,
+          "delta_vs_b2": -0.0008310192692698934,
+          "relative_improvement_vs_reference": 0.011210057869719958,
+          "october_vs_b2": -0.000901212803600053,
+          "november_vs_b2": -0.0007545357257475946,
+          "upper_95_vs_b2": -0.000765229277430959,
+          "upper_95_vs_reference": -0.00046062531144337515,
+          "decision": "not selected"
+        },
+        {
+          "candidate": "A6 A4/A5 blend",
+          "candidate_id": "A6_recent_recency_blend",
+          "scale_million": 50,
+          "brier": 0.043556031740489,
+          "delta_vs_b2": -0.001050187302330051,
+          "relative_improvement_vs_reference": 0.008212524780523367,
+          "october_vs_b2": -0.001169551728063531,
+          "november_vs_b2": -0.0009201266872369551,
+          "upper_95_vs_b2": -0.0009871218692333514,
+          "upper_95_vs_reference": -0.0003388626408108637,
+          "decision": "selected for Phase 3"
+        }
+      ],
+      "month_rows": [
+        {
+          "month": "2024-10",
+          "candidate": "A6 A4/A5 blend",
+          "delta_vs_b2": -0.001169551728063531
+        },
+        {
+          "month": "2024-11",
+          "candidate": "A6 A4/A5 blend",
+          "delta_vs_b2": -0.0009201266872369551
+        }
+      ],
+      "band_rows": [
+        {
+          "band": "10m",
+          "delta_vs_b2": -0.0011646371755863472,
+          "opportunities": 299740753.25
+        },
+        {
+          "band": "12m",
+          "delta_vs_b2": -0.0019245448535036846,
+          "opportunities": 66992390.0
+        },
+        {
+          "band": "15m",
+          "delta_vs_b2": -0.0009949386183196463,
+          "opportunities": 222783327.5
+        },
+        {
+          "band": "160m",
+          "delta_vs_b2": -0.0012903961053360308,
+          "opportunities": 14679962.75
+        },
+        {
+          "band": "17m",
+          "delta_vs_b2": -0.0009790401065271903,
+          "opportunities": 158341538.0
+        },
+        {
+          "band": "20m",
+          "delta_vs_b2": -0.0005619425617095636,
+          "opportunities": 1348895082.25
+        },
+        {
+          "band": "30m",
+          "delta_vs_b2": -0.0016903915753219423,
+          "opportunities": 490923580.0
+        },
+        {
+          "band": "40m",
+          "delta_vs_b2": -0.0013997625452245935,
+          "opportunities": 834676722.0
+        },
+        {
+          "band": "60m",
+          "delta_vs_b2": -0.004013020749081886,
+          "opportunities": 9716795.25
+        },
+        {
+          "band": "80m",
+          "delta_vs_b2": -0.0007284874192107771,
+          "opportunities": 152641694.75
+        }
+      ],
+      "distance_rows": [
+        {
+          "distance": "0-500 km",
+          "delta_vs_b2": -0.0026679310875275114,
+          "opportunities": 245061939.5
+        },
+        {
+          "distance": "10000-25000 km",
+          "delta_vs_b2": -0.0001968384835666706,
+          "opportunities": 433179220.75
+        },
+        {
+          "distance": "1500-3000 km",
+          "delta_vs_b2": -0.0018443430719217307,
+          "opportunities": 415997089.0
+        },
+        {
+          "distance": "3000-6000 km",
+          "delta_vs_b2": -0.0008719787626980391,
+          "opportunities": 534616699.25
+        },
+        {
+          "distance": "500-1500 km",
+          "delta_vs_b2": -0.0023019057355746914,
+          "opportunities": 632276639.25
+        },
+        {
+          "distance": "6000-10000 km",
+          "delta_vs_b2": -0.0002631057175907156,
+          "opportunities": 1338260258.0
+        }
+      ],
+      "reliability_rows": [
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.006152052550774068,
+          "observed_rate": 0.005513502030302501,
+          "opportunities": 2518930060.0
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.07317527434221481,
+          "observed_rate": 0.06971669658524501,
+          "opportunities": 199600894.5
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.12325305521280294,
+          "observed_rate": 0.12107024197497286,
+          "opportunities": 121037207.5
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.174092464099727,
+          "observed_rate": 0.1743926191569543,
+          "opportunities": 94422872.25
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.22332296024786757,
+          "observed_rate": 0.22289800718142433,
+          "opportunities": 84569226.25
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.27413004687590875,
+          "observed_rate": 0.2788465237026438,
+          "opportunities": 74041192.0
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.3255034188351037,
+          "observed_rate": 0.323820231189258,
+          "opportunities": 70696234.5
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.3754872316732611,
+          "observed_rate": 0.3705151142297471,
+          "opportunities": 58729415.25
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.4256250689156316,
+          "observed_rate": 0.42157338917986514,
+          "opportunities": 63318882.75
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.47639192615888726,
+          "observed_rate": 0.4707651335212512,
+          "opportunities": 54454374.75
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.5252223574250717,
+          "observed_rate": 0.5173646949558703,
+          "opportunities": 50403174.5
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.5748684600252725,
+          "observed_rate": 0.5669826898226087,
+          "opportunities": 50071251.75
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.6220982846108255,
+          "observed_rate": 0.62122884478773,
+          "opportunities": 44156272.25
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.6727572106730855,
+          "observed_rate": 0.6650794630119238,
+          "opportunities": 35909065.5
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.7237896254269474,
+          "observed_rate": 0.7140552993882603,
+          "opportunities": 29391545.75
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.7736945992805904,
+          "observed_rate": 0.7655134520978918,
+          "opportunities": 21717337.5
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.8194859984647839,
+          "observed_rate": 0.8177186729637567,
+          "opportunities": 13603479.25
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.8740267259359525,
+          "observed_rate": 0.8560942116734328,
+          "opportunities": 8836569.5
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.9228094838275087,
+          "observed_rate": 0.8983531597216747,
+          "opportunities": 3376875.75
+        },
+        {
+          "series": "A6 A4/A5 blend",
+          "mean_prediction": 0.9704247551882845,
+          "observed_rate": 0.9423206980243911,
+          "opportunities": 2125914.25
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 0.0,
+          "observed_rate": 0.0,
+          "opportunities": 0
+        },
+        {
+          "series": "Perfect calibration",
+          "mean_prediction": 1.0,
+          "observed_rate": 1.0,
+          "opportunities": 0
+        }
+      ],
+      "training_rows": [
+        {
+          "candidate": "A2 long natural",
+          "candidate_id": "A2_long_natural",
+          "series": "A2 long natural 20M",
+          "scale_million": 20,
+          "fold": "F1_2024_02",
+          "early_stopping_month": "2024-02",
+          "best_iteration": 1999,
+          "best_logloss": 0.19054146591955196,
+          "training_hours": 2.193230796319444,
+          "peak_rss_gb": 11.282394409179688,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 14,
+          "thread_evidence": "frozen default training contract"
+        },
+        {
+          "candidate": "A2 long natural",
+          "candidate_id": "A2_long_natural",
+          "series": "A2 long natural 20M",
+          "scale_million": 20,
+          "fold": "F2_2024_05",
+          "early_stopping_month": "2024-05",
+          "best_iteration": 1193,
+          "best_logloss": 0.1580115294359855,
+          "training_hours": 1.4337674499652773,
+          "peak_rss_gb": 11.257217407226562,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 14,
+          "thread_evidence": "frozen default training contract"
+        },
+        {
+          "candidate": "A2 long natural",
+          "candidate_id": "A2_long_natural",
+          "series": "A2 long natural 20M",
+          "scale_million": 20,
+          "fold": "F3_2024_07",
+          "early_stopping_month": "2024-07",
+          "best_iteration": 1516,
+          "best_logloss": 0.16267162966114562,
+          "training_hours": 2.825694744930556,
+          "peak_rss_gb": 11.504364013671875,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 14,
+          "thread_evidence": "frozen default training contract"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "series": "A4 recent cycle 20M",
+          "scale_million": 20,
+          "fold": "F1_2024_02",
+          "early_stopping_month": "2024-02",
+          "best_iteration": 1997,
+          "best_logloss": 0.18656116719163757,
+          "training_hours": 2.9938184087847226,
+          "peak_rss_gb": 12.567535400390625,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 14,
+          "thread_evidence": "frozen default training contract"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "series": "A4 recent cycle 20M",
+          "scale_million": 20,
+          "fold": "F2_2024_05",
+          "early_stopping_month": "2024-05",
+          "best_iteration": 1764,
+          "best_logloss": 0.15472409013452282,
+          "training_hours": 2.170386742662223,
+          "peak_rss_gb": 10.774612426757812,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 14,
+          "thread_evidence": "frozen default training contract"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "series": "A4 recent cycle 20M",
+          "scale_million": 20,
+          "fold": "F3_2024_07",
+          "early_stopping_month": "2024-07",
+          "best_iteration": 1862,
+          "best_logloss": 0.15941894234786666,
+          "training_hours": 2.3240445760533315,
+          "peak_rss_gb": 11.519027709960938,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 9,
+          "thread_evidence": "per-fold execution telemetry"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "series": "A5 recency weighted 20M",
+          "scale_million": 20,
+          "fold": "F1_2024_02",
+          "early_stopping_month": "2024-02",
+          "best_iteration": 1998,
+          "best_logloss": 0.18687353712450697,
+          "training_hours": 2.384311207800836,
+          "peak_rss_gb": 10.773483276367188,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 9,
+          "thread_evidence": "per-fold execution telemetry"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "series": "A5 recency weighted 20M",
+          "scale_million": 20,
+          "fold": "F3_2024_07",
+          "early_stopping_month": "2024-07",
+          "best_iteration": 1179,
+          "best_logloss": 0.16024265358523462,
+          "training_hours": 1.402745221759166,
+          "peak_rss_gb": 12.361297607421875,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 9,
+          "thread_evidence": "per-fold execution telemetry"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "series": "A5 recency weighted 20M",
+          "scale_million": 20,
+          "fold": "F2_2024_05",
+          "early_stopping_month": "2024-05",
+          "best_iteration": 1160,
+          "best_logloss": 0.15567628166172187,
+          "training_hours": 1.8926877025580526,
+          "peak_rss_gb": 11.775985717773438,
+          "backend": "external_memory_quantile",
+          "xgboost_threads": 9,
+          "thread_evidence": "per-fold execution telemetry"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "candidate_id": "A4_recent_cycle",
+          "series": "A4 recent cycle 50M",
+          "scale_million": 50,
+          "fold": "F3_2024_07",
+          "early_stopping_month": "2024-07",
+          "best_iteration": 1999,
+          "best_logloss": 0.15849237750758466,
+          "training_hours": 0.8459772792244419,
+          "peak_rss_gb": 24.30657958984375,
+          "backend": "streamed_in_memory_quantile",
+          "xgboost_threads": 9,
+          "thread_evidence": "per-fold execution telemetry"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "candidate_id": "A5_recency_weighted",
+          "series": "A5 recency weighted 50M",
+          "scale_million": 50,
+          "fold": "F3_2024_07",
+          "early_stopping_month": "2024-07",
+          "best_iteration": 1998,
+          "best_logloss": 0.15867655417841578,
+          "training_hours": 0.855689383599448,
+          "peak_rss_gb": 25.374465942382812,
+          "backend": "streamed_in_memory_quantile",
+          "xgboost_threads": 9,
+          "thread_evidence": "per-fold execution telemetry"
+        }
+      ],
+      "backend_rows": [
+        {
+          "backend": "External-memory Quantile",
+          "stage": "construct",
+          "seconds": 41.335747832999914
+        },
+        {
+          "backend": "External-memory Quantile",
+          "stage": "train",
+          "seconds": 167.65852599999926
+        },
+        {
+          "backend": "External-memory Quantile",
+          "stage": "total",
+          "seconds": 208.99427383299917
+        },
+        {
+          "backend": "Streamed in-memory Quantile",
+          "stage": "construct",
+          "seconds": 57.43428737499926
+        },
+        {
+          "backend": "Streamed in-memory Quantile",
+          "stage": "train",
+          "seconds": 22.84697033300472
+        },
+        {
+          "backend": "Streamed in-memory Quantile",
+          "stage": "total",
+          "seconds": 80.28125770800398
+        }
+      ],
+      "backend_table_rows": [
+        {
+          "backend": "External-memory Quantile",
+          "total_seconds": 208.99427383299917,
+          "validation_logloss": 0.17702686851738286,
+          "peak_rss_gb": 10.001358032226562
+        },
+        {
+          "backend": "Streamed in-memory Quantile",
+          "total_seconds": 80.28125770800398,
+          "validation_logloss": 0.17702686851738286,
+          "peak_rss_gb": 14.562103271484375
+        }
+      ],
+      "prediction_thread_rows": [
+        {
+          "threads": 1,
+          "median_seconds": 0.8830479169992032,
+          "speedup_vs_one_thread": 1.0,
+          "bit_identical": true
+        },
+        {
+          "threads": 6,
+          "median_seconds": 0.1740201659995364,
+          "speedup_vs_one_thread": 5.074399923291394,
+          "bit_identical": true
+        },
+        {
+          "threads": 9,
+          "median_seconds": 0.1378855829971144,
+          "speedup_vs_one_thread": 6.404207733724295,
+          "bit_identical": true
+        },
+        {
+          "threads": 12,
+          "median_seconds": 0.11429479101207107,
+          "speedup_vs_one_thread": 7.726055659928906,
+          "bit_identical": true
+        },
+        {
+          "threads": 18,
+          "median_seconds": 0.09287395900173578,
+          "speedup_vs_one_thread": 9.508024924216908,
+          "bit_identical": true
+        }
+      ],
+      "feature_rows": [
+        {
+          "feature": "path_success_prev1",
+          "weighted_gain": 186632.11093750002
+        },
+        {
+          "feature": "path_success_prev24",
+          "weighted_gain": 30079.80859375
+        },
+        {
+          "feature": "path_success_prev2",
+          "weighted_gain": 27942.680859375
+        },
+        {
+          "feature": "path_prev24_available",
+          "weighted_gain": 10793.97724609375
+        },
+        {
+          "feature": "path_prev2_available",
+          "weighted_gain": 7404.54765625
+        },
+        {
+          "feature": "path_prev1_available",
+          "weighted_gain": 6796.178662109375
+        },
+        {
+          "feature": "power_bin_dbm",
+          "weighted_gain": 6597.387011718751
+        },
+        {
+          "feature": "path_prev3_available",
+          "weighted_gain": 5479.46513671875
+        },
+        {
+          "feature": "dark_frac",
+          "weighted_gain": 5461.8494140625
+        },
+        {
+          "feature": "band_60m",
+          "weighted_gain": 5327.36025390625
+        },
+        {
+          "feature": "dist_km",
+          "weighted_gain": 4997.37685546875
+        },
+        {
+          "feature": "path_success_prev3",
+          "weighted_gain": 4355.053857421875
+        },
+        {
+          "feature": "band_20m",
+          "weighted_gain": 3886.818115234375
+        },
+        {
+          "feature": "band_mhz",
+          "weighted_gain": 3642.13505859375
+        },
+        {
+          "feature": "band_160m",
+          "weighted_gain": 2614.653662109375
+        }
+      ],
+      "cohort_rows": [
+        {
+          "scale_million": 20,
+          "candidate": "A2 long natural",
+          "fold": "F1_2024_02",
+          "rows": 20000000,
+          "bytes_gb": 2.270162135362625,
+          "sha256": "d6f536af50e7be4536e4075fcb1ee57d4654c05aa1c15855b940f1ad56ac1a8c"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A2 long natural",
+          "fold": "F2_2024_05",
+          "rows": 20000000,
+          "bytes_gb": 2.270162135362625,
+          "sha256": "d6f536af50e7be4536e4075fcb1ee57d4654c05aa1c15855b940f1ad56ac1a8c"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A2 long natural",
+          "fold": "F3_2024_07",
+          "rows": 20000000,
+          "bytes_gb": 2.270162135362625,
+          "sha256": "d6f536af50e7be4536e4075fcb1ee57d4654c05aa1c15855b940f1ad56ac1a8c"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A4 recent cycle",
+          "fold": "F1_2024_02",
+          "rows": 20000000,
+          "bytes_gb": 2.2287809383124113,
+          "sha256": "a0f9e5a8c9bce079a0c0785da3414599fdc4821aaa2b2fc322903d4233f9aaf6"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A4 recent cycle",
+          "fold": "F2_2024_05",
+          "rows": 20000000,
+          "bytes_gb": 2.242770867422223,
+          "sha256": "9ad9f54ebf2f5f2d69edfed904b09e041f947a2ef16085d67a1cbcf4cad98654"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A4 recent cycle",
+          "fold": "F3_2024_07",
+          "rows": 20000000,
+          "bytes_gb": 2.258282469585538,
+          "sha256": "f4d2c4f9fa997ecdb3e8032e5b3e638800b9bd2178b957fca30b14a2331c1e4c"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A5 recency weighted",
+          "fold": "F1_2024_02",
+          "rows": 20000000,
+          "bytes_gb": 2.362860365770757,
+          "sha256": "c159437cbb70f96ecc68563f07a697dbfc4180fe18b05fbe8aa15a531015ede1"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A5 recency weighted",
+          "fold": "F2_2024_05",
+          "rows": 20000000,
+          "bytes_gb": 2.3720384323969483,
+          "sha256": "f5504b13d3a0c292866f1f2e537d3c73ef8ba187fcef8f414b4819288e44bfdb"
+        },
+        {
+          "scale_million": 20,
+          "candidate": "A5 recency weighted",
+          "fold": "F3_2024_07",
+          "rows": 20000000,
+          "bytes_gb": 2.3773071141913533,
+          "sha256": "0f9bc2080eae0695383fd8783ec94371f82aecf1c030d1796636e0caa7b986d9"
+        },
+        {
+          "scale_million": 50,
+          "candidate": "A4 recent cycle",
+          "fold": "F3_2024_07",
+          "rows": 50000000,
+          "bytes_gb": 5.645369237288833,
+          "sha256": "80eb42d6f3d4baa1ec9121cddd97b586c690c95665b1eb4e8db73728f0cc974f"
+        },
+        {
+          "scale_million": 50,
+          "candidate": "A5 recency weighted",
+          "fold": "F3_2024_07",
+          "rows": 50000000,
+          "bytes_gb": 5.941337765194476,
+          "sha256": "17d39b4fe3cce6fa0429312d53a92d1bb55e158c8e4e0242f1b2d76afc37b90b"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "evaluation_combined",
+      "label": "5M-to-50M held-out evaluations",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifacts with schema union.",
+        "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json'], union_by_name=true)",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json",
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json",
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json"
+        ]
+      }
+    },
+    {
+      "id": "training_combined",
+      "label": "20M-to-50M rolling training",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifacts with schema union.",
+        "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json'], union_by_name=true)",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json",
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json"
+        ]
+      }
+    },
+    {
+      "id": "cohorts",
+      "label": "Deterministic nested cohort manifests",
+      "path": "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifacts with schema union.",
+        "sql": "SELECT * FROM read_json_auto(['ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json','ml/data/manifests/propagation_v4_2_phase2_50m_cohorts.json'], union_by_name=true)",
+        "tables_used": [
+          "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json",
+          "ml/data/manifests/propagation_v4_2_phase2_50m_cohorts.json"
+        ]
+      }
+    },
+    {
+      "id": "backend_combined",
+      "label": "M5 training backend benchmark",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifacts with schema union.",
+        "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json','ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json'], union_by_name=true)",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json",
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json",
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json"
+        ]
+      }
+    },
+    {
+      "id": "evaluation20",
+      "label": "20M held-out evaluation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_20m_results.json"
+        ]
+      }
+    },
+    {
+      "id": "training20",
+      "label": "20M rolling training",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_results.json"
+        ]
+      }
+    },
+    {
+      "id": "phase1",
+      "label": "5M Phase 1 evaluation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json"
+        ]
+      }
+    },
+    {
+      "id": "conditional",
+      "label": "5M A6 policy evaluation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json"
+        ]
+      }
+    },
+    {
+      "id": "backend",
+      "label": "M5 backend benchmark decision",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_decision.json"
+        ]
+      }
+    },
+    {
+      "id": "backend_external",
+      "label": "External-memory backend benchmark",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_external_memory_quantile.json"
+        ]
+      }
+    },
+    {
+      "id": "backend_quantile",
+      "label": "In-memory Quantile benchmark",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/backend_benchmark_streamed_in_memory_quantile.json"
+        ]
+      }
+    },
+    {
+      "id": "prediction_threads",
+      "label": "M5 XGBoost prediction-thread benchmark",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/prediction_thread_benchmark.json"
+        ]
+      }
+    },
+    {
+      "id": "evaluation50",
+      "label": "50M held-out evaluation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/evaluation_50m_results.json"
+        ]
+      }
+    },
+    {
+      "id": "training50",
+      "label": "50M final-fold training",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_50m_results.json"
+        ]
+      }
+    }
+  ]
+}

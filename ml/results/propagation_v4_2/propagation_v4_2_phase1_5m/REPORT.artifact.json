@@ -1,0 +1,1435 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Propagation V4.2 Phase 1: Controlled 5M Ablations",
+    "description": "Auditable model, data-window, sampling, recency, and calibration ablations on M5.",
+    "generatedAt": "2026-07-15T02:50:31.133738+00:00",
+    "cards": [
+      {
+        "id": "rows",
+        "description": "Full October and November 2024 rows.",
+        "dataset": "summary",
+        "sourceId": "combined",
+        "metrics": [
+          {
+            "label": "Evaluation rows",
+            "field": "evaluation_rows",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "a0",
+        "description": "Calibrated V3-control reproduction.",
+        "dataset": "summary",
+        "sourceId": "combined",
+        "metrics": [
+          {
+            "label": "A0 Brier",
+            "field": "a0_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "best",
+        "description": "Lowest calibrated held-out Brier.",
+        "dataset": "summary",
+        "sourceId": "combined",
+        "metrics": [
+          {
+            "label": "Best candidate Brier",
+            "field": "best_brier",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "delta",
+        "description": "Negative values improve on A0.",
+        "dataset": "summary",
+        "sourceId": "combined",
+        "metrics": [
+          {
+            "label": "Best minus A0",
+            "field": "best_delta_vs_a0",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "advanced",
+        "description": "Passed both-month and uncertainty gates.",
+        "dataset": "summary",
+        "sourceId": "combined",
+        "metrics": [
+          {
+            "label": "Advanced candidates",
+            "field": "advanced_count",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "memory",
+        "description": "M5 bounded-memory evaluation.",
+        "dataset": "summary",
+        "sourceId": "combined",
+        "metrics": [
+          {
+            "label": "Scoring peak RSS GB",
+            "field": "peak_rss_gb",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "overall_brier",
+        "title": "Held-out calibrated error versus A0",
+        "subtitle": "October plus November 2024 Brier delta; negative values improve on A0.",
+        "type": "bar",
+        "dataset": "overall_rows",
+        "sourceId": "combined",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "delta_vs_a0",
+            "type": "quantitative",
+            "label": "Brier delta vs A0"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "monthly_delta",
+        "title": "Transfer versus A0 by month",
+        "subtitle": "Negative values improve on the matched V3-control pipeline.",
+        "type": "bar",
+        "dataset": "monthly_rows",
+        "sourceId": "evaluation",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "delta_vs_a0",
+            "type": "quantitative",
+            "label": "Brier delta"
+          },
+          "color": {
+            "field": "month",
+            "type": "nominal",
+            "label": "Month"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "conditional_monthly_delta",
+        "title": "Conditional policy transfer versus A4",
+        "subtitle": "August-selected A6/A7 policy minus A4 Brier by observed evaluation month.",
+        "type": "bar",
+        "dataset": "conditional_monthly_rows",
+        "sourceId": "conditional",
+        "encodings": {
+          "x": {
+            "field": "policy",
+            "type": "ordinal",
+            "label": "Policy"
+          },
+          "y": {
+            "field": "delta_vs_a4",
+            "type": "quantitative",
+            "label": "Brier delta vs A4"
+          },
+          "color": {
+            "field": "month",
+            "type": "nominal",
+            "label": "Month"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "calibration",
+        "title": "Calibration effect on held-out Brier",
+        "subtitle": "Calibrated minus raw candidate Brier; negative values improve probability accuracy.",
+        "type": "bar",
+        "dataset": "calibration_rows",
+        "sourceId": "evaluation",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "delta_vs_raw",
+            "type": "quantitative",
+            "label": "Brier delta vs raw"
+          },
+          "color": {
+            "field": "prediction",
+            "type": "nominal",
+            "label": "Prediction"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "iterations",
+        "title": "Early-stopped model capacity",
+        "subtitle": "Same XGBoost parameters and 1,200-round ceiling for all candidates.",
+        "type": "bar",
+        "dataset": "training_rows",
+        "sourceId": "training",
+        "encodings": {
+          "x": {
+            "field": "candidate",
+            "type": "ordinal",
+            "label": "Candidate"
+          },
+          "y": {
+            "field": "best_iteration",
+            "type": "quantitative",
+            "label": "Best iteration"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "band_delta",
+        "title": "A4 recent cycle transfer by band",
+        "subtitle": "Candidate minus A0 calibrated Brier; negative values favor the candidate.",
+        "type": "bar",
+        "dataset": "band_rows",
+        "sourceId": "evaluation",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Band"
+          },
+          "y": {
+            "field": "delta_vs_a0",
+            "type": "quantitative",
+            "label": "Brier delta"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "distance_delta",
+        "title": "A4 recent cycle transfer by path distance",
+        "subtitle": "Candidate minus A0 calibrated Brier; negative values favor the candidate.",
+        "type": "bar",
+        "dataset": "distance_rows",
+        "sourceId": "evaluation",
+        "encodings": {
+          "x": {
+            "field": "distance",
+            "type": "ordinal",
+            "label": "Distance"
+          },
+          "y": {
+            "field": "delta_vs_a0",
+            "type": "quantitative",
+            "label": "Brier delta"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "feature_gain",
+        "title": "Leading features for A4 recent cycle",
+        "subtitle": "XGBoost split gain is descriptive, not a causal feature attribution.",
+        "type": "bar",
+        "dataset": "feature_rows",
+        "sourceId": "training",
+        "encodings": {
+          "x": {
+            "field": "feature",
+            "type": "ordinal",
+            "label": "Feature"
+          },
+          "y": {
+            "field": "gain",
+            "type": "quantitative",
+            "label": "Gain"
+          }
+        },
+        "valueFormat": "number",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "candidate_table",
+        "title": "Candidate decision table",
+        "subtitle": "Advancement requires improvement in both months and paired-day upper 95% below zero.",
+        "dataset": "candidate_rows",
+        "sourceId": "evaluation",
+        "defaultSort": {
+          "field": "brier",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "brier",
+            "label": "Brier",
+            "format": "number"
+          },
+          {
+            "field": "delta_vs_a0",
+            "label": "Delta vs A0",
+            "format": "number"
+          },
+          {
+            "field": "october_delta_vs_a0",
+            "label": "October",
+            "format": "number"
+          },
+          {
+            "field": "november_delta_vs_a0",
+            "label": "November",
+            "format": "number"
+          },
+          {
+            "field": "bootstrap_upper",
+            "label": "Upper 95%",
+            "format": "number"
+          },
+          {
+            "field": "decision",
+            "label": "Decision",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "conditional_table",
+        "title": "Conditional ensemble and specialist decisions",
+        "subtitle": "Policies must beat A4 in both months with paired-day upper 95% below zero.",
+        "dataset": "conditional_rows",
+        "sourceId": "conditional",
+        "defaultSort": {
+          "field": "brier",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "policy",
+            "label": "Policy",
+            "type": "text"
+          },
+          {
+            "field": "brier",
+            "label": "Brier",
+            "format": "number"
+          },
+          {
+            "field": "delta_vs_a4",
+            "label": "Delta vs A4",
+            "format": "number"
+          },
+          {
+            "field": "delta_vs_b2",
+            "label": "Delta vs B2",
+            "format": "number"
+          },
+          {
+            "field": "october_delta_vs_a4",
+            "label": "October",
+            "format": "number"
+          },
+          {
+            "field": "november_delta_vs_a4",
+            "label": "November",
+            "format": "number"
+          },
+          {
+            "field": "bootstrap_upper_vs_a4",
+            "label": "Upper 95%",
+            "format": "number"
+          },
+          {
+            "field": "decision",
+            "label": "Decision",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "conditional_selection_table",
+        "title": "Frozen August policy parameters",
+        "subtitle": "Temporary calibrators fit days 1-20; policy parameters selected days 21-end.",
+        "dataset": "conditional_selection_rows",
+        "sourceId": "conditional",
+        "defaultSort": {
+          "field": "policy",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "policy",
+            "label": "Policy",
+            "type": "text"
+          },
+          {
+            "field": "august_rule",
+            "label": "Frozen rule",
+            "type": "text"
+          },
+          {
+            "field": "selection_result",
+            "label": "August evidence",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "training_table",
+        "title": "Training capacity and efficiency",
+        "subtitle": "Per-candidate wall time and process peak RSS on the 128 GB M5 Max.",
+        "dataset": "training_rows",
+        "sourceId": "training",
+        "defaultSort": {
+          "field": "best_iteration",
+          "direction": "desc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "best_iteration",
+            "label": "Best iteration",
+            "format": "number"
+          },
+          {
+            "field": "training_seconds",
+            "label": "Seconds",
+            "format": "number"
+          },
+          {
+            "field": "peak_rss_gb",
+            "label": "Peak RSS GiB",
+            "format": "number"
+          },
+          {
+            "field": "calibration",
+            "label": "Calibration",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "bootstrap_table",
+        "title": "Paired UTC-day uncertainty",
+        "subtitle": "Two thousand day-level resamples of candidate minus A0 Brier.",
+        "dataset": "bootstrap_rows",
+        "sourceId": "evaluation",
+        "defaultSort": {
+          "field": "upper_95",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "candidate",
+            "label": "Candidate",
+            "type": "text"
+          },
+          {
+            "field": "lower_95",
+            "label": "Lower 95%",
+            "format": "number"
+          },
+          {
+            "field": "median",
+            "label": "Median",
+            "format": "number"
+          },
+          {
+            "field": "upper_95",
+            "label": "Upper 95%",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "cohort_table",
+        "title": "Deterministic 5M training cohorts",
+        "subtitle": "Checksummed natural-distribution cohorts stored outside Git.",
+        "dataset": "cohort_rows",
+        "sourceId": "cohorts",
+        "defaultSort": {
+          "field": "cohort",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "cohort",
+            "label": "Cohort",
+            "type": "text"
+          },
+          {
+            "field": "rows",
+            "label": "Rows",
+            "format": "number"
+          },
+          {
+            "field": "opportunities",
+            "label": "Opportunities",
+            "format": "number"
+          },
+          {
+            "field": "bytes",
+            "label": "Bytes",
+            "format": "number"
+          },
+          {
+            "field": "sha256",
+            "label": "SHA-256",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "combined",
+        "label": "Phase 1 controlled and conditional evaluations",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load both reviewed Phase 1 evaluation artifacts with schema union.",
+          "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json'], union_by_name=true)",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json"
+          ]
+        }
+      },
+      {
+        "id": "evaluation",
+        "label": "Phase 1 held-out evaluation",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json"
+          ]
+        }
+      },
+      {
+        "id": "conditional",
+        "label": "Phase 1 conditional A6/A7 follow-up",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json"
+          ]
+        }
+      },
+      {
+        "id": "training",
+        "label": "Phase 1 training checkpoint",
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json')",
+          "tables_used": [
+            "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json"
+          ]
+        }
+      },
+      {
+        "id": "cohorts",
+        "label": "Phase 1 deterministic cohort manifest",
+        "path": "ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json with DuckDB.",
+          "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json')",
+          "tables_used": [
+            "ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json"
+          ]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Propagation V4.2 Phase 1: Controlled 5M Ablations"
+      },
+      {
+        "id": "answer",
+        "type": "markdown",
+        "body": "## Technical summary\n\nAdvance **A4 recent cycle**, **A5 recency weighted**, **A2 long natural** to the 20M scale gate. Each beat A0 in both evaluation months and its paired-day 95% upper bound remained below zero. The conditional policy gate also advances **A6 A4/A5 blend**. The component models to scale are **A4 recent cycle**, **A5 recency weighted**, **A2 long natural**."
+      },
+      {
+        "id": "headline",
+        "type": "metric-strip",
+        "cardIds": [
+          "rows",
+          "a0",
+          "best",
+          "delta",
+          "advanced",
+          "memory"
+        ]
+      },
+      {
+        "id": "definitions",
+        "type": "markdown",
+        "body": "## What was measured\n\n**Brier score** is the opportunity-weighted mean squared error of the predicted single-decode probability; lower is better. **A0** is the current-pipeline V3 control and is the Phase 1 advancement baseline. The population is inferred-active HF path-hours in full October and November 2024, grouped in UTC. A candidate advances only when its calibrated Brier is lower than A0 in each month and the upper bound of a 2,000-resample paired UTC-day 95% interval is below zero."
+      },
+      {
+        "id": "primary_finding",
+        "type": "markdown",
+        "sourceId": "evaluation",
+        "body": "## A4 recent cycle leads the 20M advancement set\n\nAdvance **A4 recent cycle**, **A5 recency weighted**, **A2 long natural** to the 20M scale gate. Each beat A0 in both evaluation months and its paired-day 95% upper bound remained below zero."
+      },
+      {
+        "id": "overall",
+        "type": "chart",
+        "chartId": "overall_brier",
+        "layout": "full"
+      },
+      {
+        "id": "decision_table",
+        "type": "table",
+        "tableId": "candidate_table",
+        "layout": "full"
+      },
+      {
+        "id": "temporal_heading",
+        "type": "markdown",
+        "body": "## Improvement must survive both months\n\nAggregate improvement is insufficient: a candidate must transfer through both October and November, and the day-level uncertainty interval must exclude no difference. This guards against one month or a few high-volume days deciding scale-up."
+      },
+      {
+        "id": "month",
+        "type": "chart",
+        "chartId": "monthly_delta",
+        "layout": "full"
+      },
+      {
+        "id": "bootstrap",
+        "type": "table",
+        "tableId": "bootstrap_table",
+        "layout": "full"
+      },
+      {
+        "id": "conditional_heading",
+        "type": "markdown",
+        "sourceId": "conditional",
+        "body": "## A6/A7 were selected on August, then frozen\n\nOctober/November diagnostics triggered these policy families but did not set their parameters. Temporary model-specific calibrators fit August days 1-20; days 21-end selected the 0.05-grid A4/A5 blend weight and tested the preregistered one-million-opportunity 60m route. The frozen policies were then rescored on full October and November with paired-day uncertainty."
+      },
+      {
+        "id": "conditional_selection",
+        "type": "table",
+        "tableId": "conditional_selection_table",
+        "layout": "full"
+      },
+      {
+        "id": "conditional_month",
+        "type": "chart",
+        "chartId": "conditional_monthly_delta",
+        "layout": "full"
+      },
+      {
+        "id": "conditional_result",
+        "type": "table",
+        "tableId": "conditional_table",
+        "layout": "full"
+      },
+      {
+        "id": "calibration_heading",
+        "type": "markdown",
+        "body": "## Calibration and effective capacity are separate failure modes\n\nRaw-versus-calibrated Brier shows whether post-hoc probability mapping repairs a model. Best iteration shows how much capacity the shared July early-stopping stream supported under identical tree parameters."
+      },
+      {
+        "id": "calibration",
+        "type": "chart",
+        "chartId": "calibration",
+        "layout": "full"
+      },
+      {
+        "id": "iterations",
+        "type": "chart",
+        "chartId": "iterations",
+        "layout": "full"
+      },
+      {
+        "id": "training",
+        "type": "table",
+        "tableId": "training_table",
+        "layout": "full"
+      },
+      {
+        "id": "safety_heading",
+        "type": "markdown",
+        "body": "## Aggregate gains must not hide propagation regressions\n\nBand and distance cuts compare A4 recent cycle directly with calibrated A0 on identical opportunity mass. These are development diagnostics for the next scale decision, not production safety certification."
+      },
+      {
+        "id": "band",
+        "type": "chart",
+        "chartId": "band_delta",
+        "layout": "full"
+      },
+      {
+        "id": "distance",
+        "type": "chart",
+        "chartId": "distance_delta",
+        "layout": "full"
+      },
+      {
+        "id": "model_heading",
+        "type": "markdown",
+        "body": "## Model specification and controlled cohort design\n\nFeature gain describes how the focus model used its inputs; it is not causal attribution. Every natural cohort is an exact, deterministic top-hash 5M sample from a shared 50M master pool. A3 alone uses the pre-existing balanced V4 sample to isolate that sampling decision."
+      },
+      {
+        "id": "features",
+        "type": "chart",
+        "chartId": "feature_gain",
+        "layout": "full"
+      },
+      {
+        "id": "cohorts",
+        "type": "table",
+        "tableId": "cohort_table",
+        "layout": "full"
+      },
+      {
+        "id": "method",
+        "type": "markdown",
+        "body": "## Methodology and validation design\n\nAll six candidates used exactly 5,000,000 training rows, the same XGBoost parameters, a 1,200-round ceiling, July 2024 early stopping, and August 2024 time-aware calibrator selection. October and November were streamed once over identical natural rows. A0/A1 isolate feature flags; A2/A3 isolate natural versus balanced history; A4 tests recent-cycle coverage; A5 tests an 18-month recency half-life. Input hashes were verified during evaluation. A6/A7 are explicitly conditional development policies: their family choice was informed by October/November diagnostics, while their numeric blend/router rules were selected on August."
+      },
+      {
+        "id": "limits",
+        "type": "markdown",
+        "body": "## Limitations, uncertainty, and robustness\n\nOctober and November were already observed before V4.2 and are development evidence, not a fresh validation claim. A0 is a controlled reproduction contract, not byte-identical to the older V3 curve. December 2024 and all 2025 outcomes remain closed. No Phase 1 result authorizes production replacement."
+      },
+      {
+        "id": "next",
+        "type": "markdown",
+        "body": "## Recommended next step\n\nScale only **A4 recent cycle**, **A5 recency weighted**, **A2 long natural** to exact nested 20M cohorts. Refit the same conditional policy families from the earlier fold, preserve the current scorer, and keep December closed until model, policy, calibration, and service artifacts are frozen."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Questions the next phase must answer\n\n- Does the 5M winner continue improving at 20M, or has its learning curve flattened?\n- Do A6/A7 remain beneficial after their component models are retrained at 20M?\n- Does scale close the frozen B2 gap without degrading calibration, memory, or product latency?\n- Can the fully frozen candidate pass untouched December before any 2025 archive is opened?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-15T02:50:31.133738+00:00",
+    "status": "ready",
+    "datasets": {
+      "summary": [
+        {
+          "evaluation_rows": 110407406,
+          "opportunities": 3599391845.75,
+          "a0_brier": 0.0458864000549648,
+          "best_brier": 0.04460489716992895,
+          "best_delta_vs_a0": -0.001281502885035847,
+          "advanced_count": 3,
+          "peak_rss_gb": 9.954360961914062,
+          "wall_minutes": 31.20137342221715
+        }
+      ],
+      "overall_rows": [
+        {
+          "candidate": "Frozen V3/B2",
+          "brier": 0.04460621904281905,
+          "delta_vs_a0": -0.001280181012145748,
+          "status": "benchmark"
+        },
+        {
+          "candidate": "A0 V3 control",
+          "brier": 0.0458864000549648,
+          "delta_vs_a0": 0.0,
+          "status": "hold"
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "brier": 0.045535775633898115,
+          "delta_vs_a0": -0.0003506244210666823,
+          "status": "hold"
+        },
+        {
+          "candidate": "A2 long natural",
+          "brier": 0.04552942805135886,
+          "delta_vs_a0": -0.000356972003605939,
+          "status": "advance"
+        },
+        {
+          "candidate": "A3 long balanced",
+          "brier": 0.04853705002630232,
+          "delta_vs_a0": 0.0026506499713375223,
+          "status": "hold"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "brier": 0.04464395287415576,
+          "delta_vs_a0": -0.001242447180809035,
+          "status": "advance"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "brier": 0.044987634986707964,
+          "delta_vs_a0": -0.0008987650682568335,
+          "status": "advance"
+        },
+        {
+          "candidate": "A6 A4/A5 blend",
+          "brier": 0.04460489716992895,
+          "delta_vs_a0": -0.001281502885035847,
+          "status": "advance"
+        },
+        {
+          "candidate": "A7 A1-on-60m router",
+          "brier": 0.04464395287577721,
+          "delta_vs_a0": -0.001242447179187589,
+          "status": "hold"
+        }
+      ],
+      "candidate_rows": [
+        {
+          "candidate": "A0 V3 control",
+          "brier": 0.0458864000549648,
+          "delta_vs_a0": 0.0,
+          "delta_vs_b2": 0.001280181012145748,
+          "october_delta_vs_a0": 0.0,
+          "november_delta_vs_a0": 0.0,
+          "bootstrap_upper": 0.0,
+          "decision": "Hold"
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "brier": 0.045535775633898115,
+          "delta_vs_a0": -0.0003506244210666823,
+          "delta_vs_b2": 0.0009295565910790657,
+          "october_delta_vs_a0": -0.0003493337912235661,
+          "november_delta_vs_a0": -0.000352030703635757,
+          "bootstrap_upper": -0.000303464065204687,
+          "decision": "Hold"
+        },
+        {
+          "candidate": "A2 long natural",
+          "brier": 0.04552942805135886,
+          "delta_vs_a0": -0.000356972003605939,
+          "delta_vs_b2": 0.000923209008539809,
+          "october_delta_vs_a0": -0.0004379092431559331,
+          "november_delta_vs_a0": -0.0002687820165570079,
+          "bootstrap_upper": -0.00026228741518276457,
+          "decision": "Advance"
+        },
+        {
+          "candidate": "A3 long balanced",
+          "brier": 0.04853705002630232,
+          "delta_vs_a0": 0.0026506499713375223,
+          "delta_vs_b2": 0.00393083098348327,
+          "october_delta_vs_a0": 0.0026097710519809997,
+          "november_delta_vs_a0": 0.002695192031191944,
+          "bootstrap_upper": 0.002755757769062158,
+          "decision": "Hold"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "brier": 0.04464395287415576,
+          "delta_vs_a0": -0.001242447180809035,
+          "delta_vs_b2": 3.7733831336712875e-05,
+          "october_delta_vs_a0": -0.0013352481076844072,
+          "november_delta_vs_a0": -0.0011413304070603397,
+          "bootstrap_upper": -0.0011212255233188737,
+          "decision": "Advance"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "brier": 0.044987634986707964,
+          "delta_vs_a0": -0.0008987650682568335,
+          "delta_vs_b2": 0.0003814159438889145,
+          "october_delta_vs_a0": -0.0009302942467396547,
+          "november_delta_vs_a0": -0.0008644105751026282,
+          "bootstrap_upper": -0.0008081650717837078,
+          "decision": "Advance"
+        }
+      ],
+      "monthly_rows": [
+        {
+          "candidate": "A0 V3 control",
+          "month": "2024-10",
+          "delta_vs_a0": 0.0
+        },
+        {
+          "candidate": "A0 V3 control",
+          "month": "2024-11",
+          "delta_vs_a0": 0.0
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "month": "2024-10",
+          "delta_vs_a0": -0.0003493337912235661
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "month": "2024-11",
+          "delta_vs_a0": -0.000352030703635757
+        },
+        {
+          "candidate": "A2 long natural",
+          "month": "2024-10",
+          "delta_vs_a0": -0.0004379092431559331
+        },
+        {
+          "candidate": "A2 long natural",
+          "month": "2024-11",
+          "delta_vs_a0": -0.0002687820165570079
+        },
+        {
+          "candidate": "A3 long balanced",
+          "month": "2024-10",
+          "delta_vs_a0": 0.0026097710519809997
+        },
+        {
+          "candidate": "A3 long balanced",
+          "month": "2024-11",
+          "delta_vs_a0": 0.002695192031191944
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "month": "2024-10",
+          "delta_vs_a0": -0.0013352481076844072
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "month": "2024-11",
+          "delta_vs_a0": -0.0011413304070603397
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "month": "2024-10",
+          "delta_vs_a0": -0.0009302942467396547
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "month": "2024-11",
+          "delta_vs_a0": -0.0008644105751026282
+        }
+      ],
+      "calibration_rows": [
+        {
+          "candidate": "A0 V3 control",
+          "prediction": "Raw",
+          "brier": 0.04527136794111949,
+          "delta_vs_raw": 0.0
+        },
+        {
+          "candidate": "A0 V3 control",
+          "prediction": "Calibrated",
+          "brier": 0.0458864000549648,
+          "delta_vs_raw": 0.0006150321138453096
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "prediction": "Raw",
+          "brier": 0.04504121674256969,
+          "delta_vs_raw": 0.0
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "prediction": "Calibrated",
+          "brier": 0.045535775633898115,
+          "delta_vs_raw": 0.0004945588913284268
+        },
+        {
+          "candidate": "A2 long natural",
+          "prediction": "Raw",
+          "brier": 0.04533184928115413,
+          "delta_vs_raw": 0.0
+        },
+        {
+          "candidate": "A2 long natural",
+          "prediction": "Calibrated",
+          "brier": 0.04552942805135886,
+          "delta_vs_raw": 0.0001975787702047302
+        },
+        {
+          "candidate": "A3 long balanced",
+          "prediction": "Raw",
+          "brier": 0.04882128979660794,
+          "delta_vs_raw": 0.0
+        },
+        {
+          "candidate": "A3 long balanced",
+          "prediction": "Calibrated",
+          "brier": 0.04853705002630232,
+          "delta_vs_raw": -0.0002842397703056235
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "prediction": "Raw",
+          "brier": 0.04460029588093309,
+          "delta_vs_raw": 0.0
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "prediction": "Calibrated",
+          "brier": 0.04464395287415576,
+          "delta_vs_raw": 4.36569932226738e-05
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "prediction": "Raw",
+          "brier": 0.044851472937858586,
+          "delta_vs_raw": 0.0
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "prediction": "Calibrated",
+          "brier": 0.044987634986707964,
+          "delta_vs_raw": 0.0001361620488493781
+        }
+      ],
+      "training_rows": [
+        {
+          "candidate": "A0 V3 control",
+          "best_iteration": 538,
+          "training_seconds": 97.15634691697778,
+          "peak_rss_gb": 7.8644561767578125,
+          "calibration": "band_distance_isotonic_with_fallback"
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "best_iteration": 504,
+          "training_seconds": 114.64131383399945,
+          "peak_rss_gb": 9.349441528320312,
+          "calibration": "band_distance_isotonic_with_fallback"
+        },
+        {
+          "candidate": "A2 long natural",
+          "best_iteration": 711,
+          "training_seconds": 141.62980454199715,
+          "peak_rss_gb": 11.540237426757812,
+          "calibration": "band_distance_isotonic_with_fallback"
+        },
+        {
+          "candidate": "A3 long balanced",
+          "best_iteration": 105,
+          "training_seconds": 50.3524188749725,
+          "peak_rss_gb": 16.073333740234375,
+          "calibration": "band_distance_isotonic_with_fallback"
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "best_iteration": 889,
+          "training_seconds": 169.42525170900626,
+          "peak_rss_gb": 16.503036499023438,
+          "calibration": "band_distance_isotonic_with_fallback"
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "best_iteration": 500,
+          "training_seconds": 111.92808599997079,
+          "peak_rss_gb": 16.86407470703125,
+          "calibration": "band_distance_isotonic_with_fallback"
+        }
+      ],
+      "bootstrap_rows": [
+        {
+          "candidate": "A0 V3 control",
+          "lower_95": 0.0,
+          "median": 0.0,
+          "upper_95": 0.0
+        },
+        {
+          "candidate": "A1 + availability flags",
+          "lower_95": -0.0004126206535059243,
+          "median": -0.0003486058165891021,
+          "upper_95": -0.000303464065204687
+        },
+        {
+          "candidate": "A2 long natural",
+          "lower_95": -0.0004602120285394668,
+          "median": -0.00035333169693193645,
+          "upper_95": -0.00026228741518276457
+        },
+        {
+          "candidate": "A3 long balanced",
+          "lower_95": 0.0025419924554015514,
+          "median": 0.0026515583360071683,
+          "upper_95": 0.002755757769062158
+        },
+        {
+          "candidate": "A4 recent cycle",
+          "lower_95": -0.0013628482656281946,
+          "median": -0.0012427975232836832,
+          "upper_95": -0.0011212255233188737
+        },
+        {
+          "candidate": "A5 recency weighted",
+          "lower_95": -0.0009956477468167843,
+          "median": -0.0008965291224364455,
+          "upper_95": -0.0008081650717837078
+        }
+      ],
+      "conditional_rows": [
+        {
+          "policy": "A6 A4/A5 blend",
+          "brier": 0.04460489716992895,
+          "delta_vs_a4": -3.905570422681193e-05,
+          "delta_vs_a0": -0.001281502885035847,
+          "delta_vs_b2": -1.3218728900990517e-06,
+          "october_delta_vs_a4": -2.3343180042531553e-05,
+          "november_delta_vs_a4": -5.617622022405927e-05,
+          "bootstrap_upper_vs_a4": -2.2886255563137222e-05,
+          "decision": "Advance"
+        },
+        {
+          "policy": "A7 A1-on-60m router",
+          "brier": 0.04464395287577721,
+          "delta_vs_a4": 1.6214460329955216e-12,
+          "delta_vs_a0": -0.001242447179187589,
+          "delta_vs_b2": 3.773383295815891e-05,
+          "october_delta_vs_a4": 1.5307130563080307e-12,
+          "november_delta_vs_a4": 1.7204362934286621e-12,
+          "bootstrap_upper_vs_a4": 1.819306998963858e-12,
+          "decision": "Hold"
+        }
+      ],
+      "conditional_monthly_rows": [
+        {
+          "policy": "A6 A4/A5 blend",
+          "month": "2024-10",
+          "delta_vs_a4": -2.3343180042531553e-05
+        },
+        {
+          "policy": "A6 A4/A5 blend",
+          "month": "2024-11",
+          "delta_vs_a4": -5.617622022405927e-05
+        },
+        {
+          "policy": "A7 A1-on-60m router",
+          "month": "2024-10",
+          "delta_vs_a4": 1.5307130563080307e-12
+        },
+        {
+          "policy": "A7 A1-on-60m router",
+          "month": "2024-11",
+          "delta_vs_a4": 1.7204362934286621e-12
+        }
+      ],
+      "conditional_selection_rows": [
+        {
+          "policy": "A6 A4/A5 blend",
+          "august_rule": "0.75 A4 + 0.25 A5",
+          "selection_result": "Brier 0.03892424"
+        },
+        {
+          "policy": "A7 A1-on-60m router",
+          "august_rule": "A1 on no band; A4 otherwise",
+          "selection_result": "No specialist route selected"
+        }
+      ],
+      "band_rows": [
+        {
+          "band": "10m",
+          "delta_vs_a0": -0.0005486996973766492,
+          "opportunities": 299740753.25
+        },
+        {
+          "band": "12m",
+          "delta_vs_a0": -0.0008463175117694177,
+          "opportunities": 66992390.0
+        },
+        {
+          "band": "15m",
+          "delta_vs_a0": -0.0009481520810564331,
+          "opportunities": 222783327.5
+        },
+        {
+          "band": "160m",
+          "delta_vs_a0": -0.00167738613362034,
+          "opportunities": 14679962.75
+        },
+        {
+          "band": "17m",
+          "delta_vs_a0": -0.0011673576327754995,
+          "opportunities": 158341538.0
+        },
+        {
+          "band": "20m",
+          "delta_vs_a0": -0.001311693769928693,
+          "opportunities": 1348895082.25
+        },
+        {
+          "band": "30m",
+          "delta_vs_a0": -0.001802906643442348,
+          "opportunities": 490923580.0
+        },
+        {
+          "band": "40m",
+          "delta_vs_a0": -0.0013601940478835464,
+          "opportunities": 834676722.0
+        },
+        {
+          "band": "60m",
+          "delta_vs_a0": -0.0007288468937926146,
+          "opportunities": 9716795.25
+        },
+        {
+          "band": "80m",
+          "delta_vs_a0": -0.00021855816533038197,
+          "opportunities": 152641694.75
+        }
+      ],
+      "distance_rows": [
+        {
+          "distance": "0-500 km",
+          "delta_vs_a0": -0.004101083062912958,
+          "opportunities": 245061939.5
+        },
+        {
+          "distance": "10000-25000 km",
+          "delta_vs_a0": -0.00010970491948831054,
+          "opportunities": 433179220.75
+        },
+        {
+          "distance": "1500-3000 km",
+          "delta_vs_a0": -0.0013589365953614457,
+          "opportunities": 415997089.0
+        },
+        {
+          "distance": "3000-6000 km",
+          "delta_vs_a0": -0.00040778461083011697,
+          "opportunities": 534616699.25
+        },
+        {
+          "distance": "500-1500 km",
+          "delta_vs_a0": -0.00399235794864361,
+          "opportunities": 632276639.25
+        },
+        {
+          "distance": "6000-10000 km",
+          "delta_vs_a0": -8.362812302049015e-05,
+          "opportunities": 1338260258.0
+        }
+      ],
+      "feature_rows": [
+        {
+          "feature": "path_success_prev1",
+          "gain": 44224.24609375,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "path_success_prev24",
+          "gain": 6986.11083984375,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "path_success_prev2",
+          "gain": 6007.6904296875,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "path_prev24_available",
+          "gain": 2403.8681640625,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "power_bin_dbm",
+          "gain": 2150.60595703125,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "path_prev1_available",
+          "gain": 1783.197265625,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "path_prev2_available",
+          "gain": 1710.09716796875,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "dist_km",
+          "gain": 1483.240234375,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "dark_frac",
+          "gain": 1310.4822998046875,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "band_20m",
+          "gain": 1219.30322265625,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "band_60m",
+          "gain": 1209.141357421875,
+          "candidate": "A4 recent cycle"
+        },
+        {
+          "feature": "band_mhz",
+          "gain": 1108.5908203125,
+          "candidate": "A4 recent cycle"
+        }
+      ],
+      "cohort_rows": [
+        {
+          "cohort": "V3 Month Pool",
+          "rows": 5000000,
+          "opportunities": 135761710.5,
+          "bytes": 609457393,
+          "sha256": "8d5b7eee8d3c73868ca504f9ba3f291adcea5c7b71426d2242313ed55d99af59"
+        },
+        {
+          "cohort": "Long History Pool",
+          "rows": 5000000,
+          "opportunities": 132986203.5,
+          "bytes": 633029612,
+          "sha256": "8c2f14aaf71209ab76bbebcb9355f7f687a7d0f7ac3e3159888c7e329b107ce4"
+        },
+        {
+          "cohort": "Recent Cycle Pool",
+          "rows": 5000000,
+          "opportunities": 142737595.0,
+          "bytes": 628230911,
+          "sha256": "7befd8168f768512cda8bb483d6077a0dbc6f315a01fd449392391491dab14d5"
+        },
+        {
+          "cohort": "Long Recent Pool",
+          "rows": 5000000,
+          "opportunities": 136292355.5,
+          "bytes": 637938424,
+          "sha256": "420403ed3cac25f8c78134c52785ce1dd03695ec3f2ac6df2f44f1a2761d165d"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "combined",
+      "label": "Phase 1 controlled and conditional evaluations",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load both reviewed Phase 1 evaluation artifacts with schema union.",
+        "sql": "SELECT * FROM read_json_auto(['ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json','ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json'], union_by_name=true)",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json"
+        ]
+      }
+    },
+    {
+      "id": "evaluation",
+      "label": "Phase 1 held-out evaluation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/evaluation_results.json"
+        ]
+      }
+    },
+    {
+      "id": "conditional",
+      "label": "Phase 1 conditional A6/A7 follow-up",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/conditional_results.json"
+        ]
+      }
+    },
+    {
+      "id": "training",
+      "label": "Phase 1 training checkpoint",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json')",
+        "tables_used": [
+          "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m/training_results.json"
+        ]
+      }
+    },
+    {
+      "id": "cohorts",
+      "label": "Phase 1 deterministic cohort manifest",
+      "path": "ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "description": "Load the reviewed JSON artifact ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json with DuckDB.",
+        "sql": "SELECT * FROM read_json_auto('ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json')",
+        "tables_used": [
+          "ml/data/manifests/propagation_v4_2_phase1_5m_cohorts.json"
+        ]
+      }
+    }
+  ]
+}

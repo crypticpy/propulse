@@ -1,7 +1,8 @@
 # Personalized Propagation V4.2: Performance Recovery and Product Plan
 
-> Status: Phase 0 completed and validated on the M5. Phase 1 controlled 5M
-> ablations are next. December 2024 and all 2025 outcomes remain inaccessible
+> Status: Phase 0 and Phase 1 completed and validated on the M5. A4, A5, and
+> A2 advance as the three 20M component models; A6 advances as the conditional
+> blend policy. December 2024 and all 2025 outcomes remain inaccessible
 > until the freezes specified below.
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Predecessor evidence: [`V4.1 calibration recovery plan`](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md)
@@ -119,6 +120,61 @@ candidate first.
 Evidence: [`Phase 0 Markdown report`](results/propagation_v4_2/propagation_v4_2_performance_recovery/REPORT.md)
 and [`interactive visual report`](results/propagation_v4_2/propagation_v4_2_performance_recovery/REPORT.html).
 
+### Phase 1 result: recency recovers the V3 gap at 5M
+
+The controlled run trained six exact 5M candidates with common XGBoost
+parameters, 5M July early-stopping rows, and 5M August calibration rows. The
+checksum-verified scorer evaluated `110,407,406` full October/November rows and
+`3,599,391,845.75` weighted opportunities in 21.4 minutes with 9.84 GiB peak
+RSS and zero swaps. All 24 primary checks passed.
+
+| Candidate | Brier | Delta versus A0 | Delta versus B2 | October delta versus A0 | November delta versus A0 | Decision |
+|---|---:|---:|---:|---:|---:|---|
+| A0 V3 control | 0.04588640 | 0 | +0.00128018 | 0 | 0 | hold |
+| A1 + availability flags | 0.04553578 | -0.00035062 | +0.00092956 | -0.00034933 | -0.00035203 | hold |
+| A2 long natural | 0.04552943 | -0.00035697 | +0.00092321 | -0.00043791 | -0.00026878 | advance |
+| A3 long balanced | 0.04853705 | +0.00265065 | +0.00393083 | +0.00260977 | +0.00269519 | reject |
+| A4 recent cycle | 0.04464395 | -0.00124245 | +0.00003773 | -0.00133525 | -0.00114133 | advance |
+| A5 recency weighted | 0.04498763 | -0.00089877 | +0.00038142 | -0.00093029 | -0.00086441 | advance |
+
+A4 is the substantive result: recent-cycle sampling nearly closes the frozen
+B2 gap at only 5M rows. A5 shows that long history remains useful when old eras
+are downweighted. A2 shows natural historical sampling is modestly useful. A3
+shows the previous balanced distribution is actively harmful under this target
+and natural evaluation distribution. Availability flags help A1, but not enough
+to earn one of three standalone scale slots.
+
+A0 is a controlled reproduction, not byte-identical replay. Its October Brier
+is `0.00072084` worse than the original V3 5M curve because Phase 1 uses a
+stable natural top-hash cohort, a 1,200-round ceiling, and August calibration;
+the original used a random subset of the V3 50M sample, 600 rounds, and July
+calibration. Candidate decisions therefore compare against Phase 1 A0 and also
+retain frozen B2 as the production benchmark.
+
+### Conditional A6/A7 result
+
+October/November residual diagnostics justified testing A6 and a possible 60m
+A7 boundary. Policy parameters were selected only on August: temporary
+calibrators fit days 1-20 and days 21-end selected a 0.05-grid blend or checked
+the one-million-opportunity router support gate. A second checksum-verified
+stream completed in 9.8 minutes with 9.95 GiB peak RSS and zero swaps. All 22
+conditional checks passed.
+
+| Policy | Frozen August rule | Brier | Delta versus A4 | Delta versus B2 | October delta versus A4 | November delta versus A4 | Decision |
+|---|---|---:|---:|---:|---:|---:|---|
+| A6 | 75% A4 + 25% A5 | 0.04460490 | -0.00003906 | -0.00000132 | -0.00002334 | -0.00005618 | advance policy |
+| A7 | no routed band; A4 everywhere | 0.04464395 | 0 | +0.00003773 | 0 | 0 | reject |
+
+A6 beats A4 in both months with paired-day upper 95% `-0.00002289`. It is
+effectively tied with B2 overall, loses to B2 in November, and its B2 interval
+crosses zero. It is not a production win. A7 stops correctly: the August 60m
+selection slice contained only `137,956.75` weighted opportunities, below the
+one-million support gate, and A1 was worse than A4 there. The component models
+to scale remain A4, A5, and A2; A6 is rebuilt from A4/A5 at each scale.
+
+Evidence: [`Phase 1 Markdown report`](results/propagation_v4_2/propagation_v4_2_phase1_5m/REPORT.md)
+and [`interactive visual report`](results/propagation_v4_2/propagation_v4_2_phase1_5m/REPORT.html).
+
 ## Data roles
 
 | Data | V4.2 role | Access rule |
@@ -189,7 +245,7 @@ rows.
 | A1 | V3 months + V4 missingness flags | Do the added flags help or hurt independently of time coverage? |
 | A2 | V4 2018-2023 natural sample | Did regime balancing, rather than history length, cause the gap? |
 | A3 | V4 2018-2023 balanced sample | Reproduce the existing M2 sampling decision at 5M. |
-| A4 | recent 2022-November 2024 window | Does a current-cycle window recover transfer? |
+| A4 | recent 2022-May 2024 window | Does a current-cycle window recover transfer without using evaluation outcomes? |
 | A5 | multi-year with exponential recency weights | Can long history be retained without treating every era equally? |
 | A6 | long-history and recent-model convex ensemble, conditional | Do newly trained candidates have complementary cross-month residuals? Do not ensemble the current frozen M2. |
 | A7 | band-aware mixture of experts, conditional | Do new candidates produce stable, supported band or band-distance specialties? Do not assume a 60m specialty from one calibrated month. |
@@ -201,8 +257,9 @@ capacity limitation that the alternative addresses.
 
 ### Training controls
 
-- evaluate iteration limits through rolling early stopping, not one shared
-  2024 holdout;
+- Phase 1 held a common 5M July early-stopping fold fixed so data-window and
+  sampling effects were not confounded; Phase 2 must add rolling-month
+  sensitivity before the 50M decision;
 - compare current maximum depth, learning rate, regularization, and 394 versus
   996 effective iterations on nested cohorts;
 - retain raw predictions before any calibration;
@@ -358,10 +415,10 @@ After the open core passes archive validation:
 
 ### Phase 1: 5M ablations
 
-- [ ] Materialize exact nested cohorts and temporal folds.
-- [ ] Run A0-A5 controlled 5M experiments.
-- [ ] Run ensemble/router candidates A6-A7.
-- [ ] Select at most three candidates using cross-month evidence.
+- [x] Materialize exact deterministic cohorts and temporal folds.
+- [x] Run A0-A5 controlled 5M experiments.
+- [x] Run conditional ensemble/router candidates A6-A7.
+- [x] Select A4, A5, and A2 using both-month and paired-day evidence.
 
 ### Phase 2: scale
 
@@ -397,10 +454,13 @@ After the open core passes archive validation:
 
 On the M5:
 
-> Read this file, `PERSONALIZED-PROPAGATION-V4-PLAN.md`, and the Phase 0 report.
-> Continue Phase 1 using only already-open data. Do not acquire December 2024
-> or transform any 2025 outcome. First materialize deterministic nested 5M
-> cohorts and run A0 to reproduce V3 under the current pipeline. Then run
-> A1-A5 as controlled single-factor ablations. Run A6/A7 only when the trained
-> candidates exhibit complementary cross-month residuals or stable supported
-> specialties. Select by rolling-month evidence, not November alone.
+> Read this file, `PERSONALIZED-PROPAGATION-V4-PLAN.md`, and the Phase 1 report.
+> Continue Phase 2 using only already-open data. Do not acquire December 2024
+> or transform any 2025 outcome. Materialize deterministic nested 20M cohorts
+> for A4 recent-cycle, A5 recency-weighted, and A2 long-natural. Use external-
+> memory QuantileDMatrix or an equivalent bounded streaming path, preserve the
+> exact Phase 1 feature and weight contracts, add rolling-month early-stopping
+> sensitivity, and refit A6 only from A4/A5 using the earlier policy-selection
+> fold. Compare full October and November with paired-day uncertainty. Advance
+> at most two component models to 50M; keep A7 rejected unless new pre-evaluation
+> evidence independently satisfies its support and performance gates.

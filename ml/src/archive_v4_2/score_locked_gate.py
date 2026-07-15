@@ -211,7 +211,9 @@ def score(
     bundle_path: Path,
 ) -> tuple[dict[str, Any], int]:
     prediction_threads = selected_prediction_threads(
-        config, load_json(PREDICTION_THREAD_BENCHMARK)
+        config,
+        load_json(PREDICTION_THREAD_BENCHMARK),
+        file_sha256(PREDICTION_THREAD_BENCHMARK),
     )
     candidate = BundlePredictor(bundle_path, prediction_threads)
     v3_results = load_json(V3_RESULTS)

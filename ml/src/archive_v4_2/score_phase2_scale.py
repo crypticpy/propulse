@@ -178,7 +178,7 @@ def cached_feature_matrix(
 
 
 def selected_prediction_threads(
-    config: dict[str, Any], benchmark: dict[str, Any]
+    config: dict[str, Any], benchmark: dict[str, Any], benchmark_sha256: str
 ) -> int:
     if benchmark.get("december_2024_read") or benchmark.get("locked_2025_read"):
         raise Phase2Error("prediction thread benchmark reports locked outcome access")
@@ -186,11 +186,16 @@ def selected_prediction_threads(
         raise Phase2Error("prediction thread benchmark did not preserve exact output")
     selected = int(benchmark["selected_threads"])
     hardware = config["compute"]["apple_silicon"]
-    if "single_process_prediction_threads" not in hardware:
+    if (
+        "single_process_prediction_threads" not in hardware
+        or "prediction_thread_benchmark_sha256" not in hardware
+    ):
         raise Phase2Error(
             "run the prediction benchmark and freeze its selected thread count"
         )
     configured = int(hardware["single_process_prediction_threads"])
+    if str(hardware["prediction_thread_benchmark_sha256"]) != benchmark_sha256:
+        raise Phase2Error("prediction thread benchmark checksum changed")
     tested = {int(row["threads"]) for row in benchmark["results"]}
     if selected != configured or selected not in tested:
         raise Phase2Error("prediction thread decision does not match frozen config")
@@ -582,7 +587,9 @@ def main() -> None:
     b2_info = v3_result["profiles"]["nowcast"]
     b2 = load_profile("nowcast", b2_info, ROOT)
     prediction_threads = selected_prediction_threads(
-        config, load_json(PREDICTION_THREAD_BENCHMARK)
+        config,
+        load_json(PREDICTION_THREAD_BENCHMARK),
+        sha256(PREDICTION_THREAD_BENCHMARK),
     )
     b2.model.set_param({"nthread": prediction_threads})
     phase0_inputs = load_json(PHASE0_CONFIG)["diagnosis"]["inputs"]

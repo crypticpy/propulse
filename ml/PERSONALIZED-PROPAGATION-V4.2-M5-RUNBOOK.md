@@ -36,8 +36,9 @@ SSH shells.
 
 ## Hardware contract
 
-The source validates native `arm64`, at least 18 visible cores, and an
-OpenMP-enabled XGBoost build before training or Phase 3 validation.
+The source validates native `arm64`, at least 18 visible cores, an
+OpenMP-enabled XGBoost build, AC power, High Power mode, and no explicit macOS
+CPU or scheduler limit before M5 workflows run.
 
 | Workload | Parallelism | Memory policy |
 |---|---|---|
@@ -45,7 +46,7 @@ OpenMP-enabled XGBoost build before training or Phase 3 validation.
 | 20M training | 2 spawned fits × 9 XGBoost threads | external-memory `ExtMemQuantileDMatrix` |
 | 50M training | 2 spawned fits × 9 XGBoost threads | iterator-fed in-memory `QuantileDMatrix` |
 | Arrow per fit | 9 CPU threads, 4 I/O threads | 250,000-row iterator batches |
-| Evaluation and gates | Arrow scan threads | 100,000-row scoring batches |
+| Evaluation and gates | Benchmark-pinned XGBoost threads, Arrow 18/6 CPU/I/O | 100,000-row scoring batches |
 
 XGBoost has no Metal backend. The installed build is CPU/OpenMP and has no
 CUDA. The 50M backend was selected by a training-only benchmark: `2.603276x`
@@ -53,7 +54,7 @@ faster end to end, `7.338326x` faster in the tree-fit stage, identical recorded
 validation log loss, and a conservative two-worker projection of `72.8105`
 GiB.
 
-## Current status, 2026-07-15 12:19 CDT
+## Current status, 2026-07-15 13:07 CDT
 
 The active detached job is:
 
@@ -64,7 +65,7 @@ worker     45337  A5_recency_weighted F1_2024_02
 log        ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/training_20m_parallel.log
 ```
 
-A2 F1-F3 and A4 F1-F2 are complete. The active pair reached iteration 700
+A2 F1-F3 and A4 F1-F2 are complete. The active pair reached iteration 1,400
 without memory pressure. A5 F2/F3 remain queued. Monitor without restarting:
 
 ```bash
@@ -81,6 +82,11 @@ and reused.
 After the parent exits successfully:
 
 ```bash
+ml/.venv/bin/python ml/src/archive_v4_2/benchmark_prediction_threads.py \
+  --profile m5
+
+ml/.venv/bin/python ml/src/archive_v4_2/pin_prediction_threads.py
+
 ml/.venv/bin/python ml/src/archive_v4_2/score_phase2_scale.py \
   --profile m5 --scale 20000000 --verify-input-hashes
 
@@ -88,7 +94,10 @@ ml/.venv/bin/python ml/src/archive_v4_2/validate_phase2_scale.py \
   --profile m5 --scale 20000000
 ```
 
-The scorer writes `evaluation_20m_results.json`; validation writes
+The benchmark uses only the allowed July early-stopping feature matrix, requires
+bit-identical predictions at 1/6/9/12/18 threads, then pins the fastest count and
+artifact SHA-256 in the tracked config. Sync and commit the config plus benchmark
+artifact before scoring. The scorer writes `evaluation_20m_results.json`; validation writes
 `validation_20m.json`. If `selection.advance_to_50m` is empty, stop before
 December and generate the 20M report. Otherwise, at most two component models
 advance.
@@ -129,7 +138,7 @@ ml/.venv/bin/python ml/src/archive_v4_2/generate_phase2_report.py --profile m5
 
 The report must show the 5M→20M→50M curve, B2 deltas, both evaluation months,
 paired uncertainty, band/distance safety, reliability, early-stopping
-sensitivity, feature gain, cohort checksums, and the M5 backend benchmark. A
+sensitivity, feature gain, cohort checksums, and both M5 backend/thread benchmarks. A
 successful portable-builder receipt must report browser verification at 1,440
 px and 390 px.
 

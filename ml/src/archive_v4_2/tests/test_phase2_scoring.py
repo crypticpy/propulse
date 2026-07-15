@@ -45,10 +45,15 @@ class Phase2ScoringTests(unittest.TestCase):
             "selected_threads": 12,
             "results": [{"threads": 12}],
         }
-        self.assertEqual(selected_prediction_threads(config, benchmark), 12)
+        config["compute"]["apple_silicon"][
+            "prediction_thread_benchmark_sha256"
+        ] = "digest"
+        self.assertEqual(
+            selected_prediction_threads(config, benchmark, "digest"), 12
+        )
         benchmark["selected_threads"] = 18
         with self.assertRaisesRegex(Exception, "frozen config"):
-            selected_prediction_threads(config, benchmark)
+            selected_prediction_threads(config, benchmark, "digest")
 
     def test_prediction_thread_selection_requires_exact_fastest_result(self) -> None:
         results = [

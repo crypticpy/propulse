@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "run_id": "propagation_v4_2_phase2_scale",
+  "scale": 50000000,
+  "passed": true,
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11"
+  },
+  "checks": [
+    {
+      "name": "manifest scale",
+      "passed": true,
+      "detail": 50000000
+    },
+    {
+      "name": "training scale",
+      "passed": true,
+      "detail": 50000000
+    },
+    {
+      "name": "evaluation scale",
+      "passed": true,
+      "detail": 50000000
+    },
+    {
+      "name": "locked outcomes remain closed",
+      "passed": true,
+      "detail": "December 2024 and 2025 flags are false"
+    },
+    {
+      "name": "candidate inventory",
+      "passed": true,
+      "detail": [
+        "A4_recent_cycle",
+        "A5_recency_weighted"
+      ]
+    },
+    {
+      "name": "exact cohort rows",
+      "passed": true,
+      "detail": "2 candidate-fold entries"
+    },
+    {
+      "name": "cohort hashes",
+      "passed": true,
+      "detail": "2/2"
+    },
+    {
+      "name": "lower-scale nestedness",
+      "passed": true,
+      "detail": [
+        true,
+        true
+      ]
+    },
+    {
+      "name": "fold sample hashes",
+      "passed": true,
+      "detail": "2/2"
+    },
+    {
+      "name": "scale folds complete",
+      "passed": true,
+      "detail": [
+        "F3_2024_07"
+      ]
+    },
+    {
+      "name": "matrix backend",
+      "passed": true,
+      "detail": "streamed_in_memory_quantile"
+    },
+    {
+      "name": "training row counts",
+      "passed": true,
+      "detail": [
+        true,
+        true
+      ]
+    },
+    {
+      "name": "model and calibrator hashes",
+      "passed": true,
+      "detail": "4/4"
+    },
+    {
+      "name": "best iterations in bounds",
+      "passed": true,
+      "detail": [
+        true,
+        true
+      ]
+    },
+    {
+      "name": "feature order parity",
+      "passed": true,
+      "detail": 91
+    },
+    {
+      "name": "evaluation row count",
+      "passed": true,
+      "detail": 110407406
+    },
+    {
+      "name": "evaluation input hashes",
+      "passed": true,
+      "detail": [
+        true,
+        true
+      ]
+    },
+    {
+      "name": "evaluation months",
+      "passed": true,
+      "detail": [
+        "2024-10",
+        "2024-11"
+      ]
+    },
+    {
+      "name": "prediction thread benchmark",
+      "passed": true,
+      "detail": {
+        "selected_threads": 18,
+        "scoring_threads": 18,
+        "all_predictions_bit_identical": true
+      }
+    },
+    {
+      "name": "metric variant inventory",
+      "passed": true,
+      "detail": [
+        "A4_recent_cycle:calibrated",
+        "A4_recent_cycle:raw",
+        "A5_recency_weighted:calibrated",
+        "A5_recency_weighted:raw",
+        "A6_recent_recency_blend",
+        "B2_frozen_v3"
+      ]
+    },
+    {
+      "name": "finite primary metrics",
+      "passed": true,
+      "detail": 24
+    },
+    {
+      "name": "common evaluation opportunity mass",
+      "passed": true,
+      "detail": [
+        3599391845.75,
+        3599391845.75,
+        3599391845.75,
+        3599391845.75,
+        3599391845.75,
+        3599391845.75
+      ]
+    },
+    {
+      "name": "selection inventory",
+      "passed": true,
+      "detail": [
+        "A4_recent_cycle",
+        "A5_recency_weighted",
+        "A6_recent_recency_blend"
+      ]
+    },
+    {
+      "name": "50M component cap",
+      "passed": true,
+      "detail": [
+        "A4_recent_cycle",
+        "A5_recency_weighted"
+      ]
+    },
+    {
+      "name": "A6 grid selection",
+      "passed": true,
+      "detail": 0.7000000000000001
+    },
+    {
+      "name": "100M decision inventory",
+      "passed": true,
+      "detail": [
+        "A4_recent_cycle",
+        "A5_recency_weighted"
+      ]
+    },
+    {
+      "name": "final selection stops or uses an evaluated candidate",
+      "passed": true,
+      "detail": {
+        "candidate": "A6_recent_recency_blend",
+        "basis": "robust_b2_win",
+        "eligible_candidates": [
+          "A6_recent_recency_blend",
+          "A4_recent_cycle",
+          "A5_recency_weighted"
+        ],
+        "evaluation_brier": 0.043556031740489
+      }
+    },
+    {
+      "name": "memory budget",
+      "passed": true,
+      "detail": {
+        "machine": "arm64",
+        "physical_cores_visible": 18,
+        "os_cpu_count": 18,
+        "core_clusters": [
+          6,
+          12
+        ],
+        "configured_performance_cores": 12,
+        "configured_efficiency_cores": 6,
+        "unified_memory_gb": 128.0,
+        "power_source": "AC Power",
+        "required_power_source": "AC Power",
+        "power_modes": {
+          "Battery Power": 0,
+          "AC Power": 2
+        },
+        "required_ac_power_mode": 2,
+        "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+        "thermal_limits": {},
+        "python_version": "3.12.11",
+        "xgboost_openmp": true,
+        "xgboost_cuda": false,
+        "xgboost_version": "3.3.0",
+        "arrow_cpu_threads": 18,
+        "arrow_io_threads": 6,
+        "profile": "m5",
+        "wall_seconds": 1282.1416016250005,
+        "peak_rss_gb": 10.674102783203125,
+        "maximum_rss_gb": 96.0,
+        "memory_limit_respected": true,
+        "python": "3.12.11",
+        "numpy": "2.5.1",
+        "xgboost": "3.3.0",
+        "xgboost_prediction_threads": 18
+      }
+    }
+  ]
+}

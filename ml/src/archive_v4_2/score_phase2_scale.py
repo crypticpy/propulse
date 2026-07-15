@@ -37,6 +37,9 @@ from b2_adapter import feature_matrix as b2_feature_matrix, load_profile  # noqa
 from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
     Phase2Error,
+    decide_100m,
+    is_robust_b2_win,
+    scale_workset,
     select_50m_components,
     validate_config,
 )
@@ -49,6 +52,11 @@ PHASE0_CONFIG = ROOT / "ml/config/propagation_v4_2.json"
 PHASE1_DIR = ROOT / "ml/results/propagation_v4_2/propagation_v4_2_phase1_5m"
 PHASE1_EVALUATION = PHASE1_DIR / "evaluation_results.json"
 PHASE1_CONDITIONAL = PHASE1_DIR / "conditional_results.json"
+PHASE2_20M_EVALUATION = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "evaluation_20m_results.json"
+)
 STAT_SIZE = 7
 CALIBRATION_BINS = 20
 DISTANCE_BINS = (
@@ -442,6 +450,38 @@ def reference_overall(
     )
 
 
+def evaluation_variant(name: str) -> str:
+    if name in {"B2_frozen_v3", "A6_recent_recency_blend"}:
+        return name
+    return f"{name}:calibrated"
+
+
+def evaluation_reference_days(
+    evaluation: dict[str, Any], name: str
+) -> dict[str, dict[str, float]]:
+    rows = evaluation["metrics"][evaluation_variant(name)]["slices"]["day"]
+    return {
+        row["key"]: {
+            "opportunities": float(row["opportunities"]),
+            "weighted_brier": float(row["weighted_brier"]),
+        }
+        for row in rows
+    }
+
+
+def evaluation_reference_months(
+    evaluation: dict[str, Any], name: str
+) -> dict[str, float]:
+    rows = evaluation["metrics"][evaluation_variant(name)]["slices"]["month"]
+    return {row["key"]: float(row["weighted_brier"]) for row in rows}
+
+
+def evaluation_reference_overall(evaluation: dict[str, Any], name: str) -> float:
+    return float(
+        evaluation["metrics"][evaluation_variant(name)]["overall"]["weighted_brier"]
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -467,10 +507,19 @@ def main() -> None:
     manifest = load_json(manifest_path)
     if training["december_2024_read"] or training["locked_2025_read"]:
         raise Phase2Error("training result reports locked outcome access")
+    phase2_20m_evaluation = (
+        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+    )
+    candidate_names, fold_names = scale_workset(
+        config, scale, phase2_20m_evaluation
+    )
     final_fold = config["final_fold"]
-    if set(training["candidates"]) != set(EXPECTED_CANDIDATES):
+    if tuple(training["candidates"]) != candidate_names:
         raise Phase2Error("training result has an incomplete candidate inventory")
-    if any(set(training["candidates"][name]) != set(config["rolling_folds"]) for name in EXPECTED_CANDIDATES):
+    if any(
+        set(training["candidates"][name]) != set(fold_names)
+        for name in candidate_names
+    ):
         raise Phase2Error("training result has incomplete rolling folds")
 
     v3_result = load_json(V3_RESULTS)
@@ -484,7 +533,7 @@ def main() -> None:
     loaded: dict[str, dict[str, Any]] = {}
     artifacts: dict[str, Any] = {}
     union_features = list(b2.features)
-    for name in EXPECTED_CANDIDATES:
+    for name in candidate_names:
         info = training["candidates"][name][final_fold]
         model_path = verify_artifact(info["model"], f"{name} model")
         calibrator_path = verify_artifact(info["calibrator"], f"{name} calibrator")
@@ -500,12 +549,16 @@ def main() -> None:
         }
         artifacts[name] = {"model": info["model"], "calibrator": info["calibrator"]}
     union_features = list(dict.fromkeys(union_features))
-    a6 = select_a6(config, training, manifest)
+    has_a6 = {
+        str(config["conditional_policy"]["left"]),
+        str(config["conditional_policy"]["right"]),
+    } <= set(candidate_names)
+    a6 = select_a6(config, training, manifest) if has_a6 else None
     variants = [
         "B2_frozen_v3",
-        *[f"{name}:raw" for name in EXPECTED_CANDIDATES],
-        *[f"{name}:calibrated" for name in EXPECTED_CANDIDATES],
-        "A6_recent_recency_blend",
+        *[f"{name}:raw" for name in candidate_names],
+        *[f"{name}:calibrated" for name in candidate_names],
+        *(["A6_recent_recency_blend"] if has_a6 else []),
     ]
     dimensions = ("month", "day", "band", "distance", "month_band")
     overall = {name: np.zeros(STAT_SIZE, dtype=np.float64) for name in variants}
@@ -568,7 +621,7 @@ def main() -> None:
                 "B2_frozen_v3": b2_prediction.astype(np.float64)
             }
             calibrated: dict[str, np.ndarray] = {}
-            for name in EXPECTED_CANDIDATES:
+            for name in candidate_names:
                 info = loaded[name]
                 raw = info["model"].inplace_predict(
                     feature_matrix(columns, info["features"]),
@@ -579,11 +632,12 @@ def main() -> None:
                 )
                 predictions[f"{name}:raw"] = raw
                 predictions[f"{name}:calibrated"] = calibrated[name]
-            left_weight = float(a6["selected_left_weight"])
-            predictions["A6_recent_recency_blend"] = (
-                left_weight * calibrated[a6["left"]]
-                + (1 - left_weight) * calibrated[a6["right"]]
-            )
+            if a6 is not None:
+                left_weight = float(a6["selected_left_weight"])
+                predictions["A6_recent_recency_blend"] = (
+                    left_weight * calibrated[a6["left"]]
+                    + (1 - left_weight) * calibrated[a6["right"]]
+                )
             for name, prediction in predictions.items():
                 values = contributions(target, prediction, weight)
                 overall[name] += np.asarray(
@@ -618,7 +672,10 @@ def main() -> None:
     repetitions = int(config["conditional_policy"]["bootstrap_repetitions"])
     seed = int(config["seed"])
     selection_rows = []
-    compared_names = [*EXPECTED_CANDIDATES, "A6_recent_recency_blend"]
+    compared_names = [
+        *candidate_names,
+        *(["A6_recent_recency_blend"] if has_a6 else []),
+    ]
     for index, name in enumerate(compared_names):
         variant = name if name.startswith("A6") else f"{name}:calibrated"
         month_rows = {
@@ -627,60 +684,111 @@ def main() -> None:
         b2_months = reference_months(
             phase1_evaluation, phase1_conditional, "B2_frozen_v3"
         )
-        five_months = reference_months(phase1_evaluation, phase1_conditional, name)
+        if phase2_20m_evaluation is None:
+            prior_months = reference_months(
+                phase1_evaluation, phase1_conditional, name
+            )
+            prior_brier = reference_overall(
+                phase1_evaluation, phase1_conditional, name
+            )
+            prior_days = reference_days(
+                phase1_evaluation, phase1_conditional, name
+            )
+            prior_scale = 5_000_000
+        else:
+            prior_months = evaluation_reference_months(
+                phase2_20m_evaluation, name
+            )
+            prior_brier = evaluation_reference_overall(
+                phase2_20m_evaluation, name
+            )
+            prior_days = evaluation_reference_days(phase2_20m_evaluation, name)
+            prior_scale = 20_000_000
         evaluation_brier = float(metrics[variant]["overall"]["weighted_brier"])
         b2_brier = reference_overall(
             phase1_evaluation, phase1_conditional, "B2_frozen_v3"
         )
-        five_brier = reference_overall(phase1_evaluation, phase1_conditional, name)
         b2_interval = paired_bootstrap(
             groups[variant]["day"],
             reference_days(phase1_evaluation, phase1_conditional, "B2_frozen_v3"),
             seed + index * 2,
             repetitions,
         )
-        five_interval = paired_bootstrap(
+        prior_interval = paired_bootstrap(
             groups[variant]["day"],
-            reference_days(phase1_evaluation, phase1_conditional, name),
+            prior_days,
             seed + index * 2 + 1,
             repetitions,
         )
-        selection_rows.append(
-            {
-                "candidate": name,
-                "evaluation_brier": evaluation_brier,
-                "b2_brier": b2_brier,
-                "phase1_5m_brier": five_brier,
-                "delta_vs_b2": evaluation_brier - b2_brier,
-                "relative_gap_to_b2": (evaluation_brier - b2_brier) / b2_brier,
-                "month_deltas_vs_b2": {
-                    month: month_rows[month]["weighted_brier"] - b2_months[month]
-                    for month in config["evaluation_months"]
-                },
-                "bootstrap_vs_b2": b2_interval,
-                "bootstrap_upper_vs_b2": b2_interval["upper_95"],
-                "delta_vs_5m": evaluation_brier - five_brier,
-                "relative_improvement_vs_5m": 1 - evaluation_brier / five_brier,
-                "month_deltas_vs_5m": {
-                    month: month_rows[month]["weighted_brier"] - five_months[month]
-                    for month in config["evaluation_months"]
-                },
-                "bootstrap_vs_5m": five_interval,
-                "bootstrap_upper_vs_5m": five_interval["upper_95"],
-            }
-        )
-    component_rows = [
-        row for row in selection_rows if row["candidate"] in EXPECTED_CANDIDATES
-    ]
+        row = {
+            "candidate": name,
+            "evaluation_brier": evaluation_brier,
+            "b2_brier": b2_brier,
+            "reference_scale": prior_scale,
+            "reference_brier": prior_brier,
+            "delta_vs_b2": evaluation_brier - b2_brier,
+            "relative_gap_to_b2": (evaluation_brier - b2_brier) / b2_brier,
+            "month_deltas_vs_b2": {
+                month: month_rows[month]["weighted_brier"] - b2_months[month]
+                for month in config["evaluation_months"]
+            },
+            "bootstrap_vs_b2": b2_interval,
+            "bootstrap_upper_vs_b2": b2_interval["upper_95"],
+            "delta_vs_reference": evaluation_brier - prior_brier,
+            "relative_improvement_vs_reference": 1 - evaluation_brier / prior_brier,
+            "month_deltas_vs_reference": {
+                month: month_rows[month]["weighted_brier"] - prior_months[month]
+                for month in config["evaluation_months"]
+            },
+            "bootstrap_vs_reference": prior_interval,
+            "bootstrap_upper_vs_reference": prior_interval["upper_95"],
+        }
+        if scale == 20_000_000:
+            row.update(
+                {
+                    "phase1_5m_brier": prior_brier,
+                    "delta_vs_5m": row["delta_vs_reference"],
+                    "relative_improvement_vs_5m": row[
+                        "relative_improvement_vs_reference"
+                    ],
+                    "month_deltas_vs_5m": row["month_deltas_vs_reference"],
+                    "bootstrap_vs_5m": prior_interval,
+                    "bootstrap_upper_vs_5m": prior_interval["upper_95"],
+                }
+            )
+        else:
+            row.update(
+                {
+                    "phase2_20m_brier": prior_brier,
+                    "delta_vs_20m": row["delta_vs_reference"],
+                    "relative_improvement_vs_20m": row[
+                        "relative_improvement_vs_reference"
+                    ],
+                    "month_deltas_vs_20m": row["month_deltas_vs_reference"],
+                    "bootstrap_vs_20m": prior_interval,
+                    "bootstrap_upper_vs_20m": prior_interval["upper_95"],
+                }
+            )
+        selection_rows.append(row)
+    component_rows = [row for row in selection_rows if row["candidate"] in candidate_names]
     a6_row = next(
-        row for row in selection_rows if row["candidate"] == "A6_recent_recency_blend"
+        (
+            row
+            for row in selection_rows
+            if row["candidate"] == "A6_recent_recency_blend"
+        ),
+        None,
     )
     advancement = config["advancement"]
-    advance = select_50m_components(
-        component_rows,
-        a6_row=a6_row,
-        maximum=int(advancement["maximum_50m_components"]),
-        maximum_relative_gap=float(advancement["maximum_relative_gap_to_b2"]),
+    advance = (
+        select_50m_components(
+            component_rows,
+            a6_row=a6_row,
+            maximum=int(advancement["maximum_50m_components"]),
+            maximum_relative_gap=float(advancement["maximum_relative_gap_to_b2"]),
+        )
+        if scale == 20_000_000
+        else list(candidate_names)
     )
     rolling = {
         name: {
@@ -693,21 +801,49 @@ def main() -> None:
                     "best_iteration": training["candidates"][name][fold]["best_iteration"],
                     "best_score": training["candidates"][name][fold]["best_score"],
                 }
-                for fold in config["rolling_folds"]
+                for fold in fold_names
             ],
             "best_iteration_range": (
                 max(
                     int(training["candidates"][name][fold]["best_iteration"])
-                    for fold in config["rolling_folds"]
+                    for fold in fold_names
                 )
                 - min(
                     int(training["candidates"][name][fold]["best_iteration"])
-                    for fold in config["rolling_folds"]
+                    for fold in fold_names
                 )
             ),
         }
-        for name in EXPECTED_CANDIDATES
+        for name in candidate_names
     }
+    hundred_million = None
+    if scale == 50_000_000:
+        hundred_million = {}
+        for row in component_rows:
+            evidence = {
+                "relative_improvement_20m_to_50m": row[
+                    "relative_improvement_vs_20m"
+                ],
+                "residual_supports_variance_or_rare_regime": False,
+                "beats_b2_consistently": is_robust_b2_win(row),
+                "compute_fits": True,
+                "inference_compatible": True,
+                "december_2024_read": False,
+            }
+            approved, reasons = decide_100m(
+                evidence,
+                float(
+                    advancement[
+                        "minimum_20m_to_50m_relative_improvement_for_100m"
+                    ]
+                ),
+            )
+            hundred_million[row["candidate"]] = {
+                "approved": approved,
+                "reasons": reasons,
+                "evidence": evidence,
+                "note": "Residual-support gate remains conservative until the Phase 2 report review.",
+            }
     memory = peak_rss_gb()
     output = {
         "schema_version": 1,
@@ -731,6 +867,7 @@ def main() -> None:
             "robust_b2_rule": advancement["robust_b2_rule"],
             "learning_rule": advancement["learning_rule"],
         },
+        "hundred_million_decision": hundred_million,
         "training_result": training_path.relative_to(ROOT).as_posix(),
         "cohort_manifest": manifest_path.relative_to(ROOT).as_posix(),
         "compute": {

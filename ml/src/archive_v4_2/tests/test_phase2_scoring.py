@@ -16,6 +16,9 @@ from score_phase2_scale import (  # noqa: E402
     calibration_result,
     contributions,
     distance_labels,
+    evaluation_reference_days,
+    evaluation_reference_months,
+    evaluation_reference_overall,
     paired_bootstrap,
     update_calibration,
 )
@@ -68,6 +71,43 @@ class Phase2ScoringTests(unittest.TestCase):
         }
         result = paired_bootstrap(candidate, reference, 7, 100)
         self.assertLess(result["upper_95"], 0)
+
+    def test_scale_reference_helpers_read_standard_metric_shape(self) -> None:
+        evaluation = {
+            "metrics": {
+                "A4_recent_cycle:calibrated": {
+                    "overall": {"weighted_brier": 0.04},
+                    "slices": {
+                        "month": [
+                            {"key": "2024-10", "weighted_brier": 0.039}
+                        ],
+                        "day": [
+                            {
+                                "key": "2024-10-01",
+                                "opportunities": 10.0,
+                                "weighted_brier": 0.038,
+                            }
+                        ],
+                    },
+                }
+            }
+        }
+        self.assertEqual(
+            evaluation_reference_overall(evaluation, "A4_recent_cycle"), 0.04
+        )
+        self.assertEqual(
+            evaluation_reference_months(evaluation, "A4_recent_cycle"),
+            {"2024-10": 0.039},
+        )
+        self.assertEqual(
+            evaluation_reference_days(evaluation, "A4_recent_cycle"),
+            {
+                "2024-10-01": {
+                    "opportunities": 10.0,
+                    "weighted_brier": 0.038,
+                }
+            },
+        )
 
 
 if __name__ == "__main__":

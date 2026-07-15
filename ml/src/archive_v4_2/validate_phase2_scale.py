@@ -23,11 +23,18 @@ from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
     EXPECTED_FOLDS,
     Phase2Error,
+    matrix_backend,
+    scale_workset,
     validate_config,
 )
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
+PHASE2_20M_EVALUATION = (
+    ROOT
+    / "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale"
+    / "evaluation_20m_results.json"
+)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -89,6 +96,12 @@ def main() -> None:
     manifest = load_json(manifest_path)
     training = load_json(training_path)
     evaluation = load_json(evaluation_path)
+    phase2_20m_evaluation = (
+        load_json(PHASE2_20M_EVALUATION) if scale == 50_000_000 else None
+    )
+    candidate_names, fold_names = scale_workset(
+        config, scale, phase2_20m_evaluation
+    )
     checks: list[dict[str, Any]] = []
 
     def add(name: str, passed: bool, detail: Any) -> None:
@@ -108,25 +121,26 @@ def main() -> None:
     )
     add(
         "candidate inventory",
-        tuple(manifest["cohorts"]) == EXPECTED_CANDIDATES
-        and tuple(training["candidates"]) == EXPECTED_CANDIDATES,
+        tuple(manifest["cohorts"]) == candidate_names
+        and tuple(training["candidates"]) == candidate_names,
         list(training["candidates"]),
     )
     cohort_artifacts = []
     nested = []
     cohort_rows = []
-    for candidate in EXPECTED_CANDIDATES:
-        for fold in EXPECTED_FOLDS:
+    for candidate in candidate_names:
+        for fold in fold_names:
             item = manifest["cohorts"][candidate][fold]
             cohort_rows.append(int(item["rows"]) == scale)
             cohort_artifacts.append(check_artifact(item)[0])
             if fold == config["final_fold"]:
-                nested.append(bool(item["phase1_nestedness"]["exact_phase1_key_subset"]))
+                nestedness = item.get("nestedness", item.get("phase1_nestedness", {}))
+                nested.append(bool(nestedness.get("exact_phase1_key_subset")))
     add("exact cohort rows", all(cohort_rows), f"{len(cohort_rows)} candidate-fold entries")
     add("cohort hashes", all(cohort_artifacts), f"{sum(cohort_artifacts)}/{len(cohort_artifacts)}")
-    add("Phase 1 nestedness", all(nested), nested)
+    add("lower-scale nestedness", all(nested), nested)
     sample_artifacts = [
-        check_artifact(manifest["early_stopping"][fold])[0] for fold in EXPECTED_FOLDS
+        check_artifact(manifest["early_stopping"][fold])[0] for fold in fold_names
     ] + [check_artifact(manifest["calibration"])[0]]
     add("fold sample hashes", all(sample_artifacts), f"{sum(sample_artifacts)}/{len(sample_artifacts)}")
 
@@ -137,12 +151,13 @@ def main() -> None:
     iterations = []
     feature_contracts = []
     reference_features: list[str] | None = None
-    for candidate in EXPECTED_CANDIDATES:
+    expected_backend = matrix_backend(config, scale)
+    for candidate in candidate_names:
         folds = training["candidates"].get(candidate, {})
-        training_complete &= tuple(folds) == EXPECTED_FOLDS
-        for fold in EXPECTED_FOLDS:
+        training_complete &= set(folds) == set(fold_names)
+        for fold in fold_names:
             item = folds[fold]
-            training_modes.append(item["training_mode"] == "external_memory_quantile")
+            training_modes.append(item["training_mode"] == expected_backend)
             training_rows.append(int(item["train_rows"]) == scale)
             model_artifacts.append(check_artifact(item["model"])[0])
             best = int(item["best_iteration"])
@@ -153,8 +168,8 @@ def main() -> None:
             feature_contracts.append(features == reference_features)
             if fold == config["final_fold"]:
                 model_artifacts.append(check_artifact(item["calibrator"])[0])
-    add("rolling folds complete", training_complete, list(EXPECTED_FOLDS))
-    add("external-memory mode", all(training_modes), training_modes)
+    add("scale folds complete", training_complete, list(fold_names))
+    add("matrix backend", all(training_modes), expected_backend)
     add("training row counts", all(training_rows), training_rows)
     add("model and calibrator hashes", all(model_artifacts), f"{sum(model_artifacts)}/{len(model_artifacts)}")
     add("best iterations in bounds", all(iterations), iterations)
@@ -173,12 +188,17 @@ def main() -> None:
         list(evaluation["evaluation_months"]) == list(config["evaluation_months"]),
         evaluation["evaluation_months"],
     )
+    has_a6 = {
+        str(config["conditional_policy"]["left"]),
+        str(config["conditional_policy"]["right"]),
+    } <= set(candidate_names)
     expected_variants = {
         "B2_frozen_v3",
-        "A6_recent_recency_blend",
-        *{f"{name}:raw" for name in EXPECTED_CANDIDATES},
-        *{f"{name}:calibrated" for name in EXPECTED_CANDIDATES},
+        *{f"{name}:raw" for name in candidate_names},
+        *{f"{name}:calibrated" for name in candidate_names},
     }
+    if has_a6:
+        expected_variants.add("A6_recent_recency_blend")
     add("metric variant inventory", set(evaluation["metrics"]) == expected_variants, sorted(evaluation["metrics"]))
     finite_metrics = []
     opportunity_values = []
@@ -205,27 +225,51 @@ def main() -> None:
     }
     add(
         "selection inventory",
-        selection_names == {*EXPECTED_CANDIDATES, "A6_recent_recency_blend"},
+        selection_names
+        == {
+            *candidate_names,
+            *(["A6_recent_recency_blend"] if has_a6 else []),
+        },
         sorted(selection_names),
     )
     selected = list(evaluation["selection"]["advance_to_50m"])
     add(
         "50M component cap",
         len(selected) <= int(config["advancement"]["maximum_50m_components"])
-        and set(selected) <= set(EXPECTED_CANDIDATES),
+        and set(selected) <= set(EXPECTED_CANDIDATES)
+        and (scale == 20_000_000 or tuple(selected) == candidate_names),
         selected,
     )
-    grid = evaluation["a6_policy_selection"]["grid"]
-    selected_weight = float(evaluation["a6_policy_selection"]["selected_left_weight"])
-    add(
-        "A6 grid selection",
-        any(math.isclose(selected_weight, float(row["left_weight"])) for row in grid)
-        and math.isclose(
-            float(evaluation["a6_policy_selection"]["selected_brier"]),
-            min(float(row["weighted_brier"]) for row in grid),
-        ),
-        selected_weight,
-    )
+    if has_a6:
+        grid = evaluation["a6_policy_selection"]["grid"]
+        selected_weight = float(
+            evaluation["a6_policy_selection"]["selected_left_weight"]
+        )
+        add(
+            "A6 grid selection",
+            any(
+                math.isclose(selected_weight, float(row["left_weight"]))
+                for row in grid
+            )
+            and math.isclose(
+                float(evaluation["a6_policy_selection"]["selected_brier"]),
+                min(float(row["weighted_brier"]) for row in grid),
+            ),
+            selected_weight,
+        )
+    else:
+        add(
+            "A6 correctly omitted",
+            evaluation["a6_policy_selection"] is None,
+            evaluation["a6_policy_selection"],
+        )
+    if scale == 50_000_000:
+        decisions = evaluation["hundred_million_decision"]
+        add(
+            "100M decision inventory",
+            set(decisions) == set(candidate_names),
+            sorted(decisions),
+        )
     add(
         "memory budget",
         bool(evaluation["compute"]["memory_limit_respected"])

@@ -816,6 +816,22 @@ def main() -> None:
         {"id": "summary", "type": "markdown", "body": "## Technical summary\n\n" + decision},
         {"id": "metrics", "type": "metric-strip", "cardIds": [item["id"] for item in cards]},
         {
+            "id": "plain_language",
+            "type": "markdown",
+            "body": (
+                "## Plain-language explainer\n\nThink of each training row as one question: for this hour, band, "
+                "transmitter area, receiver area, power level, space-weather state, and recent network history, what "
+                "is the chance that at least one public WSPR receiver reports a decode? The model studies millions of "
+                "past questions and outputs a probability from 0 to 1. **Brier score** is the average squared distance "
+                "between those probabilities and what happened, so lower is better. More rows help only when that score "
+                "also improves on later months. **NowCast** is the identity-free core probability. **StationCast** then "
+                "adjusts it with the operator's private equipment chain at inference time. **FutureCast** is a later "
+                "forecast product and is not justified by this retrospective experiment. Receiver locations and activity "
+                "still affect what WSPR can observe, so this is a decode-opportunity model, not a guarantee that a two-way "
+                "contact will succeed."
+            ),
+        },
+        {
             "id": "definitions",
             "type": "markdown",
             "body": (
@@ -976,6 +992,17 @@ Generated: {generated_at}
 The {latest_scale}M focus result is **{LABELS.get(focus, focus)}** at
 `{float(focus_row['evaluation_brier']):.8f}` Brier
 (`{float(focus_row['delta_vs_b2']):+.8f}` versus frozen B2).
+
+## Plain-language explanation
+
+Each row asks whether at least one public WSPR receiver reports a decode for a
+particular path, hour, band, power level, weather state, and recent network
+history. The model outputs a probability; lower Brier means those probabilities
+were closer to what happened. NowCast is the identity-free core. StationCast
+applies the operator's private equipment chain at inference time. FutureCast is
+a separate future-forecast claim and is not established by this experiment.
+Receiver coverage remains part of what the dataset can observe, so this is not
+a guarantee of a completed two-way contact.
 
 ## Scale decisions
 

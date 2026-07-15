@@ -3,8 +3,17 @@
   "execution_scope": "development",
   "seed": 20260711,
   "frozen_outcomes": {
-    "forbidden": ["2024-12", "2025-01", "2025-04", "2025-07", "2025-10"],
-    "evaluation": ["2024-10", "2024-11"]
+    "forbidden": [
+      "2024-12",
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
+    "evaluation": [
+      "2024-10",
+      "2024-11"
+    ]
   },
   "source_roots": {
     "quarterly": "ml/data/processed/archive_v4/dataset_propagation_v4_multiyear_50m_hf.parquet",
@@ -16,33 +25,65 @@
     }
   },
   "base_training_months": [
-    "2018-01", "2018-04", "2018-07", "2018-10",
-    "2019-01", "2019-04", "2019-07", "2019-10",
-    "2020-01", "2020-04", "2020-07", "2020-10",
-    "2021-01", "2021-04", "2021-07", "2021-10",
-    "2022-01", "2022-04", "2022-07", "2022-10",
-    "2023-01", "2023-04", "2023-07", "2023-10"
+    "2018-01",
+    "2018-04",
+    "2018-07",
+    "2018-10",
+    "2019-01",
+    "2019-04",
+    "2019-07",
+    "2019-10",
+    "2020-01",
+    "2020-04",
+    "2020-07",
+    "2020-10",
+    "2021-01",
+    "2021-04",
+    "2021-07",
+    "2021-10",
+    "2022-01",
+    "2022-04",
+    "2022-07",
+    "2022-10",
+    "2023-01",
+    "2023-04",
+    "2023-07",
+    "2023-10"
   ],
   "rolling_folds": {
     "F1_2024_02": {
       "early_stopping_month": "2024-02",
       "recency_reference": "2024-02-01T00:00:00Z",
-      "available_2024_training_months": ["2024-01"]
+      "available_2024_training_months": [
+        "2024-01"
+      ]
     },
     "F2_2024_05": {
       "early_stopping_month": "2024-05",
       "recency_reference": "2024-05-01T00:00:00Z",
-      "available_2024_training_months": ["2024-01", "2024-02", "2024-04"]
+      "available_2024_training_months": [
+        "2024-01",
+        "2024-02",
+        "2024-04"
+      ]
     },
     "F3_2024_07": {
       "early_stopping_month": "2024-07",
       "recency_reference": "2024-07-01T00:00:00Z",
-      "available_2024_training_months": ["2024-01", "2024-02", "2024-04", "2024-05"]
+      "available_2024_training_months": [
+        "2024-01",
+        "2024-02",
+        "2024-04",
+        "2024-05"
+      ]
     }
   },
   "final_fold": "F3_2024_07",
   "calibration_month": "2024-08",
-  "evaluation_months": ["2024-10", "2024-11"],
+  "evaluation_months": [
+    "2024-10",
+    "2024-11"
+  ],
   "candidates": {
     "A2_long_natural": {
       "training_family": "long_natural",
@@ -61,7 +102,10 @@
     }
   },
   "sampling": {
-    "scales": [20000000, 50000000],
+    "scales": [
+      20000000,
+      50000000
+    ],
     "early_stopping_rows": 5000000,
     "calibration_rows": 5000000,
     "hash_oversample_fraction": 0.002,
@@ -98,8 +142,14 @@
     "left": "A4_recent_cycle",
     "right": "A5_recency_weighted",
     "selection_month": "2024-08",
-    "calibrator_fit_days": [1, 20],
-    "policy_selection_days": [21, 31],
+    "calibrator_fit_days": [
+      1,
+      20
+    ],
+    "policy_selection_days": [
+      21,
+      31
+    ],
     "left_weight_grid_step": 0.05,
     "bootstrap_repetitions": 2000
   },
@@ -130,7 +180,9 @@
     "serving_xgboost_threads": 1
   },
   "phase4": {
-    "gate_months": ["2024-12"],
+    "gate_months": [
+      "2024-12"
+    ],
     "batch_rows": 100000,
     "bootstrap_repetitions": 2000,
     "minimum_relative_brier_improvement_vs_b2": 0.01,
@@ -140,14 +192,23 @@
     "minimum_supported_slice_opportunities": 1000000,
     "maximum_week_relative_brier_regression": 0.02,
     "maximum_band_relative_brier_regression": 0.02,
-    "short_distance_bins": ["0-500 km", "500-1500 km", "1500-3000 km"],
+    "short_distance_bins": [
+      "0-500 km",
+      "500-1500 km",
+      "1500-3000 km"
+    ],
     "maximum_short_path_absolute_brier_regression": 0.0002,
     "maximum_short_path_relative_brier_regression": 0.01,
     "maximum_ece_delta_vs_b2": 0.002,
     "maximum_high_confidence_gap_delta_vs_b2": 0.002
   },
   "phase5": {
-    "locked_months": ["2025-01", "2025-04", "2025-07", "2025-10"],
+    "locked_months": [
+      "2025-01",
+      "2025-04",
+      "2025-07",
+      "2025-10"
+    ],
     "batch_rows": 100000,
     "bootstrap_repetitions": 2000,
     "minimum_aggregate_relative_brier_improvement_vs_b2": 0.01,
@@ -159,7 +220,10 @@
     "maximum_high_confidence_gap_delta_vs_b2": 0.002
   },
   "outcome_protocol": {
-    "prospective_window": ["2026-08-01", "2026-09-30"],
+    "prospective_window": [
+      "2026-08-01",
+      "2026-09-30"
+    ],
     "minimum_free_gb_before_acquisition": 400,
     "minimum_free_gb_before_scoring": 150,
     "wspr_archive_url": "https://www.wsprnet.org/archive/wsprspots-{month}.csv.gz",
@@ -195,9 +259,11 @@
         "fixed_boost_rounds": 50,
         "minimum_speedup_to_adopt": 1.5,
         "maximum_parallel_peak_rss_gb": 80,
-        "maximum_validation_logloss_difference": 0.000001,
+        "maximum_validation_logloss_difference": 1e-06,
         "fifty_million_backend": "streamed_in_memory_quantile"
-      }
+      },
+      "single_process_prediction_threads": 18,
+      "prediction_thread_benchmark_sha256": "3a7c70abebd228e73856b7b7b3d6c5074acd15cc52f84f7f1b50a6a3621434fc"
     }
   }
 }

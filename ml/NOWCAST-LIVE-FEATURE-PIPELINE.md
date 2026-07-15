@@ -105,6 +105,13 @@ OMNI data. The backend returns one weather watermark and per-source ages. A
 page fetch timestamp is not evidence that every underlying measurement is
 fresh.
 
+The pure `buildOperationalWeather` transform now implements this causal subset
+for `solar_snapshots`: source-specific freshness limits, separate observation
+and receipt ages, per-source `available_at`, conservative watermarks, and legal
+Kp/Bz/Dst backward windows. Its M5 tests, full TypeScript build, and lint pass.
+It is not wired into product callers until the provenance migration is deployed
+and backend replay parity passes.
+
 ## Data Flow
 
 1. **Authorized ingest**
@@ -230,8 +237,10 @@ shadow capture with receipt timestamps is required before product enablement.
 - [ ] Add rolling bronze and hourly feature-store migrations with RLS/service
   policies, retention, and sparse-export protection.
 - [ ] Build idempotent ingest, hourly finalizer, watermarks, and health metrics.
-- [ ] Consolidate `solar_snapshots` into one trusted operational-weather
+- [x] Build and M5-test the pure `solar_snapshots` operational-weather
   builder with source observation/receipt times and legal rolling features.
+- [ ] Deploy the provenance migration and expose the builder through one
+  trusted backend response; do not assemble model weather in React pages.
 - [ ] Add batched path-history lookup to the trusted model backend.
 - [ ] Add open-month event-time replay, then a receipt-time live shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.

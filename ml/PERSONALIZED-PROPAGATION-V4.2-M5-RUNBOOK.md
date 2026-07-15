@@ -47,6 +47,7 @@ CPU or scheduler limit before M5 workflows run.
 | 50M training | 2 spawned fits × 9 XGBoost threads | iterator-fed in-memory `QuantileDMatrix` |
 | Arrow per fit | 9 CPU threads, 4 I/O threads | 250,000-row iterator batches |
 | Evaluation and gates | Benchmark-pinned XGBoost threads, Arrow 18/6 CPU/I/O | 100,000-row scoring batches |
+| Serving validation | 1 XGBoost thread per API request | Manifest default; explicit deployment override only |
 
 XGBoost has no Metal backend. The installed build is CPU/OpenMP and has no
 CUDA. The 50M backend was selected by a training-only benchmark: `2.603276x`
@@ -157,6 +158,7 @@ ml/.venv/bin/python ml/src/archive_v4_2/freeze_phase3_candidate.py --profile m5
 The freeze requires:
 
 - passing 50M validation;
+- manifest-default one-thread serving validation with no ambient override;
 - offline/service parity within `1e-12`;
 - fresh NowCast and stale physics-fallback boundary checks at 7,200 seconds;
 - explicit missingness and reduced fallback confidence;

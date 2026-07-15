@@ -11,6 +11,12 @@ Browser access defaults to `http://localhost:5173` and
 `http://127.0.0.1:5173`. Set `PROPULSE_ALLOWED_ORIGINS` to a comma-separated
 deployment allowlist; wildcard origins are intentionally unsupported.
 
+The serving manifest defaults XGBoost to one prediction thread per request so
+concurrent API requests do not inherit the M5 training worker's thread count.
+Set `PROPULSE_XGBOOST_THREADS` only when the deployment CPU allocation and load
+test justify a different value. `/health` and `/models` expose the effective
+count and whether it came from the manifest or environment.
+
 Endpoints are `/v1/propagation/path`, `/surface`, `/models`, and `/health`.
 When recent path history is older than two hours, inference selects the physics
 profile and returns an explicit stale-data OOD flag. If no approved model is

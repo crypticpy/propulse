@@ -336,6 +336,12 @@ fallback provenance and reduced confidence, bounded probabilities, response
 schemas, model checksums, locked-scope flags, and recursively scans the public
 manifest for private identity fields or values.
 
+The serving bundle separately defaults to one XGBoost prediction thread per API
+request so a small container never inherits the M5's nine-thread training
+worker setting. A deployment may override it only through
+`PROPULSE_XGBOOST_THREADS`; health and model metadata expose the effective
+value, and Phase 3 latency is measured using the manifest default.
+
 ### Real-time NowCast inputs
 
 The operational service must be able to construct every core feature from:

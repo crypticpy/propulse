@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 V4 = ROOT / "ml/src/archive_v4"
 V41 = ROOT / "ml/src/archive_v4_1"
 DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS = 7200
+DEFAULT_XGBOOST_PREDICTION_THREADS = 1
 sys.path.insert(0, str(V4))
 # V4.1 joblib bundles retain the historical ``calibration`` module name. Put
 # the backward-compatible V4.1 implementation first before unpickling them.
@@ -130,6 +131,26 @@ def model_feature_value(value: float | int | None) -> float:
     return 0.0 if value is None else float(value)
 
 
+def resolve_xgboost_prediction_threads(
+    runtime_policy: dict[str, Any], override: str | None
+) -> tuple[int, str]:
+    source = "environment" if override is not None else "manifest"
+    raw = (
+        override
+        if override is not None
+        else runtime_policy.get(
+            "xgboost_prediction_threads", DEFAULT_XGBOOST_PREDICTION_THREADS
+        )
+    )
+    try:
+        threads = int(raw)
+    except (TypeError, ValueError) as error:
+        raise RuntimeError("XGBoost prediction threads must be an integer") from error
+    if threads < 1 or threads > 64:
+        raise RuntimeError("XGBoost prediction threads must be between 1 and 64")
+    return threads, source
+
+
 def blend_probabilities(
     predictions: list[np.ndarray], weights: list[float]
 ) -> np.ndarray:
@@ -151,14 +172,21 @@ class ModelRegistry:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         self.version = payload["model_version"]
         self.feature_contract = payload["feature_contract"]
+        runtime_policy = payload.get("runtime_policy", {})
         self.path_history_stale_after_seconds = int(
-            payload.get("runtime_policy", {}).get(
+            runtime_policy.get(
                 "path_history_stale_after_seconds",
                 DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS,
             )
         )
         if self.path_history_stale_after_seconds < 0:
             raise RuntimeError("path-history stale threshold must be non-negative")
+        (
+            self.xgboost_prediction_threads,
+            self.xgboost_prediction_threads_source,
+        ) = resolve_xgboost_prediction_threads(
+            runtime_policy, os.environ.get("PROPULSE_XGBOOST_THREADS")
+        )
         self.profiles: dict[str, dict[str, Any]] = {}
         for name, item in payload["profiles"].items():
             kind = str(item.get("kind", "single"))
@@ -194,9 +222,8 @@ class ModelRegistry:
                 profile.update(components[0])
             self.profiles[name] = profile
 
-    @staticmethod
     def _load_component(
-        manifest_path: Path, item: dict[str, Any]
+        self, manifest_path: Path, item: dict[str, Any]
     ) -> dict[str, Any]:
         model_path = (manifest_path.parent / item["model_path"]).resolve()
         calibrator_path = (manifest_path.parent / item["calibrator_path"]).resolve()
@@ -209,6 +236,7 @@ class ModelRegistry:
                 raise RuntimeError(f"model artifact checksum mismatch: {path.name}")
         model = xgb.Booster()
         model.load_model(model_path)
+        model.set_param({"nthread": self.xgboost_prediction_threads})
         return {
             "model": model,
             "calibrator": joblib.load(calibrator_path),
@@ -251,12 +279,13 @@ class ModelRegistry:
             dtype=np.float64,
         )
         component_predictions = []
+        band_values = np.asarray(bands)
         for component in item["components"]:
             raw = component["model"].inplace_predict(
                 matrix, iteration_range=(0, component["best_iteration"] + 1)
             )
             component_predictions.append(
-                component["calibrator"].predict(raw, np.array(bands), distance)
+                component["calibrator"].predict(raw, band_values, distance)
             )
         probabilities = blend_probabilities(component_predictions, item["weights"])
         output = []
@@ -295,12 +324,24 @@ class ModelRegistry:
             "runtime_policy": {
                 "path_history_stale_after_seconds": (
                     self.path_history_stale_after_seconds
-                )
+                ),
+                "xgboost_prediction_threads": self.xgboost_prediction_threads,
+                "xgboost_prediction_threads_source": (
+                    self.xgboost_prediction_threads_source
+                ),
             },
         }]
 
     def health(self) -> dict[str, Any]:
-        return {"status": "ok", "model_version": self.version, "profiles": sorted(self.profiles)}
+        return {
+            "status": "ok",
+            "model_version": self.version,
+            "profiles": sorted(self.profiles),
+            "xgboost_prediction_threads": self.xgboost_prediction_threads,
+            "xgboost_prediction_threads_source": (
+                self.xgboost_prediction_threads_source
+            ),
+        }
 
 
 class UnavailableRegistry:

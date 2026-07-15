@@ -126,7 +126,8 @@
     "maximum_batch_p95_ms": 3000,
     "maximum_validation_rss_gb": 32,
     "maximum_bundle_bytes": 268435456,
-    "stale_path_history_seconds": 7200
+    "stale_path_history_seconds": 7200,
+    "serving_xgboost_threads": 1
   },
   "phase4": {
     "gate_months": ["2024-12"],

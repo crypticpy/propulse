@@ -224,6 +224,10 @@ def main() -> None:
         / config["run_id"]
         / "serving/serving_manifest.json"
     )
+    if os.environ.get("PROPULSE_XGBOOST_THREADS") is not None:
+        raise Phase2Error(
+            "Phase 3 validation must use the serving manifest thread count"
+        )
     load_started = time.perf_counter()
     registry = ModelRegistry(bundle_path)
     load_seconds = time.perf_counter() - load_started
@@ -343,6 +347,9 @@ def main() -> None:
     memory = peak_rss_gb()
     gates = {
         "bundle_checksum_and_schema": True,
+        "serving_thread_contract": registry.xgboost_prediction_threads
+        == int(phase3["serving_xgboost_threads"])
+        and registry.xgboost_prediction_threads_source == "manifest",
         "offline_service_parity": maximum_difference
         <= float(phase3["parity_tolerance"]),
         "bounded_probabilities": bounded,
@@ -393,6 +400,12 @@ def main() -> None:
         "bundle_bytes": bundle_bytes,
         "privacy_findings": privacy_findings,
         "runtime": {**runtime, **arrow},
+        "serving_runtime": {
+            "xgboost_prediction_threads": registry.xgboost_prediction_threads,
+            "xgboost_prediction_threads_source": (
+                registry.xgboost_prediction_threads_source
+            ),
+        },
         "gates": gates,
         "passed": all(gates.values()),
     }

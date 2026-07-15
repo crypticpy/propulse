@@ -11,6 +11,7 @@ from app import (
     blend_probabilities,
     create_app,
     model_feature_value,
+    resolve_xgboost_prediction_threads,
 )
 
 
@@ -100,6 +101,22 @@ class ServiceTests(unittest.TestCase):
     def test_missing_model_features_match_training_imputation(self):
         self.assertEqual(model_feature_value(None), 0.0)
         self.assertEqual(model_feature_value(0), 0.0)
+
+    def test_serving_threads_default_to_manifest_and_allow_explicit_override(self):
+        self.assertEqual(
+            resolve_xgboost_prediction_threads(
+                {"xgboost_prediction_threads": 2}, None
+            ),
+            (2, "manifest"),
+        )
+        self.assertEqual(
+            resolve_xgboost_prediction_threads(
+                {"xgboost_prediction_threads": 2}, "4"
+            ),
+            (4, "environment"),
+        )
+        with self.assertRaisesRegex(RuntimeError, "between 1 and 64"):
+            resolve_xgboost_prediction_threads({}, "0")
 
     def test_weighted_ensemble_probability_is_exact(self):
         output = blend_probabilities(

@@ -266,7 +266,10 @@ def main() -> None:
         "runtime_policy": {
             "path_history_stale_after_seconds": int(
                 config["phase3"]["stale_path_history_seconds"]
-            )
+            ),
+            "xgboost_prediction_threads": int(
+                config["phase3"]["serving_xgboost_threads"]
+            ),
         },
         "profiles": {
             "physics": copied_physics(load_json(V4_RESULTS), bundle),

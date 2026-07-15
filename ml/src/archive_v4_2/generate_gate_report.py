@@ -169,6 +169,7 @@ def synthetic_result(config: dict[str, Any]) -> dict[str, Any]:
     baseline = fixture_metric(0.046, ["2024-12"])
     phase3_names = (
         "bundle_checksum_and_schema",
+        "serving_thread_contract",
         "offline_service_parity",
         "bounded_probabilities",
         "fresh_selects_nowcast",

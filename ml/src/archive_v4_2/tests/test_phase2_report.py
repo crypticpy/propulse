@@ -11,6 +11,7 @@ sys.path.insert(0, str(MODULE))
 
 from generate_phase2_report import (  # noqa: E402
     ensure_open_scope,
+    feature_gain_encodings,
     selection_by_name,
     training_rows,
     variant,
@@ -18,6 +19,16 @@ from generate_phase2_report import (  # noqa: E402
 
 
 class Phase2ReportTests(unittest.TestCase):
+    def test_feature_gain_bar_uses_categorical_x_and_numeric_y(self) -> None:
+        encodings = feature_gain_encodings()
+        self.assertEqual(encodings["x"], {
+            "field": "feature",
+            "type": "ordinal",
+            "label": "Feature",
+        })
+        self.assertEqual(encodings["y"]["field"], "weighted_gain")
+        self.assertEqual(encodings["y"]["type"], "quantitative")
+
     def test_candidate_variant_matches_scoring_schema(self) -> None:
         self.assertEqual(variant("A4_recent_cycle"), "A4_recent_cycle:calibrated")
         self.assertEqual(variant("A6_recent_recency_blend"), "A6_recent_recency_blend")

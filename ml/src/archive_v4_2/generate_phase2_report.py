@@ -126,6 +126,17 @@ def card(
     }
 
 
+def feature_gain_encodings() -> dict[str, dict[str, str]]:
+    return {
+        "x": {"field": "feature", "type": "ordinal", "label": "Feature"},
+        "y": {
+            "field": "weighted_gain",
+            "type": "quantitative",
+            "label": "Weighted split gain",
+        },
+    }
+
+
 def ensure_open_scope(value: dict[str, Any], label: str) -> None:
     if value.get("december_2024_read") or value.get("locked_2025_read"):
         raise RuntimeError(f"{label} reports access to a closed outcome")
@@ -747,10 +758,7 @@ def main() -> None:
             "Weighted component gain for an ensemble; descriptive model use, not causal attribution.",
             "bar",
             "feature_rows",
-            {
-                "x": {"field": "weighted_gain", "type": "quantitative", "label": "Weighted split gain"},
-                "y": {"field": "feature", "type": "ordinal", "label": "Feature"},
-            },
+            feature_gain_encodings(),
             "training50" if training_50 is not None else "training20",
         ),
     ]

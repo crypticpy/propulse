@@ -72,6 +72,14 @@ def prediction_digest(prediction: np.ndarray) -> str:
     return hashlib.sha256(values.tobytes(order="C")).hexdigest()
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def select_fastest_exact(results: list[dict[str, Any]]) -> int:
     if not results:
         raise Phase2Error("prediction benchmark has no results")
@@ -87,12 +95,12 @@ def main() -> None:
     parser.add_argument("--manifest", default=str(MANIFEST))
     parser.add_argument("--profile", choices=("m5",), required=True)
     parser.add_argument("--rows", type=int, default=100_000)
-    parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     args = parser.parse_args()
     del args.profile
-    if args.rows < 10_000 or args.repeats < 2:
-        raise Phase2Error("benchmark requires at least 10,000 rows and two repeats")
+    if args.rows < 10_000 or args.repeats < 5:
+        raise Phase2Error("benchmark requires at least 10,000 rows and five repeats")
     config = load_json(Path(args.config))
     validate_config(config)
     runtime = validate_m5_runtime(config, xgboost_module=xgb)
@@ -104,6 +112,10 @@ def main() -> None:
     final_fold = str(config["final_fold"])
     sample_item = manifest["early_stopping"][final_fold]
     sample_path = ROOT / sample_item["path"]
+    if sample_path.stat().st_size != int(sample_item["bytes"]):
+        raise Phase2Error("prediction benchmark sample size changed")
+    if file_sha256(sample_path) != str(sample_item["sha256"]):
+        raise Phase2Error("prediction benchmark sample checksum changed")
     v3 = load_json(V3_RESULTS)["profiles"]["nowcast"]
     profile = load_profile("nowcast", v3, ROOT)
     table = ds.dataset(sample_path, format="parquet").head(
@@ -116,32 +128,36 @@ def main() -> None:
         [numeric(batch, name, np.float32) for name in profile.features]
     )
     thread_counts = [1, 6, 9, 12, 18]
-    reference: np.ndarray | None = None
-    results = []
+    durations = {threads: [] for threads in thread_counts}
+    predictions: dict[int, np.ndarray] = {}
     for threads in thread_counts:
         profile.model.set_param({"nthread": threads})
         profile.model.inplace_predict(
             matrix[: min(10_000, len(matrix))],
             iteration_range=(0, profile.best_iteration + 1),
         )
-        durations = []
-        prediction = None
-        for _ in range(args.repeats):
+    for repeat in range(args.repeats):
+        offset = repeat % len(thread_counts)
+        order = thread_counts[offset:] + thread_counts[:offset]
+        for threads in order:
+            profile.model.set_param({"nthread": threads})
             started = time.perf_counter()
             prediction = profile.model.inplace_predict(
                 matrix,
                 iteration_range=(0, profile.best_iteration + 1),
             )
-            durations.append(time.perf_counter() - started)
-        assert prediction is not None
-        if reference is None:
-            reference = prediction.copy()
+            durations[threads].append(time.perf_counter() - started)
+            predictions[threads] = prediction.copy()
+    reference = predictions[thread_counts[0]]
+    results = []
+    for threads in thread_counts:
+        prediction = predictions[threads]
         results.append(
             {
                 "threads": threads,
-                "seconds": durations,
-                "median_seconds": float(np.median(durations)),
-                "minimum_seconds": float(np.min(durations)),
+                "seconds": durations[threads],
+                "median_seconds": float(np.median(durations[threads])),
+                "minimum_seconds": float(np.min(durations[threads])),
                 "prediction_sha256": prediction_digest(prediction),
                 "maximum_absolute_delta": float(
                     np.max(np.abs(prediction.astype(np.float64) - reference))
@@ -158,6 +174,8 @@ def main() -> None:
         "features": len(profile.features),
         "best_iteration": profile.best_iteration,
         "sample": sample_item,
+        "sample_sha256_verified_this_run": True,
+        "measurement_order_rotated": True,
         "december_2024_read": False,
         "locked_2025_read": False,
         "results": results,

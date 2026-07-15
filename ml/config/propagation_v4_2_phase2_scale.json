@@ -116,6 +116,18 @@
     "tie_break": "candidate identifier ascending",
     "no_eligible_candidate": "stop before December access"
   },
+  "phase3": {
+    "parity_tolerance": 1e-12,
+    "rows_per_evaluation_month": 256,
+    "latency_single_repetitions": 50,
+    "latency_batch_rows": 4096,
+    "latency_batch_repetitions": 5,
+    "maximum_single_p95_ms": 50,
+    "maximum_batch_p95_ms": 3000,
+    "maximum_validation_rss_gb": 32,
+    "maximum_bundle_bytes": 268435456,
+    "stale_path_history_seconds": 7200
+  },
   "compute": {
     "required_profile": "m5",
     "external_root": "/Volumes/Projects/PropulseML",

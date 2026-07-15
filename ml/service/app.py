@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 ROOT = Path(__file__).resolve().parents[2]
 V4 = ROOT / "ml/src/archive_v4"
 V41 = ROOT / "ml/src/archive_v4_1"
+DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS = 7200
 sys.path.insert(0, str(V4))
 # V4.1 joblib bundles retain the historical ``calibration`` module name. Put
 # the backward-compatible V4.1 implementation first before unpickling them.
@@ -150,6 +151,14 @@ class ModelRegistry:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         self.version = payload["model_version"]
         self.feature_contract = payload["feature_contract"]
+        self.path_history_stale_after_seconds = int(
+            payload.get("runtime_policy", {}).get(
+                "path_history_stale_after_seconds",
+                DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS,
+            )
+        )
+        if self.path_history_stale_after_seconds < 0:
+            raise RuntimeError("path-history stale threshold must be non-negative")
         self.profiles: dict[str, dict[str, Any]] = {}
         for name, item in payload["profiles"].items():
             kind = str(item.get("kind", "single"))
@@ -283,6 +292,11 @@ class ModelRegistry:
             "profile_kinds": {
                 name: item["kind"] for name, item in sorted(self.profiles.items())
             },
+            "runtime_policy": {
+                "path_history_stale_after_seconds": (
+                    self.path_history_stale_after_seconds
+                )
+            },
         }]
 
     def health(self) -> dict[str, Any]:
@@ -290,6 +304,8 @@ class ModelRegistry:
 
 
 class UnavailableRegistry:
+    path_history_stale_after_seconds = DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS
+
     def predict(self, values: dict[str, float | int | None], band: str, stale_history: bool) -> RuntimePrediction:
         raise RuntimeError("no approved model bundle is loaded")
 
@@ -301,6 +317,19 @@ class UnavailableRegistry:
 
     def health(self) -> dict[str, Any]:
         return {"status": "unavailable", "reason": "no approved model bundle is loaded"}
+
+
+def path_history_is_stale(
+    runtime: Predictor, data_freshness_seconds: dict[str, int]
+) -> bool:
+    threshold = int(
+        getattr(
+            runtime,
+            "path_history_stale_after_seconds",
+            DEFAULT_PATH_HISTORY_STALE_AFTER_SECONDS,
+        )
+    )
+    return data_freshness_seconds.get("path_history", 0) > threshold
 
 
 def prediction_response(request: PathRequest, runtime: RuntimePrediction) -> dict[str, Any]:
@@ -368,7 +397,7 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
 
     @app.post("/v1/propagation/path")
     def path(request: PathRequest) -> dict[str, Any]:
-        stale = request.data_freshness_seconds.get("path_history", 0) > 7200
+        stale = path_history_is_stale(runtime, request.data_freshness_seconds)
         try:
             prediction = runtime.predict(request.features.values, request.band, stale)
         except RuntimeError as error:
@@ -377,7 +406,7 @@ def create_app(registry: Predictor | None = None) -> FastAPI:
 
     @app.post("/v1/propagation/surface")
     def surface(request: SurfaceRequest) -> dict[str, Any]:
-        stale = request.data_freshness_seconds.get("path_history", 0) > 7200
+        stale = path_history_is_stale(runtime, request.data_freshness_seconds)
         predictions = []
         try:
             if hasattr(runtime, "predict_many"):

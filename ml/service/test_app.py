@@ -17,6 +17,7 @@ from app import (
 class FakeRegistry:
     def __init__(self):
         self.batch_sizes = []
+        self.path_history_stale_after_seconds = 7200
 
     def predict(self, values, band, stale_history):
         return RuntimePrediction(
@@ -122,7 +123,12 @@ class ServiceTests(unittest.TestCase):
 
     def test_stale_history_selects_physics_fallback(self):
         payload = request_payload()
-        payload["data_freshness_seconds"]["path_history"] = 10_000
+        payload["data_freshness_seconds"]["path_history"] = 7200
+        response = self.client.post("/v1/propagation/path", json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["profile"], "nowcast")
+
+        payload["data_freshness_seconds"]["path_history"] = 7201
         response = self.client.post("/v1/propagation/path", json=payload)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["profile"], "physics")

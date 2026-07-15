@@ -12,7 +12,8 @@
 
 > Phase 2 status, 2026-07-15: all seven deterministic 20M cohort artifacts are
 > complete and checksum-manifested. A2 has completed all three rolling folds;
-> A4 F1/F2 are complete and A4 F3 is pending; A5, October/November scoring, and the 50M
+> A4 F1/F2 are complete. A4 F3 and A5 F1 are actively training in the bounded
+> two-worker M5 scheduler; A5 F2/F3, October/November scoring, and the 50M
 > selection remain pending. December 2024 and all 2025 outcomes remain closed.
 
 ## Executive decision
@@ -321,6 +322,17 @@ Before December access, freeze:
 - latency and bounded-memory evidence;
 - privacy scan rejecting identity and raw shack records; and
 - the ReachMap/StationCast API contract.
+
+The Phase 3 operational thresholds are frozen before packaging: native arm64
+execution with at least 18 visible cores and OpenMP-enabled XGBoost; exact
+offline/service probability parity within `1e-12` on 256 deterministic rows
+from each open evaluation month; path-history fallback only when age exceeds
+`7,200` seconds; end-to-end API p95 below 50 ms for a single path and 3,000 ms
+for a 4,096-cell surface; validation peak RSS at or below 32 GB; and a serving
+bundle no larger than 256 MiB. The validator also checks missing-input flags,
+fallback provenance and reduced confidence, bounded probabilities, response
+schemas, model checksums, locked-scope flags, and recursively scans the public
+manifest for private identity fields or values.
 
 ### Real-time NowCast inputs
 

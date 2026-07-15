@@ -263,6 +263,11 @@ def main() -> None:
         "train_cap": 50_000_000,
         "primary_candidate": selected,
         "selection_basis": selection["basis"],
+        "runtime_policy": {
+            "path_history_stale_after_seconds": int(
+                config["phase3"]["stale_path_history_seconds"]
+            )
+        },
         "profiles": {
             "physics": copied_physics(load_json(V4_RESULTS), bundle),
             "nowcast": nowcast,

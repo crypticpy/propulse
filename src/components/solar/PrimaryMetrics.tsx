@@ -5,7 +5,6 @@ import {
   SolarFluxModal,
   KIndexModal,
   SunspotModal,
-  AIndexModal,
   BzModal,
   type BzDataPoint,
 } from "./modals";
@@ -23,14 +22,19 @@ export interface PrimaryMetricsProps {
   solarFlux: number | null;
   /** Daily sunspot number, null if unavailable */
   sunspotNumber: number | null;
-  /** A-index (24-hour geomagnetic activity) */
-  aIndex?: number;
   /** IMF Bz component in nT (null if unavailable) */
   bz?: number | null;
   /** Bz historical data for the modal chart */
   bzData?: BzDataPoint[];
   /** Show loading state */
   loading?: boolean;
+  /** Per-product loading state; preferred over the compatibility fallback. */
+  loadingStates?: {
+    kp?: boolean;
+    sfi?: boolean;
+    ssn?: boolean;
+    bz?: boolean;
+  };
   /** Solar flux historical data for the modal chart */
   solarFluxData?: SolarFluxDataPoint[];
 }
@@ -72,57 +76,6 @@ function getSFIDescription(sfi: number): string {
     return "Low";
   }
   return "Very Low";
-}
-
-/**
- * Get color for A-index value
- * Similar scale to K-index coloring
- *
- * @param aIndex - A-index value
- * @returns Hex color code
- */
-function getAIndexColor(aIndex: number): string {
-  if (aIndex <= 7) {
-    return "#00ff88";
-  } // Quiet - signal-green
-  if (aIndex <= 15) {
-    return "#44dd66";
-  } // Unsettled - good
-  if (aIndex <= 29) {
-    return "#ffaa00";
-  } // Active - caution-amber
-  if (aIndex <= 49) {
-    return "#ff7700";
-  } // Minor storm
-  if (aIndex <= 99) {
-    return "#ff4455";
-  } // Major storm - alert-red
-  return "#ff0088"; // Severe storm
-}
-
-/**
- * Get description for A-index value
- *
- * @param aIndex - A-index value
- * @returns Human-readable description
- */
-function getAIndexDescription(aIndex: number): string {
-  if (aIndex <= 7) {
-    return "Quiet";
-  }
-  if (aIndex <= 15) {
-    return "Unsettled";
-  }
-  if (aIndex <= 29) {
-    return "Active";
-  }
-  if (aIndex <= 49) {
-    return "Minor Storm";
-  }
-  if (aIndex <= 99) {
-    return "Major Storm";
-  }
-  return "Severe Storm";
 }
 
 /**
@@ -200,13 +153,15 @@ function getSSNDescription(ssn: number): string {
   if (ssn >= 50) {
     return "Moderate";
   }
-  return "Quiet";
+  return "Low activity";
 }
 
 /**
  * PrimaryMetrics Component
  *
- * Displays a grid of 4 primary solar metrics: SFI, K-Index, SSN, and A-Index.
+ * Displays current observed SFI, Kp, monthly SSN, and IMF Bz. The former
+ * pseudo-current A-index card was removed; planetary A appears only in the
+ * official forecast product on Solar Pulse.
  * Responsive layout: 4 columns on desktop, 2 on tablet, 1 on mobile.
  * Each metric card can be clicked to open a detailed modal.
  *
@@ -216,7 +171,6 @@ function getSSNDescription(ssn: number): string {
  *   kIndex={2.3}
  *   solarFlux={145}
  *   sunspotNumber={120}
- *   aIndex={8}
  *   solarFluxData={[{ time_tag: '2024-01-01', flux: 120 }, ...]}
  * />
  * ```
@@ -225,29 +179,27 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
   kIndex,
   solarFlux,
   sunspotNumber,
-  aIndex = 0,
   bz = null,
   bzData = [],
   loading = false,
+  loadingStates,
   solarFluxData = [],
 }) => {
   // Modal state for each metric
   const [solarFluxModalOpen, setSolarFluxModalOpen] = useState(false);
   const [kIndexModalOpen, setKIndexModalOpen] = useState(false);
   const [sunspotModalOpen, setSunspotModalOpen] = useState(false);
-  const [aIndexModalOpen, setAIndexModalOpen] = useState(false);
   const [bzModalOpen, setBzModalOpen] = useState(false);
 
   // Format values for display
   const formattedKIndex = kIndex !== null ? kIndex.toFixed(1) : "—";
   const formattedSFI = solarFlux !== null ? Math.round(solarFlux) : "—";
   const formattedSSN = sunspotNumber !== null ? Math.round(sunspotNumber) : "—";
-  const formattedAIndex = Math.round(aIndex);
   const formattedBz = bz !== null ? bz.toFixed(1) : "N/A";
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Solar Flux Index */}
         <MetricCard
           label="SOLAR FLUX"
@@ -258,7 +210,7 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           }
           color={solarFlux !== null ? getSFIColor(solarFlux) : "#888899"}
           delay={0}
-          loading={loading}
+          loading={loadingStates?.sfi ?? loading}
           onClick={() => setSolarFluxModalOpen(true)}
           tooltip={SOLAR_TOOLTIPS.sfi}
         />
@@ -273,7 +225,7 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           }
           color={kIndex !== null ? getKIndexColor(kIndex) : "#888899"}
           delay={100}
-          loading={loading}
+          loading={loadingStates?.kp ?? loading}
           onClick={() => setKIndexModalOpen(true)}
           tooltip={SOLAR_TOOLTIPS.kIndex}
         />
@@ -292,22 +244,9 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
             sunspotNumber !== null ? getSSNColor(sunspotNumber) : "#888899"
           }
           delay={200}
-          loading={loading}
+          loading={loadingStates?.ssn ?? loading}
           onClick={() => setSunspotModalOpen(true)}
           tooltip={SOLAR_TOOLTIPS.ssn}
-        />
-
-        {/* A-Index */}
-        <MetricCard
-          label="A-INDEX"
-          value={formattedAIndex}
-          unit="A"
-          description={getAIndexDescription(aIndex)}
-          color={getAIndexColor(aIndex)}
-          delay={300}
-          loading={loading}
-          onClick={() => setAIndexModalOpen(true)}
-          tooltip={SOLAR_TOOLTIPS.aIndex}
         />
 
         {/* IMF Bz */}
@@ -317,39 +256,38 @@ export const PrimaryMetrics: React.FC<PrimaryMetricsProps> = ({
           unit="nT"
           description={getBzDescription(bz)}
           color={getBzColor(bz)}
-          delay={400}
-          loading={loading}
+          delay={300}
+          loading={loadingStates?.bz ?? loading}
           onClick={() => setBzModalOpen(true)}
           tooltip={SOLAR_TOOLTIPS.bz}
         />
       </div>
 
       {/* Modals */}
-      <SolarFluxModal
-        isOpen={solarFluxModalOpen}
-        onClose={() => setSolarFluxModalOpen(false)}
-        currentValue={solarFlux !== null ? Math.round(solarFlux) : 0}
-        data={solarFluxData}
-      />
+      {solarFlux !== null && (
+        <SolarFluxModal
+          isOpen={solarFluxModalOpen}
+          onClose={() => setSolarFluxModalOpen(false)}
+          currentValue={Math.round(solarFlux)}
+          data={solarFluxData}
+        />
+      )}
 
-      <KIndexModal
-        isOpen={kIndexModalOpen}
-        onClose={() => setKIndexModalOpen(false)}
-        currentValue={kIndex ?? 0}
-      />
+      {kIndex !== null && (
+        <KIndexModal
+          isOpen={kIndexModalOpen}
+          onClose={() => setKIndexModalOpen(false)}
+          currentValue={kIndex}
+        />
+      )}
 
-      <SunspotModal
-        isOpen={sunspotModalOpen}
-        onClose={() => setSunspotModalOpen(false)}
-        currentValue={sunspotNumber !== null ? Math.round(sunspotNumber) : 0}
-      />
-
-      <AIndexModal
-        isOpen={aIndexModalOpen}
-        onClose={() => setAIndexModalOpen(false)}
-        currentValue={aIndex}
-        kIndex={kIndex ?? 0}
-      />
+      {sunspotNumber !== null && (
+        <SunspotModal
+          isOpen={sunspotModalOpen}
+          onClose={() => setSunspotModalOpen(false)}
+          currentValue={Math.round(sunspotNumber)}
+        />
+      )}
 
       <BzModal
         isOpen={bzModalOpen}

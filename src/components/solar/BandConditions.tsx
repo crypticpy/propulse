@@ -213,6 +213,10 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
 
       {/* Legend */}
       <div className="mt-4 pt-4 border-t border-white/10">
+        <p className="mb-3 text-xs leading-5 text-gray-500">
+          Global index heuristic only—not a station-to-station forecast. Day and
+          night support depends on both ends of the path and the time.
+        </p>
         <div className="flex flex-wrap gap-4 text-xs text-gray-400">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-signal-green"></span>

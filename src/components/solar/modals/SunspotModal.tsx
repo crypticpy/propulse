@@ -21,7 +21,7 @@ function getSolarCyclePhase(ssn: number): {
     return {
       phase: "Solar Maximum",
       description:
-        "Peak of solar cycle activity. Excellent conditions for long-distance HF communication on higher bands.",
+        "Peak solar-cycle activity can increase high-band potential; individual paths still depend on time, geometry, mode, and noise.",
       color: "#3a86ff",
     };
   }
@@ -29,7 +29,7 @@ function getSolarCyclePhase(ssn: number): {
     return {
       phase: "High Activity",
       description:
-        "Strong solar activity with frequent sunspots. Good propagation on 10m-20m bands.",
+        "Strong solar activity with frequent sunspots and greater potential on the higher HF bands.",
       color: "#44ddff",
     };
   }
@@ -37,7 +37,7 @@ function getSolarCyclePhase(ssn: number): {
     return {
       phase: "Moderate Activity",
       description:
-        "Middle of the solar cycle. Reliable propagation on 15m-40m bands.",
+        "Middle solar-cycle activity with mixed-to-supportive global ionization context.",
       color: "#ffaa00",
     };
   }
@@ -45,14 +45,14 @@ function getSolarCyclePhase(ssn: number): {
     return {
       phase: "Low Activity",
       description:
-        "Approaching or leaving solar minimum. Best propagation on 30m-80m bands.",
+        "Approaching or leaving solar minimum; lower HF bands are often less dependent on high solar flux.",
       color: "#ff7700",
     };
   }
   return {
     phase: "Solar Minimum",
     description:
-      "Bottom of the solar cycle. Focus on lower bands (40m-160m) for best results.",
+      "Bottom of the solar cycle, with limited F-layer support for higher HF bands.",
     color: "#888899",
   };
 }
@@ -63,43 +63,42 @@ function getSolarCyclePhase(ssn: number): {
 const SSN_PROPAGATION_INFO = [
   {
     range: "150+",
-    condition: "Excellent",
-    bands: "10m-20m wide open",
+    condition: "Very high activity",
+    bands: "Greater high-band potential",
     color: "#3a86ff",
   },
   {
     range: "100-150",
-    condition: "Very Good",
-    bands: "12m-30m reliable",
+    condition: "High activity",
+    bands: "Supportive high-band potential",
     color: "#44ddff",
   },
   {
     range: "50-100",
-    condition: "Good",
-    bands: "15m-40m best",
+    condition: "Moderate activity",
+    bands: "Mixed high-band potential",
     color: "#ffaa00",
   },
   {
     range: "20-50",
-    condition: "Fair",
-    bands: "20m-80m usable",
+    condition: "Low activity",
+    bands: "Lower-band context favored",
     color: "#ff7700",
   },
   {
     range: "<20",
-    condition: "Poor",
-    bands: "40m-160m only",
+    condition: "Very low activity",
+    bands: "Limited high-band F-layer support",
     color: "#888899",
   },
 ];
 
 /**
  * Get the primary sun image URL via our edge function proxy.
- * Proxying through /api/solar/sdo-image avoids cross-origin issues
- * and ensures reliable delivery.
+ * The stable media route provides bounded validation and cache semantics.
  */
 function getSunImageUrl(): string {
-  return "/api/solar/sdo-image?type=hmi";
+  return "/api/solar/image?product=sunspot-hmi";
 }
 
 /**
@@ -107,7 +106,7 @@ function getSunImageUrl(): string {
  *
  * Displays detailed sunspot information including:
  * - Current sunspot number (SSN)
- * - Live sun image from NASA SDO
+ * - Current timestamped sun image from NASA SDO
  * - Solar cycle position context
  * - Relationship between SSN and propagation
  */
@@ -128,7 +127,7 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
       setImageLoading(true);
       setImageError(false);
       // Cache-buster ensures we get the latest SDO image on each open
-      setImageUrl(`${getSunImageUrl()}&t=${Date.now()}`);
+      setImageUrl(getSunImageUrl());
     }
   }, [isOpen]);
 
@@ -187,7 +186,7 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
           fontSize="12"
           fontFamily="monospace"
         >
-          Illustration (live image unavailable)
+          Illustration (current image unavailable)
         </text>
       </svg>
     ),
@@ -233,10 +232,10 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
           </div>
         </Card>
 
-        {/* Live Sun Image */}
+        {/* Current SDO image */}
         <Card className="p-4">
           <h3 className="text-sm font-semibold text-white mb-3">
-            Live Sun Image (NASA SDO)
+            Current SDO HMI image
           </h3>
           <div className="relative bg-black/30 rounded-lg overflow-hidden aspect-square max-w-[400px] mx-auto">
             {imageLoading && !imageError && (

@@ -101,7 +101,7 @@ function getCurrentCondition(kIndex: number): {
       color: "#00ff88",
       gScale: null,
       description:
-        "Geomagnetically quiet conditions. Excellent for HF radio propagation.",
+        "Geomagnetically quiet global conditions. Individual HF paths still depend on illumination, frequency, season, antennas, and noise.",
     };
   }
   if (kIndex <= 4) {
@@ -110,7 +110,7 @@ function getCurrentCondition(kIndex: number): {
       color: "#ffaa00",
       gScale: null,
       description:
-        "Minor geomagnetic activity. Good propagation with occasional fading.",
+        "Minor global geomagnetic activity. Some paths may remain stable while others vary.",
     };
   }
   if (kIndex === 5) {
@@ -137,7 +137,7 @@ function getCurrentCondition(kIndex: number): {
       color: "#ff4455",
       gScale: "G3",
       description:
-        "Strong geomagnetic storm. Significant HF radio degradation expected.",
+        "Strong geomagnetic storm. Significant HF degradation is possible, particularly on polar and high-latitude paths.",
     };
   }
   if (kIndex === 8) {
@@ -146,7 +146,7 @@ function getCurrentCondition(kIndex: number): {
       color: "#ff0088",
       gScale: "G4",
       description:
-        "Severe geomagnetic storm. HF radio may be completely unusable.",
+        "Severe geomagnetic storm. Major HF disruption is possible, with strong path and latitude dependence.",
     };
   }
   return {

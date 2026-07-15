@@ -390,7 +390,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
               />
               <span className="text-sm text-gray-400">
                 <span className="text-white font-medium">&lt;90 sfu</span> -
-                Quiet: Poor HF propagation, higher bands closed
+                Low: limited global high-band support
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -400,7 +400,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
               />
               <span className="text-sm text-gray-400">
                 <span className="text-white font-medium">90-150 sfu</span> -
-                Moderate: Good propagation on most bands
+                Moderate: mixed-to-supportive global ionization
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -410,7 +410,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
               />
               <span className="text-sm text-gray-400">
                 <span className="text-white font-medium">&gt;150 sfu</span> -
-                Active: Excellent propagation, 10m-15m wide open
+                High: stronger high-band potential where the path supports it
               </span>
             </div>
           </div>

@@ -34,6 +34,12 @@ export {
 // DetailModal Component
 export { DetailModal, type DetailModalProps } from "./DetailModal";
 
+// AccessibleDialog Component
+export {
+  AccessibleDialog,
+  type AccessibleDialogProps,
+} from "./AccessibleDialog";
+
 // HelpModal Component
 export { HelpModal, HelpButton, HELP_CONTENT } from "./HelpModal";
 

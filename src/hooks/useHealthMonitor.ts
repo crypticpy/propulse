@@ -10,13 +10,17 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { QUERY_KEYS } from "@/hooks/useSolarData";
-import { EXPANDED_QUERY_KEYS } from "@/hooks/useSolarExpanded";
 import { DATA_SOURCE_REGISTRY } from "@/lib/dataSourceRegistry";
 import type { DataSourceId } from "@/lib/dataSourceRegistry";
+import {
+  SOLAR_QUERY_KEYS,
+  SOLAR_SOURCE_IDS,
+  SOLAR_SOURCE_POLICIES,
+} from "@/lib/solar/sourcePolicies";
 import { useDataSourceStatus } from "@/stores/dataSourceStatusStore";
 import { useBridge } from "@/hooks/useBridge";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { evaluateStaleness } from "@/lib/errors/classifyError";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,74 +84,12 @@ const MONITORED_SERVICES: ServiceConfig[] = [
     staleThreshold: 3 * HOUR,
     sourceId: "celestrak-tle",
   },
-  // --- Core solar hooks (useSolarData) ---
-  {
-    name: "K-Index",
-    queryKey: QUERY_KEYS.kIndex,
-    staleThreshold: 5 * MINUTE,
-    sourceId: "noaa-k-index",
-  },
-  {
-    name: "Solar Flux",
-    queryKey: QUERY_KEYS.solarFlux,
-    staleThreshold: 8 * HOUR,
-    sourceId: "noaa-solar-flux",
-  },
-  {
-    name: "Magnetometer",
-    queryKey: QUERY_KEYS.magnetometer,
-    staleThreshold: 5 * MINUTE,
-    sourceId: "noaa-magnetometer",
-  },
-  {
-    name: "Flare Probabilities",
-    queryKey: QUERY_KEYS.probabilities,
-    staleThreshold: 12 * HOUR,
-    sourceId: "noaa-probabilities",
-  },
-  {
-    name: "Sunspot Numbers",
-    queryKey: QUERY_KEYS.sunspots,
-    staleThreshold: 12 * HOUR,
-    sourceId: "noaa-sunspots",
-  },
-  // --- Expanded solar hooks (useSolarExpanded) ---
-  {
-    name: "X-ray Flux",
-    queryKey: EXPANDED_QUERY_KEYS.xrayFlux,
-    staleThreshold: 10 * MINUTE,
-    sourceId: "noaa-xray",
-  },
-  {
-    name: "Proton Flux",
-    queryKey: EXPANDED_QUERY_KEYS.protonFlux,
-    staleThreshold: 10 * MINUTE,
-    sourceId: "noaa-protons",
-  },
-  {
-    name: "Dst Index",
-    queryKey: EXPANDED_QUERY_KEYS.dstIndex,
-    staleThreshold: 1 * HOUR,
-    sourceId: "noaa-dst",
-  },
-  {
-    name: "D-RAP",
-    queryKey: EXPANDED_QUERY_KEYS.drap,
-    staleThreshold: 30 * MINUTE,
-    sourceId: "noaa-drap",
-  },
-  {
-    name: "CME Analysis",
-    queryKey: EXPANDED_QUERY_KEYS.cmeAnalysis,
-    staleThreshold: 2 * HOUR,
-    sourceId: "nasa-cme",
-  },
-  {
-    name: "SFI Forecast",
-    queryKey: EXPANDED_QUERY_KEYS.fluxForecast,
-    staleThreshold: 8 * HOUR,
-    sourceId: "noaa-flux-forecast",
-  },
+  ...SOLAR_SOURCE_IDS.map((sourceId) => ({
+    name: SOLAR_SOURCE_POLICIES[sourceId].label,
+    queryKey: SOLAR_QUERY_KEYS[sourceId],
+    staleThreshold: SOLAR_SOURCE_POLICIES[sourceId].softTtlMs,
+    sourceId,
+  })),
 ];
 
 /** How often (ms) the snapshot is recomputed */
@@ -157,20 +99,12 @@ const REFRESH_INTERVAL = 30_000;
 // Hook
 // ---------------------------------------------------------------------------
 
-/** Data source IDs for sources fetched directly (no React Query). */
-const DIRECT_FETCH_SOURCE_IDS: DataSourceId[] = [
-  "swpc-scales",
-  "swpc-alerts",
-  "swpc-xray-latest",
-  "swpc-solar-wind-mag",
-  "swpc-solar-wind-plasma",
-];
-
 export function useHealthMonitor(): HealthSnapshot {
   const queryClient = useQueryClient();
   const bridgeEnabled = useSettingsStore((state) => state.bridgeEnabled);
   const bridge = useBridge({ enabled: bridgeEnabled });
   const dataSourceStatuses = useDataSourceStatus((s) => s.sources);
+  const updateStaleness = useDataSourceStatus((s) => s.updateStaleness);
 
   // Tick counter drives periodic re-derivation of the snapshot
   const [tick, setTick] = useState(0);
@@ -179,6 +113,16 @@ export function useHealthMonitor(): HealthSnapshot {
     const id = setInterval(() => setTick((t) => t + 1), REFRESH_INTERVAL);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    for (const [sourceId, status] of Object.entries(dataSourceStatuses)) {
+      if (!status?.observedAt) continue;
+      updateStaleness(
+        sourceId as DataSourceId,
+        evaluateStaleness(sourceId as DataSourceId, status.observedAt).level,
+      );
+    }
+  }, [dataSourceStatuses, tick, updateStaleness]);
 
   const snapshot = useMemo<HealthSnapshot>(() => {
     const now = Date.now();
@@ -227,8 +171,8 @@ export function useHealthMonitor(): HealthSnapshot {
         if (sourceStatus?.error) {
           return {
             name: svc.name,
-            status: "error" as const,
-            lastUpdated: dataUpdatedAt || undefined,
+            status: dataUpdatedAt > 0 ? ("degraded" as const) : ("error" as const),
+            lastUpdated: (sourceStatus.observedAt ?? dataUpdatedAt) || undefined,
             errorMessage: sourceStatus.error.shortMessage,
             userMessage: sourceStatus.error.userMessage,
             isUpstream: sourceStatus.error.isUpstream,
@@ -253,12 +197,13 @@ export function useHealthMonitor(): HealthSnapshot {
 
         // Has data — check freshness
         if (status === "success" || dataUpdatedAt > 0) {
-          const age = now - dataUpdatedAt;
+          const freshnessTime = sourceStatus?.observedAt ?? dataUpdatedAt;
+          const age = now - freshnessTime;
           if (age <= svc.staleThreshold) {
             return {
               name: svc.name,
               status: "healthy" as const,
-              lastUpdated: dataUpdatedAt,
+              lastUpdated: freshnessTime,
               sourceId: svc.sourceId,
               provider: registryEntry?.provider,
             };
@@ -266,7 +211,7 @@ export function useHealthMonitor(): HealthSnapshot {
           return {
             name: svc.name,
             status: "degraded" as const,
-            lastUpdated: dataUpdatedAt,
+            lastUpdated: freshnessTime,
             sourceId: svc.sourceId,
             provider: registryEntry?.provider,
           };
@@ -282,38 +227,7 @@ export function useHealthMonitor(): HealthSnapshot {
       },
     );
 
-    // ------ Direct-fetch sources (no React Query, status from store) ------
-    const directFetchServices: ServiceHealth[] = DIRECT_FETCH_SOURCE_IDS.map(
-      (sid) => {
-        const entry = DATA_SOURCE_REGISTRY[sid];
-        const sourceStatus = dataSourceStatuses[sid];
-
-        if (sourceStatus?.error) {
-          return {
-            name: entry.label,
-            status: "error" as const,
-            lastUpdated: sourceStatus.lastSuccess ?? undefined,
-            errorMessage: sourceStatus.error.shortMessage,
-            userMessage: sourceStatus.error.userMessage,
-            isUpstream: sourceStatus.error.isUpstream,
-            provider: entry.provider,
-            sourceId: sid,
-          };
-        }
-
-        return {
-          name: entry.label,
-          status: sourceStatus?.lastSuccess
-            ? ("healthy" as const)
-            : ("idle" as const),
-          lastUpdated: sourceStatus?.lastSuccess ?? undefined,
-          sourceId: sid,
-          provider: entry.provider,
-        };
-      },
-    );
-
-    const allServices = [...queryCacheServices, ...directFetchServices];
+    const allServices = queryCacheServices;
 
     // ------ Bridge state ------
     const bridgeConnected = bridge.connected;

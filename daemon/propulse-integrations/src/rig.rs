@@ -134,6 +134,9 @@ impl RigService {
               let _ = reply.send(Ok(status.clone()));
               }
               RigCommand::Disconnect(reply) => {
+                // Best effort: never abandon an asserted transmitter when the
+                // backend is disconnected or replaced.
+                let _ = backend.set_ptt(false).await;
                 backend = RigBackend::None;
                 last_polled = None;
                 status = RigStatus {

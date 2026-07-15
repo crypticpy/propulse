@@ -286,7 +286,10 @@ export function useRadioDaemon(
       wsRef.current = ws;
 
       connectionTimeoutRef.current = setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) {
+        if (
+          wsRef.current === ws &&
+          ws.readyState === WebSocket.CONNECTING
+        ) {
           ws.close();
           if (mountedRef.current) {
             setState("error");
@@ -297,7 +300,7 @@ export function useRadioDaemon(
       }, currentOpts.connectionTimeout);
 
       ws.onopen = () => {
-        if (!mountedRef.current) {
+        if (!mountedRef.current || wsRef.current !== ws) {
           ws.close();
           return;
         }
@@ -334,6 +337,7 @@ export function useRadioDaemon(
       };
 
       ws.onclose = (event) => {
+        if (wsRef.current !== ws) return;
         clearTimers();
         wsRef.current = null;
 
@@ -345,16 +349,18 @@ export function useRadioDaemon(
 
         setState("disconnected");
         if (event.code !== 1000) {
+          setError(`Connection closed unexpectedly (code ${event.code})`);
           scheduleReconnect();
         }
       };
 
       ws.onerror = () => {
+        if (wsRef.current !== ws) return;
         if (mountedRef.current) setError("Connection error");
       };
 
       ws.onmessage = (event) => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || wsRef.current !== ws) return;
 
         if (typeof event.data === "string") {
           try {
@@ -412,6 +418,22 @@ export function useRadioDaemon(
         }
         wsRef.current = null;
       }
+      bridgeConnectedRef.current = false;
+      if (bridgeSessionIdRef.current) {
+        try {
+          window.postMessage(
+            {
+              source: BRIDGE_SOURCE_FROM_PAGE,
+              type: "disconnect",
+              sessionId: bridgeSessionIdRef.current,
+            },
+            window.location.origin,
+          );
+        } catch {
+          // ignore
+        }
+        bridgeSessionIdRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -440,11 +462,7 @@ export function useRadioDaemon(
       if (msg.source !== BRIDGE_SOURCE_TO_PAGE) return;
 
       const sessionId = msg.sessionId;
-      if (
-        bridgeSessionIdRef.current &&
-        sessionId &&
-        sessionId !== bridgeSessionIdRef.current
-      ) {
+      if (!sessionId || sessionId !== bridgeSessionIdRef.current) {
         return;
       }
 
@@ -479,6 +497,9 @@ export function useRadioDaemon(
 
         setState("disconnected");
         if ((msg.code ?? 0) !== 1000) {
+          setError(
+            msg.reason ?? `Connection closed unexpectedly (code ${msg.code ?? 1006})`,
+          );
           scheduleReconnect();
         }
         return;

@@ -26,6 +26,7 @@ export interface FlexSideControlsProps {
   effectiveState: RadioState | null;
   selectedDevice: DeviceInfo | null;
   canControlConnected: boolean;
+  tuningLocked: boolean;
 
   canStreamFft: boolean;
   canStreamAudio: boolean;
@@ -127,6 +128,7 @@ export function FlexSideControls({
   effectiveState,
   selectedDevice,
   canControlConnected,
+  tuningLocked,
   canStreamFft,
   canStreamAudio,
   fftEnabled,
@@ -167,7 +169,7 @@ export function FlexSideControls({
   const memoryCount = useMemoryStore((s) => s.sdrMemories.length);
 
   const handleFreqKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !tuningLocked) {
       e.preventDefault();
       onTune();
     }
@@ -256,7 +258,7 @@ export function FlexSideControls({
               key={band}
               type="button"
               onClick={() => handleBandClick(band)}
-              disabled={!canControlConnected}
+              disabled={!canControlConnected || tuningLocked}
               className={`px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                 disabled:opacity-40 disabled:cursor-not-allowed ${
                   isActive
@@ -284,7 +286,7 @@ export function FlexSideControls({
                   key={band}
                   type="button"
                   onClick={() => handleBandClick(band)}
-                  disabled={!canControlConnected}
+                  disabled={!canControlConnected || tuningLocked}
                   className={`px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                     disabled:opacity-40 disabled:cursor-not-allowed ${
                       isActive
@@ -311,13 +313,14 @@ export function FlexSideControls({
       <input
         type="text"
         value={freqInput}
+        disabled={!canControlConnected || tuningLocked}
         onChange={(e) => onFreqInputChange(e.target.value)}
         onKeyDown={handleFreqKeyDown}
         placeholder="14.074"
         className="w-full px-2 py-1 font-mono text-sm text-white
           bg-black/40 border border-white/10 rounded
           focus:border-cosmic-cyan/50 focus:outline-none
-          placeholder:text-gray-600"
+          placeholder:text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
       />
 
       <div className="flex gap-1">
@@ -580,7 +583,7 @@ export function FlexSideControls({
           <MemoryPanel
             effectiveState={effectiveState}
             onRecallFrequency={onBandSelect}
-            canControl={canControlConnected}
+            canControl={canControlConnected && !tuningLocked}
           />
         </SidebarAccordion>
 

@@ -83,6 +83,7 @@ const CUSTOM_MODES: RadioMode[] = [
 ];
 
 const CUSTOM_TIERS: RadioTier[] = ["entry", "midrange", "highend", "flagship"];
+const MAX_USER_RADIOS = 10;
 
 function getRadioDisplayLabel(
   radio: RadioEquipment,
@@ -619,6 +620,8 @@ export function RadioManager({
     preferences,
   } = useUserStore();
   const userRadios = useUserRadios();
+  const stationPresets = useShackStore((state) => state.stationPresets);
+  const stationChains = useShackStore((state) => state.stationChains);
   const preferTested = usePreferTestedSpecs();
   const customRadios = useMemo(
     () => preferences.customRadios ?? [],
@@ -680,6 +683,40 @@ export function RadioManager({
     }
     return counts;
   }, [preferences.radios]);
+  const atRadioLimit = userRadios.length >= MAX_USER_RADIOS;
+
+  const removeImpact = useMemo(() => {
+    if (!removeRadioTarget) return { presets: 0, chains: 0 };
+    return {
+      presets: stationPresets.filter(
+        (preset) => preset.radioId === removeRadioTarget,
+      ).length,
+      chains: stationChains.filter((chain) =>
+        chain.nodes.some(
+          (node) => node.type === "radio" && node.radioId === removeRadioTarget,
+        ),
+      ).length,
+    };
+  }, [removeRadioTarget, stationChains, stationPresets]);
+
+  const customDeleteImpact = useMemo(() => {
+    if (!deleteTarget) return { instances: 0, presets: 0, chains: 0 };
+    const instanceIds = new Set(
+      (preferences.radios || [])
+        .filter((radio) => radio.equipmentId === deleteTarget)
+        .map((radio) => radio.id),
+    );
+    return {
+      instances: instanceIds.size,
+      presets: stationPresets.filter((preset) => instanceIds.has(preset.radioId))
+        .length,
+      chains: stationChains.filter((chain) =>
+        chain.nodes.some(
+          (node) => node.type === "radio" && instanceIds.has(node.radioId),
+        ),
+      ).length,
+    };
+  }, [deleteTarget, preferences.radios, stationChains, stationPresets]);
 
   // Filtered radios for the add modal
   const filteredRadios = useMemo(() => {
@@ -1116,15 +1153,38 @@ export function RadioManager({
           {sectionLabel ?? "RADIOS"}
         </h2>
         <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
-          {sectionCount ?? userRadios.length + customRadios.length}
+          {sectionCount ?? userRadios.length}
         </span>
+        {customRadios.length > 0 ? (
+          <span className="text-[11px] text-gray-500">
+            {customRadios.length} reusable custom definition
+            {customRadios.length === 1 ? "" : "s"}
+          </span>
+        ) : null}
         <div className="flex-1" />
         <button
-          onClick={() => setShowAddModal(true)}
-          className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors"
+          type="button"
+          onClick={openNewCustomRadio}
+          className="px-3 py-1 text-sm bg-white/5 border border-white/10
+                     text-gray-300 rounded-lg hover:bg-white/10 transition-colors"
         >
-          + Add Radio
+          + Custom Definition
+        </button>
+        <button
+          onClick={() => setShowAddModal(true)}
+          disabled={atRadioLimit}
+          title={
+            atRadioLimit
+              ? `Maximum of ${MAX_USER_RADIOS} owned radio instances reached`
+              : undefined
+          }
+          className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
+                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {atRadioLimit
+            ? `${MAX_USER_RADIOS} Radio Limit`
+            : "+ Add Radio Instance"}
         </button>
       </div>
 
@@ -1218,13 +1278,18 @@ export function RadioManager({
                 onClick={() => setViewRadioId(radio.id)}
                 onEdit={() => openEditCustomRadio(radio)}
                 onDelete={() => handleDeleteCustomRadio(radio.id)}
-                onDuplicate={() => {
-                  const id = addRadioInstance(radio.id);
-                  if (id) {
-                    setActiveRadio(id);
-                    openEditInstance(id);
-                  }
-                }}
+                onDuplicate={
+                  atRadioLimit
+                    ? undefined
+                    : () => {
+                        const id = addRadioInstance(radio.id);
+                        if (id) {
+                          setActiveRadio(id);
+                          openEditInstance(id);
+                        }
+                      }
+                }
+                duplicateLabel="Add owned instance"
               />
             );
           })}
@@ -2295,7 +2360,7 @@ export function RadioManager({
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
         title="Delete Custom Radio"
-        message="Are you sure you want to delete this custom radio? This action cannot be undone."
+        message={`Delete this reusable custom definition? This will also remove ${customDeleteImpact.instances} owned instance(s), ${customDeleteImpact.presets} preset(s), and references in ${customDeleteImpact.chains} chain(s). Image data for removed instances will also be deleted.`}
         confirmLabel="Delete"
         variant="destructive"
       />
@@ -2303,7 +2368,7 @@ export function RadioManager({
       <ConfirmDialog
         open={removeRadioTarget !== null}
         title="Remove Radio"
-        message="Are you sure you want to remove this radio from your shack? This cannot be undone."
+        message={`Remove this owned radio instance? This will also remove ${removeImpact.presets} preset(s) and references in ${removeImpact.chains} chain(s). Its saved images will be deleted.`}
         confirmLabel="Remove"
         variant="destructive"
         onConfirm={confirmRemoveRadio}

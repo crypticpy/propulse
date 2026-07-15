@@ -30,11 +30,11 @@ import { DXClusterClient } from "./cluster.js";
 import { WSJTXListener } from "./wsjtx.js";
 import { WSJTXEmitter } from "./wsjtxEmitter.js";
 import { RigController, type RigControllerConfig } from "./rig.js";
+import { PttSafetyController } from "./pttSafety.js";
 import { CivSpectrumClient, pixelToDb, type CivSpectrumLine } from "./civ.js";
 import { AudioCapture } from "./audioCapture.js";
 import { scanForIcomRadios } from "./discovery.js";
 import { resolveAudioDevice } from "./audioResolver.js";
-import { IcomSerialBackend, type IcomSerialConfig } from "./icomSerial.js";
 
 // ============================================================================
 // Configuration
@@ -284,6 +284,7 @@ function sendToClient(
 let clusterClient: DXClusterClient | null = null;
 let wsjtxListener: WSJTXListener | null = null;
 let rigController: RigController | null = null;
+let rigControllerStopping: RigController | null = null;
 let lastRigConfig: RigControllerConfig | undefined;
 let rigStartingPromise: Promise<import("./rig.js").RigBackend> | null = null;
 
@@ -328,11 +329,56 @@ let icomAudioDispose: (() => void) | null = null;
 // FT8 TX state
 let activeTxTimer: ReturnType<typeof setTimeout> | null = null;
 let txActive = false;
+let ft8TxGeneration = 0;
 
 /** Maximum TX duration safety limit in milliseconds */
 const FT8_TX_MAX_DURATION_MS = 20_000;
 /** Minimum TX duration in milliseconds */
 const FT8_TX_MIN_DURATION_MS = 1_000;
+/** Manual PTT is always bounded so a lost browser cannot key a rig forever. */
+const MANUAL_PTT_MAX_DURATION_MS = 180_000;
+
+const pttSafety = new PttSafetyController(
+  async (enabled) => {
+    if (!enabled && !rigControllerStopping && !rigController) return;
+    const controller = enabled
+      ? await ensureRigController()
+      : (rigControllerStopping ?? rigController);
+    await controller?.setPTT(enabled);
+  },
+  MANUAL_PTT_MAX_DURATION_MS,
+  (reason, error) => {
+    logger.error("Failed to release manual PTT", {
+      reason,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  },
+);
+
+async function releaseManualPtt(reason: string): Promise<void> {
+  try {
+    if (await pttSafety.release(reason)) {
+      logger.info("Manual PTT released", { reason });
+    }
+  } catch (err: unknown) {
+    logger.error("Failed to release manual PTT", {
+      reason,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+async function setManualPtt(clientId: string, enabled: boolean): Promise<void> {
+  await pttSafety.setManualPtt(clientId, enabled);
+}
+
+async function configurePttSafety(lockout: boolean): Promise<void> {
+  await pttSafety.configure(lockout);
+  if (lockout) {
+    ft8TxGeneration += 1;
+    await cancelActiveTx();
+  }
+}
 
 // --------------------------------------------------------------------------
 // DX Cluster Integration
@@ -533,6 +579,21 @@ async function startRig(
 }
 
 function stopRig(): void {
+  ft8TxGeneration += 1;
+  if (activeTxTimer) {
+    clearTimeout(activeTxTimer);
+    activeTxTimer = null;
+  }
+  if (txActive) {
+    txActive = false;
+    broadcast(
+      createMessage(MessageTypes.FT8_TX_STATUS, {
+        active: false,
+        timeRemainingMs: 0,
+      }),
+    );
+  }
+
   rigStatusDispose?.();
   rigStatusDispose = null;
   rigErrorDispose?.();
@@ -541,9 +602,32 @@ function stopRig(): void {
   rigSmeterDispose = null;
 
   if (rigController) {
-    rigController.stop();
+    const controller = rigController;
+    // Detach synchronously so a new start cannot observe or reuse a controller
+    // that is already shutting down.
     rigController = null;
-    logger.info("Rig controller stopped");
+    const retainedForPttRelease =
+      pttSafety.owner !== null && rigControllerStopping === null;
+    if (retainedForPttRelease) rigControllerStopping = controller;
+
+    const finishStop = () => {
+      if (rigControllerStopping === controller && pttSafety.owner !== null) {
+        setTimeout(finishStop, 250);
+        return;
+      }
+      if (rigControllerStopping === controller) rigControllerStopping = null;
+      controller.stop();
+      logger.info("Rig controller stopped");
+    };
+
+    void releaseManualPtt("rig stopped")
+      .then(() => controller.setPTT(false))
+      .catch((err: unknown) => {
+        logger.warn("PTT release during rig stop failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      })
+      .finally(finishStop);
   }
 }
 
@@ -848,20 +932,6 @@ function sendDaemonResponse(
   sendDaemonMessage(client, { type: "response", id, success, error });
 }
 
-/** Standard gain stages exposed to the frontend. Hamlib level names as keys. */
-const GAIN_STAGES = [
-  { name: "AF", label: "AF Gain", min: 0, max: 1, step: 0.01 },
-  { name: "RF", label: "RF Gain", min: 0, max: 1, step: 0.01 },
-  { name: "SQL", label: "Squelch", min: 0, max: 1, step: 0.01 },
-  { name: "RFPOWER", label: "TX Power", min: 0, max: 1, step: 0.01 },
-  { name: "MICGAIN", label: "MIC Gain", min: 0, max: 1, step: 0.01 },
-  { name: "MONITOR_GAIN", label: "Monitor", min: 0, max: 1, step: 0.01 },
-  { name: "COMP", label: "Compression", min: 0, max: 1, step: 0.01 },
-  { name: "VOXGAIN", label: "VOX Gain", min: 0, max: 1, step: 0.01 },
-  { name: "PREAMP", label: "Preamp", min: 0, max: 20, step: 10 },
-  { name: "ATT", label: "Attenuator", min: 0, max: 20, step: 10 },
-] as const;
-
 /** Build a DeviceInfo object from the current rig state. */
 function buildDaemonDeviceInfo(): {
   device_id: string;
@@ -885,9 +955,17 @@ function buildDaemonDeviceInfo(): {
       max: number;
       step: number;
     }>;
+    commands: Record<string, boolean>;
   };
 } {
   const backend = rigController?.getBackend() ?? "none";
+  const controller = rigController;
+  const status = controller?.getStatusSnapshot();
+  const hasFullControl =
+    backend === "hamlib" ||
+    backend === "icom-serial" ||
+    backend === "icom-network";
+  const hasBasicControl = hasFullControl || backend === "flrig";
   return {
     device_id: DAEMON_DEVICE_ID,
     name:
@@ -904,30 +982,38 @@ function buildDaemonDeviceInfo(): {
     type: "transceiver",
     available: backend !== "none",
     capabilities: {
-      can_transmit: true,
+      can_transmit: hasFullControl,
       can_stream_iq: false,
-      can_stream_fft: true,
-      can_stream_audio: true,
-      antennas: ["ANT1", "ANT2"],
-      modes: [
-        "LSB",
-        "USB",
-        "CW",
-        "CW-R",
-        "RTTY",
-        "RTTY-R",
-        "AM",
-        "FM",
-        "WFM",
-        "DV",
-        "FT8",
-        "FT4",
-        "PSK",
-        "SSB",
-      ],
+      can_stream_fft: controller?.hasBuiltinSpectrum ?? false,
+      can_stream_audio: controller?.hasBuiltinAudio ?? false,
+      antennas: [],
+      modes: status?.mode ? [status.mode] : [],
       frequency_range: [30000, 470000000],
       sample_rates: [],
-      gain_stages: backend !== "none" ? [...GAIN_STAGES] : [],
+      // Hamlib does not expose reliable per-level ranges/values through the
+      // bridge today, so do not render sliders with invented values.
+      gain_stages: [],
+      commands: {
+        tune: hasBasicControl,
+        mode: hasBasicControl,
+        gain: hasFullControl,
+        squelch: false,
+        agc: hasFullControl,
+        antenna: hasFullControl,
+        filter: hasFullControl,
+        nr: hasFullControl,
+        nb: hasFullControl,
+        ptt: hasFullControl,
+        vfo: hasBasicControl,
+        rit: hasFullControl,
+        xit: hasFullControl,
+        split: hasFullControl,
+        anf: hasFullControl,
+        qsk: hasFullControl,
+        vox: hasFullControl,
+        if_shift: hasFullControl,
+        cw_speed: hasFullControl,
+      },
     },
   };
 }
@@ -1153,12 +1239,15 @@ function startFfmpegAudioCapture(
       }
     }
 
-    // Final fallback to device index "2"
     if (!audioDevice) {
-      audioDevice = "2";
-      logger.warn(
-        "No audio device resolved or configured, using default index 2",
+      audioSubscribers.delete(client.id);
+      sendDaemonResponse(
+        client,
+        id,
+        false,
+        "No audio input device was configured or matched to the radio",
       );
+      return;
     }
 
     // Recover from a stale ffmpeg capture instance (process exited but object lingered).
@@ -1357,14 +1446,28 @@ function handleDaemonCommand(
           : cmd.active === "true" || cmd.active === 1;
       (async () => {
         try {
-          const controller = await ensureRigController();
-          await controller.setPTT(active);
+          await setManualPtt(client.id, active);
           sendDaemonResponse(client, id, true);
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);
           sendDaemonResponse(client, id, false, errMsg);
         }
       })();
+      break;
+    }
+
+    case "safety:configure": {
+      const lockout = cmd.ptt_lockout === true;
+      void configurePttSafety(lockout)
+        .then(() => sendDaemonResponse(client, id, true))
+        .catch((err: unknown) =>
+          sendDaemonResponse(
+            client,
+            id,
+            false,
+            err instanceof Error ? err.message : String(err),
+          ),
+        );
       break;
     }
 
@@ -1921,130 +2024,63 @@ function handleDaemonCommand(
             typeof cmd.backend === "string" ? cmd.backend : "auto";
           logger.info("[rig:test] handler entered", { backend, cmd });
 
-          if (backend === "icom-serial" || backend === "auto") {
-            const serialPort =
-              typeof cmd.serialPort === "string" ? cmd.serialPort : "";
-            let baudRate = typeof cmd.baudRate === "number" ? cmd.baudRate : 0;
-            let radioAddr =
-              typeof cmd.radioAddress === "number" ? cmd.radioAddress : 0;
+          let payload = { ...cmd };
+          if (
+            (backend === "icom-serial" || backend === "auto") &&
+            typeof payload.serialPort !== "string"
+          ) {
+            const discovered = await scanForIcomRadios();
+            const first = discovered[0];
+            if (first) {
+              payload = {
+                ...payload,
+                backend: "icom-serial",
+                serialPort: first.port,
+                baudRate: first.baudRate,
+                radioAddress: first.radioAddress,
+              };
+            } else if (backend === "icom-serial") {
+              throw new Error("No ICOM radio found on USB");
+            }
+          }
 
-            let portPath = serialPort;
+          const parsed = parseRigControllerConfig(payload);
+          if (parsed.backend === "none" || !parsed.config) {
+            throw new Error(`Incomplete ${backend} connection settings`);
+          }
 
-            if (!portPath) {
-              logger.info("[rig:test] No port specified, scanning...");
-              const radios = await scanForIcomRadios();
-              logger.info("[rig:test] Scan found", {
-                count: radios.length,
-                radios: radios.map((r) => ({
-                  port: r.port,
-                  addr: r.radioAddress,
-                  baud: r.baudRate,
-                })),
-              });
-              if (radios.length > 0) {
-                const found = radios[0];
-                portPath = found.port;
-                // Use discovered values if not explicitly specified
-                if (!baudRate) baudRate = found.baudRate;
-                if (!radioAddr) radioAddr = found.radioAddress;
-              }
+          const probe = new RigController(parsed.config);
+          try {
+            const detectedBackend = await probe.start();
+            if (detectedBackend === "none") {
+              throw new Error(`No ${backend} radio backend responded`);
+            }
+            if (backend !== "auto" && detectedBackend !== backend) {
+              throw new Error(
+                `Requested ${backend}, but only ${detectedBackend} responded`,
+              );
             }
 
-            // Fall back to safe defaults
-            if (!baudRate) baudRate = 19200;
-            if (!radioAddr) radioAddr = 0x94;
-
-            if (!portPath) {
-              logger.warn("[rig:test] No radio found on USB");
-              sendDaemonMessage(client, {
-                type: "rig:test:error",
-                payload: {
-                  errorMessage: "No ICOM radio found on USB",
-                },
-              });
-              return;
+            const status = probe.getStatusSnapshot();
+            if (!status.connected) {
+              throw new Error(`${detectedBackend} responded without a connected radio`);
             }
 
-            logger.info("[rig:test] Probing radio", {
-              portPath,
-              baudRate,
-              radioAddr: `0x${radioAddr.toString(16)}`,
-            });
-
-            const testConfig: IcomSerialConfig = {
-              port: portPath,
-              baudRate,
-              radioAddress: radioAddr,
-            };
-
-            const probe = new IcomSerialBackend(testConfig);
-            try {
-              // Subscribe BEFORE start() so we catch the first poll emission
-              let frequency: number | undefined;
-              let mode: string | undefined;
-              const statusPromise = new Promise<void>((resolve) => {
-                const unsub = probe.onStatus((status) => {
-                  frequency = status.frequency;
-                  mode = status.mode;
-                  logger.info("[rig:test] Got status", { frequency, mode });
-                  unsub();
-                  resolve();
-                });
-                // Timeout after 4s if radio doesn't respond
-                setTimeout(() => {
-                  logger.info("[rig:test] Status timeout — using defaults");
-                  unsub();
-                  resolve();
-                }, 4000);
-              });
-
-              await probe.start();
-              logger.info("[rig:test] Probe started, waiting for status...");
-
-              await statusPromise;
-
-              const rigModel = probe.modelName;
-              const hasSpectrum = true;
-
-              logger.info("[rig:test] Resolving audio device...");
-              const audioDevice = await resolveAudioDevice(portPath, "ICOM");
-              logger.info("[rig:test] Audio resolve result", { audioDevice });
-
-              probe.stop();
-
-              sendDaemonMessage(client, {
-                type: "rig:test:ack",
-                payload: {
-                  rigModel,
-                  frequency,
-                  mode,
-                  hasSpectrum,
-                  hasAudio: audioDevice !== null,
-                  audioDeviceName: audioDevice?.deviceName,
-                },
-              });
-              logger.info("[rig:test] Sent rig:test:ack");
-            } catch (err: unknown) {
-              logger.error("[rig:test] Probe error", {
-                error: err instanceof Error ? err.message : String(err),
-              });
-              probe.stop();
-              sendDaemonMessage(client, {
-                type: "rig:test:error",
-                payload: {
-                  errorMessage:
-                    err instanceof Error ? err.message : String(err),
-                },
-              });
-            }
-          } else {
             sendDaemonMessage(client, {
               type: "rig:test:ack",
+              id,
               payload: {
-                rigModel: "Unknown",
-                hasSpectrum: false,
+                success: true,
+                backend: detectedBackend,
+                rigModel: probe.getIcomModelName() ?? detectedBackend,
+                frequency: status.frequency,
+                mode: status.mode,
+                hasSpectrum: probe.hasBuiltinSpectrum,
+                hasAudio: probe.hasBuiltinAudio,
               },
             });
+          } finally {
+            probe.stop();
           }
         } catch (err: unknown) {
           logger.error("[rig:test] Outer error", {
@@ -2052,6 +2088,7 @@ function handleDaemonCommand(
           });
           sendDaemonMessage(client, {
             type: "rig:test:error",
+            id,
             payload: {
               errorMessage: err instanceof Error ? err.message : String(err),
             },
@@ -2079,6 +2116,7 @@ function handleDaemonCommand(
 
           sendDaemonMessage(client, {
             type: "devices:scan:result",
+            id,
             radios: radiosWithAudio,
           });
         } catch (err: unknown) {
@@ -2103,14 +2141,21 @@ function handleDaemonCommand(
     case "hello": {
       sendDaemonMessage(client, {
         type: "hello",
-        version: "0.3.0",
+        version: "1.1.0",
         daemon_id: "propulse-bridge",
+        features: [
+          "command-capabilities",
+          "correlated-responses",
+          "ptt-safety",
+          "stream-subscriptions",
+          "cat-scan",
+        ],
       });
       break;
     }
 
     // ----------------------------------------------------------------
-    // Default: acknowledge unknown daemon commands
+    // Default: reject unknown daemon commands
     // ----------------------------------------------------------------
     default: {
       logger.debug("Unhandled daemon command", { type });
@@ -2490,8 +2535,8 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
         sendToClient(
           client,
           createMessage(
-            `${message.type}.ack`,
-            { success: true, backend: "none", connected: false },
+            "error",
+            { code: "RIG_TEST_FAILED", message: "No radio backend selected" },
             message.id,
           ),
         );
@@ -2502,14 +2547,30 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
       testController
         .start()
         .then((resolvedBackend) => {
+          if (resolvedBackend === "none") {
+            throw new Error("No radio backend responded");
+          }
+          if (backend !== "auto" && resolvedBackend !== backend) {
+            throw new Error(
+              `Requested ${backend}, but only ${resolvedBackend} responded`,
+            );
+          }
+          const status = testController.getStatusSnapshot();
+          if (!status.connected) {
+            throw new Error(`${resolvedBackend} responded without a connected radio`);
+          }
           sendToClient(
             client,
             createMessage(
               `${message.type}.ack`,
               {
-                success: resolvedBackend !== "none",
+                success: true,
                 backend: resolvedBackend,
-                connected: resolvedBackend !== "none",
+                connected: true,
+                frequency: status.frequency,
+                mode: status.mode,
+                hasSpectrum: testController.hasBuiltinSpectrum,
+                hasAudio: testController.hasBuiltinAudio,
               },
               message.id,
             ),
@@ -2529,6 +2590,34 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
         .finally(() => {
           testController.stop();
         });
+      break;
+    }
+
+    case "devices:scan": {
+      void scanForIcomRadios()
+        .then((radios) =>
+          sendToClient(
+            client,
+            createMessage(
+              "devices:scan:result",
+              { radios },
+              message.id,
+            ),
+          ),
+        )
+        .catch((err: unknown) =>
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              {
+                code: "DEVICE_SCAN_FAILED",
+                message: err instanceof Error ? err.message : String(err),
+              },
+              message.id,
+            ),
+          ),
+        );
       break;
     }
 
@@ -2552,6 +2641,40 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
       break;
     }
 
+    case "safety.configure": {
+      const payload =
+        typeof message.payload === "object" && message.payload !== null
+          ? (message.payload as Record<string, unknown>)
+          : {};
+      const lockout =
+        payload.pttLockout === true || payload.ptt_lockout === true;
+      void configurePttSafety(lockout)
+        .then(() =>
+          sendToClient(
+            client,
+            createMessage(
+              `${message.type}.ack`,
+              { success: true, pttLockout: pttSafety.lockout },
+              message.id,
+            ),
+          ),
+        )
+        .catch((err: unknown) =>
+          sendToClient(
+            client,
+            createMessage(
+              "error",
+              {
+                code: "PTT_SAFETY_FAILED",
+                message: err instanceof Error ? err.message : String(err),
+              },
+              message.id,
+            ),
+          ),
+        );
+      break;
+    }
+
     // ------------------------------------------------------------------
     // FT8 TX Control
     // ------------------------------------------------------------------
@@ -2566,15 +2689,22 @@ function routeMessage(client: ConnectedClient, message: MessageEnvelope): void {
     }
 
     // ------------------------------------------------------------------
-    // Default: acknowledge unknown message types
+    // Default: reject unknown message types
     // ------------------------------------------------------------------
     default: {
-      logger.debug("Unhandled message type, sending ack", {
+      logger.warn("Unhandled message type", {
         messageType: message.type,
       });
       sendToClient(
         client,
-        createMessage(`${message.type}.ack`, { received: true }, message.id),
+        createMessage(
+          "error",
+          {
+            code: "UNKNOWN_MESSAGE_TYPE",
+            message: `Unknown message type: ${message.type}`,
+          },
+          message.id,
+        ),
       );
       break;
     }
@@ -2770,8 +2900,7 @@ function handleRigSetPTT(
 
   (async () => {
     try {
-      const controller = await ensureRigController();
-      await controller.setPTT(enabled);
+      await setManualPtt(client.id, enabled);
 
       sendToClient(
         client,
@@ -2839,6 +2968,21 @@ function handleFt8TxStart(
   const preDelayMs =
     typeof p.preDelayMs === "number" && p.preDelayMs > 0 ? p.preDelayMs : 0;
 
+  if (pttSafety.lockout) {
+    sendToClient(
+      client,
+      createMessage(
+        "error",
+        {
+          code: "PTT_LOCKED_OUT",
+          message: "PTT safety lockout is enabled",
+        },
+        message.id,
+      ),
+    );
+    return;
+  }
+
   // Validate duration within safety bounds
   if (
     durationMs < FT8_TX_MIN_DURATION_MS ||
@@ -2858,10 +3002,13 @@ function handleFt8TxStart(
     return;
   }
 
+  const generation = ++ft8TxGeneration;
+
   (async () => {
     try {
       // If TX is already active, stop the current cycle first
       await cancelActiveTx();
+      await releaseManualPtt("FT8 TX start");
 
       const controller = await ensureRigController();
 
@@ -2870,8 +3017,19 @@ function handleFt8TxStart(
         await new Promise<void>((resolve) => setTimeout(resolve, preDelayMs));
       }
 
+      if (pttSafety.lockout) {
+        throw new Error("PTT safety lockout was enabled before transmit");
+      }
+      if (generation !== ft8TxGeneration) {
+        throw new Error("FT8 transmit request was superseded or cancelled");
+      }
+
       // Assert PTT
       await controller.setPTT(true);
+      if (generation !== ft8TxGeneration) {
+        await controller.setPTT(false);
+        throw new Error("FT8 transmit request was superseded or cancelled");
+      }
       txActive = true;
 
       // Broadcast TX active status
@@ -2895,6 +3053,7 @@ function handleFt8TxStart(
       // Schedule PTT release after the TX duration
       activeTxTimer = setTimeout(async () => {
         activeTxTimer = null;
+        if (generation !== ft8TxGeneration) return;
         txActive = false;
         try {
           await controller.setPTT(false);
@@ -2912,7 +3071,7 @@ function handleFt8TxStart(
         );
       }, durationMs);
     } catch (err: unknown) {
-      txActive = false;
+      if (generation === ft8TxGeneration) txActive = false;
       const errMsg = err instanceof Error ? err.message : String(err);
       logger.error("FT8 TX start failed", { error: errMsg });
       sendToClient(
@@ -2931,6 +3090,7 @@ function handleFt8TxStop(
   client: ConnectedClient,
   message: MessageEnvelope,
 ): void {
+  ft8TxGeneration += 1;
   (async () => {
     try {
       await cancelActiveTx();
@@ -3041,6 +3201,14 @@ function startServer(): void {
 
     socket.on("close", (code, reason) => {
       clients.delete(clientId);
+
+      void pttSafety
+        .releaseIfOwnedBy(clientId, "owning client disconnected")
+        .catch((error) => {
+          logger.error("Failed to release PTT for disconnected owner", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
 
       // Clean up FFT subscription for this client (grace period)
       fftSubscribers.delete(clientId);

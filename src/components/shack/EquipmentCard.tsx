@@ -102,6 +102,7 @@ export interface EquipmentCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  duplicateLabel?: string;
 }
 
 // ─── StatIconSvg (16x16, stroke-based, currentColor) ────────────────────────
@@ -384,6 +385,7 @@ export function EquipmentCard({
   onEdit,
   onDelete,
   onDuplicate,
+  duplicateLabel = "Duplicate",
 }: EquipmentCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   useEffect(() => {
@@ -551,8 +553,8 @@ export function EquipmentCard({
                     onDuplicate();
                   }}
                   className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
-                  aria-label={`Duplicate ${title}`}
-                  title="Duplicate"
+                  aria-label={`${duplicateLabel} ${title}`}
+                  title={duplicateLabel}
                 >
                   <DuplicateIcon />
                 </button>

@@ -208,13 +208,14 @@ export function FlexibleSkin(props: SdrSkinProps) {
     return radio.canControlConnected
       ? {
           canControl: true,
+          commands: radio.selectedDevice?.capabilities.commands,
           // DSP
           nbEnabled: !!effectiveState?.nb?.enabled,
           nrEnabled: !!effectiveState?.nr?.enabled,
           agcEnabled: !!effectiveState?.agc,
           anfEnabled: !!effectiveState?.anf,
           agcMode: effectiveState?.agcMode ?? 0,
-          squelchLevel: gains["SQL"] ?? 0,
+          squelchLevel: effectiveState?.squelch ?? 0,
           onAgcModeChange,
           onSquelchChange: (level: number) => onGainChange("SQL", level),
           onNbToggle: () =>
@@ -329,6 +330,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
     radio.selectedDevice?.capabilities.gain_stages,
     radio.selectedDevice?.capabilities.antennas,
     radio.selectedDevice?.capabilities.modes,
+    radio.selectedDevice?.capabilities.commands,
     radio.audioEnabled,
     effectiveState?.nb?.enabled,
     effectiveState?.nb?.threshold,
@@ -338,6 +340,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
     effectiveState?.anf,
     effectiveState?.agcMode,
     effectiveState?.gains,
+    effectiveState?.squelch,
     effectiveState?.mode,
     effectiveState?.filter?.low,
     effectiveState?.filter?.high,
@@ -743,7 +746,8 @@ export function FlexibleSkin(props: SdrSkinProps) {
               cwSpeed={effectiveState?.cwSpeed}
               ifShift={effectiveState?.ifShift}
               onVfoSwap={
-                radio.canControlConnected
+                radio.canControlConnected &&
+                radio.selectedDevice?.capabilities.commands?.vfo === true
                   ? () =>
                       controls.onVfoChange(
                         effectiveState?.vfo === "B" ? "A" : "B",
@@ -1020,6 +1024,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
             effectiveState={effectiveState}
             selectedDevice={radio.selectedDevice}
             canControlConnected={radio.canControlConnected}
+            tuningLocked={effectiveState?.lock === true}
             canStreamFft={canStreamFft}
             canStreamAudio={radio.canStreamAudio}
             fftEnabled={fftEnabled}
@@ -1036,7 +1041,11 @@ export function FlexibleSkin(props: SdrSkinProps) {
             onToggleFft={controls.onToggleFft}
             onToggleAudio={controls.onToggleAudio}
             vfo={effectiveState?.vfo}
-            onVfoChange={controls.onVfoChange}
+            onVfoChange={
+              radio.selectedDevice?.capabilities.commands?.vfo === true
+                ? controls.onVfoChange
+                : undefined
+            }
             freqHz={effectiveState?.freq ?? null}
             onBandSelect={onPickFrequencyHz}
             hasMultipleAntennas={

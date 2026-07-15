@@ -107,6 +107,8 @@ interface SlicePanelFilterProps {
   filterHigh: number;
   onModeChange: (mode: string) => void;
   onFilterChange: (low: number, high: number) => void;
+  supportsMode: boolean;
+  supportsFilter: boolean;
   canControl: boolean;
 }
 
@@ -119,6 +121,8 @@ export function SlicePanelFilter({
   filterHigh,
   onModeChange,
   onFilterChange,
+  supportsMode,
+  supportsFilter,
   canControl,
 }: SlicePanelFilterProps) {
   const modeButtons = buildModeButtons(availableModes);
@@ -129,7 +133,7 @@ export function SlicePanelFilter({
   return (
     <div className="space-y-2">
       {/* Mode grid */}
-      {modeButtons.length > 0 && (
+      {supportsMode && modeButtons.length > 0 && (
         <div className="grid grid-cols-4 gap-1">
           {modeButtons.map((m) => {
             const isActive = normalizeMode(m) === normalizedCurrentMode;
@@ -156,34 +160,36 @@ export function SlicePanelFilter({
       )}
 
       {/* Filter width presets */}
-      <div>
-        <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1">
-          Filter width
-        </div>
-        <div className="grid grid-cols-4 gap-1">
-          {presets.map((preset) => {
-            const presetBw = preset.high - preset.low;
-            const isActive = Math.abs(currentBw - presetBw) < 100;
+      {supportsFilter && (
+        <div>
+          <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1">
+            Filter width
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            {presets.map((preset) => {
+              const presetBw = preset.high - preset.low;
+              const isActive = Math.abs(currentBw - presetBw) < 100;
 
-            return (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => onFilterChange(preset.low, preset.high)}
-                disabled={!canControl}
-                className={`px-1 py-1 text-[10px] font-mono font-semibold rounded border transition-colors
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => onFilterChange(preset.low, preset.high)}
+                  disabled={!canControl}
+                  className={`px-1 py-1 text-[10px] font-mono font-semibold rounded border transition-colors
                   disabled:opacity-40 disabled:cursor-not-allowed ${
                     isActive
                       ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
                       : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
                   }`}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Current filter readout */}
       <div className="flex items-center justify-between text-[9px] text-gray-500 font-mono">

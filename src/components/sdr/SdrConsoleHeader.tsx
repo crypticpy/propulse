@@ -72,7 +72,7 @@ export function SdrConsoleHeader({
       <select
         value={selectedDeviceId ?? ""}
         onChange={(e) => onDeviceSelect(e.target.value || null)}
-        disabled={!daemonConnected || devices.length === 0}
+        disabled={!daemonConnected || devices.length === 0 || isConnected}
         className="px-2 py-1 bg-black/40 border border-white/10 rounded text-[11px] text-gray-200 max-w-[180px] truncate disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {devices.length === 0 ? (

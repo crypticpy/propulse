@@ -163,6 +163,8 @@ export interface BridgeConnectionOptions {
   connectionTimeout?: number;
   /** Pong response timeout in ms (default 5000). If no pong after ping, connection is dead. */
   pongTimeout?: number;
+  /** Optional token for an authenticated Rust radio daemon. */
+  authToken?: string;
 }
 
 /**
@@ -181,6 +183,8 @@ export interface BridgeConnection {
   lastMessage: BridgeMessage | null;
   /** Send a message to the bridge */
   send: <T>(type: string, payload: T) => boolean;
+  /** Send a message and return its correlation ID, or null if not sent */
+  sendRequest: <T>(type: string, payload: T) => string | null;
   /** Manually connect */
   connect: () => void;
   /** Manually disconnect */

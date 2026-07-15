@@ -5,15 +5,19 @@
  * connect, disconnect, tune, mode, gain, AGC, antenna, filter, NR, NB, PTT, VFO.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RadioState } from "@/lib/radio/protocol";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 // ── Options & return types ───────────────────────────────────────────────────
 
 export interface UseRadioCommandsOptions {
   connectedDeviceId: string | null;
   selectedDeviceId: string | null;
-  daemonSendCommand: (cmd: string, params?: Record<string, unknown>) => void;
+  daemonSendCommand: (
+    cmd: string,
+    params?: Record<string, unknown>,
+  ) => string | null;
   connectedState: RadioState | null;
   freqInput: string;
   freqUnit: "MHz" | "kHz" | "Hz";
@@ -50,6 +54,7 @@ export interface RadioCommands {
   handleIfShift: (hz: number) => void;
   handleCwSpeed: (wpm: number) => void;
   handleLockToggle: () => void;
+  handleCommandResponse: (id: string, success: boolean) => boolean;
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -73,24 +78,78 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
   // Debounce refs
   const gainDebounceRef = useRef<Record<string, number>>({});
   const filterDebounceRef = useRef<number | null>(null);
+  const pendingCommandIdsRef = useRef(new Set<string>());
+  const connectedStateRef = useRef(connectedState);
+  connectedStateRef.current = connectedState;
+
+  const sendTrackedCommand = useCallback(
+    (cmd: string, params?: Record<string, unknown>) => {
+      setLastResponseError(null);
+      const id = daemonSendCommand(cmd, params);
+      if (!id) {
+        setDraftState(connectedStateRef.current);
+        setLastResponseError("Radio command could not be sent");
+        return null;
+      }
+      pendingCommandIdsRef.current.add(id);
+      return id;
+    },
+    [daemonSendCommand, setLastResponseError],
+  );
+
+  const handleCommandResponse = useCallback((id: string, success: boolean) => {
+    if (!pendingCommandIdsRef.current.delete(id)) return false;
+    if (!success) setDraftState(connectedStateRef.current);
+    return true;
+  }, []);
+
+  const clearDelayedCommands = useCallback(() => {
+    for (const timeout of Object.values(gainDebounceRef.current)) {
+      window.clearTimeout(timeout);
+    }
+    gainDebounceRef.current = {};
+    if (filterDebounceRef.current !== null) {
+      window.clearTimeout(filterDebounceRef.current);
+      filterDebounceRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const pendingCommandIds = pendingCommandIdsRef.current;
+    return () => {
+      clearDelayedCommands();
+      pendingCommandIds.clear();
+    };
+  }, [clearDelayedCommands, connectedDeviceId]);
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
   const handleConnectRadio = useCallback(() => {
     if (!selectedDeviceId) return;
-    daemonSendCommand("radio:connect", { device_id: selectedDeviceId });
-  }, [daemonSendCommand, selectedDeviceId]);
+    sendTrackedCommand("radio:connect", { device_id: selectedDeviceId });
+  }, [selectedDeviceId, sendTrackedCommand]);
 
   const handleDisconnectRadio = useCallback(() => {
     if (!connectedDeviceId) return;
-    daemonSendCommand("radio:disconnect", { device_id: connectedDeviceId });
+    clearDelayedCommands();
+    sendTrackedCommand("radio:disconnect", { device_id: connectedDeviceId });
     setFftEnabled(false);
     setAudioEnabled(false);
     setDraftState(null);
-  }, [connectedDeviceId, daemonSendCommand, setAudioEnabled, setFftEnabled]);
+  }, [
+    clearDelayedCommands,
+    connectedDeviceId,
+    sendTrackedCommand,
+    setAudioEnabled,
+    setFftEnabled,
+  ]);
 
   const handleTune = useCallback(() => {
     if (!connectedDeviceId) return;
+    if (effectiveState?.lock) {
+      setLastResponseError("Frequency is locked");
+      return;
+    }
     const value = Number(freqInput);
     if (!Number.isFinite(value) || value <= 0) {
       setLastResponseError("Invalid frequency");
@@ -102,23 +161,24 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         : freqUnit === "kHz"
           ? Math.round(value * 1_000)
           : Math.round(value);
-    daemonSendCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
     setDraftState((s) => (s ? { ...s, freq: hz } : s));
+    sendTrackedCommand("radio:tune", { device_id: connectedDeviceId, freq: hz });
   }, [
     connectedDeviceId,
-    daemonSendCommand,
+    effectiveState?.lock,
     freqInput,
     freqUnit,
     setLastResponseError,
+    sendTrackedCommand,
   ]);
 
   const handleModeChange = useCallback(
     (mode: string) => {
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:mode", { device_id: connectedDeviceId, mode });
       setDraftState((s) => (s ? { ...s, mode } : s));
+      sendTrackedCommand("radio:mode", { device_id: connectedDeviceId, mode });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleGainChange = useCallback(
@@ -132,14 +192,21 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
       const existing = gainDebounceRef.current[stage];
       if (existing) window.clearTimeout(existing);
       gainDebounceRef.current[stage] = window.setTimeout(() => {
-        daemonSendCommand("radio:gain", {
-          device_id: connectedDeviceId,
-          stage,
-          value,
-        });
+        if (stage.trim().toUpperCase() === "SQL") {
+          sendTrackedCommand("radio:squelch", {
+            device_id: connectedDeviceId,
+            level: value,
+          });
+        } else {
+          sendTrackedCommand("radio:gain", {
+            device_id: connectedDeviceId,
+            stage,
+            value,
+          });
+        }
       }, 50);
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleAgcToggle = useCallback(
@@ -147,12 +214,13 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
       const mode = enabled ? 3 : 0; // Default: enabled → SLOW (3), disabled → OFF (0)
       setDraftState((s) => (s ? { ...s, agc: enabled, agcMode: mode } : s));
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:agc", {
+      sendTrackedCommand("radio:agc", {
         device_id: connectedDeviceId,
+        enabled,
         mode,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleAgcModeChange = useCallback(
@@ -160,24 +228,25 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
       const enabled = mode > 0;
       setDraftState((s) => (s ? { ...s, agc: enabled, agcMode: mode } : s));
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:agc", {
+      sendTrackedCommand("radio:agc", {
         device_id: connectedDeviceId,
+        enabled,
         mode,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleAntennaChange = useCallback(
     (port: string) => {
       setDraftState((s) => (s ? { ...s, antenna: port } : s));
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:antenna", {
+      sendTrackedCommand("radio:antenna", {
         device_id: connectedDeviceId,
         port,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleFilterChange = useCallback(
@@ -191,14 +260,14 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
       if (filterDebounceRef.current)
         window.clearTimeout(filterDebounceRef.current);
       filterDebounceRef.current = window.setTimeout(() => {
-        daemonSendCommand("radio:filter", {
+        sendTrackedCommand("radio:filter", {
           device_id: connectedDeviceId,
           low: Math.round(lo),
           high: Math.round(hi),
         });
       }, 75);
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleNrChange = useCallback(
@@ -207,13 +276,13 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         s ? { ...s, nr: { enabled, level: Math.round(level) } } : s,
       );
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:nr", {
+      sendTrackedCommand("radio:nr", {
         device_id: connectedDeviceId,
         enabled,
         level: Math.round(level),
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleNbChange = useCallback(
@@ -222,34 +291,38 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         s ? { ...s, nb: { enabled, threshold: Math.round(threshold) } } : s,
       );
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:nb", {
+      sendTrackedCommand("radio:nb", {
         device_id: connectedDeviceId,
         enabled,
         threshold: Math.round(threshold),
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handlePttChange = useCallback(
     (active: boolean) => {
+      if (active && useSettingsStore.getState().catPttLockout) {
+        setLastResponseError("PTT safety lockout is enabled");
+        return;
+      }
       setDraftState((s) => (s ? { ...s, ptt: active } : s));
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:ptt", {
+      sendTrackedCommand("radio:ptt", {
         device_id: connectedDeviceId,
         active,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand, setLastResponseError],
   );
 
   const handleVfoChange = useCallback(
     (vfo: "A" | "B") => {
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:vfo", { device_id: connectedDeviceId, vfo });
       setDraftState((s) => (s ? { ...s, vfo } : s));
+      sendTrackedCommand("radio:vfo", { device_id: connectedDeviceId, vfo });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleRitToggle = useCallback(
@@ -258,12 +331,12 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         s ? { ...s, rit: { enabled, offsetHz: s.rit?.offsetHz ?? 0 } } : s,
       );
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:rit", {
+      sendTrackedCommand("radio:rit", {
         device_id: connectedDeviceId,
         enabled,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleRitOffset = useCallback(
@@ -272,13 +345,13 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         s ? { ...s, rit: { enabled: true, offsetHz } } : s,
       );
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:rit", {
+      sendTrackedCommand("radio:rit", {
         device_id: connectedDeviceId,
         enabled: true,
         offsetHz,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleXitToggle = useCallback(
@@ -287,12 +360,12 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         s ? { ...s, xit: { enabled, offsetHz: s.xit?.offsetHz ?? 0 } } : s,
       );
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:xit", {
+      sendTrackedCommand("radio:xit", {
         device_id: connectedDeviceId,
         enabled,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleXitOffset = useCallback(
@@ -301,79 +374,79 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
         s ? { ...s, xit: { enabled: true, offsetHz } } : s,
       );
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:xit", {
+      sendTrackedCommand("radio:xit", {
         device_id: connectedDeviceId,
         enabled: true,
         offsetHz,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleSplitToggle = useCallback(
     (enabled: boolean) => {
       setDraftState((s) => (s ? { ...s, split: enabled } : s));
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:split", {
+      sendTrackedCommand("radio:split", {
         device_id: connectedDeviceId,
         enabled,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleAnfToggle = useCallback(() => {
     const next = !(effectiveState?.anf ?? false);
     setDraftState((s) => (s ? { ...s, anf: next } : s));
     if (!connectedDeviceId) return;
-    daemonSendCommand("radio:anf", {
+    sendTrackedCommand("radio:anf", {
       device_id: connectedDeviceId,
       enabled: next,
     });
-  }, [connectedDeviceId, daemonSendCommand, effectiveState?.anf]);
+  }, [connectedDeviceId, effectiveState?.anf, sendTrackedCommand]);
 
   const handleQskToggle = useCallback(() => {
     const next = !(effectiveState?.qsk ?? false);
     setDraftState((s) => (s ? { ...s, qsk: next } : s));
     if (!connectedDeviceId) return;
-    daemonSendCommand("radio:qsk", {
+    sendTrackedCommand("radio:qsk", {
       device_id: connectedDeviceId,
       enabled: next,
     });
-  }, [connectedDeviceId, daemonSendCommand, effectiveState?.qsk]);
+  }, [connectedDeviceId, effectiveState?.qsk, sendTrackedCommand]);
 
   const handleVoxToggle = useCallback(() => {
     const next = !(effectiveState?.vox ?? false);
     setDraftState((s) => (s ? { ...s, vox: next } : s));
     if (!connectedDeviceId) return;
-    daemonSendCommand("radio:vox", {
+    sendTrackedCommand("radio:vox", {
       device_id: connectedDeviceId,
       enabled: next,
     });
-  }, [connectedDeviceId, daemonSendCommand, effectiveState?.vox]);
+  }, [connectedDeviceId, effectiveState?.vox, sendTrackedCommand]);
 
   const handleIfShift = useCallback(
     (hz: number) => {
       setDraftState((s) => (s ? { ...s, ifShift: hz } : s));
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:ifshift", {
+      sendTrackedCommand("radio:ifshift", {
         device_id: connectedDeviceId,
         hz,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleCwSpeed = useCallback(
     (wpm: number) => {
       setDraftState((s) => (s ? { ...s, cwSpeed: wpm } : s));
       if (!connectedDeviceId) return;
-      daemonSendCommand("radio:cwspeed", {
+      sendTrackedCommand("radio:cwspeed", {
         device_id: connectedDeviceId,
         wpm,
       });
     },
-    [connectedDeviceId, daemonSendCommand],
+    [connectedDeviceId, sendTrackedCommand],
   );
 
   const handleLockToggle = useCallback(() => {
@@ -408,5 +481,6 @@ export function useRadioCommands(opts: UseRadioCommandsOptions): RadioCommands {
     handleIfShift,
     handleCwSpeed,
     handleLockToggle,
+    handleCommandResponse,
   };
 }

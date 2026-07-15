@@ -148,6 +148,7 @@ export function useSmartTuning(
   const handlePickFrequencyHz = useCallback(
     (hz: number) => {
       if (!connectedDeviceId) return;
+      if (stateRef.current?.lock) return;
 
       // Smart snap: try to find signal center, fall back to step-size snap
       let snappedHz: number;
@@ -182,6 +183,7 @@ export function useSmartTuning(
   const handleWheelTune = useCallback(
     (direction: number) => {
       if (!connectedDeviceId || !stateRef.current) return;
+      if (stateRef.current.lock) return;
       const currentHz = stateRef.current.freq;
       const stepHz = tuningStepHz;
       const candidateHz = currentHz + direction * stepHz;

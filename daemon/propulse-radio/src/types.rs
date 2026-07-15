@@ -9,6 +9,29 @@ pub struct GainStage {
   pub step: f32,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RadioCommandCapabilities {
+  pub tune: bool,
+  pub mode: bool,
+  pub gain: bool,
+  pub squelch: bool,
+  pub agc: bool,
+  pub antenna: bool,
+  pub filter: bool,
+  pub nr: bool,
+  pub nb: bool,
+  pub ptt: bool,
+  pub vfo: bool,
+  pub rit: bool,
+  pub xit: bool,
+  pub split: bool,
+  pub anf: bool,
+  pub qsk: bool,
+  pub vox: bool,
+  pub if_shift: bool,
+  pub cw_speed: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RadioCapabilities {
   pub can_transmit: bool,
@@ -20,6 +43,8 @@ pub struct RadioCapabilities {
   pub frequency_range: (u64, u64),
   pub sample_rates: Vec<u32>,
   pub gain_stages: Vec<GainStage>,
+  #[serde(default)]
+  pub commands: RadioCommandCapabilities,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,6 +99,8 @@ pub struct RadioState {
   pub gains: BTreeMap<String, f32>,
   #[serde(default)]
   pub agc: bool,
+  #[serde(rename = "agcMode", skip_serializing_if = "Option::is_none")]
+  pub agc_mode: Option<u8>,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub ptt: Option<bool>,
   #[serde(skip_serializing_if = "Option::is_none")]

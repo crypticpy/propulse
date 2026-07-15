@@ -11,6 +11,7 @@ export interface RadioControlsCardProps {
   effectiveState: RadioState | null;
   selectedDevice: DeviceInfo | null;
   canControlConnected: boolean;
+  tuningLocked: boolean;
   smeterDbm: number | undefined;
 
   canStreamFft: boolean;
@@ -40,6 +41,7 @@ export function RadioControlsCard({
   effectiveState,
   selectedDevice,
   canControlConnected,
+  tuningLocked,
   smeterDbm,
   canStreamFft,
   canStreamAudio,
@@ -61,6 +63,31 @@ export function RadioControlsCard({
   onToggleFft,
   onToggleAudio,
 }: RadioControlsCardProps) {
+  const commands = selectedDevice?.capabilities.commands;
+  const supports = (command: keyof NonNullable<typeof commands>, legacy: boolean) =>
+    commands ? commands[command] === true : legacy;
+  const canTune = supports("tune", true);
+  const canSetMode = supports(
+    "mode",
+    (selectedDevice?.capabilities.modes.length ?? 0) > 0,
+  );
+  const canPtt = supports(
+    "ptt",
+    selectedDevice?.capabilities.can_transmit ?? false,
+  );
+  const canAgc = supports("agc", true);
+  const canAntenna = supports(
+    "antenna",
+    (selectedDevice?.capabilities.antennas.length ?? 0) > 1,
+  );
+  const canGain = supports(
+    "gain",
+    (selectedDevice?.capabilities.gain_stages.length ?? 0) > 0,
+  );
+  const canFilter = supports("filter", false);
+  const canNr = supports("nr", false);
+  const canNb = supports("nb", false);
+
   return (
     <Card className="p-4 space-y-3">
       <div className="text-sm font-semibold text-gray-200">Radio Controls</div>
@@ -74,9 +101,9 @@ export function RadioControlsCard({
             value={freqInput}
             onChange={(e) => onFreqInputChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") onTune();
+              if (e.key === "Enter" && !tuningLocked) onTune();
             }}
-            disabled={!canControlConnected}
+            disabled={!canControlConnected || !canTune || tuningLocked}
             className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm font-mono"
           />
           <div className="mt-1 flex gap-1">
@@ -85,7 +112,7 @@ export function RadioControlsCard({
                 key={u}
                 type="button"
                 onClick={() => onFreqUnitChange(u)}
-                disabled={!canControlConnected}
+                disabled={!canControlConnected || !canTune || tuningLocked}
                 className={`px-2 py-1 rounded text-[11px] border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   freqUnit === u
                     ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
@@ -100,7 +127,7 @@ export function RadioControlsCard({
         <button
           type="button"
           onClick={onTune}
-          disabled={!canControlConnected}
+          disabled={!canControlConnected || !canTune || tuningLocked}
           className="px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Tune
@@ -108,12 +135,12 @@ export function RadioControlsCard({
       </div>
 
       {/* ── Mode selector ── */}
-      <div>
+      {canSetMode && (selectedDevice?.capabilities.modes.length ?? 0) > 0 ? <div>
         <label className="block text-xs text-gray-500 mb-1">Mode</label>
         <select
           value={effectiveState?.mode ?? ""}
           onChange={(e) => onModeChange(e.target.value)}
-          disabled={!canControlConnected || !selectedDevice}
+          disabled={!canControlConnected || !selectedDevice || !canSetMode}
           className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
         >
           {(selectedDevice?.capabilities.modes ?? []).map((m) => (
@@ -122,7 +149,7 @@ export function RadioControlsCard({
             </option>
           ))}
         </select>
-      </div>
+      </div> : null}
 
       {/* ── Extended controls (PTT, AGC, antenna, gains, DSP) ── */}
       {selectedDevice && effectiveState && (
@@ -130,7 +157,7 @@ export function RadioControlsCard({
           {/* TX / RX */}
           <div className="flex items-center justify-between">
             <div className="text-xs text-gray-500">Transmit</div>
-            {selectedDevice.capabilities.can_transmit ? (
+            {selectedDevice.capabilities.can_transmit && canPtt ? (
               <button
                 type="button"
                 onClick={() => onPttChange(!effectiveState.ptt)}
@@ -152,7 +179,7 @@ export function RadioControlsCard({
           </div>
 
           {/* AGC */}
-          <div className="flex items-center justify-between">
+          {canAgc ? <div className="flex items-center justify-between">
             <div className="text-xs text-gray-500">AGC</div>
             <button
               type="button"
@@ -167,10 +194,10 @@ export function RadioControlsCard({
             >
               {effectiveState.agc ? "On" : "Off"}
             </button>
-          </div>
+          </div> : null}
 
           {/* Antenna */}
-          {selectedDevice.capabilities.antennas.length > 1 ? (
+          {canAntenna && selectedDevice.capabilities.antennas.length > 1 ? (
             <div>
               <label className="block text-xs text-gray-500 mb-1">
                 Antenna
@@ -191,7 +218,7 @@ export function RadioControlsCard({
           ) : null}
 
           {/* Gain stages */}
-          {selectedDevice.capabilities.gain_stages.length > 0 ? (
+          {canGain && selectedDevice.capabilities.gain_stages.length > 0 ? (
             <div className="space-y-2">
               <div className="text-xs font-semibold text-gray-200">Gain</div>
               {selectedDevice.capabilities.gain_stages.map((st) => {
@@ -227,12 +254,12 @@ export function RadioControlsCard({
           ) : null}
 
           {/* DSP controls only when the device can stream audio (SDR) */}
-          {selectedDevice.capabilities.can_stream_audio ? (
+          {canFilter || canNr || canNb ? (
             <div className="space-y-2">
               <div className="text-xs font-semibold text-gray-200">DSP</div>
 
               {/* Filter */}
-              <div className="space-y-1">
+              {canFilter ? <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>Filter</span>
                   <span className="text-gray-200 font-mono">
@@ -274,10 +301,10 @@ export function RadioControlsCard({
                     aria-label="Filter high cutoff"
                   />
                 </div>
-              </div>
+              </div> : null}
 
               {/* NR */}
-              <div className="space-y-1">
+              {canNr ? <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>NR</span>
                   <button
@@ -319,10 +346,10 @@ export function RadioControlsCard({
                   className="w-full"
                   aria-label="Noise reduction level"
                 />
-              </div>
+              </div> : null}
 
               {/* NB */}
-              <div className="space-y-1">
+              {canNb ? <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>NB</span>
                   <button
@@ -364,7 +391,7 @@ export function RadioControlsCard({
                   className="w-full"
                   aria-label="Noise blanker threshold"
                 />
-              </div>
+              </div> : null}
             </div>
           ) : null}
         </div>

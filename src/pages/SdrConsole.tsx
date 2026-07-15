@@ -69,6 +69,13 @@ const DEFAULT_DAEMON_URL = "ws://127.0.0.1:9867";
 const LS_DAEMON_URL_KEY = "propulse-radio-daemon-url";
 const LS_LAST_DEVICE_KEY = "propulse-radio-daemon-device";
 
+type StreamKind = "fft" | "audio";
+type StreamAction = "start" | "stop";
+type DaemonSendCommand = (
+  type: string,
+  payload?: Record<string, unknown>,
+) => string | null;
+
 export function SdrConsole() {
   const isMobile = useIsMobile();
   // Keep daemon FFT stream rate stable; waterfall "speed" is a client-side
@@ -92,6 +99,8 @@ export function SdrConsole() {
 
   // ── Skin selection ──────────────────────────────────────────
   const sdrSkinName = useSettingsStore((s) => s.sdrSkinName ?? "classic");
+  const pttSafetyLockout = useSettingsStore((s) => s.catPttLockout);
+  const daemonAuthToken = useSettingsStore((s) => s.radioDaemonAuthToken);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
   const activeSkin: SdrSkinName = isMobile ? "classic" : sdrSkinName;
   const handleSkinChange = useCallback(
@@ -154,6 +163,9 @@ export function SdrConsole() {
   const lastStatus = useRadioStore((s) => s.lastDaemonStatus);
 
   const resetRadioStore = useRadioStore((s) => s.reset);
+  const markTransportDisconnected = useRadioStore(
+    (s) => s.markTransportDisconnected,
+  );
   const setDevices = useRadioStore((s) => s.setDevices);
   const setSelectedDeviceId = useRadioStore((s) => s.setSelectedDeviceId);
   const upsertRadioState = useRadioStore((s) => s.upsertRadioState);
@@ -204,6 +216,90 @@ export function SdrConsole() {
     ctxSampleRate: null,
   });
   const lastBeepAtRef = useRef(0);
+  const desiredFftRef = useRef(false);
+  const desiredAudioRef = useRef(false);
+  const pendingStreamCommandsRef = useRef(
+    new Map<
+      string,
+      { kind: StreamKind; action: StreamAction; deviceId: string }
+    >(),
+  );
+  const streamStartTimeoutsRef = useRef<
+    Partial<Record<StreamKind, number>>
+  >({});
+  const commandResponseHandlerRef = useRef<
+    (id: string, success: boolean) => boolean
+  >(() => false);
+
+  const clearStreamStartTimeout = useCallback((kind: StreamKind) => {
+    const timeout = streamStartTimeoutsRef.current[kind];
+    if (timeout !== undefined) {
+      window.clearTimeout(timeout);
+      delete streamStartTimeoutsRef.current[kind];
+    }
+  }, []);
+
+  const trackStreamCommand = useCallback(
+    (
+      id: string | null,
+      kind: StreamKind,
+      action: StreamAction,
+      deviceId: string,
+    ) => {
+      if (!id) {
+        if (kind === "fft") {
+          desiredFftRef.current = false;
+          setFftEnabled(false);
+        } else {
+          desiredAudioRef.current = false;
+          setAudioEnabled(false);
+        }
+        setLastResponseError(`Unable to send ${kind.toUpperCase()} stream command`);
+        return false;
+      }
+      pendingStreamCommandsRef.current.set(id, { kind, action, deviceId });
+      return true;
+    },
+    [setAudioEnabled, setFftEnabled],
+  );
+
+  const requestFftStart = useCallback(
+    (sendCommand: DaemonSendCommand, deviceId: string) => {
+      desiredFftRef.current = true;
+      setFftEnabled(false);
+      clearStreamStartTimeout("fft");
+      const storedPort = parseInt(
+        localStorage.getItem("propulse-civ-port") || "4580",
+        10,
+      );
+      const id = sendCommand("stream:fft:start", {
+        device_id: deviceId,
+        fft_size: 4096,
+        fps: DEFAULT_FFT_STREAM_FPS,
+        averaging: 4,
+        civ_port: storedPort > 0 ? storedPort : 4580,
+      });
+      return trackStreamCommand(id, "fft", "start", deviceId);
+    },
+    [clearStreamStartTimeout, setFftEnabled, trackStreamCommand],
+  );
+
+  const requestAudioStart = useCallback(
+    (sendCommand: DaemonSendCommand, deviceId: string) => {
+      desiredAudioRef.current = true;
+      setAudioEnabled(false);
+      clearStreamStartTimeout("audio");
+      audioRestartAttemptsRef.current[deviceId] = 0;
+      lastAudioFrameAtRef.current = performance.now();
+      const id = sendCommand("stream:audio:start", {
+        device_id: deviceId,
+        sample_rate: 48000,
+        format: "pcm_i16",
+      });
+      return trackStreamCommand(id, "audio", "start", deviceId);
+    },
+    [clearStreamStartTimeout, setAudioEnabled, trackStreamCommand],
+  );
 
   const debugBeep = useCallback(() => {
     const now = performance.now();
@@ -302,27 +398,11 @@ export function SdrConsole() {
         // Re-subscribe to streams on reconnect (after radio confirms connected)
         if (msg.state.connected && needsStreamResyncRef.current) {
           needsStreamResyncRef.current = false;
-          const { fftEnabled: fft, audioEnabled: audio } =
-            useSdrStore.getState();
-          if (fft) {
-            const civPort = parseInt(
-              localStorage.getItem("propulse-civ-port") || "4580",
-              10,
-            );
-            api.sendCommand("stream:fft:start", {
-              device_id: msg.device_id,
-              fft_size: 4096,
-              fps: DEFAULT_FFT_STREAM_FPS,
-              averaging: 4,
-              civ_port: civPort > 0 ? civPort : 4580,
-            });
+          if (desiredFftRef.current) {
+            requestFftStart(api.sendCommand, msg.device_id);
           }
-          if (audio) {
-            api.sendCommand("stream:audio:start", {
-              device_id: msg.device_id,
-              sample_rate: 48000,
-              format: "pcm_i16",
-            });
+          if (desiredAudioRef.current) {
+            requestAudioStart(api.sendCommand, msg.device_id);
           }
         }
         return;
@@ -336,9 +416,58 @@ export function SdrConsole() {
         return;
       }
       if (isDaemonResponseMessage(msg)) {
+        const streamCommand = pendingStreamCommandsRef.current.get(msg.id);
+        if (streamCommand) {
+          pendingStreamCommandsRef.current.delete(msg.id);
+          const { kind, action, deviceId } = streamCommand;
+          clearStreamStartTimeout(kind);
+
+          if (!msg.success) {
+            if (kind === "fft") {
+              desiredFftRef.current = false;
+              setFftEnabled(false);
+            } else {
+              desiredAudioRef.current = false;
+              setAudioEnabled(false);
+            }
+          } else if (action === "start") {
+            const desired =
+              kind === "fft" ? desiredFftRef.current : desiredAudioRef.current;
+            const activeDeviceId = useRadioStore.getState().connectedDeviceId;
+            if (!desired || activeDeviceId !== deviceId) {
+              api.sendCommand(`stream:${kind}:stop`, { device_id: deviceId });
+              commandResponseHandlerRef.current(msg.id, msg.success);
+              return;
+            }
+            const timeoutMs = kind === "fft" ? 30_000 : 8_000;
+            streamStartTimeoutsRef.current[kind] = window.setTimeout(() => {
+              delete streamStartTimeoutsRef.current[kind];
+              const desired =
+                kind === "fft" ? desiredFftRef.current : desiredAudioRef.current;
+              const active =
+                kind === "fft"
+                  ? useSdrStore.getState().fftEnabled
+                  : useSdrStore.getState().audioEnabled;
+              if (!desired || active) return;
+
+              if (kind === "fft") {
+                desiredFftRef.current = false;
+                setFftEnabled(false);
+              } else {
+                desiredAudioRef.current = false;
+                setAudioEnabled(false);
+              }
+              api.sendCommand(`stream:${kind}:stop`, { device_id: deviceId });
+              setLastResponseError(
+                `${kind.toUpperCase()} stream started but produced no usable frames`,
+              );
+            }, timeoutMs);
+          }
+        }
+        commandResponseHandlerRef.current(msg.id, msg.success);
         const err =
           typeof msg.error === "string" ? msg.error : "Command failed";
-        setLastResponseError(msg.success ? null : err);
+        if (!msg.success) setLastResponseError(err);
         return;
       }
       if (isDaemonDiscoveryDaemonsMessage(msg)) {
@@ -363,7 +492,12 @@ export function SdrConsole() {
     },
     [
       setClusterSpots,
+      clearStreamStartTimeout,
+      requestAudioStart,
+      requestFftStart,
+      setAudioEnabled,
       setDevices,
+      setFftEnabled,
       setLastDaemonStatus,
       setLastResponseError,
       setSmeterDbm,
@@ -376,9 +510,16 @@ export function SdrConsole() {
   const handleDaemonFrame = useCallback(
     (frame: RadioBinaryFrame) => {
       if (frame.kind === "fft") {
+        if (!desiredFftRef.current) return;
+        clearStreamStartTimeout("fft");
+        setFftEnabled(true);
         setFrame(frame);
         return;
       }
+
+      if (!desiredAudioRef.current) return;
+      clearStreamStartTimeout("audio");
+      setAudioEnabled(true);
 
       const audioFrame: AudioFrameData = {
         sampleRate: frame.sampleRate,
@@ -395,12 +536,19 @@ export function SdrConsole() {
       pushAudioPlaybackRef.current(audioFrame);
       pushAudioFftRef.current(audioFrame);
     },
-    [setFrame, showAudioDebug],
+    [
+      clearStreamStartTimeout,
+      setAudioEnabled,
+      setFftEnabled,
+      setFrame,
+      showAudioDebug,
+    ],
   );
 
   const daemon = useRadioDaemon({
     enabled: true,
     url: daemonUrl,
+    authToken: daemonAuthToken || undefined,
     onMessage: handleDaemonMessage,
     onFrame: handleDaemonFrame,
     trackLastMessage: false,
@@ -419,6 +567,14 @@ export function SdrConsole() {
   const connectedState = connectedDeviceId
     ? (radioStateById[connectedDeviceId] ?? null)
     : null;
+  const connectedDevice = useMemo(
+    () =>
+      connectedDeviceId
+        ? (devices.find((d) => d.device_id === connectedDeviceId) ?? null)
+        : null,
+    [connectedDeviceId, devices],
+  );
+  const controlDevice = connectedDevice ?? selectedDevice;
 
   // ── Extracted hooks ─────────────────────────────────────────
 
@@ -428,7 +584,7 @@ export function SdrConsole() {
     setDraftState,
     effectiveState,
     handleConnectRadio,
-    handleDisconnectRadio,
+    handleDisconnectRadio: requestDisconnectRadio,
     handleTune,
     handleModeChange,
     handleGainChange,
@@ -451,6 +607,7 @@ export function SdrConsole() {
     handleIfShift,
     handleCwSpeed,
     handleLockToggle,
+    handleCommandResponse,
   } = useRadioCommands({
     connectedDeviceId,
     selectedDeviceId,
@@ -462,6 +619,16 @@ export function SdrConsole() {
     setFftEnabled,
     setAudioEnabled,
   });
+  commandResponseHandlerRef.current = handleCommandResponse;
+
+  const handleDisconnectRadio = useCallback(() => {
+    desiredFftRef.current = false;
+    desiredAudioRef.current = false;
+    pendingStreamCommandsRef.current.clear();
+    clearStreamStartTimeout("fft");
+    clearStreamStartTimeout("audio");
+    requestDisconnectRadio();
+  }, [clearStreamStartTimeout, requestDisconnectRadio]);
 
   // Keep effectiveStateRef in sync for useFt8AutoConfig
   const effectiveStateRef = useRef(effectiveState);
@@ -526,29 +693,40 @@ export function SdrConsole() {
 
   const handleToggleFft = useCallback(() => {
     if (!connectedDeviceId) return;
-    if (fftEnabled) {
-      daemonSendCommand("stream:fft:stop", { device_id: connectedDeviceId });
+    if (desiredFftRef.current) {
+      desiredFftRef.current = false;
+      clearStreamStartTimeout("fft");
+      const id = daemonSendCommand("stream:fft:stop", {
+        device_id: connectedDeviceId,
+      });
+      trackStreamCommand(id, "fft", "stop", connectedDeviceId);
       setFftEnabled(false);
     } else {
-      const storedPort = parseInt(
-        localStorage.getItem("propulse-civ-port") || "4580",
-        10,
-      );
-      daemonSendCommand("stream:fft:start", {
-        device_id: connectedDeviceId,
-        fft_size: 4096,
-        fps: DEFAULT_FFT_STREAM_FPS,
-        averaging: 4,
-        civ_port: storedPort > 0 ? storedPort : 4580,
-      });
-      setFftEnabled(true);
+      requestFftStart(daemonSendCommand, connectedDeviceId);
     }
-  }, [connectedDeviceId, daemonSendCommand, fftEnabled, setFftEnabled]);
+  }, [
+    clearStreamStartTimeout,
+    connectedDeviceId,
+    daemonSendCommand,
+    requestFftStart,
+    setFftEnabled,
+    trackStreamCommand,
+  ]);
+
+  const ensureFftStarted = useCallback(() => {
+    if (!connectedDeviceId || desiredFftRef.current) return;
+    requestFftStart(daemonSendCommand, connectedDeviceId);
+  }, [connectedDeviceId, daemonSendCommand, requestFftStart]);
 
   const handleToggleAudio = useCallback(() => {
     if (!connectedDeviceId) return;
-    if (audioEnabled) {
-      daemonSendCommand("stream:audio:stop", { device_id: connectedDeviceId });
+    if (desiredAudioRef.current) {
+      desiredAudioRef.current = false;
+      clearStreamStartTimeout("audio");
+      const id = daemonSendCommand("stream:audio:stop", {
+        device_id: connectedDeviceId,
+      });
+      trackStreamCommand(id, "audio", "stop", connectedDeviceId);
       setAudioEnabled(false);
       sharedAudioCtxRef.current = null;
       resetSharedAudioContext();
@@ -556,16 +734,16 @@ export function SdrConsole() {
       // Ensure the shared WebAudio context is unlocked by this user gesture.
       sharedAudioCtxRef.current = getSharedAudioContext();
       primeAudioContextForPlayback();
-      audioRestartAttemptsRef.current[connectedDeviceId] = 0;
-      lastAudioFrameAtRef.current = performance.now();
-      daemonSendCommand("stream:audio:start", {
-        device_id: connectedDeviceId,
-        sample_rate: 48000,
-        format: "pcm_i16",
-      });
-      setAudioEnabled(true);
+      requestAudioStart(daemonSendCommand, connectedDeviceId);
     }
-  }, [audioEnabled, connectedDeviceId, daemonSendCommand, setAudioEnabled]);
+  }, [
+    clearStreamStartTimeout,
+    connectedDeviceId,
+    daemonSendCommand,
+    requestAudioStart,
+    setAudioEnabled,
+    trackStreamCommand,
+  ]);
 
   // Hook 5: FT8 auto-config toggle
   const { handleFt8Toggle } = useFt8AutoConfig({
@@ -577,7 +755,7 @@ export function SdrConsole() {
     handleAgcToggle,
     handleNrChange,
     handleNbChange,
-    handleToggleFft,
+    ensureFftStarted,
   });
 
   // Hook 6: Audio DSP chain lifecycle
@@ -638,9 +816,21 @@ export function SdrConsole() {
   // ── Side effects ────────────────────────────────────────────
 
   // Sync draftState from connectedState
+  const draftDeviceIdRef = useRef<string | null>(null);
   useEffect(() => {
-    setDraftState(connectedState);
-  }, [connectedState, setDraftState]);
+    const deviceChanged = draftDeviceIdRef.current !== connectedDeviceId;
+    draftDeviceIdRef.current = connectedDeviceId;
+    setDraftState((current) =>
+      connectedState
+        ? {
+            ...connectedState,
+            lock: deviceChanged
+              ? connectedState.lock
+              : (current?.lock ?? connectedState.lock),
+          }
+        : null,
+    );
+  }, [connectedDeviceId, connectedState, setDraftState]);
 
   // Persist daemon URL; reset radio state when switching daemons.
   useEffect(() => {
@@ -663,13 +853,28 @@ export function SdrConsole() {
     autoAudioStartRef.current = {};
     audioRestartAttemptsRef.current = {};
     lastAudioFrameAtRef.current = 0;
+    desiredFftRef.current = false;
+    desiredAudioRef.current = false;
+    pendingStreamCommandsRef.current.clear();
+    clearStreamStartTimeout("fft");
+    clearStreamStartTimeout("audio");
   }, [
+    clearStreamStartTimeout,
     daemonUrl,
     ft8ClearDecodes,
     resetRadioStore,
     setAudioEnabled,
     setFftEnabled,
   ]);
+
+  useEffect(
+    () => () => {
+      clearStreamStartTimeout("fft");
+      clearStreamStartTimeout("audio");
+      pendingStreamCommandsRef.current.clear();
+    },
+    [clearStreamStartTimeout],
+  );
 
   // Restore recent FT8 decodes from IndexedDB on mount.
   useEffect(() => {
@@ -689,7 +894,19 @@ export function SdrConsole() {
   const needsStreamResyncRef = useRef(false);
 
   useEffect(() => {
-    if (!daemonConnected) return;
+    if (!daemonConnected) {
+      const streamState = useSdrStore.getState();
+      desiredFftRef.current ||= streamState.fftEnabled;
+      desiredAudioRef.current ||= streamState.audioEnabled;
+      setFftEnabled(false);
+      setAudioEnabled(false);
+      pendingStreamCommandsRef.current.clear();
+      clearStreamStartTimeout("fft");
+      clearStreamStartTimeout("audio");
+      markTransportDisconnected();
+      needsStreamResyncRef.current = true;
+      return;
+    }
     autoConnectAttemptedRef.current = false;
     autoConfigAttemptedRef.current = false;
     autoFftStartRef.current = {};
@@ -697,12 +914,25 @@ export function SdrConsole() {
     audioRestartAttemptsRef.current = {};
     lastAudioFrameAtRef.current = 0;
     needsStreamResyncRef.current = true;
-  }, [daemonConnected, daemonUrl]);
+  }, [
+    clearStreamStartTimeout,
+    daemonConnected,
+    daemonUrl,
+    markTransportDisconnected,
+    setAudioEnabled,
+    setFftEnabled,
+  ]);
+
+  useEffect(() => {
+    if (!daemonConnected) return;
+    daemonSendCommand("safety:configure", {
+      ptt_lockout: pttSafetyLockout,
+    });
+  }, [daemonConnected, daemonSendCommand, pttSafetyLockout]);
 
   // Auto-reconnect to last selected radio (best-effort).
   useEffect(() => {
     if (!daemonConnected) return;
-    if (connectedDeviceId) return;
     if (devices.length === 0) return;
     if (autoConnectAttemptedRef.current) return;
 
@@ -713,18 +943,19 @@ export function SdrConsole() {
       lastDevice = null;
     }
 
-    if (!lastDevice) {
+    const targetDevice = connectedDeviceId ?? lastDevice;
+    if (!targetDevice) {
       autoConnectAttemptedRef.current = true;
       return;
     }
-    if (!devices.some((d) => d.device_id === lastDevice)) {
+    if (!devices.some((d) => d.device_id === targetDevice)) {
       autoConnectAttemptedRef.current = true;
       return;
     }
 
     autoConnectAttemptedRef.current = true;
-    setSelectedDeviceId(lastDevice);
-    daemonSendCommand("radio:connect", { device_id: lastDevice });
+    setSelectedDeviceId(targetDevice);
+    daemonSendCommand("radio:connect", { device_id: targetDevice });
   }, [
     connectedDeviceId,
     daemonConnected,
@@ -764,25 +995,14 @@ export function SdrConsole() {
     if (!dev?.capabilities.can_stream_fft) return;
     if (autoFftStartRef.current[connectedDeviceId]) return;
     autoFftStartRef.current[connectedDeviceId] = true;
-    const storedCivPort = parseInt(
-      localStorage.getItem("propulse-civ-port") || "4580",
-      10,
-    );
-    daemonSendCommand("stream:fft:start", {
-      device_id: connectedDeviceId,
-      fft_size: 4096,
-      fps: DEFAULT_FFT_STREAM_FPS,
-      averaging: 4,
-      civ_port: storedCivPort > 0 ? storedCivPort : 4580,
-    });
-    setFftEnabled(true);
+    requestFftStart(daemonSendCommand, connectedDeviceId);
   }, [
     connectedDeviceId,
     daemonConnected,
     daemonSendCommand,
     devices,
     fftEnabled,
-    setFftEnabled,
+    requestFftStart,
   ]);
 
   // Audio start must be user-initiated (browser autoplay policy + explicit UX).
@@ -800,7 +1020,16 @@ export function SdrConsole() {
       if (sinceLastFrameMs < 3000) return;
 
       const attempts = audioRestartAttemptsRef.current[connectedDeviceId] ?? 0;
-      if (attempts >= 3) return;
+      if (attempts >= 3) {
+        desiredAudioRef.current = false;
+        setAudioEnabled(false);
+        clearStreamStartTimeout("audio");
+        daemonSendCommand("stream:audio:stop", {
+          device_id: connectedDeviceId,
+        });
+        setLastResponseError("Audio stream stopped after three frame-loss retries");
+        return;
+      }
 
       audioRestartAttemptsRef.current[connectedDeviceId] = attempts + 1;
       lastAudioFrameAtRef.current = performance.now();
@@ -821,6 +1050,8 @@ export function SdrConsole() {
     daemonSendCommand,
     devices,
     audioEnabled,
+    clearStreamStartTimeout,
+    setAudioEnabled,
   ]);
 
   const canControlDevice = daemonConnected && !!selectedDeviceId;
@@ -851,6 +1082,10 @@ export function SdrConsole() {
   const handleFt8BandPresetSelect = useCallback(
     (preset: Ft8BandPreset) => {
       if (!connectedDeviceId) return;
+      if (effectiveState?.lock) {
+        setLastResponseError("Frequency is locked");
+        return;
+      }
       // Tune to the dial frequency
       const mhz = (preset.dialFreqHz / 1_000_000).toFixed(6);
       setFreqInput(mhz);
@@ -872,6 +1107,7 @@ export function SdrConsole() {
     },
     [
       connectedDeviceId,
+      effectiveState?.lock,
       daemonSendCommand,
       handleModeChange,
       handleFilterChange,
@@ -958,8 +1194,8 @@ export function SdrConsole() {
     refreshDiscovery();
   }, [devicePickerOpen, refreshDiscovery]);
 
-  const canStreamFft = selectedDevice?.capabilities.can_stream_fft ?? false;
-  const canStreamAudio = selectedDevice?.capabilities.can_stream_audio ?? false;
+  const canStreamFft = controlDevice?.capabilities.can_stream_fft ?? false;
+  const canStreamAudio = controlDevice?.capabilities.can_stream_audio ?? false;
 
   const waterfallView: WaterfallView | null = useMemo(() => {
     if (!lastFftFrame) return null;
@@ -1012,7 +1248,7 @@ export function SdrConsole() {
           : undefined,
         fftEnabled,
         audioEnabled,
-        selectedDevice,
+        selectedDevice: controlDevice,
         connectedDeviceId,
         canControlConnected,
         canStreamFft,
@@ -1208,7 +1444,7 @@ export function SdrConsole() {
       smeterById,
       fftEnabled,
       audioEnabled,
-      selectedDevice,
+      controlDevice,
       canControlConnected,
       canStreamFft,
       canStreamAudio,
@@ -1379,15 +1615,41 @@ export function SdrConsole() {
         currentUrl={daemonUrl}
         onSelect={({ url, deviceId }) => {
           try {
-            if (deviceId) localStorage.setItem(LS_LAST_DEVICE_KEY, deviceId);
+            if (deviceId) {
+              localStorage.setItem(LS_LAST_DEVICE_KEY, deviceId);
+            } else {
+              localStorage.removeItem(LS_LAST_DEVICE_KEY);
+            }
           } catch {
             // ignore
+          }
+          if (url === daemonUrl) {
+            setSelectedDeviceId(deviceId);
+            if (
+              deviceId &&
+              deviceId !== connectedDeviceId &&
+              daemonConnected
+            ) {
+              desiredFftRef.current ||= fftEnabled;
+              desiredAudioRef.current ||= audioEnabled;
+              setFftEnabled(false);
+              setAudioEnabled(false);
+              pendingStreamCommandsRef.current.clear();
+              clearStreamStartTimeout("fft");
+              clearStreamStartTimeout("audio");
+              needsStreamResyncRef.current = true;
+              daemonSendCommand("radio:connect", { device_id: deviceId });
+            }
           }
           setDaemonUrl(url);
         }}
         daemons={discoveredDaemons}
         canRefresh={daemonConnected}
         onRefresh={refreshDiscovery}
+        authToken={daemonAuthToken}
+        onAuthTokenChange={(token) =>
+          updatePreferences({ radioDaemonAuthToken: token })
+        }
       />
       <SdrSettingsModal
         isOpen={sdrSettingsOpen}
@@ -1400,7 +1662,7 @@ export function SdrConsole() {
           daemonUrl={daemonUrl}
           devices={devices}
           selectedDeviceId={selectedDeviceId}
-          selectedDevice={selectedDevice}
+          selectedDevice={controlDevice}
           connectedDeviceId={connectedDeviceId}
           canControlDevice={canControlDevice}
           canControlConnected={canControlConnected}

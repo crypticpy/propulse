@@ -397,7 +397,14 @@ explicitly labeled and does not satisfy the live requirement above.
   V4.2 archive approval. Both paths call the server-authoritative path-history
   provider; stale/missing history retains physics fallback, and ReachMap labels
   that profile explicitly rather than calling it NowCast.
-- [ ] Publish coverage and drift evidence in the final visual report.
+- [x] Publish privacy-safe interim band, UTC-hour, broad-region, and distance
+  coverage in the visual report from a read-only aggregate feature-store audit.
+  The current 13-hour artifact is checksum-bound to the signed scheduled
+  receipt window, excludes the manual validation hour, is labeled `collecting`,
+  and contains no station identity, grid-4 output, equipment, raw observations,
+  or locked outcomes.
+- [ ] Complete the 720-hour window and publish the preregistered non-overlapping
+  early/late source-drift comparison in the final release report.
 
 ## Stop Conditions
 

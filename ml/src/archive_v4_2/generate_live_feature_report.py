@@ -56,6 +56,8 @@ INPUTS = {
     / "wspr_research_schedule_validation.json",
     "wspr_research_shadow_progress": RESULT
     / "wspr_research_shadow_progress.json",
+    "wspr_shadow_coverage_drift": RESULT
+    / "wspr_shadow_coverage_drift.json",
     "prospective_capture_readiness": RESULT
     / "prospective_capture_readiness.json",
 }
@@ -136,6 +138,7 @@ def build_evidence(
     wspr_live_hour_validation: dict[str, Any],
     wspr_research_schedule_validation: dict[str, Any],
     wspr_research_shadow_progress: dict[str, Any],
+    wspr_shadow_coverage_drift: dict[str, Any],
     prospective_capture_readiness: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
@@ -236,6 +239,42 @@ def build_evidence(
         or wspr_research_shadow_progress.get("operational_status") != "healthy"
     ):
         raise RuntimeError("WSPR research shadow progress is not operationally healthy")
+    if (
+        wspr_shadow_coverage_drift.get("decision") not in {"collecting", "pass"}
+        or wspr_shadow_coverage_drift.get("operational_status") != "healthy"
+    ):
+        raise RuntimeError("WSPR aggregate coverage evidence is not healthy")
+    if wspr_shadow_coverage_drift.get("privacy", {}).get(
+        "locked_outcomes_read"
+    ) is not False:
+        raise RuntimeError("WSPR coverage analysis opened locked outcomes")
+    if wspr_shadow_coverage_drift.get("privacy", {}).get(
+        "station_identity_written"
+    ) is not False:
+        raise RuntimeError("WSPR coverage analysis contains station identity")
+    coverage_provenance = wspr_shadow_coverage_drift.get("window", {}).get(
+        "provenance"
+    )
+    if (
+        not isinstance(coverage_provenance, dict)
+        or coverage_provenance.get("source_scope")
+        != "wspr_research_shadow_progress"
+        or coverage_provenance.get("progress_sha256")
+        != sha256(INPUTS["wspr_research_shadow_progress"])
+        or coverage_provenance.get("scheduled_start")
+        != wspr_research_shadow_progress.get("window", {}).get(
+            "start_target_hour"
+        )
+        or coverage_provenance.get("scheduled_end")
+        != wspr_research_shadow_progress.get("window", {}).get(
+            "latest_settled_target_hour"
+        )
+        or wspr_shadow_coverage_drift.get("gates", {}).get(
+            "window_bound_to_signed_scheduled_receipts"
+        )
+        is not True
+    ):
+        raise RuntimeError("WSPR coverage window is not bound to signed receipts")
     if prospective_capture_readiness.get("operational_healthy") is not True:
         raise RuntimeError("first-party prospective capture is not operationally healthy")
     if prospective_capture_readiness.get("prospective_window", {}).get(
@@ -271,6 +310,7 @@ def build_evidence(
             wspr_live_hour_validation,
             wspr_research_schedule_validation,
             wspr_research_shadow_progress,
+            wspr_shadow_coverage_drift,
             prospective_capture_readiness,
         )
     ):
@@ -533,6 +573,35 @@ def build_evidence(
         "shadow_feature_cells": int(
             wspr_research_shadow_progress["totals"]["feature_cells"]
         ),
+        "coverage_expected_hours": int(
+            wspr_shadow_coverage_drift["window"]["expected_hours"]
+        ),
+        "coverage_completed_hours": int(
+            wspr_shadow_coverage_drift["window"]["completed_hours"]
+        ),
+        "coverage_missing_hours": int(
+            wspr_shadow_coverage_drift["window"]["missing_hours"]
+        ),
+        "coverage_feature_cells": sum(
+            int(row["feature_cells"])
+            for row in wspr_shadow_coverage_drift["coverage"]["by_band"]
+        ),
+        "coverage_sampled_rows": sum(
+            int(row["sampled_rows"])
+            for row in wspr_shadow_coverage_drift["coverage"]["by_band"]
+        ),
+        "coverage_utc_hours": len(
+            wspr_shadow_coverage_drift["coverage"]["observed_utc_hours"]
+        ),
+        "coverage_distance_buckets": len(
+            wspr_shadow_coverage_drift["coverage"]["by_distance"]
+        ),
+        "coverage_reported_regions": len(
+            wspr_shadow_coverage_drift["coverage"]["regional_fields"]
+        ),
+        "coverage_drift_sample_sufficient": bool(
+            wspr_shadow_coverage_drift["drift"]["sample_sufficient"]
+        ),
         "prospective_sources_current": sum(
             bool(prospective_capture_readiness["gates"].get(f"{source}_current"))
             for source in ("pskreporter", "rbn", "dxcluster")
@@ -636,6 +705,41 @@ def build_evidence(
                 - int(wspr_research_shadow_progress["window"]["completed_hours"]),
             ),
         },
+    ]
+    coverage_band_rows = [
+        {
+            "band": row["band"],
+            "feature_cells": int(row["feature_cells"]),
+            "sampled_rows": int(row["sampled_rows"]),
+            "completed_hours": int(row["band_hours"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["by_band"]
+    ]
+    coverage_utc_hour_rows = [
+        {
+            "utc_hour": f"{int(row['utc_hour']):02d}:00",
+            "feature_cells": int(row["feature_cells"]),
+            "sampled_rows": int(row["sampled_rows"]),
+            "completed_band_hours": int(row["band_hours"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["by_utc_hour"]
+    ]
+    coverage_distance_rows = [
+        {
+            "distance_bucket": row["distance_bucket"],
+            "feature_cells": int(row["feature_cells"]),
+            "sampled_rows": int(row["sampled_rows"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["by_distance"]
+    ]
+    coverage_region_rows = [
+        {
+            "band": row["band"],
+            "direction": row["dimension"].title(),
+            "eligible_regions": int(row["eligible_region_count"]),
+            "reported_regions": int(row["reported_region_count"]),
+        }
+        for row in wspr_shadow_coverage_drift["coverage"]["regional_summary"]
     ]
     prospective_progress_rows = [
         {
@@ -771,6 +875,11 @@ def build_evidence(
             else "pass" if passed else "fail"
         ),
     } for name, passed in wspr_research_shadow_progress["gates"].items())
+    gate_rows.extend({
+        "scope": "Aggregate coverage and drift",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "pending",
+    } for name, passed in wspr_shadow_coverage_drift["gates"].items())
     gate_rows.extend({
         "scope": "Prospective first-party capture",
         "gate": name.replace("_", " "),
@@ -1011,6 +1120,7 @@ def build_evidence(
             "performance": wspr_research_shadow_progress["performance"],
             "gates": wspr_research_shadow_progress["gates"],
         },
+        "research_shadow_coverage": wspr_shadow_coverage_drift,
         "prospective_capture": prospective_capture_readiness,
         "datasets": {
             "summary": summary,
@@ -1022,6 +1132,10 @@ def build_evidence(
             "schedule_band_rows": schedule_band_rows,
             "schedule_stage_rows": schedule_stage_rows,
             "shadow_progress_rows": shadow_progress_rows,
+            "coverage_band_rows": coverage_band_rows,
+            "coverage_utc_hour_rows": coverage_utc_hour_rows,
+            "coverage_distance_rows": coverage_distance_rows,
+            "coverage_region_rows": coverage_region_rows,
             "prospective_progress_rows": prospective_progress_rows,
             "incident_age_rows": incident_age_rows,
             "gate_rows": gate_rows,
@@ -1092,6 +1206,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "Signed, identity-free receipts toward the required 720 hours.",
             ),
             (
+                "coverage_cells",
+                "Coverage path cells",
+                "coverage_feature_cells",
+                "Privacy-safe aggregate cells across the current clean live-source window.",
+            ),
+            (
                 "prospective_sources",
                 "Capture inputs current",
                 "prospective_sources_current",
@@ -1107,7 +1227,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "remote_health_gates",
                 "Remote health gates",
                 "research_health_endpoint_gates_passed",
-                "Signed protected-preview heartbeat, exact private-store state, and disabled public reader.",
+                "Signed private heartbeat, exact private-store state, and disabled public reader.",
             ),
             (
                 "off_m5_monitor_gates",
@@ -1226,6 +1346,47 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             },
         ),
         chart(
+            "coverage_by_band",
+            "Aggregate feature coverage by HF band",
+            f"{summary['coverage_completed_hours']} complete all-band hours; cells measure reporting-network coverage, not model accuracy.",
+            "coverage_band_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "HF band"},
+                "y": {"field": "feature_cells", "type": "quantitative", "label": "Path-hour feature cells"},
+            },
+        ),
+        chart(
+            "coverage_by_utc_hour",
+            "Aggregate feature coverage by UTC hour",
+            f"The current window covers {summary['coverage_utc_hours']} of 24 UTC hour strata; missing clock hours are pending evidence, not zero coverage.",
+            "coverage_utc_hour_rows",
+            {
+                "x": {"field": "utc_hour", "type": "ordinal", "label": "UTC hour"},
+                "y": {"field": "feature_cells", "type": "quantitative", "label": "Path-hour feature cells"},
+            },
+        ),
+        chart(
+            "coverage_by_distance",
+            "Aggregate feature coverage by path distance",
+            f"All {summary['coverage_distance_buckets']} preregistered distance buckets are represented in the clean current window.",
+            "coverage_distance_rows",
+            {
+                "x": {"field": "distance_bucket", "type": "ordinal", "label": "Great-circle distance"},
+                "y": {"field": "feature_cells", "type": "quantitative", "label": "Path-hour feature cells"},
+            },
+        ),
+        chart(
+            "coverage_by_region",
+            "Privacy-qualified regional breadth by HF band",
+            "Broad Maidenhead fields must span at least six hours and 100 feature cells; only eligible-region counts are plotted.",
+            "coverage_region_rows",
+            {
+                "x": {"field": "band", "type": "ordinal", "label": "HF band"},
+                "y": {"field": "eligible_regions", "type": "quantitative", "label": "Eligible broad fields"},
+                "color": {"field": "direction", "type": "nominal", "label": "Path endpoint"},
+            },
+        ),
+        chart(
             "prospective_progress",
             "First-party prospective capture is operational and warming",
             f"All {summary['prospective_sources_current']} of {summary['prospective_sources_required']} sources are current; the evidence clock is {summary['prospective_continuity_hours']:.2f} of {summary['prospective_continuity_required_hours']:.0f} required hours.",
@@ -1313,7 +1474,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"The separate private research-health boundary passed **{summary['research_health_rollback_gates_passed']} of "
                 f"{summary['research_health_rollback_gates_total']}** rollback gates and **{summary['research_health_deployment_gates_passed']} of "
                 f"{summary['research_health_deployment_gates_total']}** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. "
-                f"Its protected-preview endpoint then passed **{summary['research_health_endpoint_gates_passed']} of "
+                f"Its private endpoint then passed **{summary['research_health_endpoint_gates_passed']} of "
                 f"{summary['research_health_endpoint_gates_total']}** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, "
                 "the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. "
                 f"The additive off-M5 monitor passed **{summary['research_health_monitor_rollback_gates_passed']} of "
@@ -1511,6 +1672,91 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "Every receipt is schema-checked, hash-linked to its signed completion manifest, and rechecked for all-band counts, causal "
                 "timestamps, one bounded source request, the exact 2-by-9 M5 profile, and completion within 7,200 seconds. The decision remains "
                 "`collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
+            ),
+        },
+        {
+            "id": "coverage_heading",
+            "type": "markdown",
+            "body": "## Aggregate coverage is broad, while long-window drift evidence is still collecting",
+        },
+        {
+            "id": "coverage_band_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The read-only M5 audit found **{summary['coverage_completed_hours']} of "
+                f"{summary['coverage_expected_hours']} complete all-band hours** with **{summary['coverage_missing_hours']} gaps**, "
+                f"covering **{summary['coverage_feature_cells']:,} identity-free path cells**. The audit window is checksum-bound "
+                "to the signed scheduled-receipt rollup, so the earlier manual validation target cannot advance this clock. "
+                "The band distribution describes what the receiver network observed; "
+                "it is neither a model score nor evidence of uniform geographic sampling."
+            ),
+        },
+        {
+            "id": "coverage_band_chart",
+            "type": "chart",
+            "chartId": "coverage_by_band",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_utc_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The current evidence spans **{summary['coverage_utc_hours']} of 24 UTC hour strata**. The unobserved clock "
+                "hours stay absent rather than being filled with zeros, so the chart cannot imply evidence the collector has "
+                "not yet accumulated. A full day will establish hour-of-day breadth; 720 hours remain the release requirement."
+            ),
+        },
+        {
+            "id": "coverage_utc_chart",
+            "type": "chart",
+            "chartId": "coverage_by_utc_hour",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_distance_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"All **{summary['coverage_distance_buckets']} distance buckets** already contain feature cells, including "
+                "paths beyond 10,000 km. Distances are computed from grid-cell centers inside PostgreSQL, then only bucketed "
+                "counts leave the read-only query. This is useful coverage evidence, but it does not prove equal performance "
+                "inside each bucket."
+            ),
+        },
+        {
+            "id": "coverage_distance_chart",
+            "type": "chart",
+            "chartId": "coverage_by_distance",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_region_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                f"The regional audit retained **{summary['coverage_reported_regions']} top-ranked band/direction rows** after "
+                "requiring each broad Maidenhead field to span at least six completed hours and 100 feature cells. The chart "
+                "plots only eligible-field counts by band and endpoint direction; it contains no callsigns, grid-4 cells, "
+                "equipment, user records, or raw observations."
+            ),
+        },
+        {
+            "id": "coverage_region_chart",
+            "type": "chart",
+            "chartId": "coverage_by_region",
+            "layout": "full",
+        },
+        {
+            "id": "coverage_drift_explainer",
+            "type": "markdown",
+            "sourceId": "live_feature_evidence",
+            "body": (
+                "Early-versus-late drift is intentionally blank until two non-overlapping seven-day periods exist. Once "
+                "available, the gate compares band, UTC-hour, and distance distributions with base-2 Jensen-Shannon "
+                "divergence and requires late aggregate volume to remain between 0.5x and 2.0x the early week. These are "
+                "source-pipeline stability checks, not propagation-change or model-accuracy claims."
             ),
         },
         {
@@ -1725,8 +1971,14 @@ The signed progress rollup is operationally healthy at
 `{summary['shadow_completed_hours']}/{summary['shadow_required_hours']}` hours,
 `{summary['shadow_completion_rate_percent']:.1f}%` scheduled completion, and
 `{summary['shadow_missing_hours']}` gaps; its decision remains `collecting`.
+The independent read-only coverage audit spans
+`{summary['coverage_completed_hours']}/{summary['coverage_expected_hours']}`
+complete all-band hours, `{summary['coverage_feature_cells']:,}` path cells,
+`{summary['coverage_utc_hours']}/24` UTC hour strata, and all
+`{summary['coverage_distance_buckets']}` distance buckets. Early-versus-late
+drift remains unavailable until two non-overlapping seven-day periods exist.
 Subscriber-facing use still requires source confirmation, and 30 days of real
-receipt-time shadow evidence remain open. The signed protected-preview heartbeat passed
+receipt-time shadow evidence remain open. The signed private heartbeat passed
 `{summary['research_health_endpoint_gates_passed']}/{summary['research_health_endpoint_gates_total']}`
 end-to-end gates. The off-M5 monitor migration passed
 `{summary['research_health_monitor_rollback_gates_passed']}/{summary['research_health_monitor_rollback_gates_total']}`
@@ -1804,15 +2056,6 @@ def main() -> None:
     research_health_incident_delivery_validation = read_json(
         INPUTS["research_health_incident_delivery_validation"]
     )
-    research_health_hardening_migration_validation = read_json(
-        INPUTS["research_health_hardening_migration_validation"]
-    )
-    research_health_hardening_deployment_validation = read_json(
-        INPUTS["research_health_hardening_deployment_validation"]
-    )
-    research_health_incident_delivery_validation = read_json(
-        INPUTS["research_health_incident_delivery_validation"]
-    )
     research_participation_migration_validation = read_json(
         INPUTS["research_participation_migration_validation"]
     )
@@ -1832,6 +2075,9 @@ def main() -> None:
     )
     wspr_research_shadow_progress = read_json(
         INPUTS["wspr_research_shadow_progress"]
+    )
+    wspr_shadow_coverage_drift = read_json(
+        INPUTS["wspr_shadow_coverage_drift"]
     )
     prospective_capture_readiness = read_json(
         INPUTS["prospective_capture_readiness"]
@@ -1859,6 +2105,7 @@ def main() -> None:
         wspr_live_hour_validation,
         wspr_research_schedule_validation,
         wspr_research_shadow_progress,
+        wspr_shadow_coverage_drift,
         prospective_capture_readiness,
     )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"

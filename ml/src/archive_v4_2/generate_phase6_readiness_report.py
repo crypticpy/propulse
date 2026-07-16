@@ -24,6 +24,7 @@ INPUTS = {
     "beta_rollback": LIVE / "propagation_beta_protocol_migration_validation.json",
     "beta_deployment": LIVE / "propagation_beta_protocol_deployment_validation.json",
     "wspr": LIVE / "wspr_research_shadow_progress.json",
+    "coverage": LIVE / "wspr_shadow_coverage_drift.json",
     "capture": LIVE / "prospective_capture_readiness.json",
     "beta_config": ROOT / "ml/config/propagation_v4_2_beta_protocol.json",
     "beta_dry_run": LIVE / "synthetic_stationcast_beta_dry_run.json",
@@ -153,6 +154,24 @@ def validate_inputs(values: dict[str, dict[str, Any]]) -> None:
         raise RuntimeError("capture readiness opened prospective outcomes")
     if values["wspr"].get("locked_outcomes_read") is not False:
         raise RuntimeError("WSPR progress opened locked outcomes")
+    coverage = values["coverage"]
+    coverage_provenance = coverage.get("window", {}).get("provenance")
+    if (
+        coverage.get("decision") not in {"collecting", "pass"}
+        or coverage.get("operational_status") != "healthy"
+        or coverage.get("privacy", {}).get("locked_outcomes_read") is not False
+        or coverage.get("privacy", {}).get("station_identity_written") is not False
+        or coverage.get("privacy", {}).get("grid4_written") is not False
+        or not isinstance(coverage_provenance, dict)
+        or coverage_provenance.get("source_scope")
+        != "wspr_research_shadow_progress"
+        or coverage_provenance.get("progress_sha256") != sha256(INPUTS["wspr"])
+        or coverage.get("gates", {}).get(
+            "window_bound_to_signed_scheduled_receipts"
+        )
+        is not True
+    ):
+        raise RuntimeError("WSPR aggregate coverage evidence is invalid")
     beta = values["beta_dry_run"]
     if (
         beta.get("scope") != "synthetic_stationcast_beta_dry_run"
@@ -180,6 +199,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
     rollback = values["beta_rollback"]
     deployment = values["beta_deployment"]
     wspr = values["wspr"]
+    coverage = values["coverage"]
     capture = values["capture"]
     futurecast = values["futurecast"]
     six_meter = values["six_meter"]
@@ -197,6 +217,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "Live data": (
             "prospective_capture_has_24_continuous_hours",
             "wspr_shadow_has_720_hours_at_99_percent",
+            "wspr_aggregate_coverage_and_drift_passed",
             "subscriber_recent_path_source_authorized",
         ),
         "Operations": (
@@ -234,6 +255,8 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
 
     wspr_hours = float(wspr["window"]["completed_hours"])
     wspr_required = float(wspr["window"]["minimum_hours"])
+    coverage_hours = float(coverage["window"]["completed_hours"])
+    coverage_required = float(coverage["window"]["required_hours"])
     capture_hours = float(capture["continuity"]["hours"])
     capture_required = float(capture["continuity"]["minimum_hours"])
     future_days = min(
@@ -257,6 +280,13 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "completion": min(wspr_hours / wspr_required, 1.0),
         },
         {
+            "evidence_track": "Aggregate coverage",
+            "observed": coverage_hours,
+            "required": coverage_required,
+            "unit": "complete all-band hours",
+            "completion": min(coverage_hours / coverage_required, 1.0),
+        },
+        {
             "evidence_track": "FutureCast issuance",
             "observed": future_days,
             "required": future_required,
@@ -266,12 +296,12 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
     ]
 
     required_by_mode = {
-        "core_nowcast": 11,
-        "stationcast_deterministic": 14,
+        "core_nowcast": 12,
+        "stationcast_deterministic": 15,
         "stationcast_learned": 1,
         "futurecast": 1,
         "six_meter": 1,
-        "system_health_view": 9,
+        "system_health_view": 10,
     }
     mode_rows = []
     for mode, decision in release["mode_decisions"].items():
@@ -382,6 +412,13 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "beta_deployment_total": len(deployment["gates"]),
         "wspr_hours": int(wspr_hours),
         "wspr_required_hours": int(wspr_required),
+        "coverage_hours": int(coverage_hours),
+        "coverage_required_hours": int(coverage_required),
+        "coverage_utc_hours": len(coverage["coverage"]["observed_utc_hours"]),
+        "coverage_distance_buckets": len(coverage["coverage"]["by_distance"]),
+        "coverage_drift_sample_sufficient": bool(
+            coverage["drift"]["sample_sufficient"]
+        ),
         "capture_hours": capture_hours,
         "capture_required_hours": capture_required,
         "futurecast_days": future_days,
@@ -704,9 +741,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "sourceId": "phase6_evidence",
             "body": (
                 f"First-party prospective capture is at **{summary['capture_hours']:.2f}/{summary['capture_required_hours']:.0f} continuous hours**; "
-                f"the permitted WSPR research shadow is at **{summary['wspr_hours']}/{summary['wspr_required_hours']} hours**; and FutureCast has "
+                f"the permitted WSPR research shadow is at **{summary['wspr_hours']}/{summary['wspr_required_hours']} signed hours**; "
+                f"the independent aggregate coverage audit spans **{summary['coverage_hours']}/{summary['coverage_required_hours']} all-band hours**, "
+                f"**{summary['coverage_utc_hours']}/24 UTC strata**, and **{summary['coverage_distance_buckets']} distance buckets**; and FutureCast has "
                 f"**{summary['futurecast_days']}/{summary['futurecast_required_days']} consecutive legal issuance days**. WSPR research access remains "
-                "research-only until a separate signed subscriber authorization artifact exists. The literal full-M5 outage proof is deliberately "
+                "research-only until a separate signed subscriber authorization artifact exists. Early/late source drift stays pending until two "
+                "non-overlapping seven-day windows exist. The literal full-M5 outage proof is deliberately "
                 "not simulated from a missing publisher: it must be a coordinated power-loss and genuine recovery event."
             ),
         },

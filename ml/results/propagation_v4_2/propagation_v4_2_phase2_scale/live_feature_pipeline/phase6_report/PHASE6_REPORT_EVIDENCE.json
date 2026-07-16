@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T16:05:55.891898+00:00",
+  "generated_at": "2026-07-16T16:48:01.757991+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,8 +12,8 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "2a13fd331ede23e5f158ed8a81e0908df5abee3a35650e0a7f9e73aa2f410f13",
-      "bytes": 8820
+      "sha256": "48163b6f541184bcb844205a33b932f6818f0287b34da8e6b29e733241bbdce6",
+      "bytes": 9410
     },
     "beta_rollback": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/propagation_beta_protocol_migration_validation.json",
@@ -27,12 +27,17 @@
     },
     "wspr": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "4aa21fcfe0b5f8c9981ea84ef74f2c30118a183b6e1e1c951f3f941c65cead6b",
+      "sha256": "30ef88e938e0893be92b12e003b9da62f395b78c467df10f97fbf0c4d50a70c9",
       "bytes": 1792
+    },
+    "coverage": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
+      "sha256": "b6c5fcf078bf0b547cf7c2ab16e57023456f24f37cb3d326ad5e1bf32b2da494",
+      "bytes": 70225
     },
     "capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "6dc47a48cb3a17660bdd656b2a6dd9810fdf3328504c8a9b85fd386107bb3b94",
+      "sha256": "fd652296fed45ac9539872182156d98f87f08395b846bc968933b98e232e84a6",
       "bytes": 4823
     },
     "beta_config": {
@@ -65,14 +70,19 @@
         "archive_months_won": 4,
         "archive_months_total": 4,
         "release_gates_passed": 10,
-        "release_gates_total": 20,
+        "release_gates_total": 21,
         "beta_rollback_gates": 22,
         "beta_rollback_total": 22,
         "beta_deployment_gates": 23,
         "beta_deployment_total": 23,
-        "wspr_hours": 12,
+        "wspr_hours": 13,
         "wspr_required_hours": 720,
-        "capture_hours": 4.499761430833333,
+        "coverage_hours": 13,
+        "coverage_required_hours": 720,
+        "coverage_utc_hours": 13,
+        "coverage_distance_buckets": 5,
+        "coverage_drift_sample_sufficient": false,
+        "capture_hours": 4.749981172222222,
         "capture_required_hours": 24.0,
         "futurecast_days": 1,
         "futurecast_required_days": 90,
@@ -142,7 +152,7 @@
       {
         "track": "Live data",
         "passed": 0,
-        "required": 3,
+        "required": 4,
         "completion": 0.0
       },
       {
@@ -173,17 +183,24 @@
     "collection_progress_rows": [
       {
         "evidence_track": "First-party capture",
-        "observed": 4.499761430833333,
+        "observed": 4.749981172222222,
         "required": 24.0,
         "unit": "continuous hours",
-        "completion": 0.18749005961805554
+        "completion": 0.19791588217592593
       },
       {
         "evidence_track": "WSPR shadow",
-        "observed": 12.0,
+        "observed": 13.0,
         "required": 720.0,
         "unit": "completed hours",
-        "completion": 0.016666666666666666
+        "completion": 0.018055555555555554
+      },
+      {
+        "evidence_track": "Aggregate coverage",
+        "observed": 13.0,
+        "required": 720.0,
+        "unit": "complete all-band hours",
+        "completion": 0.018055555555555554
       },
       {
         "evidence_track": "FutureCast issuance",
@@ -198,17 +215,17 @@
         "mode": "core nowcast",
         "status": "shadow_only",
         "passed": 5,
-        "required": 11,
-        "completion": 0.45454545454545453,
-        "remaining": 6
+        "required": 12,
+        "completion": 0.4166666666666667,
+        "remaining": 7
       },
       {
         "mode": "stationcast deterministic",
         "status": "shadow_only",
         "passed": 9,
-        "required": 14,
-        "completion": 0.6428571428571429,
-        "remaining": 5
+        "required": 15,
+        "completion": 0.6,
+        "remaining": 6
       },
       {
         "mode": "stationcast learned",
@@ -238,9 +255,9 @@
         "mode": "system health view",
         "status": "hidden",
         "passed": 5,
-        "required": 9,
-        "completion": 0.5555555555555556,
-        "remaining": 4
+        "required": 10,
+        "completion": 0.5,
+        "remaining": 5
       }
     ],
     "gate_rows": [
@@ -266,6 +283,11 @@
       },
       {
         "gate": "wspr shadow has 720 hours at 99 percent",
+        "status": "pending",
+        "passed": false
+      },
+      {
+        "gate": "wspr aggregate coverage and drift passed",
         "status": "pending",
         "passed": false
       },
@@ -462,13 +484,13 @@
         "order": 1,
         "action": "Sustain nonempty first-party capture for 24 continuous hours",
         "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-        "current": "4.50/24 hours"
+        "current": "4.75/24 hours"
       },
       {
         "order": 2,
         "action": "Accumulate 720 permitted receipt-time WSPR shadow hours",
         "why": "Measures real completeness, gaps, freshness, latency, and fallback behavior.",
-        "current": "12/720 hours"
+        "current": "13/720 hours"
       },
       {
         "order": 3,
@@ -539,6 +561,10 @@
         "status": "required"
       },
       {
+        "blocker": "wspr aggregate coverage and drift passed",
+        "status": "required"
+      },
+      {
         "blocker": "wspr shadow has 720 hours at 99 percent",
         "status": "required"
       }
@@ -546,7 +572,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T16:05:45.723882+00:00",
+    "generated_at": "2026-07-16T16:47:56.821880+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -574,7 +600,14 @@
       "wspr_shadow": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
         "exists": true,
-        "sha256": "4aa21fcfe0b5f8c9981ea84ef74f2c30118a183b6e1e1c951f3f941c65cead6b",
+        "sha256": "30ef88e938e0893be92b12e003b9da62f395b78c467df10f97fbf0c4d50a70c9",
+        "schema_version": 1,
+        "decision": "collecting"
+      },
+      "wspr_coverage_drift": {
+        "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
+        "exists": true,
+        "sha256": "b6c5fcf078bf0b547cf7c2ab16e57023456f24f37cb3d326ad5e1bf32b2da494",
         "schema_version": 1,
         "decision": "collecting"
       },
@@ -586,7 +619,7 @@
       "prospective_capture": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
         "exists": true,
-        "sha256": "6dc47a48cb3a17660bdd656b2a6dd9810fdf3328504c8a9b85fd386107bb3b94",
+        "sha256": "fd652296fed45ac9539872182156d98f87f08395b846bc968933b98e232e84a6",
         "schema_version": 1,
         "decision": null
       },
@@ -685,6 +718,7 @@
       "phase3_native_m5_openmp_evidence": true,
       "prospective_capture_has_24_continuous_hours": false,
       "wspr_shadow_has_720_hours_at_99_percent": false,
+      "wspr_aggregate_coverage_and_drift_passed": false,
       "subscriber_recent_path_source_authorized": false,
       "research_health_boundaries_deployed": true,
       "stale_and_recovery_incident_exercised": true,
@@ -706,6 +740,7 @@
       "blockers": [
         "prospective_capture_has_24_continuous_hours",
         "wspr_shadow_has_720_hours_at_99_percent",
+        "wspr_aggregate_coverage_and_drift_passed",
         "subscriber_recent_path_source_authorized",
         "literal_full_m5_outage_exercised"
       ]
@@ -716,6 +751,7 @@
         "blockers": [
           "prospective_capture_has_24_continuous_hours",
           "wspr_shadow_has_720_hours_at_99_percent",
+          "wspr_aggregate_coverage_and_drift_passed",
           "subscriber_recent_path_source_authorized",
           "literal_full_m5_outage_exercised",
           "prospective_window_closed",
@@ -727,6 +763,7 @@
         "blockers": [
           "prospective_capture_has_24_continuous_hours",
           "wspr_shadow_has_720_hours_at_99_percent",
+          "wspr_aggregate_coverage_and_drift_passed",
           "subscriber_recent_path_source_authorized",
           "literal_full_m5_outage_exercised",
           "stationcast_beta_passed"
@@ -761,6 +798,7 @@
         "blockers": [
           "prospective_capture_has_24_continuous_hours",
           "wspr_shadow_has_720_hours_at_99_percent",
+          "wspr_aggregate_coverage_and_drift_passed",
           "subscriber_recent_path_source_authorized",
           "literal_full_m5_outage_exercised"
         ]

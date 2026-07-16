@@ -26,11 +26,21 @@
 > complete with zero gaps (`13/720` duration gate), `3,088,321` observations,
 > and `867,072` feature cells. The latest audited keyset-paginated finalizer used the
 > exact `2 x 9` native-thread profile and completed in 114.34 seconds.
+> Aggregate coverage status, 2026-07-16T16:35Z: a separate read-only PostgreSQL
+> audit is checksum-bound to the signed schedule and excludes the earlier manual
+> validation hour. It covers `13/13` hours, 130 complete band-hours, zero gaps,
+> all ten HF bands, 13/24 UTC hour strata, all five distance buckets, and 237
+> k-suppressed broad-region rows. Early/late drift remains unavailable until two
+> non-overlapping seven-day periods exist; the aggregate gate cannot pass before
+> the full 720-hour window.
 > Incident-delivery status: a real `10,227`-second stale heartbeat opened one
 > aggregate-only GitHub issue and a genuine `25`-second heartbeat closed it.
+> A non-destructive literal-outage preflight passed all six M5, fresh-health,
+> boot, privacy, and immutable-main-workflow gates while recording
+> `outage_armed: false`; the physical shutdown experiment remains open.
 > The public health view remains disabled until a literal M5 power-loss proof
 > and the remaining beta/release gates pass.
-> Phase 6 release status: `10/20` gates pass. Core NowCast and deterministic
+> Phase 6 release status: `10/21` gates pass. Core NowCast and deterministic
 > StationCast remain `shadow_only`; learned StationCast, FutureCast, and 6m are
 > withheld; System Health is hidden; beta collection and public release remain
 > disabled. See the
@@ -703,6 +713,18 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Automate the signed-receipt 30-day denominator and 99% completion rollup,
   including gaps, latency, ten-band coverage, M5 concurrency, memory, and
   aggregate volume without station identities.
+- [x] Add a separate M5-only, read-only aggregate coverage and source-drift
+  audit over the signed scheduled-receipt window and identity-free path-hour
+  cells. The checksum-bound window excludes manual feature-store validation
+  hours and the public receipt caps qualifying broad regions at 12 per
+  direction/band.
+  PostgreSQL performs the heavy grouping; no raw observation, callsign,
+  equipment, user, or locked-outcome table is read. Coverage is reported by HF
+  band, UTC hour, five great-circle distance buckets, and k-suppressed broad
+  Maidenhead fields. The release gate requires 720 hours, at least 99% all-band
+  completion, all 24 UTC strata, two non-overlapping seven-day periods,
+  base-2 Jensen-Shannon divergence no greater than 0.20 for band/hour/distance
+  distributions, and a late-to-early volume ratio between 0.5 and 2.0.
 - [x] Implement and deploy a private aggregate research-health boundary with
   HMAC/replay protection, service-role-only RLS, transition outbox, a
   secret-free M5 launchd boundary, and double-gated System Health reader.
@@ -776,12 +798,14 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   the latest preserved receipt is honestly `warming` at `4.75/24` hours across
   23 healthy receipts; the August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `95/95`, V4.1 `37/37`, V4.2 `165/165`, and
+  service `95/95`, V4.1 `37/37`, V4.2 `177/177`, and
   frontend/API/collector `94/94` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
   at 1,440 px and 390 px with 34 blocks, five charts, seven metrics, and four
-  evidence tables, including the first-party capture readiness receipt.
+  evidence tables, including the first-party capture and aggregate-coverage
+  readiness receipts. The separate live-feature report passed the same QA with
+  64 blocks, 14 charts, 17 metrics, and three evidence tables.
 - [x] Publish the separate
   [Phase 6 visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html)
   with the frozen retrospective result, synthetic scorer proof, independent
@@ -807,6 +831,11 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   receipt binds proposal SHA-256 `b9119dce...a45ac7` and snapshot SHA-256
   `08f12515...9477df`, while explicitly recording `email_sent: false` and
   `subscriber_facing_authorized: false`.
+- [x] Pass the non-destructive literal-outage preflight on the M5. The receipt
+  binds fresh signed health and the exact GitHub `main` monitor workflow,
+  verifies a native 18-core AC-powered boot session, writes no raw boot
+  identifier or secret, and records `outage_armed: false`. Recovery validation
+  rejects the episode unless shutdown follows arming within five minutes.
 - [ ] Send the immutable WSPR.live request, receive explicit operator approval
   for both required roles and the stated nonprofit operating limits, retain the
   reply privately, and pass `validate_wspr_source_authorization.py` on the M5.
@@ -862,10 +891,14 @@ partial-band manifests, timestamp gaps, tampering, and prune-before-success.
 The separate private research-health migration then passed 20/20 rollback
 gates and 21/21 deployed-state gates on target PostgreSQL 17.6. Its HMAC
 endpoint, retryable transition outbox, and double-gated System Health reader
-accept no station/path/equipment data. The protected preview endpoint is now
-configured with an independent HMAC secret and automation-bypass header; its
-M5-to-endpoint-to-private-store validation passed 8/8 gates with the public
-reader still disabled. The additive off-M5 monitor migration then passed 17/17
+accept no station/path/equipment data. The private endpoint is configured with
+an independent HMAC secret; its M5-to-endpoint-to-private-store validation
+passes 8/8 gates with the public reader disabled. Preview deployments may use a
+separate automation-bypass header, while the current production endpoint uses
+signed ingest with the reader returning 404. Four historical transition events
+remain clean and unattempted in the optional-webhook outbox; the independently
+scheduled GitHub issue channel delivered the stale/recovery episode. The
+additive off-M5 monitor migration then passed 17/17
 rollback gates and 18/18 deployed-state gates, including preservation of the
 last source timestamp, one stale transition, repeat suppression, and genuine-
 heartbeat recovery. Its authenticated GitHub workflow was merged independently
@@ -938,6 +971,17 @@ workers and nine native threads each. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current
 99% operational threshold is satisfied.
+
+The independent coverage audit is checksum-bound to the signed schedule and
+therefore excludes the corrected manual `02:00Z` target. It currently spans
+`13/13` complete hours and 130 band-hours. It queries only
+`wspr_feature_watermarks` and `wspr_path_hourly_features` in a read-only
+transaction. The report exposes band/hour/distance totals and broad-field
+counts only after each region spans at least six hours and 100 feature cells,
+capped to the top 12 fields per band/direction. Current coverage includes all
+ten bands and all five distance buckets but only 13/24 UTC hour strata.
+Early/late volume and Jensen-Shannon drift values remain null until two
+non-overlapping seven-day periods exist.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,

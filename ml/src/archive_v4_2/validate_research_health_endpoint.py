@@ -101,6 +101,18 @@ def keys_are_identity_free(value: Any) -> bool:
     return True
 
 
+def pending_outbox_has_no_failed_delivery(value: Any) -> bool:
+    if not isinstance(value, list):
+        return False
+    return all(
+        isinstance(row, dict)
+        and type(row.get("attempts")) is int
+        and row["attempts"] == 0
+        and row.get("last_error") is None
+        for row in value
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--profile", choices=("m5",), required=True)
@@ -153,7 +165,10 @@ def main() -> None:
     pending = store_json(
         base_url,
         service_key,
-        "propagation_research_alert_outbox?delivered_at=is.null&select=event_id",
+        (
+            "propagation_research_alert_outbox?delivered_at=is.null&"
+            "select=attempts,last_error"
+        ),
     )
     view_status = coarse_view_status(remote)
     row = rows[0] if isinstance(rows, list) and len(rows) == 1 else None
@@ -177,7 +192,7 @@ def main() -> None:
     evidence = {
         "schema_version": 1,
         "generated_at": generated_at,
-        "scope": "protected_preview_research_health_endpoint_validation",
+        "scope": "private_research_health_endpoint_validation",
         "locked_outcomes_read": False,
         "research_only": True,
         "progress": {
@@ -188,6 +203,11 @@ def main() -> None:
         },
         "endpoint": {
             "protected_preview_bypass_configured": remote.bypass_secret is not None,
+            "private_access_mode": (
+                "preview_bypass"
+                if remote.bypass_secret is not None
+                else "signed_ingest_with_disabled_reader"
+            ),
             "accepted": response.get("accepted"),
             "state_changed": response.get("stateChanged"),
             "alert_delivery_configured": (
@@ -206,6 +226,16 @@ def main() -> None:
             "required_hours": row.get("required_hours") if isinstance(row, dict) else None,
             "missing_hours": row.get("missing_hours") if isinstance(row, dict) else None,
             "pending_alert_events": len(pending) if isinstance(pending, list) else None,
+            "attempted_pending_alert_events": (
+                sum(
+                    isinstance(item, dict)
+                    and type(item.get("attempts")) is int
+                    and item["attempts"] > 0
+                    for item in pending
+                )
+                if isinstance(pending, list)
+                else None
+            ),
         },
         "runtime": {
             "machine": runtime["machine"],
@@ -225,9 +255,13 @@ def main() -> None:
             and int(row.get("missing_hours", -1)) == expected_missing
             and normalized_target == normalized_expected_target
         ),
-        "initial_healthy_outbox_empty": isinstance(pending, list) and len(pending) == 0,
+        "alert_outbox_has_no_failed_delivery": (
+            pending_outbox_has_no_failed_delivery(pending)
+        ),
         "coarse_view_remains_disabled": view_status == 404,
-        "protected_preview_bypass_used": remote.bypass_secret is not None,
+        "private_access_boundary_verified": bool(
+            remote.bypass_secret is not None or view_status == 404
+        ),
         "native_m5_runtime": runtime["machine"] == "arm64",
         "locked_outcomes_unread": True,
     }

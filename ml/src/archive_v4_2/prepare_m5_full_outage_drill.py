@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Arm a controlled M5 power-outage drill with a private boot challenge."""
+"""Preflight or arm a controlled M5 outage with a private boot challenge."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -29,6 +30,7 @@ LIVE = (
 )
 DEFAULT_HEALTH = LIVE / "research_health_endpoint_validation.json"
 DEFAULT_OUTPUT = LIVE / "m5_full_outage_preparation.json"
+DEFAULT_PREFLIGHT_OUTPUT = LIVE / "m5_full_outage_preflight.json"
 DEFAULT_STATE = (
     Path.home()
     / "Library/Application Support/PropulseML/full_outage_drill/private_state.json"
@@ -37,6 +39,7 @@ STALE_SECONDS = 7200
 MINIMUM_POWER_OFF_SECONDS = 9000
 BOOT_SESSION_RE = re.compile(r"^[0-9A-Fa-f-]{36}$")
 BOOT_TIME_RE = re.compile(r"sec = (?P<seconds>[0-9]+)")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def command(*args: str) -> str:
@@ -82,9 +85,17 @@ def require_outside_repository(path: Path, label: str) -> Path:
 
 
 def github_main_workflow_sha256(repository: str) -> str:
+    github_cli = shutil.which("gh")
+    if github_cli is None:
+        for candidate in ("/opt/homebrew/bin/gh", "/usr/local/bin/gh"):
+            if Path(candidate).is_file():
+                github_cli = candidate
+                break
+    if github_cli is None:
+        raise RuntimeError("authenticated GitHub CLI is unavailable")
     result = subprocess.run(
         [
-            "gh",
+            github_cli,
             "api",
             "-H",
             "Accept: application/vnd.github.raw+json",
@@ -95,6 +106,63 @@ def github_main_workflow_sha256(repository: str) -> str:
         timeout=30,
     )
     return hashlib.sha256(result.stdout).hexdigest()
+
+
+def build_preflight_receipt(
+    *,
+    now: datetime,
+    health_generated_at: datetime,
+    health_evidence_sha256: str,
+    workflow_sha256: str,
+    boot_session: str,
+    boot_time: datetime,
+    private_state_not_armed: bool,
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    health_age_seconds = int((now - health_generated_at).total_seconds())
+    gates = {
+        "native_m5_runtime": runtime.get("machine") == "arm64",
+        "fresh_pre_outage_heartbeat": 0 <= health_age_seconds <= 900,
+        "evidence_checksums_recorded": bool(
+            SHA256_RE.fullmatch(health_evidence_sha256)
+            and SHA256_RE.fullmatch(workflow_sha256)
+        ),
+        "scheduled_main_workflow_matches_local": True,
+        "boot_metadata_available": bool(
+            BOOT_SESSION_RE.fullmatch(boot_session) and boot_time <= now
+        ),
+        "private_state_not_armed": private_state_not_armed,
+        "locked_outcomes_unread": True,
+    }
+    passed = all(gates.values())
+    return {
+        "schema_version": 1,
+        "generated_at": now.isoformat(),
+        "valid_until": (now + timedelta(minutes=5)).isoformat(),
+        "scope": "controlled_full_m5_power_outage_preflight",
+        "decision": "pass" if passed else "fail",
+        "outage_armed": False,
+        "evidence": {
+            "pre_boot_session_sha256": hashlib.sha256(
+                boot_session.encode()
+            ).hexdigest(),
+            "pre_health_evidence_sha256": health_evidence_sha256,
+            "workflow_sha256": workflow_sha256,
+            "private_state_path_recorded": False,
+        },
+        "gates": gates,
+        "runtime": {
+            "machine": runtime.get("machine"),
+            "physical_cores_visible": runtime.get("physical_cores_visible"),
+            "power_source": runtime.get("power_source"),
+        },
+        "privacy": {
+            "boot_session_identifier_written": False,
+            "private_endpoint_written": False,
+            "secret_value_written": False,
+            "locked_outcomes_read": False,
+        },
+    }
 
 
 def write_private(path: Path, value: dict[str, Any]) -> None:
@@ -126,10 +194,18 @@ def main() -> None:
     parser.add_argument("--workflow", type=Path, default=WORKFLOW)
     parser.add_argument("--state", type=Path, default=DEFAULT_STATE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--preflight-output",
+        type=Path,
+        default=DEFAULT_PREFLIGHT_OUTPUT,
+    )
+    parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--acknowledge-controlled-power-outage", action="store_true")
     args = parser.parse_args()
-    if not args.acknowledge_controlled_power_outage:
-        raise RuntimeError("controlled outage acknowledgement is required")
+    if args.preflight_only == args.acknowledge_controlled_power_outage:
+        raise RuntimeError(
+            "choose exactly one of preflight-only or controlled outage acknowledgement"
+        )
 
     runtime = validate_m5_runtime(json.loads(CONFIG.read_text(encoding="utf-8")))
     state_path = require_outside_repository(args.state, "outage private state")
@@ -139,7 +215,7 @@ def main() -> None:
     if (
         health.get("decision") != "pass"
         or health.get("scope")
-        != "protected_preview_research_health_endpoint_validation"
+        != "private_research_health_endpoint_validation"
         or not timedelta(0) <= now - health_generated <= timedelta(minutes=15)
         or not isinstance(health.get("gates"), dict)
         or not health["gates"]
@@ -158,6 +234,22 @@ def main() -> None:
     if github_main_workflow_sha256(args.repository) != workflow_sha:
         raise RuntimeError("local workflow does not match scheduled GitHub main")
     boot_session, boot_time = boot_snapshot()
+    if args.preflight_only:
+        receipt = build_preflight_receipt(
+            now=now,
+            health_generated_at=health_generated,
+            health_evidence_sha256=sha256(args.health_evidence),
+            workflow_sha256=workflow_sha,
+            boot_session=boot_session,
+            boot_time=boot_time,
+            private_state_not_armed=not state_path.exists(),
+            runtime=runtime,
+        )
+        atomic_write(args.preflight_output, receipt)
+        print(json.dumps(receipt, indent=2, sort_keys=True))
+        if receipt["decision"] != "pass":
+            raise SystemExit(2)
+        return
     challenge = secrets.token_hex(32)
     private_state = {
         "schema_version": 1,

@@ -80,6 +80,21 @@ not a 30-day pass. The audited `11:00Z` finalizer used two workers with nine nat
 threads each and completed in 114.34 seconds after keyset pagination replaced
 deep OFFSET scans.
 
+A separate read-only aggregate coverage audit is checksum-bound to the signed
+schedule, so it excludes the earlier manual validation target. It spans `13/13`
+complete hours and 130 band-hours with zero gaps, all ten HF bands, 13/24 UTC
+hour strata, all five distance buckets, and 237 broad regional rows. Output
+requires at least six completed hours and 100 feature cells and is capped to 12
+fields per band/direction. Early/late drift remains null until two
+non-overlapping seven-day periods exist, and the release gate cannot pass
+before 720 hours.
+
+The non-destructive full-outage preflight passed all six gates at
+`2026-07-16T16:34:56Z` and recorded `outage_armed: false`. It verified native
+M5 boot metadata, fresh private health, and local monitor bytes matching GitHub
+`main`; it did not shut down the machine or pass the literal-outage release
+gate.
+
 The archive evaluation streamed `208,372,533` rows in 29.8 minutes with 18
 XGBoost prediction threads, 18 Arrow CPU threads, six Arrow I/O threads, and
 `10.2913` GiB peak RSS. All four months and every supported HF band improved;
@@ -333,7 +348,7 @@ preview. They are all-or-nothing and take precedence over the general Supabase
 pair, so a stale preview credential cannot redirect aggregate health into the
 wrong project.
 
-Validate the configured protected endpoint from the M5 without printing any
+Validate the configured private endpoint from the M5 without printing any
 secret or station-level data:
 
 ```bash
@@ -341,11 +356,13 @@ ml/.venv/bin/python \
   ml/src/archive_v4_2/validate_research_health_endpoint.py --profile m5
 ```
 
-The original endpoint evidence passes 8/8 signed-ingest, exact-store, empty-initial-outbox,
-disabled-reader, preview-bypass, native-M5, locked-outcome, and identity-free
-gates. Production incident evidence now separately exercises durable stale and
-recovery delivery through the GitHub issue path; no optional webhook is
-configured.
+The current endpoint evidence passes 8/8 signed-ingest, exact-store,
+no-failed-outbox-delivery, disabled-reader, private-access-boundary, native-M5,
+locked-outcome, and identity-free gates. Production uses HMAC signed ingest
+with its reader returning 404; a bypass is only required for a protected
+preview. Four historical transitions remain queued with zero attempts and no
+error because the optional webhook is unconfigured. Production incident
+evidence separately proves durable stale/recovery delivery through GitHub.
 
 The twice-hourly watchdog detects worker failure while the M5 is running. It
 cannot detect complete M5 power or network loss from inside that same machine.
@@ -427,12 +444,25 @@ controlled shutdown is observed and recovered by the external workflow.
 
 The literal-outage validator is implemented but the experiment has not been
 performed. Schedule a maintenance window of at least 2 hours 35 minutes when someone can
-restore power to the M5. Immediately before that window, refresh the protected
-health receipt, then arm the one-use private boot challenge on the M5:
+restore power to the M5. Immediately before that window, refresh private health
+and run the non-destructive preflight:
 
 ```bash
 export PATH="/opt/homebrew/bin:$PATH"
 gh auth status -h github.com
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_endpoint.py --profile m5
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4_2/prepare_m5_full_outage_drill.py \
+  --profile m5 --preflight-only
+```
+
+The receipt is valid for five minutes and must report `decision: pass` plus
+`outage_armed: false`; preflight never creates private challenge state. Only
+when an operator is ready for the full interval, arm the one-use challenge and
+shut down within five minutes:
+
+```bash
 POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
   ml/src/archive_v4_2/prepare_m5_full_outage_drill.py \
   --profile m5 --acknowledge-controlled-power-outage
@@ -506,6 +536,26 @@ Deep OFFSET pages later returned target HTTP 500 responses; monotonic-id keyset
 pagination plus the covering `(source, target_hour, band, id)` index removed
 that database access pattern. The audited `11:00Z` finalizer completed in 114.34
 seconds with the exact two-by-nine profile.
+
+Run the independent aggregate coverage/drift audit after refreshing the signed
+receipt rollup. The analyzer is M5-only, opens a read-only PostgreSQL
+transaction, performs aggregation server-side, and writes only repository-safe
+identity-free evidence:
+
+```bash
+POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
+  ml/src/archive_v4_2/analyze_wspr_shadow_coverage.py --profile m5
+```
+
+The resulting
+`live_feature_pipeline/wspr_shadow_coverage_drift.json` is `collecting` until
+the 720-hour span, 99% all-band completion, all UTC strata, and two
+non-overlapping seven-day drift windows pass. Its input window is bound to the
+SHA-256 of `wspr_research_shadow_progress.json`, excluding manual feature-store
+hours; it publishes no grid4, station, equipment, or outcome fields. Re-run
+`generate_live_feature_report.py`, the portable report builder,
+`validate_phase6_release_readiness.py`, and
+`generate_phase6_readiness_report.py` after each evidence milestone.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,

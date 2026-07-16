@@ -43,3 +43,11 @@ publish if a fully paginated band differs. The corrected target version matched
 all 287,694 observations and 75,055 aggregate feature cells, while an incomplete
 four-lag lookup remained empty. This is one research hour, not continuous or
 subscriber-facing approval.
+
+The active signed schedule is currently healthy at `13/13` expected hours and
+`13/720` required hours with zero gaps. A separate read-only coverage/drift
+receipt is checksum-bound to that schedule, excludes the earlier manual test
+hour, and confirms 130 complete band-hours across all ten HF bands. Its broad
+regional output is k-suppressed and capped; it publishes no callsigns, grid4
+values, or equipment. Seven-day drift and 30-day coverage gates remain
+immature, so the decision is `collecting`, not source or product approval.

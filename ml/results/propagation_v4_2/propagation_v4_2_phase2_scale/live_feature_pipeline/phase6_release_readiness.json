@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T16:20:49.400693+00:00",
+  "generated_at": "2026-07-16T16:47:56.821880+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -28,7 +28,14 @@
     "wspr_shadow": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
       "exists": true,
-      "sha256": "236bdc662aff828d541cedc30c4c4d3e196c4aed991612ed712f2d10fddd5614",
+      "sha256": "30ef88e938e0893be92b12e003b9da62f395b78c467df10f97fbf0c4d50a70c9",
+      "schema_version": 1,
+      "decision": "collecting"
+    },
+    "wspr_coverage_drift": {
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
+      "exists": true,
+      "sha256": "b6c5fcf078bf0b547cf7c2ab16e57023456f24f37cb3d326ad5e1bf32b2da494",
       "schema_version": 1,
       "decision": "collecting"
     },
@@ -139,6 +146,7 @@
     "phase3_native_m5_openmp_evidence": true,
     "prospective_capture_has_24_continuous_hours": false,
     "wspr_shadow_has_720_hours_at_99_percent": false,
+    "wspr_aggregate_coverage_and_drift_passed": false,
     "subscriber_recent_path_source_authorized": false,
     "research_health_boundaries_deployed": true,
     "stale_and_recovery_incident_exercised": true,
@@ -160,6 +168,7 @@
     "blockers": [
       "prospective_capture_has_24_continuous_hours",
       "wspr_shadow_has_720_hours_at_99_percent",
+      "wspr_aggregate_coverage_and_drift_passed",
       "subscriber_recent_path_source_authorized",
       "literal_full_m5_outage_exercised"
     ]
@@ -170,6 +179,7 @@
       "blockers": [
         "prospective_capture_has_24_continuous_hours",
         "wspr_shadow_has_720_hours_at_99_percent",
+        "wspr_aggregate_coverage_and_drift_passed",
         "subscriber_recent_path_source_authorized",
         "literal_full_m5_outage_exercised",
         "prospective_window_closed",
@@ -181,6 +191,7 @@
       "blockers": [
         "prospective_capture_has_24_continuous_hours",
         "wspr_shadow_has_720_hours_at_99_percent",
+        "wspr_aggregate_coverage_and_drift_passed",
         "subscriber_recent_path_source_authorized",
         "literal_full_m5_outage_exercised",
         "stationcast_beta_passed"
@@ -215,6 +226,7 @@
       "blockers": [
         "prospective_capture_has_24_continuous_hours",
         "wspr_shadow_has_720_hours_at_99_percent",
+        "wspr_aggregate_coverage_and_drift_passed",
         "subscriber_recent_path_source_authorized",
         "literal_full_m5_outage_exercised"
       ]

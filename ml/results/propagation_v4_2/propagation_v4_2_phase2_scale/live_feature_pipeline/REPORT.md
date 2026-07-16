@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: research shadow validation report
 
-Generated: 2026-07-16T16:05:56.020253+00:00
+Generated: 2026-07-16T16:47:56.949664+00:00
 
 ## Answer first
 
@@ -35,11 +35,17 @@ Keyset pagination completed the latest finalizer in
 `2 x 9`
 bounded threads.
 The signed progress rollup is operationally healthy at
-`12/720` hours,
+`13/720` hours,
 `100.0%` scheduled completion, and
 `0` gaps; its decision remains `collecting`.
+The independent read-only coverage audit spans
+`13/13`
+complete all-band hours, `867,072` path cells,
+`13/24` UTC hour strata, and all
+`5` distance buckets. Early-versus-late
+drift remains unavailable until two non-overlapping seven-day periods exist.
 Subscriber-facing use still requires source confirmation, and 30 days of real
-receipt-time shadow evidence remain open. The signed protected-preview heartbeat passed
+receipt-time shadow evidence remain open. The signed private heartbeat passed
 `8/8`
 end-to-end gates. The off-M5 monitor migration passed
 `17/17`
@@ -65,7 +71,7 @@ have been gathered.
 The separate first-party prospective collector is operational with
 `4/4`
 sources current. Its readiness state remains warming at
-`4.50/24`
+`4.75/24`
 gap-free hours because the first settled startup aggregates were empty. The
 frozen August-September outcomes remain unread.
 See `REPORT.html` for charts,

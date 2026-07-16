@@ -129,7 +129,7 @@ def fixture() -> dict:
         "recorded_shutdown_at": datetime(2026, 7, 17, 0, 5, tzinfo=UTC),
         "recorded_reboot_at": datetime(2026, 7, 17, 2, 36, tzinfo=UTC),
         "post_health": {
-            "scope": "protected_preview_research_health_endpoint_validation",
+            "scope": "private_research_health_endpoint_validation",
             "decision": "pass",
             "generated_at": "2026-07-17T02:40:00Z",
             "runtime": {"machine": "arm64"},
@@ -186,6 +186,21 @@ class M5FullOutageRecoveryTests(unittest.TestCase):
         values["current_boot_time"] = datetime(2026, 7, 17, 2, 35, tzinfo=UTC)
         values["recorded_reboot_at"] = values["current_boot_time"]
         self.assertEqual(evaluate_outage_episode(**values)["decision"], "fail")
+
+    def test_shutdown_must_follow_preparation_within_five_minutes(self) -> None:
+        values = fixture()
+        values["state"]["prepared_at"] = "2026-07-16T23:00:00+00:00"
+        values["state"]["pre_health_generated_at"] = (
+            "2026-07-16T22:55:00+00:00"
+        )
+        values["state"]["pre_boot_time"] = "2026-07-16T22:00:00+00:00"
+
+        result = evaluate_outage_episode(**values)
+
+        self.assertEqual(result["decision"], "fail")
+        self.assertFalse(
+            result["gates"]["fresh_health_published_before_shutdown"]
+        )
 
     def test_shutdown_history_parser_selects_current_pair(self) -> None:
         shutdown, reboot = parse_shutdown_history(

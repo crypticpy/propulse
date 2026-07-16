@@ -13,11 +13,31 @@ sys.path.insert(0, str(MODULE))
 from generate_live_feature_report import INPUTS, build_evidence  # noqa: E402
 from validate_research_health_endpoint import (  # noqa: E402
     keys_are_identity_free,
+    pending_outbox_has_no_failed_delivery,
     store_config,
 )
 
 
 class ResearchHealthEndpointValidationTests(unittest.TestCase):
+    def test_clean_queued_outbox_is_distinct_from_failed_delivery(self) -> None:
+        self.assertTrue(pending_outbox_has_no_failed_delivery([]))
+        self.assertTrue(
+            pending_outbox_has_no_failed_delivery(
+                [{"attempts": 0, "last_error": None}]
+            )
+        )
+        self.assertFalse(
+            pending_outbox_has_no_failed_delivery(
+                [{"attempts": 1, "last_error": "webhook request failed"}]
+            )
+        )
+        self.assertFalse(
+            pending_outbox_has_no_failed_delivery(
+                [{"attempts": False, "last_error": None}]
+            )
+        )
+        self.assertFalse(pending_outbox_has_no_failed_delivery(None))
+
     def test_evidence_key_scan_rejects_identity_and_secret_fields(self) -> None:
         self.assertTrue(
             keys_are_identity_free(
@@ -89,6 +109,7 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
             values["wspr_live_hour_validation"],
             values["wspr_research_schedule_validation"],
             values["wspr_research_shadow_progress"],
+            values["wspr_shadow_coverage_drift"],
             values["prospective_capture_readiness"],
         )
         health = evidence["research_health"]
@@ -114,8 +135,29 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
         self.assertFalse(capture["prospective_capture_ready"])
         self.assertFalse(capture["prospective_window"]["outcomes_read"])
         summary = evidence["datasets"]["summary"][0]
+        coverage = values["wspr_shadow_coverage_drift"]
         self.assertEqual(summary["prospective_sources_current"], 4)
         self.assertEqual(summary["prospective_sources_required"], 4)
+        self.assertEqual(
+            summary["coverage_completed_hours"],
+            coverage["window"]["completed_hours"],
+        )
+        self.assertEqual(
+            summary["coverage_missing_hours"],
+            coverage["window"]["missing_hours"],
+        )
+        self.assertEqual(
+            summary["coverage_utc_hours"],
+            len(coverage["coverage"]["observed_utc_hours"]),
+        )
+        self.assertEqual(
+            summary["coverage_distance_buckets"],
+            len(coverage["coverage"]["by_distance"]),
+        )
+        self.assertEqual(
+            summary["coverage_drift_sample_sufficient"],
+            coverage["drift"]["sample_sufficient"],
+        )
 
 
 if __name__ == "__main__":

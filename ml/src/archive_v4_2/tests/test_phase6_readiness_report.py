@@ -51,8 +51,28 @@ class Phase6ReadinessReportTests(unittest.TestCase):
         ):
             self.assertIn(required, block_ids)
         summary = evidence["datasets"]["summary"][0]
+        coverage = values["coverage"]
         self.assertEqual(summary["beta_dry_run_gates"], 16)
         self.assertFalse(summary["beta_dry_run_release_approved"])
+        self.assertEqual(
+            summary["coverage_hours"], coverage["window"]["completed_hours"]
+        )
+        self.assertEqual(
+            summary["coverage_utc_hours"],
+            len(coverage["coverage"]["observed_utc_hours"]),
+        )
+        self.assertEqual(
+            summary["coverage_distance_buckets"],
+            len(coverage["coverage"]["by_distance"]),
+        )
+        self.assertEqual(
+            summary["coverage_drift_sample_sufficient"],
+            coverage["drift"]["sample_sufficient"],
+        )
+        self.assertTrue(any(
+            row["evidence_track"] == "Aggregate coverage"
+            for row in evidence["datasets"]["collection_progress_rows"]
+        ))
         self.assertTrue(
             all(row["passed"] for row in evidence["datasets"]["beta_gate_rows"])
         )

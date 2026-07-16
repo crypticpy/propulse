@@ -1,17 +1,18 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T07:30:50.279245+00:00",
-  "scope": "protected_preview_research_health_endpoint_validation",
+  "generated_at": "2026-07-16T16:34:38.984312+00:00",
+  "scope": "private_research_health_endpoint_validation",
   "locked_outcomes_read": false,
   "research_only": true,
   "progress": {
-    "continuous_hours": 4,
-    "completed_hours": 4,
+    "continuous_hours": 13,
+    "completed_hours": 13,
     "required_hours": 720,
     "missing_hours": 0
   },
   "endpoint": {
-    "protected_preview_bypass_configured": true,
+    "protected_preview_bypass_configured": false,
+    "private_access_mode": "signed_ingest_with_disabled_reader",
     "accepted": true,
     "state_changed": false,
     "alert_delivery_configured": false,
@@ -19,11 +20,12 @@
   },
   "store": {
     "decision": "healthy",
-    "continuous_hours": 4,
-    "completed_hours": 4,
+    "continuous_hours": 13,
+    "completed_hours": 13,
     "required_hours": 720,
     "missing_hours": 0,
-    "pending_alert_events": 0
+    "pending_alert_events": 4,
+    "attempted_pending_alert_events": 0
   },
   "runtime": {
     "machine": "arm64",
@@ -37,9 +39,9 @@
   "gates": {
     "signed_heartbeat_accepted": true,
     "stored_aggregate_exact": true,
-    "initial_healthy_outbox_empty": true,
+    "alert_outbox_has_no_failed_delivery": true,
     "coarse_view_remains_disabled": true,
-    "protected_preview_bypass_used": true,
+    "private_access_boundary_verified": true,
     "native_m5_runtime": true,
     "locked_outcomes_unread": true,
     "identity_free_evidence": true

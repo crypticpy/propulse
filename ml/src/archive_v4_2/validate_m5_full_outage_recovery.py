@@ -214,6 +214,9 @@ def evaluate_outage_episode(
         <= current_boot_time
     ]
     minimum_power_off = int(state["minimum_power_off_seconds"])
+    preparation_to_shutdown_seconds = int(
+        (recorded_shutdown_at - prepared_at).total_seconds()
+    )
     power_off_seconds = int(
         (current_boot_time - recorded_shutdown_at).total_seconds()
     )
@@ -267,8 +270,9 @@ def evaluate_outage_episode(
         ),
         "fresh_health_published_before_shutdown": bool(
             pre_boot_time <= pre_health_at <= prepared_at
-            and prepared_at <= recorded_shutdown_at + timedelta(seconds=90)
+            and -90 <= preparation_to_shutdown_seconds <= 300
             and prepared_at - pre_health_at <= timedelta(minutes=15)
+            and recorded_shutdown_at - pre_health_at <= timedelta(minutes=20)
         ),
         "new_m5_boot_session_observed": bool(
             BOOT_SESSION_RE.fullmatch(current_boot_session)
@@ -276,7 +280,7 @@ def evaluate_outage_episode(
             != str(state["pre_boot_session_uuid"]).upper()
         ),
         "shutdown_and_reboot_history_match_current_boot": bool(
-            prepared_at <= recorded_shutdown_at + timedelta(seconds=90)
+            -90 <= preparation_to_shutdown_seconds <= 300
             and recorded_shutdown_at < current_boot_time
             and abs((current_boot_time - recorded_reboot_at).total_seconds()) < 90
         ),
@@ -316,7 +320,7 @@ def evaluate_outage_episode(
         "post_boot_health_endpoint_passed": bool(
             post_health.get("decision") == "pass"
             and post_health.get("scope")
-            == "protected_preview_research_health_endpoint_validation"
+            == "private_research_health_endpoint_validation"
             and current_boot_time <= post_health_at <= now
             and isinstance(post_health.get("gates"), dict)
             and post_health["gates"]
@@ -336,6 +340,7 @@ def evaluate_outage_episode(
             "boot_at": current_boot_time.isoformat(),
             "power_off_seconds_lower_bound": power_off_seconds - 60,
             "minimum_power_off_seconds": minimum_power_off,
+            "preparation_to_shutdown_seconds": preparation_to_shutdown_seconds,
         },
         "external_monitor": {
             "stale_run_id": int(stale_run["id"]),

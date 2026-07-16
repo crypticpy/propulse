@@ -55,6 +55,44 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
             "integrity_errors": [],
             "locked_outcomes_read": False,
         },
+        "wspr_coverage_drift": passing_document(
+            schema_version=1,
+            scope="wspr_shadow_aggregate_coverage_and_source_drift",
+            operational_status="healthy",
+            research_only=True,
+            window={
+                "start": "2026-07-01T00:00:00+00:00",
+                "end": "2026-07-30T23:00:00+00:00",
+                "expected_hours": 720,
+                "completed_hours": 720,
+                "completion_rate": 1.0,
+                "provenance": {
+                    "source_scope": "wspr_research_shadow_progress",
+                    "progress_sha256": "a" * 64,
+                    "audited_start": "2026-07-01T00:00:00+00:00",
+                    "audited_end": "2026-07-30T23:00:00+00:00",
+                    "audited_expected_hours": 720,
+                },
+            },
+            gates={
+                "window_bound_to_signed_scheduled_receipts": True,
+                "all_ten_hf_bands_observed": True,
+                "all_24_utc_hours_observed": True,
+                "early_late_drift_sample_sufficient": True,
+                "aggregate_source_distribution_stable": True,
+            },
+            privacy={
+                "source_tables": [
+                    "public.wspr_feature_watermarks",
+                    "public.wspr_path_hourly_features",
+                ],
+                "raw_observation_table_read": False,
+                "station_identity_written": False,
+                "grid4_written": False,
+                "equipment_written": False,
+                "locked_outcomes_read": False,
+            },
+        ),
         "recent_path_source_authorization": passing_document(
             schema_version=1,
             scope="approved_subscriber_recent_path_source",
@@ -221,6 +259,7 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
                 "publisher_recovered_after_power_restore": True,
             },
         )
+        evidence["wspr_coverage_drift"] = passing_document()
 
         result = evaluate_release_readiness(
             evidence,
@@ -232,6 +271,27 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
             result["gates"]["subscriber_recent_path_source_authorized"]
         )
         self.assertFalse(result["gates"]["literal_full_m5_outage_exercised"])
+        self.assertFalse(
+            result["gates"]["wspr_aggregate_coverage_and_drift_passed"]
+        )
+
+    def test_coverage_window_requires_exact_schedule_provenance(self) -> None:
+        evidence = release_evidence()
+        coverage = evidence["wspr_coverage_drift"]
+        assert coverage is not None
+        coverage["window"]["provenance"]["audited_start"] = (
+            "2026-06-30T23:00:00+00:00"
+        )
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+        )
+
+        self.assertFalse(
+            result["gates"]["wspr_aggregate_coverage_and_drift_passed"]
+        )
 
     def test_current_repository_evidence_remains_withheld_and_outcomes_unread(self) -> None:
         evidence, _ = load_evidence(EVIDENCE_PATHS)
@@ -245,6 +305,9 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(result["gates"]["prospective_window_closed"])
         self.assertFalse(result["gates"]["literal_full_m5_outage_exercised"])
         self.assertFalse(result["gates"]["stationcast_beta_passed"])
+        self.assertFalse(
+            result["gates"]["wspr_aggregate_coverage_and_drift_passed"]
+        )
 
 
 if __name__ == "__main__":

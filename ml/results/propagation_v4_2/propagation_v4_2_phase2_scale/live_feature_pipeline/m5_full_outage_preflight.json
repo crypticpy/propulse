@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T16:34:56.186138+00:00",
+  "valid_until": "2026-07-16T16:39:56.186138+00:00",
+  "scope": "controlled_full_m5_power_outage_preflight",
+  "decision": "pass",
+  "outage_armed": false,
+  "evidence": {
+    "pre_boot_session_sha256": "be7297ad140476e4578f41f58b52532f417cb857092c98282abf7a35a5390ade",
+    "pre_health_evidence_sha256": "99a187e0a35a2d76cbd0a87babecf5bd96be3a56505ff7eb3ad94abe4dc9077d",
+    "workflow_sha256": "d7129a25292c10ce312337e6d677767d7714984e6d2d14895669a5e092c42d2e",
+    "private_state_path_recorded": false
+  },
+  "gates": {
+    "native_m5_runtime": true,
+    "fresh_pre_outage_heartbeat": true,
+    "scheduled_main_workflow_matches_local": true,
+    "boot_metadata_available": true,
+    "private_state_not_armed": true,
+    "locked_outcomes_unread": true
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "power_source": "AC Power"
+  },
+  "privacy": {
+    "boot_session_identifier_written": false,
+    "private_endpoint_written": false,
+    "secret_value_written": false,
+    "locked_outcomes_read": false
+  }
+}

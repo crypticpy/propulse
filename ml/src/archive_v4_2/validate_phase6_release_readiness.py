@@ -23,6 +23,7 @@ EVIDENCE_PATHS = {
     "archive_protocol": PHASE2 / "outcome_protocol_manifest.json",
     "phase3": PHASE2 / "phase3_candidate_validation.json",
     "wspr_shadow": LIVE / "wspr_research_shadow_progress.json",
+    "wspr_coverage_drift": LIVE / "wspr_shadow_coverage_drift.json",
     "recent_path_source_authorization": LIVE / "source_authorization.json",
     "prospective_capture": LIVE / "prospective_capture_readiness.json",
     "health_hardening": LIVE / "research_health_hardening_deployment_validation.json",
@@ -142,6 +143,57 @@ def literal_m5_outage_passed(document: dict[str, Any] | None) -> bool:
     )
 
 
+def aggregate_coverage_drift_passed(
+    document: dict[str, Any] | None,
+) -> bool:
+    if not document or not passed(document):
+        return False
+    window = document.get("window")
+    privacy = document.get("privacy")
+    gates = document.get("gates")
+    provenance = window.get("provenance") if isinstance(window, dict) else None
+    return bool(
+        document.get("schema_version") == 1
+        and document.get("scope")
+        == "wspr_shadow_aggregate_coverage_and_source_drift"
+        and document.get("operational_status") == "healthy"
+        and document.get("research_only") is True
+        and isinstance(window, dict)
+        and int(window.get("expected_hours", 0)) >= 720
+        and int(window.get("completed_hours", 0)) >= 713
+        and float(window.get("completion_rate", 0.0)) >= 0.99
+        and isinstance(provenance, dict)
+        and provenance.get("source_scope") == "wspr_research_shadow_progress"
+        and isinstance(provenance.get("progress_sha256"), str)
+        and len(provenance["progress_sha256"]) == 64
+        and all(
+            character in "0123456789abcdef"
+            for character in provenance["progress_sha256"]
+        )
+        and provenance.get("audited_start") == window.get("start")
+        and provenance.get("audited_end") == window.get("end")
+        and int(provenance.get("audited_expected_hours", 0))
+        == int(window.get("expected_hours", 0))
+        and isinstance(gates, dict)
+        and gates.get("window_bound_to_signed_scheduled_receipts") is True
+        and gates.get("all_ten_hf_bands_observed") is True
+        and gates.get("all_24_utc_hours_observed") is True
+        and gates.get("early_late_drift_sample_sufficient") is True
+        and gates.get("aggregate_source_distribution_stable") is True
+        and isinstance(privacy, dict)
+        and privacy.get("source_tables")
+        == [
+            "public.wspr_feature_watermarks",
+            "public.wspr_path_hourly_features",
+        ]
+        and privacy.get("raw_observation_table_read") is False
+        and privacy.get("station_identity_written") is False
+        and privacy.get("grid4_written") is False
+        and privacy.get("equipment_written") is False
+        and privacy.get("locked_outcomes_read") is False
+    )
+
+
 def load_evidence(
     paths: dict[str, Path] = EVIDENCE_PATHS,
 ) -> tuple[dict[str, dict[str, Any] | None], dict[str, dict[str, Any]]]:
@@ -182,6 +234,7 @@ def evaluate_release_readiness(
     archive = evidence.get("archive_protocol") or {}
     phase3 = evidence.get("phase3") or {}
     wspr = evidence.get("wspr_shadow") or {}
+    coverage = evidence.get("wspr_coverage_drift") or {}
     capture = evidence.get("prospective_capture") or {}
     futurecast = evidence.get("futurecast") or {}
     six_meter = evidence.get("six_meter") or {}
@@ -223,6 +276,9 @@ def evaluate_release_readiness(
             and (wspr.get("gates") or {}).get("all_receipts_and_manifests_valid") is True
             and not wspr.get("integrity_errors")
             and wspr.get("locked_outcomes_read") is False
+        ),
+        "wspr_aggregate_coverage_and_drift_passed": (
+            aggregate_coverage_drift_passed(coverage)
         ),
         "subscriber_recent_path_source_authorized": (
             written_source_authorization_passed(
@@ -291,6 +347,7 @@ def evaluate_release_readiness(
         "phase3_native_m5_openmp_evidence",
         "prospective_capture_has_24_continuous_hours",
         "wspr_shadow_has_720_hours_at_99_percent",
+        "wspr_aggregate_coverage_and_drift_passed",
         "subscriber_recent_path_source_authorized",
         "research_health_boundaries_deployed",
         "stale_and_recovery_incident_exercised",

@@ -679,6 +679,12 @@ confirms that December 2024 and all 2025 outcomes remained closed.
 - [x] Automate the signed-receipt 30-day denominator and 99% completion rollup,
   including gaps, latency, ten-band coverage, M5 concurrency, memory, and
   aggregate volume without station identities.
+- [x] Implement and deploy a private aggregate research-health boundary with
+  HMAC/replay protection, service-role-only RLS, transition outbox, a
+  secret-free M5 launchd boundary, and double-gated System Health reader.
+- [ ] Configure the deployed health endpoint and remote alert destination,
+  smoke alert/recovery delivery, and only then enable the server/frontend view
+  flags.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -717,8 +723,12 @@ migration ledger and passed all 15 post-deployment gates; transactional RPC
 smoke rows were removed. Trusted operational weather then passed all 14 target
 gates against the real A6 bundle with 14 causal fields and 2.91 ms cached path
 p95. The signed hourly runner is implemented and refuses CPU oversubscription,
-partial-band manifests, timestamp gaps, tampering, and prune-before-success. An
-approved subscriber-facing source, remote alert escalation/System Health,
+partial-band manifests, timestamp gaps, tampering, and prune-before-success.
+The separate private research-health migration then passed 19/19 rollback
+gates and 20/20 deployed-state gates on target PostgreSQL 17.6. Its HMAC
+endpoint, retryable transition outbox, and double-gated System Health reader
+accept no station/path/equipment data and remain unconfigured and hidden. An
+approved subscriber-facing source, remote endpoint/webhook delivery smoke,
 30-day live coverage, beta outcomes, and prospective evidence remain open.
 
 The research connector subsequently passed all 8 real-source dry-run gates on

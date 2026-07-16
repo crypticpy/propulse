@@ -134,7 +134,13 @@ function groupByProvider(
 // Component
 // ---------------------------------------------------------------------------
 
-export function HealthStatusIndicator(): JSX.Element {
+interface HealthStatusIndicatorProps {
+  compact?: boolean;
+}
+
+export function HealthStatusIndicator({
+  compact = false,
+}: HealthStatusIndicatorProps): JSX.Element {
   const health = useHealthMonitor();
   const [expanded, setExpanded] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -179,9 +185,10 @@ export function HealthStatusIndicator(): JSX.Element {
       <button
         ref={triggerRef}
         onClick={() => setExpanded((prev) => !prev)}
-        className="inline-flex items-center gap-1.5 px-2 py-1 rounded
+        className={`inline-flex items-center justify-center rounded
                    hover:bg-white/5 transition-colors cursor-pointer
-                   focus:outline-none focus:ring-1 focus:ring-white/20"
+                   focus:outline-none focus:ring-1 focus:ring-white/20
+                   ${compact ? "min-w-[44px] min-h-[44px] p-1.5" : "gap-1.5 px-2 py-1"}`}
         aria-label={`System health: ${overallLabel(health.overall)}`}
         aria-expanded={expanded}
         type="button"
@@ -197,7 +204,7 @@ export function HealthStatusIndicator(): JSX.Element {
           aria-hidden="true"
         />
         <span
-          className={`text-xs font-medium ${overallTextClass(health.overall)}`}
+          className={`${compact ? "sr-only" : "text-xs font-medium"} ${overallTextClass(health.overall)}`}
         >
           {overallLabel(health.overall)}
         </span>

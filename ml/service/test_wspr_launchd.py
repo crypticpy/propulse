@@ -64,6 +64,8 @@ class WsprLaunchdTests(unittest.TestCase):
         self.assertIn("--notify-local", payload["ProgramArguments"])
         self.assertIn("7200", payload["ProgramArguments"])
         self.assertIn(str(MAX_RUNTIME_BYTES), payload["ProgramArguments"])
+        self.assertIn("--remote-env-file", payload["ProgramArguments"])
+        self.assertIn(str(Path(__file__).resolve().parents[2] / ".env.local"), payload["ProgramArguments"])
         self.assertNotIn("EnvironmentVariables", payload)
         self.assertNotIn("SECRET", repr(payload).upper())
 

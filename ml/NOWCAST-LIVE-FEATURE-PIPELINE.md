@@ -365,6 +365,12 @@ explicitly labeled and does not satisfy the live requirement above.
   pass exact target counts, owner-only runtime, multicore, and local alert gates.
 - [x] Automate the signed-receipt 720-hour denominator, 99% completion rate,
   gap, stale-boundary, coverage, memory, and performance rollup.
+- [x] Add and deploy the service-role-only aggregate health singleton,
+  replay-protected HMAC ingest, retryable alert transition outbox, secret-free
+  M5 publisher boundary, and double-gated product System Health reader.
+- [ ] Configure the endpoint secret and HTTPS alert destination, smoke alert
+  and recovery delivery, then enable the independent server/frontend view
+  flags; keep inference and provider gates unchanged.
 - [ ] Complete the 30-day permitted receipt-time research shadow replay.
 - [ ] Pass source, parity, operational, privacy, and fallback tests.
 - [x] Add explicit frontend/service shadow execution with aggregate-only

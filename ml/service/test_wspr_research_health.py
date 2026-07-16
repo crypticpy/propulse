@@ -3,10 +3,16 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from check_m5_wspr_research_health import directory_bytes, evaluate_health
+from check_m5_wspr_research_health import (
+    build_remote_health_payload,
+    directory_bytes,
+    evaluate_health,
+    load_remote_health_config,
+)
 
 
 NOW = datetime(2026, 7, 16, 5, 30, tzinfo=timezone.utc)
@@ -86,6 +92,35 @@ class WsprResearchHealthTests(unittest.TestCase):
             (root / "receipt.json").write_text(json.dumps({"ok": True}))
             (root / "link").symlink_to(root / "receipt.json")
             self.assertEqual(directory_bytes(root), (root / "receipt.json").stat().st_size)
+
+    def test_remote_config_is_owner_only_and_payload_is_identity_free(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env.local"
+            path.write_text(
+                "PROPULSE_RESEARCH_HEALTH_ENDPOINT=https://example.test/health\n"
+                "PROPULSE_RESEARCH_HEALTH_INGEST_SECRET=" + "x" * 32 + "\n"
+            )
+            os.chmod(path, 0o600)
+            config = load_remote_health_config(path)
+            self.assertIsNotNone(config)
+            self.assertEqual(config.endpoint, "https://example.test/health")
+        value = build_remote_health_payload(
+            generated_at=NOW.isoformat(),
+            decision="healthy",
+            alerts=[],
+            observations={
+                "last_completed_target_hour": "2026-07-16T04:00:00+00:00",
+                "continuous_completed_hours": 2,
+                "shadow_completed_hours": 2,
+                "shadow_required_hours": 720,
+                "shadow_missing_hours": 0,
+                "dynamic_freshness_seconds": 1800,
+            },
+        )
+        self.assertEqual(value["completedHours"], 2)
+        self.assertEqual(len(value["eventId"]), 64)
+        forbidden = {"call", "callsign", "grid", "path", "station", "equipment"}
+        self.assertTrue(forbidden.isdisjoint(value))
 
 
 if __name__ == "__main__":

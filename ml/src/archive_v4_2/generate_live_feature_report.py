@@ -26,6 +26,10 @@ INPUTS = {
     "replay_validation": RESULT / "replay_validation.json",
     "migration_validation": RESULT / "migration_validation.json",
     "deployment_validation": RESULT / "deployment_validation.json",
+    "research_health_migration_validation": RESULT
+    / "research_health_migration_validation.json",
+    "research_health_deployment_validation": RESULT
+    / "research_health_deployment_validation.json",
     "operational_weather_validation": RESULT / "operational_weather_validation.json",
     "orchestration_validation": RESULT / "orchestration_validation.json",
     "wspr_live_connector_validation": RESULT / "wspr_live_connector_validation.json",
@@ -95,6 +99,8 @@ def build_evidence(
     replay: dict[str, Any],
     migration_validation: dict[str, Any],
     deployment_validation: dict[str, Any],
+    research_health_migration_validation: dict[str, Any],
+    research_health_deployment_validation: dict[str, Any],
     operational_weather_validation: dict[str, Any],
     orchestration_validation: dict[str, Any],
     wspr_live_connector_validation: dict[str, Any],
@@ -121,6 +127,18 @@ def build_evidence(
         raise RuntimeError("target Postgres deployment validation did not pass")
     if operational_weather_validation.get("decision") != "pass":
         raise RuntimeError("operational-weather deployment validation did not pass")
+    if (
+        research_health_migration_validation.get("decision") != "pass"
+        or research_health_migration_validation.get("migration_deployed") is not False
+        or research_health_migration_validation.get("persistent_changes") is not False
+    ):
+        raise RuntimeError("research-health rollback validation did not pass")
+    if (
+        research_health_deployment_validation.get("decision") != "pass"
+        or research_health_deployment_validation.get("migration_deployed") is not True
+        or research_health_deployment_validation.get("persistent_changes") is not False
+    ):
+        raise RuntimeError("research-health deployment validation did not pass")
     if orchestration_validation.get("decision") != "pass":
         raise RuntimeError("live orchestration validation did not pass")
     if wspr_live_connector_validation.get("decision") != "pass":
@@ -142,6 +160,8 @@ def build_evidence(
             replay,
             migration_validation,
             deployment_validation,
+            research_health_migration_validation,
+            research_health_deployment_validation,
             operational_weather_validation,
             orchestration_validation,
             wspr_live_connector_validation,
@@ -208,6 +228,20 @@ def build_evidence(
             bool(value) for value in deployment_validation["gates"].values()
         ),
         "deployment_gates_total": len(deployment_validation["gates"]),
+        "research_health_rollback_gates_passed": sum(
+            bool(value)
+            for value in research_health_migration_validation["gates"].values()
+        ),
+        "research_health_rollback_gates_total": len(
+            research_health_migration_validation["gates"]
+        ),
+        "research_health_deployment_gates_passed": sum(
+            bool(value)
+            for value in research_health_deployment_validation["gates"].values()
+        ),
+        "research_health_deployment_gates_total": len(
+            research_health_deployment_validation["gates"]
+        ),
         "weather_gates_passed": sum(
             bool(value)
             for value in operational_weather_validation["gates"].values()
@@ -395,6 +429,16 @@ def build_evidence(
         "status": "pass" if passed else "fail",
     } for name, passed in deployment_validation["gates"].items())
     gate_rows.extend({
+        "scope": "Private health rollback",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Private health deployment",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in research_health_deployment_validation["gates"].items())
+    gate_rows.extend({
         "scope": "Trusted operational weather",
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
@@ -435,6 +479,7 @@ def build_evidence(
         }
         for work in (
             "written subscriber-facing source authorization or a self-operated source",
+            "remote endpoint secret plus alert-destination delivery smoke",
             "30-day real receipt-time shadow coverage and calibration evidence",
             "opt-in beta outcome evidence and frozen prospective evaluation",
         )
@@ -450,7 +495,7 @@ def build_evidence(
     ]
     limit_rows.append({
         "evidence_limit": (
-            "the hourly research schedule is active, but only its first completed hour has independent exact-count evidence"
+            "two contiguous scheduled hours exist, but only the latest target has the expanded 28-gate exact-count audit"
         )
     })
     return {
@@ -482,6 +527,16 @@ def build_evidence(
             "deployment_scope": deployment_validation["scope"],
             "deployment_gates": deployment_validation["gates"],
             "deployed_migrations": deployment_validation["migrations"],
+        },
+        "research_health": {
+            "rollback_scope": research_health_migration_validation["scope"],
+            "rollback_gates": research_health_migration_validation["gates"],
+            "deployment_scope": research_health_deployment_validation["scope"],
+            "deployment_gates": research_health_deployment_validation["gates"],
+            "migration_deployed": True,
+            "remote_endpoint_configured": False,
+            "public_view_enabled": False,
+            "aggregate_only": True,
         },
         "transform": {
             "version": transform["transform"]["transform_version"],
@@ -643,6 +698,12 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "shadow_completed_hours",
                 "Signed, identity-free receipts toward the required 720 hours.",
             ),
+            (
+                "private_health_gates",
+                "Private health gates",
+                "research_health_deployment_gates_passed",
+                "Deployed private schema, replay, privacy, and transition-outbox gates.",
+            ),
         )
     ]
     charts = [
@@ -793,6 +854,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"**{summary['migration_gates_passed']} of {summary['migration_gates_total']}** rollback-only gates "
                 "on the target PostgreSQL 17.6 database with its original object state restored, then passed "
                 f"**{summary['deployment_gates_passed']} of {summary['deployment_gates_total']}** post-deployment gates. "
+                f"The separate private research-health boundary passed **{summary['research_health_rollback_gates_passed']} of "
+                f"{summary['research_health_rollback_gates_total']}** rollback gates and **{summary['research_health_deployment_gates_passed']} of "
+                f"{summary['research_health_deployment_gates_total']}** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. "
                 f"Trusted operational weather then passed **{summary['weather_gates_passed']} of {summary['weather_gates_total']}** "
                 f"gates with **{summary['weather_feature_count']} causal fields** at **{summary['weather_path_p95_ms']:.2f} ms** cached path p95. "
                 f"Signed hourly orchestration passed **{summary['orchestration_gates_passed']} of {summary['orchestration_gates_total']}** "
@@ -912,7 +976,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume. "
                 "A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, "
                 "job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. "
-                "The local delivery smoke was accepted; remote escalation and product System Health integration remain open."
+                "Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are "
+                "implemented. The M5 endpoint/secret, alert destination, public server flag, and frontend build flag remain unset, so no remote "
+                "heartbeat or subscriber-visible health state is active."
             ),
         },
         {
@@ -954,6 +1020,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "store and finalized under signed per-band counts; neither raw rows nor outputs were exposed to users. "
                 "A launchd-driven second hour then exercised the receipt-based restart boundary, internal transient runtime, "
                 "exact target-store audit, and identity-free health record. "
+                "A separate private migration then established a service-role-only aggregate health singleton and transition outbox. "
+                "It was rollback-tested, deployed through the normal ledger, and rechecked with equal-timestamp replay, alert, recovery, "
+                "invalid-counter, grant, RLS, search-path, and identity-column tests; all smoke rows were rolled back. "
                 "A real hardened NOAA capture separately verified the operational-weather path against A6."
             ),
         },
@@ -982,8 +1051,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
-                "plus one corrected source hour and one scheduled receipt do not prove 30-day provider completeness, permission for "
-                "subscriber-facing use, outage recovery under a real failure, or remote alert escalation. Trusted weather "
+                "plus one corrected source hour and two scheduled receipts do not prove 30-day provider completeness, permission for "
+                "subscriber-facing use, outage recovery under a real failure, or remote webhook delivery. The remote and product-health "
+                "code is intentionally unconfigured and hidden until its endpoint secret, alert destination, and source release gate pass. Trusted weather "
                 "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
@@ -998,7 +1068,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "## Next steps\n\n"
                 "1. Record written subscriber-facing authorization for WSPR.live or operate a source we control.\n"
                 "2. Accumulate at least 30 days of identity-free receipts and continuously audit pagination, counts, freshness, retention, restart, and fallback behavior.\n"
-                "3. Route the tested local watchdog into a remote escalation channel and product System Health before beta.\n"
+                "3. Deploy the signed health endpoint, configure the M5 secret and alert destination, smoke alert/recovery delivery, then enable the server and frontend health-view flags before beta.\n"
                 "4. Run opt-in beta outcome collection before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
@@ -1066,7 +1136,9 @@ The signed progress rollup is operationally healthy at
 `{summary['shadow_completion_rate_percent']:.1f}%` scheduled completion, and
 `{summary['shadow_missing_hours']}` gaps; its decision remains `collecting`.
 Subscriber-facing use still requires source confirmation. Remote alert
-escalation and 30 days of real receipt-time shadow evidence also remain open.
+configuration/delivery smoke and 30 days of real receipt-time shadow evidence
+also remain open. The private health migration and double-gated reader are
+implemented but not enabled for users.
 See `REPORT.html` for charts,
 methodology, privacy and fallback contracts, limitations, and next steps.
 """
@@ -1089,6 +1161,12 @@ def main() -> None:
     replay = read_json(INPUTS["replay_validation"])
     migration_validation = read_json(INPUTS["migration_validation"])
     deployment_validation = read_json(INPUTS["deployment_validation"])
+    research_health_migration_validation = read_json(
+        INPUTS["research_health_migration_validation"]
+    )
+    research_health_deployment_validation = read_json(
+        INPUTS["research_health_deployment_validation"]
+    )
     operational_weather_validation = read_json(
         INPUTS["operational_weather_validation"]
     )
@@ -1109,6 +1187,8 @@ def main() -> None:
         replay,
         migration_validation,
         deployment_validation,
+        research_health_migration_validation,
+        research_health_deployment_validation,
         operational_weather_validation,
         orchestration_validation,
         wspr_live_connector_validation,

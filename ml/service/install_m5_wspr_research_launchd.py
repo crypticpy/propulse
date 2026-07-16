@@ -57,7 +57,9 @@ def health_launchd_payload(
     artifact_root: Path,
     stdout_path: Path,
     stderr_path: Path,
+    env_file: Path | None = None,
 ) -> dict[str, Any]:
+    remote_env_file = env_file or ROOT / ".env.local"
     return {
         "Label": HEALTH_LABEL,
         "ProgramArguments": [
@@ -72,6 +74,8 @@ def health_launchd_payload(
             "--max-runtime-bytes",
             str(MAX_RUNTIME_BYTES),
             "--notify-local",
+            "--remote-env-file",
+            str(remote_env_file),
         ],
         "WorkingDirectory": str(ROOT),
         "StartCalendarInterval": [{"Minute": 0}, {"Minute": 30}],
@@ -157,6 +161,7 @@ def main() -> None:
         artifact_root=args.artifact_root,
         stdout_path=logs / "wspr-research-health.stdout.log",
         stderr_path=logs / "wspr-research-health.stderr.log",
+        env_file=env_file,
     )
     for launchd_target in (health_target, target):
         bootout(domain, launchd_target)

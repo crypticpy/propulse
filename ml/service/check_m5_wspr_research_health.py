@@ -4,12 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import os
+import stat
 import subprocess
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from wspr_live_connector import aware_utc, latest_settled_hour
 from wspr_scheduler import write_json_atomic
@@ -34,6 +41,30 @@ GATE_NAMES = (
     "worker_job_clean_or_running",
     "shadow_rollup_operational_healthy",
 )
+REMOTE_ENV_KEYS = (
+    "PROPULSE_RESEARCH_HEALTH_ENDPOINT",
+    "PROPULSE_RESEARCH_HEALTH_INGEST_SECRET",
+)
+
+
+@dataclass(frozen=True)
+class RemoteHealthConfig:
+    endpoint: str
+    secret: str
+
+
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        request: urllib.request.Request,
+        file_pointer: Any,
+        code: int,
+        message: str,
+        headers: Any,
+        new_url: str,
+    ) -> None:
+        del request, file_pointer, code, message, headers, new_url
+        return None
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -50,6 +81,111 @@ def directory_bytes(root: Path) -> int:
             continue
         total += path.stat().st_size
     return total
+
+
+def _env_value(raw: str) -> str:
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        value = value[1:-1]
+    if "\x00" in value or "\n" in value or "\r" in value:
+        raise RuntimeError("remote health environment value is invalid")
+    return value
+
+
+def load_remote_health_config(path: Path | None) -> RemoteHealthConfig | None:
+    if path is None:
+        return None
+    expanded = path.expanduser()
+    if expanded.is_symlink():
+        raise RuntimeError("remote health environment must not be a symlink")
+    resolved = expanded.resolve()
+    details = resolved.stat()
+    if details.st_uid != os.getuid():
+        raise RuntimeError("remote health environment must be an owner file")
+    if stat.S_IMODE(details.st_mode) & 0o077:
+        raise RuntimeError("remote health environment must be owner-only")
+    values: dict[str, str] = {}
+    for raw_line in resolved.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line.removeprefix("export ").lstrip()
+        key, raw_value = line.split("=", 1)
+        if key.strip() in REMOTE_ENV_KEYS:
+            values[key.strip()] = _env_value(raw_value)
+    endpoint = values.get("PROPULSE_RESEARCH_HEALTH_ENDPOINT", "")
+    secret = values.get("PROPULSE_RESEARCH_HEALTH_INGEST_SECRET", "")
+    if not endpoint and not secret:
+        return None
+    if not endpoint or len(secret) < 32:
+        raise RuntimeError("remote health endpoint and 32-byte secret are required together")
+    parsed = urlsplit(endpoint)
+    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+        raise RuntimeError("remote health endpoint must be credential-free HTTPS")
+    return RemoteHealthConfig(endpoint=endpoint, secret=secret)
+
+
+def build_remote_health_payload(
+    *,
+    generated_at: str,
+    decision: str,
+    alerts: list[str],
+    observations: dict[str, Any],
+) -> dict[str, Any]:
+    ordered_alerts = sorted(alerts)
+    event_material = json.dumps(
+        [generated_at, decision, ordered_alerts],
+        separators=(",", ":"),
+    )
+    return {
+        "schemaVersion": 1,
+        "eventId": hashlib.sha256(event_material.encode("utf-8")).hexdigest(),
+        "generatedAt": generated_at,
+        "decision": decision,
+        "researchOnly": True,
+        "alerts": ordered_alerts,
+        "lastCompletedTargetHour": observations.get("last_completed_target_hour"),
+        "continuousCompletedHours": int(
+            observations.get("continuous_completed_hours") or 0
+        ),
+        "completedHours": int(observations.get("shadow_completed_hours") or 0),
+        "requiredHours": int(observations.get("shadow_required_hours") or 720),
+        "missingHours": int(observations.get("shadow_missing_hours") or 0),
+        "freshnessSeconds": observations.get("dynamic_freshness_seconds"),
+    }
+
+
+def publish_remote_health(
+    config: RemoteHealthConfig,
+    payload: dict[str, Any],
+    *,
+    timeout_seconds: float = 10.0,
+) -> None:
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(datetime.now(timezone.utc).timestamp()))
+    signature = hmac.new(
+        config.secret.encode("utf-8"),
+        timestamp.encode("ascii") + b"." + body,
+        hashlib.sha256,
+    ).hexdigest()
+    request = urllib.request.Request(
+        config.endpoint,
+        data=body,
+        method="POST",
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Propulse-Timestamp": timestamp,
+            "X-Propulse-Signature": f"v1={signature}",
+            "User-Agent": "Propulse-M5-Research-Health/1",
+        },
+    )
+    opener = urllib.request.build_opener(NoRedirectHandler())
+    with opener.open(request, timeout=timeout_seconds) as response:
+        if response.status < 200 or response.status >= 300:
+            raise RuntimeError("remote health endpoint rejected the heartbeat")
+        response.read(4096)
 
 
 def evaluate_health(
@@ -130,6 +266,12 @@ def evaluate_health(
         "shadow_completion_rate": shadow_summary.get("window", {}).get(
             "completion_rate"
         ),
+        "shadow_required_hours": shadow_summary.get("window", {}).get(
+            "minimum_hours"
+        ),
+        "shadow_missing_hours": shadow_summary.get("window", {}).get(
+            "missing_hours"
+        ),
     }
     return gates, observations
 
@@ -176,6 +318,7 @@ def main() -> None:
     parser.add_argument("--stale-seconds", type=int, default=DEFAULT_STALE_SECONDS)
     parser.add_argument("--max-runtime-bytes", type=int, default=DEFAULT_MAX_RUNTIME_BYTES)
     parser.add_argument("--notify-local", action="store_true")
+    parser.add_argument("--remote-env-file", type=Path)
     parser.add_argument("--test-notification", action="store_true")
     parser.add_argument("--test-output", type=Path)
     args = parser.parse_args()
@@ -247,9 +390,34 @@ def main() -> None:
             else "Research shadow alert: " + ", ".join(alerts)
         )
         notification_delivered = notify(message)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    remote_configured = False
+    remote_attempted = False
+    remote_delivered = False
+    remote_error_type: str | None = None
+    remote_required = False
+    try:
+        remote_config = load_remote_health_config(args.remote_env_file)
+        remote_configured = remote_config is not None
+        remote_required = remote_configured
+        if remote_config is not None:
+            remote_attempted = True
+            publish_remote_health(
+                remote_config,
+                build_remote_health_payload(
+                    generated_at=generated_at,
+                    decision=decision,
+                    alerts=alerts,
+                    observations=observations,
+                ),
+            )
+            remote_delivered = True
+    except (OSError, RuntimeError, ValueError, urllib.error.URLError) as error:
+        remote_required = True
+        remote_error_type = type(error).__name__
     output = {
         "schema_version": 1,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": generated_at,
         "decision": decision,
         "research_only": True,
         "alerts": alerts,
@@ -264,12 +432,16 @@ def main() -> None:
             "local_notification_enabled": args.notify_local,
             "notification_attempted": notification_attempted,
             "notification_delivered": notification_delivered,
+            "remote_configured": remote_configured,
+            "remote_attempted": remote_attempted,
+            "remote_delivered": remote_delivered,
+            "remote_error_type": remote_error_type,
         },
         "gates": gates,
     }
     write_json_atomic(output_path, output)
     print(json.dumps(output, indent=2))
-    if decision != "healthy":
+    if decision != "healthy" or (remote_required and not remote_delivered):
         raise SystemExit(2)
 
 

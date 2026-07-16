@@ -100,7 +100,7 @@ export function MobileHeader({
           </button>
         )}
         <SyncStatusIndicator />
-        <HealthStatusIndicator />
+        <HealthStatusIndicator compact />
         {/* Auth indicator */}
         {isSupabaseConfigured && !isAuthenticated && (
           <button

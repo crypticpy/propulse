@@ -205,7 +205,36 @@ The paired watchdog runs at minutes 0 and 30, applies the 7,200-second stale
 boundary and 2 GiB runtime ceiling, and sends changed failure/recovery states to
 the unified log and macOS Notification Center. The local notification delivery
 smoke passed. Remote escalation and product System Health integration remain
-pre-beta gates.
+pre-beta activation gates. Their code and private database boundary are now
+implemented: the HMAC ingest accepts only aggregate freshness/continuity
+state, alert transitions enter a retryable outbox, browser database roles have
+no access, and the System Health reader requires independent server and
+frontend flags. Target PostgreSQL 17.6 passed 19/19 rollback gates and 20/20
+deployed-state gates, including replay rejection, alert/recovery transitions,
+identity-free columns, ledger presence, and rollback of smoke rows.
+
+Keep the remote variables and both view flags unset until the endpoint is
+deployed and the alert destination is selected. Then set the same 32+ character
+`PROPULSE_RESEARCH_HEALTH_INGEST_SECRET` on the M5 and server, set the M5
+`PROPULSE_RESEARCH_HEALTH_ENDPOINT`, configure the server-only
+`PROPULSE_RESEARCH_ALERT_WEBHOOK_URL` plus `generic`, `slack`, or `discord`
+kind, and smoke alert plus recovery. Only afterward may
+`PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED` and
+`VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED` be enabled. These flags expose
+coarse health only; they do not authorize a WSPR source or select NowCast.
+
+The private schema procedure is M5-only and password-safe:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_migration.py --profile m5
+ml/service/run_m5_research_health_migration.sh --dry-run
+ml/service/run_m5_research_health_migration.sh \
+  --apply --acknowledge-private-migration
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_migration.py \
+  --profile m5 --verify-deployed
+```
 
 `summarize_wspr_research_shadow.py` rebuilds the identity-free progress rollup
 from each receipt plus its signed completed manifest. It fixes the duration at

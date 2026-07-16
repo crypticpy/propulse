@@ -200,8 +200,40 @@ minutes 0 and 30. It evaluates the preregistered 7,200-second freshness limit,
 latest settled-hour completion, receipt continuity, UTC alignment, worker
 state, failures, health age, and a 2 GiB transient-runtime ceiling. Changed
 failure and recovery states go to the unified log and macOS Notification
-Center. Its local notification smoke and expanded schedule audit pass; a remote
-escalation channel and product System Health integration remain pre-beta work.
+Center. Its local notification smoke and expanded schedule audit pass.
+
+The remote path is implemented but deliberately unconfigured. The watchdog
+can read `PROPULSE_RESEARCH_HEALTH_ENDPOINT` and a 32+ character
+`PROPULSE_RESEARCH_HEALTH_INGEST_SECRET` from the existing owner-only
+`.env.local`; it signs an aggregate heartbeat and refuses redirects. The
+server endpoint accepts only a strict identity-free schema, writes a private
+service-role singleton, and places alert/recovery transitions in a retryable
+outbox. It never receives station, path, row-count, equipment, or credential
+fields. The migration passed 19 rollback gates and 20 deployed-state gates on
+PostgreSQL 17.6, with every smoke row rolled back.
+
+`SystemHealthPage` reads the coarse endpoint only when both
+`PROPULSE_RESEARCH_HEALTH_VIEW_ENABLED=true` on the server and
+`VITE_PROPAGATION_RESEARCH_HEALTH_ENABLED=true` at frontend build time. Both
+remain false. To activate after the endpoint is deployed, configure a Slack,
+Discord, or generic HTTPS destination with
+`PROPULSE_RESEARCH_ALERT_WEBHOOK_URL` and the matching
+`PROPULSE_RESEARCH_ALERT_WEBHOOK_KIND`, add the same ingest secret to the M5
+and server environments, smoke both alert and recovery, then enable the two
+view flags. This health path does not enable inference or source permission.
+
+Rollback-validate, deploy, and verify the private migration only on the M5:
+
+```bash
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_migration.py --profile m5
+ml/service/run_m5_research_health_migration.sh --dry-run
+ml/service/run_m5_research_health_migration.sh \
+  --apply --acknowledge-private-migration
+ml/.venv/bin/python \
+  ml/src/archive_v4_2/validate_research_health_migration.py \
+  --profile m5 --verify-deployed
+```
 
 The watchdog also regenerates `live_wspr_shadow_progress.json` from every
 identity-free receipt and its HMAC-verified completed manifest. The rollup fixes

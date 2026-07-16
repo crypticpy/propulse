@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T17:07:38.265361+00:00",
+  "generated_at": "2026-07-16T17:25:50.772151+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,7 +12,7 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "52c7da4f05187a1325204f6991d901755763cf4f9ed309dd18e0e14b1b1b14ca",
+      "sha256": "63442bada2562ca8ef8fa496e54b4dbd7b06e135a6a6c10f13e2fd03cf289922",
       "bytes": 9410
     },
     "beta_rollback": {
@@ -27,13 +27,13 @@
     },
     "wspr": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
-      "sha256": "c9f81bfc96170a978994620ab3163772a5b5d4d831c9b321b913249d3a8c8f9f",
-      "bytes": 1792
+      "sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74",
+      "bytes": 1794
     },
     "coverage": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
-      "sha256": "783f143f0cf4ce6bc8671759ed8e8a55d959633211ed101afc0b648cb652b2bb",
-      "bytes": 70475
+      "sha256": "0db9e2ca3efe2ecbfbebe1f8e27663b3d6d84ea2f119c13414ef1b11002bd1c5",
+      "bytes": 70639
     },
     "capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
@@ -75,11 +75,11 @@
         "beta_rollback_total": 22,
         "beta_deployment_gates": 23,
         "beta_deployment_total": 23,
-        "wspr_hours": 13,
+        "wspr_hours": 14,
         "wspr_required_hours": 720,
-        "coverage_hours": 13,
+        "coverage_hours": 14,
         "coverage_required_hours": 720,
-        "coverage_utc_hours": 13,
+        "coverage_utc_hours": 14,
         "coverage_distance_buckets": 5,
         "coverage_drift_sample_sufficient": false,
         "capture_hours": 5.248610775555555,
@@ -190,17 +190,17 @@
       },
       {
         "evidence_track": "WSPR shadow",
-        "observed": 13.0,
+        "observed": 14.0,
         "required": 720.0,
         "unit": "completed hours",
-        "completion": 0.018055555555555554
+        "completion": 0.019444444444444445
       },
       {
         "evidence_track": "Aggregate coverage",
-        "observed": 13.0,
+        "observed": 14.0,
         "required": 720.0,
         "unit": "complete all-band hours",
-        "completion": 0.018055555555555554
+        "completion": 0.019444444444444445
       },
       {
         "evidence_track": "FutureCast issuance",
@@ -490,7 +490,7 @@
         "order": 2,
         "action": "Accumulate 720 permitted receipt-time WSPR shadow hours",
         "why": "Measures real completeness, gaps, freshness, latency, and fallback behavior.",
-        "current": "13/720 hours"
+        "current": "14/720 hours"
       },
       {
         "order": 3,
@@ -572,7 +572,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T17:07:38.107144+00:00",
+    "generated_at": "2026-07-16T17:25:50.607826+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -600,14 +600,14 @@
       "wspr_shadow": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
         "exists": true,
-        "sha256": "c9f81bfc96170a978994620ab3163772a5b5d4d831c9b321b913249d3a8c8f9f",
+        "sha256": "601ce3a8f92fa12beb66bf7b708c036f9c24c3d6125714e1cddfea50be976a74",
         "schema_version": 1,
         "decision": "collecting"
       },
       "wspr_coverage_drift": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_shadow_coverage_drift.json",
         "exists": true,
-        "sha256": "783f143f0cf4ce6bc8671759ed8e8a55d959633211ed101afc0b648cb652b2bb",
+        "sha256": "0db9e2ca3efe2ecbfbebe1f8e27663b3d6d84ea2f119c13414ef1b11002bd1c5",
         "schema_version": 1,
         "decision": "collecting"
       },

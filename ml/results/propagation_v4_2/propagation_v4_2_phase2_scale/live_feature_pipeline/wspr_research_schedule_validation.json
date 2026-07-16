@@ -1,43 +1,43 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T12:41:43.938865+00:00",
+  "generated_at": "2026-07-16T17:20:59.978634+00:00",
   "scope": "active_wspr_research_schedule_validation",
   "decision": "pass",
   "locked_outcomes_read": false,
   "research_only": true,
   "subscriber_facing_authorized": false,
   "provider": "wspr.live-research-v1",
-  "target_hour": "2026-07-16T11:00:00+00:00",
-  "source_record_count": 216184,
+  "target_hour": "2026-07-16T16:00:00+00:00",
+  "source_record_count": 207554,
   "records_by_band": {
-    "10m": 6842,
-    "12m": 2469,
-    "15m": 11172,
-    "160m": 929,
-    "17m": 10303,
-    "20m": 69068,
-    "30m": 40655,
-    "40m": 64526,
-    "60m": 930,
-    "80m": 9290
+    "10m": 7387,
+    "12m": 3441,
+    "15m": 13548,
+    "160m": 735,
+    "17m": 13302,
+    "20m": 78660,
+    "30m": 36247,
+    "40m": 48354,
+    "60m": 793,
+    "80m": 5087
   },
-  "feature_cell_count": 60923,
+  "feature_cell_count": 66616,
   "connector": {
-    "elapsed_seconds": 87.391896,
-    "peak_rss_mib": 106.391,
+    "elapsed_seconds": 109.06827,
+    "peak_rss_mib": 95.031,
     "source_request_count": 1
   },
   "finalizer": {
     "maximum_compute_threads": 18,
     "threads_per_band": 9,
-    "wall_seconds": 114.341591,
+    "wall_seconds": 114.606367,
     "workers": 2
   },
   "health": {
     "status": "healthy",
-    "continuous_completed_hours": 9,
+    "continuous_completed_hours": 14,
     "consecutive_failures": 0,
-    "freshness_seconds": 1106
+    "freshness_seconds": 1161
   },
   "schedule": {
     "label": "org.propulse.wspr-research",
@@ -48,6 +48,12 @@
       0,
       30
     ],
+    "coverage_label": "org.propulse.wspr-research-coverage",
+    "coverage_hours": [
+      6,
+      18
+    ],
+    "coverage_minute": 45,
     "runtime_storage": "internal_owner_only",
     "large_ml_storage": "projects_volume"
   },
@@ -59,15 +65,20 @@
       "stale_seconds": 7200
     },
     "observations": {
-      "continuous_completed_hours": 9,
-      "dynamic_freshness_seconds": 1800,
-      "health_record_age_seconds": 693,
-      "last_completed_target_hour": "2026-07-16T11:00:00+00:00",
-      "latest_settled_target_hour": "2026-07-16T11:00:00+00:00",
-      "runtime_bytes": 109110,
-      "shadow_completed_hours": 9,
+      "continuous_completed_hours": 14,
+      "coverage_audit_age_seconds": 25,
+      "coverage_audit_due": false,
+      "coverage_decision": "collecting",
+      "coverage_query_chunk_hours": 24,
+      "coverage_window_lag_hours": 0,
+      "dynamic_freshness_seconds": 1212,
+      "health_record_age_seconds": 50,
+      "last_completed_target_hour": "2026-07-16T16:00:00+00:00",
+      "latest_settled_target_hour": "2026-07-16T16:00:00+00:00",
+      "runtime_bytes": 332403,
+      "shadow_completed_hours": 14,
       "shadow_completion_rate": 1.0,
-      "shadow_expected_hours": 9,
+      "shadow_expected_hours": 14,
       "shadow_missing_hours": 0,
       "shadow_required_hours": 720
     },
@@ -87,9 +98,62 @@
       "generated_at": "2026-07-16T04:50:25.757254+00:00"
     }
   },
+  "coverage": {
+    "decision": "collecting",
+    "operational_status": "healthy",
+    "window": {
+      "start": "2026-07-16T03:00:00+00:00",
+      "end": "2026-07-16T16:00:00+00:00",
+      "expected_hours": 14,
+      "completed_hours": 14,
+      "missing_hours": 0,
+      "completion_rate": 1.0,
+      "completed_band_hours": 140,
+      "required_hours": 720,
+      "provenance": {
+        "source_scope": "wspr_research_shadow_progress",
+        "progress_sha256": "1bb1faa4158943fa1e973451c7ac8aff37010a3367db1edbc8ae42520487deb9",
+        "scheduled_start": "2026-07-16T03:00:00+00:00",
+        "scheduled_end": "2026-07-16T16:00:00+00:00",
+        "scheduled_expected_hours": 14,
+        "scheduled_completed_hours": 14,
+        "scheduled_missing_hours": 0,
+        "audited_start": "2026-07-16T03:00:00+00:00",
+        "audited_end": "2026-07-16T16:00:00+00:00",
+        "audited_expected_hours": 14
+      }
+    },
+    "execution": {
+      "query_seconds": {
+        "hourly": 2.947818125016056,
+        "regions": 5.16243612501421,
+        "distance": 16.264855708985124
+      },
+      "database_engine": "PostgreSQL",
+      "query_chunk_hours": 24,
+      "query_chunk_count": 1,
+      "maximum_chunk_seconds": {
+        "hourly": 2.947818125016056,
+        "regions": 5.16243612501421,
+        "distance": 16.264855708985124
+      },
+      "server_identifier_recorded": false
+    },
+    "privacy": {
+      "source_tables": [
+        "public.wspr_feature_watermarks",
+        "public.wspr_path_hourly_features"
+      ],
+      "raw_observation_table_read": false,
+      "station_identity_written": false,
+      "grid4_written": false,
+      "equipment_written": false,
+      "locked_outcomes_read": false
+    }
+  },
   "execution": {
     "target_requests": 21,
-    "validation_wall_seconds": 1.5098163340007886
+    "validation_wall_seconds": 10.342729666008381
   },
   "gates": {
     "signed_manifest_v2_accepted": true,
@@ -119,6 +183,12 @@
     "watchdog_owner_only_and_secret_free": true,
     "watchdog_local_notification_enabled": true,
     "watchdog_logs_on_internal_home": true,
+    "coverage_audit_operational_private_and_bounded": true,
+    "coverage_job_loaded_and_clean_exit": true,
+    "coverage_twice_daily_and_restart_enabled": true,
+    "coverage_runtime_and_query_bound_exact": true,
+    "coverage_owner_only_and_secret_free": true,
+    "coverage_logs_on_internal_home": true,
     "locked_outcomes_unread": true
   }
 }

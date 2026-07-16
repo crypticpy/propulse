@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: research shadow validation report",
     "description": "Multi-hour transform parity, causal receipt replay, active research scheduling, server-authoritative path history, M5 performance, privacy gates, and release blockers.",
-    "generatedAt": "2026-07-16T17:01:47.102181+00:00",
+    "generatedAt": "2026-07-16T17:25:47.446775+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -353,7 +353,7 @@
       {
         "id": "scheduled_band_coverage",
         "title": "The latest scheduled hour is complete across all ten HF bands",
-        "subtitle": "Target 2026-07-16T11:00:00+00:00 has 216,184 exact observations; no raw station identity enters this report.",
+        "subtitle": "Target 2026-07-16T16:00:00+00:00 has 207,554 exact observations; no raw station identity enters this report.",
         "type": "bar",
         "dataset": "schedule_band_rows",
         "sourceId": "live_feature_evidence",
@@ -375,7 +375,7 @@
       {
         "id": "scheduled_pipeline",
         "title": "The active hourly pipeline remains bounded",
-        "subtitle": "The source stage completed in 87.4 seconds and finalization in 114.3 seconds.",
+        "subtitle": "The source stage completed in 109.1 seconds and finalization in 114.6 seconds.",
         "type": "bar",
         "dataset": "schedule_stage_rows",
         "sourceId": "live_feature_evidence",
@@ -397,7 +397,7 @@
       {
         "id": "shadow_progress",
         "title": "The preregistered 30-day evidence clock is explicit",
-        "subtitle": "13 of 720 required hourly receipts are complete; current scheduled completion is 100.0%.",
+        "subtitle": "14 of 720 required hourly receipts are complete; current scheduled completion is 100.0%.",
         "type": "bar",
         "dataset": "shadow_progress_rows",
         "sourceId": "live_feature_evidence",
@@ -424,7 +424,7 @@
       {
         "id": "coverage_by_band",
         "title": "Aggregate feature coverage by HF band",
-        "subtitle": "13 complete all-band hours; cells measure reporting-network coverage, not model accuracy.",
+        "subtitle": "14 complete all-band hours; cells measure reporting-network coverage, not model accuracy.",
         "type": "bar",
         "dataset": "coverage_band_rows",
         "sourceId": "live_feature_evidence",
@@ -446,7 +446,7 @@
       {
         "id": "coverage_by_utc_hour",
         "title": "Aggregate feature coverage by UTC hour",
-        "subtitle": "The current window covers 13 of 24 UTC hour strata; missing clock hours are pending evidence, not zero coverage.",
+        "subtitle": "The current window covers 14 of 24 UTC hour strata; missing clock hours are pending evidence, not zero coverage.",
         "type": "bar",
         "dataset": "coverage_utc_hour_rows",
         "sourceId": "live_feature_evidence",
@@ -655,7 +655,7 @@
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The internal research shadow is active; product authorization and long-window evidence remain open\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The separate private research-health boundary passed **20 of 20** rollback gates and **21 of 21** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. Its private endpoint then passed **8 of 8** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. The additive off-M5 monitor passed **17 of 17** rollback gates and **18 of 18** deployed-state gates while preserving the source heartbeat timestamp. A GitHub-hosted **schedule** invocation then passed **14 of 14** external-invocation gates against the protected preview, observing a healthy heartbeat **2035 seconds** old with no transition and zero failed or exhausted deliveries. The hardened atomic outbox then passed **18 of 18** rollback gates and **19 of 19** deployed-state gates. A real stale monitor run at **10,227 seconds** opened exactly one identity-free GitHub issue; a genuine **25-second** heartbeat closed it, passing **9 of 9** delivery gates. This proves off-M5 stale/recovery delivery, but not a literal M5 power-loss test. The opt-in outcome boundary passed **13 of 13** rollback gates and **14 of 14** deployed-state gates. Active predictions can carry a short-lived account-bound signed receipt; the API requires current versioned consent and creates an explicit attempt before accepting any failure. Collection remains double-disabled and the signing secret is unset. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. The corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. The hourly research LaunchAgent is now active and its latest audited receipt passed **28 of 28 independent gates**: **216,184 observations** became **60,923 path cells** with zero consecutive failures, **106.4 MiB** peak connector RSS, and all 18 M5 compute threads bounded as 2 workers by 9 threads. Keyset pagination completed finalization in **114.3 seconds** without the deep-offset database failures seen earlier. Subscriber-facing WSPR use still requires written confirmation or an independently permitted source. The signed progress rollup is operationally healthy at **13 of 720 hours** with **0 gaps**, **3,088,321 observations**, and **867,072 feature cells**; it remains `collecting`, not 30-day evidence."
+        "body": "## The internal research shadow is active; product authorization and long-window evidence remain open\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The separate private research-health boundary passed **20 of 20** rollback gates and **21 of 21** deployed-state gates, with browser roles revoked and transition smoke rows rolled back. Its private endpoint then passed **8 of 8** end-to-end gates from the M5: the signed aggregate heartbeat was accepted, the private singleton matched exactly, the healthy state queued no alert, and the public reader remained disabled. The additive off-M5 monitor passed **17 of 17** rollback gates and **18 of 18** deployed-state gates while preserving the source heartbeat timestamp. A GitHub-hosted **schedule** invocation then passed **14 of 14** external-invocation gates against the protected preview, observing a healthy heartbeat **2035 seconds** old with no transition and zero failed or exhausted deliveries. The hardened atomic outbox then passed **18 of 18** rollback gates and **19 of 19** deployed-state gates. A real stale monitor run at **10,227 seconds** opened exactly one identity-free GitHub issue; a genuine **25-second** heartbeat closed it, passing **9 of 9** delivery gates. This proves off-M5 stale/recovery delivery, but not a literal M5 power-loss test. The opt-in outcome boundary passed **13 of 13** rollback gates and **14 of 14** deployed-state gates. Active predictions can carry a short-lived account-bound signed receipt; the API requires current versioned consent and creates an explicit attempt before accepting any failure. Collection remains double-disabled and the signing secret is unset. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **10 of 10** gates while allocating all **18 M5 CPU threads** without oversubscription. A real research-only source dry-run then passed **8 of 8** gates, streaming **287,694 observations** in **1 request** at **57.6 MiB peak RSS**. The corrected end-to-end target hour passed **10 of 10** gates with **75,055 path cells** after its truncated first version was invalidated. The hourly research LaunchAgent is now active and its latest audited receipt passed **34 of 34 independent gates**: **207,554 observations** became **66,616 path cells** with zero consecutive failures, **95.0 MiB** peak connector RSS, and all 18 M5 compute threads bounded as 2 workers by 9 threads. Keyset pagination completed finalization in **114.6 seconds** without the deep-offset database failures seen earlier. Subscriber-facing WSPR use still requires written confirmation or an independently permitted source. The signed progress rollup is operationally healthy at **14 of 720 hours** with **0 gaps**, **3,295,875 observations**, and **933,688 feature cells**; it remains `collecting`, not 30-day evidence."
       },
       {
         "id": "cards",
@@ -775,7 +775,7 @@
         "id": "schedule_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an identity-free atomic receipt only after all ten bands pass. The latest audited target, **2026-07-16T11:00:00+00:00**, contained **216,184 observations** and **60,923 feature cells**. An independent validator made 21 exact target-store queries and passed **28 of 28 gates**, including manifest signature/hash linkage, per-band observation and feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume. A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are implemented. The outbox now claims events atomically with a lease token, rejects stale completion, rolls back event-id collisions, and leaves failed delivery retryable. The M5 publishes signed aggregate heartbeats through the protected production endpoint into the dedicated private store. A GitHub-hosted runner detected one real stale episode, opened a single aggregate-only issue, and closed it only after a genuine fresh heartbeat. The public server and frontend flags remain unset, so no subscriber-visible health state is active."
+        "body": "At minute 15 each hour, a research-gated M5 LaunchAgent processes contiguous settled hours and writes an identity-free atomic receipt only after all ten bands pass. The latest audited target, **2026-07-16T16:00:00+00:00**, contained **207,554 observations** and **66,616 feature cells**. An independent validator made 21 exact target-store queries and passed **34 of 34 gates**, including manifest signature/hash linkage, per-band observation and feature counts, complete watermarks, spool cleanup, zero health failures, launchd restart scheduling, owner-only permissions, and absence of secrets from the plist. Small transient spools and receipts use the M5 internal disk because LaunchAgents cannot open removable volumes; large training artifacts remain on the fast Projects volume. A separate watchdog runs at minutes 0 and 30, enforces the preregistered 7,200-second stale boundary, checks continuity, job state, UTC alignment, and a 2 GiB runtime cap, and sends changed failure/recovery states to macOS Notification Center. Its aggregate HMAC publisher, private service-role table, retryable alert outbox, and double-gated System Health reader are implemented. The outbox now claims events atomically with a lease token, rejects stale completion, rolls back event-id collisions, and leaves failed delivery retryable. The M5 publishes signed aggregate heartbeats through the protected production endpoint into the dedicated private store. A GitHub-hosted runner detected one real stale episode, opened a single aggregate-only issue, and closed it only after a genuine fresh heartbeat. The public server and frontend flags remain unset, so no subscriber-visible health state is active."
       },
       {
         "id": "incident_heading",
@@ -804,7 +804,7 @@
         "id": "shadow_progress_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The rollup currently records **13 of 720 required hours** at **100.0% scheduled completion** with **0 gaps**. Every receipt is schema-checked, hash-linked to its signed completion manifest, and rechecked for all-band counts, causal timestamps, one bounded source request, the exact 2-by-9 M5 profile, and completion within 7,200 seconds. The decision remains `collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
+        "body": "The rollup currently records **14 of 720 required hours** at **100.0% scheduled completion** with **0 gaps**. Every receipt is schema-checked, hash-linked to its signed completion manifest, and rechecked for all-band counts, causal timestamps, one bounded source request, the exact 2-by-9 M5 profile, and completion within 7,200 seconds. The decision remains `collecting` until at least 720 expected hours exist; the 99% operational gate does not waive the duration requirement."
       },
       {
         "id": "coverage_heading",
@@ -815,7 +815,7 @@
         "id": "coverage_band_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The read-only M5 audit found **13 of 13 complete all-band hours** with **0 gaps**, covering **867,072 identity-free path cells**. The audit window is checksum-bound to the signed scheduled-receipt rollup, so the earlier manual validation target cannot advance this clock. Database reads are capped at 24-hour chunks and recombined before regional suppression, keeping the eventual 720-hour audit bounded without changing its global thresholds. The band distribution describes what the receiver network observed; it is neither a model score nor evidence of uniform geographic sampling."
+        "body": "The read-only M5 audit found **14 of 14 complete all-band hours** with **0 gaps**, covering **933,688 identity-free path cells**. The audit window is checksum-bound to the signed scheduled-receipt rollup, so the earlier manual validation target cannot advance this clock. Database reads are capped at 24-hour chunks and recombined before regional suppression, keeping the eventual 720-hour audit bounded without changing its global thresholds. The band distribution describes what the receiver network observed; it is neither a model score nor evidence of uniform geographic sampling."
       },
       {
         "id": "coverage_band_chart",
@@ -827,7 +827,7 @@
         "id": "coverage_utc_explainer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The current evidence spans **13 of 24 UTC hour strata**. The unobserved clock hours stay absent rather than being filled with zeros, so the chart cannot imply evidence the collector has not yet accumulated. A full day will establish hour-of-day breadth; 720 hours remain the release requirement."
+        "body": "The current evidence spans **14 of 24 UTC hour strata**. The unobserved clock hours stay absent rather than being filled with zeros, so the chart cannot imply evidence the collector has not yet accumulated. A full day will establish hour-of-day breadth; 720 hours remain the release requirement."
       },
       {
         "id": "coverage_utc_chart",
@@ -914,13 +914,13 @@
         "id": "compute",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Apple Silicon execution\n\nAll evidence was generated on native ARM64 with **18 M5 CPU cores**. The 48-hour transform and receipt replay used 18 DuckDB threads. Research training remains two spawned XGBoost fits with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one XGBoost thread each to avoid oversubscription under concurrent traffic. The hourly runner uses two concurrent band finalizers with nine DuckDB threads each on this M5 and rejects any larger product. The latest keyset-paginated finalizer completed in **114.3 seconds**. These settings deliberately use the 12 performance and six efficiency cores while bounding nested parallelism; more threads are not assumed to mean faster work."
+        "body": "## Apple Silicon execution\n\nAll evidence was generated on native ARM64 with **18 M5 CPU cores**. The 48-hour transform and receipt replay used 18 DuckDB threads. Research training remains two spawned XGBoost fits with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one XGBoost thread each to avoid oversubscription under concurrent traffic. The hourly runner uses two concurrent band finalizers with nine DuckDB threads each on this M5 and rejects any larger product. The latest keyset-paginated finalizer completed in **114.6 seconds**. These settings deliberately use the 12 performance and six efficiency cores while bounding nested parallelism; more threads are not assumed to mean faster work."
       },
       {
         "id": "limits",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus 13 scheduled receipts do not prove 30-day provider completeness or permission for subscriber-facing use. The off-M5 path has detected a real stale heartbeat, opened one durable issue, and closed it on genuine recovery. That episode came from missing publisher configuration, not a controlled device shutdown; literal full-M5 power-loss delivery therefore remains unproven. The signed heartbeat path is active, but the product-health reader remains intentionally hidden until that outage proof, beta readiness, and the source release gate pass. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X coverage, selection bias, or core-versus-StationCast prospective lift. The first-party capture job is operational but its nonempty 24-hour preflight is still warming, so it is not yet readiness evidence."
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema plus 14 scheduled receipts do not prove 30-day provider completeness or permission for subscriber-facing use. The off-M5 path has detected a real stale heartbeat, opened one durable issue, and closed it on genuine recovery. That episode came from missing publisher configuration, not a controlled device shutdown; literal full-M5 power-loss delivery therefore remains unproven. The signed heartbeat path is active, but the product-health reader remains intentionally hidden until that outage proof, beta readiness, and the source release gate pass. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model. The beta instrumentation has synthetic and structural validation only; no evidence yet establishes operator compliance, manual-label accuracy, objective Bridge/WSJT-X coverage, selection bias, or core-versus-StationCast prospective lift. The first-party capture job is operational but its nonempty 24-hour preflight is still warming, so it is not yet readiness evidence."
       },
       {
         "id": "limit_table_block",
@@ -944,7 +944,7 @@
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T17:01:47.102181+00:00",
+    "generatedAt": "2026-07-16T17:25:47.446775+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -1018,29 +1018,29 @@
           "live_hour_gates_passed": 10,
           "live_hour_gates_total": 10,
           "live_hour_feature_cells": 75055,
-          "schedule_gates_passed": 28,
-          "schedule_gates_total": 28,
-          "schedule_source_rows": 216184,
-          "schedule_feature_cells": 60923,
-          "schedule_continuous_hours": 9,
-          "schedule_connector_seconds": 87.391896,
-          "schedule_finalizer_seconds": 114.341591,
+          "schedule_gates_passed": 34,
+          "schedule_gates_total": 34,
+          "schedule_source_rows": 207554,
+          "schedule_feature_cells": 66616,
+          "schedule_continuous_hours": 14,
+          "schedule_connector_seconds": 109.06827,
+          "schedule_finalizer_seconds": 114.606367,
           "schedule_finalizer_workers": 2,
           "schedule_threads_per_band": 9,
-          "schedule_peak_rss_mib": 106.391,
-          "schedule_target_hour": "2026-07-16T11:00:00+00:00",
-          "shadow_completed_hours": 13,
+          "schedule_peak_rss_mib": 95.031,
+          "schedule_target_hour": "2026-07-16T16:00:00+00:00",
+          "shadow_completed_hours": 14,
           "shadow_required_hours": 720,
           "shadow_completion_rate_percent": 100.0,
           "shadow_missing_hours": 0,
-          "shadow_source_records": 3088321,
-          "shadow_feature_cells": 867072,
-          "coverage_expected_hours": 13,
-          "coverage_completed_hours": 13,
+          "shadow_source_records": 3295875,
+          "shadow_feature_cells": 933688,
+          "coverage_expected_hours": 14,
+          "coverage_completed_hours": 14,
           "coverage_missing_hours": 0,
-          "coverage_feature_cells": 867072,
-          "coverage_sampled_rows": 3630841,
-          "coverage_utc_hours": 13,
+          "coverage_feature_cells": 933688,
+          "coverage_sampled_rows": 3882189,
+          "coverage_utc_hours": 14,
           "coverage_distance_buckets": 5,
           "coverage_reported_regions": 237,
           "coverage_drift_sample_sufficient": false,
@@ -1186,127 +1186,127 @@
       "schedule_band_rows": [
         {
           "band": "10m",
-          "observations": 6842
+          "observations": 7387
         },
         {
           "band": "12m",
-          "observations": 2469
+          "observations": 3441
         },
         {
           "band": "15m",
-          "observations": 11172
+          "observations": 13548
         },
         {
           "band": "160m",
-          "observations": 929
+          "observations": 735
         },
         {
           "band": "17m",
-          "observations": 10303
+          "observations": 13302
         },
         {
           "band": "20m",
-          "observations": 69068
+          "observations": 78660
         },
         {
           "band": "30m",
-          "observations": 40655
+          "observations": 36247
         },
         {
           "band": "40m",
-          "observations": 64526
+          "observations": 48354
         },
         {
           "band": "60m",
-          "observations": 930
+          "observations": 793
         },
         {
           "band": "80m",
-          "observations": 9290
+          "observations": 5087
         }
       ],
       "schedule_stage_rows": [
         {
           "stage": "Source observations",
-          "count": 216184
+          "count": 207554
         },
         {
           "stage": "Path-hour feature cells",
-          "count": 60923
+          "count": 66616
         }
       ],
       "shadow_progress_rows": [
         {
           "window": "30-day receipt shadow",
           "state": "Completed",
-          "hours": 13
+          "hours": 14
         },
         {
           "window": "30-day receipt shadow",
           "state": "Remaining",
-          "hours": 707
+          "hours": 706
         }
       ],
       "coverage_band_rows": [
         {
           "band": "160m",
-          "feature_cells": 6805,
-          "sampled_rows": 27181,
-          "completed_hours": 13
+          "feature_cells": 7061,
+          "sampled_rows": 28077,
+          "completed_hours": 14
         },
         {
           "band": "80m",
-          "feature_cells": 50854,
-          "sampled_rows": 211492,
-          "completed_hours": 13
+          "feature_cells": 53493,
+          "sampled_rows": 218801,
+          "completed_hours": 14
         },
         {
           "band": "60m",
-          "feature_cells": 6041,
-          "sampled_rows": 23780,
-          "completed_hours": 13
+          "feature_cells": 6357,
+          "sampled_rows": 24710,
+          "completed_hours": 14
         },
         {
           "band": "40m",
-          "feature_cells": 190935,
-          "sampled_rows": 976870,
-          "completed_hours": 13
+          "feature_cells": 202517,
+          "sampled_rows": 1032150,
+          "completed_hours": 14
         },
         {
           "band": "30m",
-          "feature_cells": 140680,
-          "sampled_rows": 665723,
-          "completed_hours": 13
+          "feature_cells": 149951,
+          "sampled_rows": 707544,
+          "completed_hours": 14
         },
         {
           "band": "20m",
-          "feature_cells": 262722,
-          "sampled_rows": 1174985,
-          "completed_hours": 13
+          "feature_cells": 284747,
+          "sampled_rows": 1267377,
+          "completed_hours": 14
         },
         {
           "band": "17m",
-          "feature_cells": 65681,
-          "sampled_rows": 177651,
-          "completed_hours": 13
+          "feature_cells": 72038,
+          "sampled_rows": 194590,
+          "completed_hours": 14
         },
         {
           "band": "15m",
-          "feature_cells": 72445,
-          "sampled_rows": 200252,
-          "completed_hours": 13
+          "feature_cells": 79356,
+          "sampled_rows": 219207,
+          "completed_hours": 14
         },
         {
           "band": "12m",
-          "feature_cells": 22261,
-          "sampled_rows": 49985,
-          "completed_hours": 13
+          "feature_cells": 24418,
+          "sampled_rows": 55212,
+          "completed_hours": 14
         },
         {
           "band": "10m",
-          "feature_cells": 48648,
-          "sampled_rows": 122922,
-          "completed_hours": 13
+          "feature_cells": 53750,
+          "sampled_rows": 134521,
+          "completed_hours": 14
         }
       ],
       "coverage_utc_hour_rows": [
@@ -1387,33 +1387,39 @@
           "feature_cells": 70690,
           "sampled_rows": 266787,
           "completed_band_hours": 10
+        },
+        {
+          "utc_hour": "16:00",
+          "feature_cells": 66616,
+          "sampled_rows": 251348,
+          "completed_band_hours": 10
         }
       ],
       "coverage_distance_rows": [
         {
           "distance_bucket": "<1,000 km",
-          "feature_cells": 189410,
-          "sampled_rows": 1247872
+          "feature_cells": 204884,
+          "sampled_rows": 1344723
         },
         {
           "distance_bucket": "1,000-3,000 km",
-          "feature_cells": 291749,
-          "sampled_rows": 1539721
+          "feature_cells": 313498,
+          "sampled_rows": 1644673
         },
         {
           "distance_bucket": "3,000-6,000 km",
-          "feature_cells": 101658,
-          "sampled_rows": 356158
+          "feature_cells": 109343,
+          "sampled_rows": 373893
         },
         {
           "distance_bucket": "6,000-10,000 km",
-          "feature_cells": 193124,
-          "sampled_rows": 316727
+          "feature_cells": 208874,
+          "sampled_rows": 339986
         },
         {
           "distance_bucket": "10,000+ km",
-          "feature_cells": 91131,
-          "sampled_rows": 170363
+          "feature_cells": 97089,
+          "sampled_rows": 178914
         }
       ],
       "coverage_region_rows": [
@@ -1426,7 +1432,7 @@
         {
           "band": "80m",
           "direction": "Origin",
-          "eligible_regions": 31,
+          "eligible_regions": 32,
           "reported_regions": 12
         },
         {
@@ -1438,7 +1444,7 @@
         {
           "band": "40m",
           "direction": "Origin",
-          "eligible_regions": 49,
+          "eligible_regions": 51,
           "reported_regions": 12
         },
         {
@@ -1450,19 +1456,19 @@
         {
           "band": "20m",
           "direction": "Origin",
-          "eligible_regions": 99,
+          "eligible_regions": 106,
           "reported_regions": 12
         },
         {
           "band": "17m",
           "direction": "Origin",
-          "eligible_regions": 56,
+          "eligible_regions": 59,
           "reported_regions": 12
         },
         {
           "band": "15m",
           "direction": "Origin",
-          "eligible_regions": 50,
+          "eligible_regions": 51,
           "reported_regions": 12
         },
         {
@@ -1474,7 +1480,7 @@
         {
           "band": "10m",
           "direction": "Origin",
-          "eligible_regions": 29,
+          "eligible_regions": 30,
           "reported_regions": 12
         },
         {
@@ -1504,7 +1510,7 @@
         {
           "band": "30m",
           "direction": "Target",
-          "eligible_regions": 36,
+          "eligible_regions": 37,
           "reported_regions": 12
         },
         {
@@ -1522,7 +1528,7 @@
         {
           "band": "15m",
           "direction": "Target",
-          "eligible_regions": 34,
+          "eligible_regions": 35,
           "reported_regions": 12
         },
         {
@@ -1534,7 +1540,7 @@
         {
           "band": "10m",
           "direction": "Target",
-          "eligible_regions": 30,
+          "eligible_regions": 31,
           "reported_regions": 12
         }
       ],
@@ -3093,6 +3099,36 @@
         },
         {
           "scope": "Active research schedule",
+          "gate": "coverage audit operational private and bounded",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "coverage job loaded and clean exit",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "coverage twice daily and restart enabled",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "coverage runtime and query bound exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "coverage owner only and secret free",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
+          "gate": "coverage logs on internal home",
+          "status": "pass"
+        },
+        {
+          "scope": "Active research schedule",
           "gate": "locked outcomes unread",
           "status": "pass"
         },
@@ -3322,7 +3358,7 @@
           "evidence_limit": "30-day real receipt-time shadow coverage is still required"
         },
         {
-          "evidence_limit": "13 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
+          "evidence_limit": "14 contiguous scheduled hours exist, but only one scheduled target has the expanded 28-gate exact-count audit"
         },
         {
           "evidence_limit": "The first-party collector is operational with 4/4 sources current, but has only 5.25/24 required gap-free preflight hours"

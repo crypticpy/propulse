@@ -10,6 +10,12 @@
 > deterministic StationCast, ReachMap, and aggregate System Health may now be
 > visible internally. Evidence eligibility still controls research claims,
 > consented outcome collection, and any later public release.
+> Cloud integration status, 2026-07-16: Phase A is complete on the M5. The exact
+> frozen A6 components and physics fallback are bound into an immutable
+> `retrospective_validated_internal` manifest, the Python/TypeScript v2 runtime
+> contract is shared-fixture tested, and internal prediction serving is separated
+> from beta outcome collection. Public eligibility and the prospective evidence
+> clock are unchanged. Phase B packaging is next.
 > M5 execution: [`PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md`](PERSONALIZED-PROPAGATION-V4.2-M5-RUNBOOK.md).
 > Live feature contract: [`NOWCAST-LIVE-FEATURE-PIPELINE.md`](NOWCAST-LIVE-FEATURE-PIPELINE.md).
 > Predecessor evidence: [`V4.1 calibration recovery plan`](PERSONALIZED-PROPAGATION-V4.1-CALIBRATION-PLAN.md)

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T21:04:26Z",
+  "run_id": "propagation_v4_2_phase2_scale",
+  "release_stage": "retrospective_validated_internal",
+  "internal_manifest": {
+    "object_name": "retrospective_validated_internal_manifest.json",
+    "bytes": 13682,
+    "sha256": "726b5f85bd521ec945ba06102431c223e5a52a067b6c5e035feb1687417b6f28"
+  },
+  "source_candidate_manifest_sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821",
+  "outcome_protocol_sha256": "725fcaa87e34028cd5730d04c67e3e494599be6d82ba04512cf2f50f640df579",
+  "december_gate_result_sha256": "9278d8cc706ba85072be3a05664c761b4b0c43d2c465c6140ad68c0261dccf64",
+  "archive_gate_result_sha256": "fab36516662aa5af4d834fa1add7429757dc31e2194c89ff41812f7362c2a082",
+  "machine": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "thermal_limits": {},
+    "python_version": "3.12.11"
+  }
+}

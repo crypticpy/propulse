@@ -5,6 +5,7 @@ import json
 import math
 import unittest
 from datetime import timedelta
+from pathlib import Path
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -26,6 +27,7 @@ from app import (
     StationEnvelope,
     allowlisted_telemetry_dimension,
     beta_stop_event_for_prediction,
+    build_runtime_capabilities,
     blend_probabilities,
     create_app,
     model_feature_value,
@@ -37,6 +39,12 @@ from app import (
 )
 
 
+ROOT = Path(__file__).resolve().parents[2]
+CAPABILITIES_FIXTURE = json.loads(
+    (ROOT / "ml/fixtures/propagation_capabilities_v1.json").read_text(
+        encoding="utf-8"
+    )
+)
 BETA_RUNTIME_ACTIVATION = RuntimeActivation(frozenset({"beta_collection"}))
 
 
@@ -67,7 +75,13 @@ class FakeRegistry:
         ]
 
     def models(self):
-        return [{"model_version": "v4-test"}]
+        return [{
+            "model_version": "v4-test",
+            "feature_contract": "station-chain-v1",
+            "core_feature_contract": "archive-v4-features-test-v1",
+            "profiles": ["nowcast", "physics"],
+            "profile_kinds": {"nowcast": "single", "physics": "single"},
+        }]
 
     def health(self):
         return {"status": "ok", "model_version": "v4-test"}
@@ -203,7 +217,7 @@ class ServiceTests(unittest.TestCase):
         self.registry = FakeRegistry()
         self.client = TestClient(create_app(
             self.registry,
-            inference_mode="disabled",
+            inference_mode="shadow",
             path_history_provider=UnavailablePathHistoryProvider(),
             operational_weather_provider=UnavailableOperationalWeatherProvider(),
         ))
@@ -339,18 +353,27 @@ class ServiceTests(unittest.TestCase):
                 runtime_activation=BETA_RUNTIME_ACTIVATION,
             )
 
-    def test_active_inference_requires_evidence_backed_activation(self):
-        with self.assertRaisesRegex(
-            RuntimeError,
-            "evidence-backed beta_collection activation",
-        ):
+    def test_active_inference_is_independent_from_beta_collection(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="active",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
+            runtime_activation=RuntimeActivation(frozenset()),
+        ))
+        response = client.post("/v1/propagation/path", json=request_payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("research_receipt", response.json())
+        health = client.get("/v1/propagation/health").json()
+        self.assertFalse(health["beta_collection_activated"])
+        self.assertFalse(health["research_receipts_enabled"])
+
+    def test_active_beta_collection_requires_a_receipt_secret(self):
+        with self.assertRaisesRegex(RuntimeError, "requires PROPULSE"):
             create_app(
                 self.registry,
                 inference_mode="active",
-                research_receipt_secret=(
-                    "test-research-receipt-secret-at-least-32-chars"
-                ),
-                beta_telemetry_sink=RecordingBetaTelemetrySink(),
+                runtime_activation=BETA_RUNTIME_ACTIVATION,
             )
 
     def test_active_research_receipts_require_stop_event_telemetry(self):
@@ -476,6 +499,27 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(body["inference_mode"], "shadow")
         self.assertEqual(body["telemetry_schema_version"], "propagation-shadow-v1")
 
+    def test_capabilities_match_the_shared_cross_language_fixture(self):
+        activation = RuntimeActivation(frozenset())
+        self.assertEqual(
+            build_runtime_capabilities(
+                self.registry,
+                "shadow",
+                activation,
+                False,
+            ),
+            CAPABILITIES_FIXTURE,
+        )
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            runtime_activation=activation,
+        ))
+        self.assertEqual(
+            client.get("/v1/propagation/capabilities").json(),
+            CAPABILITIES_FIXTURE,
+        )
+
     def test_weighted_ensemble_probability_is_exact(self):
         output = blend_probabilities(
             [np.asarray([0.2, 0.8]), np.asarray([0.6, 0.4])],
@@ -500,7 +544,7 @@ class ServiceTests(unittest.TestCase):
         payload = request_payload()
         fresh_client = TestClient(create_app(
             self.registry,
-            inference_mode="disabled",
+            inference_mode="shadow",
             path_history_provider=FakePathHistoryProvider(age_seconds=7200),
         ))
         response = fresh_client.post("/v1/propagation/path", json=payload)
@@ -509,7 +553,7 @@ class ServiceTests(unittest.TestCase):
 
         stale_client = TestClient(create_app(
             self.registry,
-            inference_mode="disabled",
+            inference_mode="shadow",
             path_history_provider=FakePathHistoryProvider(age_seconds=7201),
         ))
         response = stale_client.post("/v1/propagation/path", json=payload)
@@ -547,7 +591,7 @@ class ServiceTests(unittest.TestCase):
         payload["features"]["values"].update({"kp": 9.0, "kp_missing": 0})
         client = TestClient(create_app(
             self.registry,
-            inference_mode="disabled",
+            inference_mode="shadow",
             path_history_provider=UnavailablePathHistoryProvider(),
             operational_weather_provider=FakeOperationalWeatherProvider(),
         ))
@@ -563,7 +607,7 @@ class ServiceTests(unittest.TestCase):
     def test_future_operational_weather_snapshot_is_rejected(self):
         client = TestClient(create_app(
             self.registry,
-            inference_mode="disabled",
+            inference_mode="shadow",
             path_history_provider=UnavailablePathHistoryProvider(),
             operational_weather_provider=FakeOperationalWeatherProvider(
                 future_available=True
@@ -583,7 +627,7 @@ class ServiceTests(unittest.TestCase):
         ):
             client = TestClient(create_app(
                 self.registry,
-                inference_mode="disabled",
+                inference_mode="shadow",
                 path_history_provider=provider,
             ))
             response = client.post("/v1/propagation/path", json=request_payload())
@@ -639,7 +683,7 @@ class ServiceTests(unittest.TestCase):
 
         verified_client = TestClient(create_app(
             self.registry,
-            inference_mode="disabled",
+            inference_mode="shadow",
             path_history_provider=FakePathHistoryProvider(age_seconds=60),
         ))
         verified = verified_client.post("/v1/propagation/surface", json=payload)
@@ -749,6 +793,18 @@ class ServiceTests(unittest.TestCase):
             response.headers["access-control-allow-origin"],
             "http://localhost:5173",
         )
+
+    def test_disabled_mode_refuses_path_and_surface_predictions(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+        ))
+        path_response = client.post("/v1/propagation/path", json=request_payload())
+        self.assertEqual(path_response.status_code, 503)
+        surface_payload = request_payload()
+        surface_payload["cells"] = [surface_payload.pop("features")]
+        surface_response = client.post("/v1/propagation/surface", json=surface_payload)
+        self.assertEqual(surface_response.status_code, 503)
 
 
 if __name__ == "__main__":

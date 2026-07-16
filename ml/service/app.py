@@ -44,6 +44,11 @@ from operational_weather import (
     operational_weather_provider_from_environment,
 )
 from runtime_activation import RuntimeActivation, load_runtime_activation
+from serving_manifest import (
+    resolve_bundle_artifact,
+    sha256_file,
+    validate_serving_manifest,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -54,6 +59,7 @@ DEFAULT_XGBOOST_PREDICTION_THREADS = 1
 SHADOW_TELEMETRY_SCHEMA_VERSION = "propagation-shadow-v1"
 RESEARCH_RECEIPT_SCHEMA_VERSION = "propagation-research-receipt-v2"
 RESEARCH_SUBJECT_SCHEMA_VERSION = "propagation-research-subject-v1"
+CAPABILITIES_SCHEMA_VERSION = "propagation-capabilities-v1"
 RESEARCH_RECEIPT_TTL_SECONDS = 24 * 60 * 60
 RAW_RECEIPT_FORBIDDEN_KEYS = frozenset({
     "amplifiergaindb",
@@ -306,7 +312,9 @@ def blend_probabilities(
 class ModelRegistry:
     def __init__(self, manifest_path: Path) -> None:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        validate_serving_manifest(payload)
         self.version = payload["model_version"]
+        self.release_stage = payload["release_stage"]
         self.feature_contract = payload["feature_contract"]
         self.core_feature_contract = payload.get(
             "core_feature_contract", self.feature_contract
@@ -326,6 +334,10 @@ class ModelRegistry:
         ) = resolve_xgboost_prediction_threads(
             runtime_policy, os.environ.get("PROPULSE_XGBOOST_THREADS")
         )
+        if self.xgboost_prediction_threads != 1:
+            raise RuntimeError(
+                "retrospective internal serving requires one prediction thread"
+            )
         self.profiles: dict[str, dict[str, Any]] = {}
         for name, item in payload["profiles"].items():
             kind = str(item.get("kind", "single"))
@@ -364,22 +376,41 @@ class ModelRegistry:
     def _load_component(
         self, manifest_path: Path, item: dict[str, Any]
     ) -> dict[str, Any]:
-        model_path = (manifest_path.parent / item["model_path"]).resolve()
-        calibrator_path = (manifest_path.parent / item["calibrator_path"]).resolve()
+        model_path = resolve_bundle_artifact(manifest_path, item["model_path"])
+        calibrator_path = resolve_bundle_artifact(
+            manifest_path,
+            item["calibrator_path"],
+        )
         for path, expected in (
             (model_path, item["model_sha256"]),
             (calibrator_path, item["calibrator_sha256"]),
         ):
-            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            digest = sha256_file(path)
             if digest != expected:
                 raise RuntimeError(f"model artifact checksum mismatch: {path.name}")
         model = xgb.Booster()
         model.load_model(model_path)
         model.set_param({"nthread": self.xgboost_prediction_threads})
+        features = list(map(str, item["features"]))
+        if model.num_features() != len(features):
+            raise RuntimeError(
+                f"model feature count differs: {item['component']}"
+            )
+        calibrator = joblib.load(calibrator_path)
+        calibrator_class = (
+            f"{type(calibrator).__module__}.{type(calibrator).__qualname__}"
+        )
+        if (
+            calibrator_class != item["calibrator_class"]
+            or not callable(getattr(calibrator, "predict", None))
+        ):
+            raise RuntimeError(
+                f"non-native model/calibrator combination: {item['component']}"
+            )
         return {
             "model": model,
-            "calibrator": joblib.load(calibrator_path),
-            "features": list(map(str, item["features"])),
+            "calibrator": calibrator,
+            "features": features,
             "best_iteration": int(item["best_iteration"]),
             "component": str(item.get("component", "single")),
         }
@@ -455,6 +486,7 @@ class ModelRegistry:
     def models(self) -> list[dict[str, Any]]:
         return [{
             "model_version": self.version,
+            "release_stage": self.release_stage,
             "feature_contract": self.feature_contract,
             "core_feature_contract": self.core_feature_contract,
             "profiles": sorted(self.profiles),
@@ -476,6 +508,7 @@ class ModelRegistry:
         return {
             "status": "ok",
             "model_version": self.version,
+            "release_stage": self.release_stage,
             "profiles": sorted(self.profiles),
             "core_feature_contract": self.core_feature_contract,
             "xgboost_prediction_threads": self.xgboost_prediction_threads,
@@ -500,6 +533,74 @@ class UnavailableRegistry:
 
     def health(self) -> dict[str, Any]:
         return {"status": "unavailable", "reason": "no approved model bundle is loaded"}
+
+
+def runtime_profile_names(runtime: Predictor) -> list[str]:
+    profiles: set[str] = set()
+    for model in runtime.models():
+        raw_profiles = model.get("profiles", [])
+        if isinstance(raw_profiles, list):
+            profiles.update(
+                value for value in raw_profiles if isinstance(value, str)
+            )
+    return sorted(profiles)
+
+
+def build_runtime_capabilities(
+    runtime: Predictor,
+    inference_mode: str,
+    activation: RuntimeActivation,
+    beta_collection_enabled: bool,
+) -> dict[str, Any]:
+    profiles = runtime_profile_names(runtime)
+    execution_enabled = inference_mode in {"shadow", "active"}
+    core_available = execution_enabled and {
+        "nowcast",
+        "physics",
+    }.issubset(profiles)
+
+    def status(mode: str, internal_available: bool) -> dict[str, bool]:
+        return {
+            "internal_available": internal_available,
+            "released_eligible": activation.allows(mode),
+        }
+
+    released_horizons = [
+        horizon
+        for horizon in activation.futurecast_horizons_hours
+        if activation.allows_futurecast_horizon(horizon)
+    ]
+    return {
+        "schema_version": CAPABILITIES_SCHEMA_VERSION,
+        "inference_mode": inference_mode,
+        "service_execution_enabled": execution_enabled,
+        "model_loaded": bool(runtime.models()),
+        "loaded_profiles": profiles,
+        "runtime_activation_valid": not activation.errors,
+        "runtime_activation_errors": list(activation.errors),
+        "beta_collection_enabled": beta_collection_enabled,
+        "modes": {
+            "system_health_view": status("system_health_view", True),
+            "beta_collection": status(
+                "beta_collection",
+                beta_collection_enabled,
+            ),
+            "core_nowcast": status("core_nowcast", core_available),
+            "stationcast_deterministic": status(
+                "stationcast_deterministic",
+                core_available,
+            ),
+            "stationcast_learned": status(
+                "stationcast_learned",
+                False,
+            ),
+            "futurecast": {
+                **status("futurecast", False),
+                "released_horizons_hours": released_horizons,
+            },
+            "six_meter": status("six_meter", False),
+        },
+    }
 
 
 def path_history_is_stale(
@@ -958,29 +1059,25 @@ def create_app(
         else os.environ.get("PROPULSE_INFERENCE_MODE")
     )
     selected_runtime_activation = runtime_activation or load_runtime_activation()
-    if (
-        selected_inference_mode == "active"
-        and not selected_runtime_activation.allows("beta_collection")
-    ):
-        raise RuntimeError(
-            "active inference requires evidence-backed beta_collection activation"
-        )
     selected_research_receipt_secret = (
         research_receipt_secret
         if research_receipt_secret is not None
         else os.environ.get("PROPULSE_RESEARCH_RECEIPT_SECRET", "")
     )
-    if selected_inference_mode == "active" and not selected_research_receipt_secret:
-        raise RuntimeError(
-            "active inference requires PROPULSE_RESEARCH_RECEIPT_SECRET"
-        )
     if selected_research_receipt_secret and len(selected_research_receipt_secret) < 32:
         raise RuntimeError(
             "PROPULSE_RESEARCH_RECEIPT_SECRET must be at least 32 characters"
         )
-    research_receipts_enabled = bool(
-        selected_research_receipt_secret and selected_inference_mode == "active"
+    beta_collection_activated = selected_runtime_activation.allows(
+        "beta_collection"
     )
+    research_receipts_enabled = bool(
+        selected_inference_mode == "active" and beta_collection_activated
+    )
+    if research_receipts_enabled and not selected_research_receipt_secret:
+        raise RuntimeError(
+            "active beta collection requires PROPULSE_RESEARCH_RECEIPT_SECRET"
+        )
     selected_beta_telemetry_sink = (
         beta_telemetry_sink
         if beta_telemetry_sink is not None
@@ -1035,6 +1132,7 @@ def create_app(
             "telemetry_schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
             "research_receipt_schema_version": RESEARCH_RECEIPT_SCHEMA_VERSION,
             "research_receipts_enabled": research_receipts_enabled,
+            "beta_collection_activated": beta_collection_activated,
             "beta_stop_event_telemetry_configured": (
                 selected_beta_telemetry_sink.configured
             ),
@@ -1043,12 +1141,23 @@ def create_app(
             "operational_weather_provider": weather_provider.name,
         }
 
+    @app.get("/v1/propagation/capabilities")
+    def capabilities() -> dict[str, Any]:
+        return build_runtime_capabilities(
+            runtime,
+            selected_inference_mode,
+            selected_runtime_activation,
+            research_receipts_enabled,
+        )
+
     @app.get("/v1/propagation/models")
     def models() -> dict[str, Any]:
         return {"models": runtime.models()}
 
     @app.post("/v1/propagation/path")
     def path(request: PathRequest) -> dict[str, Any]:
+        if selected_inference_mode == "disabled":
+            raise HTTPException(status_code=503, detail="inference is disabled")
         started = time.perf_counter()
         features, freshness = apply_verified_path_history(
             history_provider,
@@ -1142,6 +1251,8 @@ def create_app(
 
     @app.post("/v1/propagation/surface")
     def surface(request: SurfaceRequest) -> dict[str, Any]:
+        if selected_inference_mode == "disabled":
+            raise HTTPException(status_code=503, detail="inference is disabled")
         started = time.perf_counter()
         cells, freshness = apply_verified_path_history(
             history_provider,

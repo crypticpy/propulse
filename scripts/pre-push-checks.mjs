@@ -218,7 +218,7 @@ function main() {
   if (plan.tooling) {
     run(
       "node",
-      ["--test", "scripts/pre-push-checks.test.mjs"],
+      ["--test", "scripts/pre-push-checks.node.mjs"],
       "Testing pre-push path selection",
     );
     run("bash", ["-n", ".githooks/pre-push"], "Checking hook shell syntax");

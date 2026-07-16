@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -24,15 +25,24 @@ RUNTIME_MODES = frozenset({
     "futurecast",
     "six_meter",
 })
+FUTURECAST_HORIZONS_HOURS = (3, 6, 12, 24)
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True)
 class RuntimeActivation:
     approved_modes: frozenset[str]
     errors: tuple[str, ...] = ()
+    futurecast_horizons_hours: tuple[int, ...] = ()
 
     def allows(self, mode: str) -> bool:
         return not self.errors and mode in self.approved_modes
+
+    def allows_futurecast_horizon(self, horizon_hours: int) -> bool:
+        return (
+            self.allows("futurecast")
+            and horizon_hours in self.futurecast_horizons_hours
+        )
 
 
 def evaluate_runtime_activation(
@@ -46,6 +56,11 @@ def evaluate_runtime_activation(
         errors.append("activation_scope")
     if activation.get("locked_prospective_outcomes_read") is not False:
         errors.append("activation_outcome_boundary")
+    activation_readiness = activation.get("source_readiness_sha256")
+    if not isinstance(activation_readiness, str) or not SHA256_PATTERN.fullmatch(
+        activation_readiness
+    ):
+        errors.append("activation_readiness_sha")
     approved = activation.get("approved_modes")
     if not isinstance(approved, list) or not all(
         isinstance(mode, str) and mode in RUNTIME_MODES for mode in approved
@@ -69,25 +84,65 @@ def evaluate_runtime_activation(
     else:
         errors.append("activation_state")
 
-    modes = eligibility.get("modes")
-    if eligibility.get("schema_version") != 1:
+    if eligibility.get("schema_version") != 2:
         errors.append("eligibility_schema")
     if eligibility.get("scope") != "phase6_runtime_eligibility":
         errors.append("eligibility_scope")
     if eligibility.get("locked_prospective_outcomes_read") is not False:
         errors.append("eligibility_outcome_boundary")
+    eligibility_readiness = eligibility.get("source_readiness_sha256")
+    if not isinstance(eligibility_readiness, str) or not SHA256_PATTERN.fullmatch(
+        eligibility_readiness
+    ):
+        errors.append("eligibility_readiness_sha")
+    elif (
+        isinstance(activation_readiness, str)
+        and SHA256_PATTERN.fullmatch(activation_readiness)
+        and eligibility_readiness != activation_readiness
+    ):
+        errors.append("readiness_checksum_mismatch")
+
+    modes = eligibility.get("modes")
     if not isinstance(modes, dict) or set(modes) != RUNTIME_MODES or not all(
         isinstance(value, bool) for value in modes.values()
     ):
         errors.append("eligibility_modes")
         modes = {}
 
+    raw_horizons = eligibility.get("futurecast_horizons_hours")
+    horizons_are_valid = (
+        isinstance(raw_horizons, list)
+        and all(
+            type(value) is int and value in FUTURECAST_HORIZONS_HOURS
+            for value in raw_horizons
+        )
+        and len(set(raw_horizons)) == len(raw_horizons)
+        and all(
+            index == 0 or value > raw_horizons[index - 1]
+            for index, value in enumerate(raw_horizons)
+        )
+    )
+    if not horizons_are_valid:
+        errors.append("eligibility_futurecast_horizons")
+        futurecast_horizons: tuple[int, ...] = ()
+    else:
+        futurecast_horizons = tuple(raw_horizons)
+    if modes and horizons_are_valid and modes["futurecast"] != bool(
+        futurecast_horizons
+    ):
+        errors.append("eligibility_futurecast_consistency")
+
     ineligible = sorted(mode for mode in approved_modes if modes.get(mode) is not True)
     if ineligible:
         errors.append("approved_mode_not_eligible:" + ",".join(ineligible))
     if errors:
         approved_modes = frozenset()
-    return RuntimeActivation(approved_modes, tuple(errors))
+        futurecast_horizons = ()
+    return RuntimeActivation(
+        approved_modes,
+        tuple(errors),
+        futurecast_horizons,
+    )
 
 
 def load_runtime_activation(

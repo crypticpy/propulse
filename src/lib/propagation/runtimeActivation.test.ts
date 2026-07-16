@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
+import fixture from "../../../ml/fixtures/runtime_activation_v2_cases.json";
 import {
+  FUTURECAST_HORIZONS_HOURS,
+  PROPAGATION_RUNTIME_MODES,
+  type FutureCastHorizonHours,
+  type PropagationRuntimeMode,
   runtimeFutureCastHorizonIsActivated,
   runtimeModeIsActivated,
 } from "./runtimeActivation";
+
+interface SharedCase {
+  name: string;
+  activation: Parameters<typeof runtimeModeIsActivated>[1];
+  eligibility: Parameters<typeof runtimeModeIsActivated>[2];
+  allowed_modes: PropagationRuntimeMode[];
+  futurecast_horizons_hours: FutureCastHorizonHours[];
+  valid: boolean;
+}
 
 const readinessSha256 = "a".repeat(64);
 
@@ -34,6 +48,28 @@ const eligibility = {
 };
 
 describe("runtimeModeIsActivated", () => {
+  it("matches every shared Python/TypeScript v2 fixture", () => {
+    for (const testCase of fixture.cases as SharedCase[]) {
+      for (const mode of PROPAGATION_RUNTIME_MODES) {
+        expect(
+          runtimeModeIsActivated(mode, testCase.activation, testCase.eligibility),
+          `${testCase.name}:${mode}`,
+        ).toBe(testCase.allowed_modes.includes(mode));
+      }
+      for (const horizon of FUTURECAST_HORIZONS_HOURS) {
+        expect(
+          runtimeFutureCastHorizonIsActivated(
+            horizon,
+            testCase.activation,
+            testCase.eligibility,
+          ),
+          `${testCase.name}:${horizon}h`,
+        ).toBe(testCase.futurecast_horizons_hours.includes(horizon));
+      }
+      expect(testCase.valid).toBe(testCase.allowed_modes.length > 0);
+    }
+  });
+
   it("requires both an explicit product decision and current evidence eligibility", () => {
     expect(runtimeModeIsActivated("core_nowcast", activation, eligibility)).toBe(true);
     expect(runtimeModeIsActivated("beta_collection", activation, eligibility)).toBe(false);

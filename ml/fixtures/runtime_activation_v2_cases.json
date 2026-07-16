@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cases": [
+    {
+      "name": "valid_core_nowcast",
+      "activation": {
+        "schema_version": 1,
+        "scope": "phase6_runtime_activation",
+        "activation_state": "approved",
+        "product_activation_recorded": true,
+        "approved_modes": ["core_nowcast"],
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "eligibility": {
+        "schema_version": 2,
+        "scope": "phase6_runtime_eligibility",
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "futurecast_horizons_hours": [],
+        "modes": {
+          "system_health_view": false,
+          "beta_collection": false,
+          "core_nowcast": true,
+          "stationcast_deterministic": false,
+          "stationcast_learned": false,
+          "futurecast": false,
+          "six_meter": false
+        }
+      },
+      "allowed_modes": ["core_nowcast"],
+      "futurecast_horizons_hours": [],
+      "valid": true
+    },
+    {
+      "name": "valid_partial_futurecast",
+      "activation": {
+        "schema_version": 1,
+        "scope": "phase6_runtime_activation",
+        "activation_state": "approved",
+        "product_activation_recorded": true,
+        "approved_modes": ["futurecast"],
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "eligibility": {
+        "schema_version": 2,
+        "scope": "phase6_runtime_eligibility",
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "futurecast_horizons_hours": [3, 12],
+        "modes": {
+          "system_health_view": false,
+          "beta_collection": false,
+          "core_nowcast": false,
+          "stationcast_deterministic": false,
+          "stationcast_learned": false,
+          "futurecast": true,
+          "six_meter": false
+        }
+      },
+      "allowed_modes": ["futurecast"],
+      "futurecast_horizons_hours": [3, 12],
+      "valid": true
+    },
+    {
+      "name": "checksum_mismatch_fails_closed",
+      "activation": {
+        "schema_version": 1,
+        "scope": "phase6_runtime_activation",
+        "activation_state": "approved",
+        "product_activation_recorded": true,
+        "approved_modes": ["core_nowcast"],
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "eligibility": {
+        "schema_version": 2,
+        "scope": "phase6_runtime_eligibility",
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "futurecast_horizons_hours": [],
+        "modes": {
+          "system_health_view": false,
+          "beta_collection": false,
+          "core_nowcast": true,
+          "stationcast_deterministic": false,
+          "stationcast_learned": false,
+          "futurecast": false,
+          "six_meter": false
+        }
+      },
+      "allowed_modes": [],
+      "futurecast_horizons_hours": [],
+      "valid": false
+    },
+    {
+      "name": "futurecast_horizons_must_be_sorted",
+      "activation": {
+        "schema_version": 1,
+        "scope": "phase6_runtime_activation",
+        "activation_state": "approved",
+        "product_activation_recorded": true,
+        "approved_modes": ["futurecast"],
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "eligibility": {
+        "schema_version": 2,
+        "scope": "phase6_runtime_eligibility",
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "futurecast_horizons_hours": [12, 3],
+        "modes": {
+          "system_health_view": false,
+          "beta_collection": false,
+          "core_nowcast": false,
+          "stationcast_deterministic": false,
+          "stationcast_learned": false,
+          "futurecast": true,
+          "six_meter": false
+        }
+      },
+      "allowed_modes": [],
+      "futurecast_horizons_hours": [],
+      "valid": false
+    },
+    {
+      "name": "futurecast_boolean_must_match_horizons",
+      "activation": {
+        "schema_version": 1,
+        "scope": "phase6_runtime_activation",
+        "activation_state": "approved",
+        "product_activation_recorded": true,
+        "approved_modes": ["futurecast"],
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "eligibility": {
+        "schema_version": 2,
+        "scope": "phase6_runtime_eligibility",
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "futurecast_horizons_hours": [3],
+        "modes": {
+          "system_health_view": false,
+          "beta_collection": false,
+          "core_nowcast": false,
+          "stationcast_deterministic": false,
+          "stationcast_learned": false,
+          "futurecast": false,
+          "six_meter": false
+        }
+      },
+      "allowed_modes": [],
+      "futurecast_horizons_hours": [],
+      "valid": false
+    },
+    {
+      "name": "approved_mode_must_be_eligible",
+      "activation": {
+        "schema_version": 1,
+        "scope": "phase6_runtime_activation",
+        "activation_state": "approved",
+        "product_activation_recorded": true,
+        "approved_modes": ["core_nowcast"],
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "eligibility": {
+        "schema_version": 2,
+        "scope": "phase6_runtime_eligibility",
+        "locked_prospective_outcomes_read": false,
+        "source_readiness_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "futurecast_horizons_hours": [],
+        "modes": {
+          "system_health_view": false,
+          "beta_collection": false,
+          "core_nowcast": false,
+          "stationcast_deterministic": false,
+          "stationcast_learned": false,
+          "futurecast": false,
+          "six_meter": false
+        }
+      },
+      "allowed_modes": [],
+      "futurecast_horizons_hours": [],
+      "valid": false
+    }
+  ]
+}

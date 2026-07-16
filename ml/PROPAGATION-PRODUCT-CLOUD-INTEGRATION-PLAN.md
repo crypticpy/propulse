@@ -1,10 +1,18 @@
 # Propagation Product and Cloud Integration Plan
 
-> Status, 2026-07-16: approved for execution planning. Propulse is a private,
+> Status, 2026-07-16: Phase A is complete and verified on the M5. Propulse is a private,
 > prelaunch product used only by the project team and occasional invited friends.
 > Experimental feature visibility is therefore no longer coupled to scientific
 > release eligibility. The evidence gates still control claims, outcome studies,
 > model publication status, and any future general release.
+> Browser `internal` and service `shadow` contracts now expose the loaded A6 core
+> without activating beta collection or public release. Python and TypeScript use
+> shared activation and capability fixtures. The immutable
+> `retrospective_validated_internal` manifest loaded successfully from the Projects
+> SSD and produced a real path prediction through the strict service registry. Its
+> tracked receipt is
+> [`retrospective_internal_promotion_receipt.json`](results/propagation_v4_2/propagation_v4_2_phase2_scale/retrospective_internal_promotion_receipt.json).
+> Full `npm run verify` passes on the M5. Phase B is next.
 >
 > North star: [`PERSONALIZED-PROPAGATION-V4-PLAN.md`](PERSONALIZED-PROPAGATION-V4-PLAN.md).
 > Active model plan: [`PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md`](PERSONALIZED-PROPAGATION-V4.2-PERFORMANCE-PLAN.md).
@@ -143,22 +151,22 @@ to ephemeral storage at startup, verify it, then mark the service ready.
 
 **Owner:** M5 implementation and verification.
 
-- [ ] Add browser `internal` visibility while preserving legacy environment
+- [x] Add browser `internal` visibility while preserving legacy environment
   compatibility during migration.
-- [ ] Keep the evidence eligibility document as status and as the strict
+- [x] Keep the evidence eligibility document as status and as the strict
   `released`-mode gate.
-- [ ] Fix Python eligibility schema V2 support and add cross-language fixtures.
-- [ ] Decouple `active inference` from `beta_collection`; internal display must
+- [x] Fix Python eligibility schema V2 support and add cross-language fixtures.
+- [x] Decouple `active inference` from `beta_collection`; internal display must
   not require a research receipt secret.
-- [ ] Keep beta receipt signing, consent, privacy, and stop-monitor requirements
+- [x] Keep beta receipt signing, consent, privacy, and stop-monitor requirements
   unchanged.
-- [ ] Generate a new immutable `retrospective_validated_internal` serving
+- [x] Generate a new immutable `retrospective_validated_internal` serving
   manifest on the M5. It must reference the exact A6 components, physics
   fallback, calibrators, feature contract, archive decision hashes, and one
   prediction thread per request.
-- [ ] Refuse startup on a missing file, wrong SHA-256, unexpected schema, wrong
+- [x] Refuse startup on a missing file, wrong SHA-256, unexpected schema, wrong
   feature order, or non-native model/calibrator combination.
-- [ ] Add a single machine-readable capability response covering core NowCast,
+- [x] Add a single machine-readable capability response covering core NowCast,
   deterministic StationCast, health, released FutureCast horizons, learned
   StationCast, and 6m.
 

@@ -21,9 +21,9 @@
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
 > receipt remains `warming` until nonempty aggregates sustain 24 gap-free hours.
-> Research-shadow status, 2026-07-16T12:23Z: `9/9` expected WSPR hours are
-> complete with zero gaps (`9/720` duration gate), `2,199,427` observations,
-> and `590,320` feature cells. The latest keyset-paginated finalizer used the
+> Research-shadow status, 2026-07-16T13:30Z: `10/10` expected WSPR hours are
+> complete with zero gaps (`10/720` duration gate), `2,411,311` observations,
+> and `656,055` feature cells. The latest keyset-paginated finalizer used the
 > exact `2 x 9` native-thread profile and completed in 114.34 seconds.
 > Incident-delivery status: a real `10,227`-second stale heartbeat opened one
 > aggregate-only GitHub issue and a genuine `25`-second heartbeat closed it.
@@ -723,6 +723,14 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   filter, and service-role-only monitoring export. Rollback validation passed
   21/21 gates and deployed-state validation passed 22/22 on PostgreSQL 17.6
   without reading locked outcomes; collection remains disabled.
+- [x] Freeze the private StationCast analysis path: owner-only streaming Parquet
+  export with HMAC participant keys, aggregate database/API operations audit,
+  signed API-telemetry schema, strict real-versus-synthetic receipt validation,
+  10% participant capping, operator-cluster bootstrap, calibration and stratum
+  guardrails, and k-anonymous output. The exact Polars scorer exercised all 16
+  preregistered gates on a 50-participant, 2,000-row, 30-day synthetic cohort
+  using all 18 M5 threads; the synthetic receipt permanently records
+  `release_approved: false` and is not performance evidence.
 - [x] Reactivate first-party PSK Reporter, RBN, DX Cluster, and provenance-rich
   operational-weather collection on the
   M5; replace Node-side hourly materialization with a bounded PostgreSQL RPC,
@@ -737,15 +745,21 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   aggregates and all four operational inputs must be nonempty/current, and the
   gates must remain
   gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `1.14/24` hours; the
+  the latest preserved receipt is honestly `warming` at `2.00/24` hours; the
   August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `81/81`, V4.1 `37/37`, V4.2 `123/123`, and
+  service `81/81`, V4.1 `37/37`, V4.2 `142/142`, and
   frontend/API/collector `88/88` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
   at 1,440 px and 390 px with 53 blocks, 10 charts, 16 metrics, and three
   evidence tables, including the first-party capture readiness receipt.
+- [x] Publish the separate
+  [Phase 6 visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html)
+  with the frozen retrospective result, synthetic scorer proof, independent
+  mode decisions, elapsed evidence clocks, blockers, limitations, and ordered
+  next steps. Canonical packaging and source-dialog/browser QA passed with five
+  charts, seven metrics, four tables, and 1,440 px plus 390 px viewports.
 - [x] Harden the health outbox with atomic `SKIP LOCKED` claims, lease-token
   completion, collision rollback, bounded counters, service-role-only RPCs,
   and retryable failure state; pass 18 rollback and 19 deployed-state gates.

@@ -205,6 +205,34 @@ the affected beta attempt and require a new versioned protocol decision.
   evidence only. Raw operator records and third-party source rows are never
   published.
 
+## Frozen analysis implementation
+
+The machine-readable thresholds are frozen in
+`config/propagation_v4_2_beta_protocol.json`. The M5 implementation has four
+separate responsibilities:
+
+1. `export_stationcast_beta_private.py` streams active, consented database rows
+   into owner-only Parquet on the Projects volume. It replaces the account ID
+   with an HMAC participant key before writing, coarsens origin to Maidenhead
+   field, and never exports exact grid4 or raw station inventory.
+2. `generate_stationcast_beta_operations_receipt.py` makes a read-only aggregate
+   database audit of attempts, binary outcomes, unknown/not-attempted outcomes,
+   open attempts, OOD/fallback exclusions, withdrawals, and retention deletion.
+   It also verifies a signed aggregate API-telemetry receipt against
+   `config/propagation_v4_2_beta_api_telemetry.schema.json`.
+3. `score_stationcast_beta.py` uses Polars streaming input, applies the frozen
+   primary filter and participant cap, computes paired probabilistic metrics,
+   runs the operator-cluster bootstrap, and withholds subthreshold cells. A real
+   decision fails closed when the operational receipt is missing, synthetic,
+   malformed, or withheld.
+4. `run_synthetic_stationcast_beta.py` exercises the exact scorer on native
+   ARM64 with all visible Polars threads. Its receipt always writes
+   `release_approved: false`, even when every synthetic gate passes.
+
+The synthetic dry run is an implementation proof only. Its fixture metrics are
+not evidence about operator equipment, propagation, or expected beta effect
+size, and they may not be quoted as real model performance.
+
 ## Frozen prospective window
 
 The 2026-08-01 through 2026-09-30 NowCast evaluation remains immutable and

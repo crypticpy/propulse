@@ -546,6 +546,59 @@ read locked outcomes. Production Vercel holds an independent sensitive
 returns deletion counts only. Both outcome flags remain false until every
 protocol preflight gate passes.
 
+Freeze and exercise the private exporter and scorer on the M5 before any real
+outcome flag is enabled:
+
+```bash
+cd /Users/crypticpy/Projects/propulse
+export POLARS_MAX_THREADS=18
+PRIVATE=/Volumes/Projects/PropulseML/private/stationcast_beta
+umask 077
+mkdir -p "$PRIVATE"
+openssl rand -out "$PRIVATE/participant-key.secret" 32
+openssl rand -out "$PRIVATE/api-telemetry.secret" 32
+
+ml/.venv/bin/python ml/src/archive_v4_2/run_synthetic_stationcast_beta.py \
+  --profile m5
+```
+
+For a real preregistered window, the production telemetry aggregator first
+writes an unsigned, aggregate-only receipt matching
+`ml/config/propagation_v4_2_beta_api_telemetry.schema.json`. Sign and audit it,
+then export and score the private cohort:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/sign_stationcast_beta_api_telemetry.py \
+  --profile m5 \
+  --input "$PRIVATE/api-telemetry-unsigned.json" \
+  --secret "$PRIVATE/api-telemetry.secret" \
+  --output "$PRIVATE/api-telemetry-signed.json"
+
+ml/.venv/bin/python ml/src/archive_v4_2/generate_stationcast_beta_operations_receipt.py \
+  --profile m5 --window-start 2026-08-01T00:00:00Z \
+  --window-end 2026-10-01T00:00:00Z \
+  --api-telemetry-receipt "$PRIVATE/api-telemetry-signed.json" \
+  --api-telemetry-secret "$PRIVATE/api-telemetry.secret"
+
+ml/.venv/bin/python ml/src/archive_v4_2/export_stationcast_beta_private.py \
+  --profile m5 --window-start 2026-08-01T00:00:00Z \
+  --window-end 2026-10-01T00:00:00Z \
+  --policy-version propagation-research-v1-2026-07-12 \
+  --participant-key-secret "$PRIVATE/participant-key.secret"
+
+ml/.venv/bin/python ml/src/archive_v4_2/score_stationcast_beta.py \
+  --profile m5 \
+  --input "$PRIVATE/stationcast_beta_20260801_20261001.parquet" \
+  --export-receipt "$PRIVATE/stationcast_beta_20260801_20261001.receipt.json" \
+  --operations-receipt \
+    ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/stationcast_beta_operations_receipt.json \
+  --require-release
+```
+
+The private Parquet, HMAC secrets, signed telemetry, and private export receipt
+remain on the Projects volume and are never committed. The aggregate scorer
+decision may be committed only after the privacy/reportability gates pass.
+
 ## Reproduce Phase 2 at 20M
 
 After the parent exits successfully:

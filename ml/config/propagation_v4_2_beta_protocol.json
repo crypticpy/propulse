@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "protocol_version": "propagation-v4.2-stationcast-beta-2026-07-16",
+  "policy_version": "propagation-research-v1-2026-07-12",
+  "primary": {
+    "profile": "nowcast",
+    "mode": "WSPR",
+    "task": "receive",
+    "require_station_supported": true,
+    "require_no_ood_flags": true
+  },
+  "privacy": {
+    "minimum_public_participants": 5,
+    "minimum_public_outcomes": 20,
+    "maximum_participant_weight_share": 0.1,
+    "retention_days": 730
+  },
+  "alpha": {
+    "minimum_participants": 10,
+    "minimum_binary_outcomes": 200,
+    "minimum_tier_a_outcomes": 50,
+    "minimum_calendar_days": 7,
+    "minimum_reportable_bands": 3,
+    "minimum_reportable_capability_cells": 3
+  },
+  "beta": {
+    "minimum_participants": 50,
+    "minimum_weighted_primary_outcomes": 2000,
+    "minimum_tier_a_outcomes": 1000,
+    "minimum_calendar_days": 30,
+    "minimum_supported_bands": 5,
+    "minimum_band_outcomes": 100,
+    "minimum_geography_cells": 4,
+    "minimum_capability_cells": 3,
+    "minimum_cell_participants": 5,
+    "minimum_cell_outcomes": 100,
+    "minimum_relative_brier_improvement": 0.01,
+    "maximum_ece_degradation": 0.002,
+    "maximum_high_confidence_gap_degradation": 0.002,
+    "maximum_high_confidence_overprediction": 0.1,
+    "maximum_stratum_relative_brier_regression": 0.03,
+    "bootstrap_repetitions": 2000,
+    "bootstrap_seed": 42042,
+    "bootstrap_upper_quantile": 0.975,
+    "calibration_bins": 10,
+    "high_confidence_probability": 0.5
+  }
+}

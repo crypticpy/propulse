@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T13:18:43.551780+00:00",
+  "generated_at": "2026-07-16T13:45:54.144624+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -28,7 +28,7 @@
     "wspr_shadow": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/wspr_research_shadow_progress.json",
       "exists": true,
-      "sha256": "2d6a979cadced4056bc74852097145cb32ae15525d4518c69bb6243907834082",
+      "sha256": "589557750e6529b0497ccda363ba679543d905db7dbc8645488415767a3cabcd",
       "schema_version": 1,
       "decision": "collecting"
     },
@@ -40,7 +40,7 @@
     "prospective_capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
       "exists": true,
-      "sha256": "76422accef53371ae6b03c83f4f937c5e255a51747c67cf72f7d2a861907ec79",
+      "sha256": "7cbdf96b918c798223823db279d21aa08a54517ff5a8026d7a0d43f09dd2adb0",
       "schema_version": 1,
       "decision": null
     },
@@ -116,7 +116,7 @@
     "beta_protocol": {
       "path": "ml/PERSONALIZED-PROPAGATION-V4.2-BETA-PROTOCOL.md",
       "exists": true,
-      "sha256": "f245e39aaf9c0796f5b0f5eda83e71cfc5f16ea7f4d41020009f23adf04f281a"
+      "sha256": "dc0599e2623add402a63976946b3b935ba91e7999057d397ff9965c206acb6be"
     }
   },
   "gates": {

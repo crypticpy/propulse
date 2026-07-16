@@ -12,6 +12,7 @@ from validate_live_feature_migration import (  # noqa: E402
     PENDING_PREREQUISITES,
     current_project_pooler_url,
 )
+from verify_live_feature_deployment import EXPECTED_VERSIONS  # noqa: E402
 
 
 class LiveFeatureMigrationTests(unittest.TestCase):
@@ -44,6 +45,10 @@ class LiveFeatureMigrationTests(unittest.TestCase):
         names = [path.name for path in PENDING_PREREQUISITES]
         self.assertEqual(names, sorted(names))
         self.assertTrue(all(name < "20260716000000_wspr_live_feature_store.sql" for name in names))
+
+    def test_deployment_ledger_contract_has_six_ordered_versions(self) -> None:
+        self.assertEqual(len(EXPECTED_VERSIONS), 6)
+        self.assertEqual(EXPECTED_VERSIONS, tuple(sorted(EXPECTED_VERSIONS)))
 
 
 if __name__ == "__main__":

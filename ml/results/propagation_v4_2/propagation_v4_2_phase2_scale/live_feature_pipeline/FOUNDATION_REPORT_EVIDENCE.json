@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T02:52:23.272538+00:00",
-  "scope": "live_feature_foundation_and_open_month_replay_pre_provider",
-  "decision": "foundation_and_replay_pass_provider_pending",
+  "generated_at": "2026-07-16T03:02:43.744227+00:00",
+  "scope": "live_feature_foundation_replay_and_schema_deployment_pre_provider",
+  "decision": "foundation_replay_and_schema_pass_provider_pending",
   "source_authorized": false,
-  "migration_deployed": false,
+  "migration_deployed": true,
   "provider_connector_enabled": false,
   "locked_outcomes_read": false,
   "input_inventory": [
@@ -27,6 +27,11 @@
       "id": "migration_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/migration_validation.json",
       "sha256": "9278bbdb9db1f036a86703f4d23a6282f24e8d96bf1759a356b22e63e467f5a2"
+    },
+    {
+      "id": "deployment_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/deployment_validation.json",
+      "sha256": "0013b509749b7b30b1cbc4a1351dbd72afe9d4644b36d5679de0c5b422ab6cc9"
     }
   ],
   "bundle": {
@@ -63,6 +68,50 @@
       {
         "path": "supabase/migrations/20260715000000_solar_snapshot_provenance.sql",
         "sha256": "bc54c1c514a2bd9607c4b3bb9e9e07a82119cba6bc5fe32eba4ac0ffe33a908b"
+      }
+    ],
+    "deployment_scope": "target_postgres_post_deployment_validation",
+    "deployment_gates": {
+      "six_expected_migration_versions_present": true,
+      "all_release_tables_present": true,
+      "all_release_tables_rls_enabled": true,
+      "intended_public_read_grants_present": true,
+      "private_wspr_public_access_revoked": true,
+      "private_wspr_service_access_present": true,
+      "user_scoped_policies_present": true,
+      "service_functions_restricted": true,
+      "security_definer_search_paths_locked": true,
+      "collector_availability_backfill_complete": true,
+      "solar_provenance_columns_present": true,
+      "deployed_four_lag_rpc_exact": true,
+      "smoke_transaction_rolled_back": true,
+      "target_is_postgresql": true,
+      "locked_outcomes_unread": true
+    },
+    "deployed_migrations": [
+      {
+        "path": "supabase/migrations/20260711000000_path_hourly_stats.sql",
+        "sha256": "2d2a88324d5f9a98aac9a316f173d24ae3224b783b6c7bacd3f9371202ee9829"
+      },
+      {
+        "path": "supabase/migrations/20260712000000_space_weather_forecasts.sql",
+        "sha256": "ff74b7caa1914a6f18c660fc8b0a297b42797fffcf984a6d50ba57e9af4dfc2a"
+      },
+      {
+        "path": "supabase/migrations/20260712001000_propagation_v4_product.sql",
+        "sha256": "479e1070230b234bfe7333964391c8c9a4c7af4e47f443582f73baa002aebbb3"
+      },
+      {
+        "path": "supabase/migrations/20260712002000_collector_availability.sql",
+        "sha256": "bc08443a4c8a5568cca88b13744d39220c90a207975abd737b7650fac4280973"
+      },
+      {
+        "path": "supabase/migrations/20260715000000_solar_snapshot_provenance.sql",
+        "sha256": "bc54c1c514a2bd9607c4b3bb9e9e07a82119cba6bc5fe32eba4ac0ffe33a908b"
+      },
+      {
+        "path": "supabase/migrations/20260716000000_wspr_live_feature_store.sql",
+        "sha256": "166055d420bd8976e7851a0f02d9850bcbac50e06ff71689a85487adb34d3212"
       }
     ]
   },
@@ -147,7 +196,9 @@
         "replay_gates_passed": 15,
         "replay_gates_total": 15,
         "migration_gates_passed": 22,
-        "migration_gates_total": 22
+        "migration_gates_total": 22,
+        "deployment_gates_passed": 15,
+        "deployment_gates_total": 15
       }
     ],
     "parity_rows": [
@@ -495,6 +546,81 @@
         "scope": "Target PostgreSQL rollback",
         "gate": "locked outcomes unread",
         "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "six expected migration versions present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "all release tables present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "all release tables rls enabled",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "intended public read grants present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "private wspr public access revoked",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "private wspr service access present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "user scoped policies present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "service functions restricted",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "security definer search paths locked",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "collector availability backfill complete",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "solar provenance columns present",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "deployed four lag rpc exact",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "smoke transaction rolled back",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "target is postgresql",
+        "status": "pass"
+      },
+      {
+        "scope": "Post-deployment target",
+        "gate": "locked outcomes unread",
+        "status": "pass"
       }
     ],
     "blocker_rows": [
@@ -503,15 +629,15 @@
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "reviewed migration deployment and production scheduler",
-        "status": "required before live NowCast"
-      },
-      {
         "remaining_work": "authorized provider connector",
         "status": "required before live NowCast"
       },
       {
         "remaining_work": "trusted server-authoritative operational-weather response",
+        "status": "required before live NowCast"
+      },
+      {
+        "remaining_work": "production hourly finalizer, pruning scheduler, and monitoring",
         "status": "required before live NowCast"
       },
       {
@@ -530,7 +656,7 @@
         "evidence_limit": "30-day real receipt-time shadow coverage is still required"
       },
       {
-        "evidence_limit": "target PostgreSQL validation was rollback-only; the migration is tested but not deployed"
+        "evidence_limit": "the schema is deployed and smoke-verified, but no authorized live source or production scheduler is active"
       }
     ]
   }

@@ -25,6 +25,7 @@ INPUTS = {
     "foundation_validation": RESULT / "foundation_validation.json",
     "replay_validation": RESULT / "replay_validation.json",
     "migration_validation": RESULT / "migration_validation.json",
+    "deployment_validation": RESULT / "deployment_validation.json",
 }
 
 
@@ -85,6 +86,7 @@ def build_evidence(
     foundation: dict[str, Any],
     replay: dict[str, Any],
     migration_validation: dict[str, Any],
+    deployment_validation: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
         raise RuntimeError("transform parity did not pass")
@@ -97,9 +99,21 @@ def build_evidence(
         or migration_validation.get("persistent_changes") is not False
     ):
         raise RuntimeError("target Postgres rollback validation did not pass")
+    if (
+        deployment_validation.get("decision") != "pass"
+        or deployment_validation.get("migration_deployed") is not True
+        or deployment_validation.get("persistent_test_rows") is not False
+    ):
+        raise RuntimeError("target Postgres deployment validation did not pass")
     if any(
         value.get("locked_outcomes_read")
-        for value in (transform, foundation, replay, migration_validation)
+        for value in (
+            transform,
+            foundation,
+            replay,
+            migration_validation,
+            deployment_validation,
+        )
     ):
         raise RuntimeError("live-feature work must not read locked outcomes")
 
@@ -155,6 +169,10 @@ def build_evidence(
             bool(value) for value in migration_validation["gates"].values()
         ),
         "migration_gates_total": len(migration_validation["gates"]),
+        "deployment_gates_passed": sum(
+            bool(value) for value in deployment_validation["gates"].values()
+        ),
+        "deployment_gates_total": len(deployment_validation["gates"]),
     }]
     parity_rows = []
     for month in event_replays:
@@ -217,6 +235,11 @@ def build_evidence(
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
     } for name, passed in migration_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Post-deployment target",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in deployment_validation["gates"].items())
     blocker_rows = [
         {
             "remaining_work": work,
@@ -224,9 +247,9 @@ def build_evidence(
         }
         for work in (
             "written source authorization or a self-operated source",
-            "reviewed migration deployment and production scheduler",
             "authorized provider connector",
             "trusted server-authoritative operational-weather response",
+            "production hourly finalizer, pruning scheduler, and monitoring",
             "30-day real receipt-time shadow coverage and calibration evidence",
         )
     ]
@@ -237,16 +260,16 @@ def build_evidence(
     ]
     limit_rows.append({
         "evidence_limit": (
-            "target PostgreSQL validation was rollback-only; the migration is tested but not deployed"
+            "the schema is deployed and smoke-verified, but no authorized live source or production scheduler is active"
         )
     })
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "scope": "live_feature_foundation_and_open_month_replay_pre_provider",
-        "decision": "foundation_and_replay_pass_provider_pending",
+        "scope": "live_feature_foundation_replay_and_schema_deployment_pre_provider",
+        "decision": "foundation_replay_and_schema_pass_provider_pending",
         "source_authorized": False,
-        "migration_deployed": False,
+        "migration_deployed": True,
         "provider_connector_enabled": False,
         "locked_outcomes_read": False,
         "input_inventory": [
@@ -264,6 +287,9 @@ def build_evidence(
             "pending_prerequisite_migrations": migration_validation.get(
                 "pending_prerequisite_migrations", []
             ),
+            "deployment_scope": deployment_validation["scope"],
+            "deployment_gates": deployment_validation["gates"],
+            "deployed_migrations": deployment_validation["migrations"],
         },
         "transform": {
             "version": transform["transform"]["transform_version"],
@@ -386,8 +412,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
     tables = [
         {
             "id": "gate_table",
-            "title": "Foundation and replay validation gates",
-            "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, and migration contract all pass.",
+            "title": "Foundation, replay, and deployment gates",
+            "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, migration contract, and deployed schema all pass.",
             "dataset": "gate_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
@@ -413,7 +439,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         {
             "id": "blocker_table",
             "title": "Required work before live NowCast",
-            "subtitle": "A passing foundation does not authorize a provider or deploy the private store.",
+            "subtitle": "The private store is deployed, but no live provider or scheduled ingest is authorized.",
             "dataset": "blocker_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
@@ -442,10 +468,11 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after "
                 "duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, "
                 f"kept identity-free telemetry, and served a path at **{summary['path_p95_ms']:.2f} ms p95** and a "
-                f"288-cell surface at **{summary['surface_p95_ms']:.2f} ms p95**. The six-migration release chain also passed "
+                f"288-cell surface at **{summary['surface_p95_ms']:.2f} ms p95**. The six-migration release chain passed "
                 f"**{summary['migration_gates_passed']} of {summary['migration_gates_total']}** rollback-only gates "
-                "on the target PostgreSQL 17.6 database with its original object state restored. This approves the foundation for "
-                "authorized-source integration. It does not claim that the reviewed migrations are deployed or that a live provider is approved."
+                "on the target PostgreSQL 17.6 database with its original object state restored, then passed "
+                f"**{summary['deployment_gates_passed']} of {summary['deployment_gates_total']}** post-deployment gates. "
+                "The schema is deployed and ready for authorized-source integration; no live provider or scheduler is approved."
             ),
         },
         {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
@@ -511,9 +538,10 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "is pinned because deterministic receiver sampling depends on it. The foundation validation loads "
                 "the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and "
                 "requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid "
-                "and station-envelope fields. All six pending migrations are executed in timestamp order inside a rollback-only transaction "
+                "and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction "
                 "on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, "
-                "and the four-lag RPC are exercised before the original object state is verified. No external live "
+                "and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then "
+                "deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. No external live "
                 "WSPR provider was queried."
             ),
         },
@@ -540,8 +568,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "This is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a "
                 "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
-                "real arrival distributions, outage recovery, or 30-day shadow calibration. Rollback-only migration "
-                "execution is not a production deployment or scheduler test. Operational weather inputs also "
+                "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
+                "does not prove the hourly finalizer, pruning scheduler, or monitoring loop. Operational weather inputs also "
                 "need the same server-authoritative treatment before active forecasts. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
@@ -555,10 +583,9 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "body": (
                 "## Next steps\n\n"
                 "1. Obtain written authorization for a live WSPR source or operate a source we control.\n"
-                "2. Apply the rollback-validated six-migration chain through the normal reviewed deployment path.\n"
-                "3. Implement the authorized connector without changing the shared transform.\n"
-                "4. Expose trusted server-authoritative operational weather and exercise retention/pruning on target Postgres.\n"
-                "5. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to "
+                "2. Implement the authorized connector without changing the shared transform.\n"
+                "3. Expose trusted server-authoritative operational weather and schedule the hourly finalizer and pruning job.\n"
+                "4. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
         },
@@ -606,9 +633,10 @@ duplicates, reordering, and late arrivals. The real A6 bundle blocked browser
 freshness forgery and measured `{summary['path_p95_ms']:.2f}` ms path p95 and
 `{summary['surface_p95_ms']:.2f}` ms for a 288-cell surface.
 
-Live WSPR remains disabled pending source authorization, reviewed migration
-deployment, an authorized connector, trusted operational weather, and 30 days of real
-receipt-time shadow evidence. See `REPORT.html` for charts, methodology, privacy
+The six-migration schema is deployed and passed post-deployment verification.
+Live WSPR remains disabled pending source authorization, an authorized
+connector, the production scheduler, trusted operational weather, and 30 days
+of real receipt-time shadow evidence. See `REPORT.html` for charts, methodology, privacy
 and fallback contracts, limitations, and next steps.
 """
 
@@ -629,11 +657,13 @@ def main() -> None:
     foundation = read_json(INPUTS["foundation_validation"])
     replay = read_json(INPUTS["replay_validation"])
     migration_validation = read_json(INPUTS["migration_validation"])
+    deployment_validation = read_json(INPUTS["deployment_validation"])
     evidence = build_evidence(
         transform,
         foundation,
         replay,
         migration_validation,
+        deployment_validation,
     )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

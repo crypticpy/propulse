@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
     "description": "Multi-hour transform parity, causal receipt replay, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
-    "generatedAt": "2026-07-16T02:52:23.273138+00:00",
+    "generatedAt": "2026-07-16T03:02:43.744916+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -189,8 +189,8 @@
     "tables": [
       {
         "id": "gate_table",
-        "title": "Foundation and replay validation gates",
-        "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, and migration contract all pass.",
+        "title": "Foundation, replay, and deployment gates",
+        "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, migration contract, and deployed schema all pass.",
         "dataset": "gate_rows",
         "sourceId": "live_feature_evidence",
         "density": "dense",
@@ -232,7 +232,7 @@
       {
         "id": "blocker_table",
         "title": "Required work before live NowCast",
-        "subtitle": "A passing foundation does not authorize a provider or deploy the private store.",
+        "subtitle": "The private store is deployed, but no live provider or scheduled ingest is authorized.",
         "dataset": "blocker_rows",
         "sourceId": "live_feature_evidence",
         "density": "dense",
@@ -277,7 +277,7 @@
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain also passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored. This approves the foundation for authorized-source integration. It does not claim that the reviewed migrations are deployed or that a live provider is approved."
+        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The schema is deployed and ready for authorized-source integration; no live provider or scheduler is approved."
       },
       {
         "id": "cards",
@@ -363,7 +363,7 @@
         "id": "method",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six pending migrations are executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC are exercised before the original object state is verified. No external live WSPR provider was queried."
+        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. No external live WSPR provider was queried."
       },
       {
         "id": "compute",
@@ -375,7 +375,7 @@
         "id": "limits",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. Rollback-only migration execution is not a production deployment or scheduler test. Operational weather inputs also need the same server-authoritative treatment before active forecasts. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema does not prove the hourly finalizer, pruning scheduler, or monitoring loop. Operational weather inputs also need the same server-authoritative treatment before active forecasts. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
       },
       {
         "id": "limit_table_block",
@@ -393,13 +393,13 @@
         "id": "next",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Next steps\n\n1. Obtain written authorization for a live WSPR source or operate a source we control.\n2. Apply the rollback-validated six-migration chain through the normal reviewed deployment path.\n3. Implement the authorized connector without changing the shared transform.\n4. Expose trusted server-authoritative operational weather and exercise retention/pruning on target Postgres.\n5. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+        "body": "## Next steps\n\n1. Obtain written authorization for a live WSPR source or operate a source we control.\n2. Implement the authorized connector without changing the shared transform.\n3. Expose trusted server-authoritative operational weather and schedule the hourly finalizer and pruning job.\n4. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
       }
     ]
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T02:52:23.273138+00:00",
+    "generatedAt": "2026-07-16T03:02:43.744916+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -426,7 +426,9 @@
           "replay_gates_passed": 15,
           "replay_gates_total": 15,
           "migration_gates_passed": 22,
-          "migration_gates_total": 22
+          "migration_gates_total": 22,
+          "deployment_gates_passed": 15,
+          "deployment_gates_total": 15
         }
       ],
       "parity_rows": [
@@ -774,6 +776,81 @@
           "scope": "Target PostgreSQL rollback",
           "gate": "locked outcomes unread",
           "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "six expected migration versions present",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "all release tables present",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "all release tables rls enabled",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "intended public read grants present",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "private wspr public access revoked",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "private wspr service access present",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "user scoped policies present",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "service functions restricted",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "security definer search paths locked",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "collector availability backfill complete",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "solar provenance columns present",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "deployed four lag rpc exact",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "smoke transaction rolled back",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "target is postgresql",
+          "status": "pass"
+        },
+        {
+          "scope": "Post-deployment target",
+          "gate": "locked outcomes unread",
+          "status": "pass"
         }
       ],
       "blocker_rows": [
@@ -782,15 +859,15 @@
           "status": "required before live NowCast"
         },
         {
-          "remaining_work": "reviewed migration deployment and production scheduler",
-          "status": "required before live NowCast"
-        },
-        {
           "remaining_work": "authorized provider connector",
           "status": "required before live NowCast"
         },
         {
           "remaining_work": "trusted server-authoritative operational-weather response",
+          "status": "required before live NowCast"
+        },
+        {
+          "remaining_work": "production hourly finalizer, pruning scheduler, and monitoring",
           "status": "required before live NowCast"
         },
         {
@@ -809,7 +886,7 @@
           "evidence_limit": "30-day real receipt-time shadow coverage is still required"
         },
         {
-          "evidence_limit": "target PostgreSQL validation was rollback-only; the migration is tested but not deployed"
+          "evidence_limit": "the schema is deployed and smoke-verified, but no authorized live source or production scheduler is active"
         }
       ]
     }

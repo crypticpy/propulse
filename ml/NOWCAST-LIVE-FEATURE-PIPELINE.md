@@ -25,8 +25,8 @@
 > spots, 88,466 opportunity cells and 78,478 lag cells, zero bidirectional row
 > differences, identical successes/opportunities/sampled rows, 18 DuckDB
 > threads, 0.72 GiB peak RSS, and 2.18 seconds. A private rolling schema,
-> complete-watermark RPC, and
-> server-only PostgREST provider are implemented but not deployed. The service
+> complete-watermark RPC, and server-only PostgREST provider are implemented
+> and the private schema is now deployed. The service
 > now ignores browser-provided path lags/freshness and fails closed to physics
 > unless that verified provider supplies every requested target.
 
@@ -38,7 +38,7 @@
 > one-thread serving contract. The interactive report is
 > [`live_feature_pipeline/REPORT.html`](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html)
 > and passed browser verification at 1,440 px and 390 px. Source authorization,
-> migration deployment, real receipt-time capture, and live shadow evidence
+> production scheduling, real receipt-time capture, and live shadow evidence
 > remain open.
 
 > Replay and migration update, 2026-07-15: the M5 replay passed 15/15 gates on
@@ -48,8 +48,16 @@
 > Synthetic late/duplicate receipt cases produced immutable first versions and
 > exact corrected versions. The private schema then passed 14/14 rollback-only
 > gates on target PostgreSQL 17.6 with no persistent changes. Historical
-> receipt times are synthetic and the migration is not deployed, so the
-> authorized 30-day live shadow gate remains unchanged.
+> receipt times are synthetic, so the authorized 30-day live shadow gate
+> remains unchanged.
+
+> Deployment update, 2026-07-15: the exact six-file release chain passed 22/22
+> rollback gates, was applied through the normal migration ledger, and passed
+> 15/15 post-deployment gates. All release tables exist with RLS, service-only
+> functions and locked search paths; the four-lag RPC smoke was exact and its
+> test rows were rolled back. This deploys storage contracts only. It does not
+> authorize a WSPR source, start ingest/finalization/pruning jobs, or enable
+> NowCast selection.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
@@ -298,8 +306,10 @@ explicitly labeled and does not satisfy the live requirement above.
   connector is present or enabled yet.
 - [x] Build and M5-test the pure `solar_snapshots` operational-weather
   builder with source observation/receipt times and legal rolling features.
-- [ ] Deploy the provenance migration and expose the builder through one
-  trusted backend response; do not assemble model weather in React pages.
+- [x] Deploy the provenance and private WSPR feature-store migrations through
+  the reviewed chain and pass post-deployment RLS/RPC verification.
+- [ ] Expose the operational-weather builder through one trusted backend
+  response; do not assemble model weather in React pages.
 - [x] Add service-role-only batched path-history lookup and make the trusted
   model backend reject browser-provided lag values and freshness.
 - [x] Validate the real A6 bundle, fail-closed service behavior, aggregate-only

@@ -660,6 +660,8 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   months and validate late/duplicate/versioned receipt behavior synthetically.
 - [x] Rollback-validate the private WSPR schema and lookup RPC against the real
   target PostgreSQL instance without leaving persistent objects.
+- [x] Deploy the exact reviewed six-migration chain and pass post-deployment
+  ledger, RLS, grant, policy, search-path, provenance, and four-lag RPC gates.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -692,8 +694,11 @@ duplicate cases proved immutable first versions plus exact corrected versions;
 the archive does not contain trustworthy receipt timestamps, so this is not a
 substitute for the required live window. The WSPR migration separately passed
 all 14 gates in a rollback-only transaction on target PostgreSQL 17.6, leaving
-no persistent change. Production migration deployment, an authorized provider
-connector, real receipt-time capture, and live coverage evidence remain open.
+no persistent change. The exact chain was then applied through the normal
+migration ledger and passed all 15 post-deployment gates; transactional RPC
+smoke rows were removed. An authorized provider connector, production
+finalizer/pruning schedule, real receipt-time capture, and live coverage
+evidence remain open.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,

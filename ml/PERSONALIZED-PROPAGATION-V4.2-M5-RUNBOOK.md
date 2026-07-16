@@ -178,8 +178,21 @@ the exact release chain is checked before a normal deployment; the flag makes
 that intent explicit in release logs. The validator derives the current
 project identity from the untracked project URL, never records a connection
 identifier, and always rolls back. A passing rollback test is not a deployment.
-Do not run a normal migration push until all six hashes are reviewed together;
-the remote ledger currently predates the entire chain.
+
+That reviewed chain was subsequently applied through the normal Supabase
+migration ledger. Verify the deployed state with:
+
+```bash
+ml/.venv/bin/python ml/src/archive_v4_2/verify_live_feature_deployment.py
+```
+
+The target passed all 15 post-deployment gates: six ledger versions, tables,
+RLS, intended grants, user policies, service-only functions, locked
+`SECURITY DEFINER` search paths, collector availability backfill, solar
+provenance columns, and exact four-lag RPC behavior. Smoke rows were rolled
+back. The schema is deployed; the authorized connector, hourly finalizer,
+pruning scheduler, operational-weather endpoint, and 30-day receipt-time shadow
+are not active yet.
 
 ## Reproduce Phase 2 at 20M
 

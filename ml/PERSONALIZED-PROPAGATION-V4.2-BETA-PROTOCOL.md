@@ -35,8 +35,10 @@ receipt secret:
    a documented self-operated source. Research-only WSPR access is insufficient.
 5. A controlled full-M5 outage has been detected by the off-M5 monitor and the
    same incident has closed only after genuine publisher recovery.
-6. Consent, attempt, outcome, retention, aggregate-export, RLS, and service-role
-   migrations pass rollback and deployed-state validation.
+6. Consent, attempt, outcome, retention, aggregate-export, RLS, service-role,
+   and aggregate-telemetry migrations pass rollback and deployed-state
+   validation. Every preregistered stop counter also has a validated producer;
+   an unimplemented producer may not be represented as an observed zero.
 7. The model service and product API expose the same receipt schema and secret;
    both independent outcome flags remain false until an explicit beta release.
 8. The System Health reader may remain hidden; enabling it is not a substitute
@@ -229,16 +231,30 @@ separate responsibilities:
    ARM64 with all visible Polars threads. Its receipt always writes
    `release_approved: false`, even when every synthetic gate passes.
 
+The API counter path is implemented by the additive `014000` telemetry
+migration plus the forward-only `015000` UTC hardening migration. The deployed
+chain stores exact hourly aggregate counters with no participant, request,
+path, location, or equipment dimensions; browser DML is revoked and only the
+service role can call the hardened record/export functions.
+`generate_stationcast_beta_api_telemetry.py` reads a half-open UTC-hour window
+in a read-only transaction and writes an owner-only unsigned receipt for the
+separate HMAC signing step. The corrective migration passed 21/21 rollback
+gates and the two-entry deployed chain passed 22/22 live gates without reading
+locked outcomes.
+
 A real scorer decision additionally requires the frozen-config SHA-256, private
 Parquet SHA-256 and row count, export window, and operations window to agree.
 The 30-day gate counts distinct observed UTC dates, not the distance between
-the first and last observation. Signed API telemetry rejects undeclared fields
-and records consent, subject-binding, stale-profile, station-math, unsupported
-support, high-confidence overprediction, geographic-regression, integrity, and
-privacy events independently. Any nonzero stop-event count withholds the real
-decision. The aggregate scorer also enforces the preregistered `0.10`
-high-confidence overprediction stop in addition to the relative calibration
-guardrail.
+the first and last observation. The deployed participation API automatically
+records requests, errors, consent, subject-binding, stale-profile, and signed
+receipt-integrity events. The exact aggregate schema also reserves independent
+privacy, station-math, unsupported-support, high-confidence-overprediction,
+and geographic-regression counters. Those remaining producers must be wired
+and validated at their model-service or scheduled aggregate-monitor boundary
+before beta collection; zero-by-default placeholders are not evidence. Any
+nonzero stop-event count withholds the real decision. The aggregate scorer also
+enforces the preregistered `0.10` high-confidence overprediction stop in
+addition to the relative calibration guardrail.
 
 The synthetic dry run is an implementation proof only. Its fixture metrics are
 not evidence about operator equipment, propagation, or expected beta effect

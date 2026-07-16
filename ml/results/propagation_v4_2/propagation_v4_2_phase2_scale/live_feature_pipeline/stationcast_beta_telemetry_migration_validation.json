@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T14:25:17.727556+00:00",
+  "scope": "stationcast_beta_telemetry_pending_postgres_rollback_validation",
+  "decision": "pass",
+  "migration_deployed": false,
+  "locked_outcomes_read": false,
+  "persistent_changes": false,
+  "migration": {
+    "path": "supabase/migrations/20260716015000_stationcast_beta_telemetry_utc.sql",
+    "sha256": "3a155db7a1cc9d268c7b0b2b1f3b578242c8a788d5705054a795a48083328094"
+  },
+  "migration_chain": [
+    {
+      "path": "supabase/migrations/20260716014000_stationcast_beta_telemetry.sql",
+      "sha256": "292ab896e58967554020c6b64031a3d73b535f67c0d34e99c8cbaf331246370f"
+    },
+    {
+      "path": "supabase/migrations/20260716015000_stationcast_beta_telemetry_utc.sql",
+      "sha256": "3a155db7a1cc9d268c7b0b2b1f3b578242c8a788d5705054a795a48083328094"
+    }
+  ],
+  "database": {
+    "engine": "PostgreSQL",
+    "server_version": "17.6",
+    "connection_identifier_recorded": false
+  },
+  "runtime": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "wall_seconds": 1.8256911249773111,
+    "psycopg_version": "3.3.4"
+  },
+  "gates": {
+    "exact_aggregate_columns_present": true,
+    "no_participant_or_path_columns": true,
+    "counter_columns_are_required_bigints": true,
+    "hourly_primary_key_is_exact": true,
+    "utc_hour_bucketing_is_explicit": true,
+    "row_level_security_is_forced": true,
+    "privacy_comment_is_explicit": true,
+    "exact_security_definer_functions_present": true,
+    "function_search_paths_hardened": true,
+    "functions_are_service_role_only": true,
+    "browser_table_access_is_revoked": true,
+    "service_role_table_access_is_available": true,
+    "record_function_rejects_undeclared_dimensions": true,
+    "export_has_exact_window_and_privacy_marker": true,
+    "atomic_hourly_upsert_and_exact_export": true,
+    "participant_dimension_increment_rejected": true,
+    "rollback_restored_original_boundary": true,
+    "persistent_test_changes_absent": true,
+    "target_is_postgresql": true,
+    "native_m5_runtime": true,
+    "locked_outcomes_unread": true
+  }
+}

@@ -16,6 +16,7 @@ from generate_stationcast_beta_operations_receipt import (
     telemetry_signature,
     validate_api_telemetry,
 )
+from generate_stationcast_beta_api_telemetry import validate_unsigned_receipt
 from m5_runtime import validate_m5_runtime
 from score_stationcast_beta import validate_beta_config
 from validate_live_feature_migration import atomic_write
@@ -35,14 +36,22 @@ def main() -> None:
     telemetry = json.loads(args.input.read_text(encoding="utf-8"))
     if telemetry.get("participant_data_present") is not False:
         raise RuntimeError("telemetry receipt is not aggregate-only")
+    window = telemetry.get("window", {})
+    window_start = parse_utc(str(window.get("start", "")))
+    window_end = parse_utc(str(window.get("end", "")))
+    validate_unsigned_receipt(
+        telemetry,
+        config,
+        window_start=window_start,
+        window_end=window_end,
+    )
     secret = owner_secret(args.secret)
     telemetry["signature"] = telemetry_signature(telemetry, secret)
-    window = telemetry.get("window", {})
     errors = validate_api_telemetry(
         telemetry,
         config,
-        window_start=parse_utc(str(window.get("start", ""))),
-        window_end=parse_utc(str(window.get("end", ""))),
+        window_start=window_start,
+        window_end=window_end,
         secret=secret,
     )
     if errors:

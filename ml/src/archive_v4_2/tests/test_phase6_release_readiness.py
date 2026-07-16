@@ -89,6 +89,10 @@ def release_evidence() -> dict[str, dict[str, object] | None]:
             migration_deployed=True,
             locked_outcomes_read=False,
         ),
+        "beta_telemetry_boundary": passing_document(
+            migration_deployed=True,
+            locked_outcomes_read=False,
+        ),
         "stationcast_beta": passing_document(release_approved=True),
         "nowcast_prospective": passing_document(
             release_approved=True,

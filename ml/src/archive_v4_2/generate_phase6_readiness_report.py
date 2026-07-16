@@ -207,6 +207,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "Personalized beta": (
             "participation_boundary_deployed",
             "beta_protocol_boundary_deployed",
+            "beta_telemetry_boundary_deployed",
             "beta_protocol_preregistered",
             "stationcast_beta_passed",
         ),
@@ -265,7 +266,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
 
     required_by_mode = {
         "core_nowcast": 11,
-        "stationcast_deterministic": 13,
+        "stationcast_deterministic": 14,
         "stationcast_learned": 1,
         "futurecast": 1,
         "six_meter": 1,

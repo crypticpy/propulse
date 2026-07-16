@@ -48,7 +48,30 @@ interface OutcomeRow {
   observed_at: string;
 }
 
+export const STATIONCAST_BETA_PROTOCOL_VERSION =
+  "propagation-v4.2-stationcast-beta-2026-07-16";
+export const STATIONCAST_PATH_HISTORY_STALE_SECONDS = 7_200;
+
+export type BetaTelemetryCounts = Partial<Record<
+  | "requests"
+  | "errors"
+  | "integrity_errors"
+  | "privacy_events"
+  | "consent_errors"
+  | "subject_binding_errors"
+  | "stale_profile_events"
+  | "equipment_math_events"
+  | "unsupported_support_events"
+  | "high_confidence_overprediction_events"
+  | "geographic_regression_events",
+  number
+>>;
+
 export interface ResearchParticipationStore {
+  recordTelemetry(
+    counts: BetaTelemetryCounts,
+    observedAt: string,
+  ): Promise<void>;
   getConsent(userId: string): Promise<ConsentRow | null>;
   saveConsent(
     userId: string,
@@ -150,6 +173,14 @@ function createStore(url: string, serviceKey: string): ResearchParticipationStor
   };
 
   return {
+    async recordTelemetry(counts, observedAt) {
+      const { error } = await db.rpc("record_propagation_beta_telemetry", {
+        p_protocol_version: STATIONCAST_BETA_PROTOCOL_VERSION,
+        p_observed_at: observedAt,
+        p_counts: counts,
+      });
+      if (error) throw new Error("Beta telemetry write failed");
+    },
     getConsent,
     async saveConsent(userId, allowedUses, now) {
       const { data, error } = await db
@@ -359,6 +390,32 @@ export async function handleResearchParticipation(
     return jsonResponse({ error: "Unauthorized" }, status);
   }
 
+  const telemetryTime = deps.now();
+  try {
+    await deps.store.recordTelemetry(
+      { requests: 1 },
+      telemetryTime.toISOString(),
+    );
+  } catch {
+    return jsonResponse({ error: "Service unavailable" }, 503);
+  }
+
+  const rejectWithTelemetry = async (
+    status: number,
+    message: string,
+    counts: BetaTelemetryCounts = {},
+  ): Promise<Response> => {
+    try {
+      await deps.store.recordTelemetry(
+        { errors: 1, ...counts },
+        telemetryTime.toISOString(),
+      );
+    } catch {
+      return jsonResponse({ error: "Service unavailable" }, 503);
+    }
+    return jsonResponse({ error: message }, status);
+  };
+
   try {
     if (request.method === "GET") {
       const consent = await deps.store.getConsent(user.id);
@@ -392,7 +449,11 @@ export async function handleResearchParticipation(
       const parsed = startAttemptRequestSchema.parse(body);
       const consent = await deps.store.getConsent(user.id);
       if (!activeOutcomeConsent(consent, deps.now())) {
-        return jsonResponse({ error: "Attempt outcome consent is required" }, 403);
+        return rejectWithTelemetry(
+          403,
+          "Attempt outcome consent is required",
+          { consent_errors: 1 },
+        );
       }
       const receipt = verifyResearchReceipt(
         parsed.receipt,
@@ -405,6 +466,18 @@ export async function handleResearchParticipation(
         deps.receiptSecret,
         deps.now(),
       );
+      const pathHistoryAge = receipt.freshness.path_history;
+      if (
+        receipt.profile === "nowcast" &&
+        (pathHistoryAge === undefined ||
+          pathHistoryAge > STATIONCAST_PATH_HISTORY_STALE_SECONDS)
+      ) {
+        return rejectWithTelemetry(
+          400,
+          "Invalid research participation request",
+          { stale_profile_events: 1 },
+        );
+      }
       await deps.store.ensurePrediction(
         user.id,
         receipt,
@@ -432,7 +505,11 @@ export async function handleResearchParticipation(
       const parsed = completeAttemptRequestSchema.parse(body);
       const consent = await deps.store.getConsent(user.id);
       if (!activeOutcomeConsent(consent, deps.now())) {
-        return jsonResponse({ error: "Attempt outcome consent is required" }, 403);
+        return rejectWithTelemetry(
+          403,
+          "Attempt outcome consent is required",
+          { consent_errors: 1 },
+        );
       }
       const result = await deps.store.completeAttempt(
         user.id,
@@ -448,17 +525,36 @@ export async function handleResearchParticipation(
         },
       }, 200);
     }
-    return jsonResponse({ error: "Invalid research participation request" }, 400);
+    return rejectWithTelemetry(
+      400,
+      "Invalid research participation request",
+    );
   } catch (error) {
-    if (error instanceof ZodError || (
-      error instanceof Error && (
-        error.message.startsWith("Research receipt") ||
-        error.message.startsWith("Research subject")
-      )
-    )) {
-      return jsonResponse({ error: "Invalid research participation request" }, 400);
+    if (error instanceof ZodError) {
+      return rejectWithTelemetry(
+        400,
+        "Invalid research participation request",
+        { integrity_errors: 1 },
+      );
     }
-    return jsonResponse({ error: "Research participation service unavailable" }, 503);
+    if (error instanceof Error && error.message.startsWith("Research subject")) {
+      return rejectWithTelemetry(
+        400,
+        "Invalid research participation request",
+        { subject_binding_errors: 1 },
+      );
+    }
+    if (error instanceof Error && error.message.startsWith("Research receipt")) {
+      return rejectWithTelemetry(
+        400,
+        "Invalid research participation request",
+        { integrity_errors: 1 },
+      );
+    }
+    return rejectWithTelemetry(
+      503,
+      "Research participation service unavailable",
+    );
   }
 }
 

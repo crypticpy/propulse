@@ -79,6 +79,7 @@ function optedInConsent() {
 
 function buildStore(): ResearchParticipationStore {
   return {
+    recordTelemetry: vi.fn().mockResolvedValue(undefined),
     getConsent: vi.fn().mockResolvedValue(optedInConsent()),
     saveConsent: vi.fn().mockImplementation(async (_userId, allowedUses, now) => ({
       ...optedInConsent(),
@@ -285,6 +286,36 @@ describe("research participation API", () => {
     );
     expect(expired.status).toBe(400);
     expect(store.ensurePrediction).not.toHaveBeenCalled();
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, integrity_errors: 1 },
+      NOW.toISOString(),
+    );
+  });
+
+  it("counts a signed invalid receipt payload as an integrity event", async () => {
+    const store = buildStore();
+    const signedPayload = JSON.stringify({ ...payload(), profile: "invalid" });
+    const malformed = {
+      signed_payload: signedPayload,
+      hmac_sha256: createHmac("sha256", SECRET)
+        .update(signedPayload)
+        .digest("hex"),
+    };
+    const response = await handleResearchParticipation(
+      post({
+        action: "start_attempt",
+        receipt: malformed,
+        evidenceGrade: "manual",
+      }),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.ensurePrediction).not.toHaveBeenCalled();
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, integrity_errors: 1 },
+      NOW.toISOString(),
+    );
   });
 
   it("binds a signed receipt to the authenticated consenting account", async () => {
@@ -299,6 +330,10 @@ describe("research participation API", () => {
     );
     expect(response.status).toBe(400);
     expect(store.ensurePrediction).not.toHaveBeenCalled();
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, subject_binding_errors: 1 },
+      NOW.toISOString(),
+    );
   });
 
   it("cannot start or label an attempt after consent withdrawal", async () => {
@@ -325,6 +360,42 @@ describe("research participation API", () => {
     expect(complete.status).toBe(403);
     expect(store.ensurePrediction).not.toHaveBeenCalled();
     expect(store.completeAttempt).not.toHaveBeenCalled();
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, consent_errors: 1 },
+      NOW.toISOString(),
+    );
+  });
+
+  it("fails closed when aggregate beta telemetry is unavailable", async () => {
+    const store = buildStore();
+    vi.mocked(store.recordTelemetry).mockRejectedValue(new Error("unavailable"));
+    const response = await handleResearchParticipation(
+      post({ action: "start_attempt", receipt: sign(), evidenceGrade: "manual" }),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(503);
+    expect(store.getConsent).not.toHaveBeenCalled();
+    expect(store.ensurePrediction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale history state labeled nowcast", async () => {
+    const store = buildStore();
+    const stale = sign({
+      ...payload(),
+      freshness: { path_history: 7_201, space_weather: 60 },
+    });
+    const response = await handleResearchParticipation(
+      post({ action: "start_attempt", receipt: stale, evidenceGrade: "manual" }),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.ensurePrediction).not.toHaveBeenCalled();
+    expect(store.recordTelemetry).toHaveBeenCalledWith(
+      { errors: 1, stale_profile_events: 1 },
+      NOW.toISOString(),
+    );
   });
 
   it("cannot issue a binding, start, or label after retention expires", async () => {

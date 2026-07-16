@@ -22,16 +22,19 @@
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
 > receipt remains `warming` at `5.25/24` hours across 25 healthy receipts until
 > nonempty aggregates sustain 24 gap-free hours.
-> Research-shadow status, 2026-07-16T16:50Z: `13/13` expected WSPR hours are
-> complete with zero gaps (`13/720` duration gate), `3,088,321` observations,
-> and `867,072` feature cells. The latest audited keyset-paginated finalizer used the
-> exact `2 x 9` native-thread profile and completed in 114.34 seconds.
-> Aggregate coverage status, 2026-07-16T16:58Z: a separate read-only PostgreSQL
+> Research-shadow status, 2026-07-16T17:20Z: `14/14` expected WSPR hours are
+> complete with zero gaps (`14/720` duration gate), `3,295,875` observations,
+> and `933,688` feature cells. The latest audited keyset-paginated finalizer used the
+> exact `2 x 9` native-thread profile and completed in 114.61 seconds.
+> Aggregate coverage status, 2026-07-16T17:20Z: a separate read-only PostgreSQL
 > audit is checksum-bound to the signed schedule and excludes the earlier manual
-> validation hour. It covers `13/13` hours, 130 complete band-hours, zero gaps,
-> all ten HF bands, 13/24 UTC hour strata, all five distance buckets, and 237
+> validation hour. It covers `14/14` hours, 140 complete band-hours, zero gaps,
+> all ten HF bands, 14/24 UTC hour strata, all five distance buckets, and 237
 > k-suppressed broad-region rows. Database work is capped at 24-hour query
-> chunks and recombined before global region suppression. Early/late drift remains unavailable until two
+> chunks and recombined before global region suppression. A dedicated owner-only
+> LaunchAgent now rebuilds this audit at 06:45 and 18:45 local time, and the
+> twice-hourly watchdog fails unhealthy once the receipt is due and stale or
+> lags the signed window. Early/late drift remains unavailable until two
 > non-overlapping seven-day periods exist; the aggregate gate cannot pass before
 > the full 720-hour window.
 > Incident-delivery status: a real `10,227`-second stale heartbeat opened one
@@ -728,6 +731,14 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   completion, all 24 UTC strata, two non-overlapping seven-day periods,
   base-2 Jensen-Shannon divergence no greater than 0.20 for band/hour/distance
   distributions, and a late-to-early volume ratio between 0.5 and 2.0.
+- [x] Automate the bounded coverage/drift audit as a third owner-only M5
+  LaunchAgent at 06:45 and 18:45 local time. The existing twice-hourly watchdog
+  now requires a healthy audit no more than 14 hours old and no more than 12
+  hours behind the signed receipt window once 24 scheduled hours exist. It also
+  enforces the signed-window, 24-hour query-bound, private-table-only, and
+  identity/equipment/outcome exclusion gates. Exact deployed-state validation
+  passed `34/34` gates with all three jobs loaded, the audit at zero-hour lag,
+  and no secret in any plist or argument.
 - [x] Implement and deploy a private aggregate research-health boundary with
   HMAC/replay protection, service-role-only RLS, transition outbox, a
   secret-free M5 launchd boundary, and double-gated System Health reader.
@@ -801,7 +812,7 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   the latest preserved receipt is honestly `warming` at `5.25/24` hours across
   25 healthy receipts; the August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `32/32`,
-  service `95/95`, V4.1 `37/37`, V4.2 `180/180`, and
+  service `97/97`, V4.1 `37/37`, V4.2 `181/181`, and
   frontend/API/collector `94/94` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA
@@ -964,12 +975,12 @@ and multicore gates. This
 starts the 30-day internal shadow; one completed hour is not long-window or
 subscriber-facing evidence.
 
-The automatic duration rollup is operationally healthy at `13/13`
-expected hours, 100% scheduled completion, zero gaps, and `13/720` required
-hours through target `2026-07-16T15:00:00Z`. The actual minute-15 calendar
-events, not RunAtLoad or manual targets, have accumulated `3,088,321`
-observations and `867,072` feature cells with the same bounded 18-thread
-profile. The latest audited finalizer completed in 114.34 seconds with two
+The automatic duration rollup is operationally healthy at `14/14`
+expected hours, 100% scheduled completion, zero gaps, and `14/720` required
+hours through target `2026-07-16T16:00:00Z`. The actual minute-15 calendar
+events, not RunAtLoad or manual targets, have accumulated `3,295,875`
+observations and `933,688` feature cells with the same bounded 18-thread
+profile. The latest audited finalizer completed in 114.61 seconds with two
 workers and nine native threads each. The rollup re-verifies
 every receipt against its signed completed manifest and
 cannot return `pass` before all 720 expected hours exist, even if the current
@@ -977,7 +988,7 @@ cannot return `pass` before all 720 expected hours exist, even if the current
 
 The independent coverage audit is checksum-bound to the signed schedule and
 therefore excludes the corrected manual `02:00Z` target. It currently spans
-`13/13` complete hours and 130 band-hours. It queries only
+`14/14` complete hours and 140 band-hours. It queries only
 `wspr_feature_watermarks` and `wspr_path_hourly_features` in a read-only
 transaction. Every statement is bounded to at most 24 hours, so the 720-hour
 audit becomes 30 bounded chunks instead of one query whose working set grows
@@ -986,8 +997,13 @@ it then exposes band/hour/distance totals and broad-field counts only after each
 region spans at least six hours and 100 feature cells across the complete
 window, capped to the top 12 fields per band/direction. This preserves the
 preregistered privacy semantics across chunk boundaries without loading the
-underlying feature rows into M5 memory. Current coverage includes all ten bands
-and all five distance buckets but only 13/24 UTC hour strata.
+underlying feature rows into M5 memory. A third owner-only M5 LaunchAgent now
+rebuilds the audit at 06:45 and 18:45 local time. The twice-hourly watchdog
+requires a current, healthy, zero-to-12-hour-lag receipt after the evidence
+window reaches 24 hours and independently rechecks its privacy and query-bound
+contract. The exact deployed schedule passed `34/34` gates with all three jobs
+loaded. Current coverage includes all ten bands and all five distance buckets
+but only 14/24 UTC hour strata.
 Early/late volume and Jensen-Shannon drift values remain null until two
 non-overlapping seven-day periods exist.
 

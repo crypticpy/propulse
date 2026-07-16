@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
 
 from validate_wspr_research_schedule import (
+    coverage_launchd_gates,
     has_identity_key,
     health_launchd_gates,
     launchd_gates,
@@ -40,29 +42,70 @@ class WsprResearchScheduleValidationTests(unittest.TestCase):
 
     def test_watchdog_contract_is_bounded_and_secret_free(self) -> None:
         runtime = Path.home() / "Library/Application Support/PropulseML"
+        with tempfile.TemporaryDirectory() as temporary:
+            remote_env = Path(temporary) / "remote.env"
+            remote_env.write_text("configured=true\n", encoding="utf-8")
+            remote_env.chmod(0o600)
+            payload = {
+                "Label": "org.propulse.wspr-research-health",
+                "ProgramArguments": [
+                    "python",
+                    "health.py",
+                    "--runtime-root",
+                    str(runtime),
+                    "--alert-output",
+                    str(runtime / "live_wspr_alert.json"),
+                    "--stale-seconds",
+                    "7200",
+                    "--max-runtime-bytes",
+                    str(2 * 1024**3),
+                    "--notify-local",
+                    "--remote-env-file",
+                    str(remote_env),
+                ],
+                "StartCalendarInterval": [{"Minute": 0}, {"Minute": 30}],
+                "RunAtLoad": True,
+                "Umask": 0o077,
+                "StandardOutPath": str(Path.home() / "Library/Logs/health.out"),
+                "StandardErrorPath": str(Path.home() / "Library/Logs/health.err"),
+            }
+            self.assertTrue(
+                all(
+                    health_launchd_gates(
+                        payload,
+                        runtime_root=runtime,
+                        remote_env=remote_env,
+                    ).values()
+                )
+            )
+
+    def test_coverage_contract_is_bounded_and_secret_free(self) -> None:
+        runtime = Path.home() / "Library/Application Support/PropulseML"
         payload = {
-            "Label": "org.propulse.wspr-research-health",
+            "Label": "org.propulse.wspr-research-coverage",
             "ProgramArguments": [
                 "python",
-                "health.py",
-                "--runtime-root",
-                str(runtime),
-                "--alert-output",
-                str(runtime / "live_wspr_alert.json"),
-                "--stale-seconds",
-                "7200",
-                "--max-runtime-bytes",
-                str(2 * 1024**3),
-                "--notify-local",
+                "coverage.py",
+                "--profile",
+                "m5",
+                "--progress",
+                str(runtime / "live_wspr_shadow_progress.json"),
+                "--query-chunk-hours",
+                "24",
+                "--output",
+                str(runtime / "live_wspr_shadow_coverage_drift.json"),
             ],
-            "StartCalendarInterval": [{"Minute": 0}, {"Minute": 30}],
+            "StartCalendarInterval": [
+                {"Hour": 6, "Minute": 45},
+                {"Hour": 18, "Minute": 45},
+            ],
             "RunAtLoad": True,
             "Umask": 0o077,
-            "StandardOutPath": str(Path.home() / "Library/Logs/health.out"),
-            "StandardErrorPath": str(Path.home() / "Library/Logs/health.err"),
+            "StandardOutPath": str(Path.home() / "Library/Logs/coverage.out"),
+            "StandardErrorPath": str(Path.home() / "Library/Logs/coverage.err"),
         }
         self.assertTrue(
-            all(health_launchd_gates(payload, runtime_root=runtime).values())
+            all(coverage_launchd_gates(payload, runtime_root=runtime).values())
         )
 
 

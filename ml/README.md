@@ -17,7 +17,7 @@
 > see the [live research report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/REPORT.html).
 > The frozen private beta scorer, mode-specific blockers, and ordered evidence
 > work are summarized in the [Phase 6 visual report](results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_report/REPORT.html).
-> The latest preserved receipt window is only `13/720` hours and
+> The latest preserved receipt window is only `14/720` hours and
 > subscriber-facing source permission remains open. Opt-in outcome
 > instrumentation plus the preregistered retention/privacy boundary are
 > deployed but disabled; the database gates pass 21/21 rollback and 22/22

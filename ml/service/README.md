@@ -228,11 +228,14 @@ completed hours. Each successful hour has an atomic aggregate receipt and a
 checksum-linked completed manifest in the configured runtime root; raw identities do
 not enter the receipt.
 
-After manual validation, install the research-only launchd job with
+After manual validation, install the research-only launchd jobs with
 `install_m5_wspr_research_launchd.py --install --acknowledge-research-only`.
-It runs at minute 15 and on load, uses the native M5 Python environment, sets an
-owner-only umask, writes small launch logs to `~/Library/Logs/Propulse`, and
-deliberately does not contain credentials or the signing secret. Receipts,
+The installer manages three owner-only LaunchAgents as one unit: the worker at
+minute 15 and on load, the aggregate coverage audit at 06:45 and 18:45 local
+time, and the health watchdog at minutes 0 and 30. They use the native M5 Python
+environment, set an owner-only umask, write small launch logs to
+`~/Library/Logs/Propulse`, and keep credentials and the signing secret out of
+their plists and arguments. Receipts,
 health, manifests, and transient source artifacts use
 `~/Library/Application Support/PropulseML`, because macOS blocks LaunchAgents
 from opening removable-volume paths. Large ML datasets remain on Projects and
@@ -254,10 +257,15 @@ The following scheduled targets through `2026-07-16T06:00:00Z` completed under
 the same bounded profile. The aggregate rollup is now `4/4` expected hours with
 zero gaps, `1,022,042` observations, and `275,834` feature cells.
 
-`check_m5_wspr_research_health.py` is installed as a second LaunchAgent at
+`check_m5_wspr_research_health.py` is installed as the health LaunchAgent at
 minutes 0 and 30. It evaluates the preregistered 7,200-second freshness limit,
 latest settled-hour completion, receipt continuity, UTC alignment, worker
-state, failures, health age, and a 2 GiB transient-runtime ceiling. Changed
+state, failures, health age, and a 2 GiB transient-runtime ceiling. Once the
+signed schedule reaches 24 expected hours, it additionally requires the
+coverage receipt to be at most 14 hours old and at most 12 hours behind. It
+rejects a non-healthy audit, an unsigned window, query chunks above 24 hours,
+non-private source tables, or any raw-row, station, grid4, equipment, or locked
+outcome access. Changed
 failure and recovery states go to the unified log and macOS Notification
 Center. Its local notification smoke and expanded schedule audit pass.
 
@@ -342,8 +350,11 @@ completion, checks every completed hour against the 7,200-second boundary, and
 tracks gaps, band coverage, one-request ingest, exact M5 concurrency, latency,
 RSS, source rows, and feature cells. It reports `collecting` until the full
 30-day duration exists even when every current operational gate passes. The
-current rollup is `4/4` expected hours, 100% completion, zero gaps, and `4/720`
-required hours through `2026-07-16T06:00:00Z`.
+current rollup is `14/14` expected hours, 100% completion, zero gaps, and
+`14/720` required hours through `2026-07-16T16:00:00Z`, totaling `3,295,875`
+source records and `933,688` feature cells. The twice-daily bounded coverage
+audit is at zero-hour lag and the expanded deployed schedule validation passes
+`34/34` gates across all three jobs.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

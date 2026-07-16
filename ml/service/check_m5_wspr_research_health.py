@@ -24,9 +24,13 @@ from summarize_wspr_research_shadow import build_shadow_summary
 
 
 WORKER_LABEL = "org.propulse.wspr-research"
+COVERAGE_LABEL = "org.propulse.wspr-research-coverage"
 DEFAULT_RUNTIME_ROOT = Path.home() / "Library/Application Support/PropulseML"
 DEFAULT_STALE_SECONDS = 7200
 DEFAULT_MAX_RUNTIME_BYTES = 2 * 1024**3
+COVERAGE_MINIMUM_DUE_HOURS = 24
+COVERAGE_MAX_AGE_SECONDS = 14 * 3600
+COVERAGE_MAX_LAG_HOURS = 12
 GATE_NAMES = (
     "health_record_parseable",
     "health_status_healthy",
@@ -40,6 +44,9 @@ GATE_NAMES = (
     "worker_job_loaded",
     "worker_job_clean_or_running",
     "shadow_rollup_operational_healthy",
+    "coverage_job_loaded",
+    "coverage_job_clean_or_running",
+    "coverage_audit_current_and_healthy",
 )
 REMOTE_ENV_KEYS = (
     "PROPULSE_RESEARCH_HEALTH_ENDPOINT",
@@ -229,6 +236,10 @@ def evaluate_health(
     worker_running: bool,
     worker_clean_exit: bool,
     shadow_summary: dict[str, Any],
+    coverage_loaded: bool = True,
+    coverage_running: bool = False,
+    coverage_clean_exit: bool = True,
+    coverage_receipt: dict[str, Any] | None = None,
     stale_seconds: int = DEFAULT_STALE_SECONDS,
     max_runtime_bytes: int = DEFAULT_MAX_RUNTIME_BYTES,
 ) -> tuple[dict[str, bool], dict[str, Any]]:
@@ -239,8 +250,72 @@ def evaluate_health(
         "last completed target hour",
     )
     latest = latest_settled_hour(current, timedelta(minutes=10))
-    freshness_seconds = max(0, int((current - (last + timedelta(hours=1))).total_seconds()))
+    freshness_seconds = max(
+        0,
+        int((current - (last + timedelta(hours=1))).total_seconds()),
+    )
     health_age_seconds = max(0, int((current - generated).total_seconds()))
+    shadow_window = shadow_summary.get("window", {})
+    shadow_expected_hours = int(shadow_window.get("expected_hours") or 0)
+    coverage_due = shadow_expected_hours >= COVERAGE_MINIMUM_DUE_HOURS
+    coverage_valid = False
+    coverage_age_seconds: int | None = None
+    coverage_lag_hours: int | None = None
+    coverage_decision: str | None = None
+    coverage_chunk_hours: int | None = None
+    if coverage_receipt is not None:
+        try:
+            coverage_generated = aware_utc(
+                str(coverage_receipt["generated_at"]),
+                "coverage generated_at",
+            )
+            coverage_window = coverage_receipt["window"]
+            coverage_end = aware_utc(
+                str(coverage_window["end"]),
+                "coverage window end",
+            )
+            shadow_end = aware_utc(
+                str(shadow_window["last_completed_target_hour"]),
+                "shadow last completed target hour",
+            )
+            coverage_age_seconds = int(
+                (current - coverage_generated).total_seconds()
+            )
+            coverage_lag_hours = int(
+                (shadow_end - coverage_end).total_seconds() // 3600
+            )
+            coverage_decision = str(coverage_receipt.get("decision"))
+            coverage_execution = coverage_receipt.get("execution", {})
+            coverage_chunk_hours = int(
+                coverage_execution.get("query_chunk_hours", 0)
+            )
+            coverage_privacy = coverage_receipt.get("privacy", {})
+            coverage_gates = coverage_receipt.get("gates", {})
+            coverage_valid = bool(
+                coverage_receipt.get("scope")
+                == "wspr_shadow_aggregate_coverage_and_source_drift"
+                and coverage_decision in {"collecting", "pass"}
+                and coverage_receipt.get("operational_status") == "healthy"
+                and coverage_receipt.get("research_only") is True
+                and 0 <= coverage_age_seconds <= COVERAGE_MAX_AGE_SECONDS
+                and 0 <= coverage_lag_hours <= COVERAGE_MAX_LAG_HOURS
+                and int(coverage_window.get("expected_hours", 0))
+                <= shadow_expected_hours
+                and coverage_gates.get(
+                    "window_bound_to_signed_scheduled_receipts"
+                )
+                is True
+                and coverage_gates.get("database_queries_bounded_to_24_hours")
+                is True
+                and 1 <= coverage_chunk_hours <= 24
+                and coverage_privacy.get("raw_observation_table_read") is False
+                and coverage_privacy.get("station_identity_written") is False
+                and coverage_privacy.get("grid4_written") is False
+                and coverage_privacy.get("equipment_written") is False
+                and coverage_privacy.get("locked_outcomes_read") is False
+            )
+        except (KeyError, TypeError, ValueError):
+            coverage_valid = False
     gates = {
         "health_record_parseable": True,
         "health_status_healthy": health.get("status") == "healthy",
@@ -279,6 +354,13 @@ def evaluate_health(
                 )
             )
         ),
+        "coverage_job_loaded": coverage_loaded,
+        "coverage_job_clean_or_running": (
+            not coverage_due or coverage_running or coverage_clean_exit
+        ),
+        "coverage_audit_current_and_healthy": (
+            not coverage_due or coverage_running or coverage_valid
+        ),
     }
     observations = {
         "latest_settled_target_hour": latest.isoformat(),
@@ -304,13 +386,18 @@ def evaluate_health(
         "shadow_missing_hours": shadow_summary.get("window", {}).get(
             "missing_hours"
         ),
+        "coverage_audit_due": coverage_due,
+        "coverage_audit_age_seconds": coverage_age_seconds,
+        "coverage_window_lag_hours": coverage_lag_hours,
+        "coverage_decision": coverage_decision,
+        "coverage_query_chunk_hours": coverage_chunk_hours,
     }
     return gates, observations
 
 
-def worker_state() -> tuple[bool, bool, bool]:
+def job_state(label: str) -> tuple[bool, bool, bool]:
     result = subprocess.run(
-        ["/bin/launchctl", "print", f"gui/{os.getuid()}/{WORKER_LABEL}"],
+        ["/bin/launchctl", "print", f"gui/{os.getuid()}/{label}"],
         check=False,
         capture_output=True,
         text=True,
@@ -383,7 +470,16 @@ def main() -> None:
     error_type: str | None = None
     try:
         health = read_json(args.runtime_root / "live_wspr_health.json")
-        loaded, running, clean_exit = worker_state()
+        loaded, running, clean_exit = job_state(WORKER_LABEL)
+        coverage_loaded, coverage_running, coverage_clean_exit = job_state(
+            COVERAGE_LABEL
+        )
+        coverage_path = (
+            args.runtime_root / "live_wspr_shadow_coverage_drift.json"
+        )
+        coverage_receipt = (
+            read_json(coverage_path) if coverage_path.exists() else None
+        )
         now = datetime.now(timezone.utc)
         shadow_summary = build_shadow_summary(args.runtime_root, now=now)
         write_json_atomic(
@@ -398,6 +494,10 @@ def main() -> None:
             worker_running=running,
             worker_clean_exit=clean_exit,
             shadow_summary=shadow_summary,
+            coverage_loaded=coverage_loaded,
+            coverage_running=coverage_running,
+            coverage_clean_exit=coverage_clean_exit,
+            coverage_receipt=coverage_receipt,
             stale_seconds=args.stale_seconds,
             max_runtime_bytes=args.max_runtime_bytes,
         )

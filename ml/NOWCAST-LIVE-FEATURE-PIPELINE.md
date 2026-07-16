@@ -102,8 +102,13 @@
 > An automatic identity-free rollup re-verifies every receipt and signed
 > manifest, fixes the duration at 720 expected hours and scheduled completion at
 > 99%. Actual minute-15 calendar events completed without RunAtLoad or manual
-> targets, advancing the operationally healthy rollup to `6/6` expected hours,
-> zero gaps, and `collecting` status at `6/720` through `2026-07-16T08:00:00Z`.
+> targets, advancing the operationally healthy rollup to `14/14` expected hours,
+> zero gaps, `3,295,875` observations, `933,688` feature cells, and `collecting`
+> status at `14/720` through `2026-07-16T16:00:00Z`. A third owner-only
+> LaunchAgent now rebuilds the bounded aggregate coverage audit at 06:45 and
+> 18:45 local time. The twice-hourly watchdog enforces audit age, signed-window
+> lag, health, query bounds, private-table scope, and identity exclusion; exact
+> deployed-state validation passes `34/34` gates.
 
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
@@ -373,6 +378,9 @@ explicitly labeled and does not satisfy the live requirement above.
   pass exact target counts, owner-only runtime, multicore, and local alert gates.
 - [x] Automate the signed-receipt 720-hour denominator, 99% completion rate,
   gap, stale-boundary, coverage, memory, and performance rollup.
+- [x] Schedule the independent, 24-hour-query-bounded coverage/drift audit
+  twice daily on the M5 and make its currency, window lag, operational health,
+  private-table scope, and privacy exclusions part of the existing watchdog.
 - [x] Add and deploy the service-role-only aggregate health singleton,
   replay-protected HMAC ingest, retryable alert transition outbox, secret-free
   M5 publisher boundary, and double-gated product System Health reader.
@@ -399,7 +407,7 @@ explicitly labeled and does not satisfy the live requirement above.
   that profile explicitly rather than calling it NowCast.
 - [x] Publish privacy-safe interim band, UTC-hour, broad-region, and distance
   coverage in the visual report from a read-only aggregate feature-store audit.
-  The current 13-hour artifact is checksum-bound to the signed scheduled
+  The current 14-hour artifact is checksum-bound to the signed scheduled
   receipt window, excludes the manual validation hour, is labeled `collecting`,
   caps each database query at 24 hours before global recombination and
   suppression,

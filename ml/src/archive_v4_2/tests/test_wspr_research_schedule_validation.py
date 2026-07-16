@@ -5,11 +5,42 @@ import unittest
 from pathlib import Path
 
 from ml.src.archive_v4_2.validate_wspr_research_schedule import (
+    coverage_launchd_gates,
     health_launchd_gates,
 )
 
 
 class WsprResearchScheduleValidationTests(unittest.TestCase):
+    def test_coverage_schedule_rejects_unbounded_queries(self) -> None:
+        runtime_root = Path.home() / "Library/Application Support/PropulseML"
+        payload = {
+            "Label": "org.propulse.wspr-research-coverage",
+            "ProgramArguments": [
+                "/native/python",
+                "/repo/analyze_wspr_shadow_coverage.py",
+                "--profile",
+                "m5",
+                "--progress",
+                str(runtime_root / "live_wspr_shadow_progress.json"),
+                "--query-chunk-hours",
+                "720",
+                "--output",
+                str(runtime_root / "live_wspr_shadow_coverage_drift.json"),
+            ],
+            "StartCalendarInterval": [
+                {"Hour": 6, "Minute": 45},
+                {"Hour": 18, "Minute": 45},
+            ],
+            "RunAtLoad": True,
+            "Umask": 0o077,
+            "StandardOutPath": str(Path.home() / "Library/Logs/out.log"),
+            "StandardErrorPath": str(Path.home() / "Library/Logs/err.log"),
+        }
+
+        gates = coverage_launchd_gates(payload, runtime_root=runtime_root)
+
+        self.assertFalse(gates["coverage_runtime_and_query_bound_exact"])
+
     def test_watchdog_requires_the_owner_only_remote_environment(self) -> None:
         runtime_root = (
             Path.home() / "Library/Application Support/PropulseML"

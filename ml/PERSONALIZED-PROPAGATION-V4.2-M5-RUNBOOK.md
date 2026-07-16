@@ -74,22 +74,24 @@ candidate is A6: 70% A4 recent-cycle plus 30% A5 recency-weighted probability.
 | Locked 2025 archive | 0.04096767 | 0.04186090 | 2.134% | 6/6 gates pass |
 
 The internal WSPR shadow is operationally healthy through target
-`2026-07-16T15:00:00Z`: `13/13` expected hours, zero gaps, `3,088,321`
-observations, and `867,072` feature cells. This is `13/720` duration evidence,
-not a 30-day pass. The audited `11:00Z` finalizer used two workers with nine native
-threads each and completed in 114.34 seconds after keyset pagination replaced
+`2026-07-16T16:00:00Z`: `14/14` expected hours, zero gaps, `3,295,875`
+observations, and `933,688` feature cells. This is `14/720` duration evidence,
+not a 30-day pass. The audited `16:00Z` finalizer used two workers with nine native
+threads each and completed in 114.61 seconds after keyset pagination replaced
 deep OFFSET scans.
 
 A separate read-only aggregate coverage audit is checksum-bound to the signed
-schedule, so it excludes the earlier manual validation target. It spans `13/13`
-complete hours and 130 band-hours with zero gaps, all ten HF bands, 13/24 UTC
+schedule, so it excludes the earlier manual validation target. It spans `14/14`
+complete hours and 140 band-hours with zero gaps, all ten HF bands, 14/24 UTC
 hour strata, all five distance buckets, and 237 broad regional rows. Output
 requires at least six completed hours and 100 feature cells and is capped to 12
 fields per band/direction. Each PostgreSQL statement is bounded to at most 24
 hours; the M5 combines identity-free chunk aggregates before applying the
 full-window suppression and cap. Early/late drift remains null until two
 non-overlapping seven-day periods exist, and the release gate cannot pass
-before 720 hours.
+before 720 hours. The audit is now a third LaunchAgent at 06:45 and 18:45 local
+time; the twice-hourly watchdog enforces its age, signed-window lag, bounded
+query, health, and privacy contracts once the audit is due.
 
 The non-destructive full-outage preflight passed all seven gates at
 `2026-07-16T16:48:29Z` and recorded `outage_armed: false`. It verified native
@@ -220,7 +222,9 @@ The scheduling implementation uses identity-free atomic run receipts as its
 state. `run_m5_wspr_research_catchup.py` processes contiguous missing settled
 hours in order, refuses more than 24 hours of automatic catch-up, locks against
 overlap, and updates `live_wspr_health.json`. The launchd installer runs that
-boundary at minute 15 and on load with an owner-only umask. Small launch logs
+boundary at minute 15 and on load with an owner-only umask. It also installs a
+bounded aggregate coverage audit at 06:45 and 18:45 local time and the health
+watchdog at minutes 0 and 30. Small launch logs
 stay under `~/Library/Logs/Propulse`. Because LaunchAgents cannot open
 removable-volume paths in this context, operational receipts, manifests, health,
 locks, secret, and transient spools use
@@ -236,7 +240,8 @@ The research-only job is active. Its first scheduled target hour,
 `2026-07-16T03:00:00Z`, completed with `261,006` exact observations and `69,980`
 feature cells across ten bands. The connector used `152.297` MiB peak RSS; two
 finalizers used nine threads each, for 18 bounded native M5 threads. The
-independent schedule audit passed `28/28` gates and is stored as
+initial independent schedule audit passed `28/28` gates; the expanded
+three-job deployed-state audit now passes `34/34` gates and is stored as
 `wspr_research_schedule_validation.json`. Re-run it with the server-only target
 environment and signing secret loaded out of process arguments:
 
@@ -248,7 +253,11 @@ This starts the 30-day internal receipt-time shadow; it does not grant
 subscriber-facing source authorization or complete the long-window gate.
 The paired watchdog runs at minutes 0 and 30, applies the 7,200-second stale
 boundary and 2 GiB runtime ceiling, and sends changed failure/recovery states to
-the unified log and macOS Notification Center. The local notification delivery
+the unified log and macOS Notification Center. Once 24 scheduled hours exist,
+it also requires the coverage audit to be no more than 14 hours old and no more
+than 12 hours behind the signed window. It rejects unbounded queries, unsigned
+windows, non-private source tables, and any station, grid4, equipment, raw-row,
+or outcome access. The local notification delivery
 smoke passed. Its signed aggregate heartbeat is now active through the
 protected feature preview and dedicated private store; the end-to-end validator
 passed 8/8 gates with the public reader returning 404. Remote alert delivery and
@@ -529,14 +538,14 @@ is operationally healthy at `1/1` expected hours with zero gaps, but remains
 event then completed target `2026-07-16T04:00:00Z` without RunAtLoad or a manual
 target: `255,536` observations, `67,829` feature cells, 161 MiB connector peak
 RSS, the same bounded 18-thread finalizer, and clean transient removal. The
-following scheduled targets through `2026-07-16T15:00:00Z` also completed under
-the same bounded profile. The rollup is now `13/13` with zero gaps, `3,088,321`
-aggregate observations, `867,072` feature cells, and remains `collecting` at
-`13/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
+following scheduled targets through `2026-07-16T16:00:00Z` also completed under
+the same bounded profile. The rollup is now `14/14` with zero gaps, `3,295,875`
+aggregate observations, `933,688` feature cells, and remains `collecting` at
+`14/720`. The `08:00Z` job also proved that the rebuilt native ARM64 environment
 remains launchd-safe: it exited zero after the exact two-by-nine-thread run.
 Deep OFFSET pages later returned target HTTP 500 responses; monotonic-id keyset
 pagination plus the covering `(source, target_hour, band, id)` index removed
-that database access pattern. The audited `11:00Z` finalizer completed in 114.34
+that database access pattern. The audited `16:00Z` finalizer completed in 114.61
 seconds with the exact two-by-nine profile.
 
 Run the independent aggregate coverage/drift audit after refreshing the signed
@@ -552,6 +561,16 @@ and maximum per-chunk timings:
 POLARS_MAX_THREADS=18 OMP_NUM_THREADS=18 ml/.venv/bin/python \
   ml/src/archive_v4_2/analyze_wspr_shadow_coverage.py --profile m5
 ```
+
+Normal operation does not require that manual command. The installer creates
+`org.propulse.wspr-research-coverage`, which runs the same analyzer at 06:45 and
+18:45 local time with an explicit `--query-chunk-hours 24`, writes
+`live_wspr_shadow_coverage_drift.json` atomically in the owner-only runtime
+directory, and records only small logs under `~/Library/Logs/Propulse`. The
+health job treats the receipt as due after 24 expected hours, then requires an
+age of at most 14 hours and signed-window lag of at most 12 hours. Installation,
+uninstallation, and rollback operate on the worker, coverage audit, and health
+job as one three-agent unit.
 
 The resulting
 `live_feature_pipeline/wspr_shadow_coverage_drift.json` is `collecting` until

@@ -4,9 +4,11 @@ import unittest
 from pathlib import Path
 
 from install_m5_wspr_research_launchd import (
+    COVERAGE_LABEL,
     HEALTH_LABEL,
     LABEL,
     MAX_RUNTIME_BYTES,
+    coverage_launchd_payload,
     health_launchd_payload,
     launchd_payload,
 )
@@ -66,6 +68,35 @@ class WsprLaunchdTests(unittest.TestCase):
         self.assertIn(str(MAX_RUNTIME_BYTES), payload["ProgramArguments"])
         self.assertIn("--remote-env-file", payload["ProgramArguments"])
         self.assertIn(str(Path(__file__).resolve().parents[2] / ".env.local"), payload["ProgramArguments"])
+        self.assertNotIn("EnvironmentVariables", payload)
+        self.assertNotIn("SECRET", repr(payload).upper())
+
+    def test_coverage_payload_is_twice_daily_bounded_and_secret_free(self) -> None:
+        artifact_root = Path.home() / "Library/Application Support/PropulseML"
+        payload = coverage_launchd_payload(
+            python=Path("/repo/ml/.venv/bin/python"),
+            artifact_root=artifact_root,
+            stdout_path=Path.home() / "Library/Logs/Propulse/coverage.out.log",
+            stderr_path=Path.home() / "Library/Logs/Propulse/coverage.err.log",
+        )
+
+        self.assertEqual(payload["Label"], COVERAGE_LABEL)
+        self.assertEqual(
+            payload["StartCalendarInterval"],
+            [{"Hour": 6, "Minute": 45}, {"Hour": 18, "Minute": 45}],
+        )
+        self.assertTrue(payload["RunAtLoad"])
+        self.assertEqual(payload["Umask"], 0o077)
+        self.assertIn("--query-chunk-hours", payload["ProgramArguments"])
+        self.assertIn("24", payload["ProgramArguments"])
+        self.assertIn(
+            str(artifact_root / "live_wspr_shadow_progress.json"),
+            payload["ProgramArguments"],
+        )
+        self.assertIn(
+            str(artifact_root / "live_wspr_shadow_coverage_drift.json"),
+            payload["ProgramArguments"],
+        )
         self.assertNotIn("EnvironmentVariables", payload)
         self.assertNotIn("SECRET", repr(payload).upper())
 

@@ -14,6 +14,7 @@ from typing import Any
 
 LABEL = "org.propulse.wspr-research"
 HEALTH_LABEL = "org.propulse.wspr-research-health"
+COVERAGE_LABEL = "org.propulse.wspr-research-coverage"
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_ROOT = Path.home() / "Library/Application Support/PropulseML"
 MAX_RUNTIME_BYTES = 2 * 1024**3
@@ -88,6 +89,41 @@ def health_launchd_payload(
     }
 
 
+def coverage_launchd_payload(
+    *,
+    python: Path,
+    artifact_root: Path,
+    stdout_path: Path,
+    stderr_path: Path,
+) -> dict[str, Any]:
+    return {
+        "Label": COVERAGE_LABEL,
+        "ProgramArguments": [
+            str(python),
+            str(ROOT / "ml/src/archive_v4_2/analyze_wspr_shadow_coverage.py"),
+            "--profile",
+            "m5",
+            "--progress",
+            str(artifact_root / "live_wspr_shadow_progress.json"),
+            "--query-chunk-hours",
+            "24",
+            "--output",
+            str(artifact_root / "live_wspr_shadow_coverage_drift.json"),
+        ],
+        "WorkingDirectory": str(ROOT),
+        "StartCalendarInterval": [
+            {"Hour": 6, "Minute": 45},
+            {"Hour": 18, "Minute": 45},
+        ],
+        "RunAtLoad": True,
+        "ProcessType": "Interactive",
+        "ThrottleInterval": 300,
+        "Umask": 0o077,
+        "StandardOutPath": str(stdout_path),
+        "StandardErrorPath": str(stderr_path),
+    }
+
+
 def write_plist(path: Path, payload: dict[str, Any]) -> None:
     temporary = path.with_suffix(".plist.tmp")
     temporary.write_bytes(plistlib.dumps(payload, sort_keys=True))
@@ -129,8 +165,11 @@ def main() -> None:
     health_target = (
         Path.home() / "Library/LaunchAgents" / f"{HEALTH_LABEL}.plist"
     )
+    coverage_target = (
+        Path.home() / "Library/LaunchAgents" / f"{COVERAGE_LABEL}.plist"
+    )
     if args.uninstall:
-        for launchd_target in (health_target, target):
+        for launchd_target in (health_target, coverage_target, target):
             bootout(domain, launchd_target)
             launchd_target.unlink(missing_ok=True)
             print(launchd_target)
@@ -163,20 +202,33 @@ def main() -> None:
         stderr_path=logs / "wspr-research-health.stderr.log",
         env_file=env_file,
     )
-    for launchd_target in (health_target, target):
+    coverage_payload = coverage_launchd_payload(
+        python=Path(sys.executable),
+        artifact_root=args.artifact_root,
+        stdout_path=logs / "wspr-research-coverage.stdout.log",
+        stderr_path=logs / "wspr-research-coverage.stderr.log",
+    )
+    for launchd_target in (health_target, coverage_target, target):
         bootout(domain, launchd_target)
     write_plist(target, payload)
+    write_plist(coverage_target, coverage_payload)
     write_plist(health_target, health_payload)
     subprocess.run(["/bin/launchctl", "bootstrap", domain, str(target)], check=True)
     try:
+        subprocess.run(
+            ["/bin/launchctl", "bootstrap", domain, str(coverage_target)],
+            check=True,
+        )
         subprocess.run(
             ["/bin/launchctl", "bootstrap", domain, str(health_target)],
             check=True,
         )
     except subprocess.CalledProcessError:
+        bootout(domain, coverage_target)
         bootout(domain, target)
         raise
     print(target)
+    print(coverage_target)
     print(health_target)
 
 

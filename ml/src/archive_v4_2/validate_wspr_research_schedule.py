@@ -28,6 +28,7 @@ from wspr_scheduler import CompletionManifest, aware_utc  # noqa: E402
 
 LABEL = "org.propulse.wspr-research"
 HEALTH_LABEL = "org.propulse.wspr-research-health"
+COVERAGE_LABEL = "org.propulse.wspr-research-coverage"
 DEFAULT_RUNTIME_ROOT = Path.home() / "Library/Application Support/PropulseML"
 DEFAULT_OUTPUT = (
     ROOT
@@ -93,6 +94,9 @@ EXPECTED_WATCHDOG_GATES = {
     "worker_job_loaded",
     "worker_job_clean_or_running",
     "shadow_rollup_operational_healthy",
+    "coverage_job_loaded",
+    "coverage_job_clean_or_running",
+    "coverage_audit_current_and_healthy",
 }
 
 
@@ -219,6 +223,55 @@ def health_launchd_gates(
     }
 
 
+def coverage_launchd_gates(
+    payload: dict[str, Any], *, runtime_root: Path
+) -> dict[str, bool]:
+    arguments = payload.get("ProgramArguments", [])
+    rendered = repr(payload).lower()
+    secret_markers = ("secret", "password", "token", "service_role", "apikey")
+    expected_values = {
+        "--profile": "m5",
+        "--progress": str(runtime_root / "live_wspr_shadow_progress.json"),
+        "--query-chunk-hours": "24",
+        "--output": str(
+            runtime_root / "live_wspr_shadow_coverage_drift.json"
+        ),
+    }
+    values: dict[str, str] = {}
+    for option in expected_values:
+        try:
+            values[option] = str(arguments[arguments.index(option) + 1])
+        except (AttributeError, IndexError, ValueError, TypeError):
+            values[option] = ""
+    return {
+        "coverage_twice_daily_and_restart_enabled": (
+            payload.get("Label") == COVERAGE_LABEL
+            and payload.get("StartCalendarInterval")
+            == [
+                {"Hour": 6, "Minute": 45},
+                {"Hour": 18, "Minute": 45},
+            ]
+            and payload.get("RunAtLoad") is True
+        ),
+        "coverage_runtime_and_query_bound_exact": (
+            values == expected_values
+            and len(arguments) == 10
+            and runtime_root.resolve().is_relative_to(Path.home().resolve())
+        ),
+        "coverage_owner_only_and_secret_free": (
+            payload.get("Umask") == 0o077
+            and "EnvironmentVariables" not in payload
+            and not any(marker in rendered for marker in secret_markers)
+        ),
+        "coverage_logs_on_internal_home": all(
+            str(payload.get(key, "")).startswith(
+                str(Path.home() / "Library/Logs")
+            )
+            for key in ("StandardOutPath", "StandardErrorPath")
+        ),
+    }
+
+
 class TargetReader:
     def __init__(self, *, base_url: str, service_key: str) -> None:
         if not base_url.strip() or not service_key.strip():
@@ -265,6 +318,7 @@ def main() -> None:
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--plist", type=Path)
     parser.add_argument("--health-plist", type=Path)
+    parser.add_argument("--coverage-plist", type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     args.runtime_root = args.runtime_root.expanduser().resolve()
@@ -292,7 +346,16 @@ def main() -> None:
     health_plist_payload = plistlib.loads(health_plist_path.read_bytes())
     if not isinstance(health_plist_payload, dict):
         raise RuntimeError("watchdog launchd plist is not a dictionary")
+    coverage_plist_path = args.coverage_plist or (
+        Path.home() / "Library/LaunchAgents" / f"{COVERAGE_LABEL}.plist"
+    )
+    coverage_plist_payload = plistlib.loads(coverage_plist_path.read_bytes())
+    if not isinstance(coverage_plist_payload, dict):
+        raise RuntimeError("coverage launchd plist is not a dictionary")
     watchdog = read_json(args.runtime_root / "live_wspr_alert.json")
+    coverage = read_json(
+        args.runtime_root / "live_wspr_shadow_coverage_drift.json"
+    )
     watchdog_delivery_test = read_json(
         args.runtime_root / "live_wspr_notification_test.json"
     )
@@ -349,6 +412,16 @@ def main() -> None:
     )
     health_launchctl = subprocess.run(
         ["/bin/launchctl", "print", f"gui/{os.getuid()}/{HEALTH_LABEL}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    coverage_launchd = coverage_launchd_gates(
+        coverage_plist_payload,
+        runtime_root=args.runtime_root,
+    )
+    coverage_launchctl = subprocess.run(
+        ["/bin/launchctl", "print", f"gui/{os.getuid()}/{COVERAGE_LABEL}"],
         check=False,
         capture_output=True,
         text=True,
@@ -439,6 +512,37 @@ def main() -> None:
             and watchdog_delivery_test.get("locked_outcomes_read") is False
         ),
         **health_launchd,
+        "coverage_audit_operational_private_and_bounded": (
+            coverage.get("scope")
+            == "wspr_shadow_aggregate_coverage_and_source_drift"
+            and coverage.get("decision") in {"collecting", "pass"}
+            and coverage.get("operational_status") == "healthy"
+            and coverage.get("research_only") is True
+            and coverage.get("gates", {}).get(
+                "window_bound_to_signed_scheduled_receipts"
+            )
+            is True
+            and coverage.get("gates", {}).get(
+                "database_queries_bounded_to_24_hours"
+            )
+            is True
+            and coverage.get("execution", {}).get("query_chunk_hours") == 24
+            and coverage.get("privacy", {}).get("raw_observation_table_read")
+            is False
+            and coverage.get("privacy", {}).get("station_identity_written")
+            is False
+            and coverage.get("privacy", {}).get("grid4_written") is False
+            and coverage.get("privacy", {}).get("equipment_written") is False
+            and coverage.get("privacy", {}).get("locked_outcomes_read") is False
+        ),
+        "coverage_job_loaded_and_clean_exit": (
+            coverage_launchctl.returncode == 0
+            and (
+                "state = running" in coverage_launchctl.stdout
+                or "last exit code = 0" in coverage_launchctl.stdout
+            )
+        ),
+        **coverage_launchd,
         "locked_outcomes_unread": True,
     }
     output = {
@@ -468,6 +572,9 @@ def main() -> None:
             "run_at_load": True,
             "watchdog_label": HEALTH_LABEL,
             "watchdog_minutes": [0, 30],
+            "coverage_label": COVERAGE_LABEL,
+            "coverage_hours": [6, 18],
+            "coverage_minute": 45,
             "runtime_storage": "internal_owner_only",
             "large_ml_storage": "projects_volume",
         },
@@ -482,6 +589,13 @@ def main() -> None:
                 "accepted": watchdog_delivery_test.get("accepted"),
                 "generated_at": watchdog_delivery_test.get("generated_at"),
             },
+        },
+        "coverage": {
+            "decision": coverage.get("decision"),
+            "operational_status": coverage.get("operational_status"),
+            "window": coverage.get("window"),
+            "execution": coverage.get("execution"),
+            "privacy": coverage.get("privacy"),
         },
         "execution": {
             "target_requests": target.request_count,

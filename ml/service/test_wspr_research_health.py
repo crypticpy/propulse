@@ -29,6 +29,32 @@ def healthy_record() -> dict[str, object]:
     }
 
 
+def coverage_receipt(*, generated_at: datetime = NOW) -> dict[str, object]:
+    return {
+        "generated_at": generated_at.isoformat(),
+        "scope": "wspr_shadow_aggregate_coverage_and_source_drift",
+        "decision": "collecting",
+        "operational_status": "healthy",
+        "research_only": True,
+        "window": {
+            "end": "2026-07-16T04:00:00+00:00",
+            "expected_hours": 30,
+        },
+        "execution": {"query_chunk_hours": 24},
+        "privacy": {
+            "raw_observation_table_read": False,
+            "station_identity_written": False,
+            "grid4_written": False,
+            "equipment_written": False,
+            "locked_outcomes_read": False,
+        },
+        "gates": {
+            "window_bound_to_signed_scheduled_receipts": True,
+            "database_queries_bounded_to_24_hours": True,
+        },
+    }
+
+
 class WsprResearchHealthTests(unittest.TestCase):
     def test_healthy_hour_passes_every_gate(self) -> None:
         gates, observations = evaluate_health(
@@ -86,6 +112,46 @@ class WsprResearchHealthTests(unittest.TestCase):
             "shadow_rollup_operational_healthy",
         ):
             self.assertFalse(gates[name])
+
+    def test_due_coverage_audit_must_be_current_bounded_and_private(self) -> None:
+        summary = {
+            "operational_status": "healthy",
+            "window": {
+                "expected_hours": 30,
+                "completed_hours": 30,
+                "completion_rate": 1.0,
+                "missing_hours": 0,
+                "last_completed_target_hour": "2026-07-16T04:00:00+00:00",
+            },
+        }
+        gates, observations = evaluate_health(
+            healthy_record(),
+            now=NOW,
+            runtime_bytes=100,
+            worker_loaded=True,
+            worker_running=False,
+            worker_clean_exit=True,
+            shadow_summary=summary,
+            coverage_receipt=coverage_receipt(),
+        )
+        self.assertTrue(all(gates.values()))
+        self.assertTrue(observations["coverage_audit_due"])
+
+        stale = coverage_receipt(
+            generated_at=NOW - timedelta(hours=15),
+        )
+        stale["gates"]["database_queries_bounded_to_24_hours"] = False
+        gates, _ = evaluate_health(
+            healthy_record(),
+            now=NOW,
+            runtime_bytes=100,
+            worker_loaded=True,
+            worker_running=False,
+            worker_clean_exit=True,
+            shadow_summary=summary,
+            coverage_receipt=stale,
+        )
+        self.assertFalse(gates["coverage_audit_current_and_healthy"])
 
     def test_runtime_size_ignores_symlinks(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

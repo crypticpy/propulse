@@ -11,6 +11,8 @@ from check_m5_prospective_capture_health import (
     aggregation_snapshot,
     atomic_write,
     contiguous_healthy_hours,
+    fresh_source_cycle,
+    pipeline_continuity,
     source_snapshot,
     solar_snapshot,
 )
@@ -124,6 +126,26 @@ class ProspectiveCollectorTests(unittest.TestCase):
         self.assertFalse(solar_state["source_current"]["kp"])
         self.assertFalse(solar_current)
 
+    def test_health_waits_for_a_fresh_collector_cycle_without_relaxing_sources(self) -> None:
+        statuses = [
+            {
+                "source": source,
+                "last_success_at": (NOW - timedelta(seconds=90)).isoformat(),
+            }
+            for source in ("pskreporter", "rbn", "dxcluster", "solar")
+        ]
+        self.assertTrue(fresh_source_cycle(NOW, statuses))
+
+        statuses[0]["last_success_at"] = (
+            NOW - timedelta(seconds=121)
+        ).isoformat()
+        self.assertFalse(fresh_source_cycle(NOW, statuses))
+
+        statuses[0]["last_success_at"] = (
+            NOW + timedelta(seconds=1)
+        ).isoformat()
+        self.assertFalse(fresh_source_cycle(NOW, statuses))
+
     def test_continuity_requires_unbroken_24_hour_tail(self) -> None:
         receipts = [
             {
@@ -142,6 +164,53 @@ class ProspectiveCollectorTests(unittest.TestCase):
         hours, _, no_gap = contiguous_healthy_hours(receipts, NOW, True)
         self.assertEqual(hours, 0)
         self.assertFalse(no_gap)
+
+    def test_pipeline_continuity_measures_weather_availability_separately(self) -> None:
+        receipts = []
+        for index in range(8):
+            gates = {
+                "native_arm64": True,
+                "collector_launchd_running": True,
+                "target_queries_succeeded": True,
+                "pskreporter_current": True,
+                "rbn_current": True,
+                "dxcluster_current": True,
+                "solar_weather_current": index not in {4, 5},
+                "band_hourly_current": True,
+                "path_hourly_current": True,
+                "no_open_outages": True,
+                "identity_free_receipt": True,
+                "prospective_outcomes_unread": True,
+            }
+            receipts.append({
+                "schema_version": 1,
+                "generated_at": (
+                    NOW - timedelta(minutes=15 * (8 - index))
+                ).isoformat(),
+                "gates": gates,
+            })
+
+        result = pipeline_continuity(
+            receipts,
+            NOW,
+            current_pipeline_healthy=True,
+            current_weather_healthy=True,
+        )
+
+        self.assertEqual(result["healthy_receipts"], 9)
+        self.assertEqual(result["weather_current_receipts"], 7)
+        self.assertAlmostEqual(result["weather_availability"], 7 / 9)
+        self.assertEqual(result["maximum_consecutive_weather_stale_samples"], 2)
+        self.assertTrue(result["tail_has_no_gap"])
+
+        receipts[-1]["gates"]["path_hourly_current"] = False
+        broken = pipeline_continuity(
+            receipts,
+            NOW,
+            current_pipeline_healthy=True,
+            current_weather_healthy=True,
+        )
+        self.assertEqual(broken["healthy_receipts"], 1)
 
     def test_receipts_are_owner_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

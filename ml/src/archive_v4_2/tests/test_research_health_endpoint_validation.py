@@ -86,6 +86,10 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
             name: json.loads(path.read_text(encoding="utf-8"))
             for name, path in INPUTS.items()
         }
+        capture = json.loads(json.dumps(values["prospective_capture_readiness"]))
+        capture["operational_healthy"] = True
+        for source in ("pskreporter", "rbn", "dxcluster", "solar_weather"):
+            capture["gates"][f"{source}_current"] = True
         evidence = build_evidence(
             values["transform_parity"],
             values["foundation_validation"],
@@ -110,7 +114,7 @@ class ResearchHealthEndpointValidationTests(unittest.TestCase):
             values["wspr_research_schedule_validation"],
             values["wspr_research_shadow_progress"],
             values["wspr_shadow_coverage_drift"],
-            values["prospective_capture_readiness"],
+            capture,
         )
         health = evidence["research_health"]
         self.assertTrue(health["remote_endpoint_configured"])

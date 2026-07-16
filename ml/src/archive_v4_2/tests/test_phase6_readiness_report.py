@@ -58,6 +58,14 @@ class Phase6ReadinessReportTests(unittest.TestCase):
         self.assertEqual(summary["runtime_activated_modes"], 0)
         self.assertEqual(summary["runtime_activation_state"], "disabled")
         self.assertEqual(
+            summary["capture_weather_current_receipts"],
+            values["capture"]["continuity"].get("weather_current_receipts", 0),
+        )
+        self.assertEqual(
+            summary["capture_weather_sample_receipts"],
+            values["capture"]["continuity"].get("weather_sample_receipts", 0),
+        )
+        self.assertEqual(
             summary["coverage_hours"], coverage["window"]["completed_hours"]
         )
         self.assertEqual(

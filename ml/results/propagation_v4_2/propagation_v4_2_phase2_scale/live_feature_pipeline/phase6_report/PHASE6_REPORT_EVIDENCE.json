@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T17:54:33.539578+00:00",
+  "generated_at": "2026-07-16T18:26:56.922226+00:00",
   "scope": "phase6_technical_model_and_release_readiness",
   "decision": "withheld",
   "locked_prospective_outcomes_read": false,
@@ -12,7 +12,7 @@
     },
     "release": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/phase6_release_readiness.json",
-      "sha256": "f3d4f463711b779cfe9c5d951877bf00668ff429b94b1002e37a2a4cf791be96",
+      "sha256": "d2d8cc416e8658f115846822cbcf7633b8413540cab87fe5496a41331f5045c1",
       "bytes": 9410
     },
     "runtime_eligibility": {
@@ -47,8 +47,8 @@
     },
     "capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
-      "sha256": "e47d295667c5d5f1c04f1648b30401c484b6ec91158eb2cd61de72dd76067dbf",
-      "bytes": 4822
+      "sha256": "fc6ff2545fc13e5a70e4edfcfff4f0f62e81feafee933c62c332badd623be7ec",
+      "bytes": 5502
     },
     "beta_config": {
       "path": "ml/config/propagation_v4_2_beta_protocol.json",
@@ -92,8 +92,14 @@
         "coverage_utc_hours": 14,
         "coverage_distance_buckets": 5,
         "coverage_drift_sample_sufficient": false,
-        "capture_hours": 5.9986222611111115,
+        "capture_hours": 6.76304465861111,
         "capture_required_hours": 24.0,
+        "capture_pipeline_healthy": true,
+        "capture_weather_current_now": false,
+        "capture_weather_availability": 0.9090909090909091,
+        "capture_weather_current_receipts": 30,
+        "capture_weather_sample_receipts": 33,
+        "capture_weather_stale_run": 2,
         "futurecast_days": 1,
         "futurecast_required_days": 90,
         "releaseable_modes": 0,
@@ -196,10 +202,10 @@
     "collection_progress_rows": [
       {
         "evidence_track": "First-party capture",
-        "observed": 5.9986222611111115,
+        "observed": 6.76304465861111,
         "required": 24.0,
-        "unit": "continuous hours",
-        "completion": 0.24994259421296297
+        "unit": "gap-free pipeline hours",
+        "completion": 0.2817935274421296
       },
       {
         "evidence_track": "WSPR shadow",
@@ -495,9 +501,9 @@
     "next_steps": [
       {
         "order": 1,
-        "action": "Sustain nonempty first-party capture for 24 continuous hours",
+        "action": "Sustain nonempty first-party capture for 24 gap-free pipeline hours",
         "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-        "current": "6.00/24 hours"
+        "current": "6.76/24 hours"
       },
       {
         "order": 2,
@@ -579,7 +585,7 @@
   },
   "release_readiness": {
     "schema_version": 1,
-    "generated_at": "2026-07-16T17:51:14.397578+00:00",
+    "generated_at": "2026-07-16T18:20:18.123673+00:00",
     "scope": "phase6_mode_specific_release_readiness",
     "decision": "withheld",
     "valid_fail_closed_decision": true,
@@ -626,7 +632,7 @@
       "prospective_capture": {
         "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
         "exists": true,
-        "sha256": "e47d295667c5d5f1c04f1648b30401c484b6ec91158eb2cd61de72dd76067dbf",
+        "sha256": "fc6ff2545fc13e5a70e4edfcfff4f0f62e81feafee933c62c332badd623be7ec",
         "schema_version": 1,
         "decision": null
       },

@@ -78,7 +78,7 @@ def canonical_source(evidence_path: Path) -> dict[str, Any]:
             "metric_definitions": {
                 "relative_improvement": "(B2 Brier - A6 Brier) / B2 Brier on the named untouched scope.",
                 "gate_completion": "Passed Boolean release gates divided by preregistered gates in the named track.",
-                "collection_progress": "Observed continuous hours or legal issuance days divided by the frozen minimum.",
+                "collection_progress": "Observed gap-free pipeline hours or legal issuance days divided by the frozen minimum.",
             },
         },
     }
@@ -308,6 +308,20 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
     coverage_required = float(coverage["window"]["required_hours"])
     capture_hours = float(capture["continuity"]["hours"])
     capture_required = float(capture["continuity"]["minimum_hours"])
+    capture_weather_availability = float(
+        capture["continuity"].get("weather_availability", 0.0)
+    )
+    capture_weather_current = int(
+        capture["continuity"].get("weather_current_receipts", 0)
+    )
+    capture_weather_samples = int(
+        capture["continuity"].get("weather_sample_receipts", 0)
+    )
+    capture_weather_stale_run = int(
+        capture["continuity"].get(
+            "maximum_consecutive_weather_stale_samples", 0
+        )
+    )
     future_days = min(
         int(info.get("longest_consecutive_common_days", 0))
         for info in futurecast["horizons"].values()
@@ -318,7 +332,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "evidence_track": "First-party capture",
             "observed": capture_hours,
             "required": capture_required,
-            "unit": "continuous hours",
+            "unit": "gap-free pipeline hours",
             "completion": min(capture_hours / capture_required, 1.0),
         },
         {
@@ -399,7 +413,7 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
     next_steps = [
         {
             "order": 1,
-            "action": "Sustain nonempty first-party capture for 24 continuous hours",
+            "action": "Sustain nonempty first-party capture for 24 gap-free pipeline hours",
             "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
             "current": f"{capture_hours:.2f}/{capture_required:.0f} hours",
         },
@@ -464,6 +478,14 @@ def build_evidence(values: dict[str, dict[str, Any]]) -> dict[str, Any]:
         ),
         "capture_hours": capture_hours,
         "capture_required_hours": capture_required,
+        "capture_pipeline_healthy": bool(capture.get("pipeline_healthy")),
+        "capture_weather_current_now": bool(
+            capture.get("gates", {}).get("solar_weather_current")
+        ),
+        "capture_weather_availability": capture_weather_availability,
+        "capture_weather_current_receipts": capture_weather_current,
+        "capture_weather_sample_receipts": capture_weather_samples,
+        "capture_weather_stale_run": capture_weather_stale_run,
         "futurecast_days": future_days,
         "futurecast_required_days": future_required,
         "releaseable_modes": len(release["public_release"]["releaseable_modes"]),
@@ -786,8 +808,13 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "type": "markdown",
             "sourceId": "phase6_evidence",
             "body": (
-                f"First-party prospective capture is at **{summary['capture_hours']:.2f}/{summary['capture_required_hours']:.0f} continuous hours**; "
-                f"the permitted WSPR research shadow is at **{summary['wspr_hours']}/{summary['wspr_required_hours']} signed hours**; "
+                f"First-party prospective capture is at **{summary['capture_hours']:.2f}/{summary['capture_required_hours']:.0f} gap-free pipeline hours**. "
+                f"Fresh weather passed **{summary['capture_weather_current_receipts']}/{summary['capture_weather_sample_receipts']} samples "
+                f"({summary['capture_weather_availability']:.2%} versus the 95% gate)**, the longest stale run is "
+                f"**{summary['capture_weather_stale_run']}/2 samples**, and the latest weather sample is "
+                f"**{'current' if summary['capture_weather_current_now'] else 'stale'}**. This separates collector continuity from the explicit "
+                "serving fallback without weakening the source-age limits. "
+                f"The permitted WSPR research shadow is at **{summary['wspr_hours']}/{summary['wspr_required_hours']} signed hours**; "
                 f"the independent aggregate coverage audit spans **{summary['coverage_hours']}/{summary['coverage_required_hours']} all-band hours**, "
                 f"**{summary['coverage_utc_hours']}/24 UTC strata**, and **{summary['coverage_distance_buckets']} distance buckets**; and FutureCast has "
                 f"**{summary['futurecast_days']}/{summary['futurecast_required_days']} consecutive legal issuance days**. WSPR research access remains "
@@ -912,7 +939,7 @@ releaseable, and prospective outcomes remain unread.
 
 ## Current clocks
 
-- First-party capture: {summary['capture_hours']:.2f}/{summary['capture_required_hours']:.0f} continuous hours.
+- First-party capture: {summary['capture_hours']:.2f}/{summary['capture_required_hours']:.0f} gap-free pipeline hours.
 - Permitted WSPR shadow: {summary['wspr_hours']}/{summary['wspr_required_hours']} completed hours.
 - FutureCast issuance history: {summary['futurecast_days']}/{summary['futurecast_required_days']} consecutive legal days.
 

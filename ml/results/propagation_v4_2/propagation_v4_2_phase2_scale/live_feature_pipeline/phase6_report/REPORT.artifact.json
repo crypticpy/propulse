@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: model and Phase 6 readiness report",
     "description": "Technical model result, release evidence, blockers, and ordered next steps.",
-    "generatedAt": "2026-07-16T17:54:33.539578+00:00",
+    "generatedAt": "2026-07-16T18:26:56.922226+00:00",
     "blocks": [
       {
         "id": "title",
@@ -103,7 +103,7 @@
         "id": "collection_explainer",
         "type": "markdown",
         "sourceId": "phase6_evidence",
-        "body": "First-party prospective capture is at **6.00/24 continuous hours**; the permitted WSPR research shadow is at **14/720 signed hours**; the independent aggregate coverage audit spans **14/720 all-band hours**, **14/24 UTC strata**, and **5 distance buckets**; and FutureCast has **1/90 consecutive legal issuance days**. WSPR research access remains research-only until a separate signed subscriber authorization artifact exists. Early/late source drift stays pending until two non-overlapping seven-day windows exist. The literal full-M5 outage proof is deliberately not simulated from a missing publisher: it must be a coordinated power-loss and genuine recovery event."
+        "body": "First-party prospective capture is at **6.76/24 gap-free pipeline hours**. Fresh weather passed **30/33 samples (90.91% versus the 95% gate)**, the longest stale run is **2/2 samples**, and the latest weather sample is **stale**. This separates collector continuity from the explicit serving fallback without weakening the source-age limits. The permitted WSPR research shadow is at **14/720 signed hours**; the independent aggregate coverage audit spans **14/720 all-band hours**, **14/24 UTC strata**, and **5 distance buckets**; and FutureCast has **1/90 consecutive legal issuance days**. WSPR research access remains research-only until a separate signed subscriber authorization artifact exists. Early/late source drift stays pending until two non-overlapping seven-day windows exist. The literal full-M5 outage proof is deliberately not simulated from a missing publisher: it must be a coordinated power-loss and genuine recovery event."
       },
       {
         "id": "mode_heading",
@@ -522,7 +522,7 @@
           "metric_definitions": {
             "relative_improvement": "(B2 Brier - A6 Brier) / B2 Brier on the named untouched scope.",
             "gate_completion": "Passed Boolean release gates divided by preregistered gates in the named track.",
-            "collection_progress": "Observed continuous hours or legal issuance days divided by the frozen minimum."
+            "collection_progress": "Observed gap-free pipeline hours or legal issuance days divided by the frozen minimum."
           }
         }
       }
@@ -531,7 +531,7 @@
   "snapshot": {
     "version": 1,
     "status": "ready",
-    "generatedAt": "2026-07-16T17:54:33.539578+00:00",
+    "generatedAt": "2026-07-16T18:26:56.922226+00:00",
     "datasets": {
       "summary": [
         {
@@ -553,8 +553,14 @@
           "coverage_utc_hours": 14,
           "coverage_distance_buckets": 5,
           "coverage_drift_sample_sufficient": false,
-          "capture_hours": 5.9986222611111115,
+          "capture_hours": 6.76304465861111,
           "capture_required_hours": 24.0,
+          "capture_pipeline_healthy": true,
+          "capture_weather_current_now": false,
+          "capture_weather_availability": 0.9090909090909091,
+          "capture_weather_current_receipts": 30,
+          "capture_weather_sample_receipts": 33,
+          "capture_weather_stale_run": 2,
           "futurecast_days": 1,
           "futurecast_required_days": 90,
           "releaseable_modes": 0,
@@ -657,10 +663,10 @@
       "collection_progress_rows": [
         {
           "evidence_track": "First-party capture",
-          "observed": 5.9986222611111115,
+          "observed": 6.76304465861111,
           "required": 24.0,
-          "unit": "continuous hours",
-          "completion": 0.24994259421296297
+          "unit": "gap-free pipeline hours",
+          "completion": 0.2817935274421296
         },
         {
           "evidence_track": "WSPR shadow",
@@ -956,9 +962,9 @@
       "next_steps": [
         {
           "order": 1,
-          "action": "Sustain nonempty first-party capture for 24 continuous hours",
+          "action": "Sustain nonempty first-party capture for 24 gap-free pipeline hours",
           "why": "Proves the capture, settle, aggregate, and watchdog path before beta use.",
-          "current": "6.00/24 hours"
+          "current": "6.76/24 hours"
         },
         {
           "order": 2,
@@ -1060,7 +1066,7 @@
         "metric_definitions": {
           "relative_improvement": "(B2 Brier - A6 Brier) / B2 Brier on the named untouched scope.",
           "gate_completion": "Passed Boolean release gates divided by preregistered gates in the named track.",
-          "collection_progress": "Observed continuous hours or legal issuance days divided by the frozen minimum."
+          "collection_progress": "Observed gap-free pipeline hours or legal issuance days divided by the frozen minimum."
         }
       }
     }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T17:51:14.397578+00:00",
+  "generated_at": "2026-07-16T18:20:18.123673+00:00",
   "scope": "phase6_mode_specific_release_readiness",
   "decision": "withheld",
   "valid_fail_closed_decision": true,
@@ -47,7 +47,7 @@
     "prospective_capture": {
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/prospective_capture_readiness.json",
       "exists": true,
-      "sha256": "e47d295667c5d5f1c04f1648b30401c484b6ec91158eb2cd61de72dd76067dbf",
+      "sha256": "fc6ff2545fc13e5a70e4edfcfff4f0f62e81feafee933c62c332badd623be7ec",
       "schema_version": 1,
       "decision": null
     },

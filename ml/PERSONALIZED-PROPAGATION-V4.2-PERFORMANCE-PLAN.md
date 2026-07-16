@@ -16,12 +16,16 @@
 > NOAA products and 144 parsed values; training remains withheld until 90
 > consecutive legal availability days exist.
 > Prospective capture status, 2026-07-16: a native-M5 first-party LaunchAgent
-> now captures PSK Reporter, RBN, DX Cluster, and current solar/geomagnetic
-> measurements concurrently. All four operational input gates are active,
+> now captures PSK Reporter, RBN, DX Cluster, and solar/geomagnetic
+> measurements concurrently. All four operational input paths are active,
 > settled band/path reductions run inside
 > PostgreSQL, and an identity-free quarter-hour watchdog is active. The release
-> receipt remains `warming` at `6.00/24` hours across 28 healthy receipts until
-> nonempty aggregates sustain 24 gap-free hours.
+> receipt remains `warming`: the pipeline has `6.76/24` gap-free hours across
+> 33 receipts, while fresh-weather availability is `30/33` (`90.91%`) against
+> the frozen `95%` gate and the current NOAA magnetic-field/wind observation is
+> stale. The longest weather-stale run is `2/2` allowed samples. Pipeline
+> continuity is preserved while explicit serving fallback is measured; release
+> still requires current weather at decision time.
 > Research-shadow status, 2026-07-16T17:20Z: `14/14` expected WSPR hours are
 > complete with zero gaps (`14/720` duration gate), `3,295,875` observations,
 > and `933,688` feature cells. The latest audited keyset-paginated finalizer used the
@@ -805,14 +809,26 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   Required Kp, magnetic-field, solar-wind, and Dst freshness gates match the
   serving contract; a late optional proton-flux value remains missing rather
   than taking down the complete weather input.
+- [x] Correct the prospective watchdog's collector-cycle race and freeze a
+  fallback-aware availability gate before the 24-hour preflight completed. The
+  job now waits up to six minutes for a source cycle no older than two minutes,
+  polling only the small status row before one full health query. It retains the
+  serving contract's exact 15-minute Kp, magnetic-field, and solar-wind limits
+  and two-hour Dst limit. Gap-free pipeline continuity is measured separately
+  from weather availability; release requires current weather, at least 95% of
+  samples current in the rolling 24-hour window, and no more than two
+  consecutive stale samples. The first scheduled proof waited 51.89 seconds,
+  used six status queries plus one bounded health read, preserved 6.76 pipeline
+  hours, and honestly recorded NOAA magnetic-field/wind staleness.
 - [ ] Pass the first-party prospective capture preflight: both settled
-  aggregates and all four operational inputs must be nonempty/current, and the
-  gates must remain
-  gap-free for 24 hours. The first nonempty settled aggregates now exist and
-  the latest preserved receipt is honestly `warming` at `6.00/24` hours across
-  28 healthy receipts; the August-September outcomes remain unread.
+  aggregates and all four operational input paths must remain available, the
+  pipeline must remain gap-free for 24 hours, weather availability must reach
+  95% with no stale run longer than two samples, and the final sample must be
+  current. The latest receipt is honestly `warming` at `6.76/24` pipeline
+  hours, `30/33` fresh-weather samples, and a current weather failure; the
+  August-September outcomes remain unread.
 - [x] Pass one uninterrupted native-M5 repository verification: V4 `41/41`,
-  service `102/102`, V4.1 `37/37`, V4.2 `186/186`, and
+  service `104/104`, V4.1 `37/37`, V4.2 `186/186`, and
   frontend/API/collector `99/99` tests, plus lint, TypeScript, production
   build, tracked-artifact rules, and bundle budgets. The refreshed visual
   report passed canonical packaging, source-dialog interaction, and browser QA

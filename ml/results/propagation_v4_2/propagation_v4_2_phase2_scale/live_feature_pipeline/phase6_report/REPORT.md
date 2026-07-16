@@ -11,7 +11,7 @@ releaseable, and prospective outcomes remain unread.
 
 ## Current clocks
 
-- First-party capture: 6.00/24 continuous hours.
+- First-party capture: 6.76/24 gap-free pipeline hours.
 - Permitted WSPR shadow: 14/720 completed hours.
 - FutureCast issuance history: 1/90 consecutive legal days.
 

@@ -108,18 +108,39 @@ export function parseRefUpdates(raw) {
     );
 }
 
+export function selectFallbackBase(localOid, candidates, mergeBase) {
+  for (const candidate of candidates.filter(Boolean)) {
+    const common = mergeBase(localOid, candidate);
+    if (common) return common;
+  }
+  return "";
+}
+
 function fallbackBase(localOid, remoteName) {
+  const upstream = git(
+    ["rev-parse", "@{u}"],
+    { allowFailure: true, quiet: true },
+  );
   const remoteHead = git(
     ["rev-parse", `refs/remotes/${remoteName}/HEAD`],
     { allowFailure: true, quiet: true },
   );
-  if (remoteHead) {
-    const common = git(
-      ["merge-base", localOid, remoteHead],
+  const common = selectFallbackBase(
+    localOid,
+    [upstream, remoteHead],
+    (head, candidate) => git(
+      ["merge-base", head, candidate],
       { allowFailure: true, quiet: true },
-    );
-    if (common) return common;
-  }
+    ),
+  );
+  if (common) return common;
+
+  const parent = git(
+    ["rev-parse", `${localOid}^`],
+    { allowFailure: true, quiet: true },
+  );
+  if (parent) return parent;
+
   return git(
     ["rev-list", "--max-parents=0", localOid],
     { allowFailure: true, quiet: true },

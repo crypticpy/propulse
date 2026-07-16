@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   classifyPushPaths,
   parseRefUpdates,
+  selectFallbackBase,
 } from "./pre-push-checks.mjs";
 
 test("classifies Markdown anywhere in the repository as documentation", () => {
@@ -70,4 +71,27 @@ test("parses Git pre-push ref update lines", () => {
     remoteRef: "refs/heads/topic",
     remoteOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   }]);
+});
+
+test("new branches compare against their upstream merge base first", () => {
+  const calls = [];
+  const base = selectFallbackBase(
+    "local-head",
+    ["tracked-upstream", "remote-default"],
+    (head, candidate) => {
+      calls.push([head, candidate]);
+      return candidate === "tracked-upstream" ? "upstream-common" : "";
+    },
+  );
+  assert.equal(base, "upstream-common");
+  assert.deepEqual(calls, [["local-head", "tracked-upstream"]]);
+});
+
+test("new branch base selection skips unavailable candidates", () => {
+  const base = selectFallbackBase(
+    "local-head",
+    ["", "remote-default"],
+    (_head, candidate) => candidate === "remote-default" ? "remote-common" : "",
+  );
+  assert.equal(base, "remote-common");
 });

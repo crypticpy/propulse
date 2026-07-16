@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T03:02:43.744227+00:00",
-  "scope": "live_feature_foundation_replay_and_schema_deployment_pre_provider",
-  "decision": "foundation_replay_and_schema_pass_provider_pending",
+  "generated_at": "2026-07-16T03:27:35.983589+00:00",
+  "scope": "live_feature_foundation_replay_schema_weather_and_orchestration_pre_provider",
+  "decision": "foundation_replay_schema_weather_and_orchestration_pass_provider_pending",
   "source_authorized": false,
   "migration_deployed": true,
   "provider_connector_enabled": false,
@@ -32,6 +32,16 @@
       "id": "deployment_validation",
       "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/deployment_validation.json",
       "sha256": "0013b509749b7b30b1cbc4a1351dbd72afe9d4644b36d5679de0c5b422ab6cc9"
+    },
+    {
+      "id": "operational_weather_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/operational_weather_validation.json",
+      "sha256": "be3caf5d726fce6c8b8019e36238f269e2c326c3acd424cfbaabcef591015496"
+    },
+    {
+      "id": "orchestration_validation",
+      "path": "ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/live_feature_pipeline/orchestration_validation.json",
+      "sha256": "3d827eee8ae3ef3e991a8614727d7b77bf771ab2cb565c2ea1e4e9452c5275e9"
     }
   ],
   "bundle": {
@@ -171,6 +181,73 @@
       }
     }
   },
+  "operational_weather": {
+    "provider": "solar-snapshots-v1",
+    "weather": {
+      "feature_count": 14,
+      "features": [
+        "bt",
+        "bx_gsm",
+        "by_gsm",
+        "bz_gsm",
+        "bz_min_3h",
+        "density_cm3",
+        "dst",
+        "dst_min_6h",
+        "f107",
+        "kp",
+        "kp_max_24h",
+        "proton_flux_10mev",
+        "temperature_k",
+        "wind_speed"
+      ],
+      "watermark_age_seconds": 4440,
+      "availability_age_seconds": 140,
+      "quality_flags": []
+    },
+    "performance": {
+      "repetitions": 20,
+      "cached_path_p95_ms": 2.906167006585747
+    },
+    "gates": {
+      "target_snapshot_verified": true,
+      "critical_operational_fields_present": true,
+      "source_watermark_causal": true,
+      "source_watermark_within_two_hours": true,
+      "receipt_within_fifteen_minutes": true,
+      "browser_weather_value_replaced": true,
+      "browser_weather_freshness_replaced": true,
+      "real_a6_bundle_loaded": true,
+      "trusted_weather_provider_reported": true,
+      "real_bundle_request_succeeds": true,
+      "missing_wspr_still_selects_physics": true,
+      "response_uses_server_weather_freshness": true,
+      "cached_path_p95_below_100ms": true,
+      "locked_outcomes_unread": true
+    }
+  },
+  "orchestration": {
+    "synthetic": true,
+    "execution": {
+      "workers": 2,
+      "threads_per_band": 9,
+      "maximum_compute_threads": 18,
+      "maximum_concurrent_workers_observed": 2,
+      "bands_finalized": 10,
+      "wall_seconds": 0.1755410410114564
+    },
+    "gates": {
+      "signed_manifest_accepted": true,
+      "manifest_tampering_rejected": true,
+      "all_ten_hf_bands_finalized": true,
+      "two_workers_observed": true,
+      "all_eighteen_m5_threads_allocated": true,
+      "prune_runs_after_total_success": true,
+      "band_failure_prevents_prune": true,
+      "cpu_oversubscription_rejected": true,
+      "locked_outcomes_unread": true
+    }
+  },
   "datasets": {
     "summary": [
       {
@@ -198,7 +275,14 @@
         "migration_gates_passed": 22,
         "migration_gates_total": 22,
         "deployment_gates_passed": 15,
-        "deployment_gates_total": 15
+        "deployment_gates_total": 15,
+        "weather_gates_passed": 14,
+        "weather_gates_total": 14,
+        "weather_feature_count": 14,
+        "weather_path_p95_ms": 2.906167006585747,
+        "orchestration_gates_passed": 9,
+        "orchestration_gates_total": 9,
+        "orchestration_threads": 18
       }
     ],
     "parity_rows": [
@@ -621,6 +705,121 @@
         "scope": "Post-deployment target",
         "gate": "locked outcomes unread",
         "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "target snapshot verified",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "critical operational fields present",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "source watermark causal",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "source watermark within two hours",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "receipt within fifteen minutes",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "browser weather value replaced",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "browser weather freshness replaced",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "real a6 bundle loaded",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "trusted weather provider reported",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "real bundle request succeeds",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "missing wspr still selects physics",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "response uses server weather freshness",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "cached path p95 below 100ms",
+        "status": "pass"
+      },
+      {
+        "scope": "Trusted operational weather",
+        "gate": "locked outcomes unread",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "signed manifest accepted",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "manifest tampering rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "all ten hf bands finalized",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "two workers observed",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "all eighteen m5 threads allocated",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "prune runs after total success",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "band failure prevents prune",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "cpu oversubscription rejected",
+        "status": "pass"
+      },
+      {
+        "scope": "Signed hourly orchestration",
+        "gate": "locked outcomes unread",
+        "status": "pass"
       }
     ],
     "blocker_rows": [
@@ -633,11 +832,7 @@
         "status": "required before live NowCast"
       },
       {
-        "remaining_work": "trusted server-authoritative operational-weather response",
-        "status": "required before live NowCast"
-      },
-      {
-        "remaining_work": "production hourly finalizer, pruning scheduler, and monitoring",
+        "remaining_work": "activate the signed hourly finalizer/pruning runner and monitoring",
         "status": "required before live NowCast"
       },
       {

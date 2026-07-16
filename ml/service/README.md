@@ -61,6 +61,28 @@ timestamp, a transform/provider mismatch, or any quality flag fails closed to
 the physics profile. A browser cannot select NowCast by submitting a small
 freshness age.
 
+Operational weather is server-authoritative too. The service removes every
+browser-provided weather value, weather missingness flag, derived weather
+window, and `space_weather` freshness claim. It rebuilds the supported vector
+from provenance-rich `solar_snapshots`, requiring both source observation and
+collector receipt time to be causal. Kp, magnetic field, solar wind, proton
+flux, Dst, F10.7, sunspots, and the Kp/Bz/Dst windows each retain their frozen
+source-specific age rules. Missing or future data remains missing instead of
+falling back to the browser.
+
+Configure the trusted weather path independently of WSPR source authorization:
+
+```bash
+export PROPULSE_WEATHER_STORE_URL="https://project.supabase.co"
+export PROPULSE_WEATHER_STORE_SERVICE_KEY="server-only-service-role-key"
+export PROPULSE_WEATHER_CACHE_SECONDS=60
+```
+
+The service key must never use a `VITE_` prefix. The cache is bounded to five
+minutes and keyed by issue minute; current production validation uses 60
+seconds. Health and aggregate shadow telemetry report the provider name and
+server-derived weather age without exposing feature values.
+
 Enable the provider only after its source is approved and the migration has
 been deployed. These variables are all-or-nothing; partial configuration fails
 startup:
@@ -76,6 +98,26 @@ The service key must never use a `VITE_` prefix or enter client configuration.
 The RPC accepts 1-4,096 target grids in one call and returns nothing unless the
 H-1, H-2, H-3, and H-24 band watermarks were all complete, transform-matched,
 quality-clean, and available by issue time.
+
+After an authorized connector emits a completed-hour manifest, run
+`wspr_scheduler.py` rather than invoking bands independently. The manifest is
+HMAC-authenticated, checksum-links the connector checkpoint, confirms an exact
+end-of-hour source watermark, and must name all ten HF bands. The scheduler
+uses bounded `workers * threads_per_band` concurrency, refuses CPU
+oversubscription, commits each band through the watermark-last finalizer, and
+calls retention pruning only after every band succeeds:
+
+```bash
+export PROPULSE_WSPR_COMPLETION_SECRET="server-only-random-secret"
+ml/.venv/bin/python ml/service/wspr_scheduler.py \
+  --completion-manifest /private/path/completed-hour.json \
+  --workers 2 --threads-per-band 9
+```
+
+The `2 x 9` example is the M5 profile. Production must size the product to its
+allocated CPU count. An external scheduler may retry the same signed manifest;
+feature and watermark keys are idempotent, and the local lock prevents
+overlapping runs in one instance.
 
 Serving manifests may declare a profile as a checksum-verified `single` model
 or a `weighted_ensemble`. Ensemble components must use the same ordered feature

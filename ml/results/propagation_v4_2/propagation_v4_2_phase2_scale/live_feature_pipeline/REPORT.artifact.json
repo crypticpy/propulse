@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Propulse NowCast V4.2: live-feature foundation and replay report",
     "description": "Multi-hour transform parity, causal receipt replay, server-authoritative path history, M5 performance, privacy gates, and live-source blockers.",
-    "generatedAt": "2026-07-16T03:02:43.744916+00:00",
+    "generatedAt": "2026-07-16T03:27:35.985005+00:00",
     "cards": [
       {
         "id": "exact_diff",
@@ -190,7 +190,7 @@
       {
         "id": "gate_table",
         "title": "Foundation, replay, and deployment gates",
-        "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, migration contract, and deployed schema all pass.",
+        "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, deployed schema, and trusted weather all pass.",
         "dataset": "gate_rows",
         "sourceId": "live_feature_evidence",
         "density": "dense",
@@ -232,7 +232,7 @@
       {
         "id": "blocker_table",
         "title": "Required work before live NowCast",
-        "subtitle": "The private store is deployed, but no live provider or scheduled ingest is authorized.",
+        "subtitle": "The private store and trusted weather path are ready, but no live WSPR source is authorized.",
         "dataset": "blocker_rows",
         "sourceId": "live_feature_evidence",
         "density": "dense",
@@ -277,7 +277,7 @@
         "id": "answer",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. The schema is deployed and ready for authorized-source integration; no live provider or scheduler is approved."
+        "body": "## The production-shaped foundation and open-month replay pass, but live WSPR is not enabled\n\nAcross **48 stratified hours** and **12,245,675 open-month spots**, the shared DuckDB transform produced **3,628,293** opportunity cells and **3,218,610** path-hour cells with **zero directional differences** from the historical builder. Two approximately 10,000-row receipt scenarios also recovered exact corrected snapshots after duplicates, reordering, and late arrivals. The real 50M A6 bundle rejected forged browser path-history values, kept identity-free telemetry, and served a path at **3.39 ms p95** and a 288-cell surface at **10.59 ms p95**. The six-migration release chain passed **22 of 22** rollback-only gates on the target PostgreSQL 17.6 database with its original object state restored, then passed **15 of 15** post-deployment gates. Trusted operational weather then passed **14 of 14** gates with **14 causal fields** at **2.91 ms** cached path p95. Signed hourly orchestration passed **9 of 9** gates while allocating all **18 M5 CPU threads** without oversubscription. The schema and weather path are ready for authorized-source integration; no live WSPR provider is approved."
       },
       {
         "id": "cards",
@@ -340,7 +340,7 @@
         "id": "architecture",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "**Authorized connector -> private rolling observations -> bounded hourly DuckDB finalizer -> versioned path-hour cells and atomic watermarks -> service-role-only batched lookup -> A6 service.**\n\nThe browser may request a path or surface but cannot supply trusted lag values or mark them fresh. The API deletes client lag features, obtains a complete matching server snapshot, and activates NowCast only when provider, transform version, watermark, availability time, and quality flags all pass. Missing, partial, future, stale, or degraded data fails closed to the physics profile."
+        "body": "**Authorized connector -> HMAC/checkpoint completion manifest -> private rolling observations -> bounded hourly DuckDB finalizer -> versioned path-hour cells and atomic watermarks -> service-role-only batched lookup -> A6 service.**\n\nThe browser may request a path or surface but cannot supply trusted lag values or mark them fresh. The API deletes client lag features, obtains a complete matching server snapshot, and activates NowCast only when provider, transform version, watermark, availability time, and quality flags all pass. It also deletes every browser weather value and reconstructs the supported weather vector from provenance-rich `solar_snapshots`. Missing, partial, future, stale, or degraded data fails closed."
       },
       {
         "id": "latency_chart",
@@ -363,19 +363,19 @@
         "id": "method",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. No external live WSPR provider was queried."
+        "body": "The replay uses 24 deterministic hours from each open WSPRnet archive month ([archive](https://www.wsprnet.org/archive/)), checksum-linked to bronze and historical-opportunity Parquet inputs. DuckDB 1.5's hash engine is pinned because deterministic receiver sampling depends on it. The foundation validation loads the real A6 serving manifest, sends malicious 0.999 lag values with zero client freshness, and requires physics fallback for both path and surface APIs. It also scans emitted telemetry for grid and station-envelope fields. All six migrations were first executed in timestamp order inside a rollback-only transaction on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. No external live WSPR provider was queried. A real hardened NOAA capture separately verified the operational-weather path against A6."
       },
       {
         "id": "compute",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Apple Silicon execution\n\nAll evidence was generated on native ARM64 with **18 M5 CPU cores**. The 48-hour transform and receipt replay used 18 DuckDB threads. Research training remains two spawned XGBoost fits with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one XGBoost thread each to avoid oversubscription under concurrent traffic."
+        "body": "## Apple Silicon execution\n\nAll evidence was generated on native ARM64 with **18 M5 CPU cores**. The 48-hour transform and receipt replay used 18 DuckDB threads. Research training remains two spawned XGBoost fits with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one XGBoost thread each to avoid oversubscription under concurrent traffic. The hourly runner uses two concurrent band finalizers with nine DuckDB threads each on this M5 and rejects any larger product."
       },
       {
         "id": "limits",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema does not prove the hourly finalizer, pruning scheduler, or monitoring loop. Operational weather inputs also need the same server-authoritative treatment before active forecasts. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
+        "body": "## Limits and robustness\n\nThis is an implementation-equivalence, synthetic receipt, and fail-closed service test, not a live-source quality study. Forty-eight open hours establish broader transform equivalence, and the receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema does not prove an authorized connector, continuous hourly execution, or the monitoring loop. Trusted weather has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability continues to mix propagation with network behavior, and 6m remains a separate model."
       },
       {
         "id": "limit_table_block",
@@ -393,13 +393,13 @@
         "id": "next",
         "type": "markdown",
         "sourceId": "live_feature_evidence",
-        "body": "## Next steps\n\n1. Obtain written authorization for a live WSPR source or operate a source we control.\n2. Implement the authorized connector without changing the shared transform.\n3. Expose trusted server-authoritative operational weather and schedule the hourly finalizer and pruning job.\n4. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
+        "body": "## Next steps\n\n1. Obtain written authorization for a live WSPR source or operate a source we control.\n2. Implement the authorized connector without changing the shared transform.\n3. Activate the signed completion-manifest finalizer/pruner and production monitoring for that connector.\n4. Run at least 30 days of identity-free real receipt-time shadow traffic and continuous weather freshness before allowing verified fresh history to select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
       }
     ]
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T03:02:43.744916+00:00",
+    "generatedAt": "2026-07-16T03:27:35.985005+00:00",
     "status": "ready",
     "datasets": {
       "summary": [
@@ -428,7 +428,14 @@
           "migration_gates_passed": 22,
           "migration_gates_total": 22,
           "deployment_gates_passed": 15,
-          "deployment_gates_total": 15
+          "deployment_gates_total": 15,
+          "weather_gates_passed": 14,
+          "weather_gates_total": 14,
+          "weather_feature_count": 14,
+          "weather_path_p95_ms": 2.906167006585747,
+          "orchestration_gates_passed": 9,
+          "orchestration_gates_total": 9,
+          "orchestration_threads": 18
         }
       ],
       "parity_rows": [
@@ -851,6 +858,121 @@
           "scope": "Post-deployment target",
           "gate": "locked outcomes unread",
           "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "target snapshot verified",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "critical operational fields present",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "source watermark causal",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "source watermark within two hours",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "receipt within fifteen minutes",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "browser weather value replaced",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "browser weather freshness replaced",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "real a6 bundle loaded",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "trusted weather provider reported",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "real bundle request succeeds",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "missing wspr still selects physics",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "response uses server weather freshness",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "cached path p95 below 100ms",
+          "status": "pass"
+        },
+        {
+          "scope": "Trusted operational weather",
+          "gate": "locked outcomes unread",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "signed manifest accepted",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "manifest tampering rejected",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "all ten hf bands finalized",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "two workers observed",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "all eighteen m5 threads allocated",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "prune runs after total success",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "band failure prevents prune",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "cpu oversubscription rejected",
+          "status": "pass"
+        },
+        {
+          "scope": "Signed hourly orchestration",
+          "gate": "locked outcomes unread",
+          "status": "pass"
         }
       ],
       "blocker_rows": [
@@ -863,11 +985,7 @@
           "status": "required before live NowCast"
         },
         {
-          "remaining_work": "trusted server-authoritative operational-weather response",
-          "status": "required before live NowCast"
-        },
-        {
-          "remaining_work": "production hourly finalizer, pruning scheduler, and monitoring",
+          "remaining_work": "activate the signed hourly finalizer/pruning runner and monitoring",
           "status": "required before live NowCast"
         },
         {

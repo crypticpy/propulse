@@ -1,6 +1,6 @@
 # Propulse NowCast V4.2: live-feature foundation and replay report
 
-Generated: 2026-07-16T03:02:43.744227+00:00
+Generated: 2026-07-16T03:27:35.983589+00:00
 
 ## Answer first
 
@@ -14,8 +14,11 @@ duplicates, reordering, and late arrivals. The real A6 bundle blocked browser
 freshness forgery and measured `3.39` ms path p95 and
 `10.59` ms for a 288-cell surface.
 
-The six-migration schema is deployed and passed post-deployment verification.
+The six-migration schema is deployed, and trusted operational weather passed
+`14/14` real-bundle gates.
+Signed hourly orchestration passed `9/9`
+gates with `18` bounded M5 threads.
 Live WSPR remains disabled pending source authorization, an authorized
-connector, the production scheduler, trusted operational weather, and 30 days
-of real receipt-time shadow evidence. See `REPORT.html` for charts, methodology, privacy
-and fallback contracts, limitations, and next steps.
+connector, activation of the signed production scheduler, and 30 days
+of real receipt-time shadow evidence. See `REPORT.html` for charts,
+methodology, privacy and fallback contracts, limitations, and next steps.

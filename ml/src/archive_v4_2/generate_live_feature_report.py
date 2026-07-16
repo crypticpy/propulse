@@ -26,6 +26,8 @@ INPUTS = {
     "replay_validation": RESULT / "replay_validation.json",
     "migration_validation": RESULT / "migration_validation.json",
     "deployment_validation": RESULT / "deployment_validation.json",
+    "operational_weather_validation": RESULT / "operational_weather_validation.json",
+    "orchestration_validation": RESULT / "orchestration_validation.json",
 }
 
 
@@ -87,6 +89,8 @@ def build_evidence(
     replay: dict[str, Any],
     migration_validation: dict[str, Any],
     deployment_validation: dict[str, Any],
+    operational_weather_validation: dict[str, Any],
+    orchestration_validation: dict[str, Any],
 ) -> dict[str, Any]:
     if transform.get("decision") != "pass":
         raise RuntimeError("transform parity did not pass")
@@ -105,6 +109,10 @@ def build_evidence(
         or deployment_validation.get("persistent_test_rows") is not False
     ):
         raise RuntimeError("target Postgres deployment validation did not pass")
+    if operational_weather_validation.get("decision") != "pass":
+        raise RuntimeError("operational-weather deployment validation did not pass")
+    if orchestration_validation.get("decision") != "pass":
+        raise RuntimeError("live orchestration validation did not pass")
     if any(
         value.get("locked_outcomes_read")
         for value in (
@@ -113,6 +121,8 @@ def build_evidence(
             replay,
             migration_validation,
             deployment_validation,
+            operational_weather_validation,
+            orchestration_validation,
         )
     ):
         raise RuntimeError("live-feature work must not read locked outcomes")
@@ -173,6 +183,24 @@ def build_evidence(
             bool(value) for value in deployment_validation["gates"].values()
         ),
         "deployment_gates_total": len(deployment_validation["gates"]),
+        "weather_gates_passed": sum(
+            bool(value)
+            for value in operational_weather_validation["gates"].values()
+        ),
+        "weather_gates_total": len(operational_weather_validation["gates"]),
+        "weather_feature_count": int(
+            operational_weather_validation["weather"]["feature_count"]
+        ),
+        "weather_path_p95_ms": float(
+            operational_weather_validation["performance"]["cached_path_p95_ms"]
+        ),
+        "orchestration_gates_passed": sum(
+            bool(value) for value in orchestration_validation["gates"].values()
+        ),
+        "orchestration_gates_total": len(orchestration_validation["gates"]),
+        "orchestration_threads": int(
+            orchestration_validation["execution"]["maximum_compute_threads"]
+        ),
     }]
     parity_rows = []
     for month in event_replays:
@@ -240,6 +268,16 @@ def build_evidence(
         "gate": name.replace("_", " "),
         "status": "pass" if passed else "fail",
     } for name, passed in deployment_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Trusted operational weather",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in operational_weather_validation["gates"].items())
+    gate_rows.extend({
+        "scope": "Signed hourly orchestration",
+        "gate": name.replace("_", " "),
+        "status": "pass" if passed else "fail",
+    } for name, passed in orchestration_validation["gates"].items())
     blocker_rows = [
         {
             "remaining_work": work,
@@ -248,8 +286,7 @@ def build_evidence(
         for work in (
             "written source authorization or a self-operated source",
             "authorized provider connector",
-            "trusted server-authoritative operational-weather response",
-            "production hourly finalizer, pruning scheduler, and monitoring",
+            "activate the signed hourly finalizer/pruning runner and monitoring",
             "30-day real receipt-time shadow coverage and calibration evidence",
         )
     ]
@@ -266,8 +303,8 @@ def build_evidence(
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "scope": "live_feature_foundation_replay_and_schema_deployment_pre_provider",
-        "decision": "foundation_replay_and_schema_pass_provider_pending",
+        "scope": "live_feature_foundation_replay_schema_weather_and_orchestration_pre_provider",
+        "decision": "foundation_replay_schema_weather_and_orchestration_pass_provider_pending",
         "source_authorized": False,
         "migration_deployed": True,
         "provider_connector_enabled": False,
@@ -301,6 +338,17 @@ def build_evidence(
             "scope": replay["scope"],
             "receipt_time_evidence": replay["receipt_time_evidence"],
             "compute": replay["compute"],
+        },
+        "operational_weather": {
+            "provider": operational_weather_validation["provider"],
+            "weather": operational_weather_validation["weather"],
+            "performance": operational_weather_validation["performance"],
+            "gates": operational_weather_validation["gates"],
+        },
+        "orchestration": {
+            "synthetic": orchestration_validation["synthetic"],
+            "execution": orchestration_validation["execution"],
+            "gates": orchestration_validation["gates"],
         },
         "datasets": {
             "summary": summary,
@@ -413,7 +461,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         {
             "id": "gate_table",
             "title": "Foundation, replay, and deployment gates",
-            "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, migration contract, and deployed schema all pass.",
+            "subtitle": "The real bundle, fallback, privacy, transform, receipt scenarios, deployed schema, and trusted weather all pass.",
             "dataset": "gate_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
@@ -439,7 +487,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
         {
             "id": "blocker_table",
             "title": "Required work before live NowCast",
-            "subtitle": "The private store is deployed, but no live provider or scheduled ingest is authorized.",
+            "subtitle": "The private store and trusted weather path are ready, but no live WSPR source is authorized.",
             "dataset": "blocker_rows",
             "sourceId": "live_feature_evidence",
             "density": "dense",
@@ -472,7 +520,11 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 f"**{summary['migration_gates_passed']} of {summary['migration_gates_total']}** rollback-only gates "
                 "on the target PostgreSQL 17.6 database with its original object state restored, then passed "
                 f"**{summary['deployment_gates_passed']} of {summary['deployment_gates_total']}** post-deployment gates. "
-                "The schema is deployed and ready for authorized-source integration; no live provider or scheduler is approved."
+                f"Trusted operational weather then passed **{summary['weather_gates_passed']} of {summary['weather_gates_total']}** "
+                f"gates with **{summary['weather_feature_count']} causal fields** at **{summary['weather_path_p95_ms']:.2f} ms** cached path p95. "
+                f"Signed hourly orchestration passed **{summary['orchestration_gates_passed']} of {summary['orchestration_gates_total']}** "
+                f"gates while allocating all **{summary['orchestration_threads']} M5 CPU threads** without oversubscription. "
+                "The schema and weather path are ready for authorized-source integration; no live WSPR provider is approved."
             ),
         },
         {"id": "cards", "type": "metric-strip", "cardIds": [card["id"] for card in cards]},
@@ -516,12 +568,13 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
             "type": "markdown",
             "sourceId": "live_feature_evidence",
             "body": (
-                "**Authorized connector -> private rolling observations -> bounded hourly DuckDB finalizer -> "
+                "**Authorized connector -> HMAC/checkpoint completion manifest -> private rolling observations -> bounded hourly DuckDB finalizer -> "
                 "versioned path-hour cells and atomic watermarks -> service-role-only batched lookup -> A6 service.**\n\n"
                 "The browser may request a path or surface but cannot supply trusted lag values or mark them fresh. "
                 "The API deletes client lag features, obtains a complete matching server snapshot, and activates "
                 "NowCast only when provider, transform version, watermark, availability time, and quality flags all "
-                "pass. Missing, partial, future, stale, or degraded data fails closed to the physics profile."
+                "pass. It also deletes every browser weather value and reconstructs the supported weather vector "
+                "from provenance-rich `solar_snapshots`. Missing, partial, future, stale, or degraded data fails closed."
             ),
         },
         {"id": "latency_chart", "type": "chart", "chartId": "latency", "layout": "full"},
@@ -542,7 +595,7 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "on the target PostgreSQL database, where RLS, grants, retention, pruning, completeness constraints, "
                 "and the four-lag RPC were exercised before the original object state was verified. The same hashed chain was then "
                 "deployed through the normal migration ledger and rechecked in place with rollback-only smoke rows. No external live "
-                "WSPR provider was queried."
+                "WSPR provider was queried. A real hardened NOAA capture separately verified the operational-weather path against A6."
             ),
         },
         {
@@ -556,7 +609,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "with nine LLVM OpenMP threads and four Arrow I/O threads each; single-process building and batch "
                 "scoring use 18 CPU threads and six Arrow I/O threads. XGBoost has no supported Metal tree-training "
                 "backend, so the GPU and Neural Engine are not silently substituted. API workers stay at one "
-                "XGBoost thread each to avoid oversubscription under concurrent traffic."
+                "XGBoost thread each to avoid oversubscription under concurrent traffic. The hourly runner uses "
+                "two concurrent band finalizers with nine DuckDB threads each on this M5 and rejects any larger product."
             ),
         },
         {
@@ -569,8 +623,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "live-source quality study. Forty-eight open hours establish broader transform equivalence, and the "
                 "receipt fixtures establish deterministic causal recovery, but neither proves provider completeness, "
                 "real arrival distributions, outage recovery, or 30-day shadow calibration. The deployed schema "
-                "does not prove the hourly finalizer, pruning scheduler, or monitoring loop. Operational weather inputs also "
-                "need the same server-authoritative treatment before active forecasts. WSPR receiver availability "
+                "does not prove an authorized connector, continuous hourly execution, or the monitoring loop. Trusted weather "
+                "has single-capture target evidence but still needs continuous freshness and outage evidence. WSPR receiver availability "
                 "continues to mix propagation with network behavior, and 6m remains a separate model."
             ),
         },
@@ -584,8 +638,8 @@ def build_artifact(evidence_path: Path, evidence: dict[str, Any]) -> dict[str, A
                 "## Next steps\n\n"
                 "1. Obtain written authorization for a live WSPR source or operate a source we control.\n"
                 "2. Implement the authorized connector without changing the shared transform.\n"
-                "3. Expose trusted server-authoritative operational weather and schedule the hourly finalizer and pruning job.\n"
-                "4. Run at least 30 days of identity-free real receipt-time shadow traffic before allowing verified fresh history to "
+                "3. Activate the signed completion-manifest finalizer/pruner and production monitoring for that connector.\n"
+                "4. Run at least 30 days of identity-free real receipt-time shadow traffic and continuous weather freshness before allowing verified fresh history to "
                 "select NowCast. Keep the frozen August-September 2026 prospective protocol untouched."
             ),
         },
@@ -633,11 +687,14 @@ duplicates, reordering, and late arrivals. The real A6 bundle blocked browser
 freshness forgery and measured `{summary['path_p95_ms']:.2f}` ms path p95 and
 `{summary['surface_p95_ms']:.2f}` ms for a 288-cell surface.
 
-The six-migration schema is deployed and passed post-deployment verification.
+The six-migration schema is deployed, and trusted operational weather passed
+`{summary['weather_gates_passed']}/{summary['weather_gates_total']}` real-bundle gates.
+Signed hourly orchestration passed `{summary['orchestration_gates_passed']}/{summary['orchestration_gates_total']}`
+gates with `{summary['orchestration_threads']}` bounded M5 threads.
 Live WSPR remains disabled pending source authorization, an authorized
-connector, the production scheduler, trusted operational weather, and 30 days
-of real receipt-time shadow evidence. See `REPORT.html` for charts, methodology, privacy
-and fallback contracts, limitations, and next steps.
+connector, activation of the signed production scheduler, and 30 days
+of real receipt-time shadow evidence. See `REPORT.html` for charts,
+methodology, privacy and fallback contracts, limitations, and next steps.
 """
 
 
@@ -658,12 +715,18 @@ def main() -> None:
     replay = read_json(INPUTS["replay_validation"])
     migration_validation = read_json(INPUTS["migration_validation"])
     deployment_validation = read_json(INPUTS["deployment_validation"])
+    operational_weather_validation = read_json(
+        INPUTS["operational_weather_validation"]
+    )
+    orchestration_validation = read_json(INPUTS["orchestration_validation"])
     evidence = build_evidence(
         transform,
         foundation,
         replay,
         migration_validation,
         deployment_validation,
+        operational_weather_validation,
+        orchestration_validation,
     )
     evidence_path = output_dir / "FOUNDATION_REPORT_EVIDENCE.json"
     evidence_path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

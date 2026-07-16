@@ -1,0 +1,36 @@
+#!/bin/zsh
+set -euo pipefail
+
+ROOT="${0:A:h:h:h}"
+ENV_FILE="${PROPULSE_ENV_FILE:-${ROOT}/.env.local}"
+
+if [[ ! -r "${ENV_FILE}" ]]; then
+  print -u2 "Untracked service environment is unavailable: ${ENV_FILE}"
+  exit 1
+fi
+
+set -a
+source "${ENV_FILE}"
+set +a
+
+: "${VITE_SUPABASE_URL:?VITE_SUPABASE_URL is required}"
+: "${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY is required}"
+: "${PROPULSE_MODEL_BUNDLE:?PROPULSE_MODEL_BUNDLE is required}"
+
+export PROPULSE_INFERENCE_MODE="${PROPULSE_INFERENCE_MODE:-shadow}"
+export PROPULSE_WEATHER_STORE_URL="${PROPULSE_WEATHER_STORE_URL:-${VITE_SUPABASE_URL}}"
+export PROPULSE_WEATHER_STORE_SERVICE_KEY="${PROPULSE_WEATHER_STORE_SERVICE_KEY:-${SUPABASE_SERVICE_ROLE_KEY}}"
+export PROPULSE_WEATHER_CACHE_SECONDS="${PROPULSE_WEATHER_CACHE_SECONDS:-60}"
+export PROPULSE_ALLOWED_ORIGINS="${PROPULSE_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
+
+unset SUPABASE_DB_PASSWORD VITE_SUPABASE_ANON_KEY
+
+PORT="${PROPULSE_PORT:-8010}"
+WORKERS="${PROPULSE_WORKERS:-6}"
+
+cd "${ROOT}"
+exec /usr/bin/caffeinate -dimsu "${ROOT}/ml/.venv/bin/uvicorn" app:app \
+  --app-dir ml/service \
+  --host 0.0.0.0 \
+  --port "${PORT}" \
+  --workers "${WORKERS}"

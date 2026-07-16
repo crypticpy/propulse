@@ -12,6 +12,10 @@ from path_history import (
     UnavailablePathHistoryProvider,
     VerifiedPathHistory,
 )
+from operational_weather import (
+    UnavailableOperationalWeatherProvider,
+    VerifiedOperationalWeather,
+)
 
 from app import (
     RuntimePrediction,
@@ -91,6 +95,22 @@ class FakePathHistoryProvider:
         }
 
 
+class FakeOperationalWeatherProvider:
+    name = "solar-snapshots-v1"
+
+    def __init__(self, age_seconds=60, future_available=False):
+        self.age_seconds = age_seconds
+        self.future_available = future_available
+
+    def lookup(self, *, issue_time):
+        available_at = issue_time + timedelta(seconds=1) if self.future_available else issue_time
+        return VerifiedOperationalWeather(
+            values={"kp": 2.0, "f107": 155.0, "kp_max_24h": 3.0},
+            source_watermark=issue_time - timedelta(seconds=self.age_seconds),
+            available_at=available_at,
+        )
+
+
 def request_payload():
     return {
         "origin_grid4": "EM10",
@@ -139,6 +159,7 @@ class ServiceTests(unittest.TestCase):
             self.registry,
             inference_mode="disabled",
             path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=UnavailableOperationalWeatherProvider(),
         ))
 
     def test_path_applies_station_envelope(self):
@@ -240,6 +261,52 @@ class ServiceTests(unittest.TestCase):
         self.assertNotIn("path_history", response.json()["data_freshness"])
         self.assertEqual(self.registry.last_values[-1]["path_success_prev1"], 0.0)
         self.assertEqual(self.registry.last_values[-1]["path_prev1_available"], 0)
+
+    def test_client_cannot_forge_operational_weather(self):
+        payload = request_payload()
+        payload["features"]["values"].update({"kp": 9.0, "kp_missing": 0})
+        payload["data_freshness_seconds"]["space_weather"] = 0
+
+        response = self.client.post("/v1/propagation/path", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("space_weather", response.json()["data_freshness"])
+        self.assertNotIn("kp", self.registry.last_values[-1])
+        self.assertEqual(self.registry.last_values[-1]["kp_missing"], 1)
+
+    def test_server_operational_weather_replaces_client_values(self):
+        payload = request_payload()
+        payload["features"]["values"].update({"kp": 9.0, "kp_missing": 0})
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=FakeOperationalWeatherProvider(),
+        ))
+
+        response = client.post("/v1/propagation/path", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data_freshness"]["space_weather"], 60)
+        self.assertEqual(self.registry.last_values[-1]["kp"], 2.0)
+        self.assertEqual(self.registry.last_values[-1]["kp_missing"], 0)
+        self.assertEqual(self.registry.last_values[-1]["f107"], 155.0)
+
+    def test_future_operational_weather_snapshot_is_rejected(self):
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="disabled",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=FakeOperationalWeatherProvider(
+                future_available=True
+            ),
+        ))
+
+        response = client.post("/v1/propagation/path", json=request_payload())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("space_weather", response.json()["data_freshness"])
+        self.assertEqual(self.registry.last_values[-1]["kp_missing"], 1)
 
     def test_future_or_flagged_server_snapshot_fails_closed(self):
         for provider in (

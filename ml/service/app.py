@@ -27,6 +27,13 @@ from path_history import (
     VerifiedPathHistory,
     path_history_provider_from_environment,
 )
+from operational_weather import (
+    DERIVED_WEATHER_FEATURES,
+    RAW_WEATHER_FEATURES,
+    OperationalWeatherProvider,
+    VerifiedOperationalWeather,
+    operational_weather_provider_from_environment,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -531,6 +538,64 @@ def apply_verified_path_history(
     return verified_cells, freshness
 
 
+def verified_operational_weather(
+    provider: OperationalWeatherProvider,
+    *,
+    issue_time: datetime,
+) -> VerifiedOperationalWeather | None:
+    try:
+        snapshot = provider.lookup(issue_time=issue_time)
+    except RuntimeError:
+        LOGGER.warning("verified operational-weather lookup failed; using missing values")
+        return None
+    if snapshot is None:
+        return None
+    if (
+        snapshot.provider != provider.name
+        or snapshot.available_at > issue_time
+        or snapshot.source_watermark > issue_time
+        or snapshot.source_watermark > snapshot.available_at
+        or snapshot.quality_flags
+    ):
+        return None
+    return snapshot
+
+
+def apply_verified_operational_weather(
+    provider: OperationalWeatherProvider,
+    *,
+    issue_time: datetime,
+    cells: list[PathFeatures],
+    client_freshness: dict[str, int],
+) -> tuple[list[PathFeatures], dict[str, int]]:
+    snapshot = verified_operational_weather(provider, issue_time=issue_time)
+    freshness = {
+        key: value
+        for key, value in client_freshness.items()
+        if key != "space_weather"
+    }
+    if snapshot is not None:
+        freshness["space_weather"] = max(
+            0,
+            math.ceil((issue_time - snapshot.source_watermark).total_seconds()),
+        )
+    verified_cells = []
+    for cell in cells:
+        values = dict(cell.values)
+        for name in RAW_WEATHER_FEATURES:
+            values.pop(name, None)
+            values[f"{name}_missing"] = 1
+        for name in DERIVED_WEATHER_FEATURES:
+            values.pop(name, None)
+        if snapshot is not None:
+            for name, value in snapshot.values.items():
+                values[name] = value
+                if name in RAW_WEATHER_FEATURES:
+                    values[f"{name}_missing"] = 0
+        verified_cells.append(cell.model_copy(update={"values": values}))
+    return verified_cells, freshness
+
+
 def resolve_inference_mode(configured: str | None) -> str:
     mode = (configured or "disabled").strip().lower()
     if mode == "off":
@@ -565,6 +630,7 @@ def shadow_telemetry_event(
     feature_contract: str,
     path_history_provider: str,
     path_history_transform_version: str,
+    operational_weather_provider: str,
     stale_history: bool,
     latency_ms: float,
 ) -> dict[str, Any]:
@@ -589,6 +655,7 @@ def shadow_telemetry_event(
         "station_feature_contract": str(responses[0]["feature_contract"]),
         "path_history_provider": path_history_provider,
         "path_history_transform_version": path_history_transform_version,
+        "operational_weather_provider": operational_weather_provider,
         "profile_counts": dict(sorted(profiles.items())),
         "source_freshness": {
             "path_history_seconds": path_history_age,
@@ -658,6 +725,7 @@ def create_app(
     inference_mode: str | None = None,
     telemetry_sink: Callable[[dict[str, Any]], None] | None = None,
     path_history_provider: PathHistoryProvider | None = None,
+    operational_weather_provider: OperationalWeatherProvider | None = None,
 ) -> FastAPI:
     runtime = registry
     if runtime is None:
@@ -675,6 +743,11 @@ def create_app(
         path_history_provider
         if path_history_provider is not None
         else path_history_provider_from_environment()
+    )
+    weather_provider = (
+        operational_weather_provider
+        if operational_weather_provider is not None
+        else operational_weather_provider_from_environment()
     )
     emit_telemetry = telemetry_sink or log_shadow_telemetry
     app = FastAPI(title="Propulse Propagation API", version="1.0.0")
@@ -703,6 +776,7 @@ def create_app(
             "telemetry_schema_version": SHADOW_TELEMETRY_SCHEMA_VERSION,
             "path_history_provider": history_provider.name,
             "path_history_transform_version": history_provider.transform_version,
+            "operational_weather_provider": weather_provider.name,
         }
 
     @app.get("/v1/propagation/models")
@@ -719,6 +793,12 @@ def create_app(
             origin_grid4=request.origin_grid4,
             cells=[request.features],
             client_freshness=request.data_freshness_seconds,
+        )
+        features, freshness = apply_verified_operational_weather(
+            weather_provider,
+            issue_time=request.issue_time,
+            cells=features,
+            client_freshness=freshness,
         )
         verified_request = request.model_copy(update={
             "features": features[0],
@@ -740,6 +820,7 @@ def create_app(
                     feature_contract=runtime_feature_contract,
                     path_history_provider=history_provider.name,
                     path_history_transform_version=history_provider.transform_version,
+                    operational_weather_provider=weather_provider.name,
                     stale_history=stale,
                     latency_ms=(time.perf_counter() - started) * 1000,
                 ))
@@ -757,6 +838,12 @@ def create_app(
             origin_grid4=request.origin_grid4,
             cells=request.cells,
             client_freshness=request.data_freshness_seconds,
+        )
+        cells, freshness = apply_verified_operational_weather(
+            weather_provider,
+            issue_time=request.issue_time,
+            cells=cells,
+            client_freshness=freshness,
         )
         verified_request = request.model_copy(update={
             "cells": cells,
@@ -801,6 +888,7 @@ def create_app(
                     feature_contract=runtime_feature_contract,
                     path_history_provider=history_provider.name,
                     path_history_transform_version=history_provider.transform_version,
+                    operational_weather_provider=weather_provider.name,
                     stale_history=stale,
                     latency_ms=(time.perf_counter() - started) * 1000,
                 ))

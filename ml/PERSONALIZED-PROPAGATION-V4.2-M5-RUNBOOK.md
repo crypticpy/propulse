@@ -76,8 +76,9 @@ performance warning was observed.
 
 The comprehensive report and open-research handoff are under
 `ml/results/propagation_v4_2/propagation_v4_2_phase2_scale/final_report/`.
-The remaining work is Phase 6 source authorization, live receipt-time shadow,
-opt-in, and prospective evidence.
+The remaining work is Phase 6 WSPR source authorization/connection, continuous
+receipt-time shadow, opt-in, and prospective evidence. Trusted operational
+weather and the source-independent finalization runner are implemented.
 Frontend/service shadow execution and aggregate-only telemetry are implemented.
 A local M5 deployment smoke passed with six one-thread Uvicorn workers, the real
 A6 bundle, successful path HTTP/CORS, explicit physics fallback, and a persisted
@@ -125,6 +126,14 @@ watermark at the end of the target hour, writes feature pages first, and commits
 the version watermark last; incomplete or degraded hours cannot be returned by
 the lookup RPC. Use all 18 DuckDB threads for M5 replay, but size production
 threads to its CPU allocation.
+
+Production invokes `ml/service/wspr_scheduler.py` with an authorized
+connector's HMAC-authenticated completion manifest. The manifest checksum-links
+the source checkpoint, requires all ten HF bands and an exact end-of-hour
+watermark, and is safe to retry. The runner limits
+`workers * threads_per_band` to visible CPUs, finalizes bands concurrently, and
+prunes only after every band succeeds. Use `--workers 2 --threads-per-band 9`
+on the M5; size both values to the production allocation elsewhere.
 
 The pre-provider foundation validation passed all 14 gates against the real A6
 bundle on native ARM64: path p95 `3.3914` ms, 288-cell surface p95 `10.5890` ms,
@@ -190,8 +199,10 @@ The target passed all 15 post-deployment gates: six ledger versions, tables,
 RLS, intended grants, user policies, service-only functions, locked
 `SECURITY DEFINER` search paths, collector availability backfill, solar
 provenance columns, and exact four-lag RPC behavior. Smoke rows were rolled
-back. The schema is deployed; the authorized connector, hourly finalizer,
-pruning scheduler, operational-weather endpoint, and 30-day receipt-time shadow
+back. The schema is deployed. A real provenance-rich NOAA capture and the
+trusted service provider passed 14/14 A6 gates with 14 causal fields and 2.91 ms
+cached path p95; browser weather forgery was replaced. The authorized WSPR
+connector, signed runner activation/monitoring, and 30-day receipt-time shadow
 are not active yet.
 
 ## Reproduce Phase 2 at 20M

@@ -662,6 +662,10 @@ confirms that December 2024 and all 2025 outcomes remained closed.
   target PostgreSQL instance without leaving persistent objects.
 - [x] Deploy the exact reviewed six-migration chain and pass post-deployment
   ledger, RLS, grant, policy, search-path, provenance, and four-lag RPC gates.
+- [x] Make operational weather server-authoritative, validate a real hardened
+  NOAA capture against A6, and reject browser weather/freshness forgery.
+- [x] Add an HMAC completion-manifest runner that finalizes all ten HF bands
+  with bounded multicore concurrency and prunes only after total success.
 - [ ] Accumulate permitted beta shadow traffic with authorized recent-path
   features and receipt-time outcomes.
 - [ ] Complete opt-in alpha/beta and prospective evidence.
@@ -696,9 +700,12 @@ substitute for the required live window. The WSPR migration separately passed
 all 14 gates in a rollback-only transaction on target PostgreSQL 17.6, leaving
 no persistent change. The exact chain was then applied through the normal
 migration ledger and passed all 15 post-deployment gates; transactional RPC
-smoke rows were removed. An authorized provider connector, production
-finalizer/pruning schedule, real receipt-time capture, and live coverage
-evidence remain open.
+smoke rows were removed. Trusted operational weather then passed all 14 target
+gates against the real A6 bundle with 14 causal fields and 2.91 ms cached path
+p95. The signed hourly runner is implemented and refuses CPU oversubscription,
+partial-band manifests, timestamp gaps, tampering, and prune-before-success. An
+authorized provider connector, runner activation/monitoring, real receipt-time
+capture, and live coverage evidence remain open.
 
 The real A6 bundle subsequently passed all 14 pre-provider foundation gates on
 the M5. Malicious browser lag/freshness values remained on physics fallback,

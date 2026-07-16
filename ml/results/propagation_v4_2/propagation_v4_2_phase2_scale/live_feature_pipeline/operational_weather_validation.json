@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T03:14:01.404027+00:00",
+  "scope": "target_operational_weather_and_real_bundle_validation",
+  "locked_outcomes_read": false,
+  "provider": "solar-snapshots-v1",
+  "bundle": {
+    "model_version": "propagation_v4_2_phase2_scale-phase3-candidate-50000000",
+    "manifest_sha256": "cb984cc744a30ffe8666b1afe868816c490ba08efd1d2121cc6260c148136821"
+  },
+  "weather": {
+    "feature_count": 14,
+    "features": [
+      "bt",
+      "bx_gsm",
+      "by_gsm",
+      "bz_gsm",
+      "bz_min_3h",
+      "density_cm3",
+      "dst",
+      "dst_min_6h",
+      "f107",
+      "kp",
+      "kp_max_24h",
+      "proton_flux_10mev",
+      "temperature_k",
+      "wind_speed"
+    ],
+    "watermark_age_seconds": 4440,
+    "availability_age_seconds": 140,
+    "quality_flags": []
+  },
+  "performance": {
+    "repetitions": 20,
+    "cached_path_p95_ms": 2.906167006585747
+  },
+  "compute": {
+    "machine": "arm64",
+    "physical_cores_visible": 18,
+    "os_cpu_count": 18,
+    "core_clusters": [
+      6,
+      12
+    ],
+    "configured_performance_cores": 12,
+    "configured_efficiency_cores": 6,
+    "unified_memory_gb": 128.0,
+    "power_source": "AC Power",
+    "required_power_source": "AC Power",
+    "power_modes": {
+      "Battery Power": 0,
+      "AC Power": 2
+    },
+    "required_ac_power_mode": 2,
+    "thermal_status": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_limits": {},
+    "python_version": "3.12.11"
+  },
+  "connection_identifier_recorded": false,
+  "gates": {
+    "target_snapshot_verified": true,
+    "critical_operational_fields_present": true,
+    "source_watermark_causal": true,
+    "source_watermark_within_two_hours": true,
+    "receipt_within_fifteen_minutes": true,
+    "browser_weather_value_replaced": true,
+    "browser_weather_freshness_replaced": true,
+    "real_a6_bundle_loaded": true,
+    "trusted_weather_provider_reported": true,
+    "real_bundle_request_succeeds": true,
+    "missing_wspr_still_selects_physics": true,
+    "response_uses_server_weather_freshness": true,
+    "cached_path_p95_below_100ms": true,
+    "locked_outcomes_unread": true
+  },
+  "decision": "pass"
+}

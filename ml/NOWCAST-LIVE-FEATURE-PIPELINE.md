@@ -59,12 +59,22 @@
 > authorize a WSPR source, start ingest/finalization/pruning jobs, or enable
 > NowCast selection.
 
+> Trusted-weather and orchestration update, 2026-07-15: a real hardened NOAA
+> capture produced 14 causal A6 weather features and the service passed 14/14
+> target gates at 2.91 ms cached path p95. Forged browser Kp and weather
+> freshness were replaced before inference; absent WSPR still selected physics.
+> The source-independent hourly runner now requires an HMAC-authenticated,
+> checkpoint-hashed completion manifest for all ten HF bands, bounds
+> `workers * threads_per_band` to visible CPUs, and prunes only after every band
+> finalizes. The runner is tested but cannot be activated until a WSPR source is
+> authorized and its connector emits the required manifest.
+
 > Capture hardening, 2026-07-15: the collector now selects NOAA rows by source
 > observation time instead of assuming array order, parses the current Kyoto
 > Dst object schema, preserves Bx and proton temperature, and stores per-source
 > observation/quality provenance. Native M5 TypeScript build and all three
-> source-order tests passed. Migration and deployment remain pending; this does
-> not enable live NowCast.
+> source-order tests passed. The provenance schema and a real hardened capture
+> are now deployed and validated; this still does not enable live NowCast.
 
 ## Decision
 
@@ -308,8 +318,10 @@ explicitly labeled and does not satisfy the live requirement above.
   builder with source observation/receipt times and legal rolling features.
 - [x] Deploy the provenance and private WSPR feature-store migrations through
   the reviewed chain and pass post-deployment RLS/RPC verification.
-- [ ] Expose the operational-weather builder through one trusted backend
-  response; do not assemble model weather in React pages.
+- [x] Expose the operational-weather builder through the trusted model backend,
+  remove browser weather/freshness claims, and pass real A6 target validation.
+- [x] Add the HMAC completion-manifest runner for bounded all-band finalization
+  and prune-after-success orchestration; activation awaits an authorized source.
 - [x] Add service-role-only batched path-history lookup and make the trusted
   model backend reject browser-provided lag values and freshness.
 - [x] Validate the real A6 bundle, fail-closed service behavior, aggregate-only
